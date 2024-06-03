@@ -1,0 +1,7 @@
+{
+    "cssModulesIdentifierDev": "[name]__[local]",
+    "cssModulesIdentifierProd": "[name]__[local]__[hash:base64:5]",
+    "chunkFileNameDev": "[name].bundle.js",
+    "chunkFileNameProd": "[name].[contenthash].js",
+    "cssChunkFileName": "[name].[contenthash].css"
+}
