@@ -2,9 +2,10 @@ import fs from "fs"
 import path from "path"
 import util from "node:util"
 import chokidar from "chokidar"
-import { preServerInit } from "@server/index.js"
 import { cyan, yellow, green } from "picocolors"
-import { validatePreInitServer } from "./utils/validator.js"
+
+import { preServerInit } from "@template/server/index.js"
+import { validatePreInitServer } from "@catalyst/server/utils/validator.js"
 
 const env = process.env.NODE_ENV || "development"
 
@@ -44,7 +45,7 @@ if (env === "development") {
 const port = process.env.NODE_SERVER_PORT ?? 3005
 const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
 
-let statsPath = path.join(__dirname, `../`, "loadable-stats.json")
+let statsPath = path.join(__dirname, `../../`, "loadable-stats.json")
 
 if (env === "production") {
     statsPath = path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)

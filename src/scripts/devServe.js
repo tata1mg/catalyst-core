@@ -11,10 +11,10 @@ const { BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
 function devServe() {
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
-    const dirname = path.resolve(__dirname, "../")
+    const dirname = path.resolve(__dirname, "../../")
 
     const command = `
-    APPLICATION=${name || "catalyst_app"} node -r ./scripts/loadScriptsBeforeServerStarts.js ${process.env.PWD}/${BUILD_OUTPUT_PATH}/startServer.js
+    APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ${process.env.PWD}/${BUILD_OUTPUT_PATH}/startServer.js
     `
 
     spawnSync(command, [], {
@@ -24,7 +24,7 @@ function devServe() {
         env: {
             ...process.env,
             src_path: process.env.PWD,
-            build_output_path: BUILD_OUTPUT_PATH,
+            BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
             NODE_ENV: "production",
             IS_DEV_COMMAND: true,
             ...argumentsObject,

@@ -1,13 +1,15 @@
+/* eslint-disable */
+import _registerAliases from "./registerAliases.js"
 import csshook from "@dr.pogodin/css-modules-require-hook"
 import path from "path"
 import moduleAlias from "module-alias"
 import loadEnvironmentVariables from "./loadEnvironmentVariables"
 
-const { cssModulesIdentifierDev } = require(`${__dirname}/../config.json`)
-const { _moduleAliases } = require(`${process.env.src_path}/package.json`)
+const { _moduleAliases } = require("@template/package.json")
+const { cssModulesIdentifierDev } = require("@catalyst/root/config.json")
 
-import { configureLogger } from "../logger.js"
-import { validateModuleAlias } from "./validator.js"
+import { configureLogger } from "@catalyst/logger.js"
+import { validateModuleAlias } from "@catalyst/scripts/validator.js"
 
 // stores your config keys in enviorments variables
 loadEnvironmentVariables()

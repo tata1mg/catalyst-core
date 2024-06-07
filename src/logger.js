@@ -1,6 +1,7 @@
+const pc = require("picocolors")
 const winston = require("winston")
 const DailyRotateFile = require("winston-daily-rotate-file")
-const pc = require("picocolors")
+
 const { createLogger, format, transports } = winston
 
 /**

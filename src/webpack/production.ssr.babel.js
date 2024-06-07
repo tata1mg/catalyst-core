@@ -1,12 +1,14 @@
+/* eslint-disable */
+import _registerAliases from "../scripts/registerAliases.js"
+import path from "path"
 import nodeExternals from "webpack-node-externals"
 const { mergeWithCustomize, customizeArray, customizeObject } = require("webpack-merge")
-import path from "path"
 
-import baseConfig from "./base.babel"
-const rootWorkspacePath = require("app-root-path")
-
-const catalystConfig = require(path.resolve(__dirname, "..", "config.json"))
-const plugins = require(path.join(process.env.src_path, "webpackConfig.js"))
+import rootWorkspacePath from "app-root-path"
+import plugins from "@template/webpackConfig.js"
+import baseConfig from "@catalyst/webpack/base.babel"
+import catalystConfig from "@catalyst/root/config.json"
+import { _moduleAliases } from "@catalyst/root/package.json"
 
 const ssrConfig = mergeWithCustomize({
     customizeArray: customizeArray({
@@ -28,6 +30,17 @@ const ssrConfig = mergeWithCustomize({
             minSize: 10000000,
             name: false,
         },
+    },
+    resolve: {
+        alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
+            if (alias.includes("@template")) {
+                moduleEnvMap[alias] = path.join(process.env.src_path, _moduleAliases[alias])
+            }
+            if (alias.includes("@catalyst")) {
+                moduleEnvMap[alias] = path.join(__dirname, "../", _moduleAliases[alias])
+            }
+            return moduleEnvMap
+        }, {}),
     },
     plugins: [...plugins.ssrPlugins],
     target: "node",

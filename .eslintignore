@@ -3,6 +3,7 @@ router/*
 scripts/*
 server/*
 webpack/*
+dist/*
 
 caching.js
 index.js

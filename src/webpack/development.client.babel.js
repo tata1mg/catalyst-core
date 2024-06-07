@@ -1,15 +1,14 @@
-import path from "path"
 import webpack from "webpack"
 import merge from "webpack-merge"
-import baseConfig from "./base.babel.js"
 import WebpackDevServer from "webpack-dev-server"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
+
+import plugins from "@template/webpackConfig.js"
+import catalystConfig from "@catalyst/root/config.json"
+import baseConfig from "@catalyst/webpack/base.babel.js"
+
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
-
-const catalystConfig = require(path.resolve(__dirname, "..", "config.json"))
-
-const plugins = require(path.join(process.env.src_path, "webpackConfig.js"))
 
 const webpackConfig = merge(baseConfig, {
     devtool: "inline-source-map",

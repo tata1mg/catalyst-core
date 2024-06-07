@@ -1,11 +1,13 @@
-import baseConfig from "./base.babel"
-import MiniCssExtractPlugin from "mini-css-extract-plugin"
-const { mergeWithCustomize, customizeArray, customizeObject } = require("webpack-merge")
+/* eslint-disable */
+import _registerAliases from "../scripts/registerAliases.js"
 import path from "path"
+import MiniCssExtractPlugin from "mini-css-extract-plugin"
+import { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 
-const plugins = require(path.join(process.env.src_path, "webpackConfig.js"))
-
-const catalystConfig = require(path.resolve(__dirname, "..", "config.json"))
+import plugins from "@template/webpackConfig.js"
+import baseConfig from "@catalyst/webpack/base.babel"
+import catalystConfig from "@catalyst/root/config.json"
+import { _moduleAliases } from "@catalyst/root/package.json"
 
 const clientConfig = mergeWithCustomize({
     customizeArray: customizeArray({
@@ -21,6 +23,17 @@ const clientConfig = mergeWithCustomize({
 })(baseConfig, {
     mode: "production",
     stats: "errors-only",
+    resolve: {
+        alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
+            if (alias.includes("@template")) {
+                moduleEnvMap[alias] = path.join(process.env.src_path, _moduleAliases[alias])
+            }
+            if (alias.includes("@catalyst")) {
+                moduleEnvMap[alias] = path.join(__dirname, "../", _moduleAliases[alias])
+            }
+            return moduleEnvMap
+        }, {}),
+    },
     optimization: {
         runtimeChunk: "single",
         moduleIds: "deterministic",

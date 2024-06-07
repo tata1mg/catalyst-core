@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "@tata1mg/router"
-import { preparedRoutes } from "@routes/utils.js"
+const { preparedRoutes } = require(`${process.env.src_path}/src/js/routes/utils.js`)
 
 /**
  * @returns returns browsers routers (client routes)

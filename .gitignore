@@ -4,6 +4,7 @@
 /scripts
 /server
 /types
+/dist
 
 caching.js
 router.js
