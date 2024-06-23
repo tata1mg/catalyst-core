@@ -8,7 +8,7 @@ import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "@catalyst/router/ServerRouter.js"
-import App from "@template/src/js/containers/App/index.js"
+import App from "@catalyst/template/src/js/containers/App/index.js"
 import { ChunkExtractor, ChunkExtractorManager } from "@loadable/server"
 import { renderToPipeableStream, renderToString } from "react-dom/server"
 import { getUserAgentDetails } from "@catalyst/server/utils/userAgentUtil"
@@ -19,8 +19,8 @@ import {
     validateGetRoutes,
 } from "@catalyst/server/utils/validator"
 
-import CustomDocument from "@template/server/document.js"
-import { getRoutes } from "@template/src/js/routes/utils.js"
+import CustomDocument from "@catalyst/template/server/document.js"
+import { getRoutes } from "@catalyst/template/src/js/routes/utils.js"
 
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 

@@ -4,7 +4,7 @@ import util from "node:util"
 import chokidar from "chokidar"
 import { cyan, yellow, green } from "picocolors"
 
-import { preServerInit } from "@template/server/index.js"
+import { preServerInit } from "@catalyst/template/server/index.js"
 import { validatePreInitServer } from "@catalyst/server/utils/validator.js"
 
 const env = process.env.NODE_ENV || "development"

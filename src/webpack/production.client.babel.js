@@ -1,12 +1,11 @@
 /* eslint-disable */
-import _registerAliases from "../scripts/registerAliases.js"
-import path from "path"
+import _registerAliases, { catalystResultMap } from "../scripts/registerAliases.js"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 
-import plugins from "@template/webpackConfig.js"
 import baseConfig from "@catalyst/webpack/base.babel"
 import catalystConfig from "@catalyst/root/config.json"
+import plugins from "@catalyst/template/webpackConfig.js"
 import { _moduleAliases } from "@catalyst/root/package.json"
 
 const clientConfig = mergeWithCustomize({
@@ -24,15 +23,7 @@ const clientConfig = mergeWithCustomize({
     mode: "production",
     stats: "errors-only",
     resolve: {
-        alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
-            if (alias.includes("@template")) {
-                moduleEnvMap[alias] = path.join(process.env.src_path, _moduleAliases[alias])
-            }
-            if (alias.includes("@catalyst")) {
-                moduleEnvMap[alias] = path.join(__dirname, "../", _moduleAliases[alias])
-            }
-            return moduleEnvMap
-        }, {}),
+        alias: catalystResultMap,
     },
     optimization: {
         runtimeChunk: "single",

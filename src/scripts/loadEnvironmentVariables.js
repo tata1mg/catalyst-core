@@ -1,4 +1,4 @@
-const appConfig = require("@template/config/config.json")
+const appConfig = require("@catalyst/template/config/config.json")
 const { validateConfigFile } = require("@catalyst/scripts/validator.js")
 
 /**

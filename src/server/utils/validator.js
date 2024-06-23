@@ -92,6 +92,8 @@ const validateModuleAlias = (obj) => {
                 "@routes": "src/js/routes/",
             }
             for (let key in requiredModuleAliases) {
+                if (key.includes("catalyst"))
+                    throw new Error(`Catalyst keyword is restricted for defining aliases`)
                 if (!(key in obj)) throw new Error(`${key} module alias not defined inside package.json`)
             }
         }

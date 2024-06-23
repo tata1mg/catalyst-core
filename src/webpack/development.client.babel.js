@@ -4,9 +4,9 @@ import WebpackDevServer from "webpack-dev-server"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
 
-import plugins from "@template/webpackConfig.js"
 import catalystConfig from "@catalyst/root/config.json"
 import baseConfig from "@catalyst/webpack/base.babel.js"
+import plugins from "@catalyst/template/webpackConfig.js"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 

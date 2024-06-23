@@ -4,13 +4,13 @@ import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer"
 
-import { _moduleAliases } from "@template/package.json"
 import catalystConfig from "@catalyst/root/config.json"
+import { _moduleAliases } from "@catalyst/template/package.json"
 import { imageUrl, fontUrl } from "@catalyst/webpack/scssParams"
 import babelOptsServer from "@catalyst/webpack/babel.config.ssr"
 import babelOptsClient from "@catalyst/webpack/babel.config.client"
 import loadEnvironmentVariables from "@catalyst/scripts/loadEnvironmentVariables"
-import { CLIENT_ENV_VARIABLES as clientEnv, ANALYZE_BUNDLE } from "@template/config/config.json"
+import { CLIENT_ENV_VARIABLES as clientEnv, ANALYZE_BUNDLE } from "@catalyst/template/config/config.json"
 
 loadEnvironmentVariables()
 

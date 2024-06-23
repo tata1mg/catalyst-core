@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser"
 import expressStaticGzip from "express-static-gzip"
 
 import ReactRenderer from "@catalyst/server/renderer"
-import { addMiddlewares } from "@template/server/server.js"
+import { addMiddlewares } from "@catalyst/template/server/server.js"
 import { validateMiddleware } from "@catalyst/server/utils/validator"
 
 const env = process.env.NODE_ENV || "development"
