@@ -1,12 +1,18 @@
 # Changelog
 
-## [0.0.1-beta.5] - 21-05-2024
+## [0.0.1-beta.6] - 28-06-2024
 
-### Added
+### Changes
 
--   Enhanced CLI for the commands: start, build, devBuild, devServe, and serve.
--   Integration of Husky with lint-staged, using conventional commits.
-
-### Fixed
-
--   Fixed logs folder creation in project directory.
+-   Moved router, scripts, server and webpack directories present in root directoy to dist folder
+-   Removed dependency from user defined module aliases (user can change any module alias without breaking catalyst) 
+-   Module aliases defined for catalyst
+-   Added exports inside package.json for tree shakeable support for logger, caching and ClientRouter.js
+-   Hidden unnecessary files from published package: 
+    .prettierrc.json
+    .eslintrc
+    .eslintignore
+    /.husky 
+    /.github
+    commitlint.config.js
+    tsconfig.json
