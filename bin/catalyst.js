@@ -13,7 +13,7 @@ const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
 if (["build", "start", "serve", "devBuild", "devServe"].includes(script)) {
     const result = spawnSync(
         process.execPath,
-        nodeArgs.concat(require.resolve("../scripts/" + script)).concat(args.slice(scriptIndex + 1)),
+        nodeArgs.concat(require.resolve("../dist/scripts/" + script)).concat(args.slice(scriptIndex + 1)),
         { stdio: "inherit" }
     )
     if (result.signal) {

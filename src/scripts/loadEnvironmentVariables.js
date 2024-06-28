@@ -1,5 +1,5 @@
-const appConfig = require(`${process.env.src_path}/config/config.json`)
-const { validateConfigFile } = require("./validator.js")
+const appConfig = require("@catalyst/template/config/config.json")
+const { validateConfigFile } = require("@catalyst/scripts/validator.js")
 
 /**
  * @description stores all config.json key value into process.env before server starts.

@@ -1,20 +1,17 @@
 import path from "path"
 import webpack from "webpack"
+import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer"
-import LoadablePlugin from "@loadable/webpack-plugin"
 
-const catalystConfig = require(path.resolve(__dirname, "..", "config.json"))
+import catalystConfig from "@catalyst/root/config.json"
+import { _moduleAliases } from "@catalyst/template/package.json"
+import { imageUrl, fontUrl } from "@catalyst/webpack/scssParams"
+import babelOptsServer from "@catalyst/webpack/babel.config.ssr"
+import babelOptsClient from "@catalyst/webpack/babel.config.client"
+import loadEnvironmentVariables from "@catalyst/scripts/loadEnvironmentVariables"
+import { CLIENT_ENV_VARIABLES as clientEnv, ANALYZE_BUNDLE } from "@catalyst/template/config/config.json"
 
-import { imageUrl, fontUrl } from "./scssParams"
-const { CLIENT_ENV_VARIABLES: clientEnv, ANALYZE_BUNDLE } = require(
-    `${process.env.src_path}/config/config.json`
-)
-const { _moduleAliases } = require(`${process.env.src_path}/package.json`)
-import babelOptsClient from "./babel.config.client"
-import babelOptsServer from "./babel.config.ssr"
-
-import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables"
 loadEnvironmentVariables()
 
 const isDev = process.env.NODE_ENV === "development"
@@ -24,7 +21,7 @@ export const basePlugins = [
     new LoadablePlugin({
         filename: "loadable-stats.json",
         writeToDisk: {
-            filename: path.join(__dirname, ".."),
+            filename: path.join(__dirname, "../.."),
         },
     }),
 

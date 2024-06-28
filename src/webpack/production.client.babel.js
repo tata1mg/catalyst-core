@@ -1,11 +1,12 @@
-import baseConfig from "./base.babel"
+/* eslint-disable */
+import _registerAliases, { catalystResultMap } from "../scripts/registerAliases.js"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
-const { mergeWithCustomize, customizeArray, customizeObject } = require("webpack-merge")
-import path from "path"
+import { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 
-const plugins = require(path.join(process.env.src_path, "webpackConfig.js"))
-
-const catalystConfig = require(path.resolve(__dirname, "..", "config.json"))
+import baseConfig from "@catalyst/webpack/base.babel"
+import catalystConfig from "@catalyst/root/config.json"
+import plugins from "@catalyst/template/webpackConfig.js"
+import { _moduleAliases } from "@catalyst/root/package.json"
 
 const clientConfig = mergeWithCustomize({
     customizeArray: customizeArray({
@@ -21,6 +22,9 @@ const clientConfig = mergeWithCustomize({
 })(baseConfig, {
     mode: "production",
     stats: "errors-only",
+    resolve: {
+        alias: catalystResultMap,
+    },
     optimization: {
         runtimeChunk: "single",
         moduleIds: "deterministic",

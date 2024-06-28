@@ -2,20 +2,26 @@ import fs from "fs"
 import path from "path"
 import React from "react"
 import render from "./render"
-import App from "@containers/App"
+
 import extractAssets from "./extract"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
-import ServerRouter from "../../router/ServerRouter.js"
-import { getUserAgentDetails } from "../utils/userAgentUtil"
-import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "@tata1mg/router"
+import ServerRouter from "@catalyst/router/ServerRouter.js"
+import App from "@catalyst/template/src/js/containers/App/index.js"
 import { ChunkExtractor, ChunkExtractorManager } from "@loadable/server"
 import { renderToPipeableStream, renderToString } from "react-dom/server"
-import { validateConfigureStore, validateCustomDocument, validateGetRoutes } from "../utils/validator"
+import { getUserAgentDetails } from "@catalyst/server/utils/userAgentUtil"
+import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "@tata1mg/router"
+import {
+    validateConfigureStore,
+    validateCustomDocument,
+    validateGetRoutes,
+} from "@catalyst/server/utils/validator"
 
-const { getRoutes } = require(`${process.env.src_path}/src/js/routes/utils.js`)
-const { default: CustomDocument } = require(`${process.env.src_path}/server/document.js`)
+import CustomDocument from "@catalyst/template/server/document.js"
+import { getRoutes } from "@catalyst/template/src/js/routes/utils.js"
+
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
 let createStore
@@ -193,7 +199,7 @@ export default async function (req, res) {
         let context = {}
         let fetcherData = {}
 
-        let webStats = path.join(__dirname, "../..", `loadable-stats.json`)
+        let webStats = path.join(__dirname, "../../..", `loadable-stats.json`)
 
         if (isProduction) {
             webStats = path.join(

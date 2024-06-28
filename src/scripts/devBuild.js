@@ -11,14 +11,14 @@ const { arrayToObject, printBundleInformation } = require("./scriptUtils.js")
 function devBuild() {
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
-    const dirname = path.resolve(__dirname, "../")
+    const dirname = path.resolve(__dirname, "../../")
 
     const command = `
-    node ./scripts/checkVersion
-    rm -rf ${process.env.PWD}/${BUILD_OUTPUT_PATH} & node ./scripts/loadScriptsBeforeServerStarts.js
-    APPLICATION=${name || "catalyst_app"} webpack --config ./webpack/production.client.babel.js --progress
-    APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./webpack/production.ssr.babel.js
-    APPLICATION=${name || "catalyst_app"} npx babel ./server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./server/renderer/handler.js' --quiet 
+    node ./dist/scripts/checkVersion
+    rm -rf ${process.env.PWD}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js
+    APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress
+    APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js
+    APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet 
     APPLICATION=${name || "catalyst_app"} npx babel ${process.env.PWD}/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --quiet
     `
 
@@ -31,7 +31,7 @@ function devBuild() {
         env: {
             ...process.env,
             src_path: process.env.PWD,
-            build_output_path: BUILD_OUTPUT_PATH,
+            BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
             NODE_ENV: "production",
             IS_DEV_COMMAND: true,
             ...argumentsObject,

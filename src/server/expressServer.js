@@ -5,11 +5,12 @@ import compression from "compression"
 import cookieParser from "cookie-parser"
 import expressStaticGzip from "express-static-gzip"
 
-import ReactRenderer from "./renderer"
-import { addMiddlewares } from "@server/server.js"
-import { validateMiddleware } from "./utils/validator"
+import ReactRenderer from "@catalyst/server/renderer"
+import { addMiddlewares } from "@catalyst/template/server/server.js"
+import { validateMiddleware } from "@catalyst/server/utils/validator"
 
 const env = process.env.NODE_ENV || "development"
+
 const app = express()
 
 // This middleware is being used to extract the body of the request

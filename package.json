@@ -1,17 +1,37 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.1-beta.5",
+    "version": "0.0.1-beta.6",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
         "catalyst": "bin/catalyst.js"
     },
+    "_moduleAliases": {
+        "@catalyst/template": ".",
+        "@catalyst/template/src": "src",
+        "@catalyst/template/routes": "src/js/routes",
+        "@catalyst/template/server": "server",
+        "@catalyst/template/store": "src/js/store",
+        "@catalyst/template/config": "config",
+        "@catalyst": ".",
+        "@catalyst/root": "../",
+        "@catalyst/router": "router",
+        "@catalyst/scripts": "scripts",
+        "@catalyst/server": "server",
+        "@catalyst/webpack": "webpack"
+    },
+    "exports": {
+        ".": "./dist/index.js",
+        "./logger": "./dist/logger.js",
+        "./caching": "./dist/caching.js",
+        "./router/ClientRouter": "./dist/router/ClientRouter.js"
+    },
     "scripts": {
-        "prepare": "babel src --out-dir .",
-        "prepublishOnly": "npm i && npm run prepare",
         "lint": "eslint .",
+        "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "lint-staged": "lint-staged"
+        "prepare": "babel src --out-dir ./dist",
+        "prepublishOnly": "npm i && npm run prepare"
     },
     "license": "MIT",
     "dependencies": {
@@ -28,7 +48,7 @@
         "@loadable/webpack-plugin": "^5.15.2",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
         "@svgr/webpack": "^8.1.0",
-        "@tata1mg/router": "^0.0.1-beta.1",
+        "@tata1mg/router": "^0.0.1-beta.2",
         "app-root-path": "^3.1.0",
         "babel-loader": "^9.1.3",
         "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
