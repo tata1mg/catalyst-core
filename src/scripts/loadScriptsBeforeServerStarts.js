@@ -23,7 +23,7 @@ configureLogger({
 if (process.env.NODE_ENV === "development")
     csshook({
         extensions: [".scss", ".css"],
-        prepend: postcssScssParser,
+        processorOpts: { parser: postcssScssParser.parse },
         generateScopedName: cssModulesIdentifierDev,
         devMode: true,
         ignore: path.join(process.env.src_path, "/src/static/css/base/(?!.*.scss$).*"),
