@@ -47,19 +47,19 @@ const renderEnd = (webExtractor, initialState = {}, res, jsx, errorCode, fetcher
 
     // Development: Extracts styles and javascript elements for injecting in Body Component.
     // NOTE: Caching of styles and javascript is not enabled in development.
-    if (!isProd) {
-        firstFoldCss = webExtractor.getStyleElements()
-        firstFoldJS = webExtractor.getScriptElements()
-    }
+    // if (!isProd) {
+    //     firstFoldCss = webExtractor.getStyleElements()
+    //     firstFoldJS = webExtractor.getScriptElements()
+    // }
 
     // Production: Extract styles and javscript elements if they are not found in cache and stores them in cache.
-    if (isProd && routePath && (!pageCss || !pageJS)) {
-        firstFoldCss = webExtractor.getStyleElements()
-        firstFoldJS = webExtractor.getScriptElements()
+    // if (isProd && routePath && (!pageCss || !pageJS)) {
+    //     firstFoldCss = webExtractor.getStyleElements()
+    //     firstFoldJS = webExtractor.getScriptElements()
 
-        cacheCSS(routePath, webExtractor.getLinkElements())
-        cacheJS(routePath, webExtractor.getScriptElements())
-    }
+    //     cacheCSS(routePath, webExtractor.getLinkElements())
+    //     cacheJS(routePath, webExtractor.getScriptElements())
+    // }
 
     return {
         initialState,

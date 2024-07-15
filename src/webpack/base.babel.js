@@ -1,6 +1,5 @@
 import path from "path"
 import webpack from "webpack"
-import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer"
 
@@ -18,13 +17,6 @@ const isDev = process.env.NODE_ENV === "development"
 const isSSR = !!process.env.SSR || false
 
 export const basePlugins = [
-    new LoadablePlugin({
-        filename: "loadable-stats.json",
-        writeToDisk: {
-            filename: path.join(__dirname, "../.."),
-        },
-    }),
-
     // **This loads process.env variable during webpack build process
     new webpack.DefinePlugin({
         "process.env": ([...clientEnv, ...Object.keys(process.env)] || []).reduce((clientEnvMap, env) => {

@@ -45,10 +45,10 @@ if (env === "development") {
 const port = process.env.NODE_SERVER_PORT ?? 3005
 const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
 
-let statsPath = path.join(__dirname, `../../`, "loadable-stats.json")
+let statsPath = path.join(__dirname, "../../", "chunk-groups.json")
 
 if (env === "production") {
-    statsPath = path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
+    statsPath = path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/chunk-groups.json`)
 }
 
 const watcher = chokidar.watch(statsPath, { persistent: true })

@@ -7,6 +7,7 @@ import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
 import catalystConfig from "@catalyst/root/config.json"
 import baseConfig from "@catalyst/webpack/base.babel.js"
 import plugins from "@catalyst/template/webpackConfig.js"
+import ChunkGroupPlugin from "./babel-plugins/chunk-group"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
@@ -26,6 +27,7 @@ const webpackConfig = merge(baseConfig, {
             filename: catalystConfig.cssChunkFileName,
             ignoreOrder: true,
         }),
+        new ChunkGroupPlugin(),
         ...plugins.developmentPlugins,
     ].filter(Boolean),
     optimization: {

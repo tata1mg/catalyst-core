@@ -11,22 +11,26 @@ import PropTypes from "prop-types"
  * @param {object} fetcherData - contains data from executing serverFetcher function
  * @param {object} children - contains any child elements defined within the component
  */
+// TODO: prop changes + propTypes
 export function Body(props) {
     const {
-        jsx = "",
+        jsx,
         statusCode = "",
         initialState = {},
         firstFoldCss = "",
         firstFoldJS = "",
         fetcherData = {},
         children,
+        store,
+        context,
+        req,
     } = props
 
     return (
         <body>
             {firstFoldCss}
             {firstFoldJS}
-            {jsx}
+            {jsx?.(store, context, req, fetcherData)}
             <script
                 /* eslint-disable */
                 dangerouslySetInnerHTML={{
@@ -47,7 +51,7 @@ Body.propTypes = {
     initialState: PropTypes.object,
     firstFoldCss: PropTypes.any,
     firstFoldJS: PropTypes.any,
-    jsx: PropTypes.any,
+    jsx: PropTypes.func,
     statusCode: PropTypes.string,
     fetcherData: PropTypes.object,
     children: PropTypes.node,

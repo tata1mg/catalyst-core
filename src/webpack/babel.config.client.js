@@ -11,7 +11,6 @@ export default {
         ],
         "@babel/preset-react",
     ],
-    plugins: ["@loadable/babel-plugin"],
     env: {
         production: {
             plugins: [

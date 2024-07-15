@@ -7,6 +7,7 @@ import baseConfig from "@catalyst/webpack/base.babel"
 import catalystConfig from "@catalyst/root/config.json"
 import plugins from "@catalyst/template/webpackConfig.js"
 import { _moduleAliases } from "@catalyst/root/package.json"
+import ChunkGroupPlugin from "./babel-plugins/chunk-group"
 
 const clientConfig = mergeWithCustomize({
     customizeArray: customizeArray({
@@ -76,6 +77,7 @@ const clientConfig = mergeWithCustomize({
         },
     },
     plugins: [
+        new ChunkGroupPlugin(),
         new MiniCssExtractPlugin({
             filename: catalystConfig.cssChunkFileName,
             ignoreOrder: true,
