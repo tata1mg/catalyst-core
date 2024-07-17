@@ -181,7 +181,11 @@ const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, m
         const statsFile = fs.readFileSync(webStats)
         if (statsFile) {
             const stats = JSON.parse(statsFile)
-            return stats.namedChunkGroups?.["app"]?.assets?.map((asset) => `${assetPath}${asset.name}`) || []
+            return (
+                stats.namedChunkGroups?.["app"]?.assets
+                    ?.filter((asset) => asset?.name?.endsWith(".js"))
+                    .map((asset) => `${assetPath}${asset?.name}`) || []
+            )
         }
         return []
     }
