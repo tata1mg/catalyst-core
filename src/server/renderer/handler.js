@@ -1,9 +1,7 @@
 import fs from "fs"
 import path from "path"
 import React from "react"
-import render from "./render"
 
-import extractAssets from "./extract"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -44,6 +42,31 @@ if (fs.existsSync(storePath)) {
 
 const isProduction = process.env.NODE_ENV === "production"
 
+const getAssets = () => {
+    const entrypoint = "app"
+    let assetPath = `http://${process.env.WEBPACK_DEV_SERVER_HOSTNAME}:${process.env.WEBPACK_DEV_SERVER_PORT}/`
+    let webStats = path.join(__dirname, "../../../", `chunk-groups.json`)
+
+    if (isProduction) {
+        webStats = path.join(
+            process.env.src_path,
+            `${process.env.BUILD_OUTPUT_PATH}/public/chunk-groups.json`
+        )
+        assetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
+    }
+
+    const statsFile = fs.readFileSync(webStats)
+    if (statsFile) {
+        const stats = JSON.parse(statsFile)
+        return (
+            stats.namedChunkGroups?.[entrypoint]?.assets
+                ?.filter((asset) => asset?.name?.endsWith(".js"))
+                .map((asset) => `${assetPath}${asset?.name}`) || []
+        )
+    }
+    return []
+}
+
 // matches request route with routes defined in the application.
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
@@ -54,27 +77,10 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (match) {
-            if (isProduction && !res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
-                extractAssets(res, route)
-            }
-            if (!res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
-                res.locals.routePath = path
-                //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
-                // renderToString(
-                //     <ChunkExtractorManager extractor={webExtractor}>
-                //     <Provider store={store}>
-                //         <StaticRouter context={context} location={req.originalUrl}>
-                //             <ServerRouter store={store} intialData={fetcherData} />
-                //         </StaticRouter>
-                //     </Provider>
-                //     </ChunkExtractorManager>
-                // )
-            }
             const wc = route.component
             matches.push({
                 route,
                 match,
-                serverSideFunction: (wc && wc.serverSideFunction) || (() => Promise.resolve()),
             })
         }
         if (!match && route.children) {
@@ -111,32 +117,33 @@ const getComponent = (store, context, req, fetcherData) => {
 }
 // sends document after rendering
 const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, matches, context) => {
+    let state = store.getState()
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
+    const status = matches.length && matches[0].match.path === "*" ? 404 : 200
 
-    // Transforms Head Props
-    const shellStart = await render.renderStart(
-        res.locals.pageCss,
-        res.locals.pageJS,
-        metaTags,
-        isBot,
-        fetcherData
-    )
+    const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
 
-    let state = store.getState()
+    let publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
 
-    // Transforms Body Props
-    const shellEnd = render.renderEnd(null, state, res, null, errorCode, fetcherData)
+    // serves assets from localhost on running devBuild and devServe command
+    if (JSON.parse(IS_DEV_COMMAND)) {
+        publicAssetPath = `http://${WEBPACK_DEV_SERVER_HOSTNAME}:${WEBPACK_DEV_SERVER_PORT}/assets/`
+    }
 
     const finalProps = {
-        ...shellStart,
-        ...shellEnd,
+        lang: "",
+        isBot,
+        fetcherData,
+        metaTags,
+        publicAssetPath,
+        initialState: state,
         jsx: getComponent,
+        statusCode: status,
         req,
         res,
         store,
         context,
-        req,
     }
 
     let CompleteDocument = () => {
@@ -147,51 +154,25 @@ const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, m
                 <html lang={finalProps.lang}>
                     <Head
                         isBot={finalProps.isBot}
-                        pageJS={finalProps.pageJS}
-                        pageCss={finalProps.pageCss}
                         fetcherData={finalProps.fetcherData}
                         metaTags={finalProps.metaTags}
                         publicAssetPath={finalProps.publicAssetPath}
                     />
                     <Body
                         initialState={finalProps.initialState}
-                        firstFoldCss={finalProps.firstFoldCss}
-                        firstFoldJS={finalProps.firstFoldJS}
                         jsx={finalProps.jsx}
                         statusCode={finalProps.statusCode}
                         fetcherData={finalProps.fetcherData}
+                        store={finalProps.store}
+                        context={finalProps.context}
+                        req={finalProps.req}
                     />
                 </html>
             )
         }
     }
 
-    const getAssets = () => {
-        let assetPath = `http://${process.env.WEBPACK_DEV_SERVER_HOSTNAME}:${process.env.WEBPACK_DEV_SERVER_PORT}/`
-        let webStats = path.join(__dirname, "../../../", `chunk-groups.json`)
-
-        if (isProduction) {
-            webStats = path.join(
-                process.env.src_path,
-                `${process.env.BUILD_OUTPUT_PATH}/public/chunk-groups.json`
-            )
-            assetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
-        }
-
-        const statsFile = fs.readFileSync(webStats)
-        if (statsFile) {
-            const stats = JSON.parse(statsFile)
-            return (
-                stats.namedChunkGroups?.["app"]?.assets
-                    ?.filter((asset) => asset?.name?.endsWith(".js"))
-                    .map((asset) => `${assetPath}${asset?.name}`) || []
-            )
-        }
-        return []
-    }
-
     try {
-        let status = matches.length && matches[0].match.path === "*" ? 404 : 200
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
         const { pipe } = renderToPipeableStream(<CompleteDocument />, {

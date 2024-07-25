@@ -86,7 +86,7 @@ const startServer = () => {
 }
 
 if (fs.existsSync(statsPath)) {
-    // if loadable-stats.json exist this block will start the server in development environment. This happens in dev environment when loadable stats already exists and developer is  making changes to the files. lodable-stats.json will be updated after every change.
+    // if chunk-groups.json exist this block will start the server in development environment. This happens in dev environment when chunk stats already exists and developer is  making changes to the files. chunk-groups.json will be updated after every change.
     watcher.on("change", () => {
         watcher.close()
         if (serverInstance) {
@@ -95,7 +95,7 @@ if (fs.existsSync(statsPath)) {
             startServer()
         }
     })
-    // this block will start the server when your files have been compiled for production and lodable-stats.json exists.
+    // this block will start the server when your files have been compiled for production and chunk-groups.json exists.
     watcher.on("add", () => {
         if (env === "production") {
             watcher.close()
@@ -103,7 +103,7 @@ if (fs.existsSync(statsPath)) {
         }
     })
 } else {
-    // this block will start the server in development environment for the first time when loadable-stats.json does not exists.
+    // this block will start the server in development environment for the first time when chunk-groups.json does not exists.
     watcher.on("add", () => {
         watcher.close()
         if (serverInstance) {

@@ -6,30 +6,14 @@ import PropTypes from "prop-types"
  * @param {object} jsx - page jsx code
  * @param {object} statusCode - document request status code
  * @param {object} initialState - initial state object for redux store
- * @param {object} firstFoldCss - style elements extracted for initial page load
- * @param {object} firstFoldJS - javascript elements extracted for initial page load
  * @param {object} fetcherData - contains data from executing serverFetcher function
  * @param {object} children - contains any child elements defined within the component
  */
-// TODO: prop changes + propTypes
 export function Body(props) {
-    const {
-        jsx,
-        statusCode = "",
-        initialState = {},
-        firstFoldCss = "",
-        firstFoldJS = "",
-        fetcherData = {},
-        children,
-        store,
-        context,
-        req,
-    } = props
+    const { jsx, statusCode = "", initialState = {}, fetcherData = {}, children, store, context, req } = props
 
     return (
         <body>
-            {firstFoldCss}
-            {firstFoldJS}
             {jsx?.(store, context, req, fetcherData)}
             <script
                 /* eslint-disable */
@@ -49,10 +33,11 @@ export function Body(props) {
 
 Body.propTypes = {
     initialState: PropTypes.object,
-    firstFoldCss: PropTypes.any,
-    firstFoldJS: PropTypes.any,
     jsx: PropTypes.func,
-    statusCode: PropTypes.string,
+    statusCode: PropTypes.number,
     fetcherData: PropTypes.object,
     children: PropTypes.node,
+    store: PropTypes.object,
+    context: PropTypes.object,
+    req: PropTypes.object,
 }

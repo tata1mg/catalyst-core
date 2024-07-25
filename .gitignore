@@ -11,6 +11,6 @@ router.js
 logger.js
 
 /logs
-/loadable-stats.json
+/chunk-groups.json
 /index.js
 
