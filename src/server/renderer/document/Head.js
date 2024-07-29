@@ -4,12 +4,13 @@ import PropTypes from "prop-types"
 /**
  * Head component which will be used in page rendering
  * @param {boolean} isBot - checks if request is made by bot
+ * @param {string} pageCss - includes all styles for page css
  * @param {array} metaTags - user defined function which returns meta tags in array
  * @param {string} publicAssetPath - public asset path for assets
  * @param {object} children - contains any child elements defined within the component
  */
 export function Head(props) {
-    const { metaTags, isBot, publicAssetPath, children } = props
+    const { pageCss, metaTags, isBot, publicAssetPath, children } = props
 
     return (
         <head>
@@ -21,6 +22,9 @@ export function Head(props) {
 
             {metaTags && metaTags}
 
+            {/* eslint-disable */}
+            {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+
             {children}
         </head>
     )
@@ -28,6 +32,7 @@ export function Head(props) {
 
 Head.propTypes = {
     isBot: PropTypes.bool,
+    pageCss: PropTypes.string,
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
     children: PropTypes.node,

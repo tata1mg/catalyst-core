@@ -10,11 +10,11 @@ import PropTypes from "prop-types"
  * @param {object} children - contains any child elements defined within the component
  */
 export function Body(props) {
-    const { jsx, statusCode = "", initialState = {}, fetcherData = {}, children, store, context, req } = props
+    const { jsx, statusCode = "", initialState = {}, fetcherData = {}, children } = props
 
     return (
         <body>
-            {jsx?.(store, context, req, fetcherData)}
+            {jsx}
             <script
                 /* eslint-disable */
                 dangerouslySetInnerHTML={{
@@ -33,11 +33,8 @@ export function Body(props) {
 
 Body.propTypes = {
     initialState: PropTypes.object,
-    jsx: PropTypes.func,
+    jsx: PropTypes.any,
     statusCode: PropTypes.number,
     fetcherData: PropTypes.object,
     children: PropTypes.node,
-    store: PropTypes.object,
-    context: PropTypes.object,
-    req: PropTypes.object,
 }

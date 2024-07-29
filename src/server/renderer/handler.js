@@ -2,6 +2,7 @@ import fs from "fs"
 import path from "path"
 import React from "react"
 
+import Extractor from "./extractor"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -41,31 +42,6 @@ if (fs.existsSync(storePath)) {
 }
 
 const isProduction = process.env.NODE_ENV === "production"
-
-const getAssets = () => {
-    const entrypoint = "app"
-    let assetPath = `http://${process.env.WEBPACK_DEV_SERVER_HOSTNAME}:${process.env.WEBPACK_DEV_SERVER_PORT}/`
-    let webStats = path.join(__dirname, "../../../", `chunk-groups.json`)
-
-    if (isProduction) {
-        webStats = path.join(
-            process.env.src_path,
-            `${process.env.BUILD_OUTPUT_PATH}/public/chunk-groups.json`
-        )
-        assetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
-    }
-
-    const statsFile = fs.readFileSync(webStats)
-    if (statsFile) {
-        const stats = JSON.parse(statsFile)
-        return (
-            stats.namedChunkGroups?.[entrypoint]?.assets
-                ?.filter((asset) => asset?.name?.endsWith(".js"))
-                .map((asset) => `${assetPath}${asset?.name}`) || []
-        )
-    }
-    return []
-}
 
 // matches request route with routes defined in the application.
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
@@ -116,7 +92,17 @@ const getComponent = (store, context, req, fetcherData) => {
     )
 }
 // sends document after rendering
-const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, matches, context) => {
+const renderMarkUp = async (
+    errorCode,
+    req,
+    res,
+    metaTags,
+    fetcherData,
+    store,
+    matches,
+    context,
+    extractor
+) => {
     let state = store.getState()
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
@@ -131,14 +117,17 @@ const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, m
         publicAssetPath = `http://${WEBPACK_DEV_SERVER_HOSTNAME}:${WEBPACK_DEV_SERVER_PORT}/assets/`
     }
 
+    const pageCss = await extractor.getBootstrapCss()
+
     const finalProps = {
         lang: "",
+        pageCss,
         isBot,
         fetcherData,
         metaTags,
         publicAssetPath,
         initialState: state,
-        jsx: getComponent,
+        jsx: getComponent(store, context, req, fetcherData),
         statusCode: status,
         req,
         res,
@@ -153,6 +142,7 @@ const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, m
             return (
                 <html lang={finalProps.lang}>
                     <Head
+                        pageCss={finalProps.pageCss}
                         isBot={finalProps.isBot}
                         fetcherData={finalProps.fetcherData}
                         metaTags={finalProps.metaTags}
@@ -176,7 +166,7 @@ const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, m
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
         const { pipe } = renderToPipeableStream(<CompleteDocument />, {
-            bootstrapScripts: getAssets(),
+            bootstrapScripts: extractor.getBootstrapScripts(),
             onShellReady() {
                 res.setHeader("content-type", "text/html")
                 pipe(res)
@@ -211,6 +201,7 @@ export default async function (req, res) {
         const matches = getMatchRoutes(routes, req, res, store, context, fetcherData, undefined)
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
+        const extractor = new Extractor({ entrypoint: "app" })
 
         // Executing app server side function
         App.serverSideFunction({ store, req, res })
@@ -223,16 +214,46 @@ export default async function (req, res) {
                     })
                     .then(
                         async () =>
-                            await renderMarkUp(null, req, res, allTags, fetcherData, store, matches, context)
+                            await renderMarkUp(
+                                null,
+                                req,
+                                res,
+                                allTags,
+                                fetcherData,
+                                store,
+                                matches,
+                                context,
+                                extractor
+                            )
                     )
                     .catch(async (error) => {
                         logger.error("Error in executing serverFetcher functions: " + error)
-                        await renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context)
+                        await renderMarkUp(
+                            404,
+                            req,
+                            res,
+                            allTags,
+                            fetcherData,
+                            store,
+                            matches,
+                            context,
+                            extractor
+                        )
                     })
             })
             .catch((error) => {
                 logger.error("Error in executing serverSideFunction inside App: " + error)
-                renderMarkUp(error.status_code, req, res, allTags, fetcherData, store, matches, context)
+                renderMarkUp(
+                    error.status_code,
+                    req,
+                    res,
+                    allTags,
+                    fetcherData,
+                    store,
+                    matches,
+                    context,
+                    extractor
+                )
             })
     } catch (error) {
         logger.error("Error in handling document request: " + error.toString())
