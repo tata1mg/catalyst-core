@@ -53,7 +53,6 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (match) {
-            const wc = route.component
             matches.push({
                 route,
                 match,
