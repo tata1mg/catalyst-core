@@ -6,9 +6,9 @@ import Extractor from "./extractor"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
+import { renderToPipeableStream } from "react-dom/server"
 import ServerRouter from "@catalyst/router/ServerRouter.js"
 import App from "@catalyst/template/src/js/containers/App/index.js"
-import { renderToPipeableStream, renderToString } from "react-dom/server"
 import { getUserAgentDetails } from "@catalyst/server/utils/userAgentUtil"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "@tata1mg/router"
 import {
@@ -40,8 +40,6 @@ if (fs.existsSync(storePath)) {
         return { getState: () => {} }
     }
 }
-
-const isProduction = process.env.NODE_ENV === "production"
 
 // matches request route with routes defined in the application.
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
@@ -91,17 +89,7 @@ const getComponent = (store, context, req, fetcherData) => {
     )
 }
 // sends document after rendering
-const renderMarkUp = async (
-    errorCode,
-    req,
-    res,
-    metaTags,
-    fetcherData,
-    store,
-    matches,
-    context,
-    extractor
-) => {
+const renderMarkUp = async (req, res, metaTags, fetcherData, store, matches, context, extractor) => {
     let state = store.getState()
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
@@ -119,7 +107,7 @@ const renderMarkUp = async (
     const pageCss = await extractor.getBootstrapCss()
 
     const finalProps = {
-        lang: "",
+        lang: "en",
         pageCss,
         isBot,
         fetcherData,
@@ -214,7 +202,6 @@ export default async function (req, res) {
                     .then(
                         async () =>
                             await renderMarkUp(
-                                null,
                                 req,
                                 res,
                                 allTags,
@@ -227,32 +214,12 @@ export default async function (req, res) {
                     )
                     .catch(async (error) => {
                         logger.error("Error in executing serverFetcher functions: " + error)
-                        await renderMarkUp(
-                            404,
-                            req,
-                            res,
-                            allTags,
-                            fetcherData,
-                            store,
-                            matches,
-                            context,
-                            extractor
-                        )
+                        await renderMarkUp(req, res, allTags, fetcherData, store, matches, context, extractor)
                     })
             })
             .catch((error) => {
                 logger.error("Error in executing serverSideFunction inside App: " + error)
-                renderMarkUp(
-                    error.status_code,
-                    req,
-                    res,
-                    allTags,
-                    fetcherData,
-                    store,
-                    matches,
-                    context,
-                    extractor
-                )
+                renderMarkUp(req, res, allTags, fetcherData, store, matches, context, extractor)
             })
     } catch (error) {
         logger.error("Error in handling document request: " + error.toString())
