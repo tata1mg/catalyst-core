@@ -2,13 +2,6 @@ export default {
     babelrc: false,
     presets: [
         [
-            "@babel/preset-typescript",
-            {
-                isTSX: true,
-                allExtensions: true,
-            },
-        ],
-        [
             "@babel/preset-env",
             {
                 targets: {
@@ -16,7 +9,7 @@ export default {
                 },
             },
         ],
-        ["@babel/preset-react", { runtime: "automatic" }],
+        "@babel/preset-react",
     ],
     env: {
         production: {

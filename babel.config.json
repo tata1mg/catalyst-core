@@ -1,13 +1,6 @@
 {
     "presets": [
         [
-            "@babel/preset-typescript",
-            {
-                "isTSX": true,
-                "allExtensions": true
-            }
-        ],
-        [
             "@babel/preset-env",
             {
                 "targets": {
@@ -15,7 +8,7 @@
                 }
             }
         ],
-        ["@babel/preset-react", { "runtime": "automatic" }]
+        "@babel/preset-react"
     ],
     "compact": true,
     "env": {
