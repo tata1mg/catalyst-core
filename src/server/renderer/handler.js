@@ -55,11 +55,14 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (match) {
-            if (isProduction && !res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
+            if (isProduction && !res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
+                res.locals.routePath = path
                 extractAssets(res, route)
             }
-            if (!res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
-                res.locals.routePath = path
+            if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
+                if (!isProduction && !res.locals.routePath) {
+                    res.locals.routePath = path
+                }
                 //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
                 renderToString(
                     <ChunkExtractorManager extractor={webExtractor}>
@@ -129,7 +132,7 @@ const renderMarkUp = async (
     // Transforms Head Props
     const shellStart = await render.renderStart(
         res.locals.pageCss,
-        res.locals.pageJS,
+        res.locals.preloadJSLinks,
         metaTags,
         isBot,
         fetcherData
@@ -139,7 +142,16 @@ const renderMarkUp = async (
     const jsx = webExtractor.collectChunks(getComponent(store, context, req, fetcherData))
 
     // Transforms Body Props
-    const shellEnd = render.renderEnd(webExtractor, state, res, jsx, errorCode, fetcherData)
+    const shellEnd = render.renderEnd(
+        webExtractor,
+        state,
+        res,
+        jsx,
+        errorCode,
+        fetcherData,
+        isBot,
+        res.locals.cspNonce
+    )
 
     const finalProps = { ...shellStart, ...shellEnd, jsx: jsx, req, res }
 
@@ -151,7 +163,7 @@ const renderMarkUp = async (
                 <html lang={finalProps.lang}>
                     <Head
                         isBot={finalProps.isBot}
-                        pageJS={finalProps.pageJS}
+                        preloadJSLinks={finalProps.preloadJSLinks}
                         pageCss={finalProps.pageCss}
                         fetcherData={finalProps.fetcherData}
                         metaTags={finalProps.metaTags}
@@ -179,6 +191,18 @@ const renderMarkUp = async (
                 res.setHeader("content-type", "text/html")
                 pipe(res)
                 res.end()
+            },
+            onAllReady() {
+                render.renderEnd(
+                    webExtractor,
+                    state,
+                    res,
+                    jsx,
+                    errorCode,
+                    fetcherData,
+                    isBot,
+                    res.locals.cspNonce
+                )
             },
             onError(error) {
                 logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
@@ -214,7 +238,7 @@ export default async function (req, res) {
         })
 
         // creates store
-        const store = validateConfigureStore(createStore) ? createStore({}, req) : null
+        const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
 
         // user defined routes
         const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
