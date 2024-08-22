@@ -93,7 +93,6 @@ export function cacheCSS(key, data) {
     // this will run on subsequent hits and will add css of uncached widgets to the cache
     if (process.cssCache[key]) {
         if (pageCss !== "") {
-            pageCss = "<style>" + pageCss + "</style>"
             let existingListOfCachedAssets = process.cssCache[key].listOfCachedAssets
             const newPageCSS = process.cssCache[key].pageCss + pageCss
             let newListOfCachedAssets = { ...existingListOfCachedAssets, ...listOfCachedAssets }
@@ -101,7 +100,6 @@ export function cacheCSS(key, data) {
         }
     } else {
         // create css cache for a page. This will run on the first hit.
-        pageCss = "<style>" + pageCss + "</style>"
         process.cssCache[key] = { pageCss, listOfCachedAssets }
     }
 }

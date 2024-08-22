@@ -21,10 +21,13 @@ export function Body(props) {
         fetcherData = {},
         children,
     } = props
-
     return (
         <body>
-            {firstFoldCss}
+            {typeof firstFoldCss === "string" ? (
+                <style dangerouslySetInnerHTML={{ __html: firstFoldCss }} />
+            ) : (
+                firstFoldCss
+            )}
             {firstFoldJS}
             {jsx}
             <script

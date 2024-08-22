@@ -31,7 +31,7 @@ const renderStart = (pageCss, preloadJSLinks, metaTags, isBot, fetcherData) => {
 }
 
 const extractCss = (data) => {
-    let pageCss = "<style>"
+    let pageCss = ""
     if (Array.isArray(data)) {
         try {
             data.map((assetChunk) => {
@@ -39,7 +39,13 @@ const extractCss = (data) => {
                 const assetName = assetPathArr[assetPathArr.length - 1]
                 const ext = path.extname(assetName)
                 if (ext === ".css")
-                    pageCss += fs.readFileSync(path.resolve(`${process.env.OUTPUT_PATH}/public/` + assetName))
+                    pageCss += fs.readFileSync(
+                        path.resolve(
+                            process.env.src_path,
+                            `${process.env.BUILD_OUTPUT_PATH}/public`,
+                            assetName
+                        )
+                    )
             })
         } catch (error) {
             console.dir({
@@ -51,7 +57,6 @@ const extractCss = (data) => {
             })
         }
     }
-    pageCss += "</style>"
     return pageCss
 }
 
