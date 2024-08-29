@@ -20,14 +20,14 @@ export function Head(props) {
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
 
+            {children}
+
             {metaTags && metaTags}
 
             {!isBot && preloadJSLinks}
 
             {/* eslint-disable */}
             {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
-
-            {children}
         </head>
     )
 }

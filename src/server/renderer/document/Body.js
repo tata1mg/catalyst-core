@@ -28,8 +28,8 @@ export function Body(props) {
             ) : (
                 firstFoldCss
             )}
-            {firstFoldJS}
             {jsx}
+            {firstFoldJS}
             <script
                 /* eslint-disable */
                 dangerouslySetInnerHTML={{
