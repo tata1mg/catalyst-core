@@ -174,7 +174,6 @@ const renderMarkUp = async (
                         firstFoldCss={finalProps.firstFoldCss}
                         firstFoldJS={finalProps.firstFoldJS}
                         jsx={finalProps.jsx}
-                        statusCode={finalProps.statusCode}
                         fetcherData={finalProps.fetcherData}
                     />
                 </html>

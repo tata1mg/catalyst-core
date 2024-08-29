@@ -12,22 +12,29 @@ import PropTypes from "prop-types"
  */
 export function Head(props) {
     const { pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath, children } = props
+
+    if (children) {
+        return (
+            <head>
+                {children}
+                {metaTags && metaTags}
+                {/* eslint-disable */}
+                {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+                {!isBot && preloadJSLinks}
+            </head>
+        )
+    }
+
     return (
         <head>
             <meta charSet="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1" />
-
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
-
-            {children}
-
             {metaTags && metaTags}
-
-            {!isBot && preloadJSLinks}
-
             {/* eslint-disable */}
             {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+            {!isBot && preloadJSLinks}
         </head>
     )
 }
