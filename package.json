@@ -43,7 +43,7 @@
         "@babel/register": "^7.22.15",
         "@dr.pogodin/css-modules-require-hook": "^4.7.3",
         "@loadable/babel-plugin": "^5.16.1",
-        "@loadable/component": "^5.16.3",
+        "@loadable/component": "^5.15.3",
         "@loadable/server": "^5.16.1",
         "@loadable/webpack-plugin": "^5.15.2",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
