@@ -189,7 +189,6 @@ const renderMarkUp = async (
             onShellReady() {
                 res.setHeader("content-type", "text/html")
                 pipe(res)
-                res.end()
             },
             onAllReady() {
                 render.renderEnd(
@@ -202,6 +201,9 @@ const renderMarkUp = async (
                     isBot,
                     res.locals.cspNonce
                 )
+                const pageJS = webExtractor.getScriptTags()
+                res.write(pageJS)
+                res.end()
             },
             onError(error) {
                 logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
