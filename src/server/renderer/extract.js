@@ -1,18 +1,6 @@
 import path from "path"
 import fs from "fs"
 
-const getAssetFromWebpackDevServer = async (assetPath = "") => {
-    try {
-        if (process.env.NODE_ENV !== "production") {
-            const response = await fetch(assetPath)
-            const textContent = await response.text()
-            return textContent
-        }
-    } catch (error) {
-        console.log("Unable to fetch asset from webpack dev server", error)
-    }
-}
-
 export function cachePreloadJSLinks(key, data) {
     if (!process.preloadJSLinkCache) {
         process.preloadJSLinkCache = {}
@@ -46,7 +34,7 @@ export function cachePreloadJSLinks(key, data) {
  * @param {string} key - router path
  * @param {object} data - css elements array extracted through loadable chunk extracter
  */
-export async function cacheCSS(key, data) {
+export function cacheCSS(key, data) {
     if (!process.cssCache) {
         process.cssCache = {}
     }
@@ -77,17 +65,6 @@ export async function cacheCSS(key, data) {
                         }
                     }
                 })
-            } else {
-                const cssRequests = data.map((file) => {
-                    const ext = path.extname(file.key)
-                    if (ext === ".css") {
-                        return getAssetFromWebpackDevServer(file.key)
-                    }
-                })
-                const resolvedCss = await Promise.all(cssRequests)
-                resolvedCss.forEach((cssContent) => {
-                    pageCss += cssContent
-                })
             }
         } catch (error) {
             if (process.env.NODE_ENV == "development") {
@@ -111,6 +88,8 @@ export async function cacheCSS(key, data) {
         // create css cache for a page. This will run on the first hit.
         process.cssCache[key] = { pageCss, listOfCachedAssets }
     }
+
+    return pageCss
 }
 
 /**
@@ -147,4 +126,43 @@ export default function (res, route) {
     } catch (error) {
         console.log("Error while caching your assets.")
     }
+}
+
+export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
+    // For bot first fold css and js would become complete page css and js
+    let firstFoldCss = ""
+    let firstFoldJS = ""
+    const isProd = process.env.NODE_ENV === "production"
+
+    const { routePath, preloadJSLinks } = res.locals
+
+    const linkElements = webExtractor.getLinkElements()
+
+    // We want to cache/or check for update css on every call
+    // We want to extract script tags for every call that will get added to body.
+    // Their corresponding preloaded link script tags are already present in head.
+    if (routePath) {
+        if (!isBot) {
+            if (isProd) {
+                firstFoldCss = cacheCSS(routePath, linkElements)
+                firstFoldCss = `<style>${firstFoldCss}</style>`
+            } else {
+                cacheCSS(routePath, linkElements)
+                firstFoldCss = webExtractor.getStyleTags()
+            }
+        }
+        // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
+        firstFoldJS = webExtractor.getScriptTags()
+    }
+
+    // This block will run for the first time and cache preloaded JS Links for second render
+    // firstFoldJS ->scripts gets inject in body
+    // firstFoldCss -> Inline css gets injected in body only for the first render
+    if (!isProd || isBot || (routePath && !preloadJSLinks)) {
+        // For production, we inject link tags with preload/prefetch using getLinkElements and inlining them via file reads
+        // For local, given we have assets in memory we dont read from file rather directly inject via link elements returned without preload/prefetch
+        !isBot && cachePreloadJSLinks(routePath, linkElements)
+    }
+
+    return { firstFoldCss, firstFoldJS }
 }
