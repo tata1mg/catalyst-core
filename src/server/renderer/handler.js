@@ -55,14 +55,11 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (match) {
-            if (isProduction && !res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
+            if (!res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
                 res.locals.routePath = path
                 extractAssets(res, route)
             }
             if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
-                if (!isProduction && !res.locals.routePath) {
-                    res.locals.routePath = path
-                }
                 //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
                 renderToString(
                     <ChunkExtractorManager extractor={webExtractor}>
@@ -142,7 +139,7 @@ const renderMarkUp = async (
     const jsx = webExtractor.collectChunks(getComponent(store, context, req, fetcherData))
 
     // Transforms Body Props
-    const shellEnd = render.renderEnd(
+    const shellEnd = await render.renderEnd(
         webExtractor,
         state,
         res,

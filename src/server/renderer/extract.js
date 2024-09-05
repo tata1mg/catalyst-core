@@ -1,15 +1,16 @@
 import path from "path"
 import fs from "fs"
 
-function handleProps(asset, props) {
-    return typeof props === "function" ? "" : props
-}
-
-function propsToString(asset, props) {
-    return Object.entries(handleProps(asset, props)).reduce(
-        (acc, [key, value]) => `${acc} ${key}="${value}"`,
-        ""
-    )
+const getAssetFromWebpackDevServer = async (assetPath = "") => {
+    try {
+        if (process.env.NODE_ENV !== "production") {
+            const response = await fetch(assetPath)
+            const textContent = await response.text()
+            return textContent
+        }
+    } catch (error) {
+        console.log("Unable to fetch asset from webpack dev server", error)
+    }
 }
 
 export function cachePreloadJSLinks(key, data) {
@@ -20,11 +21,6 @@ export function cachePreloadJSLinks(key, data) {
     if (Array.isArray(data)) {
         try {
             preloadJSLinks = data.filter((asset) => asset?.props?.as === "script")
-            // data.map((asset) => {
-            //     if (asset?.props?.as === "script") {
-            //         preloadJSLinks.push(`<link ${propsToString(asset, asset.props)}>`)
-            //     }
-            // })
         } catch (error) {
             console.dir({
                 service_name: `pwa-${process.env.APPLICATION}-node-server`,
@@ -50,7 +46,7 @@ export function cachePreloadJSLinks(key, data) {
  * @param {string} key - router path
  * @param {object} data - css elements array extracted through loadable chunk extracter
  */
-export function cacheCSS(key, data) {
+export async function cacheCSS(key, data) {
     if (!process.cssCache) {
         process.cssCache = {}
     }
@@ -58,28 +54,41 @@ export function cacheCSS(key, data) {
     let listOfCachedAssets = {}
     if (Array.isArray(data)) {
         try {
-            data.map((assetChunk) => {
-                const assetPathArr = assetChunk.key.split("/")
-                const assetName = assetPathArr[assetPathArr.length - 1]
-                const ext = path.extname(assetName)
+            if (process.env.NODE_ENV === "production") {
+                data.map((assetChunk) => {
+                    const assetPathArr = assetChunk.key.split("/")
+                    const assetName = assetPathArr[assetPathArr.length - 1]
+                    const ext = path.extname(assetName)
 
-                if (ext === ".css") {
-                    // if css file has not already been cached, add the content of this CSS file in pageCSS
-                    if (
-                        !listOfCachedAssets[assetName] &&
-                        !process.cssCache?.[key]?.listOfCachedAssets?.[assetName]
-                    ) {
-                        pageCss += fs.readFileSync(
-                            path.resolve(
-                                process.env.src_path,
-                                `${process.env.BUILD_OUTPUT_PATH}/public`,
-                                assetName
+                    if (ext === ".css") {
+                        // if css file has not already been cached, add the content of this CSS file in pageCSS
+                        if (
+                            !listOfCachedAssets[assetName] &&
+                            !process.cssCache?.[key]?.listOfCachedAssets?.[assetName]
+                        ) {
+                            pageCss += fs.readFileSync(
+                                path.resolve(
+                                    process.env.src_path,
+                                    `${process.env.BUILD_OUTPUT_PATH}/public`,
+                                    assetName
+                                )
                             )
-                        )
-                        listOfCachedAssets[assetName] = true
+                            listOfCachedAssets[assetName] = true
+                        }
                     }
-                }
-            })
+                })
+            } else {
+                const cssRequests = data.map((file) => {
+                    const ext = path.extname(file.key)
+                    if (ext === ".css") {
+                        return getAssetFromWebpackDevServer(file.key)
+                    }
+                })
+                const resolvedCss = await Promise.all(cssRequests)
+                resolvedCss.forEach((cssContent) => {
+                    pageCss += cssContent
+                })
+            }
         } catch (error) {
             if (process.env.NODE_ENV == "development") {
                 console.log(

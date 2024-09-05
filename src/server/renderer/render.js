@@ -69,7 +69,16 @@ const extractCss = (data) => {
  * @param {string|number|null} errorCode - error code
  * @param {object} fetcherData - router fetched data
  */
-const renderEnd = (webExtractor, initialState = {}, res, jsx, errorCode, fetcherData, isBot, cspNonce) => {
+const renderEnd = async (
+    webExtractor,
+    initialState = {},
+    res,
+    jsx,
+    errorCode,
+    fetcherData,
+    isBot,
+    cspNonce
+) => {
     // For bot first fold css and js would become complete page css and js
     let firstFoldCss = ""
     let firstFoldJS = ""
@@ -83,7 +92,7 @@ const renderEnd = (webExtractor, initialState = {}, res, jsx, errorCode, fetcher
     // We want to extract script tags for every call that will get added to body.
     // Their corresponding preloaded link script tags are already present in head.
     if (routePath) {
-        !isBot && cacheCSS(routePath, linkElements)
+        !isBot && (await cacheCSS(routePath, linkElements))
         // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
         firstFoldJS = webExtractor.getScriptElements()
     }
