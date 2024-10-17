@@ -31,7 +31,7 @@ You will see some prompts to configure your application.
 cd <name-of-your-project> && npm run start
 ```
 
-The development server will start at http://localhost:3005
+The development server will start at ```http://localhost:3005```
 
 ## Documentation
 
