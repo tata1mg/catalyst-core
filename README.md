@@ -1,7 +1,9 @@
-<div align="center" style="padding: 24px;">
- <img alt="Catalyst logo" src="https://onemg.gumlet.io/staging/7ee66dfb-b5fb-4fbe-8dea-789685e45f7a.svg" height="128">
+<div align="center">
+ <picture>
+ <source media="(prefers-color-scheme: dark)" srcset="https://onemg.gumlet.io/staging/7ee66dfb-b5fb-4fbe-8dea-789685e45f7a.svg">
+ <img alt="Catalyst logo" src="https://onemg.gumlet.io/staging/2fdb0975-8f51-4fd1-bd7d-6375d793f581.svg" height="128">
+ </picture>
 </div>
-
 ## Table of Contents
 
 -   Overview
