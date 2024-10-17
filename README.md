@@ -1,6 +1,9 @@
-![Catalyst](https://onemg.gumlet.io/staging/ee214dae-79a6-4569-a947-3e4dd7d25afb.svg "Catalyst")
-
-Frontend framework with server rendering support for web applications.
+<div align="center" style="padding: 24px;">
+ <picture>
+ <source media="(prefers-color-scheme: dark)" srcset="https://onemg.gumlet.io/staging/d036c78b-b039-4c36-99f3-6173e9b23486.svg">
+ <img alt="Next.js logo" src="https://onemg.gumlet.io/staging/ad141739-f2b3-4bde-8024-e90c11595df0.svg" height="128">
+ </picture>
+</div>
 
 ## Table of Contents
 
