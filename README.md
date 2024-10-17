@@ -1,4 +1,4 @@
-# Catalyst
+![Catalyst](https://onemg.gumlet.io/staging/ee214dae-79a6-4569-a947-3e4dd7d25afb.svg "Catalyst")
 
 Frontend framework with server rendering support for web applications.
 
