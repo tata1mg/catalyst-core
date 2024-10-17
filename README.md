@@ -4,6 +4,7 @@
  <img alt="Catalyst logo" src="https://onemg.gumlet.io/staging/2fdb0975-8f51-4fd1-bd7d-6375d793f581.svg" height="128">
  </picture>
 </div>
+
 ## Table of Contents
 
 -   Overview
