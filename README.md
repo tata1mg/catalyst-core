@@ -1,7 +1,5 @@
 <div align="center" style="padding: 24px;">
- <picture>
  <img alt="Catalyst logo" src="https://onemg.gumlet.io/staging/7ee66dfb-b5fb-4fbe-8dea-789685e45f7a.svg" height="128">
- </picture>
 </div>
 
 ## Table of Contents
