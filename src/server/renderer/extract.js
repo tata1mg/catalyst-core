@@ -9,23 +9,9 @@ export function cachePreloadJSLinks(key, data) {
     if (Array.isArray(data)) {
         try {
             preloadJSLinks = data.filter((asset) => asset?.props?.as === "script")
-        } catch (error) {
-            console.dir({
-                service_name: `pwa-${process.env.APPLICATION}-node-server`,
-                loglevel: "error",
-                version: "v2",
-                message: "\n \n =====> Error While Extracting The Chunk: \n ",
-                traceback: error,
-            })
-        }
+        } catch (error) {}
     }
-    console.dir({
-        service_name: "pwa-node-server",
-        loglevel: "info",
-        version: "v2",
-        message: `\n========= Cached For preloadJSLinkCache: ${key} ============\n`,
-    })
-    // process.preloadJSLinkCache[key] = preloadJSLinks.join("\n")
+
     process.preloadJSLinkCache[key] = preloadJSLinks
 }
 
@@ -66,14 +52,7 @@ export function cacheCSS(key, data) {
                     }
                 })
             }
-        } catch (error) {
-            if (process.env.NODE_ENV == "development") {
-                console.log(
-                    "Error While Extracting The Chunk: ",
-                    path.resolve(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public`)
-                )
-            }
-        }
+        } catch (error) {}
     }
     // if css cache exists for a route and there are some uncached css, add that css to the cache
     // this will run on subsequent hits and will add css of uncached widgets to the cache
@@ -123,9 +102,7 @@ export default function (res, route) {
             res.locals.preloadJSLinks = cachedPreloadJSLinks
             return
         }
-    } catch (error) {
-        console.log("Error while caching your assets.")
-    }
+    } catch (error) {}
 }
 
 export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
