@@ -1,9 +1,8 @@
 import fs from "fs"
 import path from "path"
 import React from "react"
-import render from "./render"
 
-import extractAssets from "./extract"
+import extractAssets, { cacheAndFetchAssets } from "./extract"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -55,11 +54,11 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (match) {
-            if (isProduction && !res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
+            if (!res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
+                res.locals.routePath = path
                 extractAssets(res, route)
             }
-            if (!res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
-                res.locals.routePath = path
+            if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
                 //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
                 renderToString(
                     <ChunkExtractorManager extractor={webExtractor}>
@@ -126,22 +125,30 @@ const renderMarkUp = async (
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
 
-    // Transforms Head Props
-    const shellStart = await render.renderStart(
-        res.locals.pageCss,
-        res.locals.pageJS,
-        metaTags,
-        isBot,
-        fetcherData
-    )
-
     let state = store.getState()
     const jsx = webExtractor.collectChunks(getComponent(store, context, req, fetcherData))
 
-    // Transforms Body Props
-    const shellEnd = render.renderEnd(webExtractor, state, res, jsx, errorCode, fetcherData)
+    const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
+    let publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
 
-    const finalProps = { ...shellStart, ...shellEnd, jsx: jsx, req, res }
+    // serves assets from localhost on running devBuild and devServe command
+    if (JSON.parse(IS_DEV_COMMAND)) {
+        publicAssetPath = `http://${WEBPACK_DEV_SERVER_HOSTNAME}:${WEBPACK_DEV_SERVER_PORT}/assets/`
+    }
+
+    const finalProps = {
+        req,
+        res,
+        lang: "en",
+        pageCss: res.locals.pageCss,
+        preloadJSLinks: res.locals.preloadJSLinks,
+        metaTags,
+        isBot,
+        publicAssetPath,
+        jsx,
+        initialState: state,
+        fetcherData,
+    }
 
     let CompleteDocument = () => {
         if (validateCustomDocument(CustomDocument)) {
@@ -151,19 +158,15 @@ const renderMarkUp = async (
                 <html lang={finalProps.lang}>
                     <Head
                         isBot={finalProps.isBot}
-                        pageJS={finalProps.pageJS}
                         pageCss={finalProps.pageCss}
-                        fetcherData={finalProps.fetcherData}
                         metaTags={finalProps.metaTags}
+                        preloadJSLinks={finalProps.preloadJSLinks}
                         publicAssetPath={finalProps.publicAssetPath}
                     />
                     <Body
-                        initialState={finalProps.initialState}
-                        firstFoldCss={finalProps.firstFoldCss}
-                        firstFoldJS={finalProps.firstFoldJS}
                         jsx={finalProps.jsx}
-                        statusCode={finalProps.statusCode}
                         fetcherData={finalProps.fetcherData}
+                        initialState={finalProps.initialState}
                     />
                 </html>
             )
@@ -178,6 +181,11 @@ const renderMarkUp = async (
             onShellReady() {
                 res.setHeader("content-type", "text/html")
                 pipe(res)
+            },
+            onAllReady() {
+                const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
+                res.write(firstFoldCss)
+                res.write(firstFoldJS)
                 res.end()
             },
             onError(error) {
@@ -214,7 +222,7 @@ export default async function (req, res) {
         })
 
         // creates store
-        const store = validateConfigureStore(createStore) ? createStore({}, req) : null
+        const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
 
         // user defined routes
         const routes = validateGetRoutes(getRoutes) ? getRoutes() : []

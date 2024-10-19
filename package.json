@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.1-beta.6",
+    "version": "0.0.1-beta.7",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -48,7 +48,7 @@
         "@loadable/webpack-plugin": "^5.15.2",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
         "@svgr/webpack": "^8.1.0",
-        "@tata1mg/router": "^0.0.1-beta.2",
+        "@tata1mg/router": "0.0.1-beta.2",
         "app-root-path": "^3.1.0",
         "babel-loader": "^9.1.3",
         "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
@@ -67,6 +67,7 @@
         "module-alias": "^2.2.3",
         "picocolors": "^1.0.0",
         "postcss-loader": "^7.3.3",
+        "postcss-scss": "^4.0.9",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-redux": "^8.1.3",
