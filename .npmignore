@@ -1,9 +1,0 @@
-/src
-.prettierignore
-.prettierrc.json
-.eslintrc
-.eslintignore
-/.husky
-/.github
-commitlint.config.js
-tsconfig.json
