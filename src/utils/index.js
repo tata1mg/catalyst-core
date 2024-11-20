@@ -31,3 +31,7 @@ export const callServer = async (rsaId, args) => {
     })
   );
 };
+
+export const importReact = async () => {
+  return import("react");
+};

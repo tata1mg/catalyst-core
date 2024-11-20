@@ -1,16 +1,18 @@
 import React from "react";
 import express from "express";
 import { Readable } from "node:stream";
+// import { StaticRouter } from "react-router-dom";
 import { renderToPipeableStream } from "react-dom/server";
-
-import {
-  renderToReadableStream,
-  decodeReply,
-} from "react-server-dom-webpack/server.edge";
 import { createFromReadableStream } from "react-server-dom-webpack/client.edge";
 
-import App from "./App";
+import {
+  decodeReply,
+  renderToReadableStream,
+} from "react-server-dom-webpack/server.edge";
+
+// import { ServerRouter } from "./router/utils";
 import { registerWebpackPolyfills } from "./utils";
+import { routes } from "./router/routes";
 
 registerWebpackPolyfills();
 
@@ -33,6 +35,10 @@ const createRsaStream = async ({ rsaId, body }) => {
   return renderToReadableStream(data);
 };
 
+app.get("/favicon.ico", (_, res) => {
+  res.send("Favicon request");
+});
+
 app.post("/", async (req, res) => {
   const rsaId = req.headers["rsa-id"];
   if (rsaId) {
@@ -41,14 +47,33 @@ app.post("/", async (req, res) => {
   }
 });
 
-app.get("/rsc", async (_, res) => {
-  const rscStream = renderToReadableStream(<App />, getClientConfig(true));
+app.get("/rsc", async (req, res) => {
+  const location = req.query.location;
+  const match = routes.find((route) => route.path === location);
+  const Component = match.component;
+
+  const rscStream = renderToReadableStream(
+    // <StaticRouter context={{}} location={req.originalUrl}>
+    <Component />,
+    // </StaticRouter>,
+    getClientConfig(true)
+  );
   Readable.fromWeb(rscStream).pipe(res);
 });
 
-app.get("/", async (_, res) => {
+app.get("/", async (req, res) => {
   try {
-    const rscStream = renderToReadableStream(<App />, getClientConfig());
+    const location = req.originalUrl;
+    const match = routes.find((route) => route.path === location);
+    const Component = match.component;
+
+    const rscStream = renderToReadableStream(
+      //   <StaticRouter context={{}} location={req.originalUrl}>
+      <Component />,
+      //   </StaticRouter>,
+      getClientConfig()
+    );
+
     const jsx = createFromReadableStream(rscStream, getSSRConfig());
 
     const Document = () => {

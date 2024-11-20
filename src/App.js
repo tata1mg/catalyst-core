@@ -1,22 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
+import { useOutlet } from "@tata1mg/router";
 
-import AsyncComponent from "./components/AsyncComponent";
-import ClientComponent from "./components/ClientComponent";
+const BaseOutlet = () => {
+  const o = useOutlet();
+  const [outlet] = useState(o);
+
+  return <>{outlet}</>;
+};
 
 const App = () => {
-  return (
-    <div>
-      App
-      <div>--------------------------</div>
-      <div>Async Component</div>
-      <AsyncComponent />
-      <div>--------------------------</div>
-      <div>Client Component</div>
-      <React.Suspense fallback="client component fallback">
-        <ClientComponent />
-      </React.Suspense>
-    </div>
-  );
+  return <BaseOutlet />;
 };
 
 export default App;

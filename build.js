@@ -179,8 +179,7 @@ const buildInit = async () => {
     build: {
       ssr: true,
       rollupOptions: {
-        // TODO: Giving all entrypoints from routes.js should work here
-        input: "src/App.js",
+        input: "src/router/routes.js",
       },
       write: false,
     },
