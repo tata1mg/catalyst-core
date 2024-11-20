@@ -10,7 +10,7 @@ import {
   renderToReadableStream,
 } from "react-server-dom-webpack/server.edge";
 
-// import { ServerRouter } from "./router/utils";
+import { ServerRouter } from "./router/utils";
 import { registerWebpackPolyfills } from "./utils";
 import { routes } from "./router/routes";
 
@@ -63,13 +63,14 @@ app.get("/rsc", async (req, res) => {
 
 app.get("/", async (req, res) => {
   try {
-    const location = req.originalUrl;
-    const match = routes.find((route) => route.path === location);
-    const Component = match.component;
+    // Custom matching
+    // const location = req.originalUrl;
+    // const match = routes.find((route) => route.path === location);
+    // const Component = match.component;
 
     const rscStream = renderToReadableStream(
       //   <StaticRouter context={{}} location={req.originalUrl}>
-      <Component />,
+      <ServerRouter />,
       //   </StaticRouter>,
       getClientConfig()
     );

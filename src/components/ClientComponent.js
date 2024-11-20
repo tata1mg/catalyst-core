@@ -1,10 +1,12 @@
 "use client";
 import React, { useState } from "react";
 
-import css from "./ClientComponent.module.css";
 import { serverAction } from "./serverAction";
+import { useNavigate } from "@tata1mg/router";
+import css from "./ClientComponent.module.css";
 
 const Counter = () => {
+  const navigate = useNavigate();
   const [count, setCount] = useState(0);
   const [data, setData] = useState(null);
 
@@ -24,6 +26,8 @@ const Counter = () => {
         Click Me
       </button>
       <div>Action response: {data}</div>
+      <div>------------------------</div>
+      <div onClick={() => navigate("/test")}>Go to Page 2</div>
     </div>
   );
 };

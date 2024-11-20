@@ -27,11 +27,11 @@ const hydrate = async () => {
     return use(content);
   };
 
-  //   const router = clientRouter(createFromFetch);
+  // const router = clientRouter();
 
-  //   const Application = () => {
-  //     return <RouterProvider router={router} />;
-  //   };
+  // const Application = () => {
+  //   return <RouterProvider router={router} />;
+  // };
 
   const container = document.getElementById("app");
   hydrateRoot(container, <Application />);
