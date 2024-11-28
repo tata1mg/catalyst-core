@@ -8,30 +8,19 @@ import {
 } from "./utils";
 
 // import { clientRouter } from "./router/utils";
-// import { RouterDataProvider } from "@tata1mg/router";
+// import { RouterProvider } from "@tata1mg/router";
 
 registerWebpackPolyfills();
 
 const hydrate = async () => {
-  // Doing this because we need to call registerWebpackPolyfills before importing the RSDW client package
-  const { createFromFetch } = await importRSDWClient();
+  const { clientRouter } = await import("./router/utils");
+  const { RouterProvider } = await import("@tata1mg/router");
 
-  const content = createFromFetch(
-    fetch("/rsc?location=" + window.location.pathname),
-    {
-      callServer,
-    }
-  );
+  const router = clientRouter();
 
   const Application = () => {
-    return use(content);
+    return <RouterProvider router={router} />;
   };
-
-  // const router = clientRouter();
-
-  // const Application = () => {
-  //   return <RouterProvider router={router} />;
-  // };
 
   const container = document.getElementById("app");
   hydrateRoot(container, <Application />);

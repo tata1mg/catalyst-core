@@ -1,23 +1,29 @@
-import React, { Suspense } from "react";
+import React, { useEffect, useState, Suspense } from "react";
+
 import {
   RouterDataProvider,
-  useRoutes,
   useLocation,
   createBrowserRouter,
+  useNavigate,
 } from "@tata1mg/router";
 
 import App from "../App";
 import { callServer } from "../utils";
 import { routes } from "./routes";
+import { createFromFetch } from "react-server-dom-webpack/client";
 
-export const ServerRouter = () => {
-  return useRoutes(serverRoutes());
+export const useNavigateCustom = () => {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+  return useNavigate();
 };
 
 export const clientRouter = () => {
   return createBrowserRouter(clientRoutes());
 };
 
+// TODO: use "use" here
 export const RouteWrapper = ({ children, fallback }) => {
   const location = useLocation();
   const [rscContent, setRscContent] = useState(null);
@@ -30,10 +36,9 @@ export const RouteWrapper = ({ children, fallback }) => {
       }
     );
     setRscContent(content);
-    // TODO: is location dependency needed?
   }, [location.pathname]);
 
-  return <Suspense fallback={fallback}>{use(rscContent)}</Suspense>;
+  return <Suspense fallback={fallback}>{rscContent}</Suspense>;
 };
 
 const clientRoutes = () => {
@@ -50,7 +55,7 @@ const clientRoutes = () => {
   return [
     {
       element: (
-        <RouterDataProvider>
+        <RouterDataProvider initialState={{}}>
           <App />
         </RouterDataProvider>
       ),
@@ -74,7 +79,7 @@ const serverRoutes = () => {
   return [
     {
       element: (
-        <RouterDataProvider>
+        <RouterDataProvider initialState={{}}>
           <App />
         </RouterDataProvider>
       ),

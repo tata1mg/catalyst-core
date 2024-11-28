@@ -20,6 +20,7 @@ export const importRSDWClient = async () => {
 };
 
 export const callServer = async (rsaId, args) => {
+  // Doing this because we need to call registerWebpackPolyfills before importing the RSDW client package
   const { createFromFetch, encodeReply } = await importRSDWClient();
   return createFromFetch(
     fetch("/", {

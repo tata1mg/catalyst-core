@@ -1,7 +1,5 @@
-const { build: viteBuild } = require("vite");
-const reactPlugin = require("@vitejs/plugin-react");
 const swc = require("@swc/core");
-const babel = require("@babel/core");
+const { build: viteBuild } = require("vite");
 
 const clientEntriesSet = new Set();
 const serverEntriesSet = new Set();
@@ -208,9 +206,6 @@ const buildInit = async () => {
     plugins: [],
     define: {
       "process.env.NODE_ENV": JSON.stringify("production"),
-    },
-    ssr: {
-      external: ["react"],
     },
     build: {
       ssr: true,

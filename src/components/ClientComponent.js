@@ -2,11 +2,11 @@
 import React, { useState } from "react";
 
 import { serverAction } from "./serverAction";
-import { useNavigate } from "@tata1mg/router";
+import { useNavigateCustom } from "../router/utils";
 import css from "./ClientComponent.module.css";
 
 const Counter = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigateCustom();
   const [count, setCount] = useState(0);
   const [data, setData] = useState(null);
 

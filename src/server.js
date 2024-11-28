@@ -1,7 +1,6 @@
 import React from "react";
 import express from "express";
 import { Readable } from "node:stream";
-// import { StaticRouter } from "react-router-dom";
 import { renderToPipeableStream } from "react-dom/server";
 import { createFromReadableStream } from "react-server-dom-webpack/client.edge";
 
@@ -10,9 +9,8 @@ import {
   renderToReadableStream,
 } from "react-server-dom-webpack/server.edge";
 
-import { ServerRouter } from "./router/utils";
-import { registerWebpackPolyfills } from "./utils";
 import { routes } from "./router/routes";
+import { registerWebpackPolyfills } from "./utils";
 
 registerWebpackPolyfills();
 
@@ -53,9 +51,7 @@ app.get("/rsc", async (req, res) => {
   const Component = match.component;
 
   const rscStream = renderToReadableStream(
-    // <StaticRouter context={{}} location={req.originalUrl}>
     <Component />,
-    // </StaticRouter>,
     getClientConfig(true)
   );
   Readable.fromWeb(rscStream).pipe(res);
@@ -63,19 +59,13 @@ app.get("/rsc", async (req, res) => {
 
 app.get("/", async (req, res) => {
   try {
-    // Custom matching
-    // const location = req.originalUrl;
-    // const match = routes.find((route) => route.path === location);
-    // const Component = match.component;
+    const location = req.originalUrl;
+    const match = routes.find((route) => route.path === location);
+    const Component = match.component;
 
-    const rscStream = renderToReadableStream(
-      //   <StaticRouter context={{}} location={req.originalUrl}>
-      <ServerRouter />,
-      //   </StaticRouter>,
-      getClientConfig()
-    );
+    const rscStream = renderToReadableStream(<Component />, getClientConfig());
 
-    const jsx = createFromReadableStream(rscStream, getSSRConfig());
+    const jsx = await createFromReadableStream(rscStream, getSSRConfig());
 
     const Document = () => {
       return (
