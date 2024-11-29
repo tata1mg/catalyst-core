@@ -38,7 +38,7 @@ export const RouteWrapper = ({ children, fallback }) => {
     setRscContent(content);
   }, [location.pathname]);
 
-  return <Suspense fallback={fallback}>{rscContent}</Suspense>;
+  return  <Suspense>{rscContent}</Suspense>;
 };
 
 const clientRoutes = () => {

@@ -169,7 +169,7 @@ const buildInit = async () => {
   await viteBuild({
     plugins: [rscAnalyzePlugin()],
     define: {
-      "process.env.NODE_ENV": JSON.stringify("production"),
+      "process.env.NODE_ENV": JSON.stringify("development"),
     },
     ssr: {
       noExternal: true,
@@ -205,7 +205,7 @@ const buildInit = async () => {
   await viteBuild({
     plugins: [],
     define: {
-      "process.env.NODE_ENV": JSON.stringify("production"),
+      "process.env.NODE_ENV": JSON.stringify("development"),
     },
     build: {
       ssr: true,
@@ -232,7 +232,7 @@ const buildInit = async () => {
   await viteBuild({
     plugins: [transformClientComponents()],
     define: {
-      "process.env.NODE_ENV": JSON.stringify("production"),
+      "process.env.NODE_ENV": JSON.stringify("development"),
     },
     // this builds the RSDW with react-server conditions and externalize react-dom, so imports from both can work on the same file
     ssr: {
@@ -266,7 +266,7 @@ const buildInit = async () => {
   await viteBuild({
     plugins: [transformServerActions()],
     define: {
-      "process.env.NODE_ENV": JSON.stringify("production"),
+      "process.env.NODE_ENV": JSON.stringify("development"),
     },
     css: {
       modules: {

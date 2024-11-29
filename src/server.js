@@ -64,18 +64,16 @@ app.get("/", async (req, res) => {
     const Component = match.component;
 
     const rscStream = renderToReadableStream(<Component />, getClientConfig());
-
     const jsx = await createFromReadableStream(rscStream, getSSRConfig());
 
     const Document = () => {
       return (
         <html>
           <body>
-            <React.Suspense>
               <div id="app">{jsx}</div>
-            </React.Suspense>
-            <script type="module" src="client.js"></script>
           </body>
+          <script type="module" src="client.js"></script>
+
         </html>
       );
     };

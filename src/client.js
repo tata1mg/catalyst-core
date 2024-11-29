@@ -8,22 +8,21 @@ import {
 } from "./utils";
 
 // import { clientRouter } from "./router/utils";
-// import { RouterProvider } from "@tata1mg/router";
+import { RouterProvider } from "@tata1mg/router";
 
 registerWebpackPolyfills();
 
 const hydrate = async () => {
   const { clientRouter } = await import("./router/utils");
-  const { RouterProvider } = await import("@tata1mg/router");
 
   const router = clientRouter();
 
   const Application = () => {
-    return <RouterProvider router={router} />;
+    return <RouterProvider router={router} />
   };
 
   const container = document.getElementById("app");
-  hydrateRoot(container, <Application />);
-};
 
+  hydrateRoot(container, <div><Application /></div>)
+}
 hydrate();

@@ -11,7 +11,7 @@ const Counter = () => {
   const [data, setData] = useState(null);
 
   return (
-    <div className={css.test}>
+    <>
       {count}
       <button onClick={() => setCount(count + 1)}>Click me</button>
       <div>--------------------------</div>
@@ -28,7 +28,7 @@ const Counter = () => {
       <div>Action response: {data}</div>
       <div>------------------------</div>
       <div onClick={() => navigate("/test")}>Go to Page 2</div>
-    </div>
+    </>
   );
 };
 

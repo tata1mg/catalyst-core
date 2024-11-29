@@ -12,9 +12,7 @@ const Page1 = () => {
       <AsyncComponent />
       <div>--------------------------</div>
       <div>Client Component</div>
-      <React.Suspense fallback="client component fallback">
         <ClientComponent />
-      </React.Suspense>
     </div>
   );
 };
