@@ -23,6 +23,6 @@ const hydrate = async () => {
 
   const container = document.getElementById("app");
 
-  hydrateRoot(container, <div><Application /></div>)
+  hydrateRoot(container, <Application />)
 }
 hydrate();
