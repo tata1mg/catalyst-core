@@ -2,23 +2,24 @@ const { exec, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
+const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`)
 
-const config = {
-    "WEBVIEW_CONFIG": {
-        "port": "3005",
-        "ios": {
-          "projectDir": "./iosnativeWebView",
-          "schemeName": "iosnativeWebView",
-          "buildType": "debug",
-          "buildConfigurations": {
-            "debug": "Debug",
-            "release": "Release"
-          },
-          "appBundleId": "com.aranoah.healthkart",
-          "simulatorName": "iPhone 16 Plus"
-        }
-    }
-}
+// const config = {
+//     "WEBVIEW_CONFIG": {
+//         "port": "3005",
+//         "ios": {
+//           "projectDir": "./iosnativeWebView",
+//           "schemeName": "iosnativeWebView",
+//           "buildType": "debug",
+//           "buildConfigurations": {
+//             "debug": "Debug",
+//             "release": "Release"
+//           },
+//           "appBundleId": "com.aranoah.healthkart",
+//           "simulatorName": "iPhone 16 Plus"
+//         }
+//     }
+// }
 
 
 function getLocalIPAddress() {
@@ -32,8 +33,8 @@ function getLocalIPAddress() {
   }
 
 
-const iosConfig = config.WEBVIEW_CONFIG.ios;
-const url = `http://${getLocalIPAddress()}:${config.WEBVIEW_CONFIG.port}`;
+const iosConfig = WEBVIEW_CONFIG.ios;
+const url = `http://${getLocalIPAddress()}:${WEBVIEW_CONFIG.port}`;
 
 // Set variables based on the configuration
 const PROJECT_DIR = iosConfig.projectDir;
