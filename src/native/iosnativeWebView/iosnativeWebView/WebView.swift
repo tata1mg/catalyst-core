@@ -6,14 +6,13 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 
 struct WebView: UIViewRepresentable {
     let urlString: String
-    @StateObject private var viewModel: WebViewModel
+    @ObservedObject var viewModel: WebViewModel
     private let navigationDelegate: WebViewNavigationDelegate
     
-    init(urlString: String) {
+    init(urlString: String, viewModel: WebViewModel) {
         self.urlString = urlString
-        let model = WebViewModel()
-        self._viewModel = StateObject(wrappedValue: model)
-        self.navigationDelegate = WebViewNavigationDelegate(viewModel: model)
+        self.viewModel = viewModel
+        self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel)
     }
     
     func makeUIView(context: Context) -> WKWebView {
@@ -33,39 +32,17 @@ struct WebView: UIViewRepresentable {
                            options: .new,
                            context: nil)
         
-        webView.addObserver(context.coordinator,
-                           forKeyPath: #keyPath(WKWebView.url),
-                           options: .new,
-                           context: nil)
+        // Initial load
+        if let url = URL(string: urlString) {
+            let request = URLRequest(url: url)
+            webView.load(request)
+        }
         
-        let swipeGesture = UISwipeGestureRecognizer(target: context.coordinator,
-                                                   action: #selector(Coordinator.handleSwipeGesture(_:)))
-        swipeGesture.direction = .right
-        webView.addGestureRecognizer(swipeGesture)
-        
-        logger.info("WebView instance created")
         return webView
     }
     
     func updateUIView(_ webView: WKWebView, context: Context) {
-        guard let url = URL(string: urlString),
-              viewModel.lastLoadedURL != url else { return }
-        
-        Task { @MainActor in
-            let request = await CacheManager.shared.createCacheableRequest(from: url)
-            let hasCachedResponse = await CacheManager.shared.hasCachedResponse(for: request)
-            
-            viewModel.setLoading(true, fromCache: hasCachedResponse)
-            
-            if hasCachedResponse {
-                logger.info("Loading from cache: \(urlString)")
-            } else {
-                logger.info("Loading from network: \(urlString)")
-            }
-            
-            webView.load(request)
-            viewModel.lastLoadedURL = url
-        }
+        // Intentionally empty to prevent reloading
     }
     
     func makeCoordinator() -> Coordinator {
@@ -74,7 +51,6 @@ struct WebView: UIViewRepresentable {
     
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-        webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.url))
     }
     
     class Coordinator: NSObject {
@@ -92,19 +68,6 @@ struct WebView: UIViewRepresentable {
                let webView = object as? WKWebView {
                 Task { @MainActor in
                     parent.viewModel.setProgress(webView.estimatedProgress)
-                }
-            } else if keyPath == #keyPath(WKWebView.url),
-                      let webView = object as? WKWebView,
-                      let url = webView.url {
-                logger.info("URL changed to: \(url.absoluteString)")
-            }
-        }
-        
-        @objc func handleSwipeGesture(_ gesture: UISwipeGestureRecognizer) {
-            if let webView = gesture.view as? WKWebView {
-                if webView.canGoBack {
-                    webView.goBack()
-                    logger.info("👈 Navigating back via swipe gesture")
                 }
             }
         }

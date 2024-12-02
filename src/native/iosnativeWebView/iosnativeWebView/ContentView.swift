@@ -8,7 +8,7 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            WebView(urlString: ConfigConstants.url)
+            WebView(urlString: ConfigConstants.url, viewModel: webViewModel)
                 .edgesIgnoringSafeArea(.all)
                 .onAppear {
                     logger.info("WebView appeared with URL: \(ConfigConstants.url)")
