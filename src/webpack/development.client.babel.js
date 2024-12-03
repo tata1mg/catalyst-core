@@ -6,7 +6,7 @@ import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
 
 import catalystConfig from "@catalyst/root/config.json"
 import baseConfig from "@catalyst/webpack/base.babel.js"
-import { plugins, splitChunksConfig } from "@catalyst/template/webpackConfig.js"
+import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
@@ -28,7 +28,7 @@ const webpackConfig = merge(baseConfig, {
         }),
         ...plugins.developmentPlugins,
     ].filter(Boolean),
-    optimization: splitChunksConfig ? splitChunksConfig: {
+    optimization: customWebpackConfig?.splitChunksConfig ? customWebpackConfig?.splitChunksConfig: {
         runtimeChunk: "single",
         moduleIds: "deterministic",
         splitChunks: {

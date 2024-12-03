@@ -5,7 +5,7 @@ import { mergeWithCustomize, customizeArray, customizeObject } from "webpack-mer
 
 import baseConfig from "@catalyst/webpack/base.babel"
 import catalystConfig from "@catalyst/root/config.json"
-import { plugins, splitChunksConfig } from "@catalyst/template/webpackConfig.js"
+import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 import { _moduleAliases } from "@catalyst/root/package.json"
 
 const clientConfig = mergeWithCustomize({
@@ -28,7 +28,7 @@ const clientConfig = mergeWithCustomize({
     optimization: {
         runtimeChunk: "single",
         moduleIds: "deterministic",
-        splitChunks: splitChunksConfig ? splitChunksConfig : {
+        splitChunks: customWebpackConfig?.splitChunksConfig ? customWebpackConfig?.splitChunksConfig : {
             cacheGroups: {
                 commonVendor: {
                     chunks: "all",
@@ -80,7 +80,7 @@ const clientConfig = mergeWithCustomize({
             filename: catalystConfig.cssChunkFileName,
             ignoreOrder: true,
         }),
-        ...plugins.clientPlugins,
+        ...customWebpackConfig.clientPlugins,
     ],
 })
 
