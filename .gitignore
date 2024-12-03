@@ -26,14 +26,15 @@ logger.js
 !default.mode2v3
 **/iosnativeWebView/*.perspectivev3
 !default.perspectivev3
-**/iosnativeWebView/xcuserdata
+**/xcuserdata
 **/iosnativeWebView/*.xccheckout
 **/iosnativeWebView/*.moved-aside
 **/iosnativeWebView/DerivedData
 **/iosnativeWebView/*.hmap
 **/iosnativeWebView/*.ipa
-**/iosnativeWebView/*.xcuserstate
+**/*.xcuserstate
 **/iosnativeWebView/*.DS_Store
+**/iosnativeWebView/ConfigConstants.swift
 
 # Built application files
 *.apk
@@ -85,4 +86,3 @@ app/mapping.txt
 app/usage.txt
 app/seeds.txt
 *.aab
-src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
