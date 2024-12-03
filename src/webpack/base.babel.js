@@ -71,10 +71,13 @@ export default {
     },
     output: {
         path: path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public`),
+               filename:             process.env.NODE_ENV === "development"
+                ? "[name].bundle.js"
+                : "[name].[contenthash].js",
         chunkFilename:
             process.env.NODE_ENV === "development"
-                ? catalystConfig.chunkFileNameDev
-                : catalystConfig.chunkFileNameProd,
+                ? "[name].bundle.js"
+                : "[name].[contenthash].js",
         publicPath: publicPath,
     },
     resolve: {
