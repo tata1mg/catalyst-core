@@ -14,26 +14,26 @@ logger.js
 /loadable-stats.json
 /index.js
 
-build/
-tmp/
+**/iosnativeWebView/build/
+**/iosnativeWebView/tmp/
 .env
-Pre-actions.log
-*.pbxuser
+**/iosnativeWebView/Pre-actions.log
+**/iosnativeWebView/*.pbxuser
 !default.pbxuser
-*.mode1v3
+**/iosnativeWebView/*.mode1v3
 !default.mode1v3
-*.mode2v3
+**/iosnativeWebView/*.mode2v3
 !default.mode2v3
-*.perspectivev3
+**/iosnativeWebView/*.perspectivev3
 !default.perspectivev3
-xcuserdata
-*.xccheckout
-*.moved-aside
-DerivedData
-*.hmap
-*.ipa
-*.xcuserstate
-*.DS_Store
+**/iosnativeWebView/xcuserdata
+**/iosnativeWebView/*.xccheckout
+**/iosnativeWebView/*.moved-aside
+**/iosnativeWebView/DerivedData
+**/iosnativeWebView/*.hmap
+**/iosnativeWebView/*.ipa
+**/iosnativeWebView/*.xcuserstate
+**/iosnativeWebView/*.DS_Store
 
 # Built application files
 *.apk
