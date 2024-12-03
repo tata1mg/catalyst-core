@@ -143,3 +143,42 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
 
     return { firstFoldCss, firstFoldJS }
 }
+
+export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
+    // For bot first fold css and js would become complete page css and js
+    let firstFoldCss = ""
+    let firstFoldJS = ""
+    const isProd = process.env.NODE_ENV === "production"
+
+    const { routePath, preloadJSLinks } = res.locals
+
+    const linkElements = webExtractor.getLinkElements()
+
+    // We want to cache/or check for update css on every call
+    // We want to extract script tags for every call that will get added to body.
+    // Their corresponding preloaded link script tags are already present in head.
+    if (routePath) {
+        if (!isBot) {
+            if (isProd) {
+                firstFoldCss = cacheCSS(routePath, linkElements)
+                firstFoldCss = `<style>${firstFoldCss}</style>`
+            } else {
+                cacheCSS(routePath, linkElements)
+                firstFoldCss = webExtractor.getStyleTags()
+            }
+        }
+        // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
+        firstFoldJS = webExtractor.getScriptTags()
+    }
+
+    // This block will run for the first time and cache preloaded JS Links for second render
+    // firstFoldJS ->scripts gets inject in body
+    // firstFoldCss -> Inline css gets injected in body only for the first render
+    if (!isProd || isBot || (routePath && !preloadJSLinks)) {
+        // For production, we inject link tags with preload/prefetch using getLinkElements and inlining them via file reads
+        // For local, given we have assets in memory we dont read from file rather directly inject via link elements returned without preload/prefetch
+        !isBot && cachePreloadJSLinks(routePath, linkElements)
+    }
+
+    return { firstFoldCss, firstFoldJS }
+}
