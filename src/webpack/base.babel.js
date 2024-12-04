@@ -27,7 +27,7 @@ export const basePlugins = [
 
     // **This loads process.env variable during webpack build process
     new webpack.DefinePlugin({
-        "process.env": ([...clientEnv, ...Object.keys(process.env)] || []).reduce((clientEnvMap, env) => {
+        "process.env": ([...clientEnv, "src_path","PWD"] || []).reduce((clientEnvMap, env) => {
             clientEnvMap[env] = JSON.stringify(process.env[env])
             return clientEnvMap
         }, {}),
@@ -59,7 +59,7 @@ let publicPath = isDev
     : `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
 
 // serves assets from local on running devBuild and devServe command
-if (JSON.parse(IS_DEV_COMMAND) && !isDev) {
+if (IS_DEV_COMMAND && !isDev) {
     publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/assets/`
 }
 
