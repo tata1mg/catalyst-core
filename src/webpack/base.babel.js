@@ -59,8 +59,8 @@ let publicPath = isDev
     : `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
 
 // serves assets from local on running devBuild and devServe command
+
 if (IS_DEV_COMMAND === "true" && !isDev) {
-    console.log(">>>>>>>>", typeof IS_DEV_COMMAND, typeof !isDev, IS_DEV_COMMAND && !isDev)
     publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/assets/`
 }
 
