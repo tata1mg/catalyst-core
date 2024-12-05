@@ -132,7 +132,7 @@ const renderMarkUp = async (
     let publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
 
     // serves assets from localhost on running devBuild and devServe command
-    if (IS_DEV_COMMAND) {
+    if (IS_DEV_COMMAND === "true") {
         publicAssetPath = `http://${WEBPACK_DEV_SERVER_HOSTNAME}:${WEBPACK_DEV_SERVER_PORT}/assets/`
     }
 

@@ -27,7 +27,7 @@ export const basePlugins = [
 
     // **This loads process.env variable during webpack build process
     new webpack.DefinePlugin({
-        "process.env": ([...clientEnv, "src_path","PWD"] || []).reduce((clientEnvMap, env) => {
+        "process.env": ([...clientEnv, "src_path", "PWD"] || []).reduce((clientEnvMap, env) => {
             clientEnvMap[env] = JSON.stringify(process.env[env])
             return clientEnvMap
         }, {}),
@@ -59,7 +59,8 @@ let publicPath = isDev
     : `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
 
 // serves assets from local on running devBuild and devServe command
-if (IS_DEV_COMMAND && !isDev) {
+if (IS_DEV_COMMAND === "true" && !isDev) {
+    console.log(">>>>>>>>", typeof IS_DEV_COMMAND, typeof !isDev, IS_DEV_COMMAND && !isDev)
     publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/assets/`
 }
 
@@ -71,13 +72,9 @@ export default {
     },
     output: {
         path: path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public`),
-               filename:             process.env.NODE_ENV === "development"
-                ? "[name].bundle.js"
-                : "[name].[contenthash].js",
+        filename: process.env.NODE_ENV === "development" ? "[name].bundle.js" : "[name].[contenthash].js",
         chunkFilename:
-            process.env.NODE_ENV === "development"
-                ? "[name].bundle.js"
-                : "[name].[contenthash].js",
+            process.env.NODE_ENV === "development" ? "[name].bundle.js" : "[name].[contenthash].js",
         publicPath: publicPath,
     },
     resolve: {
