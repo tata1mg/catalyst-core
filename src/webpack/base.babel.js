@@ -27,7 +27,16 @@ export const basePlugins = [
 
     // **This loads process.env variable during webpack build process
     new webpack.DefinePlugin({
-        "process.env": ([...clientEnv, "src_path", "PWD"] || []).reduce((clientEnvMap, env) => {
+        "process.env": (
+            [
+                ...clientEnv,
+                "BUILD_OUTPUT_PATH",
+                "PUBLIC_STATIC_ASSET_PATH",
+                "PUBLIC_STATIC_ASSET_URL",
+                "src_path",
+                "PWD",
+            ] || []
+        ).reduce((clientEnvMap, env) => {
             clientEnvMap[env] = JSON.stringify(process.env[env])
             return clientEnvMap
         }, {}),
