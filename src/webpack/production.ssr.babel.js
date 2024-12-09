@@ -7,7 +7,7 @@ const { mergeWithCustomize, customizeArray, customizeObject } = require("webpack
 import rootWorkspacePath from "app-root-path"
 import baseConfig from "@catalyst/webpack/base.babel"
 import catalystConfig from "@catalyst/root/config.json"
-import  customWebpackConfig  from "@catalyst/template/webpackConfig.js"
+import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 import { _moduleAliases } from "@catalyst/root/package.json"
 
 const ssrConfig = mergeWithCustomize({

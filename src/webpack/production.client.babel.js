@@ -28,7 +28,7 @@ const clientConfig = mergeWithCustomize({
     optimization: {
         runtimeChunk: "single",
         moduleIds: "deterministic",
-        splitChunks: customWebpackConfig?.splitChunksConfig ? customWebpackConfig?.splitChunksConfig : {
+        splitChunks: {
             cacheGroups: {
                 commonVendor: {
                     chunks: "all",
