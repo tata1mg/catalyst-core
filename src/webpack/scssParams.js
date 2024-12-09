@@ -13,7 +13,7 @@ export const imageUrl = () => {
     let publicPath = `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
 
     // serves assets from localhost on running devBuild and devServe command
-    if (JSON.parse(IS_DEV_COMMAND)) {
+    if (IS_DEV_COMMAND === "true") {
         publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/${PUBLIC_STATIC_ASSET_PATH}`
     }
 
@@ -37,7 +37,7 @@ export const fontUrl = () => {
     let publicPath = `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
 
     // serves assets from localhost on running devBuild and devServe command
-    if (JSON.parse(IS_DEV_COMMAND)) {
+    if (IS_DEV_COMMAND === "true") {
         publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/${PUBLIC_STATIC_ASSET_PATH}`
     }
 

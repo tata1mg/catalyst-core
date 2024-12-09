@@ -1,9 +1,8 @@
 # Changelog
 
-## [0.0.1-beta.7] - 19-10-2024
+## [0.0.1-beta.8] - 09-12-2024
 
 ### Changes
 
--   Added postcss-scss parser to parse scss in dev mode.
--   Removed default meta tags if the user chooses to setup their own document.
--   Fix assets being injected in the documnet sent from the server.
+-   Filter out host machine's environment variable from client environment variables
+-   Update @tata1mg/router's version to 0.0.1-beta.5.
