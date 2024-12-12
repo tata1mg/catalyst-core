@@ -25,11 +25,13 @@ const ssrConfig = mergeWithCustomize({
     mode: "production",
     stats: "errors-only",
     optimization: {
-        splitChunks: {
-            chunks: "all",
-            minSize: 10000000,
-            name: false,
-        },
+        splitChunks: customWebpackConfig.splitChunksConfig
+            ? customWebpackConfig.splitChunksConfig
+            : {
+                  chunks: "all",
+                  minSize: 10000000,
+                  name: false,
+              },
     },
     resolve: {
         alias: catalystResultMap,
