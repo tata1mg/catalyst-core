@@ -1,17 +1,21 @@
-const {
-    runCommand,
-    runInteractiveCommand
-} = require('./utils');
+import { exec } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+import { runCommand, runInteractiveCommand } from './utils.js';
 
-const { exec } = require('child_process');
-const configPath = `${process.env.PWD}/config/config.json`
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const configPath =`${process.env.PWD}/config/config.json`;
 
-const { WEBVIEW_CONFIG } = require(configPath)
-if (Object.length(WEBVIEW_CONFIG) === 0){
-    console.error('WebView Config missing in ', configPath);
+// Read and parse config file
+const configFile = fs.readFileSync(configPath, 'utf8');
+const { WEBVIEW_CONFIG } = JSON.parse(configFile);
+
+if (Object.keys(WEBVIEW_CONFIG).length === 0) {
+    console.error('WebView Config missing in', configPath);
     process.exit(1);
 }
-    
 
 const androidConfig = WEBVIEW_CONFIG.android;
 
@@ -19,7 +23,7 @@ const ANDROID_SDK = androidConfig.sdkPath;
 if (!ANDROID_SDK) {
     throw new Error('ANDROID_HOME or ANDROID_SDK_ROOT environment variable must be set');
 }
-
+const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`;
 const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`;
 
 function validateAndroidTools() {
@@ -68,7 +72,7 @@ function validateAndroidTools() {
 
 async function checkEmulator() {
     try {
-        const devices = runCommand('adb devices');
+        const devices = runCommand(`${ADB_PATH} devices`);
         return devices.includes('emulator');
     } catch (error) {
         console.error('Error checking emulator:', error);
@@ -77,22 +81,20 @@ async function checkEmulator() {
 }
 
 async function startEmulator() {
-
-        console.log(`Starting emulator: ${androidConfig.emulatorName}...`);
-        exec(`${ANDROID_SDK}/emulator/emulator -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, 
-            (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Error starting emulator:', error);
-                }
+    console.log(`Starting emulator: ${androidConfig.emulatorName}...`);
+    exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, 
+        (error, stdout, stderr) => {
+            if (error) {
+                console.error('Error starting emulator:', error);
             }
-        );
-    
+        }
+    );
 }
 
 async function installApp() {
     try {
         console.log('Building and installing app...');
-        const buildCommand = `cd ./androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && adb shell monkey -p ${androidConfig.packageName} 1`;
+        const buildCommand = `cd ./androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${androidConfig.packageName} 1`;
         
         await runInteractiveCommand('sh', ['-c', buildCommand], {
             'BUILD SUCCESSFUL': ''
@@ -126,4 +128,6 @@ async function main() {
     }
 }
 
-main();
+// Execute the main function
+await main();
+

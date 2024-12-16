@@ -15,10 +15,10 @@ const validCommands = [
 
 // Map of platform-specific commands to their script paths
 const platformScripts = {
-    "setupEmulator:ios": "@catalyst/template/src/native/setupEmulatorIos.js",
-    "setupEmulator:android": "@catalyst/template/src/native/androidSetup.js",
-    "buildApp:ios": "@catalyst/template/src/native/buildAppIos.js",
-    "buildApp:android": "@catalyst/template/src/native/buildAppAndroid.js"
+    "setupEmulator:ios": "../dist/native/setupEmulatorIos.js",
+    "setupEmulator:android": "../dist/native/androidSetup.js",
+    "buildApp:ios": "../dist/native/buildAppIos.js",
+    "buildApp:android": "../dist/native/buildAppAndroid.js"
 }
 
 // Helper to check if arg is a platform command
