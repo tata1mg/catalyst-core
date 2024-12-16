@@ -4,24 +4,6 @@ const path = require("path");
 
 const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`)
 
-// const config = {
-//     "WEBVIEW_CONFIG": {
-//         "port": "3005",
-//         "ios": {
-//           "projectDir": "./iosnativeWebView",
-//           "schemeName": "iosnativeWebView",
-//           "buildType": "debug",
-//           "buildConfigurations": {
-//             "debug": "Debug",
-//             "release": "Release"
-//           },
-//           "appBundleId": "com.aranoah.healthkart",
-//           "simulatorName": "iPhone 16 Plus"
-//         }
-//     }
-// }
-
-
 function getLocalIPAddress() {
     try {
       const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`;

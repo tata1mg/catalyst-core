@@ -5,33 +5,71 @@ process.on("unhandledRejection", (err) => {
 })
 const { spawnSync } = require("node:child_process")
 const args = process.argv.slice(2)
-const scriptIndex = args.findIndex(
-    (x) => x === "build" || x === "start" || x === "serve" || x === "devBuild" || x === "devServe" || 
-    x === "buildAppIos" || x === "setupEmulatorIos"
-)
-const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
-const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
 
 // Array of valid commands
 const validCommands = [
     "build", "start", "serve", "devBuild", "devServe",
-    "buildAppIos", "setupEmulatorIos"
+    "buildApp", "buildApp:ios", "buildApp:android",
+    "setupEmulator", "setupEmulator:ios", "setupEmulator:android"
 ]
 
+// Map of platform-specific commands to their script paths
+const platformScripts = {
+    "setupEmulator:ios": "@catalyst/template/src/native/setupEmulatorIos.js",
+    "setupEmulator:android": "@catalyst/template/src/native/androidSetup.js",
+    "buildApp:ios": "@catalyst/template/src/native/buildAppIos.js",
+    "buildApp:android": "@catalyst/template/src/native/buildAppAndroid.js"
+}
+
+// Helper to check if arg is a platform command
+const isPlatformCommand = (arg, prefix) => {
+    if (!arg.startsWith(`${prefix}:`)) return false
+    const platform = arg.split(':')[1]
+    return ['ios', 'android'].includes(platform) || platform === undefined
+}
+
+
+// Helper function to run a platform command
+const runPlatformCommand = (baseCommand, platform) => {
+    const command = `${baseCommand}:${platform}`
+    const result = spawnSync(
+        process.execPath,
+        nodeArgs.concat(require.resolve(platformScripts[command])).concat(args.slice(scriptIndex + 1)),
+        { stdio: "inherit" }
+    )
+    return result
+}
+
+// Helper function to run commands for all platforms
+const runAllPlatforms = (baseCommand) => {
+    const platforms = ['ios', 'android']
+    for (const platform of platforms) {
+        const result = runPlatformCommand(baseCommand, platform)
+        if (result.status !== 0) {
+            handleProcessResult(result)
+            return
+        }
+    }
+    process.exit(0)
+}
+
+const scriptIndex = args.findIndex(
+    (x) => x === "build" || x === "start" || x === "serve" || x === "devBuild" || x === "devServe" || 
+    isPlatformCommand(x, 'buildApp') || isPlatformCommand(x, 'setupEmulator')
+)
+const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
+const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
+
 if (validCommands.includes(script)) {
-    // Special handling for iOS commands
-    if (script === "setupEmulatorIos") {
+    // Handle platform-specific or combined commands
+    if (script === "buildApp" || script === "setupEmulator") {
+        // Run for all platforms if no specific platform is specified
+        runAllPlatforms(script)
+    } else if (script in platformScripts) {
+        // Run for specific platform
         const result = spawnSync(
             process.execPath,
-            nodeArgs.concat(require.resolve("@catalyst/template/src/native/iosSetup.js")).concat(args.slice(scriptIndex + 1)),
-            { stdio: "inherit" }
-        )
-        handleProcessResult(result)
-    } else
-    if (script === "buildAppIos") {
-        const result = spawnSync(
-            process.execPath,
-            nodeArgs.concat(require.resolve("@catalyst/template/src/native/iosBuild.js")).concat(args.slice(scriptIndex + 1)),
+            nodeArgs.concat(require.resolve(platformScripts[script])).concat(args.slice(scriptIndex + 1)),
             { stdio: "inherit" }
         )
         handleProcessResult(result)
