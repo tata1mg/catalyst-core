@@ -23,7 +23,7 @@ if (validCommands.includes(script)) {
     if (script === "setupEmulatorIos") {
         const result = spawnSync(
             process.execPath,
-            nodeArgs.concat(require.resolve("@catalyst/template/src/native/iosSetup.js")).concat(args.slice(scriptIndex + 1)),
+            nodeArgs.concat(require.resolve("@catalyst/template/dist/native/iosSetup.js")).concat(args.slice(scriptIndex + 1)),
             { stdio: "inherit" }
         )
         handleProcessResult(result)
@@ -31,7 +31,7 @@ if (validCommands.includes(script)) {
     if (script === "buildAppIos") {
         const result = spawnSync(
             process.execPath,
-            nodeArgs.concat(require.resolve("@catalyst/template/src/native/iosBuild.js")).concat(args.slice(scriptIndex + 1)),
+            nodeArgs.concat(require.resolve("@catalyst/template/dist/native/iosBuild.js")).concat(args.slice(scriptIndex + 1)),
             { stdio: "inherit" }
         )
         handleProcessResult(result)
