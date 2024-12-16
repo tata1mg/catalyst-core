@@ -6,7 +6,7 @@ import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
 
 import catalystConfig from "@catalyst/root/config.json"
 import baseConfig from "@catalyst/webpack/base.babel.js"
-import plugins from "@catalyst/template/webpackConfig.js"
+import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
@@ -26,7 +26,7 @@ const webpackConfig = merge(baseConfig, {
             filename: catalystConfig.cssChunkFileName,
             ignoreOrder: true,
         }),
-        ...plugins.developmentPlugins,
+        ...customWebpackConfig.developmentPlugins,
     ].filter(Boolean),
     optimization: {
         runtimeChunk: "single",
