@@ -24,9 +24,20 @@ async function initializeConfig() {
     return { WEBVIEW_CONFIG };
 }
 
-async function saveConfig(config) {
+async function saveConfig(newConfig) {
     try {
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        // Read the existing config
+        const existingConfigFile = fs.readFileSync(configPath, 'utf8');
+        const existingConfig = JSON.parse(existingConfigFile);
+        
+        // Merge the new WEBVIEW_CONFIG with existing config
+        const updatedConfig = {
+            ...existingConfig,           // Preserve all existing keys
+            WEBVIEW_CONFIG: newConfig.WEBVIEW_CONFIG  // Update only WEBVIEW_CONFIG
+        };
+        
+        // Save the merged config
+        fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
         console.log('Configuration saved successfully.');
     } catch (error) {
         console.error('Failed to save configuration:', error);

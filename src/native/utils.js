@@ -115,7 +115,7 @@ async function validateAndCompleteConfig(platform, configPath) {
         },
         ios: {
             buildType: 'Enter iOS build type (debug/release): ',
-            appBundleId: 'Enter iOS bundle ID (e.g., com.aranoah.healthkart): ',
+            appBundleId: 'Enter iOS bundle ID (e.g., com.test.test): ',
             simulatorName: 'Enter iOS simulator name (e.g., iPhone 16 Pro): '
         }
     }
