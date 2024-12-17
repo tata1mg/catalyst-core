@@ -34,7 +34,7 @@
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "prepare": "babel src --out-dir ./dist",
+        "prepare": "babel src --out-dir ./dist && cp ./src/native/androidProject/* ./dist/native/androidProject && cd ./src/native/iosnativeWebview ./dist/native/iosnativeWebview && cp ./src/native/build.swift ./dist/native/build.swift",
         "prepublishOnly": "npm i && npm run prepare"
     },
     "license": "MIT",
