@@ -2,7 +2,7 @@ import Foundation
 
 // Main execution
 guard CommandLine.arguments.count >= 3 else {
-    print("Usage: swift generateConfig.swift [url] [output_path]")
+    print("Usage: swift build.swift [url] [output_path]")
     exit(1)
 }
 

@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import fs from 'fs';
 import { exec } from 'child_process';
 import { runCommand, runInteractiveCommand, validateAndCompleteConfig } from './utils.js';

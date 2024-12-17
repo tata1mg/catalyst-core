@@ -2,54 +2,55 @@ const { exec, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`)
+const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
+const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`);
 
 function getLocalIPAddress() {
     try {
-      const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`;
-      return execSync(command).toString().trim();
+        const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`;
+        return execSync(command).toString().trim();
     } catch (error) {
-      console.error("Error getting local IP:", error);
-      return "localhost";
+        console.error("Error getting local IP:", error);
+        return "localhost";
     }
-  }
-
+}
 
 const iosConfig = WEBVIEW_CONFIG.ios;
 const url = `http://${getLocalIPAddress()}:${WEBVIEW_CONFIG.port}`;
 
 // Set variables based on the configuration
-const PROJECT_DIR = "./iosnativeWebView";
+const PROJECT_DIR = `${pwd}/iosnativeWebView`;
 const SCHEME_NAME = iosConfig.schemeName;
 const APP_BUNDLE_ID = iosConfig.appBundleId;
 const PROJECT_NAME = path.basename(PROJECT_DIR);
 const IPHONE_MODEL = iosConfig.simulatorName;
 
 function runCommand(command) {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(`Error: ${error.message}`);
-        return;
-      }
-      if (stderr) {
-        // console.error(`stderr: ${stderr}`);
-      }
-      resolve(stdout.trim());
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                reject(`Error: ${error.message}`);
+                return;
+            }
+            if (stderr) {
+                // console.error(`stderr: ${stderr}`);
+            }
+            resolve(stdout.trim());
+        });
     });
-  });
 }
-async function main() {
-  try {
-    console.log("Generating ConfigConstants.swift...");
-    const configOutputPath = path.join(
-      PROJECT_DIR,
-      PROJECT_NAME,
-      "ConfigConstants.swift"
-    );
-    await runCommand(`swift build.swift "${url}" "${configOutputPath}"`);
 
-    process.chdir(PROJECT_DIR);
+async function main() {
+    try {
+        console.log("Generating ConfigConstants.swift...");
+        const configOutputPath = path.join(
+            PROJECT_DIR,
+            PROJECT_NAME,
+            "ConfigConstants.swift"
+        );
+        await runCommand(`swift ${pwd}/build.swift "${url}" "${configOutputPath}"`);
+
+        process.chdir(PROJECT_DIR);
     const xcuserdataPath = path.join(
       `${PROJECT_NAME}.xcodeproj`,
       `project.xcworkspace`,
@@ -237,16 +238,16 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    console.log("Focusing on Simulator...");
-    await runCommand(`osascript -e 'tell application "Simulator" to activate'`);
+        console.log("Focusing on Simulator...");
+        await runCommand(`osascript -e 'tell application "Simulator" to activate'`);
 
     // console.log("Starting debugger...");
     // await runCommand(`lldb -n "${path.basename(APP_PATH, ".app")}"`);
 
     // console.log("Debug session ended.");
-  } catch (error) {
-    console.error("An error occurred:", error);
-  }
+    } catch (error) {
+        console.error("An error occurred:", error);
+    }
 }
 
 main();

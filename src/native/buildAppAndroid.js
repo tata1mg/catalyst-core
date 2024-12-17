@@ -1,12 +1,8 @@
 import { exec } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import fs from 'fs';
 import { runCommand, runInteractiveCommand } from './utils.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const configPath =`${process.env.PWD}/config/config.json`;
+const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
+const configPath = `${process.env.PWD}/config/config.json`;
 
 // Read and parse config file
 const configFile = fs.readFileSync(configPath, 'utf8');
@@ -94,7 +90,7 @@ async function startEmulator() {
 async function installApp() {
     try {
         console.log('Building and installing app...');
-        const buildCommand = `cd ./androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${androidConfig.packageName} 1`;
+        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${androidConfig.packageName} 1`;
         
         await runInteractiveCommand('sh', ['-c', buildCommand], {
             'BUILD SUCCESSFUL': ''
@@ -109,9 +105,7 @@ async function installApp() {
 
 async function main() {
     try {
-        // Validate Android tools before proceeding
         validateAndroidTools();
-
         const emulatorRunning = await checkEmulator();
         
         if (!emulatorRunning) {
@@ -128,6 +122,4 @@ async function main() {
     }
 }
 
-// Execute the main function
 await main();
-
