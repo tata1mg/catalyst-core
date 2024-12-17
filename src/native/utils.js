@@ -114,7 +114,6 @@ async function validateAndCompleteConfig(platform, configPath) {
             packageName: 'Enter Android package name (e.g., com.example.androidProject): '
         },
         ios: {
-            schemeName: 'Enter iOS scheme name: ',
             buildType: 'Enter iOS build type (debug/release): ',
             appBundleId: 'Enter iOS bundle ID (e.g., com.aranoah.healthkart): ',
             simulatorName: 'Enter iOS simulator name (e.g., iPhone 16 Pro): '
@@ -149,8 +148,12 @@ async function validateAndCompleteConfig(platform, configPath) {
         }
     }
 
+    // If all fields are present, return the platform-specific config
     if (hasAllFields) {
-        return console.log('Configuration is already complete.');
+        return {
+            port: webviewConfig.port,
+            [platform]: webviewConfig[platform]
+        };
     }
 
     // Handle common fields
@@ -181,7 +184,11 @@ async function validateAndCompleteConfig(platform, configPath) {
         throw error;
     }
 
-    return config;
+    // Return only the platform-specific config
+    return {
+        port: webviewConfig.port,
+        [platform]: webviewConfig[platform]
+    };
 }
 
 export {
