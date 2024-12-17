@@ -21,7 +21,8 @@ const url = `http://${getLocalIPAddress()}:${WEBVIEW_CONFIG.port}`;
 // Set variables based on the configuration
 const PROJECT_DIR = `${pwd}/iosnativeWebView`;
 const SCHEME_NAME = "iosnativeWebView";
-const APP_BUNDLE_ID = iosConfig.appBundleId;
+// Use a default debug bundle ID if none is provided
+const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview";
 const PROJECT_NAME = path.basename(PROJECT_DIR);
 const IPHONE_MODEL = iosConfig.simulatorName;
 
@@ -79,6 +80,7 @@ async function main() {
             `xcodebuild clean -scheme "${SCHEME_NAME}" -sdk iphonesimulator -configuration Debug`
         );
 
+        // Build with dynamic bundle ID
         console.log("Building project...");
         await runCommand(
             `xcodebuild \
@@ -86,6 +88,11 @@ async function main() {
             -sdk iphonesimulator \
             -configuration Debug \
             -destination "platform=iOS Simulator,name=${IPHONE_MODEL}" \
+            PRODUCT_BUNDLE_IDENTIFIER="${APP_BUNDLE_ID}" \
+            DEVELOPMENT_TEAM="" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=YES \
             BUILD_DIR="${derivedDataPath}/${PROJECT_NAME}-Build/Build/Products" \
             CONFIGURATION_BUILD_DIR="${derivedDataPath}/${PROJECT_NAME}-Build/Build/Products/Debug-iphonesimulator" \
