@@ -1,39 +1,47 @@
 import { exec } from 'child_process';
 import fs from 'fs';
 import { runCommand, runInteractiveCommand } from './utils.js';
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
+
 const configPath = `${process.env.PWD}/config/config.json`;
+const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
 
-// Read and parse config file
-const configFile = fs.readFileSync(configPath, 'utf8');
-const { WEBVIEW_CONFIG } = JSON.parse(configFile);
+async function initializeConfig() {
+    const configFile = fs.readFileSync(configPath, 'utf8');
+    const config = JSON.parse(configFile);
+    const { WEBVIEW_CONFIG } = config;
 
-if (Object.keys(WEBVIEW_CONFIG).length === 0) {
-    console.error('WebView Config missing in', configPath);
-    process.exit(1);
+    if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
+        console.error('WebView Config missing in', configPath);
+        process.exit(1);
+    }
+
+    if (!WEBVIEW_CONFIG.android) {
+        console.error('Android config missing in WebView Config');
+        process.exit(1);
+    }
+
+    return { WEBVIEW_CONFIG };
 }
 
-const androidConfig = WEBVIEW_CONFIG.android;
+function validateAndroidTools(androidConfig) {
+    const ANDROID_SDK = androidConfig.sdkPath;
+    const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`;
+    const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`;
 
-const ANDROID_SDK = androidConfig.sdkPath;
-if (!ANDROID_SDK) {
-    throw new Error('ANDROID_HOME or ANDROID_SDK_ROOT environment variable must be set');
-}
-const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`;
-const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`;
-
-function validateAndroidTools() {
     console.log('Validating Android tools...');
     
-    // Check if SDK path exists
+    if (!ANDROID_SDK) {
+        throw new Error('Android SDK path is not configured');
+    }
+
     if (!fs.existsSync(ANDROID_SDK)) {
         throw new Error(`Android SDK path does not exist: ${ANDROID_SDK}`);
     }
 
-    // Check ADB
     if (!fs.existsSync(ADB_PATH)) {
         throw new Error(`ADB not found at: ${ADB_PATH}`);
     }
+
     try {
         runCommand(`${ADB_PATH} version`);
         console.log('✓ ADB is valid');
@@ -41,10 +49,10 @@ function validateAndroidTools() {
         throw new Error(`ADB is not working properly: ${error.message}`);
     }
 
-    // Check Emulator
     if (!fs.existsSync(EMULATOR_PATH)) {
         throw new Error(`Emulator not found at: ${EMULATOR_PATH}`);
     }
+
     try {
         runCommand(`${EMULATOR_PATH} -version`);
         console.log('✓ Emulator is valid');
@@ -52,7 +60,6 @@ function validateAndroidTools() {
         throw new Error(`Emulator is not working properly: ${error.message}`);
     }
 
-    // Check if the specified emulator exists
     try {
         const avdOutput = runCommand(`${EMULATOR_PATH} -list-avds`);
         if (!avdOutput.includes(androidConfig.emulatorName)) {
@@ -64,9 +71,10 @@ function validateAndroidTools() {
     }
 
     console.log('Android tools validation completed successfully!');
+    return { ANDROID_SDK, ADB_PATH, EMULATOR_PATH };
 }
 
-async function checkEmulator() {
+async function checkEmulator(ADB_PATH) {
     try {
         const devices = runCommand(`${ADB_PATH} devices`);
         return devices.includes('emulator');
@@ -76,7 +84,7 @@ async function checkEmulator() {
     }
 }
 
-async function startEmulator() {
+async function startEmulator(EMULATOR_PATH, androidConfig) {
     console.log(`Starting emulator: ${androidConfig.emulatorName}...`);
     exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, 
         (error, stdout, stderr) => {
@@ -87,7 +95,7 @@ async function startEmulator() {
     );
 }
 
-async function installApp() {
+async function installApp(ADB_PATH, androidConfig) {
     try {
         console.log('Building and installing app...');
         const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${androidConfig.packageName} 1`;
@@ -103,23 +111,32 @@ async function installApp() {
     }
 }
 
-async function main() {
+async function buildAndroidApp() {
     try {
-        validateAndroidTools();
-        const emulatorRunning = await checkEmulator();
-        
+        // Initialize configuration
+        const { WEBVIEW_CONFIG } = await initializeConfig();
+        const androidConfig = WEBVIEW_CONFIG.android;
+
+        // Validate tools and get paths
+        const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = validateAndroidTools(androidConfig);
+
+        // Check and start emulator if needed
+        const emulatorRunning = await checkEmulator(ADB_PATH);
         if (!emulatorRunning) {
             console.log('No emulator running, attempting to start one...');
-            await startEmulator();
+            await startEmulator(EMULATOR_PATH, androidConfig);
         } else {
             console.log('Emulator already running, proceeding with installation...');
         }
         
-        await installApp();
+        // Install the app
+        await installApp(ADB_PATH, androidConfig);
+        
     } catch (error) {
-        console.error('Error in main process:', error);
+        console.error('Error in build process:', error);
         process.exit(1);
     }
 }
 
-await main();
+// Execute the main build process
+buildAndroidApp();

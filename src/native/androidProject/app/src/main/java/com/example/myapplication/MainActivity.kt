@@ -57,7 +57,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         setupWebView(properties)
 
-        val loadUrl = properties.getProperty("url", "http://192.168.197.178:3005")
+        val local_ip = properties.getProperty("LOCAL_IP" , "localhost")
+        val port = properties.getProperty("port" , "3005")
+        val loadUrl = "http://$local_ip:$port"
         makeRequest(loadUrl)
     }
 
