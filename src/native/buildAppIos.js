@@ -19,7 +19,7 @@ const iosConfig = WEBVIEW_CONFIG.ios;
 const url = `http://${getLocalIPAddress()}:${WEBVIEW_CONFIG.port}`;
 
 // Set variables based on the configuration
-const PROJECT_DIR = iosConfig.projectDir;
+const PROJECT_DIR = "./iosnativeWebView";
 const SCHEME_NAME = iosConfig.schemeName;
 const APP_BUNDLE_ID = iosConfig.appBundleId;
 const PROJECT_NAME = path.basename(PROJECT_DIR);
