@@ -155,8 +155,3 @@ async function launchIOSSimulator() {
 
 // Execute the main setup
 setupIOSEnvironment();
-
-// Export functions for potential external use
-export {
-    setupIOSEnvironment,
-};

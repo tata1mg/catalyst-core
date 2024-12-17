@@ -25,15 +25,18 @@ const APP_BUNDLE_ID = iosConfig.appBundleId;
 const PROJECT_NAME = path.basename(PROJECT_DIR);
 const IPHONE_MODEL = iosConfig.simulatorName;
 
-function runCommand(command) {
+function runCommand(command, options = {}) {
     return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
+        exec(command, { maxBuffer: 1024 * 1024 * 10, ...options }, (error, stdout, stderr) => {
             if (error) {
-                reject(`Error: ${error.message}`);
+                console.error(`Command failed: ${command}`);
+                console.error(`Error: ${error.message}`);
+                console.error(`stderr: ${stderr}`);
+                reject(error);
                 return;
             }
             if (stderr) {
-                // console.error(`stderr: ${stderr}`);
+                console.warn(`Warning: ${stderr}`);
             }
             resolve(stdout.trim());
         });
@@ -51,21 +54,44 @@ async function main() {
         await runCommand(`swift ${pwd}/build.swift "${url}" "${configOutputPath}"`);
 
         process.chdir(PROJECT_DIR);
-    const xcuserdataPath = path.join(
-      `${PROJECT_NAME}.xcodeproj`,
-      `project.xcworkspace`,
-      "xcuserdata"
-    );
-    if (fs.existsSync(xcuserdataPath)) {
-      await runCommand(`rm -rf "${xcuserdataPath}"`);
-    }
-    await runCommand(
-      `xcodebuild clean -scheme "${SCHEME_NAME}" -sdk iphonesimulator`
-    );
-    console.log("Building project...");
-    await runCommand(
-      `xcodebuild -scheme "${SCHEME_NAME}" -sdk iphonesimulator -configuration Debug > /dev/null`
-    );
+        
+        // Clean build artifacts and DerivedData
+        console.log("Cleaning previous build artifacts...");
+        const xcuserdataPath = path.join(
+            `${PROJECT_NAME}.xcodeproj`,
+            `project.xcworkspace`,
+            "xcuserdata"
+        );
+        if (fs.existsSync(xcuserdataPath)) {
+            await runCommand(`rm -rf "${xcuserdataPath}"`);
+        }
+        
+        // Clean DerivedData for this project
+        const derivedDataPath = path.join(
+            process.env.HOME,
+            "Library/Developer/Xcode/DerivedData"
+        );
+        await runCommand(`rm -rf "${derivedDataPath}/${PROJECT_NAME}-*"`);
+
+        // Clean and build with more detailed flags
+        console.log("Cleaning project...");
+        await runCommand(
+            `xcodebuild clean -scheme "${SCHEME_NAME}" -sdk iphonesimulator -configuration Debug`
+        );
+
+        console.log("Building project...");
+        await runCommand(
+            `xcodebuild \
+            -scheme "${SCHEME_NAME}" \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=${IPHONE_MODEL}" \
+            ONLY_ACTIVE_ARCH=YES \
+            BUILD_DIR="${derivedDataPath}/${PROJECT_NAME}-Build/Build/Products" \
+            CONFIGURATION_BUILD_DIR="${derivedDataPath}/${PROJECT_NAME}-Build/Build/Products/Debug-iphonesimulator" \
+            build`,
+            { maxBuffer: 1024 * 1024 * 10 }
+        );
 
     const DERIVED_DATA_DIR = path.join(
       process.env.HOME,
