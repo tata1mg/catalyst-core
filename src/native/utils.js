@@ -161,10 +161,8 @@ async function validateAndCompleteConfig(platform, configPath) {
     }
 
     // Set domain and port from URL if not provided
-    if (!webviewConfig.domain || !webviewConfig.port) {
-        const url = new URL(webviewConfig.url)
-        webviewConfig.domain = webviewConfig.domain || url.hostname
-        webviewConfig.port = webviewConfig.port || url.port
+    if (!webviewConfig.port) {
+        webviewConfig.port = webviewConfig.port
     }
 
     // Handle platform-specific fields
