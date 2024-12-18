@@ -52,7 +52,7 @@
         "@loadable/webpack-plugin": "^5.15.2",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
         "@svgr/webpack": "^8.1.0",
-        "@tata1mg/router": "0.0.1-beta.5",
+        "@tata1mg/router": "0.0.1-beta.6",
         "app-root-path": "^3.1.0",
         "babel-loader": "^9.1.3",
         "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
