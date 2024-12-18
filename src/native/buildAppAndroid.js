@@ -9,6 +9,7 @@ async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, 'utf8');
     const config = JSON.parse(configFile);
     const { WEBVIEW_CONFIG } = config;
+    const ANDROID_PACKAGE = "com.example.androidProject"
 
     if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
         console.error('WebView Config missing in', configPath);
@@ -19,7 +20,7 @@ async function initializeConfig() {
         console.error('Android config missing in WebView Config');
         process.exit(1);
     }
-
+    WEBVIEW_CONFIG.packageName = ANDROID_PACKAGE
     return { WEBVIEW_CONFIG };
 }
 
@@ -131,6 +132,7 @@ async function buildAndroidApp() {
         
         // Install the app
         await installApp(ADB_PATH, androidConfig);
+        process.exit(0);
         
     } catch (error) {
         console.error('Error in build process:', error);

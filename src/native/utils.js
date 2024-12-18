@@ -110,8 +110,7 @@ async function validateAndCompleteConfig(platform, configPath) {
         android: {
             buildType: 'Enter Android build type (debug/release): ',
             sdkPath: 'Enter Android SDK path: ',
-            emulatorName: 'Enter Android emulator name (e.g., Small_Phone_API_35): ',
-            packageName: 'Enter Android package name (e.g., com.example.androidProject): '
+            emulatorName: 'Enter Android emulator name (e.g., Small_Phone_API_35): '
         },
         ios: {
             buildType: 'Enter iOS build type (debug/release): ',
