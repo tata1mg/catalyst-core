@@ -224,7 +224,7 @@ async function setupAndroidEnvironment() {
 
         console.log('\nFinal Configuration:');
         console.log(JSON.stringify(config, null, 2));
-
+        process.exit(0);
     } catch (error) {
         console.error('Error in setup process:', error);
         process.exit(1);
