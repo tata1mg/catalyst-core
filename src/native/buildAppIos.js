@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
-const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`);
+const { WEBVIEW_CONFIG } = require("/Users/mayankmahavar/test-webview/config/config.json" ||`${process.env.PWD}/config/config.json`);
 
 function getLocalIPAddress() {
     try {
@@ -44,6 +44,35 @@ function runCommand(command, options = {}) {
     });
 }
 
+async function getBootedSimulatorUUID(modelName) {
+  try {
+      const command = `xcrun simctl list devices | grep "${modelName}" | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`;
+      const uuid = execSync(command).toString().trim();
+      return uuid || null;
+  } catch (error) {
+      return null;
+  }
+}
+
+async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
+  const buildCommand = `xcodebuild \
+      -scheme "${scheme}" \
+      -sdk ${sdk} \
+      -configuration Debug \
+      -destination "${destination}" \
+      PRODUCT_BUNDLE_IDENTIFIER="${bundleId}" \
+      DEVELOPMENT_TEAM="" \
+      CODE_SIGN_IDENTITY="" \
+      CODE_SIGNING_REQUIRED=NO \
+      CODE_SIGNING_ALLOWED=NO \
+      ONLY_ACTIVE_ARCH=YES \
+      BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
+      CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
+      build`;
+
+  return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 });
+}
+
 async function main() {
     try {
         console.log("Generating ConfigConstants.swift...");
@@ -80,25 +109,43 @@ async function main() {
             `xcodebuild clean -scheme "${SCHEME_NAME}" -sdk iphonesimulator -configuration Debug`
         );
 
-        // Build with dynamic bundle ID
         console.log("Building project...");
-        await runCommand(
-            `xcodebuild \
-            -scheme "${SCHEME_NAME}" \
-            -sdk iphonesimulator \
-            -configuration Debug \
-            -destination "platform=iOS Simulator,name=${IPHONE_MODEL}" \
-            PRODUCT_BUNDLE_IDENTIFIER="${APP_BUNDLE_ID}" \
-            DEVELOPMENT_TEAM="" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=YES \
-            BUILD_DIR="${derivedDataPath}/${PROJECT_NAME}-Build/Build/Products" \
-            CONFIGURATION_BUILD_DIR="${derivedDataPath}/${PROJECT_NAME}-Build/Build/Products/Debug-iphonesimulator" \
-            build`,
-            { maxBuffer: 1024 * 1024 * 10 }
-        );
+        try {
+            await buildProject(
+                SCHEME_NAME,
+                "iphonesimulator",
+                `platform=iOS Simulator,name=${IPHONE_MODEL}`,
+                APP_BUNDLE_ID,
+                derivedDataPath,
+                PROJECT_NAME
+            );
+        } catch (buildError) {
+            // Check if error is due to multiple matching devices
+            if (buildError.message.includes("multiple devices matched the request")) {
+                console.log("Multiple matching devices found. Attempting to use booted device...");
+                const bootedUUID = await getBootedSimulatorUUID(IPHONE_MODEL);
+                
+                if (bootedUUID) {
+                    console.log(`Found booted simulator with UUID: ${bootedUUID}`);
+                    // Retry build with specific UUID
+                    await buildProject(
+                        SCHEME_NAME,
+                        "iphonesimulator",
+                        `platform=iOS Simulator,id=${bootedUUID}`,
+                        APP_BUNDLE_ID,
+                        derivedDataPath,
+                        PROJECT_NAME
+                    );
+                } else {
+                    console.error("No booted simulator found. Please start a simulator and try again.");
+                    process.exit(1);
+                }
+            } else {
+                // If it's a different error, throw it
+                throw buildError;
+            }
+        }
+
 
     const DERIVED_DATA_DIR = path.join(
       process.env.HOME,

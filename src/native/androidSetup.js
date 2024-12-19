@@ -4,6 +4,74 @@ import { runCommand, promptUser, validateAndCompleteConfig } from './utils.js';
 
 const configPath = `${process.env.PWD}/config/config.json`;
 
+async function checkJavaInstallation() {
+    try {
+        runCommand('java -version');
+        runCommand('javac -version');
+        console.log('✓ Java is installed and configured');
+        return true;
+    } catch (error) {
+        console.log('Java installation not found or not properly configured');
+        return false;
+    }
+}
+
+async function installJava() {
+    console.log('Installing Java (Zulu JDK 17)...');
+    try {
+        // Check if Homebrew is installed
+        try {
+            runCommand('brew --version');
+        } catch (error) {
+            throw new Error('Homebrew is required but not installed. Please install Homebrew first.');
+        }
+
+        // Install Zulu JDK 17
+        await runCommand('brew install --cask zulu@17');
+        
+        // Set JAVA_HOME
+        const javaHome = '/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home';
+        
+        // Update shell profile file
+        const homeDir = process.env.HOME;
+        const shellProfile = `${homeDir}/.zshrc`; // You might want to check for .bash_profile as well
+        
+        const exportCommand = `\n# Java Configuration\nexport JAVA_HOME=${javaHome}\nexport PATH=$JAVA_HOME/bin:$PATH\n`;
+        
+        fs.appendFileSync(shellProfile, exportCommand);
+        
+        // Set for current session
+        process.env.JAVA_HOME = javaHome;
+        process.env.PATH = `${javaHome}/bin:${process.env.PATH}`;
+        
+        console.log('✓ Java installed and configured successfully');
+        console.log('NOTE: Please restart your terminal or run:');
+        console.log(`source ${shellProfile}`);
+        
+        // Verify installation
+        const javaVersion = runCommand('java -version');
+        console.log('Java installation verified:', javaVersion);
+        
+        return true;
+    } catch (error) {
+        console.error('Failed to install Java:', error.message);
+        return false;
+    }
+}
+
+async function validateJavaEnvironment() {
+    console.log('Checking Java environment...');
+    const hasJava = await checkJavaInstallation();
+    
+    if (!hasJava) {
+        console.log('Java installation required. Starting installation process...');
+        const javaInstalled = await installJava();
+        if (!javaInstalled) {
+            throw new Error('Failed to set up Java environment');
+        }
+    }
+}
+
 async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, 'utf8');
     const config = JSON.parse(configFile);
@@ -113,6 +181,7 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
 
 async function setupAndroidEnvironment() {
     try {
+        await validateJavaEnvironment();
         const { WEBVIEW_CONFIG } = await initializeConfig();
         const config = await validateAndCompleteConfig('android', configPath);
         
