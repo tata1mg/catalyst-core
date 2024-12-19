@@ -2,6 +2,8 @@ import fs from 'fs';
 import { exec } from 'child_process';
 import { runCommand, promptUser, validateAndCompleteConfig } from './utils.js';
 
+
+const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
 const configPath = `${process.env.PWD}/config/config.json`;
 
 async function checkJavaInstallation() {
@@ -179,6 +181,17 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
     );
 }
 
+async function updateLocalProperties(sdkPath) {
+    console.log('Updating local.properties with SDK path...');
+    try {
+        runCommand(`cd ${pwd}/androidProject && ./gradlew updateSdkPath -PsdkPath="${sdkPath}"`);
+        console.log('✓ Updated local.properties successfully');
+    } catch (error) {
+        console.error('Failed to update local.properties:', error.message);
+        throw error;
+    }
+}
+
 async function setupAndroidEnvironment() {
     try {
         await validateJavaEnvironment();
@@ -193,6 +206,9 @@ async function setupAndroidEnvironment() {
         if (!emulatorRunning) {
             console.log('No emulator running, attempting to start one...');
             await startEmulator(EMULATOR_PATH, config.android);
+            if (config.android?.sdkPath) {
+                await updateLocalProperties(config.android.sdkPath);
+            }
         } else {
             console.log('Emulator already running, proceeding with installation...');
         }

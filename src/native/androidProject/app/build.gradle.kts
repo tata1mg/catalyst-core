@@ -83,6 +83,34 @@ tasks.register("printLocalIp") {
     }
 }
 
+tasks.register("updateSdkPath") {
+    doLast {
+        val sdkPath: String? by project.properties
+
+        if (sdkPath == null) {
+            throw GradleException(
+                """
+                SDK path not provided!
+                Please provide the SDK path using -PsdkPath=/path/to/sdk
+                Example: ./gradlew updateSdkPath -PsdkPath=/path/to/android/sdk
+                """.trimIndent()
+            )
+        }
+
+        val localProperties = File(project.rootDir, "local.properties")
+        val properties = Properties()
+
+        if (localProperties.exists()) {
+            properties.load(localProperties.inputStream())
+        }
+
+        properties.setProperty("sdk.dir", sdkPath)
+        properties.store(localProperties.outputStream(), "Updated SDK Path")
+
+        println("Updated SDK path to: $sdkPath")
+    }
+}
+
 // Task to generate WebView config
 tasks.register("generateWebViewConfig") {
     doLast {
