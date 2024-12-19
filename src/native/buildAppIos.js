@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
-const { WEBVIEW_CONFIG } = require("/Users/mayankmahavar/test-webview/config/config.json" ||`${process.env.PWD}/config/config.json`);
+const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`);
 
 function getLocalIPAddress() {
     try {
