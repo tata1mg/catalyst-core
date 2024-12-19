@@ -3,17 +3,35 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fs from 'fs';
 import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js";
+import TerminalProgress from './TerminalProgress.js';
 
 const configPath = `${process.env.PWD}/config/config.json`;
 const ITEMS_PER_PAGE = 10;
 
+const steps = {
+    platform: 'Check Platform Compatibility',
+    config: 'Initialize Configuration',
+    simulator: 'Configure iOS Simulator',
+    launch: 'Launch iOS Simulator',
+    saveConfig: 'Saving configuration'
+};
+const progressPaddingConfig = {
+    titlePaddingTop: 2,
+    titlePaddingBottom: 1,
+    stepPaddingLeft: 4,
+    stepSpacing: 1,
+    errorPaddingLeft: 6,
+    bottomMargin: 2
+  }
+
+const progress = new TerminalProgress(steps , "Catalyst Universal Ios Setup" ,progressPaddingConfig );
 async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, 'utf8');
     const config = JSON.parse(configFile);
     const { WEBVIEW_CONFIG } = config;
 
     if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
-        console.error('WebView Config missing in', configPath);
+        progress.log('WebView Config missing in ' + configPath, 'error');
         process.exit(1);
     }
 
@@ -38,35 +56,60 @@ async function saveConfig(newConfig) {
         
         // Save the merged config
         fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
-        console.log('Configuration saved successfully.');
+        progress.log('Configuration saved successfully', 'success');
     } catch (error) {
-        console.error('Failed to save configuration:', error);
+        progress.log('Failed to save configuration: ' + error.message, 'error');
         process.exit(1);
     }
 }
 
 async function setupIOSEnvironment() {
-    if (process.platform !== "darwin") {
-        console.log("iOS Simulator is only available on macOS.");
+
+    try {
+ 
+        progress.start('platform');
+        if (process.platform !== "darwin") {
+            progress.log("iOS Simulator is only available on macOS.");
+            process.exit(1);
+        }
+        progress.complete('platform');
+    
+        progress.start('config');
+        const { WEBVIEW_CONFIG } = await initializeConfig();
+        progress.complete('config');
+    
+        progress.start('simulator');
+        await configureSimulator(WEBVIEW_CONFIG);
+        progress.complete('simulator');
+    
+        progress.start('launch');
+        await launchIOSSimulator(WEBVIEW_CONFIG.ios.simulatorName);
+        progress.complete('launch');
+    
+        progress.start('saveConfig');
+        const config = await validateAndCompleteConfig('ios', configPath); 
+        progress.complete('saveConfig');   
+        
+        progress.printTreeContent('Configuration Explanation', [
+            'WEBVIEW_CONFIG: Main configuration object for the WebView setup',
+            { text: 'port: Port number for the WebView server', indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: 'ios: iOS-specific configuration', indent: 1, prefix: '└─ ', color: 'gray' },
+            { text: 'buildType: Build type (debug/release)', indent: 2, prefix: '├─ ', color: 'gray' },
+            { text: 'appBundleId: iOS application bundle identifier', indent: 2, prefix: '├─ ', color: 'gray' },
+            { text: 'simulatorName: Selected iOS simulator name', indent: 2, prefix: '└─ ', color: 'gray' }
+        ]);
+        
+        progress.printTreeContent('Final Configuration', [
+            JSON.stringify(config, null, 2)
+        ]);
+        process.exit(0);
+    } catch (error) {
+        if (progress.currentStep) {
+            progress.fail(progress.currentStep.id, error.message);
+        }
         process.exit(1);
     }
 
-    const { WEBVIEW_CONFIG } = await initializeConfig();
-    await configureSimulator(WEBVIEW_CONFIG);
-    await launchIOSSimulator(WEBVIEW_CONFIG.ios.simulatorName);
-    const config = await validateAndCompleteConfig('ios', configPath);    
-    
-    console.log('\nConfiguration Explanation:');
-    console.log('WEBVIEW_CONFIG: Main configuration object for the WebView setup');
-    console.log('├─ port: Port number for the WebView server');
-    console.log('└─ ios: iOS-specific configuration');
-    console.log('   ├─ buildType: Build type (debug/release)');
-    console.log('   ├─ appBundleId: iOS application bundle identifier');
-    console.log('   └─ simulatorName: Selected iOS simulator name');
-
-    console.log('\nFinal Configuration:');
-    console.log(JSON.stringify(config, null, 2));
-    process.exit(0);
 }
 
 async function getRuntime() {
@@ -111,6 +154,7 @@ async function displayPaginatedList(items, startIndex) {
 }
 
 async function configureSimulator(config) {
+    progress.pause();
     const availableSimulators = runCommand("xcrun simctl list devices available");
     const simulatorLines = availableSimulators.split("\n")
         .filter((line) => line.includes("("))
@@ -118,7 +162,6 @@ async function configureSimulator(config) {
 
     let startIndex = 0;
     console.log("\nAvailable simulators (or type 'new' to create a new one):");
-    
     while (true) {
         const hasMore = await displayPaginatedList(simulatorLines, startIndex);
         const simulatorChoice = await promptUser(hasMore ? "" : "\nEnter selection: ");
@@ -160,13 +203,14 @@ async function configureSimulator(config) {
             }
         }
     }
+    progress.resume();
 
     await saveConfig({ WEBVIEW_CONFIG: config });
 }
 
 
 async function launchIOSSimulator(simulatorName) {
-    console.log("Launching iOS Simulator...");
+    progress.log("Launching iOS Simulator...");
     try {
         // Get all simulators including both available and booted ones
         const allSimulatorInfo = execSync("xcrun simctl list devices -j").toString();
@@ -201,7 +245,7 @@ async function launchIOSSimulator(simulatorName) {
         }
 
         // Open Simulator.app and focus
-        console.log("Opening Simulator.app...");
+        progress.log("Opening Simulator.app...");
         runCommand("open -a Simulator");
         
         // Give the simulator a moment to open/focus
