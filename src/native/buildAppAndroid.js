@@ -4,12 +4,12 @@ import { runCommand, runInteractiveCommand } from './utils.js';
 
 const configPath = `${process.env.PWD}/config/config.json`;
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
+const ANDROID_PACKAGE = "com.example.androidProject"
 
 async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, 'utf8');
     const config = JSON.parse(configFile);
     const { WEBVIEW_CONFIG } = config;
-    const ANDROID_PACKAGE = "com.example.androidProject"
 
     if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
         console.error('WebView Config missing in', configPath);
@@ -20,7 +20,6 @@ async function initializeConfig() {
         console.error('Android config missing in WebView Config');
         process.exit(1);
     }
-    WEBVIEW_CONFIG.packageName = ANDROID_PACKAGE
     return { WEBVIEW_CONFIG };
 }
 
@@ -99,7 +98,7 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
 async function installApp(ADB_PATH, androidConfig) {
     try {
         console.log('Building and installing app...');
-        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${androidConfig.packageName} 1`;
+        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE} 1`;
         
         await runInteractiveCommand('sh', ['-c', buildCommand], {
             'BUILD SUCCESSFUL': ''

@@ -206,11 +206,11 @@ async function setupAndroidEnvironment() {
         if (!emulatorRunning) {
             console.log('No emulator running, attempting to start one...');
             await startEmulator(EMULATOR_PATH, config.android);
-            if (config.android?.sdkPath) {
-                await updateLocalProperties(config.android.sdkPath);
-            }
         } else {
             console.log('Emulator already running, proceeding with installation...');
+        }
+        if (config.android?.sdkPath) {
+            await updateLocalProperties(config.android.sdkPath);
         }
 
         console.log('\nConfiguration Explanation:');
