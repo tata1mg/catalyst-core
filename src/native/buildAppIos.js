@@ -105,9 +105,13 @@ async function main() {
 
         // Clean and build with more detailed flags
         console.log("Cleaning project...");
-        await runCommand(
+        try {
+          await runCommand(
             `xcodebuild clean -scheme "${SCHEME_NAME}" -sdk iphonesimulator -configuration Debug`
         );
+        } catch (error) {
+          console.log("Error cleaning", error)
+        }
 
         console.log("Building project...");
         try {
