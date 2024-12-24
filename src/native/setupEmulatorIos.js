@@ -112,6 +112,22 @@ async function setupIOSEnvironment() {
 
 }
 
+async function displayPaginatedList(items, startIndex) {
+    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, items.length);
+    
+    for (let i = startIndex; i < endIndex; i++) {
+        console.log(`${i + 1}. ${items[i]}`);
+    }
+    
+    if (endIndex < items.length) {
+        console.log(`\nShowing ${startIndex + 1}-${endIndex} of ${items.length} items`);
+        console.log('Type "more" to see more items, or enter your selection: ');
+        return true;
+    }
+    
+    return false;
+}
+
 async function getRuntime() {
     const runtimesOutput = execSync("xcrun simctl list runtimes -j").toString();
     const parsedRuntimes = JSON.parse(runtimesOutput).runtimes;
@@ -137,33 +153,33 @@ async function getRuntime() {
     return availableRuntime;
 }
 
-async function displayPaginatedList(items, startIndex) {
-    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, items.length);
-    
-    for (let i = startIndex; i < endIndex; i++) {
-        console.log(`${i + 1}. ${items[i]}`);
-    }
-    
-    if (endIndex < items.length) {
-        console.log(`\nShowing ${startIndex + 1}-${endIndex} of ${items.length} items`);
-        console.log('Type "more" to see more items, or enter your selection: ');
-        return true;
-    }
-    
-    return false;
-}
-
 async function configureSimulator(config) {
     progress.pause();
-    const availableSimulators = runCommand("xcrun simctl list devices available");
-    const simulatorLines = availableSimulators.split("\n")
-        .filter((line) => line.includes("("))
-        .map(line => line.trim());
+    
+    // Get the current runtime first
+    const runtime = await getRuntime();
+    
+    // Get simulators specifically for this runtime
+    const simulatorsJson = JSON.parse(execSync("xcrun simctl list devices -j").toString());
+    const runtimeSimulators = simulatorsJson.devices[runtime.identifier] || [];
+    
+    // Filter for available simulators only
+    const availableSimulators = runtimeSimulators
+        .filter(sim => sim.availability === "(available)" || sim.isAvailable)
+        .map(sim => `${sim.name} (${sim.udid})`);
+
+    if (availableSimulators.length === 0) {
+        progress.log(`No available simulators found for runtime: ${runtime.name}`, 'error');
+        progress.resume();
+        process.exit(1);
+        return;
+    }
 
     let startIndex = 0;
-    console.log("\nAvailable simulators (or type 'new' to create a new one):");
+    console.log(`\nAvailable simulators for ${runtime.name} (or type 'new' to create a new one):`);
+    
     while (true) {
-        const hasMore = await displayPaginatedList(simulatorLines, startIndex);
+        const hasMore = await displayPaginatedList(availableSimulators, startIndex);
         const simulatorChoice = await promptUser(hasMore ? "" : "\nEnter selection: ");
 
         if (simulatorChoice.toLowerCase() === 'more' && hasMore) {
@@ -174,7 +190,6 @@ async function configureSimulator(config) {
         if (simulatorChoice.toLowerCase() === 'new') {
             const deviceTypes = JSON.parse(execSync("xcrun simctl list devicetypes --json").toString()).devicetypes;
             const simulatorName = await promptUser("Enter a name for the new simulator: ");
-            const runtime = await getRuntime();
             
             // Use iPhone 15 Pro as default device type
             const defaultDevice = deviceTypes.find(dt => dt.name.includes("iPhone 15 Pro")) || deviceTypes[0];
@@ -192,8 +207,8 @@ async function configureSimulator(config) {
             break;
         } else {
             const index = parseInt(simulatorChoice) - 1;
-            if (index >= 0 && index < simulatorLines.length) {
-                const selectedSimulator = simulatorLines[index];
+            if (index >= 0 && index < availableSimulators.length) {
+                const selectedSimulator = availableSimulators[index];
                 // Extract only the simulator name without ID and state
                 const simulatorName = selectedSimulator.split(" (")[0];
                 config.ios.simulatorName = simulatorName;
@@ -203,9 +218,27 @@ async function configureSimulator(config) {
             }
         }
     }
+    
     progress.resume();
-
     await saveConfig({ WEBVIEW_CONFIG: config });
+}
+
+async function createDefaultSimulator(config, runtime) {
+    const deviceTypes = JSON.parse(execSync("xcrun simctl list devicetypes --json").toString()).devicetypes;
+    const defaultDevice = deviceTypes.find(dt => dt.name.includes("iPhone 15 Pro")) || deviceTypes[0];
+    const simulatorName = `Default ${defaultDevice.name.split(" (")[0]}`;
+    
+    try {
+        runCommand(
+            `xcrun simctl create "${simulatorName}" "${defaultDevice.identifier}" "${runtime.identifier}"`
+        );
+        console.log(`Default simulator "${simulatorName}" created successfully.`);
+        config.ios.simulatorName = simulatorName;
+        await saveConfig({ WEBVIEW_CONFIG: config });
+    } catch (error) {
+        console.log(`Failed to create default simulator. Error: ${error.message}`);
+        process.exit(1);
+    }
 }
 
 
