@@ -36,7 +36,7 @@ const progressConfig = {
     bottomMargin: 2
 };
 
-const progress = new TerminalProgress(steps, "iOS Build Process", progressConfig);
+const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig);
 
 async function generateConfigConstants() {
     progress.start('config');
