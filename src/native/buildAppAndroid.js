@@ -165,18 +165,30 @@ async function buildAndroidApp() {
         await installApp(ADB_PATH, androidConfig);
         progress.complete('build');
 
-        // Print final configuration tree
-        progress.printTreeContent('Build Configuration', [
-            'WEBVIEW_CONFIG: Main configuration for Android build',
-            { text: 'android: Android-specific configuration', indent: 1, prefix: '├─ ', color: 'gray' },
-            { text: `sdkPath: ${androidConfig.sdkPath}`, indent: 2, prefix: '├─ ', color: 'gray' },
-            { text: `emulatorName: ${androidConfig.emulatorName}`, indent: 2, prefix: '└─ ', color: 'gray' }
+        // Print build summary
+        progress.printTreeContent('Build Summary', [
+            'Build completed successfully:',
+            { text: `Emulator: ${androidConfig.emulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Build Type: Debug`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: '└─ ', color: 'gray' }
         ]);
 
         process.exit(0);
     } catch (error) {
         if (progress.currentStep) {
             progress.fail(progress.currentStep.id, error.message);
+            
+            if (progress.currentStep.id === 'build') {
+                progress.printTreeContent('Troubleshooting Guide', [
+                    'Build failed. Please try the following steps:',
+                    { text: 'Check if Android SDK is properly configured', indent: 1, prefix: '├─ ', color: 'yellow' },
+                    { text: 'Verify that the emulator exists and is working', indent: 1, prefix: '├─ ', color: 'yellow' },
+                    { text: 'Run "npm run setupEmulator:android" to reconfigure Android settings', indent: 1, prefix: '└─ ', color: 'yellow' },
+                    '\nVerify Configuration:',
+                    { text: `Selected Emulator: ${androidConfig.emulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                    { text: `Android SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: '└─ ', color: 'gray' }
+                ]);
+            }
         }
         process.exit(1);
     }
