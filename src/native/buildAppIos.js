@@ -18,12 +18,13 @@ const IPHONE_MODEL = iosConfig.simulatorName;
 // Define build steps for progress tracking
 const steps = {
     config: 'Generating Required Configuration for build',
+    launchSimulator: 'Launch iOS Simulator',
     clean: 'Clean Build Artifacts',
     build: 'Build IOS Project',
     findApp: 'Locate Built Application',
     simulator: 'Boot Simulator',
     install: 'Install Application',
-    launch: 'Launch Application'
+    launch: 'Launch Application',
 };
 
 // Configure progress display
@@ -490,8 +491,62 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
       BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
       CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
       build`;
-
   return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 });
+}
+
+async function launchIOSSimulator(simulatorName) {
+    progress.start("launchSimulator")
+    try {
+
+    progress.log("Launching iOS Simulator...");
+        // Get all simulators including both available and booted ones
+        const allSimulatorInfo = execSync("xcrun simctl list devices -j").toString();
+        const simulatorsJson = JSON.parse(allSimulatorInfo);
+        
+        // Search through all runtimes and their devices
+        let foundSimulator = null;
+        let foundSimulatorId = null;
+        let isBooted = false;
+
+        // Iterate through all runtimes and their devices
+        Object.values(simulatorsJson.devices).forEach(devices => {
+            devices.forEach(device => {
+                if (device.name === simulatorName) {
+                    foundSimulator = device;
+                    foundSimulatorId = device.udid;
+                    isBooted = device.state === "Booted";
+                }
+            });
+        });
+
+        if (!foundSimulator) {
+            console.log(`Configured simulator "${simulatorName}" not found.`);
+            return;
+        }
+
+        if (!isBooted) {
+            console.log(`Booting simulator: ${simulatorName}`);
+            runCommand(`xcrun simctl boot ${foundSimulatorId}`);
+        } else {
+            console.log(`Simulator ${simulatorName} is already booted`);
+        }
+
+        // Open Simulator.app and focus
+        progress.log("Opening Simulator.app...");
+        runCommand("open -a Simulator");
+        
+        // Give the simulator a moment to open/focus
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Activate the Simulator.app window to bring it to front
+        runCommand("osascript -e 'tell application \"Simulator\" to activate'");
+        
+        console.log("iOS Simulator launched successfully.");
+        progress.complete("launchSimulator")
+    } catch (error) {
+        console.error("Failed to launch iOS Simulator. Error:", error.message);
+      process.exit(1);
+    }
 }
 
 async function main() {
@@ -504,6 +559,8 @@ async function main() {
         progress.log('Changing directory to: ' + PROJECT_DIR, 'info');
         process.chdir(PROJECT_DIR);
         
+        await launchIOSSimulator(IPHONE_MODEL)
+
         await cleanBuildArtifacts();
         await buildXcodeProject();
         
