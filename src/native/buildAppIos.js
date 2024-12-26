@@ -424,12 +424,63 @@ async function getBootedSimulatorUUID(modelName) {
   }
 }
 
+async function getBootedSimulatorInfo(modelName) {
+    try {
+        // Get the list of all devices with their details
+        const listCommand = "xcrun simctl list devices --json";
+        const simulatorList = JSON.parse(execSync(listCommand).toString());
+        
+        // Find booted device and its runtime
+        let bootedDevice = null;
+        let runtime = null;
+
+        // Look through all runtimes and their devices
+        Object.entries(simulatorList.devices).forEach(([runtimeId, devices]) => {
+            devices.forEach(device => {
+                if (device.state === "Booted") {
+                    bootedDevice = device;
+                    runtime = runtimeId;
+                }
+            });
+        });
+
+        if (bootedDevice && runtime) {
+            // Extract iOS version from runtime ID (e.g., "com.apple.CoreSimulator.SimRuntime.iOS-18-0")
+            const version = runtime.match(/iOS-(\d+)-(\d+)/);
+            if (version) {
+                const iosVersion = `${version[1]}.${version[2]}`;
+                console.log(`Found booted device: ${bootedDevice.name} with iOS ${iosVersion}`);
+                return {
+                    udid: bootedDevice.udid,
+                    version: iosVersion
+                };
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error getting simulator info:', error);
+        return null;
+    }
+}
+
+
 async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
+        // Get the booted device info first
+        const bootedInfo = await getBootedSimulatorInfo();
+        if (!bootedInfo) {
+            throw new Error('No booted simulator found');
+        }
+        // Add runtime version to destination
+        const destinationWithRuntime = `${destination},OS=${bootedInfo.version}`;
+        console.log(`Building with destination: ${destinationWithRuntime}`);
+    
+    
   const buildCommand = `xcodebuild \
       -scheme "${scheme}" \
       -sdk ${sdk} \
       -configuration Debug \
-      -destination "${destination}" \
+      -destination "${destinationWithRuntime}" \
       PRODUCT_BUNDLE_IDENTIFIER="${bundleId}" \
       DEVELOPMENT_TEAM="" \
       CODE_SIGN_IDENTITY="" \
