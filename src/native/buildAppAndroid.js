@@ -1,10 +1,29 @@
 import { exec } from 'child_process';
 import fs from 'fs';
 import { runCommand, runInteractiveCommand } from './utils.js';
+import TerminalProgress from './TerminalProgress.js';
 
 const configPath = `${process.env.PWD}/config/config.json`;
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
-const ANDROID_PACKAGE = "com.example.androidProject"
+const ANDROID_PACKAGE = "com.example.androidProject";
+
+const steps = {
+    config: 'Initialize Configuration',
+    tools: 'Validate Android Tools',
+    emulator: 'Check and Start Emulator',
+    build: 'Build and Install Application'
+};
+
+const progressConfig = {
+    titlePaddingTop: 2,
+    titlePaddingBottom: 1,
+    stepPaddingLeft: 4,
+    stepSpacing: 1,
+    errorPaddingLeft: 6,
+    bottomMargin: 2
+};
+
+const progress = new TerminalProgress(steps, "Catalyst Android Build", progressConfig);
 
 async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, 'utf8');
@@ -12,14 +31,13 @@ async function initializeConfig() {
     const { WEBVIEW_CONFIG } = config;
 
     if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
-        console.error('WebView Config missing in', configPath);
-        process.exit(1);
+        throw new Error('WebView Config missing in ' + configPath);
     }
 
     if (!WEBVIEW_CONFIG.android) {
-        console.error('Android config missing in WebView Config');
-        process.exit(1);
+        throw new Error('Android config missing in WebView Config');
     }
+    
     return { WEBVIEW_CONFIG };
 }
 
@@ -28,7 +46,7 @@ function validateAndroidTools(androidConfig) {
     const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`;
     const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`;
 
-    console.log('Validating Android tools...');
+    progress.log('Validating Android tools...', 'info');
     
     if (!ANDROID_SDK) {
         throw new Error('Android SDK path is not configured');
@@ -44,7 +62,7 @@ function validateAndroidTools(androidConfig) {
 
     try {
         runCommand(`${ADB_PATH} version`);
-        console.log('✓ ADB is valid');
+        progress.log('ADB validation successful', 'success');
     } catch (error) {
         throw new Error(`ADB is not working properly: ${error.message}`);
     }
@@ -55,7 +73,7 @@ function validateAndroidTools(androidConfig) {
 
     try {
         runCommand(`${EMULATOR_PATH} -version`);
-        console.log('✓ Emulator is valid');
+        progress.log('Emulator validation successful', 'success');
     } catch (error) {
         throw new Error(`Emulator is not working properly: ${error.message}`);
     }
@@ -65,12 +83,12 @@ function validateAndroidTools(androidConfig) {
         if (!avdOutput.includes(androidConfig.emulatorName)) {
             throw new Error(`Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`);
         }
-        console.log(`✓ Emulator "${androidConfig.emulatorName}" exists`);
+        progress.log(`Emulator "${androidConfig.emulatorName}" exists`, 'success');
     } catch (error) {
         throw new Error(`Error checking emulator AVD: ${error.message}`);
     }
 
-    console.log('Android tools validation completed successfully!');
+    progress.log('Android tools validation completed successfully!', 'success');
     return { ANDROID_SDK, ADB_PATH, EMULATOR_PATH };
 }
 
@@ -79,62 +97,87 @@ async function checkEmulator(ADB_PATH) {
         const devices = runCommand(`${ADB_PATH} devices`);
         return devices.includes('emulator');
     } catch (error) {
-        console.error('Error checking emulator:', error);
+        progress.log('Error checking emulator status: ' + error.message, 'error');
         return false;
     }
 }
 
 async function startEmulator(EMULATOR_PATH, androidConfig) {
-    console.log(`Starting emulator: ${androidConfig.emulatorName}...`);
-    exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, 
-        (error, stdout, stderr) => {
-            if (error) {
-                console.error('Error starting emulator:', error);
+    progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, 'info');
+    return new Promise((resolve, reject) => {
+        exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, 
+            (error, stdout, stderr) => {
+                if (error) {
+                    progress.log('Error starting emulator: ' + error.message, 'error');
+                    reject(error);
+                } else {
+                    progress.log('Emulator started successfully', 'success');
+                    resolve();
+                }
             }
-        }
-    );
+        );
+    });
 }
 
 async function installApp(ADB_PATH, androidConfig) {
+    progress.log('Building and installing app...', 'info');
     try {
-        console.log('Building and installing app...');
         const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE} 1`;
         
         await runInteractiveCommand('sh', ['-c', buildCommand], {
             'BUILD SUCCESSFUL': ''
         });
         
-        console.log('Installation completed successfully!');
+        progress.log('Installation completed successfully!', 'success');
     } catch (error) {
-        console.error('Error installing app:', error);
-        throw error;
+        throw new Error('Error installing app: ' + error.message);
     }
 }
 
 async function buildAndroidApp() {
     try {
         // Initialize configuration
+        progress.start('config');
         const { WEBVIEW_CONFIG } = await initializeConfig();
         const androidConfig = WEBVIEW_CONFIG.android;
+        progress.complete('config');
 
         // Validate tools and get paths
-        const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = validateAndroidTools(androidConfig);
+        progress.start('tools');
+        const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = await validateAndroidTools(androidConfig);
+        progress.complete('tools');
 
         // Check and start emulator if needed
+        progress.start('emulator');
         const emulatorRunning = await checkEmulator(ADB_PATH);
         if (!emulatorRunning) {
-            console.log('No emulator running, attempting to start one...');
+            progress.log('No emulator running, attempting to start one...', 'info');
             await startEmulator(EMULATOR_PATH, androidConfig);
+            // Wait for emulator to fully boot
+            await new Promise(resolve => setTimeout(resolve, 5000));
         } else {
-            console.log('Emulator already running, proceeding with installation...');
+            progress.log('Emulator already running', 'success');
         }
+        progress.complete('emulator');
         
         // Install the app
+        progress.start('build');
         await installApp(ADB_PATH, androidConfig);
+        progress.complete('build');
+
+        // Print final configuration tree
+        progress.printTreeContent('Build Configuration', [
+            'WEBVIEW_CONFIG: Main configuration for Android build',
+            { text: 'android: Android-specific configuration', indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `sdkPath: ${androidConfig.sdkPath}`, indent: 2, prefix: '├─ ', color: 'gray' },
+            { text: `emulatorName: ${androidConfig.emulatorName}`, indent: 2, prefix: '└─ ', color: 'gray' }
+        ]);
+
         process.exit(0);
-        
     } catch (error) {
-        console.error('Error in build process:', error);
+        if (progress.currentStep) {
+            progress.fail(progress.currentStep.id, error.message);
+        }
         process.exit(1);
     }
 }
