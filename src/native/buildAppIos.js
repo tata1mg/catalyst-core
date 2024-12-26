@@ -22,7 +22,6 @@ const steps = {
     clean: 'Clean Build Artifacts',
     build: 'Build IOS Project',
     findApp: 'Locate Built Application',
-    simulator: 'Boot Simulator',
     install: 'Install Application',
     launch: 'Launch Application',
 };
@@ -185,91 +184,6 @@ async function findAppPath() {
         progress.fail('findApp', error.message);
         throw error;
     }
-}
-
-async function setupSimulator() {
-    progress.start('simulator');
-    try {
-        progress.log(`Checking for ${IPHONE_MODEL} simulator...`, 'info');
-        let DEVICE_UUID = await findBootedDevice();
-
-        if (!DEVICE_UUID) {
-            DEVICE_UUID = await findAndBootDevice();
-        } else {
-            progress.log(`Using already running ${IPHONE_MODEL} simulator.`, 'success');
-        }
-
-        progress.complete('simulator');
-        return DEVICE_UUID;
-    } catch (error) {
-        progress.fail('simulator', error.message);
-        process.exit(1);
-    }
-    async function findBootedDevice() {
-      try {
-          return execSync(
-              `xcrun simctl list devices | grep "${IPHONE_MODEL}" | grep "(Booted)" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
-          ).toString().trim();
-      } catch (error) {
-          console.error("Error finding booted device:", error);
-          return "";
-      }
-  }
-  
-  async function findAndBootDevice() {
-      const DEVICE_UUID = await findAvailableDevice();
-      if (!DEVICE_UUID) {
-          console.log(`No ${IPHONE_MODEL} simulator found. Please make sure it's available.`);
-          process.exit(1);
-      }
-  
-      await bootSimulator(DEVICE_UUID);
-      return DEVICE_UUID;
-  }
-  
-  async function findAvailableDevice() {
-      try {
-          return execSync(
-              `xcrun simctl list devices | grep "${IPHONE_MODEL}" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
-          ).toString().trim();
-      } catch (error) {
-          console.error("Error finding available device:", error);
-          return "";
-      }
-  }
-  
-  async function bootSimulator(deviceUUID) {
-      console.log("Booting the simulator...");
-      await runCommand(`xcrun simctl boot "${deviceUUID}"`);
-      await waitForSimulatorBoot(deviceUUID);
-  }
-  
-  async function waitForSimulatorBoot(deviceUUID) {
-      console.log("Waiting for simulator to boot...");
-      const boot_timeout = 60;
-      const boot_start_time = Date.now();
-  
-      while (true) {
-          const elapsed_time = Math.floor((Date.now() - boot_start_time) / 1000);
-  
-          if (elapsed_time >= boot_timeout) {
-              console.log(`Error: Simulator boot timeout after ${boot_timeout} seconds.`);
-              process.exit(1);
-          }
-  
-          const boot_status = execSync(
-              `xcrun simctl list devices | grep "${deviceUUID}" | awk '{print $NF}' | tr -d '()'`
-          ).toString().trim();
-  
-          if (boot_status === "Booted") {
-              console.log("Simulator booted successfully.");
-              break;
-          }
-  
-          console.log(`Waiting for simulator to boot... (${elapsed_time}s)`);
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-      }
-  }
 }
 
 async function installAndLaunchApp(APP_PATH) {
@@ -566,8 +480,6 @@ async function main() {
         
         const APP_PATH = await findAppPath();
         progress.log('Found app at: ' + APP_PATH, 'success');
-        
-        await setupSimulator();
         await installAndLaunchApp(APP_PATH);
         
         process.chdir(originalDir);
