@@ -1,14 +1,9 @@
 # Changelog
 
-## [0.0.1-beta.9] - 13-12-2024
+## [0.0.3-canary.0] - 27-12-2024
 
 ### Changes
 
--   Update @tata1mg/router's version to 0.0.1-beta.6.
-
-## [0.0.1-beta.8] - 09-12-2024
-
-### Changes
-
--   Filter out host machine's environment variable from client environment variables
--   Update @tata1mg/router's version to 0.0.1-beta.5.
+- Introduced initial universal app support for Android and iOS 
+- Introduced support for Catalyst build and run app for Android and iOS app
+- Updated webview configuration for enhanced performance 
