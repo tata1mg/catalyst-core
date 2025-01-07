@@ -15,11 +15,17 @@ class WebCacheManager(private val context: Context) {
     private val TAG = "WebCacheManager"
     private val cacheDir = File(context.cacheDir, "webview_cache")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val cacheExpiration = TimeUnit.HOURS.toMillis(24) // 24 hour cache
+
+    // Cache timing configurations
+    private val maxAge = TimeUnit.HOURS.toMillis(24) // Time until content becomes stale
+    private val staleWhileRevalidate = TimeUnit.HOURS.toMillis(1) // Additional time content can be served while revalidating
+
+    // Track ongoing revalidations to prevent duplicate requests
+    private val ongoingRevalidations = mutableSetOf<String>()
 
     // Memory cache
     private val memoryCache: LruCache<String, CacheEntry> = LruCache<String, CacheEntry>(
-        (Runtime.getRuntime().maxMemory() / 1024 / 8).toInt() // Use 1/8th of available memory
+        (Runtime.getRuntime().maxMemory() / 1024 / 8).toInt()
     )
 
     init {
@@ -28,81 +34,125 @@ class WebCacheManager(private val context: Context) {
 
     data class CacheEntry(
         val response: WebResourceResponse,
-        val timestamp: Long = System.currentTimeMillis()
+        val timestamp: Long = System.currentTimeMillis(),
+        val eTag: String? = null,
+        val lastModified: String? = null
     )
-
-    fun cleanup() {
-        scope.launch {
-            try {
-                val currentTime = System.currentTimeMillis()
-                // Clean memory cache
-                val keysToRemove = mutableListOf<String>()
-                for (key in memoryCache.snapshot().keys) {
-                    memoryCache.get(key)?.let { entry ->
-                        if (currentTime - entry.timestamp > cacheExpiration) {
-                            keysToRemove.add(key)
-                        }
-                    }
-                }
-                keysToRemove.forEach { memoryCache.remove(it) }
-
-                // Clean disk cache
-                cacheDir.listFiles()?.forEach { file ->
-                    if (currentTime - file.lastModified() > cacheExpiration) {
-                        file.delete()
-                        File(cacheDir, "${file.nameWithoutExtension}.meta").delete()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error during cleanup", e)
-            }
-        }
-    }
 
     suspend fun getCachedResponse(url: String, headers: Map<String, String>): WebResourceResponse? =
         withContext(Dispatchers.IO) {
             try {
                 val cacheKey = generateCacheKey(url)
+                val currentTime = System.currentTimeMillis()
 
-                // Try memory cache first
-                memoryCache.get(cacheKey)?.let { entry ->
-                    if (!isCacheExpired(entry.timestamp)) {
-                        Log.d(TAG, "✅ Memory cache hit for: $url")
-                        return@withContext entry.response
-                    } else {
-                        memoryCache.remove(cacheKey)
+                // Check memory cache first
+                val memoryCacheEntry = memoryCache.get(cacheKey)
+                if (memoryCacheEntry != null) {
+                    val age = currentTime - memoryCacheEntry.timestamp
+
+                    when {
+                        age <= maxAge -> {
+                            // Fresh content
+                            Log.d(TAG, "✅ Serving fresh content from memory cache: $url")
+                            return@withContext memoryCacheEntry.response
+                        }
+                        age <= maxAge + staleWhileRevalidate -> {
+                            // Stale content, but within revalidate window
+                            Log.d(TAG, "⚠️ Serving stale content while revalidating: $url")
+                            revalidateInBackground(url, headers, cacheKey, memoryCacheEntry)
+                            return@withContext memoryCacheEntry.response
+                        }
                     }
                 }
 
-                // Try disk cache
+                // Check disk cache
                 val cacheFile = File(cacheDir, cacheKey)
-                if (cacheFile.exists() && !isCacheExpired(cacheFile.lastModified())) {
-                    try {
-                        val metadata = loadMetadata(cacheKey)
-                        val response = WebResourceResponse(
-                            metadata.mimeType,
-                            metadata.encoding,
-                            BufferedInputStream(FileInputStream(cacheFile))
-                        )
-                        // Add to memory cache
-                        memoryCache.put(cacheKey, CacheEntry(response))
-                        Log.d(TAG, "✅ Disk cache hit for: $url")
-                        return@withContext response
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error reading from disk cache", e)
-                        cacheFile.delete() // Delete corrupted cache file
-                        File(cacheDir, "${cacheKey}.meta").delete()
+                if (cacheFile.exists()) {
+                    val fileAge = currentTime - cacheFile.lastModified()
+                    val metadata = loadMetadata(cacheKey)
+
+                    when {
+                        fileAge <= maxAge -> {
+                            // Fresh content from disk
+                            val response = createResponseFromCache(cacheFile, metadata)
+                            memoryCache.put(cacheKey, CacheEntry(response))
+                            return@withContext response
+                        }
+                        fileAge <= maxAge + staleWhileRevalidate -> {
+                            // Stale content from disk, revalidate in background
+                            val response = createResponseFromCache(cacheFile, metadata)
+                            val cacheEntry = CacheEntry(
+                                response = response,
+                                timestamp = cacheFile.lastModified(),
+                                eTag = metadata.eTag,
+                                lastModified = metadata.lastModified
+                            )
+                            revalidateInBackground(url, headers, cacheKey, cacheEntry)
+                            return@withContext response
+                        }
                     }
                 }
 
-                // If not in cache, fetch and store
-                Log.d(TAG, "❌ Cache miss for: $url")
+                // No cache or cache too old, fetch fresh content
+                Log.d(TAG, "❌ Cache miss, fetching fresh content: $url")
                 fetchAndCacheResource(url, headers, cacheKey)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in getCachedResponse for URL: $url", e)
                 null
             }
         }
+
+    private fun revalidateInBackground(
+        url: String,
+        headers: Map<String, String>,
+        cacheKey: String,
+        cacheEntry: CacheEntry
+    ) {
+        if (!ongoingRevalidations.add(cacheKey)) {
+            // Revalidation already in progress
+            return
+        }
+
+        scope.launch {
+            try {
+                val revalidationHeaders = headers.toMutableMap()
+                cacheEntry.eTag?.let { revalidationHeaders["If-None-Match"] = it }
+                cacheEntry.lastModified?.let { revalidationHeaders["If-Modified-Since"] = it }
+
+                val connection = URL(url).openConnection() as HttpURLConnection
+                revalidationHeaders.forEach { (key, value) ->
+                    connection.setRequestProperty(key, value)
+                }
+
+                when (connection.responseCode) {
+                    HttpURLConnection.HTTP_NOT_MODIFIED -> {
+                        // Content still valid, update timestamp
+                        val updatedEntry = cacheEntry.copy(timestamp = System.currentTimeMillis())
+                        memoryCache.put(cacheKey, updatedEntry)
+                        updateCacheFileTimestamp(cacheKey)
+                        Log.d(TAG, "✅ Content revalidated, not modified: $url")
+                    }
+                    HttpURLConnection.HTTP_OK -> {
+                        // Content changed, update cache
+                        Log.d(TAG, "⚡ Content changed, updating cache: $url")
+                        fetchAndCacheResource(url, headers, cacheKey)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during revalidation for URL: $url", e)
+            } finally {
+                ongoingRevalidations.remove(cacheKey)
+            }
+        }
+    }
+
+    private fun updateCacheFileTimestamp(cacheKey: String) {
+        val cacheFile = File(cacheDir, cacheKey)
+        if (cacheFile.exists()) {
+            cacheFile.setLastModified(System.currentTimeMillis())
+            File(cacheDir, "${cacheKey}.meta").setLastModified(System.currentTimeMillis())
+        }
+    }
 
     private suspend fun fetchAndCacheResource(
         url: String,
@@ -116,93 +166,78 @@ class WebCacheManager(private val context: Context) {
                 connection.setRequestProperty(key, value)
             }
 
-            connection.connectTimeout = 15000 // 15 seconds
-            connection.readTimeout = 15000 // 15 seconds
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
             connection.connect()
 
-            val responseCode = connection.responseCode
-            Log.d(TAG, "Response code for $url: $responseCode")
-
-            if (responseCode == HttpURLConnection.HTTP_OK) {
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                 val mimeType = connection.contentType ?: "application/octet-stream"
                 val encoding = connection.contentEncoding ?: "utf-8"
+                val eTag = connection.getHeaderField("ETag")
+                val lastModified = connection.getHeaderField("Last-Modified")
 
-                // Read the response into memory
                 val responseBytes = connection.inputStream.use { it.readBytes() }
-                if (responseBytes.isEmpty()) {
-                    Log.e(TAG, "Empty response received for $url")
+                if (!isValidResponse(mimeType, responseBytes)) {
                     return@withContext null
                 }
 
-                // Create WebResourceResponse for immediate use
+                // Create response for immediate use
                 val response = WebResourceResponse(
                     mimeType,
                     encoding,
                     ByteArrayInputStream(responseBytes)
                 )
 
-                // Cache only if response is valid
-                if (isValidResponse(mimeType, responseBytes)) {
-                    // Save to memory cache
-                    memoryCache.put(cacheKey, CacheEntry(
-                        WebResourceResponse(
-                            mimeType,
-                            encoding,
-                            ByteArrayInputStream(responseBytes.clone())
-                        )
-                    ))
+                // Cache the response
+                val cacheEntry = CacheEntry(
+                    response = WebResourceResponse(
+                        mimeType,
+                        encoding,
+                        ByteArrayInputStream(responseBytes.clone())
+                    ),
+                    eTag = eTag,
+                    lastModified = lastModified
+                )
+                memoryCache.put(cacheKey, cacheEntry)
 
-                    // Save to disk cache asynchronously
-                    scope.launch {
-                        try {
-                            val cacheFile = File(cacheDir, cacheKey)
-                            FileOutputStream(cacheFile).use { fileOut ->
-                                fileOut.write(responseBytes)
-                            }
-                            saveMetadata(cacheKey, CacheMetadata(mimeType, encoding))
-                            Log.d(TAG, "✅ Successfully cached response for: $url")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error saving to disk cache for URL: $url", e)
-                        }
+                // Save to disk cache
+                scope.launch {
+                    try {
+                        val cacheFile = File(cacheDir, cacheKey)
+                        FileOutputStream(cacheFile).use { it.write(responseBytes) }
+                        saveMetadata(cacheKey, CacheMetadata(
+                            mimeType = mimeType,
+                            encoding = encoding,
+                            eTag = eTag,
+                            lastModified = lastModified
+                        ))
+                        Log.d(TAG, "✅ Successfully cached response for: $url")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error saving to disk cache for URL: $url", e)
                     }
-                } else {
-                    Log.d(TAG, "⚠️ Invalid response not cached for: $url")
                 }
 
                 return@withContext response
-            } else {
-                Log.e(TAG, "HTTP Error $responseCode for URL: $url")
-                return@withContext null
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching resource for URL: $url", e)
             return@withContext null
         } finally {
             connection?.disconnect()
         }
     }
 
-    private fun isValidResponse(mimeType: String, responseBytes: ByteArray): Boolean {
-        return try {
-            // Check if response is not empty
-            if (responseBytes.isEmpty()) return false
+    private data class CacheMetadata(
+        val mimeType: String,
+        val encoding: String,
+        val eTag: String? = null,
+        val lastModified: String? = null
+    ) : Serializable
 
-            // Check if mime type is valid
-            if (mimeType.isEmpty()) return false
-
-            // For text-based responses, check if it's valid text
-            if (mimeType.startsWith("text/") ||
-                mimeType.contains("json") ||
-                mimeType.contains("javascript")) {
-                val content = String(responseBytes)
-                if (content.isBlank()) return false
-            }
-
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error validating response", e)
-            false
-        }
+    private fun createResponseFromCache(cacheFile: File, metadata: CacheMetadata): WebResourceResponse {
+        return WebResourceResponse(
+            metadata.mimeType,
+            metadata.encoding,
+            BufferedInputStream(FileInputStream(cacheFile))
+        )
     }
 
     private fun generateCacheKey(url: String): String {
@@ -211,14 +246,24 @@ class WebCacheManager(private val context: Context) {
         return digest.joinToString("") { "%02x".format(it) }
     }
 
-    private fun isCacheExpired(timestamp: Long): Boolean {
-        return System.currentTimeMillis() - timestamp > cacheExpiration
-    }
+    private fun isValidResponse(mimeType: String, responseBytes: ByteArray): Boolean {
+        return try {
+            if (responseBytes.isEmpty()) return false
+            if (mimeType.isEmpty()) return false
 
-    private data class CacheMetadata(
-        val mimeType: String,
-        val encoding: String
-    ) : Serializable
+            if (mimeType.startsWith("text/") ||
+                mimeType.contains("json") ||
+                mimeType.contains("javascript")
+            ) {
+                val content = String(responseBytes)
+                if (content.isBlank()) return false
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error validating response", e)
+            false
+        }
+    }
 
     private fun saveMetadata(cacheKey: String, metadata: CacheMetadata) {
         val metadataFile = File(cacheDir, "${cacheKey}.meta")
