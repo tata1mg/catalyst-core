@@ -16,10 +16,13 @@ import {
     validateConfigureStore,
     validateCustomDocument,
     validateGetRoutes,
+    safeCall,
 } from "@catalyst/server/utils/validator"
 
 import CustomDocument from "@catalyst/template/server/document.js"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.js"
+// TODO: have not added onRenderSuccess
+import { onRouteMatch, onFetcherError, onRenderError } from "@catalyst/template/server/index.js"
 
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
@@ -190,10 +193,14 @@ const renderMarkUp = async (
             },
             onError(error) {
                 logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
+                // function defined by user which needs to run if rendering fails
+                safeCall(onRenderError)
             },
         })
     } catch (error) {
         logger.error("Error in rendering document on server:" + error)
+        // function defined by user which needs to run if rendering fails
+        safeCall(onRenderError)
     }
 }
 
@@ -232,6 +239,9 @@ export default async function (req, res) {
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
 
+        // function defined by user which needs to run after route is matched
+        safeCall(onRouteMatch, matches)
+
         // Executing app server side function
         App.serverSideFunction({ store, req, res })
             // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
@@ -257,6 +267,7 @@ export default async function (req, res) {
                     )
                     .catch(async (error) => {
                         logger.error("Error in executing serverFetcher functions: " + error)
+                        safeCall(onFetcherError)
                         await renderMarkUp(
                             404,
                             req,
