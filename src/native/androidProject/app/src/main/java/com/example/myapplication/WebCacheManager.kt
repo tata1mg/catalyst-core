@@ -102,6 +102,56 @@ class WebCacheManager(private val context: Context) {
             }
         }
 
+    suspend fun cleanup() {
+        withContext(Dispatchers.IO) {
+            try {
+                val currentTime = System.currentTimeMillis()
+                val maxCacheSize = 100 * 1024 * 1024 // 100MB max cache size
+                var totalSize = 0L
+
+                // Get all cache files sorted by last modified time (oldest first)
+                val cacheFiles = cacheDir.listFiles()?.sortedBy { it.lastModified() } ?: return@withContext
+
+                for (file in cacheFiles) {
+                    val age = currentTime - file.lastModified()
+
+                    // Delete if expired (older than maxAge + staleWhileRevalidate)
+                    if (age > maxAge + staleWhileRevalidate) {
+                        file.delete()
+                        // Also delete corresponding metadata file if it exists
+                        val metaFile = File(cacheDir, "${file.name}.meta")
+                        if (metaFile.exists()) {
+                            metaFile.delete()
+                        }
+                        continue
+                    }
+
+                    totalSize += file.length()
+                }
+
+                // If cache is too large, remove oldest files until under limit
+                if (totalSize > maxCacheSize) {
+                    val sortedFiles = cacheDir.listFiles()?.sortedBy { it.lastModified() } ?: return@withContext
+                    for (file in sortedFiles) {
+                        if (totalSize <= maxCacheSize) break
+
+                        totalSize -= file.length()
+                        file.delete()
+                        // Delete corresponding metadata file
+                        val metaFile = File(cacheDir, "${file.name}.meta")
+                        if (metaFile.exists()) {
+                            metaFile.delete()
+                        }
+                    }
+                }
+
+                Log.d(TAG, "Cache cleanup completed. Current size: ${totalSize / 1024}KB")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during cache cleanup", e)
+            }
+        }
+    }
+
     private fun revalidateInBackground(
         url: String,
         headers: Map<String, String>,
