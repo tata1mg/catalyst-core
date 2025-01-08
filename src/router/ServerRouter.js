@@ -1,4 +1,4 @@
-import { useRoutes } from "@tata1mg/router"
+import { useRoutes } from "@tata1mg/router-internal"
 const { preparedRoutes } = require(`${process.env.src_path}/src/js/routes/utils.js`)
 
 const ServerRouter = (reduxData) => {
