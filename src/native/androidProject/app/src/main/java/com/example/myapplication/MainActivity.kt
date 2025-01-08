@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import java.net.URL                 
 import java.net.HttpURLConnection
 
@@ -26,7 +27,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var myWebView: WebView
     private lateinit var cacheManager: WebCacheManager
     private var buildType: String = "debug"  // Default to debug
-    private var cachePatterns: List<String> = emptyList() // Store cache patterns for matching
+    private var cachePatterns: List<String> = emptyList()
+
+    data class AndroidConfig(
+        val buildType: String = "debug",
+        val cachePattern: String = "",
+        val emulatorName: String = "",
+        val sdkPath: String = ""
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,13 +44,29 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.load(it)
         }
 
-        buildType = properties.getProperty("android.buildType", "debug")
-        cachePatterns = properties.getProperty("android.cachePattern", "")
+        // Parse android config from JSON string
+        val androidConfigJson = properties.getProperty("android", "{}")
+        val androidConfig = try {
+            val jsonObject = JSONObject(androidConfigJson)
+            AndroidConfig(
+                buildType = jsonObject.optString("buildType", "debug"),
+                cachePattern = jsonObject.optString("cachePattern", ""),
+                emulatorName = jsonObject.optString("emulatorName", ""),
+                sdkPath = jsonObject.optString("sdkPath", "")
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing android config", e)
+            AndroidConfig()
+        }
+        Log.d(TAG, "android config parsed: $androidConfig")
+        buildType = androidConfig.buildType
+        cachePatterns = androidConfig.cachePattern
             .split(",")
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 
         Log.d(TAG, "Build type: $buildType")
+        Log.d(TAG, "Cache Pattern: $cachePatterns ")
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
@@ -136,7 +160,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 val originalUrl = request.url.toString()
                 Log.d(TAG, "Intercepting request for: $originalUrl")
 
-                if ( buildType == "debug" || request.method != "GET") {
+                if ( buildType != "debug" || request.method != "GET") {
                     return null
                 }
 
@@ -165,9 +189,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                             Log.d(TAG, "📱 Serving from cache: $originalUrl")
                             response
                         } else {
-                            // If not in cache, let WebView handle the request
-                            // The cacheManager will intercept and cache the response
-                            Log.d(TAG, "💾 Cache miss, fetching and caching: $originalUrl")
+                            Log.d(TAG, "Cache Manager unable to return response : $originalUrl")
                             null
                         }
                     } catch (e: Exception) {

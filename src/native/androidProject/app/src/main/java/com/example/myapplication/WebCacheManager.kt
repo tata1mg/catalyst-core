@@ -53,12 +53,12 @@ class WebCacheManager(private val context: Context) {
                     when {
                         age <= maxAge -> {
                             // Fresh content
-                            Log.d(TAG, "✅ Serving fresh content from memory cache: $url")
+                            Log.d(TAG, "Serving fresh content from memory cache: $url")
                             return@withContext memoryCacheEntry.response
                         }
                         age <= maxAge + staleWhileRevalidate -> {
                             // Stale content, but within revalidate window
-                            Log.d(TAG, "⚠️ Serving stale content while revalidating: $url")
+                            Log.d(TAG, "Serving stale content while revalidating: $url")
                             revalidateInBackground(url, headers, cacheKey, memoryCacheEntry)
                             return@withContext memoryCacheEntry.response
                         }
