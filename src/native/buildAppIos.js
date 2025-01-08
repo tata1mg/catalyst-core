@@ -46,12 +46,26 @@ async function generateConfigConstants() {
             PROJECT_NAME,
             "ConfigConstants.swift"
         );
-        await runCommand(`swift ${pwd}/build.swift "${url}" "${configOutputPath}"`);
+
+        // Convert comma-separated string to Swift array format
+        const patterns = iosConfig.cachePattern.split(',')
+            .map(pattern => pattern.trim())
+            .map(pattern => `"${pattern}"`)
+            .join(", ");
+
+        const configContent = `// This file is auto-generated. Do not edit.
+import Foundation
+
+enum ConfigConstants {
+    static let url = "${url}"
+    static let cachePattern: [String] = [${patterns}]
+}`;
+
+        fs.writeFileSync(configOutputPath, configContent, 'utf8');
         progress.log('Configuration constants generated successfully', 'success');
         progress.complete('config');
     } catch (error) {
         progress.fail('config', error.message);
-        // throw error;
         process.exit(1);
     }
 }
