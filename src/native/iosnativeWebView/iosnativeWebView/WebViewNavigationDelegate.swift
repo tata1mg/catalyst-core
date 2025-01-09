@@ -16,16 +16,16 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         
         guard let url = navigationAction.request.url else {
-            print("⚠️ No URL in navigation action")
+            logger.info("⚠️ No URL in navigation action")
             decisionHandler(.allow)
             return
         }
-        print("🌐 Navigation requested to: \(url.absoluteString)")
+        logger.info("🌐 Navigation requested to: \(url.absoluteString)")
 
         
         Task {
             if await CacheManager.shared.shouldCacheURL(url) {
-                print("🎯 URL matches cache pattern: \(url.absoluteString)")
+                logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
 
                 let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
                     for: navigationAction.request
@@ -33,11 +33,11 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 
                 switch cacheState {
                 case .fresh, .stale:
-                    print("✅ Serving fresh/stale cached content")
+                    logger.info("✅ Serving fresh/stale cached content")
 
                     if let cachedData = cachedData,
                        let mimeType = mimeType {
-                        print("📤 Loading cached data with MIME type: \(mimeType)")
+                        logger.info("📤 Loading cached data with MIME type: \(mimeType)")
                         await MainActor.run {
                             viewModel.setLoading(true, fromCache: true)
                         }
@@ -53,12 +53,12 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     
                 case .expired:
                     // Will fetch fresh content
-                    print("♻️ Cache expired, fetching fresh content")
+                    logger.info("♻️ Cache expired, fetching fresh content")
 
                     break
                 }
             }else{
-                print("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
+                logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
             }
             
             await MainActor.run {
