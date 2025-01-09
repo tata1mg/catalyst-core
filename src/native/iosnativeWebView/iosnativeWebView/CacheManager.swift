@@ -29,6 +29,21 @@ actor CacheManager {
         logger.info("Cache initialized with resource caching support")
     }
     
+    func shouldCacheURL(_ url: URL) -> Bool {
+            let urlString = url.absoluteString
+            return ConfigConstants.cachePattern.contains { pattern in
+                guard let regex = try? NSRegularExpression(
+                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
+                    options: .caseInsensitive
+                ) else {
+                    return false
+                }
+                
+                let range = NSRange(urlString.startIndex..., in: urlString)
+                return regex.firstMatch(in: urlString, options: [], range: range) != nil
+            }
+        }
+    
     func hasCachedResponse(for request: URLRequest) async -> Bool {
         let urlString = request.url?.absoluteString ?? ""
         
@@ -127,7 +142,8 @@ actor CacheManager {
     }
     
     func isCacheableResponse(_ response: HTTPURLResponse) -> Bool {
-        return 200...299 ~= response.statusCode
+        guard let url = response.url else { return false }
+        return (200...299 ~= response.statusCode) && shouldCacheURL(url)
     }
     
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
