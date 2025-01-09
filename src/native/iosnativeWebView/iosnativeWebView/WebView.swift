@@ -13,6 +13,9 @@ struct WebView: UIViewRepresentable {
         self.urlString = urlString
         self.viewModel = viewModel
         self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel)
+        
+        // Register our custom URL protocol
+        ResourceURLProtocol.register()
     }
     
     func makeUIView(context: Context) -> WKWebView {
@@ -51,6 +54,7 @@ struct WebView: UIViewRepresentable {
     
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+        ResourceURLProtocol.unregister()
     }
     
     class Coordinator: NSObject {
