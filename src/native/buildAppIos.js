@@ -420,14 +420,9 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
         CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
         OS_ACTIVITY_MODE=debug \
         SWIFT_DEBUG_LOG=1 \
-        build | xcpretty --color`;;
+        build`;;
   return runCommand(buildCommand, { 
-    maxBuffer: 1024 * 1024 * 10 , 
-    env: {
-    ...process.env,
-    OS_ACTIVITY_MODE: 'debug',
-    SWIFT_DEBUG_LOG: '1'
-} });
+    maxBuffer: 1024 * 1024 * 10  });
 }
 
 async function launchIOSSimulator(simulatorName) {

@@ -76,12 +76,12 @@ actor CacheManager {
             
             switch state {
             case .fresh:
-                logger.debug("🟢 Fresh cache hit for: \(urlString)")
+                print("🟢 Fresh cache hit for: \(urlString)")
 
                 return (cachedResource.data, .fresh, cachedResource.mimeType)
                 
             case .stale:
-                logger.debug("🟡 Stale cache hit for: \(urlString), triggering revalidation")
+                print("🟡 Stale cache hit for: \(urlString), triggering revalidation")
 
                 // Trigger background revalidation
                 Task {
@@ -90,7 +90,7 @@ actor CacheManager {
                 return (cachedResource.data, .stale, cachedResource.mimeType)
                 
             case .expired:
-                logger.debug("🔴 Cache expired for: \(urlString)")
+                print("🔴 Cache expired for: \(urlString)")
                 return (nil, .expired, nil)
             }
         }
@@ -107,12 +107,12 @@ actor CacheManager {
             resourceCache[urlString] = resource
             return (cachedResponse.data, .fresh, resource.mimeType)
         }
-        logger.debug("❌ Cache miss for: \(urlString)")
+        print("❌ Cache miss for: \(urlString)")
         return (nil, .expired, nil)
     }
     
     private func revalidateResource(request: URLRequest) async {
-        logger.debug("🔄 Starting revalidation for: \(request.url?.absoluteString ?? "")")
+        print("🔄 Starting revalidation for: \(request.url?.absoluteString ?? "")")
 
         do {
             let (data, response) = try await session.data(for: request)
