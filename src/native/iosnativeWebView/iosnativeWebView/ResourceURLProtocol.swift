@@ -6,18 +6,17 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 
 class ResourceURLProtocol: URLProtocol {
     private var dataTask: URLSessionDataTask?
+    private static let handledKey = "ResourceURLProtocolHandled"
     
     // MARK: - Protocol Registration
     static func register() {
-        // Register for WKWebView support
         URLProtocol.registerClass(self)
         
-        // Enable URLProtocol in WKWebView
         if let cls = NSClassFromString("WKBrowsingContextController") as AnyClass? {
             let selector = NSSelectorFromString("registerSchemeForCustomProtocol:")
             if cls.responds(to: selector) {
-                let _ = cls.perform(selector, with: "http", afterDelay: 0)
-                let _ = cls.perform(selector, with: "https", afterDelay: 0)
+                _ = cls.perform(selector, with: "http", afterDelay: 0)
+                _ = cls.perform(selector, with: "https", afterDelay: 0)
             }
         }
     }
@@ -28,10 +27,14 @@ class ResourceURLProtocol: URLProtocol {
     
     // MARK: - URLProtocol
     override class func canInit(with request: URLRequest) -> Bool {
+        // Check if we've already handled this request
+        if URLProtocol.property(forKey: handledKey, in: request) != nil {
+            return false
+        }
+        
         guard let url = request.url else { return false }
         
         // Create a Task to check if we should handle this URL
-        // Note: This is not ideal but necessary due to actor isolation
         let semaphore = DispatchSemaphore(value: 0)
         var shouldHandle = false
         
@@ -58,6 +61,10 @@ class ResourceURLProtocol: URLProtocol {
             logger.error("❌ No URL in request")
             return
         }
+        
+        // Mark this request as handled to prevent recursion
+        let mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+        URLProtocol.setProperty(true, forKey: ResourceURLProtocol.handledKey, in: mutableRequest)
         
         Task {
             do {
@@ -90,9 +97,14 @@ class ResourceURLProtocol: URLProtocol {
                     return
                 }
                 
-                // If not in cache or expired, load from network
+                // If not in cache or expired, load from network using URLSession
                 logger.info("🌐 Fetching from network: \(url.absoluteString)")
-                let (data, response) = try await URLSession.shared.data(for: request)
+                
+                let config = URLSessionConfiguration.default
+                config.requestCachePolicy = .reloadIgnoringLocalCacheData
+                let session = URLSession(configuration: config)
+                
+                let (data, response) = try await session.data(for: mutableRequest as URLRequest)
                 
                 if let httpResponse = response as? HTTPURLResponse {
                     // Cache the response if it's valid
