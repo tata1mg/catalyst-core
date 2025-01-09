@@ -406,20 +406,28 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
     
     
   const buildCommand = `xcodebuild \
-      -scheme "${scheme}" \
-      -sdk ${sdk} \
-      -configuration Debug \
-      -destination "${destinationWithRuntime}" \
-      PRODUCT_BUNDLE_IDENTIFIER="${bundleId}" \
-      DEVELOPMENT_TEAM="" \
-      CODE_SIGN_IDENTITY="" \
-      CODE_SIGNING_REQUIRED=NO \
-      CODE_SIGNING_ALLOWED=NO \
-      ONLY_ACTIVE_ARCH=YES \
-      BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
-      CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
-      build`;
-  return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 });
+        -scheme "${scheme}" \
+        -sdk ${sdk} \
+        -configuration Debug \
+        -destination "${destinationWithRuntime}" \
+        PRODUCT_BUNDLE_IDENTIFIER="${bundleId}" \
+        DEVELOPMENT_TEAM="" \
+        CODE_SIGN_IDENTITY="" \
+        CODE_SIGNING_REQUIRED=NO \
+        CODE_SIGNING_ALLOWED=NO \
+        ONLY_ACTIVE_ARCH=YES \
+        BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
+        CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
+        OS_ACTIVITY_MODE=debug \
+        SWIFT_DEBUG_LOG=1 \
+        build | xcpretty --color`;;
+  return runCommand(buildCommand, { 
+    maxBuffer: 1024 * 1024 * 10 , 
+    env: {
+    ...process.env,
+    OS_ACTIVITY_MODE: 'debug',
+    SWIFT_DEBUG_LOG: '1'
+} });
 }
 
 async function launchIOSSimulator(simulatorName) {

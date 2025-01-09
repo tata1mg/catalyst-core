@@ -6,6 +6,17 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 actor CacheManager {
     static let shared = CacheManager()
     
+    enum CacheState {
+        case fresh      // Content is within fresh window
+        case stale     // Content is in stale-while-revalidate window
+        case expired   // Content is expired
+    }
+    
+    private struct CachePolicy {
+        static let freshWindow: TimeInterval = 24 * 60 * 60  // 24 hours
+        static let staleWindow: TimeInterval = 60 * 60       // 1 hour after fresh window
+    }
+    
     private let memoryCapacity = 20 * 1024 * 1024  // 20MB
     private let diskCapacity = 100 * 1024 * 1024   // 100MB
     private let cachePath = "WebViewCache"
@@ -30,50 +41,90 @@ actor CacheManager {
     }
     
     func shouldCacheURL(_ url: URL) -> Bool {
-            let urlString = url.absoluteString
-            return ConfigConstants.cachePattern.contains { pattern in
-                guard let regex = try? NSRegularExpression(
-                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
-                    options: .caseInsensitive
-                ) else {
-                    return false
-                }
-                
-                let range = NSRange(urlString.startIndex..., in: urlString)
-                return regex.firstMatch(in: urlString, options: [], range: range) != nil
+        let urlString = url.absoluteString
+        return ConfigConstants.cachePattern.contains { pattern in
+            guard let regex = try? NSRegularExpression(
+                pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
+                options: .caseInsensitive
+            ) else {
+                return false
             }
+            
+            let range = NSRange(urlString.startIndex..., in: urlString)
+            return regex.firstMatch(in: urlString, options: [], range: range) != nil
         }
-    
-    func hasCachedResponse(for request: URLRequest) async -> Bool {
-        let urlString = request.url?.absoluteString ?? ""
-        
-        // Check in-memory cache
-        if let cachedResource = resourceCache[urlString],
-           isResourceValid(cachedResource) {
-            return true
-        }
-        
-        // Check URL cache
-        return session.configuration.urlCache?.cachedResponse(for: request) != nil
     }
     
-    func getCachedData(for request: URLRequest) async -> Data? {
+    private func getCacheState(for timestamp: Date) -> CacheState {
+        let age = Date().timeIntervalSince(timestamp)
+        
+        if age <= CachePolicy.freshWindow {
+            return .fresh
+        } else if age <= (CachePolicy.freshWindow + CachePolicy.staleWindow) {
+            return .stale
+        } else {
+            return .expired
+        }
+    }
+    
+    func getCachedResource(for request: URLRequest) async -> (Data?, CacheState, String?) {
         let urlString = request.url?.absoluteString ?? ""
         
         // Check in-memory cache first
-        if let cachedResource = resourceCache[urlString],
-           isResourceValid(cachedResource) {
-            logger.info("Resource loaded from memory cache: \(urlString)")
-            return cachedResource.data
+        if let cachedResource = resourceCache[urlString] {
+            let state = getCacheState(for: cachedResource.timestamp)
+            
+            switch state {
+            case .fresh:
+                logger.debug("🟢 Fresh cache hit for: \(urlString)")
+
+                return (cachedResource.data, .fresh, cachedResource.mimeType)
+                
+            case .stale:
+                logger.debug("🟡 Stale cache hit for: \(urlString), triggering revalidation")
+
+                // Trigger background revalidation
+                Task {
+                    await revalidateResource(request: request)
+                }
+                return (cachedResource.data, .stale, cachedResource.mimeType)
+                
+            case .expired:
+                logger.debug("🔴 Cache expired for: \(urlString)")
+                return (nil, .expired, nil)
+            }
         }
         
-        // Check URL cache
-        if let cachedResponse = session.configuration.urlCache?.cachedResponse(for: request) {
-            logger.info("Resource loaded from URL cache: \(urlString)")
-            return cachedResponse.data
+        // Check URL cache if not in memory
+        if let cachedResponse = session.configuration.urlCache?.cachedResponse(for: request),
+           let httpResponse = cachedResponse.response as? HTTPURLResponse {
+            let resource = CachedResource(
+                data: cachedResponse.data,
+                timestamp: Date(), // Reset timestamp as we don't know original
+                mimeType: httpResponse.mimeType ?? "application/octet-stream",
+                response: httpResponse
+            )
+            resourceCache[urlString] = resource
+            return (cachedResponse.data, .fresh, resource.mimeType)
         }
-        
-        return nil
+        logger.debug("❌ Cache miss for: \(urlString)")
+        return (nil, .expired, nil)
+    }
+    
+    private func revalidateResource(request: URLRequest) async {
+        logger.debug("🔄 Starting revalidation for: \(request.url?.absoluteString ?? "")")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse,
+               isCacheableResponse(httpResponse) {
+                storeCachedResponse(httpResponse, data: data, for: request)
+                logger.info("Resource revalidated: \(request.url?.absoluteString ?? "")")
+            }
+        } catch {
+            logger.error("Revalidation failed: \(error.localizedDescription)")
+        }
     }
     
     func storeCachedResponse(_ response: HTTPURLResponse, data: Data, for request: URLRequest) {
@@ -104,7 +155,8 @@ actor CacheManager {
         let request = createCacheableRequest(from: url)
         
         // Try to get from cache first
-        if let cachedData = await getCachedData(for: request) {
+        let (cachedData, cacheState, _) = await getCachedResource(for: request)
+        if let cachedData = cachedData, cacheState != .expired {
             return cachedData
         }
         
@@ -114,7 +166,7 @@ actor CacheManager {
             
             if let httpResponse = response as? HTTPURLResponse,
                isCacheableResponse(httpResponse) {
-                await storeCachedResponse(httpResponse, data: data, for: request)
+                storeCachedResponse(httpResponse, data: data, for: request)
             }
             
             return data
@@ -122,11 +174,6 @@ actor CacheManager {
             logger.error("Failed to load resource: \(error.localizedDescription)")
             throw error
         }
-    }
-    
-    private func isResourceValid(_ resource: CachedResource) -> Bool {
-        let cacheTimeout = 3600.0 // 1 hour
-        return Date().timeIntervalSince(resource.timestamp) < cacheTimeout
     }
     
     func clearCache() {

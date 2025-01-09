@@ -14,86 +14,94 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView,
                 decidePolicyFor navigationAction: WKNavigationAction,
                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-//        // Always allow navigation
-//        decisionHandler(.allow)
-        
-//        if let url = navigationAction.request.url {
-//            Task { @MainActor in
-//                viewModel.setLoading(true, fromCache: false)
-//            }
-//        }
         
         guard let url = navigationAction.request.url else {
-                    decisionHandler(.allow)
-                    return
-                }
+            logger.debug("⚠️ No URL in navigation action")
+            decisionHandler(.allow)
+            return
+        }
+        logger.debug("🌐 Navigation requested to: \(url.absoluteString)")
+
         
         Task {
-                    if await CacheManager.shared.shouldCacheURL(url) {
-                        // Check if we have it cached
-                        if await CacheManager.shared.hasCachedResponse(for: navigationAction.request) {
-                            if let cachedData = await CacheManager.shared.getCachedData(for: navigationAction.request) {
-                                await MainActor.run {
-                                    viewModel.setLoading(true, fromCache: true)
-                                }
-                                
-                                // Load cached data
-                                webView.load(cachedData, mimeType: "application/octet-stream",
-                                           characterEncodingName: "UTF-8",
-                                           baseURL: url)
-                                
-                                decisionHandler(.cancel)
-                                return
-                            }
+            if await CacheManager.shared.shouldCacheURL(url) {
+                logger.debug("🎯 URL matches cache pattern: \(url.absoluteString)")
+
+                let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
+                    for: navigationAction.request
+                )
+                
+                switch cacheState {
+                case .fresh, .stale:
+                    logger.debug("✅ Serving fresh/stale cached content")
+
+                    if let cachedData = cachedData,
+                       let mimeType = mimeType {
+                        logger.debug("📤 Loading cached data with MIME type: \(mimeType)")
+                        await MainActor.run {
+                            viewModel.setLoading(true, fromCache: true)
                         }
+                        
+                        webView.load(cachedData,
+                                   mimeType: mimeType,
+                                   characterEncodingName: "UTF-8",
+                                   baseURL: url)
+                        
+                        decisionHandler(.cancel)
+                        return
                     }
                     
-                    // If not cached or shouldn't be cached, proceed normally
-                    await MainActor.run {
-                        viewModel.setLoading(true, fromCache: false)
-                    }
-                    decisionHandler(.allow)
+                case .expired:
+                    // Will fetch fresh content
+                    logger.debug("♻️ Cache expired, fetching fresh content")
+
+                    break
                 }
-        
+            }else{
+                logger.debug("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
+            }
+            
+            await MainActor.run {
+                viewModel.setLoading(true, fromCache: false)
+            }
+            decisionHandler(.allow)
+        }
     }
     
     func webView(_ webView: WKWebView,
-                     decidePolicyFor navigationResponse: WKNavigationResponse,
-                     decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-            
-            guard let response = navigationResponse.response as? HTTPURLResponse,
-                  let url = response.url else {
-                decisionHandler(.allow)
-                return
+                 decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        
+        guard let response = navigationResponse.response as? HTTPURLResponse,
+              let url = response.url else {
+            decisionHandler(.allow)
+            return
+        }
+        
+        Task {
+            if await CacheManager.shared.shouldCacheURL(url) {
+                let request = URLRequest(url: url)
+                
+                // Get response data for caching
+                URLSession.shared.dataTask(with: request) { data, urlResponse, error in
+                    if let data = data,
+                       let httpResponse = urlResponse as? HTTPURLResponse {
+                        Task {
+                            await CacheManager.shared.storeCachedResponse(
+                                httpResponse,
+                                data: data,
+                                for: request
+                            )
+                        }
+                    }
+                }.resume()
             }
             
-            // Create the request
-            let request = URLRequest(url: url)
-            
-            Task {
-                // Check pattern match in async context
-                if await CacheManager.shared.shouldCacheURL(url) {
-                    // Create a URLSession data task to get the response data
-                    URLSession.shared.dataTask(with: request) { [weak self] data, urlResponse, error in
-                        if let data = data,
-                           let httpResponse = urlResponse as? HTTPURLResponse {
-                            Task {
-                                // Store in cache in async context
-                                await CacheManager.shared.storeCachedResponse(httpResponse,
-                                                                            data: data,
-                                                                            for: request)
-                            }
-                        }
-                    }.resume()
-                }
-                
-                // Execute decision handler on main thread
-                await MainActor.run {
-                    decisionHandler(.allow)
-                }
+            await MainActor.run {
+                decisionHandler(.allow)
             }
         }
-    
+    }
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         Task { @MainActor in
