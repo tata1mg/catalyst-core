@@ -1,8 +1,8 @@
 const path = require("path")
 const { spawnSync } = require("child_process")
 const { arrayToObject } = require("./scriptUtils")
-const { name } = require(`${process.env.PWD}/package.json`)
-const { BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
+const { name } = require(`${process.cwd()}/package.json`)
+const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
 
 /**
  * @description - starts webpack dev server and node server.
@@ -14,7 +14,7 @@ function start() {
 
     const command = `
     node ./dist/scripts/checkVersion
-    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.env.PWD}/server --watch-path=${process.env.PWD}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
+    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
     `
 
     spawnSync(command, [], {
@@ -23,7 +23,7 @@ function start() {
         shell: true,
         env: {
             ...process.env,
-            src_path: process.env.PWD,
+            src_path: process.cwd(),
             NODE_ENV: "development",
             IS_DEV_COMMAND: false,
             APPLICATION: name || "catalyst_app",

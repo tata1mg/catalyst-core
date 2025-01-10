@@ -1,8 +1,8 @@
 const path = require("path")
 const { spawnSync } = require("child_process")
 const { green, cyan, yellow } = require("picocolors")
-const { name } = require(`${process.env.PWD}/package.json`)
-const { BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
+const { name } = require(`${process.cwd()}/package.json`)
+const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
 const { arrayToObject, printBundleInformation } = require("./scriptUtils.js")
 
 /**
@@ -15,11 +15,11 @@ function build() {
 
     const command = `
     node ./dist/scripts/checkVersion
-    rm -rf ${process.env.PWD}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js
+    rm -rf ${process.cwd()}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js
     APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress
     APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js
-    APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet 
-    APPLICATION=${name || "catalyst_app"} npx babel ${process.env.PWD}/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --quiet
+    APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet 
+    APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet
     `
 
     console.log("Creating an optimized production build...")
@@ -30,7 +30,7 @@ function build() {
         shell: true,
         env: {
             ...process.env,
-            src_path: process.env.PWD,
+            src_path: process.cwd(),
             BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
             NODE_ENV: "production",
             IS_DEV_COMMAND: false,
