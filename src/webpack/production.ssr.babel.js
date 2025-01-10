@@ -46,9 +46,11 @@ const ssrConfig = mergeWithCustomize({
         // treat all node modules as external to keep this bundle small
         nodeExternals({
             modulesDir: path.resolve(process.env.src_path, "./node_modules"),
+            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
         }),
         nodeExternals({
             modulesDir: path.join(rootWorkspacePath.path, "./node_modules"),
+            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
         }),
     ],
     output: {
