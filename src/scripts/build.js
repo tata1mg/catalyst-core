@@ -13,14 +13,20 @@ function build() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
+    const checkVersion = "node ./dist/scripts/checkVersion"
+    const beforeServerScript = `rm -rf ${process.cwd()}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js`
+    const buildClient = `APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress`
+    const buildSSRServer = `APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js`
+    const buildServer = `APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet`
+    const startServer = `APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`
+
     const command = `
-    node ./dist/scripts/checkVersion
-    rm -rf ${process.cwd()}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js
-    APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress
-    APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js
-    APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet 
-    APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet
-    `
+        start ${checkVersion} && 
+        start ${beforeServerScript} && 
+        start ${buildClient} && 
+        start ${buildSSRServer} && 
+        start ${buildServer} && 
+        start ${startServer}`
 
     console.log("Creating an optimized production build...")
 
