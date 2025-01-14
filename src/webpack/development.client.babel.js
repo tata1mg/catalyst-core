@@ -1,8 +1,13 @@
 import webpack from "webpack"
-import merge from "webpack-merge"
+import merge, { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 import WebpackDevServer from "webpack-dev-server"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
+import path from "path"
+import nodeExternals from "webpack-node-externals"
+import rootWorkspacePath from "app-root-path"
+// Import the catalystResultMap for SSR support
+import { catalystResultMap } from "../scripts/registerAliases.js"
 
 import catalystConfig from "@catalyst/root/config.json"
 import baseConfig from "@catalyst/webpack/base.babel.js"
@@ -10,7 +15,8 @@ import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
-const webpackConfig = merge(baseConfig, {
+// Create client config
+const webpackClientConfig = merge(baseConfig, {
     devtool: "inline-source-map",
     stats: "none",
     infrastructureLogging: {
@@ -60,12 +66,97 @@ const webpackConfig = merge(baseConfig, {
     },
 })
 
+// Create SSR config
+const webpackSSRConfig = mergeWithCustomize({
+    customizeArray: customizeArray({
+        entry: "replace",
+        optimization: "replace",
+        plugins: "prepend",
+    }),
+    customizeObject: customizeObject({
+        entry: "replace",
+        optimization: "replace",
+        plugins: "prepend",
+    }),
+})(baseConfig, {
+    mode: "development",
+    stats: "none",
+    target: "node",
+    entry: {
+        handler: path.resolve(__dirname, "..", "./server/renderer/handler.js"),
+    },
+    externals: [
+        /\.(html|png|gif|jpg)$/,
+        nodeExternals({
+            modulesDir: path.resolve(process.env.src_path, "./node_modules"),
+            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
+        }),
+        nodeExternals({
+            modulesDir: path.join(rootWorkspacePath.path, "./node_modules"),
+            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
+        }),
+    ],
+    resolve: {
+        alias: catalystResultMap,
+    },
+    output: {
+        path: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
+        chunkFilename: catalystConfig.chunkFileName,
+        filename: "handler.development.js",
+        libraryTarget: "commonjs",
+    },
+    plugins: [...customWebpackConfig.ssrPlugins].filter(Boolean),
+})
+
+// Create separate compiler for SSR that writes to disk
+const ssrCompiler = webpack(webpackSSRConfig)
+const watchInstance = ssrCompiler.watch({}, (err, stats) => {
+    if (err) {
+        console.error(err)
+        return
+    }
+    console.log("SSR bundle recompiled")
+})
+
+// Cleanup on exit
+const cleanup = () => {
+    // Close webpack watch
+    watchInstance.close(() => {
+        // Delete the development handler file
+        const handlerPath = path.join(
+            __dirname,
+            "../..",
+            ".catalyst-dev",
+            "/server",
+            "/renderer",
+            "handler.development.js"
+        )
+        try {
+            // Delete the file
+            require("fs").unlinkSync(handlerPath)
+            // Try to remove the renderer directory
+            require("fs").rmdirSync(path.join(process.env.src_path, ".catalyst-dev", "/renderer"))
+            // Try to remove the parent directory
+            require("fs").rmdirSync(path.join(process.env.src_path, ".catalyst-dev"))
+        } catch (err) {
+            // Ignore errors during cleanup
+        }
+        process.exit()
+    })
+}
+
+// Handle various ways the process might exit
+process.on("SIGINT", cleanup) // Ctrl+C
+process.on("SIGTERM", cleanup) // kill
+process.on("exit", cleanup) // normal exit
+
+// Create dev server for client-side only
 let devServer = new WebpackDevServer(
     {
         port: WEBPACK_DEV_SERVER_PORT,
         host: WEBPACK_DEV_SERVER_HOSTNAME,
         static: {
-            publicPath: webpackConfig.output.publicPath,
+            publicPath: webpackClientConfig.output.publicPath,
         },
         hot: true,
         historyApiFallback: true,
@@ -80,7 +171,7 @@ let devServer = new WebpackDevServer(
             reconnect: true,
         },
     },
-    webpack(webpackConfig)
+    webpack(webpackClientConfig)
 )
 
 devServer.startCallback(() => {
