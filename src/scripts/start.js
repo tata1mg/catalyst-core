@@ -17,10 +17,7 @@ function start() {
         "npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL"
     const server = `npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`
 
-    const command = `
-        start ${versionCheck} && 
-        start ${webpackDevServer} &&
-        start ${server}`
+    const command = `start ${versionCheck} && start ${webpackDevServer} && start ${server}`
 
     spawnSync(command, [], {
         cwd: dirname,
