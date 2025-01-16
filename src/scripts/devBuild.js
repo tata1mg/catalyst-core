@@ -20,7 +20,7 @@ function devBuild() {
     const buildInternalServer = `APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet`
     const buildServer = `APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`
 
-    const command = `start ${checkVersion} && start ${beforeServerScript} && start ${buildClient} && start ${buildSSRServer} && start ${buildInternalServer} && start ${buildServer}`
+    const command = `start ${checkVersion} && ${beforeServerScript} && start ${buildClient} && start ${buildSSRServer} && start ${buildInternalServer} && start ${buildServer}`
 
     console.log("Creating an optimized local build...")
 
