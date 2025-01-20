@@ -9,18 +9,21 @@ const { arrayToObject, printBundleInformation } = require("./scriptUtils.js")
  * @description - creates a production build of the application.
  */
 function build() {
+    const isWindows = process.platform === "win32"
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    const checkVersion = "node ./dist/scripts/checkVersion"
-    const beforeServerScript = `rm -rf ${process.cwd()}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js`
-    const buildClient = `APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress`
-    const buildSSRServer = `APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js`
-    const buildInternalServer = `APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet`
-    const buildServer = `APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`
+    const commands = [
+        "node ./dist/scripts/checkVersion",
+        `${isWindows ? "rd -r -fo" : "rm -rf"} ${process.cwd()}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js`,
+        `cross-env APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress`,
+        `cross-env APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js`,
+        `cross-env APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet`,
+        `cross-env APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`,
+    ]
 
-    const command = `start ${checkVersion} && ${beforeServerScript} && start ${buildClient} && start ${buildSSRServer} && start ${buildInternalServer} && start ${buildServer}`
+    const command = commands.join(isWindows ? " && " : " ; ")
 
     console.log("Creating an optimized production build...")
 

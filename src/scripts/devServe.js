@@ -13,9 +13,7 @@ function devServe() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    const command = `
-    APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ${process.cwd()}/${BUILD_OUTPUT_PATH}/startServer.js
-    `
+    const command = `cross-env APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ${process.cwd()}/${BUILD_OUTPUT_PATH}/startServer.js`
 
     spawnSync(command, [], {
         cwd: dirname,

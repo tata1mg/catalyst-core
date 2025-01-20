@@ -49,6 +49,7 @@ const clientConfig = mergeWithCustomize({
                     name(module) {
                         const moduleFileName = module
                             .identifier()
+                            .replace(/\\/g, "/")
                             .split("/")
                             .reverse()
                             .slice(0, 3)
@@ -64,6 +65,7 @@ const clientConfig = mergeWithCustomize({
             name(module) {
                 const moduleFileName = module
                     .identifier()
+                    .replace(/\\/g, "/")
                     .split("/")
                     .reverse()
                     .slice(0, 3)
