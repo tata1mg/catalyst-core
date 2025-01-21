@@ -11,7 +11,7 @@ export default {
         ],
         "@babel/preset-react",
     ],
-    plugins: ["@loadable/babel-plugin"],
+    plugins: [["babel-plugin-react-compiler", { target: "18" }], "@loadable/babel-plugin"],
     env: {
         development: {
             plugins: ["react-refresh/babel"],

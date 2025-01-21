@@ -11,7 +11,7 @@
         "@babel/preset-react"
     ],
     "compact": true,
-    "plugins": ["@loadable/babel-plugin"],
+    "plugins": [["babel-plugin-react-compiler", { "target": "18" }], "@loadable/babel-plugin"],
     "env": {
         "test": {
             "presets": ["@babel/preset-react"]
