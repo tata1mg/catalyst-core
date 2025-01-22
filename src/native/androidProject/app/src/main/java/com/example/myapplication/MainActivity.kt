@@ -160,7 +160,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 val originalUrl = request.url.toString()
                 Log.d(TAG, "Intercepting request for: $originalUrl")
 
-                if ( buildType != "debug" || request.method != "GET") {
+                if ( buildType == "debug" || request.method != "GET") {
                     return null
                 }
 
