@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
@@ -16,8 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.cancelChildren
 import org.json.JSONObject
-import java.net.URL                 
+import java.net.URL
 import java.net.HttpURLConnection
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
@@ -28,6 +30,28 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var cacheManager: WebCacheManager
     private var buildType: String = "debug"  // Default to debug
     private var cachePatterns: List<String> = emptyList()
+    private var isHardwareAccelerationEnabled = false
+
+    private fun enableHardwareAcceleration() {
+        if (!isHardwareAccelerationEnabled) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+            )
+            myWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            isHardwareAccelerationEnabled = true
+            Log.d(TAG, "🚀 Hardware acceleration enabled - Thread: ${Thread.currentThread().name}")
+        }
+    }
+
+    private fun disableHardwareAcceleration() {
+        if (isHardwareAccelerationEnabled) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
+            myWebView.setLayerType(View.LAYER_TYPE_NONE, null)
+            isHardwareAccelerationEnabled = false
+            Log.d(TAG, "⚫ Hardware acceleration disabled - Thread: ${Thread.currentThread().name}")
+        }
+    }
 
     data class AndroidConfig(
         val buildType: String = "debug",
@@ -38,13 +62,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
 
         val properties = Properties()
         assets.open("webview_config.properties").use {
             properties.load(it)
         }
 
-        // Parse android config from JSON string
         val androidConfigJson = properties.getProperty("android", "{}")
         val androidConfig = try {
             val jsonObject = JSONObject(androidConfigJson)
@@ -74,16 +98,24 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         cacheManager = WebCacheManager(applicationContext)
 
-        // Clean up expired cache entries
         launch(Dispatchers.IO) {
-            cacheManager.cleanup()
+            Log.d(TAG, "📝 Starting cache cleanup on thread: ${Thread.currentThread().name}")
+            val startTime = System.currentTimeMillis()
+            disableHardwareAcceleration()
+            try {
+                cacheManager.cleanup()
+                val duration = System.currentTimeMillis() - startTime
+                Log.d(TAG, "⏱️ Cache cleanup completed in ${duration}ms on thread: ${Thread.currentThread().name}")
+            } finally {
+                enableHardwareAcceleration()
+            }
         }
 
         myWebView = binding.webview
+        enableHardwareAcceleration() // Enable for initial UI setup
 
-        // Clear any existing WebView data if this is a fresh start
         if (savedInstanceState == null) {
-            myWebView.clearCache(false) // false means we keep files marked as "cache-control: no-cache"
+            myWebView.clearCache(false)
             myWebView.clearHistory()
         } else {
             myWebView.restoreState(savedInstanceState)
@@ -98,17 +130,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     private fun shouldCacheUrl(url: String): Boolean {
-        // If no patterns specified, don't cache anything
         if (cachePatterns.isEmpty()) return false
 
-        // Convert the wildcard pattern to a regex pattern
         fun String.wildcardToRegex(): String {
-            return this.replace(".", "\\.")  // Escape dots
-                .replace("*", ".*")   // Convert * to .*
-                .let { "^$it$" }      // Anchor pattern
+            return this.replace(".", "\\.")
+                .replace("*", ".*")
+                .let { "^$it$" }
         }
 
-        // Check if URL matches any of the patterns
         return cachePatterns.any { pattern ->
             val regex = pattern.wildcardToRegex().toRegex(RegexOption.IGNORE_CASE)
             regex.matches(url) || url.endsWith(pattern.removePrefix("*"))
@@ -122,6 +151,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView(properties: Properties) {
+        Log.d(TAG, "🌐 Setting up WebView on thread: ${Thread.currentThread().name}")
+
         myWebView.settings.apply {
             javaScriptEnabled = true
             loadsImagesAutomatically = true
@@ -131,18 +162,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 WebSettings.MIXED_CONTENT_NEVER_ALLOW
             }
 
-            // Enable standard caching
-            cacheMode = WebSettings.LOAD_DEFAULT // This will use both RAM and disk cache
+            setRenderPriority(WebSettings.RenderPriority.HIGH)
+            cacheMode = WebSettings.LOAD_DEFAULT
             databaseEnabled = true
             domStorageEnabled = true
-
-            // Enable file access
             allowFileAccess = true
             allowContentAccess = true
+            setEnableSmoothTransition(true)
         }
 
         myWebView.webViewClient = object : WebViewClient() {
-
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 request?.url?.let { url ->
                     if (url.scheme in listOf("http", "https")) {
@@ -158,44 +187,47 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 request: WebResourceRequest
             ): WebResourceResponse? {
                 val originalUrl = request.url.toString()
-                Log.d(TAG, "Intercepting request for: $originalUrl")
+                Log.d(TAG, "🔄 Intercepting request for: $originalUrl on thread: ${Thread.currentThread().name}")
 
-                if ( buildType == "debug" || request.method != "GET") {
+                if (buildType == "debug" || request.method != "GET") {
                     return null
                 }
 
-                // Check if URL matches patterns
                 if (!shouldCacheUrl(originalUrl)) {
-                    Log.d(TAG, "URL doesn't match cache patterns, skipping cache: $originalUrl")
+                    Log.d(TAG, "⏭️ URL doesn't match cache patterns, skipping cache: $originalUrl")
                     return null
                 }
 
                 return runBlocking {
+                    Log.d(TAG, "⚙️ Processing request in coroutine on thread: ${Thread.currentThread().name}")
+                    val startTime = System.currentTimeMillis()
+                    disableHardwareAcceleration()
                     try {
-                        // Add cache control headers
                         val headers = request.requestHeaders.toMutableMap().apply {
                             if (!containsKey("Cache-Control")) {
-                                put("Cache-Control", "max-age=86400") // 24 hours
+                                put("Cache-Control", "max-age=86400")
                             }
                             if (!containsKey("Pragma")) {
                                 put("Pragma", "cache")
                             }
                         }
 
-                        // Try to get from cache first
                         var response = cacheManager.getCachedResponse(originalUrl, headers)
 
                         if (response != null) {
-                            Log.d(TAG, "📱 Serving from cache: $originalUrl")
+                            val duration = System.currentTimeMillis() - startTime
+                            Log.d(TAG, "✅ Served from cache in ${duration}ms: $originalUrl")
                             response
                         } else {
-                            Log.d(TAG, "Cache Manager unable to return response : $originalUrl")
+                            Log.d(TAG, "❌ Cache miss for: $originalUrl")
                             null
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "❌ Error processing request for URL: $originalUrl", e)
                         e.printStackTrace()
                         null
+                    } finally {
+                        enableHardwareAcceleration()
                     }
                 }
             }
@@ -203,13 +235,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 binding.progress.visibility = View.VISIBLE
-                Log.d(TAG, "⏳ Page started loading: $url")
+                val startTime = System.currentTimeMillis()
+                view?.tag = startTime // Store start time for performance tracking
+                Log.d(TAG, "⏳ Page load started for: $url - Hardware Acceleration: $isHardwareAccelerationEnabled")
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 binding.progress.visibility = View.GONE
-                Log.d(TAG, "✅ Page finished loading: $url")
-                // Save to WebView's back/forward list
+                val startTime = view?.tag as? Long ?: return
+                val loadTime = System.currentTimeMillis() - startTime
+                Log.d(TAG, "✅ Page load finished for: $url - Load time: ${loadTime}ms - Hardware Acceleration: $isHardwareAccelerationEnabled")
                 view?.clearHistory()
                 view?.saveState(Bundle())
                 super.onPageFinished(view, url)
@@ -264,15 +299,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        coroutineContext.cancelChildren()
         myWebView.destroy()
+        super.onDestroy()
     }
-
-//    external fun stringFromJNI(): String
-
-//    companion object {
-//        init {
-//            System.loadLibrary("native-lib")
-//        }
-//    }
 }
