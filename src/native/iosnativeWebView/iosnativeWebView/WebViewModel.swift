@@ -16,6 +16,7 @@ class WebViewModel: ObservableObject {
     private var visitedURLs: [String] = []
     
     func setLoading(_ loading: Bool, fromCache: Bool) {
+        logger.info("🔄 [\(ThreadHelper.currentThreadInfo())] Setting loading state: loading=\(loading), fromCache=\(fromCache)")
         isLoading = loading
         isLoadingFromCache = fromCache
         
@@ -25,28 +26,34 @@ class WebViewModel: ObservableObject {
     }
     
     func setProgress(_ progress: Double) {
+        logger.info("📊 [\(ThreadHelper.currentThreadInfo())] Updating progress: \(Int(progress * 100))%")
         loadingProgress = progress
     }
     
     func setError(_ error: Error?) {
+        logger.info("⚠️ [\(ThreadHelper.currentThreadInfo())] Setting error: \(error?.localizedDescription ?? "nil")")
         self.error = error
     }
     
     func setLastLoadedURL(_ url: URL?) {
+        logger.info("🔗 [\(ThreadHelper.currentThreadInfo())] Setting last loaded URL: \(url?.absoluteString ?? "nil")")
         self.lastLoadedURL = url
     }
     
     func setCanGoBack(_ canGoBack: Bool) {
+        logger.info("◀️ [\(ThreadHelper.currentThreadInfo())] Setting canGoBack: \(canGoBack)")
         self.canGoBack = canGoBack
     }
     
     func addToHistory(_ urlString: String) {
+        logger.info("📝 [\(ThreadHelper.currentThreadInfo())] Adding to history: \(urlString)")
         if !visitedURLs.contains(urlString) {
             visitedURLs.append(urlString)
         }
     }
     
     func reset() {
+        logger.info("🔄 [\(ThreadHelper.currentThreadInfo())] Resetting view model state")
         isLoading = false
         loadingProgress = 0.0
         isLoadingFromCache = false
