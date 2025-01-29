@@ -41,7 +41,6 @@ actor CacheManager {
     }
     
     private init() {
-        // Get the cache directory in the Application Support directory
         let baseDirectory = FileManager.default.urls(
             for: .cachesDirectory,
             in: .userDomainMask
@@ -49,7 +48,6 @@ actor CacheManager {
         
         self.cacheDirectory = baseDirectory.appendingPathComponent("WebCache", isDirectory: true)
         
-        // Create cache directory if it doesn't exist
         try? FileManager.default.createDirectory(
             at: cacheDirectory,
             withIntermediateDirectories: true,
@@ -65,9 +63,8 @@ actor CacheManager {
         )
         
         session = URLSession(configuration: configuration)
-        logger.info("Cache initialized with resource caching support at: \(self.cacheDirectory.path)")
+        logger.info("Cache initialized at: \(self.cacheDirectory.path)")
         
-        // Load existing cache from disk
         Task {
             await loadCacheFromDisk()
         }
@@ -140,42 +137,41 @@ actor CacheManager {
             return (nil, .expired, nil)
         }
         
-        // Check in-memory cache first
         if let cachedResource = resourceCache[urlString] {
             let state = getCacheState(for: cachedResource.timestamp)
             
             switch state {
             case .fresh:
-                logger.info("🟢 Fresh cache hit for: \(urlString)")
+                logger.info("🟢 Fresh cache hit: \(urlString)")
                 return (cachedResource.data, .fresh, cachedResource.mimeType)
                 
             case .stale:
-                logger.info("🟡 Stale cache hit for: \(urlString), triggering revalidation")
+                logger.info("🟡 Stale cache hit: \(urlString)")
                 Task {
                     await revalidateResource(request: request)
                 }
                 return (cachedResource.data, .stale, cachedResource.mimeType)
                 
             case .expired:
-                logger.info("🔴 Cache expired for: \(urlString)")
+                logger.info("🔴 Cache expired: \(urlString)")
                 return (nil, .expired, nil)
             }
         }
         
-        logger.info("❌ Cache miss for: \(urlString)")
+        logger.info("❌ Cache miss: \(urlString)")
         return (nil, .expired, nil)
     }
     
     private func revalidateResource(request: URLRequest) async {
-        logger.info("🔄 Starting revalidation for: \(request.url?.absoluteString ?? "")")
+        logger.info("🔄 Revalidating: \(request.url?.absoluteString ?? "")")
         
         do {
             let (data, response) = try await session.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse,
                isCacheableResponse(httpResponse) {
-                storeCachedResponse(httpResponse, data: data, for: request)
-                logger.info("Resource revalidated: \(request.url?.absoluteString ?? "")")
+                await storeCachedResponse(httpResponse, data: data, for: request)
+                logger.info("Resource revalidated successfully")
             }
         } catch {
             logger.error("Revalidation failed: \(error.localizedDescription)")
@@ -192,10 +188,8 @@ actor CacheManager {
             urlString: url.absoluteString
         )
         
-        // Store in memory cache
         resourceCache[url.absoluteString] = resource
         
-        // Store in URL cache
         let cachedResponse = CachedURLResponse(
             response: response,
             data: data,
@@ -204,14 +198,15 @@ actor CacheManager {
         )
         session.configuration.urlCache?.storeCachedResponse(cachedResponse, for: request)
         
-        // Store to disk
-        let cacheFile = getCacheFilePath(for: url)
-        do {
-            let encodedData = try JSONEncoder().encode(resource)
-            try encodedData.write(to: cacheFile)
-            logger.info("Resource cached: \(url.absoluteString)")
-        } catch {
-            logger.error("Failed to write cache to disk: \(error.localizedDescription)")
+        Task.detached(priority: .background) {
+            let cacheFile = await self.getCacheFilePath(for: url)
+            do {
+                let encodedData = try JSONEncoder().encode(resource)
+                try encodedData.write(to: cacheFile)
+                logger.info("✅ Resource cached: \(url.absoluteString)")
+            } catch {
+                logger.error("Failed to write cache: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -219,15 +214,15 @@ actor CacheManager {
         resourceCache.removeAll()
         session.configuration.urlCache?.removeAllCachedResponses()
         
-        // Clear cache directory
-        try? FileManager.default.removeItem(at: cacheDirectory)
-        try? FileManager.default.createDirectory(
-            at: cacheDirectory,
-            withIntermediateDirectories: true,
-            attributes: nil
-        )
-        
-        logger.info("All caches cleared")
+        Task.detached(priority: .background) {
+            try? FileManager.default.removeItem(at: self.cacheDirectory)
+            try? FileManager.default.createDirectory(
+                at: self.cacheDirectory,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+            logger.info("Cache cleared")
+        }
     }
     
     func createCacheableRequest(from url: URL) -> URLRequest {
@@ -241,9 +236,10 @@ actor CacheManager {
         return (200...299 ~= response.statusCode) && shouldCacheURL(url)
     }
     
-    func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
-        let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
-        let diskUsed = session.configuration.urlCache?.currentDiskUsage ?? 0
-        return (memoryUsed, diskUsed)
+    func getCacheStatistics() async -> (memoryUsed: Int, diskUsed: Int) {
+        return (
+            session.configuration.urlCache?.currentMemoryUsage ?? 0,
+            session.configuration.urlCache?.currentDiskUsage ?? 0
+        )
     }
 }

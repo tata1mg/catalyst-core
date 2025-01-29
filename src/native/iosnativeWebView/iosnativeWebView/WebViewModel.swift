@@ -1,47 +1,55 @@
 import Foundation
+import WebKit
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewModel")
 
 @MainActor
 class WebViewModel: ObservableObject {
-    @Published var isLoading: Bool = true  // Start as true for initial load
-    @Published var canGoBack: Bool = false
-    @Published var loadingProgress: Double = 0.0
-    @Published var lastLoadedURL: URL?
-    @Published var isLoadingFromCache: Bool = false
+    @Published private(set) var isLoading = false
+    @Published private(set) var loadingProgress: Double = 0.0
+    @Published private(set) var isLoadingFromCache = false
+    @Published private(set) var lastLoadedURL: URL?
+    @Published private(set) var canGoBack = false
+    @Published private(set) var error: Error?
     
-    var navigationHistory: [String] = []
+    private var visitedURLs: [String] = []
     
-    func setLoading(_ loading: Bool, fromCache: Bool = false) {
+    func setLoading(_ loading: Bool, fromCache: Bool) {
         isLoading = loading
         isLoadingFromCache = fromCache
         
         if !loading {
             loadingProgress = 1.0
-            // Reset loading state after a short delay
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                self.isLoading = false
-                self.loadingProgress = 0.0
-                self.isLoadingFromCache = false
-            }
         }
-        
-        logger.info("Loading state changed: loading=\(loading), fromCache=\(fromCache)")
     }
     
     func setProgress(_ progress: Double) {
         loadingProgress = progress
     }
     
+    func setError(_ error: Error?) {
+        self.error = error
+    }
+    
+    func setLastLoadedURL(_ url: URL?) {
+        self.lastLoadedURL = url
+    }
+    
+    func setCanGoBack(_ canGoBack: Bool) {
+        self.canGoBack = canGoBack
+    }
+    
     func addToHistory(_ urlString: String) {
-        navigationHistory.append(urlString)
+        if !visitedURLs.contains(urlString) {
+            visitedURLs.append(urlString)
+        }
     }
     
     func reset() {
         isLoading = false
-        loadingProgress = 0
+        loadingProgress = 0.0
         isLoadingFromCache = false
+        error = nil
     }
 }

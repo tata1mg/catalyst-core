@@ -1,13 +1,16 @@
-@preconcurrency import WebKit
+import WebKit
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
 
+@MainActor
 class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
-    private var viewModel: WebViewModel
+    private let viewModel: WebViewModel
+    private let resourceManager: WebResourceManager
     
-    init(viewModel: WebViewModel) {
+    init(viewModel: WebViewModel, resourceManager: WebResourceManager = .shared) {
         self.viewModel = viewModel
+        self.resourceManager = resourceManager
         super.init()
     }
     
@@ -20,29 +23,26 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
+        
         logger.info("🌐 Navigation requested to: \(url.absoluteString)")
-
         
         Task {
-            if await CacheManager.shared.shouldCacheURL(url) {
-                logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
-
-                let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
-                    for: navigationAction.request
-                )
-                
-                switch cacheState {
-                case .fresh, .stale:
-                    logger.info("✅ Serving fresh/stale cached content")
-
-                    if let cachedData = cachedData,
-                       let mimeType = mimeType {
+            do {
+                if await CacheManager.shared.shouldCacheURL(url) {
+                    logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
+                    
+                    // Update UI state immediately
+                    await viewModel.setLoading(true, fromCache: false)
+                    
+                    // Load resource asynchronously
+                    let (data, mimeType) = try await resourceManager.loadResource(url: url)
+                    
+                    // Handle successful load on main thread
+                    if let mimeType = mimeType {
                         logger.info("📤 Loading cached data with MIME type: \(mimeType)")
-                        await MainActor.run {
-                            viewModel.setLoading(true, fromCache: true)
-                        }
+                        await viewModel.setLoading(true, fromCache: true)
                         
-                        webView.load(cachedData,
+                        webView.load(data,
                                    mimeType: mimeType,
                                    characterEncodingName: "UTF-8",
                                    baseURL: url)
@@ -50,21 +50,21 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                         decisionHandler(.cancel)
                         return
                     }
-                    
-                case .expired:
-                    // Will fetch fresh content
-                    logger.info("♻️ Cache expired, fetching fresh content")
-
-                    break
+                } else {
+                    logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
                 }
-            }else{
-                logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
+                
+                // Default behavior for non-cached content
+                await viewModel.setLoading(true, fromCache: false)
+                decisionHandler(.allow)
+                
+            } catch {
+                logger.error("❌ Resource loading failed: \(error.localizedDescription)")
+                // Handle errors on main thread
+                await viewModel.setError(error)
+                await viewModel.setLoading(false, fromCache: false)
+                decisionHandler(.allow) // Fallback to normal loading
             }
-            
-            await MainActor.run {
-                viewModel.setLoading(true, fromCache: false)
-            }
-            decisionHandler(.allow)
         }
     }
     
@@ -83,7 +83,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 let request = URLRequest(url: url)
                 
                 // Get response data for caching
-                URLSession.shared.dataTask(with: request) { data, urlResponse, error in
+                URLSession.shared.dataTask(with: request) { [weak self] data, urlResponse, error in
                     if let data = data,
                        let httpResponse = urlResponse as? HTTPURLResponse {
                         Task {
@@ -97,9 +97,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 }.resume()
             }
             
-            await MainActor.run {
-                decisionHandler(.allow)
-            }
+            decisionHandler(.allow)
         }
     }
     
@@ -112,7 +110,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         Task { @MainActor in
             if let url = webView.url {
-                viewModel.lastLoadedURL = url
+                viewModel.setLastLoadedURL(url)
             }
         }
     }
@@ -120,8 +118,8 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Task { @MainActor in
             if let url = webView.url {
-                viewModel.lastLoadedURL = url
-                viewModel.canGoBack = webView.canGoBack
+                viewModel.setLastLoadedURL(url)
+                viewModel.setCanGoBack(webView.canGoBack)
                 viewModel.addToHistory(url.absoluteString)
                 viewModel.setLoading(false, fromCache: false)
             }
@@ -138,6 +136,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     
     private func handleNavigationError(_ error: Error) {
         Task { @MainActor in
+            viewModel.setError(error)
             viewModel.reset()
             logger.error("Navigation failed: \(error.localizedDescription)")
         }

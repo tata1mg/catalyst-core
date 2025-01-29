@@ -7,12 +7,10 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 struct WebView: UIViewRepresentable {
     let urlString: String
     @ObservedObject var viewModel: WebViewModel
-    private let navigationDelegate: WebViewNavigationDelegate
     
     init(urlString: String, viewModel: WebViewModel) {
         self.urlString = urlString
         self.viewModel = viewModel
-        self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel)
         
         // Register our custom URL protocol
         ResourceURLProtocol.register()
@@ -26,9 +24,13 @@ struct WebView: UIViewRepresentable {
         configuration.defaultWebpagePreferences = preferences
         
         let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.navigationDelegate = navigationDelegate
+        let navigationHandler = WebViewNavigationDelegate(viewModel: viewModel)
+        webView.navigationDelegate = navigationHandler
         webView.allowsBackForwardNavigationGestures = true
         webView.isInspectable = true
+        
+        // Store navigation handler in coordinator
+        context.coordinator.navigationHandler = navigationHandler
         
         webView.addObserver(context.coordinator,
                            forKeyPath: #keyPath(WKWebView.estimatedProgress),
@@ -52,16 +54,13 @@ struct WebView: UIViewRepresentable {
         Coordinator(self)
     }
     
-    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
-        webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-        ResourceURLProtocol.unregister()
-    }
-    
     class Coordinator: NSObject {
         var parent: WebView
+        var navigationHandler: WebViewNavigationDelegate?
         
         init(_ parent: WebView) {
             self.parent = parent
+            super.init()
         }
         
         override func observeValue(forKeyPath keyPath: String?,
@@ -75,5 +74,10 @@ struct WebView: UIViewRepresentable {
                 }
             }
         }
+    }
+    
+    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
+        webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+        ResourceURLProtocol.unregister()
     }
 }
