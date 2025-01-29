@@ -34,6 +34,13 @@ struct ContentView: View {
                 .background(Color.black.opacity(0.1))
             }
         }
+        .alert("Error", isPresented: .constant(webViewModel.error != nil)) {
+            Button("OK") {
+                webViewModel.setError(nil)
+            }
+        } message: {
+            Text(webViewModel.error?.localizedDescription ?? "")
+        }
         .onAppear {
             logger.info("ContentView appeared")
         }
