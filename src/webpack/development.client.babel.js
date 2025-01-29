@@ -1,4 +1,5 @@
 import webpack from "webpack"
+import chokidar from "chokidar"
 import merge, { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 import WebpackDevServer from "webpack-dev-server"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
@@ -109,6 +110,14 @@ const webpackSSRConfig = mergeWithCustomize({
 })
 
 // Create separate compiler for SSR that writes to disk
+const handlerPath = path.join(
+    __dirname,
+    "../..",
+    ".catalyst-dev",
+    "/server",
+    "/renderer",
+    "handler.development.js"
+)
 const ssrCompiler = webpack(webpackSSRConfig)
 const watchInstance = ssrCompiler.watch({}, (err, stats) => {
     if (err) {
@@ -117,20 +126,13 @@ const watchInstance = ssrCompiler.watch({}, (err, stats) => {
     }
     console.log("SSR bundle recompiled")
 })
+const handlerWatcher = chokidar.watch(handlerPath)
 
 // Cleanup on exit
 const cleanup = () => {
     // Close webpack watch
     watchInstance.close(() => {
         // Delete the development handler file
-        const handlerPath = path.join(
-            __dirname,
-            "../..",
-            ".catalyst-dev",
-            "/server",
-            "/renderer",
-            "handler.development.js"
-        )
         try {
             // Delete the file
             require("fs").unlinkSync(handlerPath)
@@ -150,31 +152,34 @@ process.on("SIGINT", cleanup) // Ctrl+C
 process.on("SIGTERM", cleanup) // kill
 process.on("exit", cleanup) // normal exit
 
-// Create dev server for client-side only
-let devServer = new WebpackDevServer(
-    {
-        port: WEBPACK_DEV_SERVER_PORT,
-        host: WEBPACK_DEV_SERVER_HOSTNAME,
-        static: {
-            publicPath: webpackClientConfig.output.publicPath,
-        },
-        hot: true,
-        historyApiFallback: true,
-        headers: { "Access-Control-Allow-Origin": "*" },
-        client: {
-            logging: "error",
-            overlay: {
-                errors: false,
-                warnings: false,
-                runtimeErrors: false,
+handlerWatcher.on("add", () => {
+    handlerWatcher.close()
+    // Create dev server for client-side only
+    let devServer = new WebpackDevServer(
+        {
+            port: WEBPACK_DEV_SERVER_PORT,
+            host: WEBPACK_DEV_SERVER_HOSTNAME,
+            static: {
+                publicPath: webpackClientConfig.output.publicPath,
             },
-            reconnect: true,
+            hot: true,
+            historyApiFallback: true,
+            headers: { "Access-Control-Allow-Origin": "*" },
+            client: {
+                logging: "error",
+                overlay: {
+                    errors: false,
+                    warnings: false,
+                    runtimeErrors: false,
+                },
+                reconnect: true,
+            },
         },
-    },
-    webpack(webpackClientConfig)
-)
+        webpack(webpackClientConfig)
+    )
 
-devServer.startCallback(() => {
-    console.log("Catalyst is compiling your files.")
-    console.log("Please wait until bundling is finished.\n")
+    devServer.startCallback(() => {
+        console.log("Catalyst is compiling your files.")
+        console.log("Please wait until bundling is finished.\n")
+    })
 })
