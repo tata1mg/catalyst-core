@@ -182,7 +182,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 return false
             }
 
-            override fun shouldInterceptRequest(
+            override suspend fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
@@ -198,37 +198,22 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     return null
                 }
 
-                return runBlocking {
-                    Log.d(TAG, "⚙️ Processing request in coroutine on thread: ${Thread.currentThread().name}")
-                    val startTime = System.currentTimeMillis()
-                    disableHardwareAcceleration()
-                    try {
-                        val headers = request.requestHeaders.toMutableMap().apply {
-                            if (!containsKey("Cache-Control")) {
-                                put("Cache-Control", "max-age=86400")
-                            }
-                            if (!containsKey("Pragma")) {
-                                put("Pragma", "cache")
-                            }
-                        }
-
-                        var response = cacheManager.getCachedResponse(originalUrl, headers)
-
-                        if (response != null) {
-                            val duration = System.currentTimeMillis() - startTime
-                            Log.d(TAG, "✅ Served from cache in ${duration}ms: $originalUrl")
-                            response
-                        } else {
-                            Log.d(TAG, "❌ Cache miss for: $originalUrl")
-                            null
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "❌ Error processing request for URL: $originalUrl", e)
-                        e.printStackTrace()
-                        null
-                    } finally {
-                        enableHardwareAcceleration()
+                val headers = request.requestHeaders.toMutableMap().apply {
+                    if (!containsKey("Cache-Control")) {
+                        put("Cache-Control", "max-age=86400")
                     }
+                    if (!containsKey("Pragma")) {
+                        put("Pragma", "cache")
+                    }
+                }
+
+                return try {
+                    withContext(Dispatchers.IO) {
+                        cacheManager.getCachedResponse(originalUrl, headers)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Error processing request for URL: $originalUrl", e)
+                    null
                 }
             }
 
