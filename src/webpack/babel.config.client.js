@@ -1,3 +1,5 @@
+const EXPERIMENTS = JSON.parse(process.env.EXPERIMENTS || "{}")
+
 export default {
     babelrc: false,
     presets: [
@@ -11,7 +13,10 @@ export default {
         ],
         "@babel/preset-react",
     ],
-    plugins: [["babel-plugin-react-compiler", { target: "18" }], "@loadable/babel-plugin"],
+    plugins: [
+        ...(EXPERIMENTS?.ENABLE_COMPILER ? [["babel-plugin-react-compiler", { target: "18" }]] : []),
+        "@loadable/babel-plugin",
+    ],
     env: {
         production: {
             plugins: [

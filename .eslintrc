@@ -49,7 +49,7 @@
             "jsx": true,
         },
         "babelOptions": {
-            "configFile": "./babel.config.json",
+            "configFile": "./babel.config.js",
         },
         "ecmaVersion": 6,
     },
