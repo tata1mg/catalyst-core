@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import { runCommand, promptUser, validateAndCompleteConfig } from './utils.js';
 import TerminalProgress from './TerminalProgress.js';
 
-const pwd = `${process.cwd()}/node_modules/catalyst-core-internal/dist/native`;
+const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
 const configPath = `${process.env.PWD}/config/config.json`;
 
 const steps = {
