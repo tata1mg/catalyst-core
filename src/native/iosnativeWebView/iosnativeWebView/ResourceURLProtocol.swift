@@ -26,31 +26,15 @@ class ResourceURLProtocol: URLProtocol {
     }
     
     // MARK: - URLProtocol
-    override class func canInit(with request: URLRequest) -> Bool {
-        // Check if we've already handled this request
-        if URLProtocol.property(forKey: handledKey, in: request) != nil {
-            return false
-        }
-        
-        guard let url = request.url else { return false }
-        
-        // Create a Task to check if we should handle this URL
-        let semaphore = DispatchSemaphore(value: 0)
-        var shouldHandle = false
-        
-        Task {
-            shouldHandle = await CacheManager.shared.shouldCacheURL(url)
-            semaphore.signal()
-        }
-        
-        _ = semaphore.wait(timeout: .now() + 0.1)
-        
-        if shouldHandle {
-            logger.info("🎯 Will handle resource: \(url.absoluteString)")
-        }
-        
-        return shouldHandle
+  override class func canInit(with request: URLRequest) -> Bool {
+    // Check if we've already handled this request
+    if URLProtocol.property(forKey: handledKey, in: request) != nil {
+        return false
     }
+    
+    guard let url = request.url else { return false }
+    return CacheManager.shared.shouldCacheURL(url)
+}
     
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
         return request

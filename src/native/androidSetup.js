@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import { runCommand, promptUser, validateAndCompleteConfig } from './utils.js';
 import TerminalProgress from './TerminalProgress.js';
 
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
+const pwd = `${process.cwd()}/node_modules/catalyst-core-internal/dist/native`;
 const configPath = `${process.env.PWD}/config/config.json`;
 
 const steps = {
@@ -47,27 +47,65 @@ async function installJava() {
             throw new Error('Homebrew is required but not installed. Please install Homebrew first.');
         }
 
-        await runCommand('brew install --cask zulu@17');
         const javaHome = '/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home';
+        
+        // Try installing Java
+        try {
+            await runCommand('brew install --cask zulu@17');
+        } catch (error) {
+            if (error.message.includes('already installed')) {
+                progress.log('Attempting to reinstall Java...', 'info');
+                try {
+                    await runCommand('brew reinstall --cask zulu@17');
+                } catch (reinstallError) {
+                    throw new Error(`Failed to reinstall Java: ${reinstallError.message}. Please run 'brew reinstall --cask zulu@17' manually.`);
+                }
+            } else {
+                throw error;
+            }
+        }
+
+        // Verify Java installation
+        if (!fs.existsSync(javaHome)) {
+            throw new Error(`Java installation not found at ${javaHome}. Please verify the installation manually.`);
+        }
+
+        // Set up environment variables
         const homeDir = process.env.HOME;
         const shellProfile = `${homeDir}/.zshrc`;
-        
         const exportCommand = `\n# Java Configuration\nexport JAVA_HOME=${javaHome}\nexport PATH=$JAVA_HOME/bin:$PATH\n`;
-        fs.appendFileSync(shellProfile, exportCommand);
         
+        try {
+            fs.appendFileSync(shellProfile, exportCommand);
+        } catch (error) {
+            throw new Error(`Failed to update ${shellProfile}: ${error.message}. Please add the following lines manually:\n${exportCommand}`);
+        }
+
+        // Set for current process
         process.env.JAVA_HOME = javaHome;
         process.env.PATH = `${javaHome}/bin:${process.env.PATH}`;
-        
-        progress.log('Java installed and configured successfully', 'success');
-        progress.log(`NOTE: Please restart your terminal or run: source ${shellProfile}`, 'info');
-        
-        const javaVersion = runCommand('java -version');
-        progress.log(`Java installation verified: ${javaVersion}`, 'success');
-        
-        return true;
+
+        // Verify Java configuration
+        try {
+            const javaVersion = runCommand('java -version');
+            progress.log('Java installed and configured successfully', 'success');
+            progress.log(`Java Version: ${javaVersion}`, 'info');
+            progress.log(`IMPORTANT: Please run the following commands to complete setup:`, 'warning');
+            progress.log(`1. source ${shellProfile}`, 'info');
+            progress.log(`2. echo $JAVA_HOME`, 'info');
+            return true;
+        } catch (error) {
+            throw new Error(`Java installation verified but environment not configured. Please run:\n1. source ${shellProfile}\n2. echo $JAVA_HOME`);
+        }
     } catch (error) {
-        progress.log(`Failed to install Java: ${error.message}`, 'error');
-        return false;
+        progress.log(error.message, 'error');
+        progress.log('Manual Setup Instructions:', 'info');
+        progress.log('1. Run: brew reinstall --cask zulu@17', 'info');
+        progress.log('2. Add to ~/.zshrc:', 'info');
+        progress.log('   export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home', 'info');
+        progress.log('   export PATH=$JAVA_HOME/bin:$PATH', 'info');
+        progress.log('3. Run: source ~/.zshrc', 'info');
+        throw error;
     }
 }
 
