@@ -106,7 +106,13 @@ const webpackSSRConfig = mergeWithCustomize({
         filename: "handler.development.js",
         libraryTarget: "commonjs",
     },
-    plugins: [...customWebpackConfig.ssrPlugins].filter(Boolean),
+    plugins: [
+        new MiniCssExtractPlugin({
+            filename: catalystConfig.cssChunkFileName,
+            ignoreOrder: true,
+        }),
+        ...customWebpackConfig.ssrPlugins,
+    ].filter(Boolean),
 })
 
 // Create separate compiler for SSR that writes to disk
