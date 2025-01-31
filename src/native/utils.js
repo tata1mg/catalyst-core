@@ -110,12 +110,14 @@ async function validateAndCompleteConfig(platform, configPath) {
         android: {
             buildType: 'Enter Android build type (debug/release): ',
             sdkPath: 'Enter Android SDK path: ',
-            emulatorName: 'Enter Android emulator name (e.g., Small_Phone_API_35): '
+            emulatorName: 'Enter Android emulator name (e.g., Small_Phone_API_35): ',
+            cachePattern: 'Enter CSS pattern (e.g.,  "*.css"'
         },
         ios: {
             buildType: 'Enter iOS build type (debug/release): ',
             appBundleId: 'Enter iOS bundle ID (e.g., com.test.test): ',
-            simulatorName: 'Enter iOS simulator name (e.g., iPhone 16 Pro): '
+            simulatorName: 'Enter iOS simulator name (e.g., iPhone 16 Pro): ',
+            cachePattern: 'Enter CSS pattern (e.g.,  "*.css"'
         }
     }
 
