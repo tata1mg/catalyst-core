@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.0.3-canary.1] - 27-12-2024
+## [0.0.3-canary.1] - 31-01-2025
 
 ### Changes
 
