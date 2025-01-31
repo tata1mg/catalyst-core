@@ -150,7 +150,7 @@ async function saveConfig(newConfig) {
             ...existingConfig,
             WEBVIEW_CONFIG: {
                 ...existingConfig.WEBVIEW_CONFIG,
-                ...newConfig.WEBVIEW_CONFIG.android
+                android : newConfig.WEBVIEW_CONFIG.android
             }
         };
         

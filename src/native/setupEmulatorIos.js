@@ -53,7 +53,7 @@ async function saveConfig(newConfig) {
             ...existingConfig,           // Preserve all existing keys
             WEBVIEW_CONFIG: {
                 ...existingConfig.WEBVIEW_CONFIG,
-                ...newConfig.WEBVIEW_CONFIG.ios
+                ios :newConfig.WEBVIEW_CONFIG.ios
             } // Update only WEBVIEW_CONFIG
         };
         
