@@ -148,7 +148,10 @@ async function saveConfig(newConfig) {
         
         const updatedConfig = {
             ...existingConfig,
-            WEBVIEW_CONFIG: newConfig.WEBVIEW_CONFIG
+            WEBVIEW_CONFIG: {
+                ...existingConfig.WEBVIEW_CONFIG,
+                ...newConfig.WEBVIEW_CONFIG.android
+            }
         };
         
         fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
