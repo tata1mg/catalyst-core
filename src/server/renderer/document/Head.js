@@ -19,7 +19,7 @@ export function Head(props) {
                 {children}
                 {metaTags && metaTags}
                 {/* eslint-disable */}
-                {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+                {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
                 {!isBot && preloadJSLinks}
             </head>
         )
@@ -33,7 +33,7 @@ export function Head(props) {
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {metaTags && metaTags}
             {/* eslint-disable */}
-            {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+            {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
             {!isBot && preloadJSLinks}
         </head>
     )
