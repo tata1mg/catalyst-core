@@ -187,5 +187,6 @@ handlerWatcher.on("add", () => {
     devServer.startCallback(() => {
         console.log("Catalyst is compiling your files.")
         console.log("Please wait until bundling is finished.\n")
+        console.log("SSR server running!")
     })
 })
