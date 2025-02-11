@@ -63,8 +63,13 @@ const watcher = chokidar.watch(statsPath, { persistent: true })
 let serverInstance = null
 const restartServer = () => {
     const server = require("./expressServer.js").default
+    const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
     serverInstance = server.listen({ port, host })
+
+    console.log("Server Restarted!")
+    console.log(`You can now view ${APPLICATION} in the browser.`)
+    console.log(util.format("Local:", cyan(`http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}`)))
 }
 
 const startServer = () => {

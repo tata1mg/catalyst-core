@@ -1,5 +1,4 @@
 import webpack from "webpack"
-import chokidar from "chokidar"
 import merge, { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 import WebpackDevServer from "webpack-dev-server"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
@@ -116,23 +115,43 @@ const webpackSSRConfig = mergeWithCustomize({
 })
 
 // Create separate compiler for SSR that writes to disk
-const handlerPath = path.join(
-    __dirname,
-    "../..",
-    ".catalyst-dev",
-    "/server",
-    "/renderer",
-    "handler.development.js"
-)
 const ssrCompiler = webpack(webpackSSRConfig)
-const watchInstance = ssrCompiler.watch({}, (err, stats) => {
+const watchInstance = ssrCompiler.watch({}, (err) => {
     if (err) {
         console.error(err)
         return
     }
     console.log("SSR bundle recompiled")
 })
-const handlerWatcher = chokidar.watch(handlerPath)
+
+// Create dev server for client-side only
+let devServer = new WebpackDevServer(
+    {
+        port: WEBPACK_DEV_SERVER_PORT,
+        host: WEBPACK_DEV_SERVER_HOSTNAME,
+        static: {
+            publicPath: webpackClientConfig.output.publicPath,
+        },
+        hot: true,
+        historyApiFallback: true,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        client: {
+            logging: "error",
+            overlay: {
+                errors: false,
+                warnings: false,
+                runtimeErrors: false,
+            },
+            reconnect: true,
+        },
+    },
+    webpack(webpackClientConfig)
+)
+
+devServer.startCallback(() => {
+    console.log("Catalyst is compiling your files.")
+    console.log("Please wait until bundling is finished.\n")
+})
 
 // Cleanup on exit
 const cleanup = () => {
@@ -141,7 +160,16 @@ const cleanup = () => {
         // Delete the development handler file
         try {
             // Delete the file
-            require("fs").unlinkSync(handlerPath)
+            require("fs").unlinkSync(
+                path.join(
+                    __dirname,
+                    "../..",
+                    ".catalyst-dev",
+                    "/server",
+                    "/renderer",
+                    "handler.development.js"
+                )
+            )
             // Try to remove the renderer directory
             require("fs").rmdirSync(path.join(process.env.src_path, ".catalyst-dev", "/renderer"))
             // Try to remove the parent directory
@@ -157,36 +185,3 @@ const cleanup = () => {
 process.on("SIGINT", cleanup) // Ctrl+C
 process.on("SIGTERM", cleanup) // kill
 process.on("exit", cleanup) // normal exit
-
-handlerWatcher.on("add", () => {
-    handlerWatcher.close()
-    // Create dev server for client-side only
-    let devServer = new WebpackDevServer(
-        {
-            port: WEBPACK_DEV_SERVER_PORT,
-            host: WEBPACK_DEV_SERVER_HOSTNAME,
-            static: {
-                publicPath: webpackClientConfig.output.publicPath,
-            },
-            hot: true,
-            historyApiFallback: true,
-            headers: { "Access-Control-Allow-Origin": "*" },
-            client: {
-                logging: "error",
-                overlay: {
-                    errors: false,
-                    warnings: false,
-                    runtimeErrors: false,
-                },
-                reconnect: true,
-            },
-        },
-        webpack(webpackClientConfig)
-    )
-
-    devServer.startCallback(() => {
-        console.log("Catalyst is compiling your files.")
-        console.log("Please wait until bundling is finished.\n")
-        console.log("SSR server running!")
-    })
-})
