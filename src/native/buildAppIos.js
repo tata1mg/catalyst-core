@@ -47,18 +47,32 @@ async function generateConfigConstants() {
             "ConfigConstants.swift"
         );
 
-        // Convert comma-separated string to Swift array format
-        const patterns = iosConfig.cachePattern.split(',')
-            .map(pattern => pattern.trim())
-            .map(pattern => `"${pattern}"`)
-            .join(", ");
+        const configDir = path.dirname(configOutputPath);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
 
-        const configContent = `// This file is auto-generated. Do not edit.
+        // Initialize base config with required URL
+        let configContent = `// This file is auto-generated. Do not edit.
 import Foundation
 
 enum ConfigConstants {
-    static let url = "${url}"
-    static let cachePattern: [String] = [${patterns}]
+    static let url = "${url}"`;
+
+        // Only add cachePattern if it exists and is not empty
+        if (iosConfig.cachePattern && iosConfig.cachePattern.trim()) {
+            // Convert comma-separated string to Swift array format
+            const patterns = iosConfig.cachePattern.split(',')
+                .map(pattern => pattern.trim())
+                .map(pattern => `"${pattern}"`)
+                .join(", ");
+            
+            configContent += `
+    static let cachePattern: [String] = [${patterns}]`;
+        }
+
+        // Close the enum
+        configContent += `
 }`;
 
         fs.writeFileSync(configOutputPath, configContent, 'utf8');

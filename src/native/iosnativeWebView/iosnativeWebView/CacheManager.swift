@@ -3,8 +3,9 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "CacheManager")
 
-actor CacheManager {
+class CacheManager {
     static let shared = CacheManager()
+    private let queue = DispatchQueue(label: "com.app.cachemanager", attributes: .concurrent)
     
     enum CacheState {
         case fresh      // Content is within fresh window
@@ -41,7 +42,6 @@ actor CacheManager {
     }
     
     private init() {
-        // Get the cache directory in the Application Support directory
         let baseDirectory = FileManager.default.urls(
             for: .cachesDirectory,
             in: .userDomainMask
@@ -49,7 +49,6 @@ actor CacheManager {
         
         self.cacheDirectory = baseDirectory.appendingPathComponent("WebCache", isDirectory: true)
         
-        // Create cache directory if it doesn't exist
         try? FileManager.default.createDirectory(
             at: cacheDirectory,
             withIntermediateDirectories: true,
@@ -65,36 +64,35 @@ actor CacheManager {
         )
         
         session = URLSession(configuration: configuration)
-        logger.info("Cache initialized with resource caching support at: \(self.cacheDirectory.path)")
+        logger.info("Cache initialized at: \(self.cacheDirectory.path)")
         
-        // Load existing cache from disk
-        Task {
-            await loadCacheFromDisk()
-        }
+        loadCacheFromDisk()
     }
     
     private func loadCacheFromDisk() {
-        do {
-            let fileManager = FileManager.default
-            let files = try fileManager.contentsOfDirectory(
-                at: cacheDirectory,
-                includingPropertiesForKeys: nil
-            ).filter { $0.pathExtension == "cache" }
-            
-            for file in files {
-                do {
-                    let data = try Data(contentsOf: file)
-                    if let resource = try? JSONDecoder().decode(CachedResource.self, from: data) {
-                        resourceCache[resource.urlString] = resource
+        queue.async {
+            do {
+                let fileManager = FileManager.default
+                let files = try fileManager.contentsOfDirectory(
+                    at: self.cacheDirectory,
+                    includingPropertiesForKeys: nil
+                ).filter { $0.pathExtension == "cache" }
+                
+                for file in files {
+                    do {
+                        let data = try Data(contentsOf: file)
+                        if let resource = try? JSONDecoder().decode(CachedResource.self, from: data) {
+                            self.resourceCache[resource.urlString] = resource
+                        }
+                    } catch {
+                        logger.error("Failed to load cached file: \(error.localizedDescription)")
                     }
-                } catch {
-                    logger.error("Failed to load cached file: \(error.localizedDescription)")
                 }
+                
+                logger.info("Loaded \(self.resourceCache.count) resources from disk cache")
+            } catch {
+                logger.error("Failed to load cache from disk: \(error.localizedDescription)")
             }
-            
-            logger.info("Loaded \(self.resourceCache.count) resources from disk cache")
-        } catch {
-            logger.error("Failed to load cache from disk: \(error.localizedDescription)")
         }
     }
     
@@ -109,17 +107,19 @@ actor CacheManager {
     }
     
     func shouldCacheURL(_ url: URL) -> Bool {
-        let urlString = url.absoluteString
-        return ConfigConstants.cachePattern.contains { pattern in
-            guard let regex = try? NSRegularExpression(
-                pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
-                options: .caseInsensitive
-            ) else {
-                return false
+        return queue.sync {
+            let urlString = url.absoluteString
+            return ConfigConstants.cachePattern.contains { pattern in
+                guard let regex = try? NSRegularExpression(
+                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
+                    options: .caseInsensitive
+                ) else {
+                    return false
+                }
+                
+                let range = NSRange(urlString.startIndex..., in: urlString)
+                return regex.firstMatch(in: urlString, options: [], range: range) != nil
             }
-            
-            let range = NSRange(urlString.startIndex..., in: urlString)
-            return regex.firstMatch(in: urlString, options: [], range: range) != nil
         }
     }
     
@@ -136,34 +136,38 @@ actor CacheManager {
     }
     
     func getCachedResource(for request: URLRequest) async -> (Data?, CacheState, String?) {
-        guard let urlString = request.url?.absoluteString else {
-            return (nil, .expired, nil)
-        }
-        
-        // Check in-memory cache first
-        if let cachedResource = resourceCache[urlString] {
-            let state = getCacheState(for: cachedResource.timestamp)
-            
-            switch state {
-            case .fresh:
-                logger.info("🟢 Fresh cache hit for: \(urlString)")
-                return (cachedResource.data, .fresh, cachedResource.mimeType)
-                
-            case .stale:
-                logger.info("🟡 Stale cache hit for: \(urlString), triggering revalidation")
-                Task {
-                    await revalidateResource(request: request)
+        return await withCheckedContinuation { continuation in
+            queue.async {
+                guard let urlString = request.url?.absoluteString else {
+                    continuation.resume(returning: (nil, .expired, nil))
+                    return
                 }
-                return (cachedResource.data, .stale, cachedResource.mimeType)
                 
-            case .expired:
-                logger.info("🔴 Cache expired for: \(urlString)")
-                return (nil, .expired, nil)
+                if let cachedResource = self.resourceCache[urlString] {
+                    let state = self.getCacheState(for: cachedResource.timestamp)
+                    
+                    switch state {
+                    case .fresh:
+                        logger.info("🟢 Fresh cache hit for: \(urlString)")
+                        continuation.resume(returning: (cachedResource.data, .fresh, cachedResource.mimeType))
+                        
+                    case .stale:
+                        logger.info("🟡 Stale cache hit for: \(urlString)")
+                        Task {
+                            await self.revalidateResource(request: request)
+                        }
+                        continuation.resume(returning: (cachedResource.data, .stale, cachedResource.mimeType))
+                        
+                    case .expired:
+                        logger.info("🔴 Cache expired for: \(urlString)")
+                        continuation.resume(returning: (nil, .expired, nil))
+                    }
+                } else {
+                    logger.info("❌ Cache miss for: \(urlString)")
+                    continuation.resume(returning: (nil, .expired, nil))
+                }
             }
         }
-        
-        logger.info("❌ Cache miss for: \(urlString)")
-        return (nil, .expired, nil)
     }
     
     private func revalidateResource(request: URLRequest) async {
@@ -183,51 +187,51 @@ actor CacheManager {
     }
     
     func storeCachedResponse(_ response: HTTPURLResponse, data: Data, for request: URLRequest) {
-        guard let url = request.url else { return }
-        
-        let resource = CachedResource(
-            data: data,
-            timestamp: Date(),
-            mimeType: response.mimeType ?? "application/octet-stream",
-            urlString: url.absoluteString
-        )
-        
-        // Store in memory cache
-        resourceCache[url.absoluteString] = resource
-        
-        // Store in URL cache
-        let cachedResponse = CachedURLResponse(
-            response: response,
-            data: data,
-            userInfo: nil,
-            storagePolicy: .allowed
-        )
-        session.configuration.urlCache?.storeCachedResponse(cachedResponse, for: request)
-        
-        // Store to disk
-        let cacheFile = getCacheFilePath(for: url)
-        do {
-            let encodedData = try JSONEncoder().encode(resource)
-            try encodedData.write(to: cacheFile)
-            logger.info("Resource cached: \(url.absoluteString)")
-        } catch {
-            logger.error("Failed to write cache to disk: \(error.localizedDescription)")
+        queue.async(flags: .barrier) {
+            guard let url = request.url else { return }
+            
+            let resource = CachedResource(
+                data: data,
+                timestamp: Date(),
+                mimeType: response.mimeType ?? "application/octet-stream",
+                urlString: url.absoluteString
+            )
+            
+            self.resourceCache[url.absoluteString] = resource
+            
+            let cachedResponse = CachedURLResponse(
+                response: response,
+                data: data,
+                userInfo: nil,
+                storagePolicy: .allowed
+            )
+            self.session.configuration.urlCache?.storeCachedResponse(cachedResponse, for: request)
+            
+            let cacheFile = self.getCacheFilePath(for: url)
+            do {
+                let encodedData = try JSONEncoder().encode(resource)
+                try encodedData.write(to: cacheFile)
+                logger.info("Resource cached: \(url.absoluteString)")
+            } catch {
+                logger.error("Failed to write cache to disk: \(error.localizedDescription)")
+            }
         }
     }
     
     func clearCache() {
-        resourceCache.removeAll()
-        session.configuration.urlCache?.removeAllCachedResponses()
-        
-        // Clear cache directory
-        try? FileManager.default.removeItem(at: cacheDirectory)
-        try? FileManager.default.createDirectory(
-            at: cacheDirectory,
-            withIntermediateDirectories: true,
-            attributes: nil
-        )
-        
-        logger.info("All caches cleared")
+        queue.async(flags: .barrier) {
+            self.resourceCache.removeAll()
+            self.session.configuration.urlCache?.removeAllCachedResponses()
+            
+            try? FileManager.default.removeItem(at: self.cacheDirectory)
+            try? FileManager.default.createDirectory(
+                at: self.cacheDirectory,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+            
+            logger.info("All caches cleared")
+        }
     }
     
     func createCacheableRequest(from url: URL) -> URLRequest {
@@ -242,8 +246,10 @@ actor CacheManager {
     }
     
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
-        let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
-        let diskUsed = session.configuration.urlCache?.currentDiskUsage ?? 0
-        return (memoryUsed, diskUsed)
+        return queue.sync {
+            let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
+            let diskUsed = session.configuration.urlCache?.currentDiskUsage ?? 0
+            return (memoryUsed, diskUsed)
+        }
     }
 }

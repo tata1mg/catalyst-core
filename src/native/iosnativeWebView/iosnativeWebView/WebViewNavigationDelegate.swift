@@ -1,4 +1,4 @@
-@preconcurrency import WebKit
+import WebKit
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
@@ -22,9 +22,8 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
         logger.info("🌐 Navigation requested to: \(url.absoluteString)")
 
-        
         Task {
-            if await CacheManager.shared.shouldCacheURL(url) {
+            if CacheManager.shared.shouldCacheURL(url) {
                 logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
 
                 let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
@@ -40,24 +39,21 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                         logger.info("📤 Loading cached data with MIME type: \(mimeType)")
                         await MainActor.run {
                             viewModel.setLoading(true, fromCache: true)
+                            webView.load(cachedData,
+                                       mimeType: mimeType,
+                                       characterEncodingName: "UTF-8",
+                                       baseURL: url)
                         }
-                        
-                        webView.load(cachedData,
-                                   mimeType: mimeType,
-                                   characterEncodingName: "UTF-8",
-                                   baseURL: url)
                         
                         decisionHandler(.cancel)
                         return
                     }
                     
                 case .expired:
-                    // Will fetch fresh content
                     logger.info("♻️ Cache expired, fetching fresh content")
-
                     break
                 }
-            }else{
+            } else {
                 logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
             }
             
@@ -79,15 +75,14 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
         
         Task {
-            if await CacheManager.shared.shouldCacheURL(url) {
+            if CacheManager.shared.shouldCacheURL(url) {
                 let request = URLRequest(url: url)
                 
-                // Get response data for caching
                 URLSession.shared.dataTask(with: request) { data, urlResponse, error in
                     if let data = data,
                        let httpResponse = urlResponse as? HTTPURLResponse {
                         Task {
-                            await CacheManager.shared.storeCachedResponse(
+                            CacheManager.shared.storeCachedResponse(
                                 httpResponse,
                                 data: data,
                                 for: request

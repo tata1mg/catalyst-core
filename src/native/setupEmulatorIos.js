@@ -51,7 +51,10 @@ async function saveConfig(newConfig) {
         // Merge the new WEBVIEW_CONFIG with existing config
         const updatedConfig = {
             ...existingConfig,           // Preserve all existing keys
-            WEBVIEW_CONFIG: newConfig.WEBVIEW_CONFIG  // Update only WEBVIEW_CONFIG
+            WEBVIEW_CONFIG: {
+                ...existingConfig.WEBVIEW_CONFIG,
+                ios :newConfig.WEBVIEW_CONFIG.ios
+            } // Update only WEBVIEW_CONFIG
         };
         
         // Save the merged config
