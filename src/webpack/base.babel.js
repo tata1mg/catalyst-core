@@ -188,7 +188,7 @@ export default {
             },
             {
                 // This loader loads fonts in src/static/fonts using file-loader
-                test: /\.(ttf|eot|woff2|json?)$/,
+                test: /\.(ttf|eot|woff2)$/,
                 use: [
                     {
                         loader: "url-loader",
