@@ -41,8 +41,8 @@ function build() {
         },
     })
 
-    if (result.error) {
-        console.error("Error occurred:", result.error)
+    if (result.error || result.status != 0) {
+        console.error("Error occurred during build:", result.error)
     } else {
         console.log(green("Compiled successfully."))
         console.log("\nFile sizes after gzip:\n")
