@@ -4,13 +4,13 @@ import util from "node:util"
 import chokidar from "chokidar"
 import { cyan, yellow, green } from "picocolors"
 
-import { preServerInit } from "@catalyst/template/server/index.js"
-import { validatePreInitServer } from "@catalyst/server/utils/validator.js"
+import { preServerInit, onServerError } from "@catalyst/template/server/index.js"
+import { safeCall } from "@catalyst/server/utils/validator.js"
 
 const env = process.env.NODE_ENV || "development"
 
 // function defined by user which needs to run before server starts
-if (validatePreInitServer(preServerInit)) preServerInit()
+safeCall(preServerInit)
 
 process.on("uncaughtException", (err, origin) => {
     console.log(process.stderr.fd)
@@ -73,7 +73,12 @@ const startServer = () => {
     serverInstance = server.listen({ port, host }, (error) => {
         const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
-        if (error) console.log("An error occured while starting the Application server : ", error)
+        if (error) {
+            console.log("An error occured while starting the Application server : ", error)
+            // function defined by user which needs to run if server fails
+            safeCall(onServerError)
+            return
+        }
 
         if (env === "development") console.log(green("Compiled successfully!"))
 
