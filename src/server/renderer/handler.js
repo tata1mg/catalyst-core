@@ -196,11 +196,6 @@ const renderMarkUp = async (
                 res.write(firstFoldJS)
                 res.end()
             },
-            onError(error) {
-                logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
-                // function defined by user which needs to run if rendering fails
-                safeCall(onRenderError)
-            },
         })
     } catch (error) {
         logger.error("Error in rendering document on server:" + error)
