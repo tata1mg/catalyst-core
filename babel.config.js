@@ -20,7 +20,7 @@ module.exports = (api) => {
                     },
                 },
             ],
-            "@babel/preset-react",
+            ["@babel/preset-react", { runtime: "automatic" }],
         ],
         compact: true,
         plugins: [
