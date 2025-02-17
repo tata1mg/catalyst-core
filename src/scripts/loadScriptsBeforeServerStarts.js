@@ -3,6 +3,7 @@ import "./registerAliases.js"
 import csshook from "@dr.pogodin/css-modules-require-hook"
 import path from "path"
 import loadEnvironmentVariables from "./loadEnvironmentVariables"
+import postcssScssParser from "postcss-scss"
 
 const { cssModulesIdentifierDev } = require("@catalyst/root/config.json")
 
@@ -22,7 +23,8 @@ configureLogger({
 if (process.env.NODE_ENV === "development")
     csshook({
         extensions: [".scss", ".css"],
+        processorOpts: { parser: postcssScssParser.parse },
         generateScopedName: cssModulesIdentifierDev,
         devMode: true,
-        ignore: path.join(process.env.src_path, "/src/static/css/base/(?!.*.scss$).*"),
+        ignore: path.posix.join(process.env.src_path, "/src/static/css/base/(?!.*.scss$).*"),
     })

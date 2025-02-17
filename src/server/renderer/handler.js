@@ -1,9 +1,8 @@
 import fs from "fs"
 import path from "path"
 import React from "react"
-import render from "./render"
 
-import extractAssets from "./extract"
+import extractAssets, { cacheAndFetchAssets } from "./extract"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -17,10 +16,18 @@ import {
     validateConfigureStore,
     validateCustomDocument,
     validateGetRoutes,
+    safeCall,
 } from "@catalyst/server/utils/validator"
 
 import CustomDocument from "@catalyst/template/server/document.js"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.js"
+import {
+    onRouteMatch,
+    onFetcherSuccess,
+    onFetcherError,
+    onRenderError,
+    onRequestError,
+} from "@catalyst/template/server/index.js"
 
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
@@ -55,11 +62,11 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (match) {
-            if (isProduction && !res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
+            if (!res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
+                res.locals.routePath = path
                 extractAssets(res, route)
             }
-            if (!res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
-                res.locals.routePath = path
+            if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
                 //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
                 renderToString(
                     <ChunkExtractorManager extractor={webExtractor}>
@@ -126,22 +133,30 @@ const renderMarkUp = async (
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
 
-    // Transforms Head Props
-    const shellStart = await render.renderStart(
-        res.locals.pageCss,
-        res.locals.pageJS,
-        metaTags,
-        isBot,
-        fetcherData
-    )
-
     let state = store.getState()
     const jsx = webExtractor.collectChunks(getComponent(store, context, req, fetcherData))
 
-    // Transforms Body Props
-    const shellEnd = render.renderEnd(webExtractor, state, res, jsx, errorCode, fetcherData)
+    const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
+    let publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
 
-    const finalProps = { ...shellStart, ...shellEnd, jsx: jsx, req, res }
+    // serves assets from localhost on running devBuild and devServe command
+    if (IS_DEV_COMMAND === "true") {
+        publicAssetPath = `http://${WEBPACK_DEV_SERVER_HOSTNAME}:${WEBPACK_DEV_SERVER_PORT}/assets/`
+    }
+
+    const finalProps = {
+        req,
+        res,
+        lang: "en",
+        pageCss: res.locals.pageCss,
+        preloadJSLinks: res.locals.preloadJSLinks,
+        metaTags,
+        isBot,
+        publicAssetPath,
+        jsx,
+        initialState: state,
+        fetcherData,
+    }
 
     let CompleteDocument = () => {
         if (validateCustomDocument(CustomDocument)) {
@@ -151,19 +166,15 @@ const renderMarkUp = async (
                 <html lang={finalProps.lang}>
                     <Head
                         isBot={finalProps.isBot}
-                        pageJS={finalProps.pageJS}
                         pageCss={finalProps.pageCss}
-                        fetcherData={finalProps.fetcherData}
                         metaTags={finalProps.metaTags}
+                        preloadJSLinks={finalProps.preloadJSLinks}
                         publicAssetPath={finalProps.publicAssetPath}
                     />
                     <Body
-                        initialState={finalProps.initialState}
-                        firstFoldCss={finalProps.firstFoldCss}
-                        firstFoldJS={finalProps.firstFoldJS}
                         jsx={finalProps.jsx}
-                        statusCode={finalProps.statusCode}
                         fetcherData={finalProps.fetcherData}
+                        initialState={finalProps.initialState}
                     />
                 </html>
             )
@@ -178,14 +189,23 @@ const renderMarkUp = async (
             onShellReady() {
                 res.setHeader("content-type", "text/html")
                 pipe(res)
+            },
+            onAllReady() {
+                const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
+                res.write(firstFoldCss)
+                res.write(firstFoldJS)
                 res.end()
             },
             onError(error) {
                 logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
+                // function defined by user which needs to run if rendering fails
+                safeCall(onRenderError)
             },
         })
     } catch (error) {
         logger.error("Error in rendering document on server:" + error)
+        // function defined by user which needs to run if rendering fails
+        safeCall(onRenderError)
     }
 }
 
@@ -214,7 +234,7 @@ export default async function (req, res) {
         })
 
         // creates store
-        const store = validateConfigureStore(createStore) ? createStore({}, req) : null
+        const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
 
         // user defined routes
         const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
@@ -224,14 +244,19 @@ export default async function (req, res) {
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
 
+        // function defined by user which needs to run after route is matched
+        safeCall(onRouteMatch, { req, res, matches })
+
         // Executing app server side function
         App.serverSideFunction({ store, req, res })
             // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
             .then(() => {
                 serverDataFetcher({ routes: routes, req, res, url: req.originalUrl }, { store })
-                    .then((res) => {
-                        fetcherData = res
+                    .then((response) => {
+                        fetcherData = response
                         allTags = getMetaData(allMatches, fetcherData)
+                        // function defined by user which needs to run after SSR functions are executed
+                        safeCall(onFetcherSuccess, { req, res, fetcherData })
                     })
                     .then(
                         async () =>
@@ -247,8 +272,10 @@ export default async function (req, res) {
                                 webExtractor
                             )
                     )
+                    // TODO: this is never called, serverDataFetcher never throws any error
                     .catch(async (error) => {
                         logger.error("Error in executing serverFetcher functions: " + error)
+                        safeCall(onFetcherError, { req, res, error })
                         await renderMarkUp(
                             404,
                             req,
@@ -278,5 +305,7 @@ export default async function (req, res) {
             })
     } catch (error) {
         logger.error("Error in handling document request: " + error.toString())
+        // function defined by user which needs to run when an error occurs in the handler
+        safeCall(onRequestError, { req, res, error })
     }
 }

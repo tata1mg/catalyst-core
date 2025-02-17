@@ -6,7 +6,7 @@ import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
 
 import catalystConfig from "@catalyst/root/config.json"
 import baseConfig from "@catalyst/webpack/base.babel.js"
-import plugins from "@catalyst/template/webpackConfig.js"
+import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
@@ -26,35 +26,37 @@ const webpackConfig = merge(baseConfig, {
             filename: catalystConfig.cssChunkFileName,
             ignoreOrder: true,
         }),
-        ...plugins.developmentPlugins,
+        ...customWebpackConfig.developmentPlugins,
     ].filter(Boolean),
     optimization: {
         runtimeChunk: "single",
         moduleIds: "deterministic",
-        splitChunks: {
-            cacheGroups: {
-                commonVendor: {
-                    test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|react-router-dom|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-fast-compare|react-async-script|babel|@loadable\/component|catalyst)[\\/]/,
-                    name: "commonVendor",
-                    minSize: 30000,
-                },
-                utilityVendor: {
-                    maxInitialRequests: Infinity,
-                    chunks: "all",
-                    // minSize: 0, // Enable to replicate stand alone chunking for all packages
-                    reuseExistingChunk: true, // Disable to replicate stand alone chunking for all packages
-                    minRemainingSize: 1000, // Disable to replicate stand alone chunking for all packages
-                    test: /[\\/]node_modules[\\/]/,
-                    name(module) {
-                        const moduleFileName = module
-                            .identifier()
-                            .split("/")
-                            .reduceRight((item) => item)
-                        return `npm.${moduleFileName}`
-                    },
-                },
-            },
-        },
+        splitChunks: customWebpackConfig.splitChunksConfig
+            ? customWebpackConfig.splitChunksConfig
+            : {
+                  cacheGroups: {
+                      commonVendor: {
+                          test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|react-router-dom|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-fast-compare|react-async-script|babel|@loadable\/component|catalyst)[\\/]/,
+                          name: "commonVendor",
+                          minSize: 30000,
+                      },
+                      utilityVendor: {
+                          maxInitialRequests: Infinity,
+                          chunks: "all",
+                          // minSize: 0, // Enable to replicate stand alone chunking for all packages
+                          reuseExistingChunk: true, // Disable to replicate stand alone chunking for all packages
+                          minRemainingSize: 1000, // Disable to replicate stand alone chunking for all packages
+                          test: /[\\/]node_modules[\\/]/,
+                          name(module) {
+                              const moduleFileName = module
+                                  .identifier()
+                                  .split("/")
+                                  .reduceRight((item) => item)
+                              return `npm.${moduleFileName}`
+                          },
+                      },
+                  },
+              },
     },
 })
 
