@@ -6,6 +6,13 @@ module.exports = (api) => {
     return {
         presets: [
             [
+                "@babel/preset-typescript",
+                {
+                    isTSX: true,
+                    allExtensions: true,
+                },
+            ],
+            [
                 "@babel/preset-env",
                 {
                     targets: {
@@ -13,7 +20,7 @@ module.exports = (api) => {
                     },
                 },
             ],
-            "@babel/preset-react",
+            ["@babel/preset-react", { runtime: "automatic" }],
         ],
         compact: true,
         plugins: [

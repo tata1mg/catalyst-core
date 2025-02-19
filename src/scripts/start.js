@@ -1,3 +1,4 @@
+const fs = require("fs")
 const path = require("path")
 const { spawnSync, spawn } = require("child_process")
 const { arrayToObject } = require("./scriptUtils")
@@ -13,9 +14,14 @@ function start() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    let command = `
+    const serverWatchPath = path.join(dirname, ".catalyst-dev/server/renderer")
+    if (!fs.existsSync(serverWatchPath)) {
+        fs.mkdirSync(serverWatchPath, { recursive: true })
+    }
+
+    const command = `
     node ./dist/scripts/checkVersion
-    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.env.PWD}/server --watch-path=${process.env.PWD}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
+    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --extensions .js,.ts,.jsx,.tsx --watch-path=${process.env.PWD}/server --watch-path=${serverWatchPath} --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
     `
 
     if (isWindows) {
@@ -39,7 +45,7 @@ function start() {
         )
 
         spawn(
-            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
+            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${serverWatchPath} --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
             [],
             {
                 cwd: dirname,
