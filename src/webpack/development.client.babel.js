@@ -1,6 +1,7 @@
 import webpack from "webpack"
 import merge, { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 import WebpackDevServer from "webpack-dev-server"
+import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
 import path from "path"
@@ -23,6 +24,12 @@ const webpackClientConfig = merge(baseConfig, {
         level: "none",
     },
     plugins: [
+        new LoadablePlugin({
+            filename: "loadable-stats.json",
+            writeToDisk: {
+                filename: path.join(__dirname, "../.."),
+            },
+        }),
         new ReactRefreshWebpackPlugin({
             overlay: {
                 entry: false,
@@ -106,6 +113,12 @@ const webpackSSRConfig = mergeWithCustomize({
         libraryTarget: "commonjs",
     },
     plugins: [
+        new LoadablePlugin({
+            filename: "loadable-stats.json",
+            writeToDisk: {
+                filename: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
+            },
+        }),
         new MiniCssExtractPlugin({
             filename: catalystConfig.cssChunkFileName,
             ignoreOrder: true,

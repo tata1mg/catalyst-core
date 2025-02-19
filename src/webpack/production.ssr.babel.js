@@ -2,6 +2,7 @@
 import _registerAliases, { catalystResultMap } from "../scripts/registerAliases.js"
 import path from "path"
 import nodeExternals from "webpack-node-externals"
+import LoadablePlugin from "@loadable/webpack-plugin"
 const { mergeWithCustomize, customizeArray, customizeObject } = require("webpack-merge")
 
 import rootWorkspacePath from "app-root-path"
@@ -34,7 +35,15 @@ const ssrConfig = mergeWithCustomize({
     resolve: {
         alias: catalystResultMap,
     },
-    plugins: [...customWebpackConfig.ssrPlugins],
+    plugins: [
+        ...customWebpackConfig.ssrPlugins,
+        new LoadablePlugin({
+            filename: "loadable-stats.json",
+            writeToDisk: {
+                filename: path.join(__dirname, "../.."),
+            },
+        }),
+    ],
     target: "node",
     entry: {
         handler: path.resolve(__dirname, "..", "./server/renderer/handler.js"),

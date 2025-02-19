@@ -1,5 +1,6 @@
 /* eslint-disable */
 import _registerAliases, { catalystResultMap } from "../scripts/registerAliases.js"
+import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
 
@@ -78,6 +79,12 @@ const clientConfig = mergeWithCustomize({
               },
     },
     plugins: [
+        new LoadablePlugin({
+            filename: "loadable-stats.json",
+            writeToDisk: {
+                filename: path.join(__dirname, "../.."),
+            },
+        }),
         new MiniCssExtractPlugin({
             filename: catalystConfig.cssChunkFileName,
             ignoreOrder: true,
