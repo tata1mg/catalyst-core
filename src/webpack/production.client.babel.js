@@ -1,5 +1,6 @@
 /* eslint-disable */
 import _registerAliases, { catalystResultMap } from "../scripts/registerAliases.js"
+import path from "path"
 import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
