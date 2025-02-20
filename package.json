@@ -44,6 +44,7 @@
         "@babel/node": "^7.22.19",
         "@babel/preset-env": "^7.23.2",
         "@babel/preset-react": "^7.22.15",
+        "@babel/preset-typescript": "^7.24.7",
         "@babel/register": "^7.22.15",
         "@dr.pogodin/css-modules-require-hook": "^4.7.3",
         "@loadable/babel-plugin": "^5.16.1",

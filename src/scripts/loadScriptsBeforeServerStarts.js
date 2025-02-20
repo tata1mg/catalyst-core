@@ -1,5 +1,5 @@
 /* eslint-disable */
-import _registerAliases from "./registerAliases.js"
+import "./registerAliases.js"
 import csshook from "@dr.pogodin/css-modules-require-hook"
 import path from "path"
 import loadEnvironmentVariables from "./loadEnvironmentVariables"
