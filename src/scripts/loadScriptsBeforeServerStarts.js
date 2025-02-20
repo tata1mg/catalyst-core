@@ -26,5 +26,5 @@ if (process.env.NODE_ENV === "development")
         processorOpts: { parser: postcssScssParser.parse },
         generateScopedName: cssModulesIdentifierDev,
         devMode: true,
-        ignore: path.join(process.env.src_path, "/src/static/css/base/(?!.*.scss$).*"),
+        ignore: path.posix.join(process.env.src_path, "/src/static/css/base/(?!.*.scss$).*"),
     })
