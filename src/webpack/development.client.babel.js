@@ -50,7 +50,8 @@ const webpackConfig = merge(baseConfig, {
                           name(module) {
                               const moduleFileName = module
                                   .identifier()
-                                  .split("/")
+                                  .split("node_modules")?.[1]
+                                  ?.split("/")
                                   .reverse()
                                   .slice(0, 3)
                                   .reduce((item, current) => {
