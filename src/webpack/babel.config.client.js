@@ -1,6 +1,11 @@
 import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
-const EXPERIMENTS = JSON.parse(process.env.EXPERIMENTS || "{}")
+const isCompilerEnabled = !!customWebpackConfig.reactCompilerConfig
+
+const reactCompilerOptions =
+    typeof customWebpackConfig.reactCompilerConfig === "object"
+        ? customWebpackConfig.reactCompilerConfig
+        : { target: "18" }
 
 export default {
     babelrc: false,
@@ -23,9 +28,7 @@ export default {
         ["@babel/preset-react", { runtime: "automatic" }],
     ],
     plugins: [
-        ...(EXPERIMENTS?.ENABLE_COMPILER
-            ? [["babel-plugin-react-compiler", customWebpackConfig.reactCompilerConfig || { target: "18" }]]
-            : []),
+        ...(isCompilerEnabled ? [["babel-plugin-react-compiler", reactCompilerOptions]] : []),
         "@loadable/babel-plugin",
     ],
     env: {
