@@ -1,10 +1,10 @@
 import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
-const isCompilerEnabled = !!customWebpackConfig.reactCompilerConfig
+const isCompilerEnabled = !!customWebpackConfig.reactCompiler
 
 const reactCompilerOptions =
-    typeof customWebpackConfig.reactCompilerConfig === "object"
-        ? customWebpackConfig.reactCompilerConfig
+    typeof customWebpackConfig.reactCompiler === "object"
+        ? customWebpackConfig.reactCompiler
         : { target: "18" }
 
 export default {
