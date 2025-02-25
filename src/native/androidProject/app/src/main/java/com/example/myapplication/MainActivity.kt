@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
-import java.net.URL                 
+import java.net.URL
 import java.net.HttpURLConnection
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
@@ -49,10 +49,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         val androidConfig = try {
             val jsonObject = JSONObject(androidConfigJson)
             AndroidConfig(
-                buildType = jsonObject.optString("buildType", "debug"),
-                cachePattern = jsonObject.optString("cachePattern", ""),
-                emulatorName = jsonObject.optString("emulatorName", ""),
-                sdkPath = jsonObject.optString("sdkPath", "")
+                buildType = properties.getProperty("buildType", "debug"),
+                cachePattern = properties.getProperty("cachePattern", ""),
+                emulatorName = properties.getProperty("emulatorName", ""),
+                sdkPath = properties.getProperty("sdkPath", "")
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing android config", e)
@@ -133,6 +133,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
             // Enable standard caching
             cacheMode = WebSettings.LOAD_DEFAULT // This will use both RAM and disk cache
+
             databaseEnabled = true
             domStorageEnabled = true
 
@@ -186,8 +187,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                         var response = cacheManager.getCachedResponse(originalUrl, headers)
 
                         if (response != null) {
-                            Log.d(TAG, "📱 Serving from cache: $originalUrl")
-                            response
+                                Log.d(TAG, "📱 Serving from cache: $originalUrl")
+                                response
                         } else {
                             Log.d(TAG, "Cache Manager unable to return response : $originalUrl")
                             null
