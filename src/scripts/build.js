@@ -14,11 +14,11 @@ function build() {
     const dirname = path.resolve(__dirname, "../../")
 
     const command = `
-    node ./dist/scripts/checkVersion
-    rm -rf ${process.env.PWD}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js
-    APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress
-    APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js
-    APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet 
+    node ./dist/scripts/checkVersion &&
+    rm -rf ${process.env.PWD}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js &&
+    APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress &&
+    APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js &&
+    APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet &&
     APPLICATION=${name || "catalyst_app"} npx babel ${process.env.PWD}/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --quiet
     `
 
@@ -38,8 +38,11 @@ function build() {
         },
     })
 
-    if (result.error) {
-        console.error("Error occurred:", result.error)
+    if (result.error || result.status != 0) {
+        console.error("Build failed!")
+        console.error("Status code:", result.status)
+        console.error("Error:", result.error)
+        throw new Error("Build Failed!")
     } else {
         console.log(green("Compiled successfully."))
         console.log("\nFile sizes after gzip:\n")
