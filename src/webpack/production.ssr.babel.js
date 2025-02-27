@@ -1,5 +1,6 @@
 /* eslint-disable */
 import _registerAliases, { catalystResultMap } from "../scripts/registerAliases.js"
+import "../scripts/loadScriptsBeforeServerStarts.js"
 import path from "path"
 import nodeExternals from "webpack-node-externals"
 import LoadablePlugin from "@loadable/webpack-plugin"
