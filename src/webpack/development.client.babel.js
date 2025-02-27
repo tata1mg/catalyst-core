@@ -140,7 +140,6 @@ const watchInstance = ssrCompiler.watch({}, (err) => {
         console.error(err)
         return
     }
-    console.log("SSR bundle recompiled")
 })
 
 // Create dev server for client-side only
