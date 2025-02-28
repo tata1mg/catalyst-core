@@ -98,7 +98,11 @@ const startServer = () => {
         }
 
         console.log("\nFind out more about deployment here:")
-        console.log(yellow("\n https://catalyst.1mg.com/public_docs/content/deployment\n"))
+        console.log(
+            yellow(
+                "\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n"
+            )
+        )
     })
 }
 
