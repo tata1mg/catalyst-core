@@ -1,30 +1,36 @@
 # Changelog
 
-## [0.0.1-beta.11] - 21-02-2024
-
--   Add support for custom react compiler config
--   Add support for typescript
--   Fix json import issue
--   Fix common name module conflict issue
-
-## [0.0.1-beta.10] - 06-02-2024
+## [0.0.3-canary.1] - 31-01-2025
 
 ### Changes
 
--   New lifecycle methods
--   Support for windows - Adds native support for powershell
--   Add support for react compiler
--   Add document CSS in response for bot agents
+# Native WebView Implementation and Cache Management Updates
 
-## [0.0.1-beta.9] - 13-12-2024
+## Overview
+This PR introduces native WebView implementations for both Android and iOS platforms, along with significant cache management improvements and bug fixes.
 
-### Changes
+## Changes
 
--   Update @tata1mg/router's version to 0.0.1-beta.6.
+### New Features
+- Implemented native Android WebView with cache management functionality
+- Added iOS native WebView implementation with custom cache handling
+- Introduced new cache pattern management system
 
-## [0.0.1-beta.8] - 09-12-2024
+### Technical Implementation Details
+- Android:
+  - Added complete Android project structure with WebView implementation
+  - Implemented `WebCacheManager.kt` for handling cache operations
+  - Set up Gradle configuration and project dependencies
 
-### Changes
+- iOS:
+  - Created iOS native WebView project with Swift
+  - Implemented `CacheManager.swift` and `ResourceURLProtocol.swift` for cache handling
+  - Added WebView navigation and view model components
 
--   Filter out host machine's environment variable from client environment variables
--   Update @tata1mg/router's version to 0.0.1-beta.5.
+
+### Other Changes
+- Enhanced terminal progress reporting
+- Updated documentation and README
+
+## Version
+- Target version: 0.0.3-canary.1
