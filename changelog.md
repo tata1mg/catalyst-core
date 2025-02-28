@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.0.1-beta.11] - 21-02-2024
+## [0.0.1-beta.12] - 28-02-2025
+
+-   Add support for ESM only packages
+
+## [0.0.1-beta.11] - 21-02-2025
 
 -   Add support for custom react compiler config
 -   Add support for typescript

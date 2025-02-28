@@ -14,3 +14,5 @@ logger.js
 /loadable-stats.json
 /index.js
 
+.catalyst-dev/
+

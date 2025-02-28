@@ -45,7 +45,14 @@ if (env === "development") {
 const port = process.env.NODE_SERVER_PORT ?? 3005
 const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
 
-let statsPath = path.join(__dirname, `../../`, "loadable-stats.json")
+let statsPath = path.join(
+    __dirname,
+    `../../`,
+    ".catalyst-dev",
+    "/server",
+    "/renderer",
+    "handler.development.js"
+)
 
 if (env === "production") {
     statsPath = path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
@@ -56,8 +63,13 @@ const watcher = chokidar.watch(statsPath, { persistent: true })
 let serverInstance = null
 const restartServer = () => {
     const server = require("./expressServer.js").default
+    const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
     serverInstance = server.listen({ port, host })
+
+    console.log("Server Restarted!")
+    console.log(`You can now view ${APPLICATION} in the browser.`)
+    console.log(util.format("Local:", cyan(`http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}`)))
 }
 
 const startServer = () => {
@@ -86,7 +98,11 @@ const startServer = () => {
         }
 
         console.log("\nFind out more about deployment here:")
-        console.log(yellow("\n https://catalyst.1mg.com/public_docs/content/deployment\n"))
+        console.log(
+            yellow(
+                "\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n"
+            )
+        )
     })
 }
 
