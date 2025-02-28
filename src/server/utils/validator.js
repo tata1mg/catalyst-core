@@ -4,6 +4,19 @@ const handleError = (e) => {
     console.log(pc.red("Failed to start server: "), e)
 }
 
+const safeCall = (fn, ...args) => {
+    try {
+        if (!fn) return
+        if (typeof fn !== "function") {
+            console.log(pc.red("Invalid lifecycle method defined in server/index.js"))
+            return
+        }
+        fn(...args)
+    } catch (e) {
+        console.log(pc.red(`Failed to execute ${fn.name}: `), e)
+    }
+}
+
 const validatePreInitServer = (fn) => {
     try {
         if (!fn) throw new Error("preServerInit named function should be defined in server/index.js")
@@ -137,6 +150,7 @@ const validateCustomDocument = (fn) => {
 }
 
 module.exports = {
+    safeCall,
     validateConfigFile,
     validateConfigureStore,
     validateCustomDocument,

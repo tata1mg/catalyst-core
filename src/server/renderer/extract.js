@@ -119,14 +119,12 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
     // We want to extract script tags for every call that will get added to body.
     // Their corresponding preloaded link script tags are already present in head.
     if (routePath) {
-        if (!isBot) {
-            if (isProd) {
-                firstFoldCss = cacheCSS(routePath, linkElements)
-                firstFoldCss = `<style>${firstFoldCss}</style>`
-            } else {
-                cacheCSS(routePath, linkElements)
-                firstFoldCss = webExtractor.getStyleTags()
-            }
+        if (isProd) {
+            firstFoldCss = cacheCSS(routePath, linkElements)
+            if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
+        } else {
+            cacheCSS(routePath, linkElements)
+            firstFoldCss = webExtractor.getStyleTags()
         }
         // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
         firstFoldJS = webExtractor.getScriptTags()
