@@ -1,6 +1,8 @@
 package com.example.myapplication
 
+import com.example.androidProject.MetricsMonitor
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import android.util.LruCache
 import android.webkit.WebResourceResponse
@@ -15,6 +17,7 @@ class WebCacheManager(private val context: Context) {
     private val TAG = "WebCacheManager"
     private val cacheDir = File(context.cacheDir, "webview_cache")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val metricsMonitor = MetricsMonitor.getInstance(context)
 
     // Cache timing configurations
     private val maxAge = TimeUnit.HOURS.toMillis(24) // Time until content becomes stale
@@ -44,6 +47,7 @@ class WebCacheManager(private val context: Context) {
             try {
                 val cacheKey = generateCacheKey(url)
                 val currentTime = System.currentTimeMillis()
+                val startTime = SystemClock.elapsedRealtime()
 
                 // Check memory cache first
                 val memoryCacheEntry = memoryCache.get(cacheKey)
@@ -54,11 +58,13 @@ class WebCacheManager(private val context: Context) {
                         age <= maxAge -> {
                             // Fresh content
                             Log.d(TAG, "Serving fresh content from memory cache: $url")
+                            metricsMonitor.recordCacheHit()
                             return@withContext memoryCacheEntry.response
                         }
                         age <= maxAge + staleWhileRevalidate -> {
                             // Stale content, but within revalidate window
                             Log.d(TAG, "Serving stale content while revalidating: $url")
+                            metricsMonitor.recordCacheHit()
                             revalidateInBackground(url, headers, cacheKey, memoryCacheEntry)
                             return@withContext memoryCacheEntry.response
                         }
@@ -74,12 +80,14 @@ class WebCacheManager(private val context: Context) {
                     when {
                         fileAge <= maxAge -> {
                             // Fresh content from disk
+                            metricsMonitor.recordCacheHit()
                             val response = createResponseFromCache(cacheFile, metadata)
                             memoryCache.put(cacheKey, CacheEntry(response))
                             return@withContext response
                         }
                         fileAge <= maxAge + staleWhileRevalidate -> {
                             // Stale content from disk, revalidate in background
+                            metricsMonitor.recordCacheHit()
                             val response = createResponseFromCache(cacheFile, metadata)
                             val cacheEntry = CacheEntry(
                                 response = response,
@@ -95,8 +103,15 @@ class WebCacheManager(private val context: Context) {
 
                 // No cache or cache too old, fetch fresh content
                 Log.d(TAG, "❌ Cache miss, fetching fresh content: $url")
+                metricsMonitor.recordCacheMiss()
+                val taskDuration = SystemClock.elapsedRealtime() - startTime
+                if (taskDuration > 16) { // 16ms = 1 frame at 60fps
+                    metricsMonitor.recordLongTask()
+                }
+                fetchAndCacheResource(url, headers, cacheKey)
                 fetchAndCacheResource(url, headers, cacheKey)
             } catch (e: Exception) {
+                metricsMonitor.recordCacheMiss()
                 Log.e(TAG, "Error in getCachedResponse for URL: $url", e)
                 null
             }

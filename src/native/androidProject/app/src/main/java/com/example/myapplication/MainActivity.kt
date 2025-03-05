@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var buildType: String = "debug"  // Default to debug
     private var cachePatterns: List<String> = emptyList()
     private var isHardwareAccelerationEnabled = false
+    private lateinit var metricsMonitor: MetricsMonitor
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -73,10 +74,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         val androidConfig = try {
             val jsonObject = JSONObject(androidConfigJson)
             AndroidConfig(
-                buildType = jsonObject.optString("buildType", "debug"),
-                cachePattern = jsonObject.optString("cachePattern", ""),
-                emulatorName = jsonObject.optString("emulatorName", ""),
-                sdkPath = jsonObject.optString("sdkPath", "")
+                buildType = properties.getProperty("buildType", "debug"),
+                cachePattern = properties.getProperty("cachePattern", ""),
+                emulatorName = properties.getProperty("emulatorName", ""),
+                sdkPath = properties.getProperty("sdkPath", "")
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing android config", e)
@@ -120,9 +121,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         } else {
             myWebView.restoreState(savedInstanceState)
         }
-
+        metricsMonitor = MetricsMonitor.getInstance(applicationContext)
         setupWebView(properties)
 
+        metricsMonitor.markAppStartComplete()
         val local_ip = properties.getProperty("LOCAL_IP" , "localhost")
         val port = properties.getProperty("port" , "3005")
         val loadUrl = "http://$local_ip:$port"
@@ -216,9 +218,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
                         if (response != null) {
                             val duration = System.currentTimeMillis() - startTime
+                            metricsMonitor.recordCacheHit()
                             Log.d(TAG, "✅ Served from cache in ${duration}ms: $originalUrl")
                             response
                         } else {
+                            metricsMonitor.recordCacheMiss()
                             Log.d(TAG, "❌ Cache miss for: $originalUrl")
                             null
                         }
@@ -237,11 +241,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 binding.progress.visibility = View.VISIBLE
                 val startTime = System.currentTimeMillis()
                 view?.tag = startTime // Store start time for performance tracking
+                url?.let { metricsMonitor.trackPageLoadStart(it) }
                 Log.d(TAG, "⏳ Page load started for: $url - Hardware Acceleration: $isHardwareAccelerationEnabled")
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 binding.progress.visibility = View.GONE
+                url?.let { metricsMonitor.trackPageLoadEnd(it) }
                 val startTime = view?.tag as? Long ?: return
                 val loadTime = System.currentTimeMillis() - startTime
                 Log.d(TAG, "✅ Page load finished for: $url - Load time: ${loadTime}ms - Hardware Acceleration: $isHardwareAccelerationEnabled")
@@ -294,11 +300,15 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onResume() {
+        metricsMonitor.logAllMetrics()
         super.onResume()
         myWebView.onResume()
     }
 
     override fun onDestroy() {
+        metricsMonitor.logAllMetrics()
+        metricsMonitor.cleanup()
+
         coroutineContext.cancelChildren()
         myWebView.destroy()
         super.onDestroy()
