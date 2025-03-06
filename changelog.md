@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.0.1-beta.12] - 28-02-2025
+## [0.0.1-beta.12] - 06-03-2025
 
 -   Add support for ESM only packages
 
