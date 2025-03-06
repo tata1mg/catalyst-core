@@ -88,7 +88,7 @@ export default {
     },
     resolve: {
         fallback: { url: require.resolve("url") },
-        extensions: [".js", ".jsx", ".scss"],
+        extensions: [".js", ".jsx", ".scss", ".ts", ".tsx"],
         alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
             moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
 
@@ -100,6 +100,14 @@ export default {
         rules: [
             {
                 test: /\.jsx$|\.js$/,
+                exclude: path.resolve(process.env.src_path, "./node_modules"),
+                use: {
+                    loader: "babel-loader",
+                    options: isSSR ? babelOptsServer : babelOptsClient,
+                },
+            },
+            {
+                test: /\.tsx$|\.ts$/,
                 exclude: path.resolve(process.env.src_path, "./node_modules"),
                 use: {
                     loader: "babel-loader",
@@ -188,7 +196,7 @@ export default {
             },
             {
                 // This loader loads fonts in src/static/fonts using file-loader
-                test: /\.(ttf|eot|woff2|json?)$/,
+                test: /\.(ttf|eot|woff2?)$/,
                 use: [
                     {
                         loader: "url-loader",
