@@ -16,6 +16,7 @@
 		47E177D42CD0BF950033C825 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E177D32CD0BF8C0033C825 /* WebView.swift */; };
 		47E177D62CD0C1DC0033C825 /* CacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E177D52CD0C1DC0033C825 /* CacheManager.swift */; };
 		47F3CABE2C63A0E8007CF14B /* ConfigConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F3CABD2C63A05C007CF14B /* ConfigConstants.swift */; };
+		E92114092D2FB0EE003BC3EB /* ResourceURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = E92114082D2FB0EE003BC3EB /* ResourceURLProtocol.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +51,7 @@
 		47E177D52CD0C1DC0033C825 /* CacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheManager.swift; sourceTree = "<group>"; };
 		47F3CABC2C639BF5007CF14B /* build.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = build.swift; sourceTree = "<group>"; };
 		47F3CABD2C63A05C007CF14B /* ConfigConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigConstants.swift; sourceTree = "<group>"; };
+		E92114082D2FB0EE003BC3EB /* ResourceURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceURLProtocol.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,6 +101,7 @@
 		4777D51D2C60B87500E85AC6 /* iosnativeWebView */ = {
 			isa = PBXGroup;
 			children = (
+				E92114082D2FB0EE003BC3EB /* ResourceURLProtocol.swift */,
 				47A91A462CD0D39100419554 /* WebViewNavigationDelegate.swift */,
 				47A91A442CD0D38400419554 /* WebViewModel.swift */,
 				47E177D52CD0C1DC0033C825 /* CacheManager.swift */,
@@ -253,6 +256,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				47F3CABE2C63A0E8007CF14B /* ConfigConstants.swift in Sources */,
+				E92114092D2FB0EE003BC3EB /* ResourceURLProtocol.swift in Sources */,
 				47A91A452CD0D38400419554 /* WebViewModel.swift in Sources */,
 				47E177D62CD0C1DC0033C825 /* CacheManager.swift in Sources */,
 				4777D5212C60B87500E85AC6 /* ContentView.swift in Sources */,

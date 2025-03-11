@@ -74,6 +74,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
+    implementation("org.json:json:20231013")
 }
 
 // Task to verify local IP
@@ -123,30 +124,42 @@ tasks.register("generateWebViewConfig") {
         )
 
         val configJsonFile = File(configJsonPath)
-
         if (!configJsonFile.exists()) {
             throw GradleException("Config file not found at: $configJsonPath")
         }
-        // Read the config file
-        val configContent = configJsonFile.readText()
-            .trim()
-            .removeSurrounding("{", "}")
 
-        // Parse config content
-        val configs = mutableMapOf<String, String>()
+        val configContent = configJsonFile.readText()
 
         // Extract WEBVIEW_CONFIG section
         val webviewConfigRegex = """"WEBVIEW_CONFIG"\s*:\s*\{([^}]*)\}""".toRegex()
         val webviewConfigMatch = webviewConfigRegex.find(configContent)
         val webviewConfigContent = webviewConfigMatch?.groupValues?.get(1)
 
-        // Parse WEBVIEW_CONFIG content if found
-        webviewConfigContent?.split(",")?.forEach { pair ->
-            val keyValue = pair.split(":", limit = 2)
-            if (keyValue.size == 2) {
-                val key = keyValue[0].trim().trim('"')
-                val value = keyValue[1].trim().trim('"')
-                configs[key] = value
+        val properties = Properties()
+        properties.setProperty("LOCAL_IP", getLocalIpAddress())
+
+        // Parse top-level properties
+        val topLevelRegex = """"([^"]+)"\s*:\s*"([^"]+)"""".toRegex()
+        webviewConfigContent?.let {
+            topLevelRegex.findAll(it).forEach { matchResult ->
+                val (key, value) = matchResult.destructured
+                if (key != "android") {
+                    properties.setProperty(key, value)
+                }
+            }
+        }
+
+        // Parse android object specifically
+        val androidRegex = """"android"\s*:\s*\{([^}]*)\}""".toRegex()
+        val androidMatch = androidRegex.find(webviewConfigContent ?: "")
+        val androidContent = androidMatch?.groupValues?.get(1)
+
+        // Parse android object properties
+        val androidPropsRegex = """"([^"]+)"\s*:\s*"([^"]+)"""".toRegex()
+        androidContent?.let {
+            androidPropsRegex.findAll(it).forEach { matchResult ->
+                val (key, value) = matchResult.destructured
+                properties.setProperty("android.$key", value)
             }
         }
 
@@ -157,13 +170,7 @@ tasks.register("generateWebViewConfig") {
             println("Created assets directory at ${assetsDir.absolutePath}")
         }
 
-        // Create and write to properties file
-        val properties = Properties()
-        properties.setProperty("LOCAL_IP", getLocalIpAddress())
-        configs.forEach { (key, value) ->
-            properties.setProperty(key, value)
-        }
-
+        // Write to properties file
         File(assetsDir, "webview_config.properties").outputStream().use {
             properties.store(it, "WebView Configuration")
         }
@@ -171,4 +178,3 @@ tasks.register("generateWebViewConfig") {
         println("WebView config generated at ${assetsDir.absolutePath}/webview_config.properties")
     }
 }
-

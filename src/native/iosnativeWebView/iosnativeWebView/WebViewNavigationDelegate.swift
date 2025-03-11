@@ -1,4 +1,4 @@
-@preconcurrency import WebKit
+import WebKit
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
@@ -14,12 +14,86 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView,
                 decidePolicyFor navigationAction: WKNavigationAction,
                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // Always allow navigation
-        decisionHandler(.allow)
         
-        if let url = navigationAction.request.url {
-            Task { @MainActor in
+        guard let url = navigationAction.request.url else {
+            logger.info("⚠️ No URL in navigation action")
+            decisionHandler(.allow)
+            return
+        }
+        logger.info("🌐 Navigation requested to: \(url.absoluteString)")
+
+        Task {
+            if CacheManager.shared.shouldCacheURL(url) {
+                logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
+
+                let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
+                    for: navigationAction.request
+                )
+                
+                switch cacheState {
+                case .fresh, .stale:
+                    logger.info("✅ Serving fresh/stale cached content")
+
+                    if let cachedData = cachedData,
+                       let mimeType = mimeType {
+                        logger.info("📤 Loading cached data with MIME type: \(mimeType)")
+                        await MainActor.run {
+                            viewModel.setLoading(true, fromCache: true)
+                            webView.load(cachedData,
+                                       mimeType: mimeType,
+                                       characterEncodingName: "UTF-8",
+                                       baseURL: url)
+                        }
+                        
+                        decisionHandler(.cancel)
+                        return
+                    }
+                    
+                case .expired:
+                    logger.info("♻️ Cache expired, fetching fresh content")
+                    break
+                }
+            } else {
+                logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
+            }
+            
+            await MainActor.run {
                 viewModel.setLoading(true, fromCache: false)
+            }
+            decisionHandler(.allow)
+        }
+    }
+    
+    func webView(_ webView: WKWebView,
+                 decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        
+        guard let response = navigationResponse.response as? HTTPURLResponse,
+              let url = response.url else {
+            decisionHandler(.allow)
+            return
+        }
+        
+        Task {
+            if CacheManager.shared.shouldCacheURL(url) {
+                let request = URLRequest(url: url)
+                
+                URLSession.shared.dataTask(with: request) { data, urlResponse, error in
+                    if let data = data,
+                       let httpResponse = urlResponse as? HTTPURLResponse {
+                        Task {
+                            CacheManager.shared.storeCachedResponse(
+                                httpResponse,
+                                data: data,
+                                for: request
+                            )
+                        }
+                    }
+                }.resume()
+            }
+            
+            await MainActor.run {
+                decisionHandler(.allow)
             }
         }
     }
