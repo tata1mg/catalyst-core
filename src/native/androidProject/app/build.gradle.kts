@@ -75,6 +75,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
+    implementation("com.capacitorjs:core:3.6.0")
 }
 
 // Task to verify local IP
