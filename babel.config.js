@@ -1,8 +1,6 @@
 module.exports = (api) => {
     api.cache(true)
 
-    const EXPERIMENTS = JSON.parse(process.env.EXPERIMENTS || "{}")
-
     return {
         presets: [
             [
@@ -23,10 +21,7 @@ module.exports = (api) => {
             ["@babel/preset-react", { runtime: "automatic" }],
         ],
         compact: true,
-        plugins: [
-            ...(EXPERIMENTS?.ENABLE_COMPILER ? [["babel-plugin-react-compiler", { target: "18" }]] : []),
-            "@loadable/babel-plugin",
-        ],
+        plugins: ["@loadable/babel-plugin"],
         env: {
             test: {
                 presets: ["@babel/preset-react"],
