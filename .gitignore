@@ -14,6 +14,7 @@ logger.js
 /loadable-stats.json
 /index.js
 
+build/
 **/iosnativeWebView/build/
 **/iosnativeWebView/tmp/
 .env
