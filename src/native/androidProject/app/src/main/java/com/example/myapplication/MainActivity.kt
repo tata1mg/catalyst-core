@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import java.util.Properties
 import com.example.androidProject.databinding.ActivityMainBinding
+import com.example.myapplication.NativeBridge
 import com.example.myapplication.WebCacheManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,9 +27,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var myWebView: WebView
     private lateinit var cacheManager: WebCacheManager
+    private lateinit var nativeBridge: NativeBridge
     private var buildType: String = "debug"  // Default to debug
     private var cachePatterns: List<String> = emptyList()
-
     data class AndroidConfig(
         val buildType: String = "debug",
         val cachePattern: String = "",
@@ -90,6 +91,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         }
 
         setupWebView(properties)
+
+        nativeBridge = NativeBridge(this, myWebView)
+        myWebView.addJavascriptInterface(nativeBridge, "NativeBridge")
 
         val local_ip = properties.getProperty("LOCAL_IP" , "localhost")
         val port = properties.getProperty("port" , "3005")
