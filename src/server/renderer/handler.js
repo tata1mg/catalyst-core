@@ -21,10 +21,18 @@ import {
     validateConfigureStore,
     validateCustomDocument,
     validateGetRoutes,
+    safeCall,
 } from "@catalyst/server/utils/validator"
 
 import CustomDocument from "@catalyst/template/server/document.js"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.js"
+import {
+    onRouteMatch,
+    onFetcherSuccess,
+    onFetcherError,
+    onRenderError,
+    onRequestError,
+} from "@catalyst/template/server/index.js"
 
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
@@ -195,10 +203,14 @@ const renderMarkUp = async (
             },
             onError(error) {
                 logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
+                // function defined by user which needs to run if rendering fails
+                safeCall(onRenderError)
             },
         })
     } catch (error) {
         logger.error("Error in rendering document on server:" + error)
+        // function defined by user which needs to run if rendering fails
+        safeCall(onRenderError)
     }
 }
 
@@ -237,14 +249,19 @@ export default async function (req, res) {
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
 
+        // function defined by user which needs to run after route is matched
+        safeCall(onRouteMatch, { req, res, matches })
+
         // Executing app server side function
         App.serverSideFunction({ store, req, res })
             // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
             .then(() => {
                 serverDataFetcher({ routes: routes, req, res, url: req.originalUrl }, { store })
-                    .then((res) => {
-                        fetcherData = res
+                    .then((response) => {
+                        fetcherData = response
                         allTags = getMetaData(allMatches, fetcherData)
+                        // function defined by user which needs to run after SSR functions are executed
+                        safeCall(onFetcherSuccess, { req, res, fetcherData })
                     })
                     .then(
                         async () =>
@@ -260,8 +277,10 @@ export default async function (req, res) {
                                 webExtractor
                             )
                     )
+                    // TODO: this is never called, serverDataFetcher never throws any error
                     .catch(async (error) => {
                         logger.error("Error in executing serverFetcher functions: " + error)
+                        safeCall(onFetcherError, { req, res, error })
                         await renderMarkUp(
                             404,
                             req,
@@ -291,5 +310,7 @@ export default async function (req, res) {
             })
     } catch (error) {
         logger.error("Error in handling document request: " + error.toString())
+        // function defined by user which needs to run when an error occurs in the handler
+        safeCall(onRequestError, { req, res, error })
     }
 }

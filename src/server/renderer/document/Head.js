@@ -16,7 +16,7 @@ export function Head({ pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath
                 {children}
                 {metaTags && metaTags}
                 {/* eslint-disable */}
-                {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+                {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
                 {!isBot && preloadJSLinks}
             </head>
         )
@@ -30,7 +30,7 @@ export function Head({ pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {metaTags && metaTags}
             {/* eslint-disable */}
-            {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+            {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
             {!isBot && preloadJSLinks}
         </head>
     )
