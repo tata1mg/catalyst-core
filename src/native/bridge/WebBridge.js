@@ -1,4 +1,4 @@
-const Interfaces = ["ON_CAMERA_CAPTURE", "LOGGER"]
+const Interfaces = ["ON_CAMERA_CAPTURE", "ON_CAMERA_ERROR", "LOGGER"]
 
 class WebBridge {
     constructor() {

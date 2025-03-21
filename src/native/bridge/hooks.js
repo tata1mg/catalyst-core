@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 // TODO: also add integration for web only
 export const useCamera = () => {
     const [photo, setPhoto] = useState(null)
+    const [error, setError] = useState(null)
 
     useEffect(() => {
         if (!window.WebBridge) {
@@ -15,8 +16,13 @@ export const useCamera = () => {
             setPhoto(imageUrl)
         })
 
+        window.WebBridge.register("ON_CAMERA_ERROR", (data) => {
+            setError(data)
+        })
+
         return () => {
             window.WebBridge.unregister("ON_CAMERA_CAPTURE")
+            window.WebBridge.unregister("ON_CAMERA_ERROR")
         }
     }, [])
 
@@ -29,5 +35,6 @@ export const useCamera = () => {
     return {
         photo,
         takePhoto,
+        error,
     }
 }

@@ -27,7 +27,6 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
 
-
     companion object {
         private const val CAMERA_PERMISSION = Manifest.permission.CAMERA
         private const val TAG = "NativeBridge"
@@ -84,12 +83,20 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
                         )
                     } catch (e: Exception) {
                         Log.e(TAG, "Error processing image: ${e.message}")
+                        webview.evaluateJavascript(
+                            "window.WebBridge.callback('ON_CAMERA_ERROR', 'Error processing image: ${e.message}')",
+                            null
+                        )
                     }
                 } ?: run {
                     Log.e(TAG, "Photo URI is null")
                 }
             } else {
                 Log.e(TAG, "Camera capture failed or was cancelled")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('ON_CAMERA_ERROR', 'Camera capture failed or was cancelled')",
+                    null
+                )
             }
         }
     }
@@ -104,7 +111,7 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
             } else {
                 Log.e(TAG, "Camera permission denied")
                 webview.evaluateJavascript(
-                    "window.WebBridge.callback('Camera permission denied')",
+                    "window.WebBridge.callback('ON_CAMERA_ERROR', 'Camera permission denied')",
                     null
                 )
             }
