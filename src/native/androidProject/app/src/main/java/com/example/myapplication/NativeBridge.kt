@@ -22,6 +22,7 @@ import java.util.Locale
 
 class NativeBridge(private val activity: MainActivity, private val webview: WebView) {
     private var currentPhotoUri: Uri? = null
+    private var shouldLaunchCameraAfterPermission = false
     private val FILE_PROVIDER_AUTHORITY = "com.example.androidProject.fileprovider"
 
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
@@ -51,8 +52,15 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
             if (hasCameraPermission()) {
                 launchCamera()
             } else {
-                requestCameraPermission()
+                requestCameraPermissionAndLaunch(true)
             }
+        }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun requestCameraPermission() {
+        activity.runOnUiThread {
+            requestCameraPermissionAndLaunch(false)
         }
     }
 
@@ -107,11 +115,17 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
         ) { isGranted ->
             if (isGranted) {
                 Log.d(TAG, "Camera permission granted, launching camera")
-                launchCamera()
+                if (shouldLaunchCameraAfterPermission) {
+                    launchCamera()
+                }
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('CAMERA_PERMISSION_STATUS', 'GRANTED')",
+                    null
+                )
             } else {
                 Log.e(TAG, "Camera permission denied")
                 webview.evaluateJavascript(
-                    "window.WebBridge.callback('ON_CAMERA_ERROR', 'Camera permission denied')",
+                    "window.WebBridge.callback('CAMERA_PERMISSION_STATUS', 'DENIED')",
                     null
                 )
             }
@@ -125,8 +139,9 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun requestCameraPermission() {
+    private fun requestCameraPermissionAndLaunch(shouldLaunch: Boolean) {
         Log.d(TAG, "Requesting camera permission")
+        shouldLaunchCameraAfterPermission = shouldLaunch
         permissionLauncher.launch(CAMERA_PERMISSION)
     }
 
