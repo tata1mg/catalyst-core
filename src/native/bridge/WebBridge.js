@@ -1,8 +1,28 @@
-const Interfaces = ["CAMERA_PERMISSION_STATUS", "ON_CAMERA_CAPTURE", "ON_CAMERA_ERROR", "LOGGER"]
+const Interfaces = [
+    "CAMERA_PERMISSION_STATUS",
+    "ON_CAMERA_CAPTURE",
+    "ON_CAMERA_ERROR",
+    "HAPTIC_FEEDBACK",
+    "LOGGER",
+]
 
 class WebBridge {
     constructor() {
         this.handlers = new Map()
+    }
+
+    static init = () => {
+        if (!window) {
+            console.error("WebBridge cannot be initialized outside the browser!")
+            return
+        }
+
+        if (window.WebBridge) {
+            console.error("WebBridge already initialized!")
+            return
+        }
+
+        window.WebBridge = new WebBridge()
     }
 
     callback = (interfaceName, data) => {
