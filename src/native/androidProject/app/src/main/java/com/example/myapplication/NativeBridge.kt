@@ -1,36 +1,45 @@
 package com.example.myapplication
 
-import android.Manifest
-import android.content.pm.PackageManager
+import java.io.File
+import java.util.Date
 import android.net.Uri
+import android.Manifest
 import android.util.Log
+import java.util.Locale
+import android.util.Base64
+import org.json.JSONObject
+import java.io.InputStream
 import android.webkit.WebView
+import android.os.Environment
+import android.content.Context
+import java.text.SimpleDateFormat
+import android.content.pm.PackageManager
+import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
+import android.view.HapticFeedbackConstants
+import com.example.androidProject.MainActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import android.util.Base64
-import androidx.core.content.FileProvider
-import com.example.androidProject.MainActivity
-import android.content.Context
-import android.os.Environment
-import org.json.JSONObject
-import java.io.File
-import java.io.InputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+
+
+enum class WebEvents(val eventName: String) {
+    ON_CAMERA_CAPTURE("ON_CAMERA_CAPTURE"),
+    ON_CAMERA_ERROR("ON_CAMERA_ERROR"),
+    CAMERA_PERMISSION_STATUS("CAMERA_PERMISSION_STATUS"),
+    HAPTIC_FEEDBACK("HAPTIC_FEEDBACK"),
+}
 
 class NativeBridge(private val activity: MainActivity, private val webview: WebView) {
     private var currentPhotoUri: Uri? = null
     private var shouldLaunchCameraAfterPermission = false
-    private val FILE_PROVIDER_AUTHORITY = "com.example.androidProject.fileprovider"
 
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
 
     companion object {
-        private const val CAMERA_PERMISSION = Manifest.permission.CAMERA
         private const val TAG = "NativeBridge"
+        private const val CAMERA_PERMISSION = Manifest.permission.CAMERA
+        private const val FILE_PROVIDER_AUTHORITY = "com.example.androidProject.fileprovider"
     }
 
     init {
@@ -43,7 +52,6 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
         activity.runOnUiThread {
             Log.d(TAG, "Message from native")
         }
-        webCallback()
     }
 
     @android.webkit.JavascriptInterface
@@ -64,10 +72,38 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
         }
     }
 
-    private fun webCallback() {
+    @android.webkit.JavascriptInterface
+    fun requestHapticFeedback(feedbackType: String?) {
         activity.runOnUiThread {
-            val jsCode = "window.WebBridge.callback('From native, with regards')"
-            webview.evaluateJavascript(jsCode, null)
+            try {
+                val type = feedbackType?.uppercase() ?: "VIRTUAL_KEY"
+                val constant = when (type) {
+                    "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
+                    "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
+                    "DEFAULT" -> HapticFeedbackConstants.VIRTUAL_KEY
+                    else -> HapticFeedbackConstants.VIRTUAL_KEY
+                }
+
+                if (webview.performHapticFeedback(constant)) {
+                    Log.d(TAG, "Haptic feedback performed: $type")
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.HAPTIC_FEEDBACK}', 'SUCCESS')",
+                        null
+                    )
+                } else {
+                    Log.w(TAG, "Haptic feedback failed for type: $type")
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.HAPTIC_FEEDBACK}', 'FAILED')",
+                        null
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error triggering haptic feedback: ${e.message}")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.HAPTIC_FEEDBACK}', '${e.message}')",
+                    null
+                )
+            }
         }
     }
 
@@ -84,7 +120,7 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
                             put("imageUrl", imageUrl)
                         }.toString()
 
-                        val jsCode = "window.WebBridge.callback('ON_CAMERA_CAPTURE', '$json')"
+                        val jsCode = "window.WebBridge.callback('${WebEvents.ON_CAMERA_CAPTURE}', '$json')"
                         webview.evaluateJavascript(
                             jsCode,
                             null
@@ -92,7 +128,7 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
                     } catch (e: Exception) {
                         Log.e(TAG, "Error processing image: ${e.message}")
                         webview.evaluateJavascript(
-                            "window.WebBridge.callback('ON_CAMERA_ERROR', 'Error processing image: ${e.message}')",
+                            "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Error processing image: ${e.message}')",
                             null
                         )
                     }
@@ -102,7 +138,7 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
             } else {
                 Log.e(TAG, "Camera capture failed or was cancelled")
                 webview.evaluateJavascript(
-                    "window.WebBridge.callback('ON_CAMERA_ERROR', 'Camera capture failed or was cancelled')",
+                    "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Camera capture failed or was cancelled')",
                     null
                 )
             }
@@ -119,13 +155,13 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
                     launchCamera()
                 }
                 webview.evaluateJavascript(
-                    "window.WebBridge.callback('CAMERA_PERMISSION_STATUS', 'GRANTED')",
+                    "window.WebBridge.callback('${WebEvents.CAMERA_PERMISSION_STATUS}', 'GRANTED')",
                     null
                 )
             } else {
                 Log.e(TAG, "Camera permission denied")
                 webview.evaluateJavascript(
-                    "window.WebBridge.callback('CAMERA_PERMISSION_STATUS', 'DENIED')",
+                    "window.WebBridge.callback('${WebEvents.CAMERA_PERMISSION_STATUS}', 'DENIED')",
                     null
                 )
             }
