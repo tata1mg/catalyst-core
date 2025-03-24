@@ -1,23 +1,31 @@
 package com.example.myapplication
 
 import android.Manifest
-import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.provider.MediaStore
+import android.net.Uri
 import android.util.Log
 import android.webkit.WebView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import java.io.ByteArrayOutputStream
 import android.util.Base64
-
+import androidx.core.content.FileProvider
 import com.example.androidProject.MainActivity
+import android.content.Context
+import android.os.Environment
+import org.json.JSONObject
+import java.io.File
+import java.io.InputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class NativeBridge(private val activity: MainActivity, private val webview: WebView) {
-    private lateinit var cameraLauncher: ActivityResultLauncher<Intent>
+    private var currentPhotoUri: Uri? = null
+    private var shouldLaunchCameraAfterPermission = false
+    private val FILE_PROVIDER_AUTHORITY = "com.example.androidProject.fileprovider"
+
+    private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
 
     companion object {
@@ -26,34 +34,8 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
     }
 
     init {
-        cameraLauncher = activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                val bitmapImage = result.data?.extras?.get("data") as? Bitmap
-                if (bitmapImage != null) {
-                    val base64Image = convertBitmapToBase64(bitmapImage)
-                    Log.d(TAG, "Image captured: $bitmapImage")
-                    webview.evaluateJavascript("window.WebBridge.callback('ON_CAMERA_CAPTURE', '$base64Image')", null)
-                }
-
-            } else {
-                Log.e(TAG, "Camera capture failed or was cancelled")
-            }
-        }
-
-        permissionLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                Log.d(TAG, "Camera permission granted, launching camera")
-                launchCamera()
-            } else {
-                Log.e(TAG, "Camera permission denied")
-                webview.evaluateJavascript(
-                    "window.WebBridge.callback('Camera permission denied')",
-                    null
-                )
-            }
-        }
+        initializeCameraLauncher()
+        initializePermissionLauncher()
     }
 
     @android.webkit.JavascriptInterface
@@ -67,40 +49,18 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
     @android.webkit.JavascriptInterface
     fun openCamera() {
         activity.runOnUiThread {
-            Log.d(TAG, "openCamera")
-            // Permission already granted
-            if (ContextCompat.checkSelfPermission(
-                    activity,
-                    CAMERA_PERMISSION
-                ) == PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "Camera permission already granted")
+            if (hasCameraPermission()) {
                 launchCamera()
-            }
-            // Request permission
-            else {
-                Log.d(TAG, "Requesting camera permission")
-                permissionLauncher.launch(CAMERA_PERMISSION)
+            } else {
+                requestCameraPermissionAndLaunch(true)
             }
         }
     }
 
-    private fun convertBitmapToBase64(bitmap: Bitmap): String {
-        val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
-        val byteArray = outputStream.toByteArray()
-        return Base64.encodeToString(byteArray, Base64.DEFAULT)
-    }
-
-    private fun launchCamera() {
-        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        if (cameraIntent.resolveActivity(activity.packageManager) != null) {
-            cameraLauncher.launch(cameraIntent)
-        } else {
-            Log.e(TAG, "No camera app available.")
-            webview.evaluateJavascript(
-                "window.WebBridge.callback('No camera app found')",
-                null
-            )
+    @android.webkit.JavascriptInterface
+    fun requestCameraPermission() {
+        activity.runOnUiThread {
+            requestCameraPermissionAndLaunch(false)
         }
     }
 
@@ -108,6 +68,123 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
         activity.runOnUiThread {
             val jsCode = "window.WebBridge.callback('From native, with regards')"
             webview.evaluateJavascript(jsCode, null)
+        }
+    }
+
+    private fun initializeCameraLauncher() {
+        cameraLauncher = activity.registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) {
+                currentPhotoUri?.let { uri ->
+                    try {
+                        val base64Image = convertUriToBase64(activity, uri)
+                        val imageUrl = uri.toString()
+
+                        val json = JSONObject().apply {
+//                            put("base64", base64Image)
+                            put("imageUrl", imageUrl)
+                        }.toString()
+
+                        val jsCode = "window.WebBridge.callback('ON_CAMERA_CAPTURE', '$json')"
+                        webview.evaluateJavascript(
+                            jsCode,
+                            null
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing image: ${e.message}")
+                        webview.evaluateJavascript(
+                            "window.WebBridge.callback('ON_CAMERA_ERROR', 'Error processing image: ${e.message}')",
+                            null
+                        )
+                    }
+                } ?: run {
+                    Log.e(TAG, "Photo URI is null")
+                }
+            } else {
+                Log.e(TAG, "Camera capture failed or was cancelled")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('ON_CAMERA_ERROR', 'Camera capture failed or was cancelled')",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun initializePermissionLauncher() {
+        permissionLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                Log.d(TAG, "Camera permission granted, launching camera")
+                if (shouldLaunchCameraAfterPermission) {
+                    launchCamera()
+                }
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('CAMERA_PERMISSION_STATUS', 'GRANTED')",
+                    null
+                )
+            } else {
+                Log.e(TAG, "Camera permission denied")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('CAMERA_PERMISSION_STATUS', 'DENIED')",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun hasCameraPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            activity,
+            CAMERA_PERMISSION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestCameraPermissionAndLaunch(shouldLaunch: Boolean) {
+        Log.d(TAG, "Requesting camera permission")
+        shouldLaunchCameraAfterPermission = shouldLaunch
+        permissionLauncher.launch(CAMERA_PERMISSION)
+    }
+
+    private fun launchCamera() {
+        val photoFile = createImageFile()
+        currentPhotoUri = FileProvider.getUriForFile(
+            activity,
+            FILE_PROVIDER_AUTHORITY,
+            photoFile
+        )
+
+        currentPhotoUri?.let { uri ->
+            try {
+                cameraLauncher.launch(uri)
+            } catch (e: Exception) {
+                Log.e(TAG, "Camera launch failed: ${e.message}")
+            }
+        } ?: run {
+            Log.e(TAG, "Failed to create photo URI")
+        }
+    }
+
+    private fun createImageFile(): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        return File.createTempFile(
+            "JPEG_${timeStamp}_",
+            ".jpg",
+            storageDir
+        ).apply {
+            parentFile?.mkdirs()
+        }
+    }
+
+    private fun convertUriToBase64(context: Context, uri: Uri): String? {
+        return try {
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            val bytes = inputStream?.readBytes()
+            inputStream?.close()
+            Base64.encodeToString(bytes, Base64.DEFAULT)
+        } catch (e: Exception) {
+            Log.e(TAG, "Base64 conversion error: ${e.message}")
+            null
         }
     }
 }

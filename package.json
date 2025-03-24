@@ -28,7 +28,9 @@
         ".": "./dist/index.js",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
-        "./router/ClientRouter": "./dist/router/ClientRouter.js"
+        "./router/ClientRouter": "./dist/router/ClientRouter.js",
+        "./WebBridge": "./dist/native/bridge/WebBridge.js",
+        "./hooks": "./dist/native/bridge/hooks.js"
     },
     "scripts": {
         "lint": "eslint .",
