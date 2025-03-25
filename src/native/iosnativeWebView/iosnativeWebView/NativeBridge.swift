@@ -7,20 +7,21 @@
 import Foundation
 import WebKit
 import UIKit
-import AVFoundation
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NativeBridge")
 
-class NativeBridge: NSObject {
+class NativeBridge: NSObject, ImageHandlerDelegate {
     private weak var webView: WKWebView?
     private weak var viewController: UIViewController?
+    private let imageHandler = ImageHandler()
     
     init(webView: WKWebView, viewController: UIViewController) {
         self.webView = webView
         self.viewController = viewController
         super.init()
         
+        imageHandler.delegate = self
         iosnativeWebView.logger.debug("NativeBridge initialized")
     }
     
@@ -89,54 +90,66 @@ class NativeBridge: NSObject {
     // Helper function to send data back to WebView
     private func sendCallback(eventName: String, data: String = "") {
         let escapedData = data.replacingOccurrences(of: "'", with: "\\'")
-        let script = "window.WebBridge.callback('\(eventName)', '\(escapedData)')"
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        
+        let script = "window.WebBridge.callback('\(eventName)', \"\(escapedData)\")"
         evaluateJavaScript(script)
-    }
-    
-    // Helper to check camera permissions
-    private func checkCameraPermission(completion: @escaping (Bool) -> Void) {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            completion(true)
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { granted in
-                DispatchQueue.main.async {
-                    completion(granted)
-                }
-            }
-        case .denied, .restricted:
-            completion(false)
-        @unknown default:
-            completion(false)
-        }
     }
     
     // Open camera and capture image
     @objc func openCamera() {
-        guard let viewController = viewController else {
-            iosnativeWebView.logger.error("ViewController not available")
-            sendCallback(eventName: "ON_CAMERA_CAPTURE", data: "Error: ViewController not available")
+        // Try to find a valid UIViewController from the window hierarchy
+        var presentingViewController: UIViewController?
+        
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = scene.windows.first?.rootViewController {
+            // Use the root view controller or find a presented controller
+            presentingViewController = rootVC.presentedViewController ?? rootVC
+        } else {
+            // Fallback to the provided viewController
+            presentingViewController = viewController
+        }
+        
+        guard let presentingVC = presentingViewController else {
+            iosnativeWebView.logger.error("No valid view controller available")
+            sendCallback(eventName: "ON_CAMERA_ERROR", data: "Error: No valid view controller available")
             return
         }
         
-        checkCameraPermission { [weak self] granted in
+        imageHandler.checkCameraPermission { [weak self] granted in
             guard let self = self else { return }
             
             if granted {
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    let imagePicker = UIImagePickerController()
-                    imagePicker.delegate = self
-                    imagePicker.sourceType = .camera
-                    imagePicker.allowsEditing = false
-                    
-                    viewController.present(imagePicker, animated: true)
-                } else {
-                    iosnativeWebView.logger.error("Camera not available")
-                    self.sendCallback(eventName: "ON_CAMERA_CAPTURE", data: "Error: No camera available")
-                }
+                self.imageHandler.presentCamera(from: presentingVC)
             } else {
                 iosnativeWebView.logger.error("Camera permission denied")
-                self.sendCallback(eventName: "ON_CAMERA_CAPTURE", data: "Error: Camera permission denied")
+                self.sendCallback(eventName: "CAMERA_PERMISSION_STATUS", data: "DENIED")
+                self.imageHandler.presentPermissionAlert(from: presentingVC)
+            }
+        }
+    }
+    
+    @objc func requestCameraPermission() {
+        iosnativeWebView.logger.debug("Camera permission requested")
+        
+        imageHandler.checkCameraPermission { [weak self] granted in
+            guard let self = self else { return }
+            
+            let permissionStatus = granted ? "GRANTED" : "DENIED"
+            iosnativeWebView.logger.debug("Camera permission status: \(permissionStatus)")
+            
+            let json: [String: String] = [
+                "status": permissionStatus
+            ]
+            
+            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                self.sendCallback(eventName: "CAMERA_PERMISSION_STATUS", data: jsonString)
+            } else {
+                // Fallback to a simple JSON string if serialization fails
+                let jsonString = "{\"status\": \"\(permissionStatus)\"}"
+                self.sendCallback(eventName: "CAMERA_PERMISSION_STATUS", data: jsonString)
             }
         }
     }
@@ -145,6 +158,34 @@ class NativeBridge: NSObject {
     @objc func logger() {
         iosnativeWebView.logger.debug("Message from native")
         sendCallback(eventName: "ON_LOGGER", data: "From native, with regards")
+    }
+    
+    // MARK: - ImageHandlerDelegate
+    func imageHandler(_ handler: ImageHandler, didCaptureImageAt url: URL) {
+        // Create JSON response with file URL
+        let json: [String: String] = [
+            "imageUrl": url.absoluteString
+        ]
+        
+        if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            iosnativeWebView.logger.debug("Image captured successfully at: \(url.absoluteString)")
+            sendCallback(eventName: "ON_CAMERA_CAPTURE", data: jsonString)
+        } else {
+            // Fallback to a simple JSON string if serialization fails
+            let jsonString = "{\"imageUrl\": \"\(url.absoluteString)\"}"
+            sendCallback(eventName: "ON_CAMERA_CAPTURE", data: jsonString)
+        }
+    }
+    
+    func imageHandlerDidCancel(_ handler: ImageHandler) {
+        iosnativeWebView.logger.debug("Camera capture cancelled")
+        sendCallback(eventName: "ON_CAMERA_CAPTURE", data: "Cancelled")
+    }
+    
+    func imageHandler(_ handler: ImageHandler, didFailWithError error: Error) {
+        iosnativeWebView.logger.error("Camera error: \(error.localizedDescription)")
+        sendCallback(eventName: "ON_CAMERA_ERROR", data: "Error: \(error.localizedDescription)")
     }
 }
 
@@ -163,6 +204,8 @@ extension NativeBridge: WKScriptMessageHandler {
                 switch command {
                 case "openCamera":
                     openCamera()
+                case "requestCameraPermission" :
+                    requestCameraPermission()
                 case "logger":
                     logger()
                 default:
@@ -172,36 +215,3 @@ extension NativeBridge: WKScriptMessageHandler {
         }
     }
 }
-
-// MARK: - UIImagePickerControllerDelegate
-extension NativeBridge: UIImagePickerControllerDelegate & UINavigationControllerDelegate {
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-        picker.dismiss(animated: true)
-        
-        if let image = info[.originalImage] as? UIImage {
-            if let base64Image = convertImageToBase64(image) {
-                iosnativeWebView.logger.debug("Image captured successfully")
-                sendCallback(eventName: "ON_CAMERA_CAPTURE", data: base64Image)
-            } else {
-                iosnativeWebView.logger.error("Failed to convert image to base64")
-                sendCallback(eventName: "ON_CAMERA_CAPTURE", data: "Error: Failed to process image")
-            }
-        } else {
-            iosnativeWebView.logger.error("No image captured")
-            sendCallback(eventName: "ON_CAMERA_CAPTURE", data: "Error: No image captured")
-        }
-    }
-    
-    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-        picker.dismiss(animated: true)
-        iosnativeWebView.logger.debug("Camera capture cancelled")
-        sendCallback(eventName: "ON_CAMERA_CAPTURE", data: "Cancelled")
-    }
-    
-    private func convertImageToBase64(_ image: UIImage) -> String? {
-        guard let imageData = image.jpegData(compressionQuality: 0.9) else {
-            return nil
-        }
-        return imageData.base64EncodedString()
-    }
-} 

@@ -18,6 +18,7 @@
 		47F3CABE2C63A0E8007CF14B /* ConfigConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F3CABD2C63A05C007CF14B /* ConfigConstants.swift */; };
 		E92114092D2FB0EE003BC3EB /* ResourceURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = E92114082D2FB0EE003BC3EB /* ResourceURLProtocol.swift */; };
 		E93412182D8AC90A0009FD6D /* NativeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93412172D8AC90A0009FD6D /* NativeBridge.swift */; };
+		E934121A2D926AE80009FD6D /* ImageHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93412192D926AE80009FD6D /* ImageHandler.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +55,7 @@
 		47F3CABD2C63A05C007CF14B /* ConfigConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigConstants.swift; sourceTree = "<group>"; };
 		E92114082D2FB0EE003BC3EB /* ResourceURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceURLProtocol.swift; sourceTree = "<group>"; };
 		E93412172D8AC90A0009FD6D /* NativeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBridge.swift; sourceTree = "<group>"; };
+		E93412192D926AE80009FD6D /* ImageHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageHandler.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,6 +105,7 @@
 		4777D51D2C60B87500E85AC6 /* iosnativeWebView */ = {
 			isa = PBXGroup;
 			children = (
+				E93412192D926AE80009FD6D /* ImageHandler.swift */,
 				E93412172D8AC90A0009FD6D /* NativeBridge.swift */,
 				E92114082D2FB0EE003BC3EB /* ResourceURLProtocol.swift */,
 				47A91A462CD0D39100419554 /* WebViewNavigationDelegate.swift */,
@@ -258,6 +261,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E934121A2D926AE80009FD6D /* ImageHandler.swift in Sources */,
 				47F3CABE2C63A0E8007CF14B /* ConfigConstants.swift in Sources */,
 				E92114092D2FB0EE003BC3EB /* ResourceURLProtocol.swift in Sources */,
 				47A91A452CD0D38400419554 /* WebViewModel.swift in Sources */,
