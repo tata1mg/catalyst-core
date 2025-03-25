@@ -1,10 +1,4 @@
-const Interfaces = [
-    "CAMERA_PERMISSION_STATUS",
-    "ON_CAMERA_CAPTURE",
-    "ON_CAMERA_ERROR",
-    "HAPTIC_FEEDBACK",
-    "LOGGER",
-]
+const Interfaces = ["CAMERA_PERMISSION_STATUS", "ON_CAMERA_CAPTURE", "ON_CAMERA_ERROR", "HAPTIC_FEEDBACK"]
 
 class WebBridge {
     constructor() {
