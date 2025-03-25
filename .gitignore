@@ -89,3 +89,4 @@ build/
 *.aab
 **/androidProject/**/webview_config.properties
 **/androidProject/**/cpp/*
+**/androidProject/**/build/*
