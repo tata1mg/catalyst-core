@@ -11,6 +11,7 @@ const steps = {
     config: 'Initialize Configuration',
     tools: 'Validate Android Tools',
     emulator: 'Check and Start Emulator',
+    copyAssets: 'Copy Build Assets',
     build: 'Build and Install Application'
 };
 
@@ -119,6 +120,47 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
     });
 }
 
+async function copyBuildAssets(androidConfig, buildOptimisation = false) {
+    progress.log('Copying build assets to Android project...', 'info');
+    
+    try {
+        // Define source and destination paths
+        const sourcePath = `${process.env.PWD}/build/`;
+        const destPath = `${pwd}/androidProject/app/src/main/assets/build/`;
+        
+        // Files to exclude from copying
+        const excludePatterns = [
+            '**/route-manifest.json.gz',
+            '**/route-manifest.json.br'
+        ];
+        
+        // Create exclusion parameters for the find command
+        const exclusions = excludePatterns
+            .map(pattern => `-not -path "${pattern}"`)
+            .join(' ');
+        
+        // Determine the copy command based on the buildOptimisation flag
+        let copyCommand;
+        
+        if (buildOptimisation) {
+            progress.log('Running with build optimization...', 'info');
+            // We need to use find to exclude specific files
+            // First, ensure the destination directory exists
+            runCommand(`mkdir -p ${destPath}`);
+            // Then use find to copy files while excluding specific patterns
+            copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`;
+        
+        
+            progress.log(`Executing copy command with exclusions...`, 'info');
+            runCommand(copyCommand);
+            progress.log('Build assets copied successfully!', 'success');
+        }
+        
+    } catch (error) {
+        throw new Error('Error copying build assets: ' + error.message);
+    }
+}
+
 async function installApp(ADB_PATH, androidConfig) {
     progress.log('Building and installing app...', 'info');
     try {
@@ -140,6 +182,8 @@ async function buildAndroidApp() {
         progress.start('config');
         const { WEBVIEW_CONFIG } = await initializeConfig();
         const androidConfig = WEBVIEW_CONFIG.android;
+        // Get buildOptimisation flag from WebView config
+        const buildOptimisation = !!androidConfig.buildOptimisation || false;
         progress.complete('config');
 
         // Validate tools and get paths
@@ -160,6 +204,12 @@ async function buildAndroidApp() {
         }
         progress.complete('emulator');
         
+        // Copy build assets to Android project
+        progress.start('copyAssets');
+        await copyBuildAssets(androidConfig, buildOptimisation);
+        progress.log(`Build optimization: ${buildOptimisation ? 'Enabled' : 'Disabled'}`, 'info');
+        progress.complete('copyAssets');
+        
         // Install the app
         progress.start('build');
         await installApp(ADB_PATH, androidConfig);
@@ -169,8 +219,9 @@ async function buildAndroidApp() {
         progress.printTreeContent('Build Summary', [
             'Build completed successfully:',
             { text: `Emulator: ${androidConfig.emulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
-            { text: `Build Type: Debug`, indent: 1, prefix: '├─ ', color: 'gray' },
-            { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: '└─ ', color: 'gray' }
+            { text: `Build Type: ${androidConfig.buildType || 'Debug'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Build Optimization: ${buildOptimisation ? 'Enabled' : 'Disabled'}`, indent: 1, prefix: '└─ ', color: 'gray' }
         ]);
 
         process.exit(0);
@@ -178,15 +229,16 @@ async function buildAndroidApp() {
         if (progress.currentStep) {
             progress.fail(progress.currentStep.id, error.message);
             
-            if (progress.currentStep.id === 'build') {
+            if (progress.currentStep.id === 'build' || progress.currentStep.id === 'copyAssets') {
                 progress.printTreeContent('Troubleshooting Guide', [
                     'Build failed. Please try the following steps:',
                     { text: 'Check if Android SDK is properly configured', indent: 1, prefix: '├─ ', color: 'yellow' },
                     { text: 'Verify that the emulator exists and is working', indent: 1, prefix: '├─ ', color: 'yellow' },
+                    { text: 'Verify build assets exist in the source directory', indent: 1, prefix: '├─ ', color: 'yellow' },
                     { text: 'Run "npm run setupEmulator:android" to reconfigure Android settings', indent: 1, prefix: '└─ ', color: 'yellow' },
                     '\nVerify Configuration:',
-                    { text: `Selected Emulator: ${androidConfig.emulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
-                    { text: `Android SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: '└─ ', color: 'gray' }
+                    { text: `Selected Emulator: ${WEBVIEW_CONFIG?.android?.emulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                    { text: `Android SDK Path: ${WEBVIEW_CONFIG?.android?.sdkPath}`, indent: 1, prefix: '└─ ', color: 'gray' }
                 ]);
             }
         }
@@ -195,4 +247,5 @@ async function buildAndroidApp() {
 }
 
 // Execute the main build process
+// Execute the main build process with buildOptimisation from config
 buildAndroidApp();
