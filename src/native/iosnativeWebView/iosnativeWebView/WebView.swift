@@ -35,6 +35,9 @@ struct WebView: UIViewRepresentable {
                            options: .new,
                            context: nil)
         
+        // Create and register the native bridge
+        context.coordinator.setupNativeBridge(webView)
+        
         // Initial load
         if let url = URL(string: urlString) {
             let request = URLRequest(url: url)
@@ -54,14 +57,28 @@ struct WebView: UIViewRepresentable {
     
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+        coordinator.nativeBridge?.unregister()
         ResourceURLProtocol.unregister()
     }
     
     class Coordinator: NSObject {
         var parent: WebView
+        var nativeBridge: NativeBridge?
+        var hostingController: UIViewController?
         
         init(_ parent: WebView) {
             self.parent = parent
+        }
+        
+        func setupNativeBridge(_ webView: WKWebView) {
+            // Create a UIViewController to use for presenting any UI
+            let hostingController = UIViewController()
+            self.hostingController = hostingController
+            
+            // Create and register the native bridge
+            let bridge = NativeBridge(webView: webView, viewController: hostingController)
+            bridge.register()
+            self.nativeBridge = bridge
         }
         
         override func observeValue(forKeyPath keyPath: String?,

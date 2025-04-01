@@ -9,5 +9,7 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
     <string>Debug web content in Safari Web Inspector</string>
+    <key>NSCameraUsageDescription</key>
+    <string>This app requires camera access to capture images</string>
 </dict>
 </plist>

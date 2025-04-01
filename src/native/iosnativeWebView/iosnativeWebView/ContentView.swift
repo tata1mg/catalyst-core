@@ -1,5 +1,6 @@
 import SwiftUI
 import os
+import WebKit
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "ContentView")
 
@@ -8,6 +9,7 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
+            // Normal remote URL
             WebView(urlString: ConfigConstants.url, viewModel: webViewModel)
                 .edgesIgnoringSafeArea(.all)
                 .onAppear {
@@ -37,5 +39,18 @@ struct ContentView: View {
         .onAppear {
             logger.info("ContentView appeared")
         }
+    }
+}
+
+// UIViewControllerRepresentable for hosting native view controllers
+struct HostingController: UIViewControllerRepresentable {
+    var viewController: UIViewController
+    
+    func makeUIViewController(context: Context) -> UIViewController {
+        return viewController
+    }
+    
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        // No update needed
     }
 }
