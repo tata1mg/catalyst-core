@@ -1,17 +1,49 @@
 import { useEffect, useState } from "react"
 
-// TODO: also add integration for web only
+const NativeBridge = {
+    interfaces: ["openCamera", "requestCameraPermission", "requestHapticFeedback"],
+    call: (interfaceName, data) => {
+        if (!NativeBridge.interfaces.includes(interfaceName)) {
+            console.error("Invalid native interface called!")
+            return
+        }
+
+        if (window.NativeBridge) {
+            window.NativeBridge[interfaceName](data)
+            return
+        }
+
+        if (window.webkit.messageHandlers.NativeBridge) {
+            window.webkit.messageHandlers.NativeBridge.postMessage({
+                command: interfaceName,
+                data: data,
+            })
+            return
+        }
+
+        console.error("NativeBridge not found!")
+    },
+}
+
 export const useCamera = () => {
+    if (typeof window === "undefined") {
+        return {
+            photo: null,
+            takePhoto: () => {},
+            error: null,
+            permission: null,
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized")
+    }
+
     const [photo, setPhoto] = useState(null)
     const [error, setError] = useState(null)
     const [permission, setPermission] = useState(null)
 
     useEffect(() => {
-        if (!window.WebBridge) {
-            console.error("WebBridge not initialized!")
-            return
-        }
-
         window.WebBridge.register("ON_CAMERA_CAPTURE", (data) => {
             const { imageUrl } = JSON.parse(data)
             setPhoto(imageUrl)
@@ -34,9 +66,7 @@ export const useCamera = () => {
     }, [])
 
     const takePhoto = () => {
-        if (window.NativeBridge) {
-            window.NativeBridge.openCamera()
-        }
+        NativeBridge.call("openCamera")
     }
 
     return {
@@ -49,15 +79,16 @@ export const useCamera = () => {
 
 // TODO: add condition for already registered interface
 export const requestCameraPermission = () => {
+    if (typeof window === "undefined") {
+        return Promise.resolve(null)
+    }
+
     if (!window.WebBridge) {
-        console.error("WebBridge not initialized!")
-        return
+        throw new Error("WebBridge is not initialized")
     }
 
     return new Promise((resolve, reject) => {
-        if (window.NativeBridge) {
-            window.NativeBridge.requestCameraPermission()
-        }
+        NativeBridge.call("requestCameraPermission")
 
         window.WebBridge.register("CAMERA_PERMISSION_STATUS", (data) => {
             if (data === "GRANTED") {
@@ -70,17 +101,18 @@ export const requestCameraPermission = () => {
 }
 
 export const cameraPermissionHook = () => {
+    if (typeof window === "undefined") {
+        return { permission: null }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized")
+    }
+
     const [permission, setPermission] = useState(null)
 
     useEffect(() => {
-        if (!window.WebBridge) {
-            console.error("WebBridge not initialized!")
-            return
-        }
-
-        if (window.NativeBridge) {
-            window.NativeBridge.requestCameraPermission()
-        }
+        NativeBridge.call("requestCameraPermission")
 
         window.WebBridge.register("CAMERA_PERMISSION_STATUS", (data) => {
             setPermission(data)
@@ -96,15 +128,16 @@ export const cameraPermissionHook = () => {
 
 // TODO: add condition for already registered interface
 export const requestHapticFeedback = (feedbackType = "") => {
+    if (typeof window === "undefined") {
+        return Promise.resolve(null)
+    }
+
     if (!window.WebBridge) {
-        console.error("WebBridge not initialized!")
-        return
+        throw new Error("WebBridge is not initialized")
     }
 
     return new Promise((resolve, reject) => {
-        if (window.NativeBridge) {
-            window.NativeBridge.requestHapticFeedback(feedbackType)
-        }
+        NativeBridge.call("requestHapticFeedback", feedbackType)
 
         window.WebBridge.register("HAPTIC_FEEDBACK", (data) => {
             if (data === "SUCCESS") {
