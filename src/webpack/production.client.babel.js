@@ -21,6 +21,7 @@ const clientConfig = mergeWithCustomize({
     }),
 })(baseConfig, {
     mode: "production",
+    devtool: "source-map",
     stats: "errors-only",
     resolve: {
         alias: catalystResultMap,
