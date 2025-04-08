@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "@tata1mg/router-internal"
+import { createBrowserRouter } from "@tata1mg/router"
 const { preparedRoutes } = require(`${process.env.src_path}/src/js/routes/utils.js`)
 
 /**

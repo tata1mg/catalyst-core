@@ -11,12 +11,7 @@ import App from "@catalyst/template/src/js/containers/App/index.js"
 import { ChunkExtractor, ChunkExtractorManager } from "@loadable/server"
 import { renderToPipeableStream, renderToString } from "react-dom/server"
 import { getUserAgentDetails } from "@catalyst/server/utils/userAgentUtil"
-import {
-    matchPath,
-    serverDataFetcher,
-    matchRoutes as NestedMatchRoutes,
-    getMetaData,
-} from "@tata1mg/router-internal"
+import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "@tata1mg/router"
 import {
     validateConfigureStore,
     validateCustomDocument,
