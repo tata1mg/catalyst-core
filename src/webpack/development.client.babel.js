@@ -147,6 +147,7 @@ let devServer = new WebpackDevServer(
     {
         port: WEBPACK_DEV_SERVER_PORT,
         host: WEBPACK_DEV_SERVER_HOSTNAME,
+        allowedHosts: "all",
         static: {
             publicPath: webpackClientConfig.output.publicPath,
         },
