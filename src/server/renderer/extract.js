@@ -102,6 +102,11 @@ export default function (res, route) {
             res.locals.preloadJSLinks = cachedPreloadJSLinks
             return
         }
+
+        logger.info({
+            message: "Cache Missed",
+            uri: requestPath,
+        })
     } catch (error) {}
 }
 
