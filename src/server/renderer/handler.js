@@ -203,7 +203,7 @@ const renderMarkUp = async (
             },
         })
     } catch (error) {
-        logger.error("Error in rendering document on server:" + error)
+        logger.error(`Error in rendering document on server: ${req.originalUrl} ` + error)
         // function defined by user which needs to run if rendering fails
         safeCall(onRenderError)
     }
