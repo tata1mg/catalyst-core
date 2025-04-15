@@ -25,7 +25,7 @@ class CustomWebView(
     private val job = SupervisorJob()
     override val coroutineContext = Dispatchers.Main + job
 
-    private lateinit var cacheManager: WebCacheManager
+    private var cacheManager: WebCacheManager
     private var buildType: String = "debug"  // Default to debug
     private var cachePatterns: List<String> = emptyList()
     private var isHardwareAccelerationEnabled = false
@@ -46,7 +46,6 @@ class CustomWebView(
     }
 
     private fun setupFromProperties() {
-        val androidConfigJson = properties.getProperty("android", "{}")
 
         buildType = properties.getProperty("buildType", "debug")
         apiBaseUrl = properties.getProperty("apiBaseUrl", "")
@@ -276,7 +275,7 @@ class CustomWebView(
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 request?.url?.let { url ->
-                    val urlString = url.toString()
+                    
                     // Let WebView handle loading non-API HTTP/HTTPS URLs
                     if (url.scheme in listOf("http", "https")) {
                         return false
