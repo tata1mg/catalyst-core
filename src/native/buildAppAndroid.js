@@ -128,43 +128,69 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
         const sourcePath = `${process.env.PWD}/build/`;
         const destPath = `${pwd}/androidProject/app/src/main/assets/build/`;
         
-        // Files to exclude from copying
+        // Create destination directory if it doesn't exist
+        runCommand(`mkdir -p ${destPath}`);
+        
+        // Clear existing destination to avoid conflicts
+        runCommand(`rm -rf ${destPath}/*`);
+        
+        // Files to exclude from copying (regardless of where they are in the directory structure)
         const excludePatterns = [
-            '**/route-manifest.json.gz',
-            '**/route-manifest.json.br'
+            'route-manifest.json.gz',
+            'route-manifest.json.br'
         ];
-        
-        // Create exclusion parameters for the find command
-        const exclusions = excludePatterns
-            .map(pattern => `-not -path "${pattern}"`)
-            .join(' ');
-        
-        // Determine the copy command based on the buildOptimisation flag
-        let copyCommand;
         
         if (buildOptimisation) {
             progress.log('Running with build optimization...', 'info');
-            // We need to use find to exclude specific files
-            // First, ensure the destination directory exists
-            runCommand(`mkdir -p ${destPath}`);
-            // Then use find to copy files while excluding specific patterns
-            copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`;
-        
-        
+            
+            // Use rsync instead of cp for more control over file exclusions
+            // This is more efficient and allows us to exclude specific files by name anywhere in the directory tree
+            const excludeParams = excludePatterns.map(pattern => `--exclude="${pattern}"`).join(' ');
+            const rsyncCommand = `rsync -av ${excludeParams} ${sourcePath} ${destPath}`;
+            
+            progress.log('Executing rsync command with exclusions...', 'info');
+            runCommand(rsyncCommand);
+            
+            // Verify excluded files don't exist in destination
+            for (const pattern of excludePatterns) {
+                const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`;
+                const count = parseInt(runCommand(checkCommand).trim(), 10);
+                
+                if (count > 0) {
+                    progress.log(`Warning: Found ${count} instances of excluded file ${pattern}`, 'warning');
+                    // Remove them if found (belt and suspenders approach)
+                    runCommand(`find ${destPath} -name "${pattern}" -delete`);
+                }
+            }
+            
+            progress.log('Build assets copied with optimization (excluded route-manifest JSON files)', 'success');
+        } else {
+            // Original implementation for non-optimized builds, but using improved method
+            progress.log('Running without build optimization...', 'info');
+            
+            // Create exclusion parameters for the find command
+            // This uses -not -name instead of -not -path for better file name matching
+            const exclusions = excludePatterns
+                .map(pattern => `-not -name "${pattern}"`)
+                .join(' ');
+            
+            // Use find to copy files while excluding specific patterns
+            const copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`;
+            
             progress.log(`Executing copy command with exclusions...`, 'info');
             runCommand(copyCommand);
             progress.log('Build assets copied successfully!', 'success');
         }
-        
     } catch (error) {
         throw new Error('Error copying build assets: ' + error.message);
     }
 }
 
-async function installApp(ADB_PATH, androidConfig) {
+async function installApp(ADB_PATH, androidConfig, buildOptimisation) {
     progress.log('Building and installing app...', 'info');
     try {
-        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE} 1`;
+        // Add buildOptimisation to the gradle command
+        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE} 1`;
         
         await runInteractiveCommand('sh', ['-c', buildCommand], {
             'BUILD SUCCESSFUL': ''
@@ -212,7 +238,7 @@ async function buildAndroidApp() {
         
         // Install the app
         progress.start('build');
-        await installApp(ADB_PATH, androidConfig);
+        await installApp(ADB_PATH, androidConfig, buildOptimisation);
         progress.complete('build');
 
         // Print build summary
@@ -247,5 +273,4 @@ async function buildAndroidApp() {
 }
 
 // Execute the main build process
-// Execute the main build process with buildOptimisation from config
 buildAndroidApp();
