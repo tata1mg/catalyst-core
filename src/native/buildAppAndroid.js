@@ -4,7 +4,7 @@ import { runCommand, runInteractiveCommand } from './utils.js';
 import TerminalProgress from './TerminalProgress.js';
 
 const configPath = `${process.env.PWD}/config/config.json`;
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
+const pwd = `${process.cwd()}/node_modules/catalyst-core-internal/dist/native`;
 const ANDROID_PACKAGE = "com.example.androidProject";
 
 const steps = {
@@ -121,6 +121,7 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
 }
 
 async function copyBuildAssets(androidConfig, buildOptimisation = false) {
+    if (!buildOptimisation) return
     progress.log('Copying build assets to Android project...', 'info');
     
     try {
