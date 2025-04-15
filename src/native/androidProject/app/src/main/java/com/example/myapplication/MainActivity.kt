@@ -6,6 +6,7 @@ import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import java.util.Properties
 import com.example.androidProject.databinding.ActivityMainBinding
+import com.example.myapplication.NativeBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
@@ -14,6 +15,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     private val TAG = "WebViewDebug"
     private lateinit var binding: ActivityMainBinding
+    private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
     private lateinit var properties: Properties
     private var isHardwareAccelerationEnabled = false
@@ -73,7 +75,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Clean the cache
         customWebView.cleanupCache()
-
+        nativeBridge = NativeBridge(this, customWebView.getWebView())
+        customWebView.addJavascriptInterface(nativeBridge, "NativeBridge")
         val local_ip = properties.getProperty("LOCAL_IP", "localhost")
         val port = properties.getProperty("port", "3005")
         currentUrl = "http://$local_ip:$port"

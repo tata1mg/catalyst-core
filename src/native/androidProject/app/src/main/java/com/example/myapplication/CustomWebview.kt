@@ -98,6 +98,7 @@ class CustomWebView(
         webView.clearHistory()
     }
 
+
     fun canGoBack(): Boolean = webView.canGoBack()
 
     fun goBack() {
@@ -110,6 +111,28 @@ class CustomWebView(
 
     fun onResume() {
         webView.onResume()
+    }
+
+    fun getWebView(): WebView {
+        return webView
+    }
+
+    @SuppressLint("JavascriptInterface")
+    fun addJavascriptInterface(obj: Any, name: String) {
+        // Check if we're on API 17 or higher
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            // Verify that the object has at least one method annotated with @JavascriptInterface
+            val hasAnnotatedMethods = obj.javaClass.declaredMethods.any {
+                it.isAnnotationPresent(android.webkit.JavascriptInterface::class.java)
+            }
+
+            if (!hasAnnotatedMethods) {
+                Log.e(TAG, "Error: No methods in ${obj.javaClass.simpleName} are annotated with @JavascriptInterface")
+            }
+        }
+
+        webView.addJavascriptInterface(obj, name)
+        Log.d(TAG, "🔗 Added JavaScript interface: $name")
     }
 
     fun destroy() {
