@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.0.3-canary.3] - 06-03-2025
+## [0.0.1-beta.13] - 04-04-2025
+
+-   Fixes a bug for client fetcher when importing components through loadable
+
+## [0.0.1-beta.12] - 06-03-2025
 
 ## Cache Management Updates
 
