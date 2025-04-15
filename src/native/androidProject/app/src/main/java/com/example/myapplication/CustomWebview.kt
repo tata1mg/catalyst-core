@@ -275,7 +275,7 @@ class CustomWebView(
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 request?.url?.let { url ->
-                    
+
                     // Let WebView handle loading non-API HTTP/HTTPS URLs
                     if (url.scheme in listOf("http", "https")) {
                         return false
