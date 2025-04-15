@@ -16,8 +16,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var customWebView: CustomWebView
     private lateinit var properties: Properties
+    private lateinit var metricsMonitor: MetricsMonitor
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
+    private val appStartTime = System.currentTimeMillis() // Track app start time
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -41,6 +43,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
+
+        // Initialize metrics monitor
+        metricsMonitor = MetricsMonitor.getInstance(applicationContext)
+
+        // Log app startup time
+        val startupTime = System.currentTimeMillis() - appStartTime
+        Log.d(TAG, "⏱️ App startup time to onCreate: ${startupTime}ms")
 
         // Load properties
         properties = Properties()
@@ -90,6 +99,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Load URL
         customWebView.loadUrl(currentUrl)
+
+        // Mark app start complete
+        metricsMonitor.markAppStartComplete()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -116,8 +128,22 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
-        coroutineContext.cancelChildren()
-        customWebView.destroy()
-        super.onDestroy()
+        try {
+            // Explicitly log metrics before destroying
+            Log.e(TAG, "🔚 Activity is being destroyed - logging final metrics")
+
+            // Log directly and also call cleanup
+            metricsMonitor.logAllMetrics()
+            metricsMonitor.cleanup()
+
+            coroutineContext.cancelChildren()
+            customWebView.destroy()
+        } catch (e: Exception) {
+            // Make sure we see any errors that might prevent logging
+            Log.e(TAG, "❌ Error during onDestroy: ${e.message}", e)
+        } finally {
+            // Always call super.onDestroy() in a finally block
+            super.onDestroy()
+        }
     }
 }
