@@ -30,7 +30,9 @@ class CustomWebView(
     private var cachePatterns: List<String> = emptyList()
     private var isHardwareAccelerationEnabled = false
     private var apiBaseUrl: String = ""
-    private var isInitialApiCalled: Boolean = true  // Flag to track initial page load
+    private var isInitialApiCalled: Boolean = false  // Flag to track initial page load
+    private var isInitialPageLoaded: Boolean = false
+    private var buildOptimisation: Boolean = false // Added property for build optimization
     private lateinit var assetLoader: WebViewAssetLoader
 
     // Counters for asset loading statistics
@@ -53,9 +55,24 @@ class CustomWebView(
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 
+        // Parse buildOptimisation property
+        buildOptimisation = properties.getProperty("buildOptimisation", "false").toBoolean()
+
+        // Set initial flags based on buildOptimisation
+        if (buildOptimisation) {
+            isInitialApiCalled = false
+            isInitialPageLoaded = false
+        } else {
+            isInitialApiCalled = false  // Default value
+            isInitialPageLoaded = false // Default value
+        }
+
         Log.d(TAG, "Build type: $buildType")
         Log.d(TAG, "Cache Pattern: $cachePatterns")
         Log.d(TAG, "API Base URL: $apiBaseUrl")
+        Log.d(TAG, "Build Optimisation: $buildOptimisation")
+        Log.d(TAG, "Initial API Called: $isInitialApiCalled")
+        Log.d(TAG, "Initial Page Loaded: $isInitialPageLoaded")
 
         // Setup WebView Asset Loader for serving local files
         assetLoader = WebViewAssetLoader.Builder()
@@ -66,17 +83,6 @@ class CustomWebView(
 
     fun loadUrl(url: String) {
         webView.loadUrl(url)
-    }
-
-    fun refresh(url: String) {
-        // Reset the initial API call flag to force reloading from assets
-        isInitialApiCalled = false
-        // Clear the WebView cache
-        webView.clearCache(true)
-        // Reload the page
-        webView.loadUrl(url)
-
-        Log.d(TAG, "🔄 Manual refresh triggered, isInitialApiCalled reset to false")
     }
 
     fun saveState(outState: Bundle) {
@@ -164,7 +170,7 @@ class CustomWebView(
 
     private fun isStaticResourceRequest(url: String): Boolean {
         // Check if this is a static resource (JS, CSS, images, etc.)
-        val extensions = listOf(".js", ".css")
+        val extensions = listOf(".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ttf", ".eot")
 
         // Don't try to intercept API calls
         if (isApiCall(url)) {
@@ -280,31 +286,34 @@ class CustomWebView(
                     }
                 }
 
-                // Check if this is a static resource that should be loaded from assets
-                if (request.method == "GET" && isStaticResourceRequest(url)) {
-                    val assetPath = extractAssetPath(url)
-                    assetLoadAttempts++
+                if(!isInitialPageLoaded) {
+                    // Check if this is a static resource that should be loaded from assets
+                    if (request.method == "GET" && isStaticResourceRequest(url)) {
+                        val assetPath = extractAssetPath(url)
+                        assetLoadAttempts++
 
-                    try {
-                        val mimeType = getMimeType(assetPath)
-                        Log.d(TAG, "📦 Attempting to serve from assets: $assetPath")
-                        val inputStream = context.assets.open(assetPath)
-                        Log.d(TAG, "✅ Successfully loaded from assets: $assetPath")
-                        return WebResourceResponse(mimeType, "utf-8", inputStream)
-                    } catch (e: Exception) {
-                        assetLoadFailures++
-                        Log.e(TAG, "❌ Error loading asset: $assetPath", e)
-                        Log.d(TAG, "⚠️ Falling back to network for: $url")
-                        // Return null to let the WebView load from network
+                        try {
+                            val mimeType = getMimeType(assetPath)
+                            Log.d(TAG, "📦 Attempting to serve from assets: $assetPath")
+                            val inputStream = context.assets.open(assetPath)
+                            Log.d(TAG, "✅ Successfully loaded from assets: $assetPath")
+                            return WebResourceResponse(mimeType, "utf-8", inputStream)
+                        } catch (e: Exception) {
+                            assetLoadFailures++
+                            Log.e(TAG, "❌ Error loading asset: $assetPath", e)
+                            Log.d(TAG, "⚠️ Falling back to network for: $url")
+                            // Return null to let the WebView load from network
+                            return null
+                        }
+                    }
+
+                    // Let API calls go through normally
+                    if (isApiCall(url)) {
+                        Log.d(TAG, "🌐 API call detected, letting it go through network: $url")
                         return null
                     }
                 }
 
-                // Let API calls go through normally
-                if (isApiCall(url)) {
-                    Log.d(TAG, "🌐 API call detected, letting it go through network: $url")
-                    return null
-                }
 
                 // For non-API HTTP requests that match cache patterns, use cache system
                 if (request.method == "GET" && shouldCacheUrl(url)) {
@@ -340,6 +349,8 @@ class CustomWebView(
                             enableHardwareAcceleration()
                         }
                     }
+                } else {
+                    Log.d(TAG, "⏭️ URL doesn't match cache criteria, skipping cache: $url")
                 }
 
                 return null
@@ -355,6 +366,9 @@ class CustomWebView(
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
+                if(!isInitialPageLoaded){
+                    isInitialPageLoaded = true
+                }
                 val startTime = view?.tag as? Long ?: return
                 val loadTime = System.currentTimeMillis() - startTime
                 Log.d(TAG, "✅ Page load finished for: $url - Load time: ${loadTime}ms - Hardware Acceleration: $isHardwareAccelerationEnabled")

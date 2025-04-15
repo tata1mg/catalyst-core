@@ -26,36 +26,4 @@
             android:visibility="gone" />
     </RelativeLayout>
 
-    <LinearLayout
-        android:id="@+id/bottom_bar"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:background="#F5F5F5"
-        android:elevation="8dp"
-        android:orientation="horizontal"
-        android:gravity="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <Button
-            android:id="@+id/btn_refresh"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Refresh Page"
-            android:drawableStart="@android:drawable/ic_popup_sync"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp" />
-
-        <TextView
-            android:id="@+id/debug_info"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:textSize="12sp"
-            android:textColor="#FF0000"
-            android:text="Debug mode" />
-
-    </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

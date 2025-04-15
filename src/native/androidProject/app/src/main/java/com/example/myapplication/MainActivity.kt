@@ -74,20 +74,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         // Clean the cache
         customWebView.cleanupCache()
 
-        // Setup refresh button
         val local_ip = properties.getProperty("LOCAL_IP", "localhost")
         val port = properties.getProperty("port", "3005")
         currentUrl = "http://$local_ip:$port"
-
-        // Set debug info text
-        binding.debugInfo.text = "Debug: $local_ip:$port"
-
-        // Set up refresh button click listener
-        binding.btnRefresh.setOnClickListener {
-            Log.d(TAG, "♻️ Refresh button clicked")
-            customWebView.refresh(currentUrl)
-        }
-
         // Load URL
         customWebView.loadUrl(currentUrl)
     }
