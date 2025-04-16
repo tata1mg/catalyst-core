@@ -4,7 +4,7 @@ import { runCommand, runInteractiveCommand } from './utils.js';
 import TerminalProgress from './TerminalProgress.js';
 
 const configPath = `${process.env.PWD}/config/config.json`;
-const pwd = `${process.cwd()}/node_modules/catalyst-core-internal/dist/native`;
+const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
 const ANDROID_PACKAGE = "com.example.androidProject";
 
 const steps = {
