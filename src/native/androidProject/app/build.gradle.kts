@@ -63,6 +63,13 @@ android {
         viewBinding = true
         buildConfig = true
     }
+
+    packaging {
+        resources {
+            excludes.add("**/route-manifest.json.gz")
+            excludes.add("**/route-manifest.json.br")
+        }
+    }
 }
 
 dependencies {

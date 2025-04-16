@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.1-beta.13",
+    "version": "0.0.3-canary.4",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -28,7 +28,9 @@
         ".": "./dist/index.js",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
-        "./router/ClientRouter": "./dist/router/ClientRouter.js"
+        "./router/ClientRouter": "./dist/router/ClientRouter.js",
+        "./WebBridge": "./dist/native/bridge/WebBridge.js",
+        "./hooks": "./dist/native/bridge/hooks.js"
     },
     "scripts": {
         "lint": "eslint .",
