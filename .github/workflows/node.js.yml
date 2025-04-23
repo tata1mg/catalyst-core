@@ -1,63 +1,35 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+    pull_request:
+        branches: ["main"]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    build:
+        runs-on: ubuntu-latest
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
+        strategy:
+            matrix:
+                node-version: [20.4.0]
 
-      - name: Install dependencies
-        run: npm install
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Run lint
-        run: npm run lint
+            - name: Use Node.js ${{ matrix.node-version }}
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  cache: "npm"
 
-  build:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+            - name: Install root dependencies
+              run: npm ci
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
+            - name: Install template dependencies
+              working-directory: template
+              run: npm ci
 
-      - name: Install dependencies
-        run: npm install
+            - name: Build
+              run: npm run prepare
 
-      - name: Run build
-        run: npm run build
-
-  test:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests
-        run: npm test
+            - name: Run test cases
+              run: npm run test:dev
