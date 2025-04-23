@@ -32,6 +32,8 @@
     },
     "scripts": {
         "lint": "eslint .",
+        "test:dev": "cd template && npm run test:dev && cd ..",
+        "test:prod": "cd template && npm run build && npm run test:prod && cd ..",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
         "prepare": "babel src --out-dir ./dist",
