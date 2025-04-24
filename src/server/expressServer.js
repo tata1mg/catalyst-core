@@ -25,23 +25,23 @@ async function createServer() {
     const app = express()
 
     // This middleware is being used to extract the body of the request
-    // app.use(bodyParser.json())
+    app.use(bodyParser.json())
 
     // // This middleware has been added to accommodate "byetstream array"
-    // app.use(bodyParser.raw({ type: "application/*" }))
+    app.use(bodyParser.raw({ type: "application/*" }))
 
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
 
     // All the middlewares defined by the user will run here.
-    // if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
+    if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
 
     // The middleware will attempt to compress response bodies for all request that traverse through the middleware
-    // app.use(compression())
+    app.use(compression())
 
     // This endpoint will serve the built assets from the node server. The requests will be made to PUBLIC_STATIC_ASSET_PATH which has been defined in the application config.
     // expressStaticGzip will compress the assets.
-    // if (env === "production") {
+    // if (process.env.NODE_ENV === "production") {
     //     app.use(
     //         process.env.PUBLIC_STATIC_ASSET_PATH,
     //         expressStaticGzip(path.join(process.env.src_path, `build/public`), {
@@ -60,16 +60,10 @@ async function createServer() {
         configFile: "./dist/server/vite.config.js",
         server: {
             middlewareMode: true,
-            hmr: {
-                protocol: "ws",
-                host: host,
-                port: 3001,
-            },
         },
         appType: "custom",
         root: process.env.src_path,
     })
-    console.log(vite.environments.client.hot)
     app.use(vite.middlewares) // May need to match the base config
 
     app.use(async (req, res) => {
