@@ -8,7 +8,7 @@ import { cacheCSS, cacheJS } from "./extract"
  * @param {boolean} isBot - checks if request is made by bot
  * @param {object} fetcherData - router fetched data
  */
-const renderStart = (pageCss, pageJS, metaTags, isBot, fetcherData) => {
+export const renderStart = (pageCss, pageJS, metaTags, isBot, fetcherData) => {
     const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
 
     let publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
@@ -37,29 +37,29 @@ const renderStart = (pageCss, pageJS, metaTags, isBot, fetcherData) => {
  * @param {string|number|null} errorCode - error code
  * @param {object} fetcherData - router fetched data
  */
-const renderEnd = (webExtractor, initialState = {}, res, jsx, errorCode, fetcherData) => {
+export const renderEnd = (initialState = {}, res, jsx, errorCode, fetcherData) => {
     // For bot first fold css and js would become complete page css and js
     let firstFoldCss = ""
     let firstFoldJS = ""
     const isProd = process.env.NODE_ENV === "production"
 
-    const { routePath, pageCss, pageJS } = res.locals
+    // const { routePath, pageCss, pageJS } = res.locals
 
     // Development: Extracts styles and javascript elements for injecting in Body Component.
     // NOTE: Caching of styles and javascript is not enabled in development.
-    if (!isProd) {
-        firstFoldCss = webExtractor.getStyleElements()
-        firstFoldJS = webExtractor.getScriptElements()
-    }
+    // if (!isProd) {
+    //     firstFoldCss = webExtractor.getStyleElements()
+    //     firstFoldJS = webExtractor.getScriptElements()
+    // }
 
-    // Production: Extract styles and javscript elements if they are not found in cache and stores them in cache.
-    if (isProd && routePath && (!pageCss || !pageJS)) {
-        firstFoldCss = webExtractor.getStyleElements()
-        firstFoldJS = webExtractor.getScriptElements()
+    // // Production: Extract styles and javscript elements if they are not found in cache and stores them in cache.
+    // if (isProd && routePath && (!pageCss || !pageJS)) {
+    //     firstFoldCss = webExtractor.getStyleElements()
+    //     firstFoldJS = webExtractor.getScriptElements()
 
-        cacheCSS(routePath, webExtractor.getLinkElements())
-        cacheJS(routePath, webExtractor.getScriptElements())
-    }
+    //     cacheCSS(routePath, webExtractor.getLinkElements())
+    //     cacheJS(routePath, webExtractor.getScriptElements())
+    // }
 
     return {
         initialState,
@@ -70,4 +70,3 @@ const renderEnd = (webExtractor, initialState = {}, res, jsx, errorCode, fetcher
         fetcherData,
     }
 }
-export default { renderStart, renderEnd }

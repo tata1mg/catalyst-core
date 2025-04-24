@@ -1,8 +1,12 @@
-const path = require("path")
-const { spawnSync } = require("child_process")
-const { arrayToObject } = require("./scriptUtils")
-const { name } = require(`${process.env.PWD}/package.json`)
-const { BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
+import path from "path"
+import { spawnSync } from "child_process"
+import { arrayToObject } from "./scriptUtils.js"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { readFileSync } from "fs"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 /**
  * @description - starts webpack dev server and node server.
@@ -12,11 +16,11 @@ function start() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    const command = `
-    node ./dist/scripts/checkVersion
-    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.env.PWD}/server --watch-path=${process.env.PWD}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
-    `
+    // Read package.json
+    const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
+    const { name } = packageJson
 
+    const command = `node ./dist/server/expressServer.js`
     spawnSync(command, [], {
         cwd: dirname,
         stdio: "inherit",
@@ -27,8 +31,14 @@ function start() {
             NODE_ENV: "development",
             IS_DEV_COMMAND: false,
             APPLICATION: name || "catalyst_app",
-            BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
             ...argumentsObject,
+            filterKeys: JSON.stringify([
+                "src_path",
+                "NODE_ENV",
+                "IS_DEV_COMMAND",
+                "APPLICATION",
+                ...Object.keys(argumentsObject),
+            ]),
         },
     })
 }

@@ -3,7 +3,6 @@ import fs from "fs"
 
 const appConfigPath = path.resolve(process.env.src_path, "config/config.json")
 // import { validateConfigFile } from "../scripts/validator"
-
 /**
  * @description stores all config.json key value into process.env before server starts.
  */

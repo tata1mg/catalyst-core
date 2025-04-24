@@ -1,8 +1,8 @@
-const fs = require("fs")
-const path = require("path")
-const util = require("node:util")
-const { gray, cyan } = require("picocolors")
-const { BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
+import fs from "fs"
+import path from "path"
+import util from "node:util"
+import pkg from "picocolors"
+const { gray, cyan } = pkg
 
 // Function to get file size synchronously
 function getFileSizeSync(filePath) {
@@ -17,7 +17,7 @@ function getFileSizeSync(filePath) {
 
 export const printBundleInformation = () => {
     let bundleList = []
-    const directoryPath = path.join(process.env.PWD, `${BUILD_OUTPUT_PATH}/public`)
+    const directoryPath = path.join(process.env.src_path, `build/public`)
 
     try {
         const files = fs.readdirSync(directoryPath)
@@ -36,7 +36,7 @@ export const printBundleInformation = () => {
 
     bundleList.sort((a, b) => b.fileSize - a.fileSize)
     bundleList.forEach(({ file, fileSize }) => {
-        const fileName = `${gray(`${BUILD_OUTPUT_PATH}/public/`)}${cyan(file)}`
+        const fileName = `${gray(`build/public/`)}${cyan(file)}`
         const fileSizeInKb = (fileSize / 1024).toFixed(2)
         const size = `\t${fileSizeInKb} kB`.padEnd(16)
 

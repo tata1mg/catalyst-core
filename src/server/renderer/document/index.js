@@ -1,2 +1,2 @@
-export * from "./Head"
-export * from "./Body"
+export * from "./Head.jsx"
+export * from "./Body.jsx"

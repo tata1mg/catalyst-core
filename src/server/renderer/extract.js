@@ -6,7 +6,7 @@ import fs from "fs"
  * @param {string} key - router path
  * @param {object} data - css elements array extracted through loadable chunk extracter
  */
-export function cacheCSS(key, data) {
+export const cacheCSS = (key, data) => {
     if (!process.cssCache) {
         process.cssCache = {}
     }
@@ -44,7 +44,7 @@ export function cacheCSS(key, data) {
  * @param {string} key - router path
  * @param {object} data - js elements array extracted through loadable chunk extracter
  */
-export function cacheJS(key, data) {
+export const cacheJS = (key, data) => {
     if (!process.jsCache) {
         process.jsCache = {}
     }
@@ -56,7 +56,7 @@ export function cacheJS(key, data) {
  * @param {string} key - router path
  * @return {string} - cached css
  */
-function fetchCachedCSS(key) {
+const fetchCachedCSS = (key) => {
     return process.cssCache && process.cssCache[key] ? process.cssCache[key] : null
 }
 
@@ -65,7 +65,7 @@ function fetchCachedCSS(key) {
  * @param {string} key - router path
  * @return {string} - cached js
  */
-function fetchCachedJS(key) {
+const fetchCachedJS = (key) => {
     return process.jsCache && process.jsCache[key] ? process.jsCache[key] : null
 }
 
@@ -74,7 +74,7 @@ function fetchCachedJS(key) {
  * @param {object} res - response object
  * @param {string} route - route path
  */
-export default function (res, route) {
+const extractAssets = (res, route) => {
     try {
         const requestPath = route.path
         const cachedCss = fetchCachedCSS(requestPath)
@@ -89,3 +89,5 @@ export default function (res, route) {
         console.log("Error while caching your assets.")
     }
 }
+
+export default extractAssets

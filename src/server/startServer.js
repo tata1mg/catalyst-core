@@ -1,16 +1,17 @@
-import fs from "fs"
-import path from "path"
 import util from "node:util"
-import chokidar from "chokidar"
-import { cyan, yellow, green } from "picocolors"
+import pc from "picocolors"
+const { cyan, yellow, green } = pc
+import expressServer from "./expressServer.js"
+import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
+loadEnvironmentVariables()
 
-import { preServerInit } from "@catalyst/template/server/index.js"
-import { validatePreInitServer } from "@catalyst/server/utils/validator.js"
+// import { preServerInit } from "@catalyst/template/server/index.js"
+// import { validatePreInitServer } from "@catalyst/server/utils/validator.js"
 
 const env = process.env.NODE_ENV || "development"
 
 // function defined by user which needs to run before server starts
-if (validatePreInitServer(preServerInit)) preServerInit()
+// if (validatePreInitServer(preServerInit)) preServerInit()
 
 process.on("uncaughtException", (err, origin) => {
     console.log(process.stderr.fd)
@@ -45,25 +46,23 @@ if (env === "development") {
 const port = process.env.NODE_SERVER_PORT ?? 3005
 const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
 
-let statsPath = path.join(__dirname, `../../`, "loadable-stats.json")
+// let statsPath = path.join(__dirname, `../../`, "loadable-stats.json")
 
-if (env === "production") {
-    statsPath = path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
-}
+// if (env === "production") {
+//     statsPath = path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
+// }
 
-const watcher = chokidar.watch(statsPath, { persistent: true })
+// const watcher = chokidar.watch(statsPath, { persistent: true })
 
 let serverInstance = null
-const restartServer = () => {
-    const server = require("./expressServer.js").default
+// const restartServer = () => {
+//     const server = require("./expressServer.js").default
 
-    serverInstance = server.listen({ port, host })
-}
+//     serverInstance = server.listen({ port, host })
+// }
 
 const startServer = () => {
-    const server = require("./expressServer.js").default
-
-    serverInstance = server.listen({ port, host }, (error) => {
+    serverInstance = expressServer.listen({ port, host }, (error) => {
         const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
         if (error) console.log("An error occured while starting the Application server : ", error)
@@ -85,36 +84,38 @@ const startServer = () => {
     })
 }
 
-if (fs.existsSync(statsPath)) {
-    // if loadable-stats.json exist this block will start the server in development environment. This happens in dev environment when loadable stats already exists and developer is  making changes to the files. lodable-stats.json will be updated after every change.
-    watcher.on("change", () => {
-        watcher.close()
-        if (serverInstance) {
-            serverInstance.close(() => startServer())
-        } else {
-            startServer()
-        }
-    })
-    // this block will start the server when your files have been compiled for production and lodable-stats.json exists.
-    watcher.on("add", () => {
-        if (env === "production") {
-            watcher.close()
-            startServer()
-        }
-    })
-} else {
-    // this block will start the server in development environment for the first time when loadable-stats.json does not exists.
-    watcher.on("add", () => {
-        watcher.close()
-        if (serverInstance) {
-            serverInstance.close(() => startServer())
-        } else {
-            startServer()
-        }
-    })
-}
-if (fs.existsSync(statsPath)) {
-    if (env === "development") {
-        restartServer()
-    }
-}
+startServer()
+
+// if (fs.existsSync(statsPath)) {
+//     // if loadable-stats.json exist this block will start the server in development environment. This happens in dev environment when loadable stats already exists and developer is  making changes to the files. lodable-stats.json will be updated after every change.
+//     watcher.on("change", () => {
+//         watcher.close()
+//         if (serverInstance) {
+//             serverInstance.close(() => startServer())
+//         } else {
+//             startServer()
+//         }
+//     })
+//     // this block will start the server when your files have been compiled for production and lodable-stats.json exists.
+//     watcher.on("add", () => {
+//         if (env === "production") {
+//             watcher.close()
+//             startServer()
+//         }
+//     })
+// } else {
+//     // this block will start the server in development environment for the first time when loadable-stats.json does not exists.
+//     watcher.on("add", () => {
+//         watcher.close()
+//         if (serverInstance) {
+//             serverInstance.close(() => startServer())
+//         } else {
+//             startServer()
+//         }
+//     })
+// }
+// if (fs.existsSync(statsPath)) {
+//     if (env === "development") {
+//         restartServer()
+//     }
+// }

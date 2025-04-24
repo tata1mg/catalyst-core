@@ -1,10 +1,18 @@
-import { createBrowserRouter } from "@tata1mg/router"
-const { preparedRoutes } = require(`${process.env.src_path}/src/js/routes/utils.js`)
+import router from "@tata1mg/router"
+
+const { createBrowserRouter } = router
+// import path from "path"
+// const routePath = path.join(process.env.src_path, "/Users/utkarsh/Desktop/sus/src/js/routes/utils.jsx")
+import { preparedRoutes } from "/Users/utkarsh/Desktop/sus/src/js/routes/utils.jsx"
+
+// const { preparedRoutes } = await import(routePath)
 
 /**
  * @returns returns browsers routers (client routes)
  */
-const clientRouter = ({ store, routerInitialState }) =>
-    createBrowserRouter(preparedRoutes({ store, routerInitialState }))
+const clientRouter = ({ routerInitialState }) => {
+    const browserRouter = createBrowserRouter(preparedRoutes({ routerInitialState }))
+    return browserRouter
+}
 
 export default clientRouter

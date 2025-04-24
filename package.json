@@ -1,7 +1,7 @@
 {
     "name": "catalyst-core",
     "version": "0.0.1-beta.6",
-    "main": "index.js",
+    "type": "module",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
         "catalyst": "bin/catalyst.js"
@@ -21,16 +21,16 @@
         "@catalyst/webpack": "webpack"
     },
     "exports": {
-        ".": "./dist/index.js",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
-        "./router/ClientRouter": "./dist/router/ClientRouter.js"
+        "./router/ClientRouter": "./dist/router/ClientRouter.js",
+        "./document": "./dist/server/renderer/document/index.js"
     },
     "scripts": {
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "prepare": "babel src --out-dir ./dist ",
+        "prepare": "rm -rf ./dist && cp -r ./src ./dist ",
         "prepublishOnly": "npm i && npm run prepare"
     },
     "license": "MIT",

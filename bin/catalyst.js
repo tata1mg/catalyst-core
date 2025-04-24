@@ -3,17 +3,27 @@
 process.on("unhandledRejection", (err) => {
     throw err
 })
-const { spawnSync } = require("node:child_process")
+
+import { spawnSync } from "node:child_process"
+import { fileURLToPath } from "node:url"
+import { dirname, resolve } from "node:path"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
 const args = process.argv.slice(2)
 const scriptIndex = args.findIndex(
     (x) => x === "build" || x === "start" || x === "serve" || x === "devBuild" || x === "devServe"
 )
 const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
 const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
+
 if (["build", "start", "serve", "devBuild", "devServe"].includes(script)) {
     const result = spawnSync(
         process.execPath,
-        nodeArgs.concat(require.resolve("../dist/scripts/" + script)).concat(args.slice(scriptIndex + 1)),
+        nodeArgs
+            .concat(resolve(__dirname, "../dist/scripts/" + script + ".js"))
+            .concat(args.slice(scriptIndex + 1)),
         { stdio: "inherit" }
     )
     if (result.signal) {
