@@ -35,6 +35,13 @@ function build() {
             NODE_ENV: "production",
             IS_DEV_COMMAND: false,
             ...argumentsObject,
+            filterKeys: JSON.stringify([
+                "src_path",
+                "NODE_ENV",
+                "IS_DEV_COMMAND",
+                "APPLICATION",
+                ...Object.keys(argumentsObject),
+            ]),
         },
     })
 
