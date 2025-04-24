@@ -21,15 +21,5 @@ jobs:
                   node-version: ${{ matrix.node-version }}
                   cache: "npm"
 
-            - name: Install root dependencies
-              run: npm ci
-
-            - name: Install template dependencies
-              working-directory: template
-              run: npm ci
-
-            - name: Build
-              run: npm run prepare
-
-            - name: Run test cases
-              run: npm run test:dev
+            - name: Build and Test
+              run: chmod +x ./test-template.sh && ./test-template.sh
