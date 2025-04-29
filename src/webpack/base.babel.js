@@ -1,6 +1,5 @@
 import path from "path"
 import webpack from "webpack"
-import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer"
 
@@ -18,13 +17,6 @@ const isDev = process.env.NODE_ENV === "development"
 const isSSR = !!process.env.SSR || false
 
 export const basePlugins = [
-    new LoadablePlugin({
-        filename: "loadable-stats.json",
-        writeToDisk: {
-            filename: path.join(__dirname, "../.."),
-        },
-    }),
-
     // **This loads process.env variable during webpack build process
     new webpack.DefinePlugin({
         "process.env": (
@@ -88,7 +80,7 @@ export default {
     },
     resolve: {
         fallback: { url: require.resolve("url") },
-        extensions: [".js", ".jsx", ".scss"],
+        extensions: [".js", ".jsx", ".scss", ".ts", ".tsx"],
         alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
             moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
 
@@ -100,6 +92,14 @@ export default {
         rules: [
             {
                 test: /\.jsx$|\.js$/,
+                exclude: path.resolve(process.env.src_path, "./node_modules"),
+                use: {
+                    loader: "babel-loader",
+                    options: isSSR ? babelOptsServer : babelOptsClient,
+                },
+            },
+            {
+                test: /\.tsx$|\.ts$/,
                 exclude: path.resolve(process.env.src_path, "./node_modules"),
                 use: {
                     loader: "babel-loader",
@@ -188,7 +188,7 @@ export default {
             },
             {
                 // This loader loads fonts in src/static/fonts using file-loader
-                test: /\.(ttf|eot|woff2|json?)$/,
+                test: /\.(ttf|eot|woff2?)$/,
                 use: [
                     {
                         loader: "url-loader",

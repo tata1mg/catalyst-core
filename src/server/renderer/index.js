@@ -1,8 +1,16 @@
 import express from "express"
-import handler from "./handler"
 
 const router = express.Router()
 
-router.use(handler)
+if (process.env.NODE_ENV === "production") {
+    const handler = require("./handler").default
+
+    router.use(handler)
+} else {
+    const developmentHandler =
+        require("../../../.catalyst-dev/server/renderer/handler.development.js").default
+
+    router.use(developmentHandler)
+}
 
 export default router
