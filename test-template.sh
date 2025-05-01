@@ -17,5 +17,6 @@ chmod +x template/node_modules/.bin/catalyst
 
 # Run test cases of template app
 cd template
-npm run test:dev
+npm run build
+npm run test
 cd ..

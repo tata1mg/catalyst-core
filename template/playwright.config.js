@@ -1,17 +1,6 @@
 // @ts-check
 import { defineConfig, devices } from "@playwright/test"
 
-const environments = {
-    dev: {
-        command: "npm run start",
-        url: "http://localhost:3005",
-    },
-    prod: {
-        command: "npm run serve",
-        url: "http://localhost:3005",
-    },
-}
-
 export default defineConfig({
     testDir: "./tests",
     fullyParallel: true,
@@ -36,5 +25,8 @@ export default defineConfig({
             use: { ...devices["Desktop Safari"] },
         },
     ],
-    webServer: environments[process.env.ENV],
+    webServer: {
+        command: "npm run serve",
+        url: "http://localhost:3005",
+    },
 })

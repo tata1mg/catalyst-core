@@ -8,8 +8,7 @@
         "lint": "eslint .",
         "devBuild": "catalyst devBuild",
         "devServe": "catalyst devServe",
-        "test:dev": "ENV=dev playwright test",
-        "test:prod": "ENV=prod playwright test"
+        "test": "playwright test"
     },
     "_moduleAliases": {
         "@api": "api.js",
