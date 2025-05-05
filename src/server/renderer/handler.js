@@ -247,52 +247,40 @@ export default async function (req, res) {
         // function defined by user which needs to run after route is matched
         safeCall(onRouteMatch, { req, res, matches })
 
-        // Executing app server side function
-        App.serverSideFunction({ store, req, res })
-            // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
-            .then(() => {
-                serverDataFetcher({ routes: routes, req, res, url: req.originalUrl }, { store })
-                    .then((response) => {
-                        fetcherData = response
-                        allTags = getMetaData(allMatches, fetcherData)
-                        // function defined by user which needs to run after SSR functions are executed
-                        safeCall(onFetcherSuccess, { req, res, fetcherData })
-                    })
-                    .then(
-                        async () =>
-                            await renderMarkUp(
-                                null,
-                                req,
-                                res,
-                                allTags,
-                                fetcherData,
-                                store,
-                                matches,
-                                context,
-                                webExtractor
-                            )
-                    )
-                    // TODO: this is never called, serverDataFetcher never throws any error
-                    .catch(async (error) => {
-                        logger.error("Error in executing serverFetcher functions: " + error)
-                        safeCall(onFetcherError, { req, res, error })
-                        await renderMarkUp(
-                            404,
-                            req,
-                            res,
-                            allTags,
-                            fetcherData,
-                            store,
-                            matches,
-                            context,
-                            webExtractor
-                        )
-                    })
-            })
-            .catch((error) => {
-                logger.error("Error in executing serverSideFunction inside App: " + error)
-                renderMarkUp(
-                    error.status_code,
+        if (res.headersSent) {
+            return
+        }
+
+        try {
+            // Executing app server side function
+            await App.serverSideFunction({ store, req, res })
+
+            if (res.headersSent) {
+                return
+            }
+
+            try {
+                // onFetcherError lifecycle method is never called as serverDataFetcher never throws any error
+                fetcherData = await serverDataFetcher(
+                    { routes: routes, req, res, url: req.originalUrl },
+                    { store }
+                )
+
+                if (res.headersSent) {
+                    return
+                }
+
+                allTags = getMetaData(allMatches, fetcherData)
+
+                // function defined by user which needs to run after SSR functions are executed
+                safeCall(onFetcherSuccess, { req, res, fetcherData })
+
+                if (res.headersSent) {
+                    return
+                }
+
+                await renderMarkUp(
+                    null,
                     req,
                     res,
                     allTags,
@@ -302,7 +290,26 @@ export default async function (req, res) {
                     context,
                     webExtractor
                 )
-            })
+            } catch (error) {
+                // TODO: this is never called for serverDataFetcher as it never throws any error
+                logger.error("Error in executing serverFetcher functions: " + error)
+                safeCall(onFetcherError, { req, res, error })
+                await renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+            }
+        } catch (error) {
+            logger.error("Error in executing serverSideFunction inside App: " + error)
+            renderMarkUp(
+                error.status_code,
+                req,
+                res,
+                allTags,
+                fetcherData,
+                store,
+                matches,
+                context,
+                webExtractor
+            )
+        }
     } catch (error) {
         logger.error("Error in handling document request: " + error.toString())
         // function defined by user which needs to run when an error occurs in the handler
