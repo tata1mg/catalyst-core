@@ -1,7 +1,9 @@
 /* eslint-disable */
 import _registerAliases, { catalystResultMap } from "../scripts/registerAliases.js"
+import "../scripts/loadScriptsBeforeServerStarts.js"
 import path from "path"
 import nodeExternals from "webpack-node-externals"
+import LoadablePlugin from "@loadable/webpack-plugin"
 const { mergeWithCustomize, customizeArray, customizeObject } = require("webpack-merge")
 
 import rootWorkspacePath from "app-root-path"
@@ -34,7 +36,15 @@ const ssrConfig = mergeWithCustomize({
     resolve: {
         alias: catalystResultMap,
     },
-    plugins: [...customWebpackConfig.ssrPlugins],
+    plugins: [
+        ...customWebpackConfig.ssrPlugins,
+        new LoadablePlugin({
+            filename: "loadable-stats.json",
+            writeToDisk: {
+                filename: path.join(__dirname, "../.."),
+            },
+        }),
+    ],
     target: "node",
     entry: {
         handler: path.resolve(__dirname, "..", "./server/renderer/handler.js"),
@@ -46,9 +56,11 @@ const ssrConfig = mergeWithCustomize({
         // treat all node modules as external to keep this bundle small
         nodeExternals({
             modulesDir: path.resolve(process.env.src_path, "./node_modules"),
+            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
         }),
         nodeExternals({
             modulesDir: path.join(rootWorkspacePath.path, "./node_modules"),
+            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
         }),
     ],
     output: {
