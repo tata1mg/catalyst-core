@@ -26,7 +26,7 @@ export default defineConfig({
     },
     optimizeDeps: {
         include: ["invariant", "react-fast-compare", "shallowequal", "prop-types"],
-        exclude: ["@tata1mg/router", "catalyst-core/router/ClientRouter"],
+        exclude: ["catalyst-core/router/ClientRouter"],
         force: true,
     },
 

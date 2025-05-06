@@ -1,4 +1,4 @@
-import router from "@tata1mg/router"
+import router from "../index.jsx"
 import path from "path"
 
 const { useRoutes } = router

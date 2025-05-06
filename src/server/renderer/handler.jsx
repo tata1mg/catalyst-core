@@ -12,7 +12,7 @@ import ServerRouter from "../../router/ServerRouter.js"
 // import { ChunkExtractor, ChunkExtractorManager } from "@loadable/server"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../../server/utils/userAgentUtil.js"
-import router from "@tata1mg/router"
+import router from "../../index.jsx"
 const { matchPath, serverDataFetcher, matchRoutes: NestedMatchRoutes, getMetaData } = router
 import { validateConfigureStore, validateCustomDocument, validateGetRoutes } from "../utils/validator.js"
 
