@@ -1,4 +1,4 @@
-import router from "../index.js"
+import router from "../index.jsx"
 
 const { createBrowserRouter } = router
 // import path from "path"

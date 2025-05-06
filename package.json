@@ -25,7 +25,7 @@
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
         "./document": "./dist/server/renderer/document/index.js",
-        ".": "./dist/index.js"
+        ".": "./dist/index.jsx"
     },
     "scripts": {
         "lint": "eslint .",
