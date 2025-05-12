@@ -38,6 +38,11 @@ if (env === "production") {
             orderPreference: ["br", "gzip", "deflate"],
         })
     )
+
+    // For invalid asset requests
+    app.use(process.env.PUBLIC_STATIC_ASSET_PATH, (req, res) => {
+        res.status(404).send("Asset not found")
+    })
 } else {
     app.use(
         process.env.PUBLIC_STATIC_ASSET_PATH,
