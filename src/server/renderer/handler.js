@@ -185,27 +185,37 @@ const renderMarkUp = async (
         let status = matches.length && matches[0].match.path === "*" ? 404 : 200
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
-        const { pipe } = renderToPipeableStream(<CompleteDocument />, {
-            onShellReady() {
-                res.setHeader("content-type", "text/html")
-                pipe(res)
-            },
-            onAllReady() {
-                const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
-                res.write(firstFoldCss)
-                res.write(firstFoldJS)
-                res.end()
-            },
-            onError(error) {
-                logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
-                // function defined by user which needs to run if rendering fails
-                safeCall(onRenderError)
-            },
+
+        return new Promise((resolve, reject) => {
+            const { pipe } = renderToPipeableStream(<CompleteDocument />, {
+                onShellReady() {
+                    res.setHeader("content-type", "text/html")
+                    pipe(res)
+                },
+                onAllReady() {
+                    const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
+                    res.write(firstFoldCss)
+                    res.write(firstFoldJS)
+                    res.end()
+                    resolve()
+                },
+                onError(error) {
+                    logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
+                    // function defined by user which needs to run if rendering fails
+                    safeCall(onRenderError)
+                    reject(error)
+                },
+            })
         })
     } catch (error) {
-        logger.error("Error in rendering document on server:" + error)
+        logger.error({
+            message: `Error in rendering document on server - ${error}`,
+            trace: error.stack,
+            url: req.originalUrl,
+        })
         // function defined by user which needs to run if rendering fails
         safeCall(onRenderError)
+        return Promise.reject(error)
     }
 }
 
@@ -247,50 +257,61 @@ export default async function (req, res) {
         // function defined by user which needs to run after route is matched
         safeCall(onRouteMatch, { req, res, matches })
 
-        // Executing app server side function
-        App.serverSideFunction({ store, req, res })
-            // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
-            .then(() => {
-                serverDataFetcher({ routes: routes, req, res, url: req.originalUrl }, { store })
-                    .then((response) => {
-                        fetcherData = response
-                        allTags = getMetaData(allMatches, fetcherData)
-                        // function defined by user which needs to run after SSR functions are executed
-                        safeCall(onFetcherSuccess, { req, res, fetcherData })
-                    })
-                    .then(
-                        async () =>
-                            await renderMarkUp(
-                                null,
-                                req,
-                                res,
-                                allTags,
-                                fetcherData,
-                                store,
-                                matches,
-                                context,
-                                webExtractor
-                            )
-                    )
-                    // TODO: this is never called, serverDataFetcher never throws any error
-                    .catch(async (error) => {
-                        logger.error("Error in executing serverFetcher functions: " + error)
-                        safeCall(onFetcherError, { req, res, error })
-                        await renderMarkUp(
-                            404,
-                            req,
-                            res,
-                            allTags,
-                            fetcherData,
-                            store,
-                            matches,
-                            context,
-                            webExtractor
-                        )
-                    })
-            })
-            .catch((error) => {
-                logger.error("Error in executing serverSideFunction inside App: " + error)
+        if (res.headersSent) {
+            return Promise.resolve(res)
+        }
+
+        try {
+            // Executing app server side function
+            await App.serverSideFunction({ store, req, res })
+
+            if (res.headersSent) {
+                return Promise.resolve(res)
+            }
+
+            try {
+                // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
+                fetcherData = await serverDataFetcher(
+                    { routes: routes, req, res, url: req.originalUrl },
+                    { store }
+                )
+
+                if (res.headersSent) {
+                    return Promise.resolve(res)
+                }
+
+                allTags = getMetaData(allMatches, fetcherData)
+
+                // function defined by user which needs to run after SSR functions are executed
+                safeCall(onFetcherSuccess, { req, res, fetcherData })
+
+                if (res.headersSent) {
+                    return Promise.resolve(res)
+                }
+
+                return new Promise((resolve, reject) => {
+                    renderMarkUp(null, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+                        .then(resolve)
+                        .catch(reject)
+                })
+            } catch (error) {
+                // TODO: serverDataFetcher never throws any error
+                logger.error("Error in executing serverFetcher functions: " + error)
+                safeCall(onFetcherError, { req, res, error })
+
+                if (res.headersSent) {
+                    return Promise.reject(error)
+                }
+
+                return new Promise((resolve, reject) => {
+                    renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+                        .then(resolve)
+                        .catch(reject)
+                })
+            }
+        } catch (error) {
+            logger.error("Error in executing serverSideFunction inside App: " + error)
+            return new Promise((resolve, reject) => {
                 renderMarkUp(
                     error.status_code,
                     req,
@@ -302,10 +323,14 @@ export default async function (req, res) {
                     context,
                     webExtractor
                 )
+                    .then(resolve)
+                    .catch(reject)
             })
+        }
     } catch (error) {
         logger.error("Error in handling document request: " + error.toString())
         // function defined by user which needs to run when an error occurs in the handler
         safeCall(onRequestError, { req, res, error })
+        return Promise.reject(error)
     }
 }
