@@ -4,13 +4,12 @@ const fetchFunction = (url, options) => {
 
     // Request Interceptor -  modify request here
 
-    return fetch(finalUrl, options)
-        .then(response => {
-            return response.json().then(parsedResponse => {
-                // Response Interceptor -  modify response here
-                return parsedResponse
-            })
+    return fetch(finalUrl, options).then((response) => {
+        return response.json().then((parsedResponse) => {
+            // Response Interceptor -  modify response here
+            return parsedResponse
         })
+    })
 }
 
 export default fetchFunction

@@ -9,10 +9,11 @@
 
 -   Overview
 -   Installation
-  
+
 ## Overview
 
 Catalyst offers a comprehensive suite of features designed for modern web development. It includes isomorphic rendering for optimal performance, an extendable server with full-stack capabilities, and configurable state management. The framework employs smart prefetching of data and chunks, allows easy configuration of global styles and layouts, and provides SEO optimization at both global and page levels.
+
 ## Installation
 
 **System Requirements**
@@ -34,7 +35,7 @@ You will see some prompts to configure your application.
 cd <name-of-your-project> && npm run start
 ```
 
-The development server will start at ```http://localhost:3005```
+The development server will start at `http://localhost:3005`
 
 ## Documentation
 
