@@ -24,4 +24,4 @@ jobs:
                   cache: "npm"
 
             - name: Build and Test
-              run: chmod +x ./test-template.sh && ./test-template.sh
+              run: chmod +x ./test.sh && ./test.sh

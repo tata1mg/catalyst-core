@@ -1,21 +1,19 @@
 # Install root dependencies
-npm i
+npm ci
 
 # Install template dependencies
 cd template
-npm i
+npm ci
 cd ..
 
 # Build catalyst
 npm run prepare
 
-# Copy catalyst as a command
-cp template/bin/catalyst.js template/node_modules/.bin/catalyst
+# Replace built catalyst in template
+rm -rf template/node_modules/catalyst-core/dist
+mv dist template/node_modules/catalyst-core/
 
-# Make it executable
-chmod +x template/node_modules/.bin/catalyst
-
-# Build and run test cases of template app
+# Run test cases of template app
 cd template
 npm run build
 npm run test

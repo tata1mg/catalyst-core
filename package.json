@@ -32,7 +32,6 @@
     },
     "scripts": {
         "lint": "eslint .",
-        "test": "./test.sh",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
         "prepare": "babel src --out-dir ./dist",
