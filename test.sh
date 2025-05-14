@@ -1,3 +1,6 @@
+# Exits for any failed command
+set -e
+
 # Install root dependencies
 npm ci
 
