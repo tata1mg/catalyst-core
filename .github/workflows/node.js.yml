@@ -10,18 +10,8 @@ jobs:
         container:
             image: mcr.microsoft.com/playwright:v1.52.0-noble
 
-        strategy:
-            matrix:
-                node-version: [20.4.0]
-
         steps:
             - uses: actions/checkout@v4
 
-            - name: Use Node.js ${{ matrix.node-version }}
-              uses: actions/setup-node@v4
-              with:
-                  node-version: ${{ matrix.node-version }}
-                  cache: "npm"
-
             - name: Build and Test
-              run: chmod +x ./test.sh && ./test.sh
+              run: node -v && chmod +x ./test.sh && ./test.sh
