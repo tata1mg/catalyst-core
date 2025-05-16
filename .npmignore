@@ -8,3 +8,5 @@
 commitlint.config.js
 tsconfig.json
 .catalyst-dev/
+/template
+test.sh
