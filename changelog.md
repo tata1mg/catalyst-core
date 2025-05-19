@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.1-beta.14] - 19-05-2025
+
+-   Fixes header sent bug
+-   Returns promise from handler
+
 ## [0.0.1-beta.13] - 04-04-2025
 
 -   Fixes a bug for client fetcher when importing components through loadable
