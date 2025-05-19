@@ -8,3 +8,4 @@ dist/*
 caching.js
 index.js
 logger.js
+template/build

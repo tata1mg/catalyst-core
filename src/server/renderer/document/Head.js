@@ -41,7 +41,7 @@ export function Head(props) {
 
 Head.propTypes = {
     isBot: PropTypes.bool,
-    preloadJSLinks: PropTypes.object,
+    preloadJSLinks: PropTypes.array,
     pageCss: PropTypes.string,
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
