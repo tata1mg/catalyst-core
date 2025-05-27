@@ -138,7 +138,7 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
             firstFoldCss = webExtractor.getStyleTags()
         }
         // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
-        firstFoldJS = !isBot ? webExtractor.getScriptTags() : ""
+        firstFoldJS = !isBot ? webExtractor.getScriptTags({crossorigin : "anonymous"}) : ""
     }
 
     // This block will run for the first time and cache preloaded JS Links for second render
