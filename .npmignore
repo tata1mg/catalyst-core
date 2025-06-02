@@ -9,3 +9,5 @@ commitlint.config.js
 tsconfig.json
 .catalyst-dev/
 **/androidProject/**/build/*
+/template
+test.sh
