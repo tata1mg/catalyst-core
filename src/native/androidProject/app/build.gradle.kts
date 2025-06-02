@@ -3,6 +3,9 @@ import java.io.File
 import java.util.Properties
 
 val configPath: String? by project.properties
+val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
+val keyAlias: String? by project.properties
+val keyPassword: String? by project.properties
 
 fun getLocalIpAddress(): String {
     return NetworkInterface.getNetworkInterfaces().toList()
@@ -18,35 +21,73 @@ plugins {
 }
 
 android {
-    namespace = "com.example.androidProject"
+    namespace = "io.yourname.androidproject"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.androidProject"
+        applicationId = "io.yourname.androidproject"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
+    }
+
+    // Add signing configuration for app bundle
+    signingConfigs {
+        create("release") {
+            // Make sure the keystore file exists before referencing it
+            val keystoreFile = file("../keystore/release-key.jks")
+            if (keystoreFile.exists()) {
+               storeFile = file("../keystore/release-key.jks")
+                storePassword = "test@123"
+                keyAlias = "release"
+                keyPassword = "test@123"
+            } else {
+                // Log a warning if the keystore doesn't exist yet
+                logger.warn("Keystore file not found at ${keystoreFile.absolutePath}. Run the generateKeystore task first.")
+            }
+        }
     }
 
     buildTypes {
         debug {
             manifestPlaceholders += mapOf("allowCleartextTraffic" to true)
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             isMinifyEnabled = false
             buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "true")
             buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
         }
         release {
             manifestPlaceholders += mapOf("allowCleartextTraffic" to false)
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
             buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "false")
             buildConfigField("String", "LOCAL_IP", "\"127.0.0.1\"")
+
+            // Only apply signing config if the keystore exists
+            if (file("../keystore/release-key.jks").exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
+    // Configure App Bundle settings
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
         }
     }
 
@@ -68,7 +109,15 @@ android {
         resources {
             excludes.add("**/route-manifest.json.gz")
             excludes.add("**/route-manifest.json.br")
+            excludes.add("META-INF/LICENSE")
+            excludes.add("META-INF/NOTICE")
         }
+    }
+
+    // Configure lint options
+    lint {
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 }
 
@@ -143,7 +192,17 @@ tasks.register("generateWebViewConfig") {
         val webviewConfigContent = webviewConfigMatch?.groupValues?.get(1)
 
         val properties = Properties()
-        properties.setProperty("LOCAL_IP", getLocalIpAddress())
+
+        // Set different IP based on build type
+        if (gradle.startParameter.taskNames.any { it.contains("Release") || it.contains("release") }) {
+            properties.setProperty("LOCAL_IP", "127.0.0.1") // Production
+            properties.setProperty("buildType", "release")
+            properties.setProperty("buildOptimisation", "true")
+        } else {
+            properties.setProperty("LOCAL_IP", getLocalIpAddress()) // Debug
+            properties.setProperty("buildType", "debug")
+            properties.setProperty("buildOptimisation", "false")
+        }
 
         // Parse top-level properties
         val topLevelRegex = """"([^"]+)"\s*:\s*"([^"]+)"""".toRegex()
@@ -170,6 +229,12 @@ tasks.register("generateWebViewConfig") {
             }
         }
 
+        // Set production-specific properties for release builds
+        if (gradle.startParameter.taskNames.any { it.contains("Release") || it.contains("release") }) {
+            properties.setProperty("PRODUCTION_URL", "https://yourwebapp.com") // Replace with your domain
+            properties.setProperty("apiBaseUrl", "https://api.yourdomain.com/") // Replace with your API URL
+        }
+
         // Create the assets directory if it doesn't exist
         val assetsDir = File("${project.projectDir}/src/main/assets")
         if (!assetsDir.exists()) {
@@ -183,5 +248,61 @@ tasks.register("generateWebViewConfig") {
         }
 
         println("WebView config generated at ${assetsDir.absolutePath}/webview_config.properties")
+    }
+}
+
+// Task to create key store if it doesn't exist
+// Add this task to your build.gradle.kts
+tasks.register("generateKeystore") {
+    doLast {
+        val keystoreDir = File(project.rootDir, "keystore")
+        if (!keystoreDir.exists()) {
+            keystoreDir.mkdirs()
+        }
+
+        val keystoreFile = File(keystoreDir, "release-key.jks")
+        if (!keystoreFile.exists()) {
+            val storePass = project.properties["keystorePassword"] as? String ?: System.getenv("KEYSTORE_PASSWORD") ?: "android"
+            val keyPass = project.properties["keyPassword"] as? String ?: System.getenv("KEY_PASSWORD") ?: "android"
+            val alias = project.properties["keyAlias"] as? String ?: System.getenv("KEY_ALIAS") ?: "release"
+
+            exec {
+                commandLine = listOf(
+                    "keytool",
+                    "-genkey",
+                    "-v",
+                    "-keystore", keystoreFile.absolutePath,
+                    "-alias", alias,
+                    "-keyalg", "RSA",
+                    "-keysize", "2048",
+                    "-validity", "10000",
+                    "-storepass", storePass,
+                    "-keypass", keyPass,
+                    "-dname", "CN=YourCompany, OU=YourDepartment, O=YourOrganization, L=YourCity, ST=YourState, C=US"
+                )
+            }
+            println("Generated keystore at: ${keystoreFile.absolutePath}")
+        } else {
+            println("Keystore already exists at: ${keystoreFile.absolutePath}")
+        }
+    }
+}
+// Task to build app bundle
+tasks.register("createAppBundle") {
+    dependsOn("generateKeystore", "bundleRelease")
+    doLast {
+        println("""
+            =======================================================
+            App Bundle created successfully!
+            
+            Location: ${project.buildDir}/outputs/bundle/release/app-release.aab
+            
+            Next steps:
+            1. Test your bundle with: 
+               bundletool build-apks --bundle=app/build/outputs/bundle/release/app-release.aab --output=test.apks
+            
+            2. Upload to Play Console: https://play.google.com/console
+            =======================================================
+        """.trimIndent())
     }
 }

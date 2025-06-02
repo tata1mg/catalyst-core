@@ -1,9 +1,10 @@
-package com.example.myapplication
+package io.yourname.androidproject
 
 import android.content.Context
 import android.util.Log
 import android.util.LruCache
 import android.webkit.WebResourceResponse
+import io.yourname.androidproject.BuildConfig
 import kotlinx.coroutines.*
 import java.io.*
 import java.net.HttpURLConnection
@@ -30,7 +31,11 @@ class WebCacheManager(private val context: Context) {
     )
 
     init {
-        cacheDir.mkdirs()
+        try {
+            cacheDir.mkdirs()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create cache directory: ${e.message}")
+        }
     }
 
     data class CacheEntry(
@@ -54,12 +59,16 @@ class WebCacheManager(private val context: Context) {
                     when {
                         age <= maxAge -> {
                             // Fresh content
-                            Log.d(TAG, "Serving fresh content from memory cache: $url")
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "Serving fresh content from memory cache: $url")
+                            }
                             return@withContext memoryCacheEntry.response
                         }
                         age <= maxAge + staleWhileRevalidate -> {
                             // Stale content, but within revalidate window
-                            Log.d(TAG, "Serving stale content while revalidating: $url")
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "Serving stale content while revalidating: $url")
+                            }
                             revalidateInBackground(url, headers, cacheKey, memoryCacheEntry)
                             return@withContext memoryCacheEntry.response
                         }
@@ -95,10 +104,15 @@ class WebCacheManager(private val context: Context) {
                 }
 
                 // No cache or cache too old, fetch fresh content
-                Log.d(TAG, "❌ Cache miss, fetching fresh content: $url")
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "❌ Cache miss, fetching fresh content: $url")
+                }
                 fetchAndCacheResource(url, headers, cacheKey)
             } catch (e: Exception) {
-                Log.e(TAG, "Error in getCachedResponse for URL: $url", e)
+                Log.e(TAG, "Error in getCachedResponse for URL: $url: ${e.message}")
+                if (BuildConfig.DEBUG) {
+                    e.printStackTrace()
+                }
                 null
             }
         }
@@ -146,9 +160,14 @@ class WebCacheManager(private val context: Context) {
                     }
                 }
 
-                Log.d(TAG, "Cache cleanup completed. Current size: ${totalSize / 1024}KB")
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Cache cleanup completed. Current size: ${totalSize / 1024}KB")
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error during cache cleanup", e)
+                Log.e(TAG, "Error during cache cleanup: ${e.message}")
+                if (BuildConfig.DEBUG) {
+                    e.printStackTrace()
+                }
             }
         }
     }
@@ -181,16 +200,23 @@ class WebCacheManager(private val context: Context) {
                         val updatedEntry = cacheEntry.copy(timestamp = System.currentTimeMillis())
                         memoryCache.put(cacheKey, updatedEntry)
                         updateCacheFileTimestamp(cacheKey)
-                        Log.d(TAG, "✅ Content revalidated, not modified: $url")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "✅ Content revalidated, not modified: $url")
+                        }
                     }
                     HttpURLConnection.HTTP_OK -> {
                         // Content changed, update cache
-                        Log.d(TAG, "⚡ Content changed, updating cache: $url")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "⚡ Content changed, updating cache: $url")
+                        }
                         fetchAndCacheResource(url, headers, cacheKey)
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error during revalidation for URL: $url", e)
+                Log.e(TAG, "Error during revalidation for URL: $url: ${e.message}")
+                if (BuildConfig.DEBUG) {
+                    e.printStackTrace()
+                }
             } finally {
                 ongoingRevalidations.remove(cacheKey)
             }
@@ -198,10 +224,14 @@ class WebCacheManager(private val context: Context) {
     }
 
     private fun updateCacheFileTimestamp(cacheKey: String) {
-        val cacheFile = File(cacheDir, cacheKey)
-        if (cacheFile.exists()) {
-            cacheFile.setLastModified(System.currentTimeMillis())
-            File(cacheDir, "${cacheKey}.meta").setLastModified(System.currentTimeMillis())
+        try {
+            val cacheFile = File(cacheDir, cacheKey)
+            if (cacheFile.exists()) {
+                cacheFile.setLastModified(System.currentTimeMillis())
+                File(cacheDir, "${cacheKey}.meta").setLastModified(System.currentTimeMillis())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update cache file timestamp: ${e.message}")
         }
     }
 
@@ -262,13 +292,21 @@ class WebCacheManager(private val context: Context) {
                             eTag = eTag,
                             lastModified = lastModified
                         ))
-                        Log.d(TAG, "✅ Successfully cached response for: $url")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "✅ Successfully cached response for: $url")
+                        }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error saving to disk cache for URL: $url", e)
+                        Log.e(TAG, "Error saving to disk cache for URL: $url: ${e.message}")
                     }
                 }
 
                 return@withContext response
+            }
+            return@withContext null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching resource: ${e.message}")
+            if (BuildConfig.DEBUG) {
+                e.printStackTrace()
             }
             return@withContext null
         } finally {
@@ -292,9 +330,15 @@ class WebCacheManager(private val context: Context) {
     }
 
     private fun generateCacheKey(url: String): String {
-        val md = MessageDigest.getInstance("MD5")
-        val digest = md.digest(url.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }
+        try {
+            val md = MessageDigest.getInstance("MD5")
+            val digest = md.digest(url.toByteArray())
+            return digest.joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating cache key: ${e.message}")
+            // Fallback to a simple hash code if MD5 fails
+            return url.hashCode().toString()
+        }
     }
 
     private fun isValidResponse(mimeType: String, responseBytes: ByteArray): Boolean {
@@ -311,22 +355,35 @@ class WebCacheManager(private val context: Context) {
             }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Error validating response", e)
+            Log.e(TAG, "Error validating response: ${e.message}")
             false
         }
     }
 
     private fun saveMetadata(cacheKey: String, metadata: CacheMetadata) {
-        val metadataFile = File(cacheDir, "${cacheKey}.meta")
-        ObjectOutputStream(FileOutputStream(metadataFile)).use {
-            it.writeObject(metadata)
+        try {
+            val metadataFile = File(cacheDir, "${cacheKey}.meta")
+            ObjectOutputStream(FileOutputStream(metadataFile)).use {
+                it.writeObject(metadata)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving metadata: ${e.message}")
         }
     }
 
     private fun loadMetadata(cacheKey: String): CacheMetadata {
-        val metadataFile = File(cacheDir, "${cacheKey}.meta")
-        return ObjectInputStream(FileInputStream(metadataFile)).use {
-            it.readObject() as CacheMetadata
+        try {
+            val metadataFile = File(cacheDir, "${cacheKey}.meta")
+            return ObjectInputStream(FileInputStream(metadataFile)).use {
+                it.readObject() as CacheMetadata
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading metadata: ${e.message}")
+            // Return a default metadata object if loading fails
+            return CacheMetadata(
+                mimeType = "application/octet-stream",
+                encoding = "utf-8"
+            )
         }
     }
 }

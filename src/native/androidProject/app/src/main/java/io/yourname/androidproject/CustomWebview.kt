@@ -1,4 +1,4 @@
-package com.example.androidProject
+package io.yourname.androidproject
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -10,7 +10,7 @@ import android.view.View
 import android.webkit.*
 import android.widget.ProgressBar
 import androidx.webkit.WebViewAssetLoader
-import com.example.myapplication.WebCacheManager
+import io.yourname.androidproject.WebCacheManager
 import kotlinx.coroutines.*
 import java.util.Properties
 
@@ -46,7 +46,6 @@ class CustomWebView(
     }
 
     private fun setupFromProperties() {
-
         buildType = properties.getProperty("buildType", "debug")
         apiBaseUrl = properties.getProperty("apiBaseUrl", "")
         cachePatterns = properties.getProperty("cachePattern", "")
@@ -66,12 +65,15 @@ class CustomWebView(
             isInitialPageLoaded = false // Default value
         }
 
-        Log.d(TAG, "Build type: $buildType")
-        Log.d(TAG, "Cache Pattern: $cachePatterns")
-        Log.d(TAG, "API Base URL: $apiBaseUrl")
-        Log.d(TAG, "Build Optimisation: $buildOptimisation")
-        Log.d(TAG, "Initial API Called: $isInitialApiCalled")
-        Log.d(TAG, "Initial Page Loaded: $isInitialPageLoaded")
+        // Only log detailed info in debug mode
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Build type: $buildType")
+            Log.d(TAG, "Cache Pattern: $cachePatterns")
+            Log.d(TAG, "API Base URL: $apiBaseUrl")
+            Log.d(TAG, "Build Optimisation: $buildOptimisation")
+            Log.d(TAG, "Initial API Called: $isInitialApiCalled")
+            Log.d(TAG, "Initial Page Loaded: $isInitialPageLoaded")
+        }
 
         // Setup WebView Asset Loader for serving local files
         assetLoader = WebViewAssetLoader.Builder()
@@ -96,7 +98,6 @@ class CustomWebView(
         webView.clearCache(false)
         webView.clearHistory()
     }
-
 
     fun canGoBack(): Boolean = webView.canGoBack()
 
@@ -131,7 +132,9 @@ class CustomWebView(
         }
 
         webView.addJavascriptInterface(obj, name)
-        Log.d(TAG, "🔗 Added JavaScript interface: $name")
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "🔗 Added JavaScript interface: $name")
+        }
     }
 
     fun destroy() {
@@ -141,13 +144,19 @@ class CustomWebView(
 
     fun cleanupCache() {
         launch(Dispatchers.IO) {
-            Log.d(TAG, "📝 Starting cache cleanup on thread: ${Thread.currentThread().name}")
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "📝 Starting cache cleanup on thread: ${Thread.currentThread().name}")
+            }
             val startTime = System.currentTimeMillis()
             disableHardwareAcceleration()
             try {
                 cacheManager.cleanup()
-                val duration = System.currentTimeMillis() - startTime
-                Log.d(TAG, "⏱️ Cache cleanup completed in ${duration}ms on thread: ${Thread.currentThread().name}")
+                if (BuildConfig.DEBUG) {
+                    val duration = System.currentTimeMillis() - startTime
+                    Log.d(TAG, "⏱️ Cache cleanup completed in ${duration}ms on thread: ${Thread.currentThread().name}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Cache cleanup error: ${e.message}")
             } finally {
                 enableHardwareAcceleration()
             }
@@ -158,7 +167,9 @@ class CustomWebView(
         if (!isHardwareAccelerationEnabled) {
             webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             isHardwareAccelerationEnabled = true
-            Log.d(TAG, "🚀 Hardware acceleration enabled - Thread: ${Thread.currentThread().name}")
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🚀 Hardware acceleration enabled - Thread: ${Thread.currentThread().name}")
+            }
         }
     }
 
@@ -166,7 +177,9 @@ class CustomWebView(
         if (isHardwareAccelerationEnabled) {
             webView.setLayerType(View.LAYER_TYPE_NONE, null)
             isHardwareAccelerationEnabled = false
-            Log.d(TAG, "⚫ Hardware acceleration disabled - Thread: ${Thread.currentThread().name}")
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "⚫ Hardware acceleration disabled - Thread: ${Thread.currentThread().name}")
+            }
         }
     }
 
@@ -248,7 +261,9 @@ class CustomWebView(
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
-        Log.d(TAG, "🌐 Setting up WebView on thread: ${Thread.currentThread().name}")
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "🌐 Setting up WebView on thread: ${Thread.currentThread().name}")
+        }
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -267,15 +282,14 @@ class CustomWebView(
             allowContentAccess = true
             setEnableSmoothTransition(true)
 
-            // Allow access to file URLs and JavaScript interfaces
-            allowFileAccessFromFileURLs = true
-            allowUniversalAccessFromFileURLs = true
+            // Allow access to file URLs and JavaScript interfaces - restrict in production if possible
+            allowFileAccessFromFileURLs = BuildConfig.DEBUG 
+            allowUniversalAccessFromFileURLs = BuildConfig.DEBUG
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 request?.url?.let { url ->
-
                     // Let WebView handle loading non-API HTTP/HTTPS URLs
                     if (url.scheme in listOf("http", "https")) {
                         return false
@@ -289,12 +303,16 @@ class CustomWebView(
                 request: WebResourceRequest
             ): WebResourceResponse? {
                 val url = request.url.toString()
-                Log.d(TAG, "🔄 Intercepting request for: $url on thread: ${Thread.currentThread().name}")
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "🔄 Intercepting request for: $url on thread: ${Thread.currentThread().name}")
+                }
 
                 // Handle the initial route request - intercept first request regardless of host
                 if (!isInitialApiCalled && request.method == "GET") {
                     isInitialApiCalled = true
-                    Log.d(TAG, "📄 Serving initial index.html from assets for route: $url")
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "📄 Serving initial index.html from assets for route: $url")
+                    }
 
                     try {
                         val indexHtml = context.assets.open("build/public/index.html")
@@ -316,14 +334,20 @@ class CustomWebView(
 
                         try {
                             val mimeType = getMimeType(assetPath)
-                            Log.d(TAG, "📦 Attempting to serve from assets: $assetPath")
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "📦 Attempting to serve from assets: $assetPath")
+                            }
                             val inputStream = context.assets.open(assetPath)
-                            Log.d(TAG, "✅ Successfully loaded from assets: $assetPath")
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "✅ Successfully loaded from assets: $assetPath")
+                            }
                             return WebResourceResponse(mimeType, "utf-8", inputStream)
                         } catch (e: Exception) {
                             assetLoadFailures++
-                            Log.e(TAG, "❌ Error loading asset: $assetPath", e)
-                            Log.d(TAG, "⚠️ Falling back to network for: $url")
+                            if (BuildConfig.DEBUG) {
+                                Log.e(TAG, "❌ Error loading asset: $assetPath", e)
+                                Log.d(TAG, "⚠️ Falling back to network for: $url")
+                            }
                             // Return null to let the WebView load from network
                             return null
                         }
@@ -331,16 +355,19 @@ class CustomWebView(
 
                     // Let API calls go through normally
                     if (isApiCall(url)) {
-                        Log.d(TAG, "🌐 API call detected, letting it go through network: $url")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "🌐 API call detected, letting it go through network: $url")
+                        }
                         return null
                     }
                 }
 
-
                 // For non-API HTTP requests that match cache patterns, use cache system
                 if (request.method == "GET" && shouldCacheUrl(url)) {
                     return runBlocking {
-                        Log.d(TAG, "⚙️ Processing cacheable request in coroutine on thread: ${Thread.currentThread().name}")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "⚙️ Processing cacheable request in coroutine on thread: ${Thread.currentThread().name}")
+                        }
                         val startTime = System.currentTimeMillis()
                         disableHardwareAcceleration()
                         try {
@@ -356,23 +383,31 @@ class CustomWebView(
                             var response = cacheManager.getCachedResponse(url, headers)
 
                             if (response != null) {
-                                val duration = System.currentTimeMillis() - startTime
-                                Log.d(TAG, "✅ Served from cache in ${duration}ms: $url")
+                                if (BuildConfig.DEBUG) {
+                                    val duration = System.currentTimeMillis() - startTime
+                                    Log.d(TAG, "✅ Served from cache in ${duration}ms: $url")
+                                }
                                 response
                             } else {
-                                Log.d(TAG, "❌ Cache miss for: $url")
+                                if (BuildConfig.DEBUG) {
+                                    Log.d(TAG, "❌ Cache miss for: $url")
+                                }
                                 null
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "❌ Error processing request for URL: $url", e)
-                            e.printStackTrace()
+                            Log.e(TAG, "Error processing request for URL: $url: ${e.message}")
+                            if (BuildConfig.DEBUG) {
+                                e.printStackTrace()
+                            }
                             null
                         } finally {
                             enableHardwareAcceleration()
                         }
                     }
                 } else {
-                    Log.d(TAG, "⏭️ URL doesn't match cache criteria, skipping cache: $url")
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "⏭️ URL doesn't match cache criteria, skipping cache: $url")
+                    }
                 }
 
                 return null
@@ -383,7 +418,9 @@ class CustomWebView(
                 progressBar.visibility = View.VISIBLE
                 val startTime = System.currentTimeMillis()
                 view?.tag = startTime // Store start time for performance tracking
-                Log.d(TAG, "⏳ Page load started for: $url - Hardware Acceleration: $isHardwareAccelerationEnabled")
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "⏳ Page load started for: $url - Hardware Acceleration: $isHardwareAccelerationEnabled")
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -391,16 +428,27 @@ class CustomWebView(
                 if(!isInitialPageLoaded){
                     isInitialPageLoaded = true
                 }
-                val startTime = view?.tag as? Long ?: return
-                val loadTime = System.currentTimeMillis() - startTime
-                Log.d(TAG, "✅ Page load finished for: $url - Load time: ${loadTime}ms - Hardware Acceleration: $isHardwareAccelerationEnabled")
-                Log.d(TAG, "📊 Asset loading stats: Attempted: $assetLoadAttempts, Failed: $assetLoadFailures (${String.format("%.1f", assetLoadFailures * 100.0 / assetLoadAttempts.coerceAtLeast(1))}%)")
+                if (BuildConfig.DEBUG) {
+                    val startTime = view?.tag as? Long ?: return
+                    val loadTime = System.currentTimeMillis() - startTime
+                    Log.d(TAG, "✅ Page load finished for: $url - Load time: ${loadTime}ms - Hardware Acceleration: $isHardwareAccelerationEnabled")
+                    Log.d(TAG, "📊 Asset loading stats: Attempted: $assetLoadAttempts, Failed: $assetLoadFailures (${String.format("%.1f", assetLoadFailures * 100.0 / assetLoadAttempts.coerceAtLeast(1))}%)")
+                }
                 super.onPageFinished(view, url)
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                error?.let {
-                    Log.e(TAG, "❌ Error loading ${request?.url}: ${it.errorCode} ${it.description}")
+                if (error != null) {
+                    Log.e(TAG, "❌ Error loading ${request?.url}: ${error.errorCode} ${error.description}")
+                    
+                    // Only show a fallback page for main frame errors in production
+                    if (request?.isForMainFrame == true && !BuildConfig.DEBUG) {
+                        try {
+                            view?.loadUrl("file:///android_asset/build/public/error.html")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to load error page: ${e.message}")
+                        }
+                    }
                 }
                 super.onReceivedError(view, request, error)
             }
@@ -415,11 +463,14 @@ class CustomWebView(
             }
 
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                Log.d(TAG, "Console: ${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}")
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Console: ${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}")
+                }
                 return true
             }
         }
 
-        WebView.setWebContentsDebuggingEnabled(true)
+        // Only enable WebView debugging in debug builds
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
 }
