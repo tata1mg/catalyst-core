@@ -44,7 +44,238 @@ class SimpleProgress {
     }
 }
 
-const progress = new SimpleProgress("Android Project Rename");
+const progress = new SimpleProgress("Android Project Deployment");
+
+async function createKeystore(projectPaths, androidConfig) {
+    const { newProjectPath } = projectPaths;
+    const { keystoreConfig } = androidConfig;
+    
+    if (!keystoreConfig) {
+        progress.log('Keystore configuration not found, skipping keystore creation', 'info');
+        return null;
+    }
+    
+    progress.log('Checking keystore configuration...', 'info');
+    
+    // Define keystore path
+    const keystorePath = path.join(newProjectPath, 'app', 'keystore.jks');
+    
+    // Check if keystore already exists
+    if (fs.existsSync(keystorePath)) {
+        progress.log('Keystore already exists, skipping creation', 'success');
+        return keystorePath;
+    }
+    
+    progress.log('Creating new keystore...', 'info');
+    
+    try {
+        // Validate required keystore configuration
+        const requiredFields = ['keyAlias', 'storePassword', 'keyPassword', 'organizationInfo'];
+        for (const field of requiredFields) {
+            if (!keystoreConfig[field]) {
+                throw new Error(`Missing required keystore config field: ${field}`);
+            }
+        }
+        
+        const { organizationInfo } = keystoreConfig;
+        const requiredOrgFields = ['companyName', 'city', 'state', 'countryCode'];
+        for (const field of requiredOrgFields) {
+            if (!organizationInfo[field]) {
+                throw new Error(`Missing required organization info field: ${field}`);
+            }
+        }
+        
+        // Create keystore directory if it doesn't exist
+        const keystoreDir = path.dirname(keystorePath);
+        if (!fs.existsSync(keystoreDir)) {
+            fs.mkdirSync(keystoreDir, { recursive: true });
+        }
+        
+        // Build the distinguished name (DN) for the certificate
+        const dn = [
+            `CN=${organizationInfo.companyName}`,
+            `OU=${organizationInfo.department || organizationInfo.companyName}`,
+            `O=${organizationInfo.organization || organizationInfo.companyName}`,
+            `L=${organizationInfo.city}`,
+            `ST=${organizationInfo.state}`,
+            `C=${organizationInfo.countryCode}`
+        ].join(', ');
+        
+        // Generate keystore using keytool
+        const validityDays = (keystoreConfig.validityYears || 25) * 365;
+        const keystoreCommand = [
+            'keytool',
+            '-genkeypair',
+            '-v',
+            `-keystore "${keystorePath}"`,
+            `-alias "${keystoreConfig.keyAlias}"`,
+            `-keyalg RSA`,
+            `-keysize 2048`,
+            `-validity ${validityDays}`,
+            `-storepass "${keystoreConfig.storePassword}"`,
+            `-keypass "${keystoreConfig.keyPassword}"`,
+            `-dname "${dn}"`
+        ].join(' ');
+        
+        progress.log('Executing keytool command...', 'info');
+        runCommand(keystoreCommand);
+        
+        // Verify keystore was created
+        if (!fs.existsSync(keystorePath)) {
+            throw new Error('Keystore file was not created successfully');
+        }
+        
+        progress.log(`Keystore created successfully at: ${keystorePath}`, 'success');
+        progress.log(`Key alias: ${keystoreConfig.keyAlias}`, 'info');
+        progress.log(`Validity: ${keystoreConfig.validityYears || 25} years`, 'info');
+        
+        return keystorePath;
+        
+    } catch (error) {
+        throw new Error(`Failed to create keystore: ${error.message}`);
+    }
+}
+
+async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
+    const { newProjectPath } = projectPaths;
+    const { keystoreConfig } = androidConfig;
+    
+    if (!keystoreConfig || !keystorePath) {
+        throw new Error('Keystore configuration and keystore path are required for signed AAB creation');
+    }
+    
+    progress.log('Building signed Android App Bundle (AAB)...', 'info');
+    
+    try {
+        // Verify keystore exists
+        if (!fs.existsSync(keystorePath)) {
+            throw new Error(`Keystore not found at: ${keystorePath}`);
+        }
+        
+        // Get absolute path for the project directory
+        const absoluteProjectPath = path.resolve(newProjectPath);
+        
+        // Change to project directory
+        const originalCwd = process.cwd();
+        process.chdir(absoluteProjectPath);
+        
+        progress.log(`Changed to project directory: ${absoluteProjectPath}`, 'info');
+        
+        // Verify gradlew exists using absolute path
+        const gradlewPath = path.join(absoluteProjectPath, 'gradlew');
+        progress.log(`Looking for gradlew at: ${gradlewPath}`, 'info');
+        
+        if (!fs.existsSync(gradlewPath)) {
+            // List files in the project directory for debugging
+            try {
+                const files = fs.readdirSync(absoluteProjectPath);
+                progress.log(`Files in project directory: ${files.join(', ')}`, 'info');
+                
+                // Check if there's a gradlew file with different permissions or name
+                const gradlewFiles = files.filter(file => file.toLowerCase().includes('gradle'));
+                if (gradlewFiles.length > 0) {
+                    progress.log(`Found gradle-related files: ${gradlewFiles.join(', ')}`, 'info');
+                }
+            } catch (listError) {
+                progress.log(`Could not list directory contents: ${listError.message}`, 'warning');
+            }
+            
+            throw new Error(`gradlew not found at: ${gradlewPath}. Ensure this is a valid Android project.`);
+        }
+        
+        // Make gradlew executable
+        try {
+            runCommand(`chmod +x ./gradlew`);
+        } catch (chmodError) {
+            progress.log(`Warning: Could not make gradlew executable: ${chmodError.message}`, 'warning');
+        }
+        
+        try {
+            // Clean previous builds
+            progress.log('Cleaning previous builds...', 'info');
+            try {
+                runCommand('./gradlew clean');
+                progress.log('Clean completed successfully', 'success');
+            } catch (cleanError) {
+                progress.log(`Warning: Clean failed: ${cleanError.message}`, 'warning');
+                // Continue anyway as this might not be critical
+            }
+            
+            // Build signed AAB
+            progress.log('Building signed AAB...', 'info');
+            const bundleCommand = [
+                './gradlew bundleRelease',
+                `-Pandroid.injected.signing.store.file="${keystorePath}"`,
+                `-Pandroid.injected.signing.store.password="${keystoreConfig.storePassword}"`,
+                `-Pandroid.injected.signing.key.alias="${keystoreConfig.keyAlias}"`,
+                `-Pandroid.injected.signing.key.password="${keystoreConfig.keyPassword}"`
+            ].join(' ');
+            
+            progress.log(`Executing: ${bundleCommand}`, 'info');
+            runCommand(bundleCommand);
+            progress.log('Bundle build completed', 'success');
+            
+            // Find the generated AAB file
+            const aabPath = path.join(newProjectPath, 'app', 'build', 'outputs', 'bundle', 'release', 'app-release.aab');
+            
+            progress.log(`Looking for AAB file at: ${aabPath}`, 'info');
+            
+            if (!fs.existsSync(aabPath)) {
+                // Try to find AAB files in the build output directory
+                const bundleDir = path.join(newProjectPath, 'app', 'build', 'outputs', 'bundle');
+                progress.log(`AAB not found at expected location. Checking bundle directory: ${bundleDir}`, 'warning');
+                
+                if (fs.existsSync(bundleDir)) {
+                    try {
+                        const findAabCommand = `find "${bundleDir}" -name "*.aab" -type f`;
+                        const foundAabs = runCommand(findAabCommand);
+                        if (foundAabs.trim()) {
+                            progress.log(`Found AAB files: ${foundAabs.trim()}`, 'info');
+                        } else {
+                            progress.log('No AAB files found in bundle directory', 'warning');
+                        }
+                    } catch (findError) {
+                        progress.log(`Error searching for AAB files: ${findError.message}`, 'warning');
+                    }
+                }
+                
+                throw new Error('Signed AAB file was not generated successfully');
+            }
+            
+            // Get file size
+            const stats = fs.statSync(aabPath);
+            const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+            
+            progress.log(`Signed AAB created successfully!`, 'success');
+            progress.log(`AAB location: ${aabPath}`, 'info');
+            progress.log(`AAB size: ${fileSizeMB} MB`, 'info');
+            
+            // Optionally copy AAB to a more accessible location
+            const outputDir = path.join(newProjectPath, 'release');
+            if (!fs.existsSync(outputDir)) {
+                fs.mkdirSync(outputDir, { recursive: true });
+            }
+            
+            const outputAabPath = path.join(outputDir, `${androidConfig.newProjectName}-release.aab`);
+            fs.copyFileSync(aabPath, outputAabPath);
+            
+            progress.log(`AAB copied to: ${outputAabPath}`, 'success');
+            
+            return {
+                aabPath,
+                outputAabPath,
+                fileSize: fileSizeMB
+            };
+            
+        } finally {
+            // Restore original working directory
+            process.chdir(originalCwd);
+        }
+        
+    } catch (error) {
+        throw new Error(`Failed to create signed AAB: ${error.message}`);
+    }
+}
 
 async function initializeConfig(configPath) {
     if (!configPath) {
@@ -83,11 +314,25 @@ async function initializeConfig(configPath) {
     progress.log(`New project name: ${android.newProjectName}`, 'info');
     progress.log(`Project path: ${android.projectPath}`, 'info');
     
+    if (android.deploymentPath) {
+        progress.log(`Custom deployment path: ${android.deploymentPath}`, 'info');
+    } else {
+        const parentDir = path.dirname(android.projectPath);
+        const defaultDeploymentPath = path.join(parentDir, `${android.newProjectName}-deployment`);
+        progress.log(`Default deployment path: ${defaultDeploymentPath}`, 'info');
+    }
+    
+    if (android.createSignedAAB) {
+        progress.log(`Signed AAB creation: Enabled`, 'info');
+    } else {
+        progress.log(`Signed AAB creation: Disabled (set createSignedAAB: true to enable)`, 'info');
+    }
+    
     return { android, config };
 }
 
 async function validateProjectStructure(androidConfig) {
-    const { projectPath, oldProjectName } = androidConfig;
+    const { projectPath, oldProjectName, newProjectName } = androidConfig;
     
     progress.log('Validating project structure...', 'info');
     
@@ -100,7 +345,7 @@ async function validateProjectStructure(androidConfig) {
         progress.log(`Warning: Project path doesn't contain old project name "${oldProjectName}"`, 'warning');
     }
     
-    // Get the parent directory where the project should be renamed
+    // Get the parent directory where the deployment project should be created
     const parentDir = path.dirname(projectPath);
     const currentProjectDir = path.basename(projectPath);
     
@@ -108,13 +353,26 @@ async function validateProjectStructure(androidConfig) {
         progress.log(`Warning: Current directory name "${currentProjectDir}" differs from old project name "${oldProjectName}"`, 'warning');
     }
     
+    // Create deployment directory path - ensure it's absolute
+    const deploymentPath = androidConfig.deploymentPath 
+        ? path.resolve(androidConfig.deploymentPath)
+        : path.resolve(parentDir, `${newProjectName}-deployment`);
+    
+    progress.log(`Original project: ${projectPath}`, 'info');
+    progress.log(`Deployment target: ${deploymentPath}`, 'info');
+    
+    // Verify paths are absolute
+    if (!path.isAbsolute(deploymentPath)) {
+        throw new Error(`Deployment path must be absolute: ${deploymentPath}`);
+    }
     progress.log('Project structure validation completed', 'success');
     
     return {
         parentDir,
         currentProjectDir,
         oldProjectPath: projectPath,
-        newProjectPath: path.join(parentDir, androidConfig.newProjectName)
+        newProjectPath: deploymentPath,
+        deploymentPath
     };
 }
 
@@ -137,29 +395,55 @@ async function createBackup(projectPaths, androidConfig) {
     }
 }
 
-async function renameProjectDirectories(projectPaths, androidConfig) {
+async function createDeploymentProject(projectPaths, androidConfig) {
     const { oldProjectPath, newProjectPath } = projectPaths;
     const { oldProjectName, newProjectName } = androidConfig;
     
-    progress.log('Renaming project directories...', 'info');
+    progress.log('Creating deployment project...', 'info');
     
-    // First, rename the main project directory
+    // Check if deployment directory already exists
     if (fs.existsSync(newProjectPath)) {
         if (!androidConfig.overwriteExisting) {
-            throw new Error(`Target directory already exists: ${newProjectPath}. Set overwriteExisting: true to proceed.`);
+            throw new Error(`Deployment directory already exists: ${newProjectPath}. Set overwriteExisting: true to proceed.`);
         }
-        progress.log('Removing existing target directory...', 'warning');
+        progress.log('Removing existing deployment directory...', 'warning');
         runCommand(`rm -rf "${newProjectPath}"`);
     }
     
     try {
-        runCommand(`mv "${oldProjectPath}" "${newProjectPath}"`);
-        progress.log(`Renamed main directory: ${path.basename(oldProjectPath)} → ${path.basename(newProjectPath)}`, 'success');
+        // Copy the entire project to the deployment location
+        progress.log(`Copying project to deployment location...`, 'info');
+        progress.log(`Source: ${oldProjectPath}`, 'info');
+        progress.log(`Destination: ${newProjectPath}`, 'info');
+        
+        runCommand(`cp -r "${oldProjectPath}" "${newProjectPath}"`);
+        progress.log(`Created deployment copy: ${path.basename(oldProjectPath)} → ${path.basename(newProjectPath)}`, 'success');
+        
+        // Verify critical files were copied
+        const gradlewPath = path.join(newProjectPath, 'gradlew');
+        const buildGradlePath = path.join(newProjectPath, 'build.gradle');
+        const appBuildGradlePath = path.join(newProjectPath, 'app', 'build.gradle');
+        
+        progress.log(`Checking copied files:`, 'info');
+        progress.log(`  gradlew exists: ${fs.existsSync(gradlewPath)}`, 'info');
+        progress.log(`  build.gradle exists: ${fs.existsSync(buildGradlePath)}`, 'info');
+        progress.log(`  app/build.gradle exists: ${fs.existsSync(appBuildGradlePath)}`, 'info');
+        
+        if (!fs.existsSync(gradlewPath)) {
+            // List files in the copied directory
+            try {
+                const files = fs.readdirSync(newProjectPath);
+                progress.log(`Files in deployment directory: ${files.join(', ')}`, 'warning');
+            } catch (listError) {
+                progress.log(`Could not list deployment directory: ${listError.message}`, 'warning');
+            }
+        }
+        
     } catch (error) {
-        throw new Error(`Failed to rename main directory: ${error.message}`);
+        throw new Error(`Failed to create deployment copy: ${error.message}`);
     }
     
-    // Find and rename any subdirectories that contain the old project name
+    // Find and rename any subdirectories that contain the old project name within the deployment copy
     try {
         const findCommand = `find "${newProjectPath}" -type d -name "*${oldProjectName}*"`;
         const result = runCommand(findCommand);
@@ -179,7 +463,9 @@ async function renameProjectDirectories(projectPaths, androidConfig) {
         progress.log(`Warning: Error finding subdirectories to rename: ${error.message}`, 'warning');
     }
     
-    progress.log('Directory renaming completed', 'success');
+    progress.log('Deployment project creation completed', 'success');
+    progress.log(`Original project preserved at: ${oldProjectPath}`, 'info');
+    progress.log(`Deployment project created at: ${newProjectPath}`, 'success');
 }
 
 async function updateFileContents(projectPaths, androidConfig) {
@@ -261,7 +547,7 @@ async function cleanupAndVerify(projectPaths, androidConfig) {
     try {
         // Verify that the new project directory exists
         if (!fs.existsSync(newProjectPath)) {
-            throw new Error('New project directory not found after rename operation');
+            throw new Error('New project directory not found after deployment operation');
         }
         
         // Check for any remaining references to the old project name
@@ -290,7 +576,7 @@ async function cleanupAndVerify(projectPaths, androidConfig) {
     }
 }
 
-async function renameAndroidProject(configPath) {
+async function createAndroidDeployment(configPath) {
     let androidConfig;
     let projectPaths;
     let backupPath;
@@ -312,15 +598,32 @@ async function renameAndroidProject(configPath) {
         backupPath = await createBackup(projectPaths, androidConfig);
         progress.complete('backup');
         
-        // Rename directories
-        progress.start('renameDirectories');
-        await renameProjectDirectories(projectPaths, androidConfig);
-        progress.complete('renameDirectories');
+        // Create deployment project copy
+        progress.start('createDeploymentProject');
+        await createDeploymentProject(projectPaths, androidConfig);
+        progress.complete('createDeploymentProject');
         
         // Update file contents
         progress.start('updateFileContents');
         await updateFileContents(projectPaths, androidConfig);
         progress.complete('updateFileContents');
+        
+        // Create keystore if needed
+        progress.start('createKeystore');
+        const keystorePath = await createKeystore(projectPaths, androidConfig);
+        progress.complete('createKeystore');
+        
+        // Create signed AAB if keystore was created/found and enabled in config
+        let aabResult = null;
+        if (keystorePath && androidConfig.createSignedAAB) {
+            progress.start('createSignedAAB');
+            aabResult = await createSignedAAB(projectPaths, androidConfig, keystorePath);
+            progress.complete('createSignedAAB');
+        } else if (!androidConfig.createSignedAAB) {
+            progress.log('Signed AAB creation skipped (not enabled in config)', 'info');
+        } else if (!keystorePath) {
+            progress.log('Signed AAB creation skipped (no keystore available)', 'warning');
+        }
         
         // Cleanup and verify
         progress.start('cleanup');
@@ -328,13 +631,24 @@ async function renameAndroidProject(configPath) {
         progress.complete('cleanup');
 
         // Print completion summary
-        progress.printTreeContent('Rename Summary', [
-            'Project rename completed successfully:',
+        progress.printTreeContent('Deployment Summary', [
+            'Project deployment completed successfully:',
+            { text: `Original project: ${projectPaths.oldProjectPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Deployment project: ${projectPaths.newProjectPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
             { text: `Old name: ${androidConfig.oldProjectName}`, indent: 1, prefix: '├─ ', color: 'gray' },
             { text: `New name: ${androidConfig.newProjectName}`, indent: 1, prefix: '├─ ', color: 'gray' },
-            { text: `New path: ${projectPaths.newProjectPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
-            { text: `Backup created: ${backupPath ? 'Yes' : 'No'}`, indent: 1, prefix: '└─ ', color: 'gray' },
-            ...(backupPath ? [{ text: `Backup location: ${backupPath}`, indent: 1, prefix: '   ', color: 'gray' }] : [])
+            { text: `Backup created: ${backupPath ? 'Yes' : 'No'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Keystore: ${keystorePath ? 'Created/Verified' : 'Skipped'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Signed AAB: ${aabResult ? 'Created' : 'Skipped'}`, indent: 1, prefix: '└─ ', color: 'gray' },
+            '',
+            'File Locations:',
+            { text: `Original preserved at: ${projectPaths.oldProjectPath}`, indent: 1, prefix: '├─ ', color: 'green' },
+            ...(backupPath ? [{ text: `Backup location: ${backupPath}`, indent: 1, prefix: '├─ ', color: 'gray' }] : []),
+            ...(keystorePath ? [{ text: `Keystore: ${keystorePath}`, indent: 1, prefix: '├─ ', color: 'gray' }] : []),
+            ...(aabResult ? [
+                { text: `AAB file: ${aabResult.outputAabPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                { text: `AAB size: ${aabResult.fileSize} MB`, indent: 1, prefix: '└─ ', color: 'gray' }
+            ] : [{ text: `Deployment ready at: ${projectPaths.newProjectPath}`, indent: 1, prefix: '└─ ', color: 'green' }])
         ]);
 
         process.exit(0);
@@ -344,11 +658,12 @@ async function renameAndroidProject(configPath) {
             progress.fail(progress.currentStep.id, error.message);
             
             progress.printTreeContent('Troubleshooting Guide', [
-                'Rename operation failed. Please check the following:',
+                'Deployment operation failed. Please check the following:',
                 { text: 'Verify config file exists and contains required android configuration', indent: 1, prefix: '├─ ', color: 'yellow' },
                 { text: 'Ensure project path exists and is accessible', indent: 1, prefix: '├─ ', color: 'yellow' },
                 { text: 'Check file/directory permissions', indent: 1, prefix: '├─ ', color: 'yellow' },
-                { text: 'Verify no processes are using the project directory', indent: 1, prefix: '└─ ', color: 'yellow' },
+                { text: 'Verify no processes are using the project directory', indent: 1, prefix: '├─ ', color: 'yellow' },
+                { text: 'Ensure sufficient disk space for project copy', indent: 1, prefix: '└─ ', color: 'yellow' },
                 '\nConfiguration Details:',
                 { text: `Config path: ${configPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
                 { text: `Old project name: ${androidConfig?.oldProjectName || 'Not loaded'}`, indent: 1, prefix: '├─ ', color: 'gray' },
@@ -362,14 +677,17 @@ async function renameAndroidProject(configPath) {
 }
 
 // Export the main function for use as a module
-export { renameAndroidProject };
+export { createAndroidDeployment, createAndroidDeployment as renameAndroidProject };
 
 // Execute if run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url.startsWith('file:') && process.argv[1] === new URL(import.meta.url).pathname) {
     const configPath = process.argv[2];
     if (!configPath) {
         console.error('Usage: node renameAndroidProject.js <config-path>');
         process.exit(1);
     }
-    renameAndroidProject(configPath);
+    createAndroidDeployment(configPath).catch(error => {
+        console.error('Script failed:', error.message);
+        process.exit(1);
+    });
 }
