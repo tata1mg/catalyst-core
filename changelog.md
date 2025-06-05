@@ -1,6 +1,11 @@
 # Changelog
 
-## Build Optimizations
+## [0.0.1-beta.14] - 19-05-2025
+
+-   Fixes header sent bug
+-   Returns promise from handler
+
+## [0.0.1-beta.13] - 04-04-2025
 
 ### Features
 - Integrated hardware acceleration and thread management for Android
