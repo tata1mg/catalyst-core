@@ -16,7 +16,6 @@ const webpackConfig = merge(baseConfig, {
     infrastructureLogging: {
         level: "none",
     },
-    watchOptions: customWebpackConfig.watchOptions,
     plugins: [
         new ReactRefreshWebpackPlugin({
             overlay: {
