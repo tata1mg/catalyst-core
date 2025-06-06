@@ -23,6 +23,7 @@ const webpackClientConfig = merge(baseConfig, {
     infrastructureLogging: {
         level: "none",
     },
+    watchOptions: customWebpackConfig.watchOptions,
     plugins: [
         new LoadablePlugin({
             filename: "loadable-stats.json",
