@@ -28,6 +28,7 @@ const clientConfig = mergeWithCustomize({
     resolve: {
         alias: catalystResultMap,
     },
+    watchOptions: customWebpackConfig.watchOptions,
     optimization: {
         runtimeChunk: "single",
         moduleIds: "deterministic",
