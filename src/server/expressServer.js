@@ -9,12 +9,13 @@ import { createServer as createViteServer } from "vite"
 import util from "node:util"
 import pc from "picocolors"
 const { cyan, yellow, green } = pc
-import { fileURLToPath } from "url"
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 
 import { validateMiddleware } from "./utils/validator.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
+
+import { fileURLToPath } from "url"
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 async function createServer() {
     const port = process.env.NODE_SERVER_PORT ?? 3005

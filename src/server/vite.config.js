@@ -1,19 +1,29 @@
 // vite.config.js
 import { defineConfig } from "vite"
-import react from "@vitejs/plugin-react" // Assuming React, but works similar for other frameworks
+import react from "@vitejs/plugin-react"
+
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 import path from "path"
 import fs from "fs"
 
 const packageJsonConfig = path.resolve(process.env.src_path, "package.json")
 const packageJsonContent = fs.readFileSync(packageJsonConfig, "utf8")
+const catalystPackageJsonConfig = path.resolve(__dirname,"../../package.json")
+const catalystPackageJsonContent = fs.readFileSync(catalystPackageJsonConfig, "utf8")
 
 const _moduleAliases = JSON.parse(packageJsonContent)._moduleAliases
+const catalyst_moduleAliases = JSON.parse(catalystPackageJsonContent)._moduleAliases
+const allAliases={..._moduleAliases,...catalyst_moduleAliases} 
+
 import { imageUrl, fontUrl } from "./scssParams.js"
 
 const alias = () => {
-    return Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
-        moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
+    return Object.keys(allAliases || {}).reduce((moduleEnvMap, alias) => {
+        moduleEnvMap[alias] = path.join(process.env.src_path, ...allAliases[alias].split("/"))
 
         return moduleEnvMap
     }, {})
@@ -39,6 +49,7 @@ const getClientEnvVariables = () => {
             envVarDefinitions[`process.env.${varName}`] = JSON.stringify(process.env[varName])
         }
     })
+    envVarDefinitions[`process.env.src_path`]=JSON.stringify(process.env["src_path"])
 
     return envVarDefinitions
 }
@@ -66,7 +77,6 @@ export default defineConfig({
             exclude: ["catalyst-core/router/ClientRouter"],
             force: true,
             esbuildOptions: {
-                // Apply client-like transforms
                 format: 'esm',
                 target: 'node14'
             },
@@ -92,7 +102,6 @@ export default defineConfig({
         exclude: ["catalyst-core/router/ClientRouter"],
         force: true,
         esbuildOptions: {
-            // Apply client-like transforms
             format: 'esm',
             target: 'node14'
         },
