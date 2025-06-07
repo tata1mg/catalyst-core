@@ -10,14 +10,13 @@ import { Head } from "./document/Head.jsx"
 import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "../../router/ServerRouter.js"
 // import { ChunkExtractor, ChunkExtractorManager } from "@loadable/server"
-import { renderToPipeableStream } from "react-dom/server"
-import { getUserAgentDetails } from "../../server/utils/userAgentUtil.js"
-import router from "../../index.jsx"
-const { matchPath, serverDataFetcher, matchRoutes: NestedMatchRoutes, getMetaData } = router
+import { renderToPipeableStream, renderToString } from "react-dom/server"
+import { getUserAgentDetails } from "../utils/userAgentUtil.js"
+import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateCustomDocument, validateGetRoutes } from "../utils/validator.js"
-
 // Dynamic imports using ESM
-// const CustomDocument = (await import(path.join(process.env.src_path, "server/document.jsx"))).default
+
+const { default: CustomDocument } = await import(path.join(process.env.src_path, "server/document.jsx"))
 
 const App = (await import(path.join(process.env.src_path, "src/js/containers/App/index.jsx"))).default
 const { getRoutes } = await import(path.join(process.env.src_path, "src/js/routes/utils.jsx"))
@@ -28,7 +27,7 @@ let createStore
 
 if (fs.existsSync(storePath)) {
     try {
-        const { default: configureStore } = await import(`${process.env.src_path}/src/js/store/index.js`)
+        const { default: configureStore } = await import(`${process.env.src_path}/src/js/store/index.dev.js`)
         createStore = configureStore
     } catch (error) {
         createStore = () => {
@@ -127,30 +126,30 @@ const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, m
     const finalProps = { ...shellStart, ...shellEnd, jsx: jsx, req, res }
 
     let CompleteDocument = () => {
-        // if (validateCustomDocument(CustomDocument)) {
-        //     return CustomDocument(finalProps)
-        // } else {
-        return (
-            <html lang={finalProps.lang}>
-                <Head
-                    isBot={finalProps.isBot}
-                    pageJS={finalProps.pageJS}
-                    pageCss={finalProps.pageCss}
-                    fetcherData={finalProps.fetcherData}
-                    metaTags={finalProps.metaTags}
-                    publicAssetPath={finalProps.publicAssetPath}
-                />
-                <Body
-                    initialState={finalProps.initialState}
-                    firstFoldCss={finalProps.firstFoldCss}
-                    firstFoldJS={finalProps.firstFoldJS}
-                    jsx={finalProps.jsx}
-                    statusCode={finalProps.statusCode}
-                    fetcherData={finalProps.fetcherData}
-                />
-            </html>
-        )
-        // }
+        if (CustomDocument) {
+            return CustomDocument(finalProps)
+        } else {
+            return (
+                <html lang={finalProps.lang}>
+                    <Head
+                        isBot={finalProps.isBot}
+                        pageJS={finalProps.pageJS}
+                        pageCss={finalProps.pageCss}
+                        fetcherData={finalProps.fetcherData}
+                        metaTags={finalProps.metaTags}
+                        publicAssetPath={finalProps.publicAssetPath}
+                    />
+                    <Body
+                        initialState={finalProps.initialState}
+                        firstFoldCss={finalProps.firstFoldCss}
+                        firstFoldJS={finalProps.firstFoldJS}
+                        jsx={finalProps.jsx}
+                        statusCode={finalProps.statusCode}
+                        fetcherData={finalProps.fetcherData}
+                    />
+                </html>
+            )
+        }
     }
 
     try {
@@ -197,8 +196,7 @@ export default async function (req, res) {
         // })
 
         // creates store
-        const store = validateConfigureStore(createStore) ? createStore({}, req) : null
-
+        const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
         // user defined routes
         const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
 

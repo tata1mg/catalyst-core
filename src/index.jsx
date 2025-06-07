@@ -1,13 +1,6 @@
-import * as ReactRouter from "react-router-dom"
-import * as RouterDataProvider from "./web-router/components/RouterDataProvider.jsx"
-import * as MetaTag from "./web-router/components/MetaTag.jsx"
-import * as Hooks from "./web-router/hooks.jsx"
-import * as MetaDataUtils from "./web-router/utils/metaDataUtils.jsx"
-
-export default {
-    ...ReactRouter,
-    ...RouterDataProvider,
-    ...MetaTag,
-    ...Hooks,
-    ...MetaDataUtils,
-}
+export * from "react-router-dom"
+export * from "./web-router/components/RouterDataProvider.jsx"
+export * from "./web-router/components/MetaTag.jsx"
+export * from "./web-router/hooks.jsx"
+export * from "./web-router/utils/metaDataUtils.jsx"
+export * from "./server/renderer/document/index.jsx"

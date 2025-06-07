@@ -19,15 +19,83 @@ const alias = () => {
     }, {})
 }
 
+// Function to create environment variable definitions for the client
+const getClientEnvVariables = () => {
+    const clientEnvVars = process.env.CLIENT_ENV_VARIABLES
+
+    if (!clientEnvVars) {
+        return {}
+    }
+
+    // Parse CLIENT_ENV_VARIABLES if it's a JSON string
+    const allowedVars = typeof clientEnvVars === "string" ? JSON.parse(clientEnvVars) : clientEnvVars
+
+    // Create define object with only allowed environment variables
+    const envVarDefinitions = {}
+
+    allowedVars.forEach((varName) => {
+        if (process.env[varName] !== undefined) {
+            // Define as process.env.VARIABLE_NAME for client-side usage
+            envVarDefinitions[`process.env.${varName}`] = JSON.stringify(process.env[varName])
+        }
+    })
+
+    return envVarDefinitions
+}
+
 export default defineConfig({
+    ssr: {
+        noExternal: ["@tata1mg/slowboi-react",
+                "@tata1mg/prefetch-core","@tata1mg/prefetch-core/react"],
+        optimizeDeps: {
+            include: [
+                "react",
+                "react-dom",
+                "invariant",
+                "react-fast-compare",
+                "shallowequal",
+                "prop-types",
+                "redux-thunk",
+                "redux-logger",
+                "@tata1mg/slowboi-react",
+                "@tata1mg/prefetch-core",
+                "@tata1mg/prefetch-core/react",
+                "react-dom",
+                "react-dom/server.node"
+            ],
+            exclude: ["catalyst-core/router/ClientRouter"],
+            force: true,
+            esbuildOptions: {
+                // Apply client-like transforms
+                format: 'esm',
+                target: 'node14'
+            },
+        },
+    },
     plugins: [react()],
     resolve: {
         alias: alias(),
     },
+    define: {
+        ...getClientEnvVariables(),
+    },
+   
     optimizeDeps: {
-        include: ["invariant", "react-fast-compare", "shallowequal", "prop-types"],
+        include: [
+            "invariant",
+            "react-fast-compare",
+            "shallowequal",
+            "prop-types",
+            "redux-thunk",
+            "redux-logger",
+        ],
         exclude: ["catalyst-core/router/ClientRouter"],
         force: true,
+        esbuildOptions: {
+            // Apply client-like transforms
+            format: 'esm',
+            target: 'node14'
+        },
     },
 
     css: {

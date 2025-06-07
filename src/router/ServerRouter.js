@@ -1,7 +1,6 @@
-import router from "../index.jsx"
+import { useRoutes } from "../index.jsx"
 import path from "path"
 
-const { useRoutes } = router
 const routePath = path.join(process.env.src_path, "/src/js/routes/utils.jsx")
 const { preparedRoutes } = await import(routePath)
 

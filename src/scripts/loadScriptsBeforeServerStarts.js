@@ -2,7 +2,7 @@
 import _registerAliases from "./registerAliases.js"
 import csshook from "@dr.pogodin/css-modules-require-hook"
 import path from "path"
-import loadEnvironmentVariables from "./loadEnvironmentVariables"
+import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
 
 const { cssModulesIdentifierDev } = require("@catalyst/root/config.json")
 
