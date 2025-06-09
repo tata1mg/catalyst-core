@@ -7,10 +7,16 @@ import { fileURLToPath } from "url"
 import { dirname } from "path"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-
+import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
+loadEnvironmentVariables()
 export default defineConfig({
     ...baseConfig,
     mode: "production",
+
+    // Ensure resolve configuration is inherited
+    resolve: {
+        ...baseConfig.resolve,
+    },
 
     build: {
         ...baseConfig.build,
@@ -30,6 +36,9 @@ export default defineConfig({
             output: {
                 ...baseConfig.build.rollupOptions.output,
             },
+            // Prevent externalization for server build - bundle all dependencies
+            external:
+                process.env.BUILD_TARGET === "server" ? [] : baseConfig.build.rollupOptions.external || [],
         },
 
         // Production-specific optimization
@@ -39,12 +48,19 @@ export default defineConfig({
         lib:
             process.env.BUILD_TARGET === "server"
                 ? {
-                      entry: path.join(process.env.src_path, "server/server.js"),
+                      entry: path.join(__dirname, "./renderer/index.js"),
                       name: "server",
                       fileName: "server",
                       formats: ["es"],
                   }
                 : undefined,
+    },
+
+    // Ensure SSR config is properly set for server builds
+    ssr: {
+        ...baseConfig.ssr,
+        // Don't externalize any modules for server build - bundle everything
+        noExternal: process.env.BUILD_TARGET === "server" ? true : baseConfig.ssr.noExternal,
     },
 
     // Production-specific CSS configuration

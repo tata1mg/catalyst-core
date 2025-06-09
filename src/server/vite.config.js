@@ -11,20 +11,51 @@ import path from "path"
 import fs from "fs"
 
 const packageJsonConfig = path.resolve(process.env.src_path, "package.json")
-const packageJsonContent = fs.readFileSync(packageJsonConfig, "utf8")
 const catalystPackageJsonConfig = path.resolve(__dirname, "../../package.json")
-const catalystPackageJsonContent = fs.readFileSync(catalystPackageJsonConfig, "utf8")
 
-const _moduleAliases = JSON.parse(packageJsonContent)._moduleAliases
-const catalyst_moduleAliases = JSON.parse(catalystPackageJsonContent)._moduleAliases
+let packageJsonContent, catalystPackageJsonContent
+let _moduleAliases = {},
+    catalyst_moduleAliases = {}
+
+try {
+    packageJsonContent = fs.readFileSync(packageJsonConfig, "utf8")
+    const packageJson = JSON.parse(packageJsonContent)
+    _moduleAliases = packageJson._moduleAliases || {}
+} catch (error) {
+    console.warn(`Failed to read or parse package.json from ${packageJsonConfig}:`, error.message)
+}
+
+try {
+    catalystPackageJsonContent = fs.readFileSync(catalystPackageJsonConfig, "utf8")
+    const catalystPackageJson = JSON.parse(catalystPackageJsonContent)
+    catalyst_moduleAliases = catalystPackageJson._moduleAliases || {}
+} catch (error) {
+    console.warn(
+        `Failed to read or parse catalyst package.json from ${catalystPackageJsonConfig}:`,
+        error.message
+    )
+}
+
 const allAliases = { ..._moduleAliases, ...catalyst_moduleAliases }
 
 import { imageUrl, fontUrl } from "./scssParams.js"
 
 const alias = () => {
-    return Object.keys(allAliases || {}).reduce((moduleEnvMap, alias) => {
-        moduleEnvMap[alias] = path.join(process.env.src_path, ...allAliases[alias].split("/"))
+    if (!allAliases || typeof allAliases !== "object") {
+        console.warn("No module aliases found or invalid aliases configuration")
+        return {}
+    }
 
+    return Object.keys(allAliases).reduce((moduleEnvMap, alias) => {
+        if (allAliases[alias] && typeof allAliases[alias] === "string") {
+            try {
+                const aliasPath = path.join(process.env.src_path, ...allAliases[alias].split("/"))
+                moduleEnvMap[alias] = aliasPath
+                console.log(`Alias configured: ${alias} -> ${aliasPath}`)
+            } catch (error) {
+                console.warn(`Failed to configure alias ${alias}:`, error.message)
+            }
+        }
         return moduleEnvMap
     }, {})
 }
@@ -156,7 +187,7 @@ export default defineConfig({
         },
         preprocessorOptions: {
             scss: {
-                // additionalData: `@import "@css/resources/index.scss"; $font_url: ${fontUrl()}  ;$url_for: ${imageUrl()}; `,
+                additionalData: `@import "@css/resources/index.scss" ; $font_url: "${fontUrl()}";  $url_for: "${imageUrl()}"; `,
             },
         },
     },

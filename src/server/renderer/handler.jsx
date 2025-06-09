@@ -16,30 +16,29 @@ import { validateConfigureStore, validateCustomDocument, validateGetRoutes } fro
 
 import CustomDocument from "@catalyst/template/server/document.jsx"
 
-
 import App from "@catalyst/template/src/js/containers/App/index.jsx"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
 
-const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
+import configureStore from "@catalyst/template/src/js/store/index.js"
 
-let createStore
+let createStore = configureStore
 
-if (fs.existsSync(storePath)) {
-    try {
-        const { default: configureStore } = await import(`${process.env.src_path}/src/js/store/index.dev.js`)
-        createStore = configureStore
-    } catch (error) {
-        createStore = () => {
-            return {
-                getState: () => {},
-            }
-        }
-    }
-} else {
-    createStore = () => {
-        return { getState: () => {} }
-    }
-}
+// if (fs.existsSync(storePath)) {
+//     try {
+//         const { default: configureStore } = await import(`${process.env.src_path}/src/js/store/index.dev.js`)
+//         createStore = configureStore
+//     } catch (error) {
+//         createStore = () => {
+//             return {
+//                 getState: () => {},
+//             }
+//         }
+//     }
+// } else {
+//     createStore = () => {
+//         return { getState: () => {} }
+//     }
+// }
 
 const isProduction = process.env.NODE_ENV === "production"
 
@@ -123,6 +122,7 @@ const renderMarkUp = async (errorCode, req, res, metaTags, fetcherData, store, m
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
     const finalProps = { ...shellStart, ...shellEnd, jsx: jsx, req, res }
+    console.log(">>>>>>", finalProps)
 
     let CompleteDocument = () => {
         if (CustomDocument) {
