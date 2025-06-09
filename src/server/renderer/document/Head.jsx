@@ -18,7 +18,7 @@ export function Head(props) {
         <head>
             <meta charSet="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <FastRefresh />
+            {process.env.NODE_ENV === "development" && <FastRefresh />}
 
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}

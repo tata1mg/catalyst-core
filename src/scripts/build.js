@@ -38,39 +38,15 @@ function build() {
         ]),
     }
 
-    // Build client bundle
-    console.log("📦 Building client bundle...")
-    const clientBuildCommand = `vite build --config ./dist/server/vite.config.prod.js`
-
-    const clientBuildResult = spawnSync(clientBuildCommand, [], {
-        cwd: dirname,
-        stdio: "inherit",
-        shell: true,
-        env: {
-            ...baseEnv,
-            BUILD_TARGET: "client",
-        },
-    })
-
-    if (clientBuildResult.status !== 0) {
-        console.error("❌ Client build failed!")
-        process.exit(1)
-    }
-
-    console.log("✅ Client build completed!")
-
     // Build server bundle
     console.log("🔧 Building server bundle...")
-    const serverBuildCommand = `vite build --config ./dist/server/vite.config.prod.js --ssr`
+    const serverBuildCommand = `vite build --config ./dist/server/vite.config.server.js --ssr`
 
     const serverBuildResult = spawnSync(serverBuildCommand, [], {
         cwd: dirname,
         stdio: "inherit",
         shell: true,
-        env: {
-            ...baseEnv,
-            BUILD_TARGET: "server",
-        },
+        env: baseEnv,
     })
 
     if (serverBuildResult.status !== 0) {
@@ -80,9 +56,28 @@ function build() {
     }
 
     console.log("✅ Server build completed!")
+
+    // Build client bundle
+    console.log("📦 Building client bundle...")
+    const clientBuildCommand = `vite build --config ./dist/server/vite.config.client.js`
+
+    const clientBuildResult = spawnSync(clientBuildCommand, [], {
+        cwd: dirname,
+        stdio: "inherit",
+        shell: true,
+        env: baseEnv,
+    })
+
+    if (clientBuildResult.status !== 0) {
+        console.error("❌ Client build failed!")
+        process.exit(1)
+    }
+
+    console.log("✅ Client build completed!")
+
     console.log("🎉 Build completed successfully!")
     console.log("📁 Built files are located in the 'build' directory")
-    console.log("🚀 Run 'npm run start:prod' to start the production server")
+    console.log("🚀 Run 'npm run serve' to start the production server")
 }
 
 build()

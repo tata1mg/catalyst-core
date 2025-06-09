@@ -6,19 +6,9 @@ export const imageUrl = () => {
     const {
         PUBLIC_STATIC_ASSET_URL,
         PUBLIC_STATIC_ASSET_PATH,
-        IS_DEV_COMMAND,
-        NODE_SERVER_HOSTNAME,
-        NODE_SERVER_PORT,
     } = process.env
     let publicPath = `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
-
-    // serves assets from localhost on running devBuild and devServe command
-    if (JSON.parse(IS_DEV_COMMAND)) {
-        publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/${PUBLIC_STATIC_ASSET_PATH}`
-    }
-
     const imagePath = `${publicPath}images/`
-
     return imagePath
 }
 
@@ -30,18 +20,8 @@ export const fontUrl = () => {
     const {
         PUBLIC_STATIC_ASSET_URL,
         PUBLIC_STATIC_ASSET_PATH,
-        IS_DEV_COMMAND,
-        NODE_SERVER_HOSTNAME,
-        NODE_SERVER_PORT,
     } = process.env
     let publicPath = `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
-
-    // serves assets from localhost on running devBuild and devServe command
-    if (JSON.parse(IS_DEV_COMMAND)) {
-        publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/${PUBLIC_STATIC_ASSET_PATH}`
-    }
-
     const fontPath = `${publicPath}fonts/`
-
     return fontPath
 }

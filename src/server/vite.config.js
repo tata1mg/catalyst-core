@@ -51,7 +51,6 @@ const alias = () => {
             try {
                 const aliasPath = path.join(process.env.src_path, ...allAliases[alias].split("/"))
                 moduleEnvMap[alias] = aliasPath
-                console.log(`Alias configured: ${alias} -> ${aliasPath}`)
             } catch (error) {
                 console.warn(`Failed to configure alias ${alias}:`, error.message)
             }
@@ -61,7 +60,7 @@ const alias = () => {
 }
 
 // Function to create environment variable definitions for the client
-const getClientEnvVariables = () => {
+export const getClientEnvVariables = () => {
     const clientEnvVars = process.env.CLIENT_ENV_VARIABLES
 
     if (!clientEnvVars) {
@@ -126,41 +125,8 @@ export default defineConfig({
     // Production build configuration
     build: {
         outDir: path.join(process.env.src_path, "build"),
-        emptyOutDir: true,
         sourcemap: !isProduction,
         minify: isProduction ? "esbuild" : false,
-        rollupOptions: {
-            input: {
-                // Client entry point
-                main: path.join(process.env.src_path, "client/index.jsx"),
-                // Server entry point for SSR
-                server: path.join(__dirname, "renderer/index.js"),
-            },
-            output: {
-                format: "es",
-                entryFileNames: (chunkInfo) => {
-                    return chunkInfo.name === "server" ? "server/[name].js" : "public/assets/[name]-[hash].js"
-                },
-                chunkFileNames: "public/assets/[name]-[hash].js",
-                assetFileNames: (assetInfo) => {
-                    const extType = assetInfo.name.split(".").pop()
-                    if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
-                        return "public/assets/images/[name]-[hash][extname]"
-                    }
-                    if (/woff2?|eot|ttf|otf/i.test(extType)) {
-                        return "public/assets/fonts/[name]-[hash][extname]"
-                    }
-                    if (/css/i.test(extType)) {
-                        return "public/assets/css/[name]-[hash][extname]"
-                    }
-                    return "public/assets/[name]-[hash][extname]"
-                },
-            },
-            external: isBuild ? [] : ["react", "react-dom"],
-        },
-        ssr: isBuild ? path.join(__dirname, "renderer/index.js") : false,
-        manifest: true,
-        ssrManifest: isBuild,
     },
 
     optimizeDeps: {

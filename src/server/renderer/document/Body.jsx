@@ -26,8 +26,9 @@ export function Body(props) {
         <body>
             {firstFoldCss}
             {firstFoldJS}
-            <script type="module" src={path.resolve(process.env.src_path, "client/index.jsx")}></script>
-
+            {process.env.NODE_ENV === "development" && (
+                <script type="module" src={path.resolve(process.env.src_path, "client/index.jsx")}></script>
+            )}
             {jsx}
             <script
                 /* eslint-disable */
