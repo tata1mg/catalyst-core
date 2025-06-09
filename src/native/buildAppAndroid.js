@@ -1,7 +1,17 @@
-import { exec } from 'child_process';
-import fs from 'fs';
-import { runCommand, runInteractiveCommand } from './utils.js';
-import TerminalProgress from './TerminalProgress.js';
+"use strict";
+
+var _child_process = require("child_process");
+var _fs = _interopRequireDefault(require("fs"));
+var _path = _interopRequireDefault(require("path"));
+var _utils = require("./utils.js");
+var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"));
+
+// Import the AAB builder
+import { buildAndroidAAB } from './renameAndroidProject.js';
+
+function _interopRequireDefault(e) {
+    return e && e.__esModule ? e : { default: e };
+}
 
 const configPath = `${process.env.PWD}/config/config.json`;
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
@@ -12,7 +22,8 @@ const steps = {
     tools: 'Validate Android Tools',
     emulator: 'Check and Start Emulator',
     copyAssets: 'Copy Build Assets',
-    build: 'Build and Install Application'
+    build: 'Build and Install Application',
+    aab: 'Build Signed AAB'
 };
 
 const progressConfig = {
@@ -24,10 +35,10 @@ const progressConfig = {
     bottomMargin: 2
 };
 
-const progress = new TerminalProgress(steps, "Catalyst Android Build", progressConfig);
+const progress = new _TerminalProgress.default(steps, "Catalyst Android Build", progressConfig);
 
 async function initializeConfig() {
-    const configFile = fs.readFileSync(configPath, 'utf8');
+    const configFile = _fs.default.readFileSync(configPath, 'utf8');
     const config = JSON.parse(configFile);
     const { WEBVIEW_CONFIG } = config;
 
@@ -38,7 +49,15 @@ async function initializeConfig() {
     if (!WEBVIEW_CONFIG.android) {
         throw new Error('Android config missing in WebView Config');
     }
+
+    // Log build type information
+    const buildType = WEBVIEW_CONFIG.android.buildType || 'debug';
+    progress.log(`Build Type: ${buildType}`, 'info');
     
+    if (buildType === 'release') {
+        progress.log('Release build detected - AAB will be generated', 'info');
+    }
+
     return { WEBVIEW_CONFIG };
 }
 
@@ -48,45 +67,51 @@ function validateAndroidTools(androidConfig) {
     const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`;
 
     progress.log('Validating Android tools...', 'info');
-    
+
     if (!ANDROID_SDK) {
         throw new Error('Android SDK path is not configured');
     }
 
-    if (!fs.existsSync(ANDROID_SDK)) {
+    if (!_fs.default.existsSync(ANDROID_SDK)) {
         throw new Error(`Android SDK path does not exist: ${ANDROID_SDK}`);
     }
 
-    if (!fs.existsSync(ADB_PATH)) {
+    if (!_fs.default.existsSync(ADB_PATH)) {
         throw new Error(`ADB not found at: ${ADB_PATH}`);
     }
 
     try {
-        runCommand(`${ADB_PATH} version`);
+        (0, _utils.runCommand)(`${ADB_PATH} version`);
         progress.log('ADB validation successful', 'success');
     } catch (error) {
         throw new Error(`ADB is not working properly: ${error.message}`);
     }
 
-    if (!fs.existsSync(EMULATOR_PATH)) {
-        throw new Error(`Emulator not found at: ${EMULATOR_PATH}`);
-    }
-
-    try {
-        runCommand(`${EMULATOR_PATH} -version`);
-        progress.log('Emulator validation successful', 'success');
-    } catch (error) {
-        throw new Error(`Emulator is not working properly: ${error.message}`);
-    }
-
-    try {
-        const avdOutput = runCommand(`${EMULATOR_PATH} -list-avds`);
-        if (!avdOutput.includes(androidConfig.emulatorName)) {
-            throw new Error(`Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`);
+    // Skip emulator validation for release builds
+    const buildType = androidConfig.buildType || 'debug';
+    if (buildType !== 'release') {
+        if (!_fs.default.existsSync(EMULATOR_PATH)) {
+            throw new Error(`Emulator not found at: ${EMULATOR_PATH}`);
         }
-        progress.log(`Emulator "${androidConfig.emulatorName}" exists`, 'success');
-    } catch (error) {
-        throw new Error(`Error checking emulator AVD: ${error.message}`);
+
+        try {
+            (0, _utils.runCommand)(`${EMULATOR_PATH} -version`);
+            progress.log('Emulator validation successful', 'success');
+        } catch (error) {
+            throw new Error(`Emulator is not working properly: ${error.message}`);
+        }
+
+        try {
+            const avdOutput = (0, _utils.runCommand)(`${EMULATOR_PATH} -list-avds`);
+            if (!avdOutput.includes(androidConfig.emulatorName)) {
+                throw new Error(`Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`);
+            }
+            progress.log(`Emulator "${androidConfig.emulatorName}" exists`, 'success');
+        } catch (error) {
+            throw new Error(`Error checking emulator AVD: ${error.message}`);
+        }
+    } else {
+        progress.log('Skipping emulator validation for release build', 'info');
     }
 
     progress.log('Android tools validation completed successfully!', 'success');
@@ -95,7 +120,7 @@ function validateAndroidTools(androidConfig) {
 
 async function checkEmulator(ADB_PATH) {
     try {
-        const devices = runCommand(`${ADB_PATH} devices`);
+        const devices = (0, _utils.runCommand)(`${ADB_PATH} devices`);
         return devices.includes('emulator');
     } catch (error) {
         progress.log('Error checking emulator status: ' + error.message, 'error');
@@ -106,80 +131,59 @@ async function checkEmulator(ADB_PATH) {
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, 'info');
     return new Promise((resolve, reject) => {
-        exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, 
-            (error, stdout, stderr) => {
-                if (error) {
-                    progress.log('Error starting emulator: ' + error.message, 'error');
-                    reject(error);
-                } else {
-                    progress.log('Emulator started successfully', 'success');
-                    resolve();
-                }
+        (0, _child_process.exec)(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, (error, stdout, stderr) => {
+            if (error) {
+                progress.log('Error starting emulator: ' + error.message, 'error');
+                reject(error);
+            } else {
+                progress.log('Emulator started successfully', 'success');
+                resolve();
             }
-        );
+        });
     });
 }
 
 async function copyBuildAssets(androidConfig, buildOptimisation = false) {
-    if (!buildOptimisation) return
+    if (!buildOptimisation) return;
+
     progress.log('Copying build assets to Android project...', 'info');
-    
     try {
         // Define source and destination paths
         const sourcePath = `${process.env.PWD}/build/`;
         const destPath = `${pwd}/androidProject/app/src/main/assets/build/`;
-        
+
         // Create destination directory if it doesn't exist
-        runCommand(`mkdir -p ${destPath}`);
-        
+        (0, _utils.runCommand)(`mkdir -p ${destPath}`);
+
         // Clear existing destination to avoid conflicts
-        runCommand(`rm -rf ${destPath}/*`);
-        
-        // Files to exclude from copying (regardless of where they are in the directory structure)
-        const excludePatterns = [
-            'route-manifest.json.gz',
-            'route-manifest.json.br'
-        ];
-        
+        (0, _utils.runCommand)(`rm -rf ${destPath}/*`);
+
+        // Files to exclude from copying
+        const excludePatterns = ['route-manifest.json.gz', 'route-manifest.json.br'];
+
         if (buildOptimisation) {
             progress.log('Running with build optimization...', 'info');
-            
-            // Use rsync instead of cp for more control over file exclusions
-            // This is more efficient and allows us to exclude specific files by name anywhere in the directory tree
             const excludeParams = excludePatterns.map(pattern => `--exclude="${pattern}"`).join(' ');
             const rsyncCommand = `rsync -av ${excludeParams} ${sourcePath} ${destPath}`;
-            
             progress.log('Executing rsync command with exclusions...', 'info');
-            runCommand(rsyncCommand);
-            
+            (0, _utils.runCommand)(rsyncCommand);
+
             // Verify excluded files don't exist in destination
             for (const pattern of excludePatterns) {
                 const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`;
-                const count = parseInt(runCommand(checkCommand).trim(), 10);
-                
+                const count = parseInt((0, _utils.runCommand)(checkCommand).trim(), 10);
                 if (count > 0) {
                     progress.log(`Warning: Found ${count} instances of excluded file ${pattern}`, 'warning');
-                    // Remove them if found (belt and suspenders approach)
-                    runCommand(`find ${destPath} -name "${pattern}" -delete`);
+                    (0, _utils.runCommand)(`find ${destPath} -name "${pattern}" -delete`);
                 }
             }
-            
             progress.log('Build assets copied with optimization (excluded route-manifest JSON files)', 'success');
         } else {
-            // Original implementation for non-optimized builds, but using improved method
             progress.log('Running without build optimization...', 'info');
-            
-            // Create exclusion parameters for the find command
-            // This uses -not -name instead of -not -path for better file name matching
-            const exclusions = excludePatterns
-                .map(pattern => `-not -name "${pattern}"`)
-                .join(' ');
-            
-            // Use find to copy files while excluding specific patterns
+            const exclusions = excludePatterns.map(pattern => `-not -name "${pattern}"`).join(' ');
             const copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`;
-            
             progress.log(`Executing copy command with exclusions...`, 'info');
-            runCommand(copyCommand);
+            (0, _utils.runCommand)(copyCommand);
             progress.log('Build assets copied successfully!', 'success');
         }
     } catch (error) {
@@ -190,16 +194,71 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
 async function installApp(ADB_PATH, androidConfig, buildOptimisation) {
     progress.log('Building and installing app...', 'info');
     try {
-        // Add buildOptimisation to the gradle command
         const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE} 1`;
-        
-        await runInteractiveCommand('sh', ['-c', buildCommand], {
-            'BUILD SUCCESSFUL': ''
-        });
-        
+        await (0, _utils.runInteractiveCommand)('sh', ['-c', buildCommand], { 'BUILD SUCCESSFUL': '' });
         progress.log('Installation completed successfully!', 'success');
     } catch (error) {
         throw new Error('Error installing app: ' + error.message);
+    }
+}
+
+async function createAABConfig(androidConfig) {
+    // Create AAB configuration based on WebView config
+    const aabConfig = {
+        android: {
+            oldProjectName: "androidProject", // Default project name in catalyst
+            newProjectName: androidConfig.appName || androidConfig.packageName?.split('.').pop() || "catalystapp",
+            projectPath: `${pwd}/androidProject`,
+            createSignedAAB: true,
+            outputPath: androidConfig.outputPath || `${process.env.PWD}/build-output`,
+            overwriteExisting: true
+        }
+    };
+
+    // Add keystore configuration if available
+    if (androidConfig.keystoreConfig) {
+        aabConfig.android.keystoreConfig = androidConfig.keystoreConfig;
+    } else if (androidConfig.keystore) {
+        // Map old keystore format to new format
+        aabConfig.android.keystoreConfig = {
+            keyAlias: androidConfig.keystore.alias || "release",
+            storePassword: androidConfig.keystore.storePassword,
+            keyPassword: androidConfig.keystore.keyPassword,
+            validityYears: 25,
+            organizationInfo: {
+                companyName: androidConfig.keystore.organizationName || "YourCompany",
+                city: androidConfig.keystore.city || "YourCity",
+                state: androidConfig.keystore.state || "YourState",
+                countryCode: androidConfig.keystore.countryCode || "US"
+            }
+        };
+    }
+
+    // Write temporary config file for AAB builder
+    const tempConfigPath = `${process.env.PWD}/temp-aab-config.json`;
+    _fs.default.writeFileSync(tempConfigPath, JSON.stringify(aabConfig, null, 2));
+    
+    return tempConfigPath;
+}
+
+async function buildSignedAAB(androidConfig) {
+    progress.log('Building signed AAB for release...', 'info');
+    
+    try {
+        // Create AAB configuration
+        const tempConfigPath = await createAABConfig(androidConfig);
+        
+        // Call the AAB builder
+        await buildAndroidAAB(tempConfigPath);
+        
+        // Clean up temporary config
+        if (_fs.default.existsSync(tempConfigPath)) {
+            _fs.default.unlinkSync(tempConfigPath);
+        }
+        
+        progress.log('Signed AAB build completed successfully!', 'success');
+    } catch (error) {
+        throw new Error('Error building signed AAB: ' + error.message);
     }
 }
 
@@ -209,7 +268,7 @@ async function buildAndroidApp() {
         progress.start('config');
         const { WEBVIEW_CONFIG } = await initializeConfig();
         const androidConfig = WEBVIEW_CONFIG.android;
-        // Get buildOptimisation flag from WebView config
+        const buildType = androidConfig.buildType || 'debug';
         const buildOptimisation = !!androidConfig.buildOptimisation || false;
         progress.complete('config');
 
@@ -218,56 +277,113 @@ async function buildAndroidApp() {
         const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = await validateAndroidTools(androidConfig);
         progress.complete('tools');
 
-        // Check and start emulator if needed
-        progress.start('emulator');
-        const emulatorRunning = await checkEmulator(ADB_PATH);
-        if (!emulatorRunning) {
-            progress.log('No emulator running, attempting to start one...', 'info');
-            await startEmulator(EMULATOR_PATH, androidConfig);
-            // Wait for emulator to fully boot
-            await new Promise(resolve => setTimeout(resolve, 5000));
+        // Handle emulator for debug builds only
+        if (buildType !== 'release') {
+            progress.start('emulator');
+            const emulatorRunning = await checkEmulator(ADB_PATH);
+            if (!emulatorRunning) {
+                progress.log('No emulator running, attempting to start one...', 'info');
+                await startEmulator(EMULATOR_PATH, androidConfig);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            } else {
+                progress.log('Emulator already running', 'success');
+            }
+            progress.complete('emulator');
         } else {
-            progress.log('Emulator already running', 'success');
+            progress.log('Skipping emulator setup for release build', 'info');
         }
-        progress.complete('emulator');
-        
-        // Copy build assets to Android project
+
+        // Copy build assets
         progress.start('copyAssets');
         await copyBuildAssets(androidConfig, buildOptimisation);
         progress.log(`Build optimization: ${buildOptimisation ? 'Enabled' : 'Disabled'}`, 'info');
         progress.complete('copyAssets');
-        
-        // Install the app
-        progress.start('build');
-        await installApp(ADB_PATH, androidConfig, buildOptimisation);
-        progress.complete('build');
+
+        // Build based on type
+        if (buildType === 'release') {
+            // Build signed AAB for release
+            progress.start('aab');
+            await buildSignedAAB(androidConfig);
+            progress.complete('aab');
+        } else {
+            // Install debug app for development
+            progress.start('build');
+            await installApp(ADB_PATH, androidConfig, buildOptimisation);
+            progress.complete('build');
+        }
 
         // Print build summary
-        progress.printTreeContent('Build Summary', [
+        const summaryItems = [
             'Build completed successfully:',
-            { text: `Emulator: ${androidConfig.emulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
-            { text: `Build Type: ${androidConfig.buildType || 'Debug'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Build Type: ${buildType}`, indent: 1, prefix: '├─ ', color: 'gray' },
             { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
-            { text: `Build Optimization: ${buildOptimisation ? 'Enabled' : 'Disabled'}`, indent: 1, prefix: '└─ ', color: 'gray' }
-        ]);
+            { text: `Build Optimization: ${buildOptimisation ? 'Enabled' : 'Disabled'}`, indent: 1, prefix: '├─ ', color: 'gray' }
+        ];
 
+        if (buildType === 'release') {
+            summaryItems.push({ 
+                text: `Output: Signed AAB generated in build-output/`, 
+                indent: 1, 
+                prefix: '└─ ', 
+                color: 'green' 
+            });
+        } else {
+            summaryItems.push({ 
+                text: `Emulator: ${androidConfig.emulatorName}`, 
+                indent: 1, 
+                prefix: '└─ ', 
+                color: 'gray' 
+            });
+        }
+
+        progress.printTreeContent('Build Summary', summaryItems);
         process.exit(0);
+
     } catch (error) {
         if (progress.currentStep) {
             progress.fail(progress.currentStep.id, error.message);
             
-            if (progress.currentStep.id === 'build' || progress.currentStep.id === 'copyAssets') {
-                progress.printTreeContent('Troubleshooting Guide', [
-                    'Build failed. Please try the following steps:',
-                    { text: 'Check if Android SDK is properly configured', indent: 1, prefix: '├─ ', color: 'yellow' },
-                    { text: 'Verify that the emulator exists and is working', indent: 1, prefix: '├─ ', color: 'yellow' },
-                    { text: 'Verify build assets exist in the source directory', indent: 1, prefix: '├─ ', color: 'yellow' },
-                    { text: 'Run "npm run setupEmulator:android" to reconfigure Android settings', indent: 1, prefix: '└─ ', color: 'yellow' },
-                    '\nVerify Configuration:',
-                    { text: `Selected Emulator: ${WEBVIEW_CONFIG?.android?.emulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
-                    { text: `Android SDK Path: ${WEBVIEW_CONFIG?.android?.sdkPath}`, indent: 1, prefix: '└─ ', color: 'gray' }
-                ]);
+            const troubleshootingItems = [
+                'Build failed. Please try the following steps:',
+                { text: 'Check if Android SDK is properly configured', indent: 1, prefix: '├─ ', color: 'yellow' },
+                { text: 'Verify build assets exist in the source directory', indent: 1, prefix: '├─ ', color: 'yellow' }
+            ];
+
+            if (androidConfig?.buildType === 'release') {
+                troubleshootingItems.push(
+                    { text: 'Verify keystore configuration for release builds', indent: 1, prefix: '├─ ', color: 'yellow' },
+                    { text: 'Check that keystore passwords are properly set', indent: 1, prefix: '├─ ', color: 'yellow' }
+                );
+            } else {
+                troubleshootingItems.push(
+                    { text: 'Verify that the emulator exists and is working', indent: 1, prefix: '├─ ', color: 'yellow' }
+                );
             }
+
+            troubleshootingItems.push(
+                { text: 'Run "npm run setupEmulator:android" to reconfigure Android settings', indent: 1, prefix: '└─ ', color: 'yellow' },
+                '\nVerify Configuration:',
+                { text: `Build Type: ${androidConfig?.buildType || 'debug'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                { text: `Android SDK Path: ${androidConfig?.sdkPath}`, indent: 1, prefix: '├─ ', color: 'gray' }
+            );
+
+            if (androidConfig?.buildType !== 'release') {
+                troubleshootingItems.push({
+                    text: `Selected Emulator: ${androidConfig?.emulatorName}`,
+                    indent: 1,
+                    prefix: '└─ ',
+                    color: 'gray'
+                });
+            } else {
+                troubleshootingItems.push({
+                    text: `Output Path: ${androidConfig?.outputPath || 'build-output/'}`,
+                    indent: 1,
+                    prefix: '└─ ',
+                    color: 'gray'
+                });
+            }
+
+            progress.printTreeContent('Troubleshooting Guide', troubleshootingItems);
         }
         process.exit(1);
     }
