@@ -12,12 +12,12 @@ import fs from "fs"
 
 const packageJsonConfig = path.resolve(process.env.src_path, "package.json")
 const packageJsonContent = fs.readFileSync(packageJsonConfig, "utf8")
-const catalystPackageJsonConfig = path.resolve(__dirname,"../../package.json")
+const catalystPackageJsonConfig = path.resolve(__dirname, "../../package.json")
 const catalystPackageJsonContent = fs.readFileSync(catalystPackageJsonConfig, "utf8")
 
 const _moduleAliases = JSON.parse(packageJsonContent)._moduleAliases
 const catalyst_moduleAliases = JSON.parse(catalystPackageJsonContent)._moduleAliases
-const allAliases={..._moduleAliases,...catalyst_moduleAliases} 
+const allAliases = { ..._moduleAliases, ...catalyst_moduleAliases }
 
 import { imageUrl, fontUrl } from "./scssParams.js"
 
@@ -49,15 +49,17 @@ const getClientEnvVariables = () => {
             envVarDefinitions[`process.env.${varName}`] = JSON.stringify(process.env[varName])
         }
     })
-    envVarDefinitions[`process.env.src_path`]=JSON.stringify(process.env["src_path"])
+    envVarDefinitions[`process.env.src_path`] = JSON.stringify(process.env["src_path"])
 
     return envVarDefinitions
 }
 
+const isProduction = process.env.NODE_ENV === "production"
+const isBuild = process.env.VITE_BUILD_MODE === "true"
+
 export default defineConfig({
     ssr: {
-        noExternal: ["@tata1mg/slowboi-react",
-                "@tata1mg/prefetch-core","@tata1mg/prefetch-core/react"],
+        noExternal: ["@tata1mg/slowboi-react", "@tata1mg/prefetch-core", "@tata1mg/prefetch-core/react"],
         optimizeDeps: {
             include: [
                 "react",
@@ -72,13 +74,13 @@ export default defineConfig({
                 "@tata1mg/prefetch-core",
                 "@tata1mg/prefetch-core/react",
                 "react-dom",
-                "react-dom/server.node"
+                "react-dom/server.node",
             ],
             exclude: ["catalyst-core/router/ClientRouter"],
             force: true,
             esbuildOptions: {
-                format: 'esm',
-                target: 'node14'
+                format: "esm",
+                target: "node2022",
             },
         },
     },
@@ -89,7 +91,47 @@ export default defineConfig({
     define: {
         ...getClientEnvVariables(),
     },
-   
+
+    // Production build configuration
+    build: {
+        outDir: path.join(process.env.src_path, "build"),
+        emptyOutDir: true,
+        sourcemap: !isProduction,
+        minify: isProduction ? "esbuild" : false,
+        rollupOptions: {
+            input: {
+                // Client entry point
+                main: path.join(process.env.src_path, "client/index.jsx"),
+                // Server entry point for SSR
+                server: path.join(__dirname, "renderer/index.js"),
+            },
+            output: {
+                format: "es",
+                entryFileNames: (chunkInfo) => {
+                    return chunkInfo.name === "server" ? "server/[name].js" : "public/assets/[name]-[hash].js"
+                },
+                chunkFileNames: "public/assets/[name]-[hash].js",
+                assetFileNames: (assetInfo) => {
+                    const extType = assetInfo.name.split(".").pop()
+                    if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
+                        return "public/assets/images/[name]-[hash][extname]"
+                    }
+                    if (/woff2?|eot|ttf|otf/i.test(extType)) {
+                        return "public/assets/fonts/[name]-[hash][extname]"
+                    }
+                    if (/css/i.test(extType)) {
+                        return "public/assets/css/[name]-[hash][extname]"
+                    }
+                    return "public/assets/[name]-[hash][extname]"
+                },
+            },
+            external: isBuild ? [] : ["react", "react-dom"],
+        },
+        ssr: isBuild ? path.join(__dirname, "renderer/index.js") : false,
+        manifest: true,
+        ssrManifest: isBuild,
+    },
+
     optimizeDeps: {
         include: [
             "invariant",
@@ -102,19 +144,19 @@ export default defineConfig({
         exclude: ["catalyst-core/router/ClientRouter"],
         force: true,
         esbuildOptions: {
-            format: 'esm',
-            target: 'node14'
+            format: "esm",
+            target: "node2022",
         },
     },
 
     css: {
         modules: {
             localsConvention: "camelCase",
-            generateScopedName: "[name]__[local]___[hash:base64:5]",
+            generateScopedName: isProduction ? "[hash:base64:8]" : "[name]__[local]___[hash:base64:5]",
         },
         preprocessorOptions: {
             scss: {
-                additionalData: `@import "@css/resources/index.scss"; $font_url: ${fontUrl()}  ;$url_for: ${imageUrl()}; `,
+                // additionalData: `@import "@css/resources/index.scss"; $font_url: ${fontUrl()}  ;$url_for: ${imageUrl()}; `,
             },
         },
     },
@@ -132,4 +174,18 @@ export default defineConfig({
         "**/*.eot",
         "**/*.woff2",
     ],
+
+    // Server configuration
+    server: {
+        hmr: !isProduction,
+        fs: {
+            allow: [process.env.src_path, __dirname],
+        },
+    },
+
+    // Preview configuration for production preview
+    preview: {
+        port: process.env.NODE_SERVER_PORT ? parseInt(process.env.NODE_SERVER_PORT) : 3005,
+        host: process.env.NODE_SERVER_HOSTNAME || "localhost",
+    },
 })

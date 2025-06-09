@@ -1,62 +1,88 @@
-const path = require("path")
-const { spawnSync } = require("child_process")
-const { green, cyan, yellow } = require("picocolors")
-const { name } = require(`${process.env.PWD}/package.json`)
-const { BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
-const { arrayToObject, printBundleInformation } = require("./scriptUtils.js")
+import path from "path"
+import { spawnSync } from "child_process"
+import { arrayToObject } from "./scriptUtils.js"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { readFileSync } from "fs"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 /**
- * @description - creates a production build of the application.
+ * @description - builds the application for production
  */
 function build() {
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    const command = `
-    node ./dist/scripts/checkVersion
-    rm -rf ${process.env.PWD}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js
-    APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress
-    APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js
-    APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet 
-    APPLICATION=${name || "catalyst_app"} npx babel ${process.env.PWD}/server --out-dir ${process.env.PWD}/${BUILD_OUTPUT_PATH} --quiet
-    `
+    // Read package.json
+    const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
+    const { name } = packageJson
 
-    console.log("Creating an optimized production build...")
+    console.log("🏗️  Building application for production...")
 
-    const result = spawnSync(command, [], {
+    const baseEnv = {
+        ...process.env,
+        src_path: process.env.PWD,
+        NODE_ENV: "production",
+        VITE_BUILD_MODE: "true",
+        APPLICATION: name || "catalyst_app",
+        ...argumentsObject,
+        filterKeys: JSON.stringify([
+            "src_path",
+            "NODE_ENV",
+            "VITE_BUILD_MODE",
+            "APPLICATION",
+            ...Object.keys(argumentsObject),
+        ]),
+    }
+
+    // Build client bundle
+    console.log("📦 Building client bundle...")
+    const clientBuildCommand = `vite build --config ./dist/server/vite.config.prod.js`
+
+    const clientBuildResult = spawnSync(clientBuildCommand, [], {
         cwd: dirname,
         stdio: "inherit",
         shell: true,
         env: {
-            ...process.env,
-            src_path: process.env.PWD,
-            BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
-            NODE_ENV: "production",
-            IS_DEV_COMMAND: false,
-            ...argumentsObject,
-            filterKeys: JSON.stringify([
-                "src_path",
-                "NODE_ENV",
-                "IS_DEV_COMMAND",
-                "APPLICATION",
-                ...Object.keys(argumentsObject),
-            ]),
+            ...baseEnv,
+            BUILD_TARGET: "client",
         },
     })
 
-    if (result.error) {
-        console.error("Error occurred:", result.error)
-    } else {
-        console.log(green("Compiled successfully."))
-        console.log("\nFile sizes after gzip:\n")
-        printBundleInformation()
-        console.log(`\nThe ${cyan(BUILD_OUTPUT_PATH)} folder is ready to be deployed.`)
-        console.log("You may serve it with a serve command:")
-        console.log(cyan("\n npm run serve"))
-        console.log("\nFind out more about deployment here:")
-        console.log(yellow("\n https://catalyst.1mg.com/public_docs/content/deployment\n"))
+    if (clientBuildResult.status !== 0) {
+        console.error("❌ Client build failed!")
+        process.exit(1)
     }
+
+    console.log("✅ Client build completed!")
+
+    // Build server bundle
+    console.log("🔧 Building server bundle...")
+    const serverBuildCommand = `vite build --config ./dist/server/vite.config.prod.js --ssr`
+
+    const serverBuildResult = spawnSync(serverBuildCommand, [], {
+        cwd: dirname,
+        stdio: "inherit",
+        shell: true,
+        env: {
+            ...baseEnv,
+            BUILD_TARGET: "server",
+        },
+    })
+
+    if (serverBuildResult.status !== 0) {
+        console.log(serverBuildResult)
+        console.error("❌ Server build failed!")
+        process.exit(1)
+    }
+
+    console.log("✅ Server build completed!")
+    console.log("🎉 Build completed successfully!")
+    console.log("📁 Built files are located in the 'build' directory")
+    console.log("🚀 Run 'npm run start:prod' to start the production server")
 }
 
 build()

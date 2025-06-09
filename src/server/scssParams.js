@@ -17,7 +17,7 @@ export const imageUrl = () => {
         publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/${PUBLIC_STATIC_ASSET_PATH}`
     }
 
-    const imagePath = JSON.stringify(`${publicPath}images/`)
+    const imagePath = `${publicPath}images/`
 
     return imagePath
 }
@@ -41,7 +41,7 @@ export const fontUrl = () => {
         publicPath = `http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}/${PUBLIC_STATIC_ASSET_PATH}`
     }
 
-    const fontPath = JSON.stringify(`${publicPath}fonts/`)
+    const fontPath = `${publicPath}fonts/`
 
     return fontPath
 }

@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser"
 import { createServer as createViteServer } from "vite"
 import util from "node:util"
 import pc from "picocolors"
+import fs from "fs"
 const { cyan, yellow, green } = pc
 
 import { validateMiddleware } from "./utils/validator.js"
@@ -16,6 +17,8 @@ const { addMiddlewares } = await import(path.join(process.env.src_path, "server/
 import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+const isProduction = process.env.NODE_ENV === "production"
 
 async function createServer() {
     const port = process.env.NODE_SERVER_PORT ?? 3005
@@ -37,47 +40,91 @@ async function createServer() {
     // The middleware will attempt to compress response bodies for all request that traverse through the middleware
     app.use(compression())
 
-    // This endpoint will serve the built assets from the node server. The requests will be made to PUBLIC_STATIC_ASSET_PATH which has been defined in the application config.
-    // expressStaticGzip will compress the assets.
-    // if (process.env.NODE_ENV === "production") {
-    //     app.use(
-    //         process.env.PUBLIC_STATIC_ASSET_PATH,
-    //         expressStaticGzip(path.join(process.env.src_path, `build/public`), {
-    //             enableBrotli: true,
-    //             orderPreference: ["br", "gzip", "deflate"],
-    //         })
-    //     )
-    // } else {
-    //     app.use(
-    //         process.env.PUBLIC_STATIC_ASSET_PATH,
-    //         express.static(path.join(process.env.src_path, `build/public`))
-    //     )
-    // }
+    let vite
+    let manifest
+    let ssrManifest
 
-    const vite = await createViteServer({
-        configFile: "./dist/server/vite.config.js",
-        server: {
-            middlewareMode: true,
-        },
-        appType: "custom",
-        root: process.env.src_path,
-    })
-    app.use(vite.middlewares) // May need to match the base config
+    if (isProduction) {
+        // In production, serve built assets
+        const buildPath = path.join(process.env.src_path, "build")
+        const publicPath = path.join(buildPath, "public")
+
+        // Serve static assets
+        app.use(
+            process.env.PUBLIC_STATIC_ASSET_PATH || "/assets",
+            express.static(publicPath, {
+                maxAge: "1y",
+                etag: true,
+                lastModified: true,
+            })
+        )
+
+        // Load build manifests
+        try {
+            const manifestPath = path.join(buildPath, ".vite", "manifest.json")
+            const ssrManifestPath = path.join(buildPath, ".vite", "ssr-manifest.json")
+
+            if (fs.existsSync(manifestPath)) {
+                manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"))
+            }
+
+            if (fs.existsSync(ssrManifestPath)) {
+                ssrManifest = JSON.parse(fs.readFileSync(ssrManifestPath, "utf-8"))
+            }
+        } catch (error) {
+            console.warn("Could not load build manifests:", error.message)
+        }
+    } else {
+        // In development, use Vite middleware
+        vite = await createViteServer({
+            configFile: "./dist/server/vite.config.js",
+            server: {
+                middlewareMode: true,
+            },
+            appType: "custom",
+            root: process.env.src_path,
+        })
+        app.use(vite.middlewares)
+    }
 
     app.use(async (req, res) => {
-        // Load your server entry point through Vite
-        const rendererPath = path.join(__dirname, "./renderer/index.js")
         try {
-            const render = await vite.ssrLoadModule(rendererPath)
+            let render
+
+            if (isProduction) {
+                // In production, load the built server module
+                const serverPath = path.join(process.env.src_path, "build", "server", "server.js")
+                if (fs.existsSync(serverPath)) {
+                    render = await import(serverPath)
+                } else {
+                    // Fallback to renderer if server.js doesn't exist
+                    const rendererPath = path.join(process.env.src_path, "build", "server", "index.js")
+                    render = await import(rendererPath)
+                }
+            } else {
+                // In development, load through Vite SSR
+                const rendererPath = path.join(__dirname, "./renderer/index.js")
+                render = await vite.ssrLoadModule(rendererPath)
+            }
+
             // Render your app
             if (render && render.default) {
+                // Pass manifests to renderer in production
+                if (isProduction) {
+                    req.manifest = manifest
+                    req.ssrManifest = ssrManifest
+                }
                 await render.default(req, res)
             } else {
+                console.error("Renderer not found or invalid")
                 res.status(500).send("Error loading renderer")
             }
         } catch (err) {
-            console.log(err)
-            // vite.ssrFixStacktrace(err)
+            console.error("SSR Error:", err)
+            if (vite) {
+                vite.ssrFixStacktrace(err)
+            }
+            res.status(500).send("Internal Server Error")
         }
     })
 
@@ -96,6 +143,10 @@ async function createServer() {
         if (process.env.NODE_ENV === "development") {
             console.log("\nNote that the development build is not optimized.")
             console.log("To create a production build, use " + cyan("npm run build"))
+        } else {
+            console.log(
+                green(`\nProduction server running in ${isProduction ? "production" : "development"} mode`)
+            )
         }
 
         console.log("\nFind out more about deployment here:")

@@ -1,8 +1,5 @@
 import { useRoutes } from "../index.jsx"
-import path from "path"
-
-const routePath = path.join(process.env.src_path, "/src/js/routes/utils.jsx")
-const { preparedRoutes } = await import(routePath)
+import { preparedRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
 
 const ServerRouter = (reduxData) => {
     const { store, intialData } = reduxData

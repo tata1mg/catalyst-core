@@ -9,17 +9,16 @@ import { Head } from "./document/Head.jsx"
 
 import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "../../router/ServerRouter.js"
-// import { ChunkExtractor, ChunkExtractorManager } from "@loadable/server"
 import { renderToPipeableStream, renderToString } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateCustomDocument, validateGetRoutes } from "../utils/validator.js"
-// Dynamic imports using ESM
 
-const { default: CustomDocument } = await import(path.join(process.env.src_path, "server/document.jsx"))
+import CustomDocument from "@catalyst/template/server/document.jsx"
 
-const App = (await import(path.join(process.env.src_path, "src/js/containers/App/index.jsx"))).default
-const { getRoutes } = await import(path.join(process.env.src_path, "src/js/routes/utils.jsx"))
+
+import App from "@catalyst/template/src/js/containers/App/index.jsx"
+import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
 
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
