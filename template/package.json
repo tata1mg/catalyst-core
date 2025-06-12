@@ -1,0 +1,33 @@
+{
+    "name": "template",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "catalyst start",
+        "build": "catalyst build",
+        "serve": "catalyst serve",
+        "lint": "eslint .",
+        "devBuild": "catalyst devBuild",
+        "devServe": "catalyst devServe",
+        "test": "playwright test"
+    },
+    "_moduleAliases": {
+        "@api": "api.js",
+        "@containers": "src/js/containers",
+        "@server": "server",
+        "@config": "config",
+        "@css": "src/static/css",
+        "@routes": "src/js/routes/"
+    },
+    "dependencies": {
+        "@loadable/component": "^5.16.3",
+        "@tata1mg/router": "^0.0.1-beta.7",
+        "catalyst-core": "0.0.3-canary.5"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.52.0",
+        "@types/node": "^22.14.1",
+        "eslint": "^8.26.0",
+        "eslint-plugin-react": "^7.34.1",
+        "eslint-plugin-react-hooks": "^4.6.0"
+    }
+}

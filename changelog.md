@@ -1,29 +1,20 @@
 # Changelog
 
-## Build Optimizations
+
+## [0.0.3-canary.5] - 12-06-2025
 
 ### Features
-- Integrated hardware acceleration and thread management for Android
-- Added build optimizations with static build option
-- Implemented custom caching mechanism for both Android and iOS platforms
-- Added buffer size optimization for universal app
+- Production project creation functionality implemented
+- Android App Bundle (.aab) file generation capability
+- Project name replacement functionality
 
 ### Fixed
-- Fixed null check issue in core functionality
-- Resolved catalyst-core issues 
-- Fixed buffer size problems
-- Addressed cache patterns and overwrite issues
-- Fixed compatibility issues with older Android OS versions
-- Resolved disk memory persistence problems
-- Fixed infinite loading issues
-- Addressed issues with iOS WebView caching
+- Production deployment issues resolved
+- Merge conflicts fixed
+- Branch integration improvements
 
-### Other Changes
-- Updated build and project configuration files
-- Improved developer experience for Android and iOS setup
-- Added debugging flags and tools
-- Updated documentation and configuration generators
-- Cleaned up code and removed redundant elements
-
+### Changes
+- Enhanced production deployment workflow for Android
+- Improved build process for production releases
 ## Version
-- Target version: 0.0.3-canary.4
+- Target version: 0.0.3-canary.5

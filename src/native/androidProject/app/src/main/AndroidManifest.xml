@@ -24,7 +24,7 @@
         android:usesCleartextTraffic="${allowCleartextTraffic}"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name="io.yourname.androidproject.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -34,7 +34,7 @@
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.example.androidProject.fileprovider"
+            android:authorities="io.yourname.androidproject.release.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

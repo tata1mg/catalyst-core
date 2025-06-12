@@ -9,7 +9,9 @@ export function cachePreloadJSLinks(key, data) {
     if (Array.isArray(data)) {
         try {
             preloadJSLinks = data.filter((asset) => asset?.props?.as === "script")
-        } catch (error) {}
+        } catch (error) {
+            logger.error("Error in filtering preloaded JS:" + error)
+        }
     }
 
     process.preloadJSLinkCache[key] = preloadJSLinks
@@ -52,7 +54,9 @@ export function cacheCSS(key, data) {
                     }
                 })
             }
-        } catch (error) {}
+        } catch (error) {
+            logger.error("Error in caching CSS:" + error)
+        }
     }
     // if css cache exists for a route and there are some uncached css, add that css to the cache
     // this will run on subsequent hits and will add css of uncached widgets to the cache
@@ -102,7 +106,14 @@ export default function (res, route) {
             res.locals.preloadJSLinks = cachedPreloadJSLinks
             return
         }
-    } catch (error) {}
+
+        logger.info({
+            message: "Cache Missed",
+            uri: requestPath,
+        })
+    } catch (error) {
+        logger.error("Error in extracting assets:" + error)
+    }
 }
 
 export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
