@@ -263,11 +263,14 @@ async function buildSignedAAB(androidConfig) {
 }
 
 async function buildAndroidApp() {
+    // Initialize androidConfig outside try block to ensure it's available in catch
+    let androidConfig = null;
+    
     try {
         // Initialize configuration
         progress.start('config');
         const { WEBVIEW_CONFIG } = await initializeConfig();
-        const androidConfig = WEBVIEW_CONFIG.android;
+        androidConfig = WEBVIEW_CONFIG.android;
         const buildType = androidConfig.buildType || 'debug';
         const buildOptimisation = !!androidConfig.buildOptimisation || false;
         progress.complete('config');
@@ -349,7 +352,9 @@ async function buildAndroidApp() {
                 { text: 'Verify build assets exist in the source directory', indent: 1, prefix: '├─ ', color: 'yellow' }
             ];
 
-            if (androidConfig?.buildType === 'release') {
+            // Use androidConfig safely with null checks
+            const buildType = androidConfig?.buildType || 'debug';
+            if (buildType === 'release') {
                 troubleshootingItems.push(
                     { text: 'Verify keystore configuration for release builds', indent: 1, prefix: '├─ ', color: 'yellow' },
                     { text: 'Check that keystore passwords are properly set', indent: 1, prefix: '├─ ', color: 'yellow' }
@@ -362,25 +367,36 @@ async function buildAndroidApp() {
 
             troubleshootingItems.push(
                 { text: 'Run "npm run setupEmulator:android" to reconfigure Android settings', indent: 1, prefix: '└─ ', color: 'yellow' },
-                '\nVerify Configuration:',
-                { text: `Build Type: ${androidConfig?.buildType || 'debug'}`, indent: 1, prefix: '├─ ', color: 'gray' },
-                { text: `Android SDK Path: ${androidConfig?.sdkPath}`, indent: 1, prefix: '├─ ', color: 'gray' }
+                '\nVerify Configuration:'
             );
 
-            if (androidConfig?.buildType !== 'release') {
-                troubleshootingItems.push({
-                    text: `Selected Emulator: ${androidConfig?.emulatorName}`,
-                    indent: 1,
-                    prefix: '└─ ',
-                    color: 'gray'
-                });
+            // Add configuration details only if androidConfig is available
+            if (androidConfig) {
+                troubleshootingItems.push(
+                    { text: `Build Type: ${buildType}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                    { text: `Android SDK Path: ${androidConfig.sdkPath || 'Not configured'}`, indent: 1, prefix: '├─ ', color: 'gray' }
+                );
+
+                if (buildType !== 'release') {
+                    troubleshootingItems.push({
+                        text: `Selected Emulator: ${androidConfig.emulatorName || 'Not configured'}`,
+                        indent: 1,
+                        prefix: '└─ ',
+                        color: 'gray'
+                    });
+                } else {
+                    troubleshootingItems.push({
+                        text: `Output Path: ${androidConfig.outputPath || 'build-output/'}`,
+                        indent: 1,
+                        prefix: '└─ ',
+                        color: 'gray'
+                    });
+                }
             } else {
-                troubleshootingItems.push({
-                    text: `Output Path: ${androidConfig?.outputPath || 'build-output/'}`,
-                    indent: 1,
-                    prefix: '└─ ',
-                    color: 'gray'
-                });
+                troubleshootingItems.push(
+                    { text: 'Configuration could not be loaded', indent: 1, prefix: '├─ ', color: 'red' },
+                    { text: 'Check if config/config.json exists and has valid Android configuration', indent: 1, prefix: '└─ ', color: 'red' }
+                );
             }
 
             progress.printTreeContent('Troubleshooting Guide', troubleshootingItems);
