@@ -3,6 +3,7 @@ import { useCurrentRouteData, useParams, Link } from "@tata1mg/router"
 
 const BreedDetails = () => {
     const params = useParams()
+    const { API_URL, NODE_SERVER_HOSTNAME } = process.env
     const { data, error, isFetching } = useCurrentRouteData()
 
     if (isFetching) return <div className="container">Loading breed details...</div>
@@ -31,6 +32,8 @@ const BreedDetails = () => {
                     </div>
                 ))}
             </div>
+            <div data-testid={"client-var"}>{API_URL}</div>
+            <div data-testid={"server-var"}>{NODE_SERVER_HOSTNAME}</div>
         </div>
     )
 }

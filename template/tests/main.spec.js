@@ -37,9 +37,15 @@ test("Server middleware", async ({ page }) => {
     expect(json.message).toBe("With regards, from server")
 })
 
-// test("Environment variables on client", async ({ page }) => {
-//   await page.goto("http://localhost:3005");
-// });
+test("Environment variables on client", async ({ page }) => {
+    await page.goto("http://localhost:3005/breed/affenpinscher")
+    const clientVar = page.getByTestId("client-var")
+    const serverVar = page.getByTestId("server-var")
+    const clientText = await clientVar.textContent()
+    const serverText = await serverVar.textContent()
+    expect(clientText).toBe("random_api_url")
+    expect(serverText).toBe("")
+})
 
 // Currently breaking - needs to be fixed in catalyst
 // test("setMetaData on CSR", async ({ page }) => {

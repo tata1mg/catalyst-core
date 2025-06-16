@@ -6,7 +6,7 @@
     "BUILD_OUTPUT_PATH": "build",
     "PUBLIC_STATIC_ASSET_PATH": "/assets/",
     "PUBLIC_STATIC_ASSET_URL": "http://localhost:3005",
-    "API_URL": "",
+    "API_URL": "random_api_url",
     "ANALYZE_BUNDLE": false,
     "CUSTOM_VAR": "custom",
     "CLIENT_ENV_VARIABLES": ["API_URL", "CUSTOM_VAR"]
