@@ -345,22 +345,14 @@ async function initializeConfig(configPath) {
 
     const { android } = config;
     
-    // Validate required fields
-    if (!android.oldProjectName) {
-        throw new Error('oldProjectName is required in android config');
-    }
-    
+    // Validate required fields (only newProjectName is truly required)
     if (!android.newProjectName) {
         throw new Error('newProjectName is required in android config');
     }
-    
-    if (!android.projectPath) {
-        throw new Error('projectPath is required in android config');
-    }
 
+    progress.log(`Project path: ${android.projectPath}`, 'info');
     progress.log(`Old project name: ${android.oldProjectName}`, 'info');
     progress.log(`New project name: ${android.newProjectName}`, 'info');
-    progress.log(`Project path: ${android.projectPath}`, 'info');
     
     if (android.outputPath) {
         progress.log(`Custom output path: ${android.outputPath}`, 'info');
@@ -579,7 +571,6 @@ async function validateProjectStructure(androidConfig) {
         diagnostics
     };
 }
-
 
 async function createBackup(projectPaths, androidConfig) {
     if (!androidConfig.createBackup) {
@@ -826,17 +817,41 @@ async function updateFileContents(projectPaths, androidConfig) {
     }
 }
 
-async function buildAndroidAAB(configPath) {
+async function buildAndroidAAB(configPathOrConfig) {
     let androidConfig;
     let projectPaths;
     let backupPath;
     let tempDeploymentPath;
     
     try {
-        // Initialize configuration
+        // Initialize configuration - handle both config path and direct config object
         progress.start('config');
-        const { android } = await initializeConfig(configPath);
-        androidConfig = android;
+        if (typeof configPathOrConfig === 'string') {
+            const { android } = await initializeConfig(configPathOrConfig);
+            androidConfig = android;
+        } else {
+            // Direct config object passed (from buildAppAndroid.js)
+            // All defaults should already be applied in buildAppAndroid.js
+            androidConfig = configPathOrConfig;
+            
+            // Validate required fields
+            if (!androidConfig.newProjectName) {
+                throw new Error('newProjectName is required in android config');
+            }
+            if (!androidConfig.projectPath) {
+                throw new Error('projectPath is required in android config');
+            }
+            if (!androidConfig.oldProjectName) {
+                throw new Error('oldProjectName is required in android config');
+            }
+            
+            progress.log(`Using configuration from buildAppAndroid.js`, 'info');
+            progress.log(`Project path: ${androidConfig.projectPath}`, 'info');
+            progress.log(`Old project name: ${androidConfig.oldProjectName}`, 'info');
+            progress.log(`New project name: ${androidConfig.newProjectName}`, 'info');
+            progress.log(`Deployment path: ${androidConfig.deploymentPath || 'Not specified'}`, 'info');
+            progress.log(`Overwrite existing: ${androidConfig.overwriteExisting}`, 'info');
+        }
         progress.complete('config');
 
         // Validate project structure
@@ -892,6 +907,8 @@ async function buildAndroidAAB(configPath) {
             'Android AAB build completed successfully:',
             { text: `Original project: ${projectPaths.oldProjectPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
             { text: `Project name: ${androidConfig.oldProjectName} → ${androidConfig.newProjectName}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Deployment path: ${androidConfig.deploymentPath || 'Not specified'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Overwrite existing: ${androidConfig.overwriteExisting}`, indent: 1, prefix: '├─ ', color: 'gray' },
             { text: `Backup created: ${backupPath ? 'Yes' : 'No'}`, indent: 1, prefix: '├─ ', color: 'gray' },
             { text: `Keystore: ${keystorePath ? 'Created/Verified' : 'Skipped'}`, indent: 1, prefix: '├─ ', color: 'gray' },
             { text: `Signed AAB: ${aabResult ? 'Created' : 'Skipped'}`, indent: 1, prefix: '└─ ', color: 'gray' },
@@ -925,10 +942,12 @@ async function buildAndroidAAB(configPath) {
                 { text: 'Ensure sufficient disk space for project copy', indent: 1, prefix: '├─ ', color: 'yellow' },
                 { text: 'Update keystore passwords (do not use "your_store_password")', indent: 1, prefix: '└─ ', color: 'yellow' },
                 '\nConfiguration Details:',
-                { text: `Config path: ${configPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                { text: `Config: ${typeof configPathOrConfig === 'string' ? configPathOrConfig : 'Direct object from buildAppAndroid.js'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                { text: `Project path: ${androidConfig?.projectPath || 'Not loaded'}`, indent: 1, prefix: '├─ ', color: 'gray' },
+                { text: `Deployment path: ${androidConfig?.deploymentPath || 'Not loaded'}`, indent: 1, prefix: '├─ ', color: 'gray' },
                 { text: `Old project name: ${androidConfig?.oldProjectName || 'Not loaded'}`, indent: 1, prefix: '├─ ', color: 'gray' },
                 { text: `New project name: ${androidConfig?.newProjectName || 'Not loaded'}`, indent: 1, prefix: '├─ ', color: 'gray' },
-                { text: `Project path: ${androidConfig?.projectPath || 'Not loaded'}`, indent: 1, prefix: '└─ ', color: 'gray' },
+                { text: `Overwrite existing: ${androidConfig?.overwriteExisting !== undefined ? androidConfig.overwriteExisting : 'Not loaded'}`, indent: 1, prefix: '└─ ', color: 'gray' },
                 '\nFor keystore issues, ensure your config has:',
                 { text: 'Real passwords (not placeholder values)', indent: 1, prefix: '├─ ', color: 'cyan' },
                 { text: 'Valid organization information', indent: 1, prefix: '├─ ', color: 'cyan' },

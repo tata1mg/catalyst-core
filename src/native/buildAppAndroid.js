@@ -17,6 +17,12 @@ const configPath = `${process.env.PWD}/config/config.json`;
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
 const ANDROID_PACKAGE = "com.example.androidProject";
 
+// Default values for AAB building
+const DEFAULT_PROJECT_PATH = `${pwd}/androidProject`;
+const DEFAULT_DEPLOYMENT_PATH = "./deployment";
+const DEFAULT_OLD_PROJECT_NAME = "androidProject"; // Use actual project name in catalyst
+const DEFAULT_OVERWRITE_EXISTING = true;
+
 const steps = {
     config: 'Initialize Configuration',
     tools: 'Validate Android Tools',
@@ -203,24 +209,28 @@ async function installApp(ADB_PATH, androidConfig, buildOptimisation) {
 }
 
 async function createAABConfig(androidConfig) {
-    // Create AAB configuration based on WebView config
+    // Create AAB configuration based on WebView config with defaults applied
     const aabConfig = {
-        android: {
-            oldProjectName: "androidProject", // Default project name in catalyst
-            newProjectName: androidConfig.appName || androidConfig.packageName?.split('.').pop() || "catalystapp",
-            projectPath: `${pwd}/androidProject`,
-            createSignedAAB: true,
-            outputPath: androidConfig.outputPath || `${process.env.PWD}/build-output`,
-            overwriteExisting: true
-        }
+        // Apply defaults here in buildAppAndroid.js
+        projectPath: androidConfig.projectPath || DEFAULT_PROJECT_PATH,
+        deploymentPath: DEFAULT_DEPLOYMENT_PATH,
+        oldProjectName:DEFAULT_OLD_PROJECT_NAME,
+        overwriteExisting: androidConfig.overwriteExisting !== undefined ? androidConfig.overwriteExisting : DEFAULT_OVERWRITE_EXISTING,
+        
+        // Required field - use configured value or derive from other config
+        newProjectName: androidConfig.newProjectName || androidConfig.appName || androidConfig.packageName?.split('.').pop() || "catalystapp",
+        
+        // AAB specific settings
+        createSignedAAB: true,
+        outputPath: androidConfig.outputPath || `${process.env.PWD}/build-output`
     };
 
     // Add keystore configuration if available
     if (androidConfig.keystoreConfig) {
-        aabConfig.android.keystoreConfig = androidConfig.keystoreConfig;
+        aabConfig.keystoreConfig = androidConfig.keystoreConfig;
     } else if (androidConfig.keystore) {
         // Map old keystore format to new format
-        aabConfig.android.keystoreConfig = {
+        aabConfig.keystoreConfig = {
             keyAlias: androidConfig.keystore.alias || "release",
             storePassword: androidConfig.keystore.storePassword,
             keyPassword: androidConfig.keystore.keyPassword,
@@ -234,27 +244,27 @@ async function createAABConfig(androidConfig) {
         };
     }
 
-    // Write temporary config file for AAB builder
-    const tempConfigPath = `${process.env.PWD}/temp-aab-config.json`;
-    _fs.default.writeFileSync(tempConfigPath, JSON.stringify(aabConfig, null, 2));
-    
-    return tempConfigPath;
+    // Log the configuration being used
+    progress.log(`AAB Configuration:`, 'info');
+    progress.log(`  Project Path: ${aabConfig.projectPath} ${aabConfig.projectPath === DEFAULT_PROJECT_PATH ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  Deployment Path: ${aabConfig.deploymentPath} ${aabConfig.deploymentPath === DEFAULT_DEPLOYMENT_PATH ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  Old Project Name: ${aabConfig.oldProjectName} ${aabConfig.oldProjectName === DEFAULT_OLD_PROJECT_NAME ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  New Project Name: ${aabConfig.newProjectName}`, 'info');
+    progress.log(`  Overwrite Existing: ${aabConfig.overwriteExisting} ${aabConfig.overwriteExisting === DEFAULT_OVERWRITE_EXISTING ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  Output Path: ${aabConfig.outputPath}`, 'info');
+
+    return aabConfig;
 }
 
 async function buildSignedAAB(androidConfig) {
     progress.log('Building signed AAB for release...', 'info');
     
     try {
-        // Create AAB configuration
-        const tempConfigPath = await createAABConfig(androidConfig);
+        // Create AAB configuration directly without temporary file
+        const aabConfig = await createAABConfig(androidConfig);
         
-        // Call the AAB builder
-        await buildAndroidAAB(tempConfigPath);
-        
-        // Clean up temporary config
-        if (_fs.default.existsSync(tempConfigPath)) {
-            _fs.default.unlinkSync(tempConfigPath);
-        }
+        // Call the AAB builder directly with config object
+        await buildAndroidAAB(aabConfig);
         
         progress.log('Signed AAB build completed successfully!', 'success');
     } catch (error) {
