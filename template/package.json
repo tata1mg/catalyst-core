@@ -21,7 +21,7 @@
     "dependencies": {
         "@loadable/component": "^5.16.3",
         "@tata1mg/router": "^0.0.1-beta.7",
-        "catalyst-core": "0.0.3-canary.5"
+        "catalyst-core": "0.0.3-canary.6"
     },
     "devDependencies": {
         "@playwright/test": "^1.52.0",
