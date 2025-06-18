@@ -239,15 +239,12 @@ tasks.register("generateWebViewConfig") {
         val assetsDir = File("${project.projectDir}/src/main/assets")
         if (!assetsDir.exists()) {
             assetsDir.mkdirs()
-            println("Created assets directory at ${assetsDir.absolutePath}")
         }
 
         // Write to properties file
         File(assetsDir, "webview_config.properties").outputStream().use {
             properties.store(it, "WebView Configuration")
         }
-
-        println("WebView config generated at ${assetsDir.absolutePath}/webview_config.properties")
     }
 }
 

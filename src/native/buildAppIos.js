@@ -1,6 +1,7 @@
 const { exec, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { setupServer } = require("./setupServer.js");
 const TerminalProgress = require("./TerminalProgress.js").default;
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
@@ -440,10 +441,10 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
 }
 
 async function launchIOSSimulator(simulatorName) {
-    progress.start("launchSimulator")
+    progress.start("launchSimulator");
     try {
-
-    progress.log("Launching iOS Simulator...");
+        progress.log("Launching iOS Simulator...");
+        
         // Get all simulators including both available and booted ones
         const allSimulatorInfo = execSync("xcrun simctl list devices -j").toString();
         const simulatorsJson = JSON.parse(allSimulatorInfo);
@@ -452,14 +453,24 @@ async function launchIOSSimulator(simulatorName) {
         let foundSimulator = null;
         let foundSimulatorId = null;
         let isBooted = false;
+        let foundDevices = [];
 
         // Iterate through all runtimes and their devices
-        Object.values(simulatorsJson.devices).forEach(devices => {
+        Object.entries(simulatorsJson.devices).forEach(([runtime, devices]) => {
             devices.forEach(device => {
+                
                 if (device.name === simulatorName) {
+                    foundDevices.push({
+                        name: device.name,
+                        state: device.state,
+                        udid: device.udid,
+                        runtime: runtime
+                    });
+                    
                     foundSimulator = device;
                     foundSimulatorId = device.udid;
                     isBooted = device.state === "Booted";
+                    
                 }
             });
         });
@@ -470,32 +481,77 @@ async function launchIOSSimulator(simulatorName) {
         }
 
         if (!isBooted) {
-            console.log(`Booting simulator: ${simulatorName}`);
-            runCommand(`xcrun simctl boot ${foundSimulatorId}`);
+            progress.log(`Attempting to boot simulator: ${simulatorName} (${foundSimulatorId})`, 'warning');
+            
+            // Check if the simulator is in a valid state to be booted
+            if (foundSimulator.state === "Shutdown") {
+                progress.log(`Simulator is shutdown, attempting to boot...`, 'info');
+                try {
+                    await runCommand(`xcrun simctl boot ${foundSimulatorId}`);
+                    progress.log(`Successfully booted simulator`, 'success');
+                } catch (bootError) {
+                    progress.log(`Boot failed: ${bootError.message}`, 'error');
+                    
+                    // Try to find an alternative booted simulator
+                    progress.log(`Looking for any booted simulator as fallback...`, 'info');
+                    const fallbackUUID = await getBootedSimulatorUUID(simulatorName);
+                    if (fallbackUUID) {
+                        progress.log(`Found fallback booted simulator: ${fallbackUUID}`, 'success');
+                        foundSimulatorId = fallbackUUID;
+                    } else {
+                        throw new Error(`Failed to boot simulator and no fallback available: ${bootError.message}`);
+                    }
+                }
+            } else {
+                progress.log(`Simulator state is '${foundSimulator.state}', not 'Shutdown'. Checking if we can use it...`, 'warning');
+                if (foundSimulator.state === "Booted") {
+                    progress.log(`Wait, simulator is actually booted! Using it.`, 'success');
+                } else {
+                    throw new Error(`Simulator is in unexpected state: ${foundSimulator.state}`);
+                }
+            }
         } else {
-            console.log(`Simulator ${simulatorName} is already booted`);
+            progress.log(`Simulator ${simulatorName} is already booted`, 'success');
         }
 
         // Open Simulator.app and focus
         progress.log("Opening Simulator.app...");
-        runCommand("open -a Simulator");
+        await runCommand("open -a Simulator");
         
         // Give the simulator a moment to open/focus
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Activate the Simulator.app window to bring it to front
-        runCommand("osascript -e 'tell application \"Simulator\" to activate'");
+        await runCommand("osascript -e 'tell application \"Simulator\" to activate'");
         
-        console.log("iOS Simulator launched successfully.");
-        progress.complete("launchSimulator")
+        progress.log("iOS Simulator launched successfully.", 'success');
+        progress.complete("launchSimulator");
+        
     } catch (error) {
+        progress.fail("launchSimulator", error.message);
+        
+        // Show detailed troubleshooting info
+        progress.printTreeContent('Simulator Troubleshooting', [
+            'iOS Simulator failed to launch. Common solutions:',
+            { text: 'Delete and recreate the simulator in Xcode', indent: 1, prefix: '├─ ', color: 'yellow' },
+            { text: 'Reset simulator content: Device > Erase All Content and Settings', indent: 1, prefix: '├─ ', color: 'yellow' },
+            { text: 'Check available simulators: xcrun simctl list devices', indent: 1, prefix: '├─ ', color: 'yellow' },
+            { text: 'Restart Xcode and Simulator app', indent: 1, prefix: '└─ ', color: 'yellow' },
+            '',
+            'Error Details:',
+            { text: `Simulator: ${simulatorName}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Error: ${error.message}`, indent: 1, prefix: '└─ ', color: 'red' }
+        ]);
+        
         console.error("Failed to launch iOS Simulator. Error:", error.message);
-      process.exit(1);
+        process.exit(1);
     }
 }
 
 async function main() {
     try {
+
+        await setupServer(`${process.env.PWD}/config/config.json`);
         const originalDir = process.cwd();
         progress.log('Starting build process from: ' + originalDir, 'info');
         
@@ -525,6 +581,7 @@ async function main() {
         progress.log('Build failed: ' + error.message, 'error');
         process.exit(1);
     }
+    process.exit(1);
 }
 
 main();
