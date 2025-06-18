@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.1-beta.15] - 18-06-2025
+
+-   Adds context.md file
+-   Adds MCP server
+
 ## [0.0.1-beta.14] - 19-05-2025
 
 -   Fixes header sent bug
