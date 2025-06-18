@@ -32,6 +32,7 @@
     },
     "scripts": {
         "lint": "eslint .",
+        "mcp": "node mcp.js",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
         "prepare": "babel src --out-dir ./dist",
@@ -51,6 +52,7 @@
         "@loadable/component": "^5.15.3",
         "@loadable/server": "^5.16.1",
         "@loadable/webpack-plugin": "^5.15.2",
+        "@modelcontextprotocol/sdk": "^1.12.3",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
         "@svgr/webpack": "^8.1.0",
         "@tata1mg/router": "0.0.1-beta.7",
