@@ -252,7 +252,7 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             const effectiveKeyPassword = keystoreConfig.storePassword;
             
             const bundleCommand = [
-                './gradlew bundleRelease',
+                './gradlew bundleRelease --quiet --console=rich',
                 `-Pandroid.injected.signing.store.file="${keystorePath}"`,
                 `-Pandroid.injected.signing.store.password="${keystoreConfig.storePassword}"`,
                 `-Pandroid.injected.signing.key.alias="${keystoreConfig.keyAlias}"`,

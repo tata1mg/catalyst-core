@@ -8,6 +8,7 @@ var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
 
 // Import the AAB builder
 import { buildAndroidAAB } from './renameAndroidProject.js';
+import { setupServer } from './setupServer.js';
 
 function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e };
@@ -15,7 +16,7 @@ function _interopRequireDefault(e) {
 
 const configPath = `${process.env.PWD}/config/config.json`;
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
-const ANDROID_PACKAGE = "com.example.androidProject";
+const ANDROID_PACKAGE = "io.yourname.androidproject";
 
 // Default values for AAB building
 const DEFAULT_PROJECT_PATH = `${pwd}/androidProject`;
@@ -197,10 +198,10 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
     }
 }
 
-async function installApp(ADB_PATH, androidConfig, buildOptimisation) {
+async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType= 'debug') {
     progress.log('Building and installing app...', 'info');
     try {
-        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE} 1`;
+        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug --quiet --console=rich && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE}${buildType === 'debug' ? '.debug' : '' } 1`;
         await (0, _utils.runInteractiveCommand)('sh', ['-c', buildCommand], { 'BUILD SUCCESSFUL': '' });
         progress.log('Installation completed successfully!', 'success');
     } catch (error) {
@@ -277,6 +278,7 @@ async function buildAndroidApp() {
     let androidConfig = null;
     
     try {
+        await setupServer(configPath)
         // Initialize configuration
         progress.start('config');
         const { WEBVIEW_CONFIG } = await initializeConfig();
@@ -321,7 +323,7 @@ async function buildAndroidApp() {
         } else {
             // Install debug app for development
             progress.start('build');
-            await installApp(ADB_PATH, androidConfig, buildOptimisation);
+            await installApp(ADB_PATH, androidConfig, buildOptimisation, buildType);
             progress.complete('build');
         }
 
