@@ -95,15 +95,25 @@ jobs:
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "⚡ Selected Configuration:"
-          echo "   🌿 Branch: ${{ github.event.inputs.branch || github.head_ref }}"
-          echo "   📦 Package Type: ${{ github.event.inputs.package_type || 'main' }}"
-          echo "   📊 Version Type: ${{ github.event.inputs.version_type || 'canary' }}"
-          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
-            echo "   🎯 Custom Version: ${{ github.event.inputs.custom_version }}"
+          BRANCH_NAME="${{ github.event.inputs.branch || github.head_ref }}"
+          PACKAGE_TYPE="${{ github.event.inputs.package_type || 'main' }}"
+          VERSION_TYPE="${{ github.event.inputs.version_type || 'canary' }}"
+          CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
+          
+          echo "   🌿 Branch: $BRANCH_NAME"
+          echo "   📦 Package Type: $PACKAGE_TYPE"
+          echo "   📊 Version Type: $VERSION_TYPE"
+          if [ -n "$CUSTOM_VERSION" ]; then
+            echo "   🎯 Custom Version: $CUSTOM_VERSION"
           else
             echo "   🤖 Auto-increment: Enabled"
           fi
-          echo "   🧪 Dry Run: ${{ github.event.inputs.dry_run || 'true (PR test mode)' }}"
+          if [ "$IS_PR_MODE" = "true" ]; then
+            echo "   🧪 Dry Run: true (PR test mode)"
+          else
+            echo "   🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
+          fi
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   publish:
@@ -191,19 +201,26 @@ jobs:
           echo ""
           echo "🚀 PUBLISH EXECUTION PLAN"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🌿 Branch:          ${{ github.event.inputs.branch || github.head_ref }}"
+          BRANCH_NAME="${{ github.event.inputs.branch || github.head_ref }}"
+          VERSION_TYPE="${{ github.event.inputs.version_type || 'canary' }}"
+          CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
+          
+          echo "🌿 Branch:          $BRANCH_NAME"
           echo "📦 Package Name:    ${{ steps.next_version.outputs.package_name }}"
           echo "📊 Current Version: ${{ steps.next_version.outputs.current_version }}"
           echo "🆕 Next Version:    ${{ steps.next_version.outputs.next_version }}"
-          echo "🔧 Version Type:    ${{ github.event.inputs.version_type || 'canary' }}"
-          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+          echo "🔧 Version Type:    $VERSION_TYPE"
+          if [ -n "$CUSTOM_VERSION" ]; then
             echo "🎯 Version Source:  Custom (manually specified)"
           else
             echo "🤖 Version Source:  Auto-increment"
           fi
-          echo "🧪 Dry Run:         ${{ github.event.inputs.dry_run || 'true (PR test mode)' }}"
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$IS_PR_MODE" = "true" ]; then
+            echo "🧪 Dry Run:         true (PR test mode)"
             echo "🔬 Test Mode:       PR Testing - No actual publishing"
+          else
+            echo "🧪 Dry Run:         ${{ github.event.inputs.dry_run }}"
           fi
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
@@ -381,8 +398,9 @@ jobs:
           echo "   Name: ${{ steps.next_version.outputs.package_name }}"
           echo "   Version: ${{ steps.next_version.outputs.next_version }}"
           echo ""
-          echo "🔄 Would handle comprehensive route changes for package type: ${{ github.event.inputs.package_type || 'main' }}"
-          if [ "${{ github.event.inputs.package_type || 'main' }}" = "internal" ]; then
+          PACKAGE_TYPE="${{ github.event.inputs.package_type || 'main' }}"
+          echo "🔄 Would handle comprehensive route changes for package type: $PACKAGE_TYPE"
+          if [ "$PACKAGE_TYPE" = "internal" ]; then
             echo "   📝 Would update ALL catalyst-core references to catalyst-core-internal"
           else
             echo "   📝 Would ensure ALL references use catalyst-core"
@@ -547,4 +565,37 @@ jobs:
             echo "   📤 Publish: Simulated successfully"
             echo ""
             echo "✅ Pipeline is ready for production use!"
-          elif [ "${{ github.event.inputs.dry_run }
+          elif [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🧪 DRY RUN COMPLETED"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✨ This was a dry run - no changes were made"
+            echo ""
+            echo "📋 Would have executed:"
+            echo "   🌿 Branch: ${{ github.event.inputs.branch }}"
+            echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
+            echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
+            echo "   🏷️ Git Tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
+            PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
+            if [ "$PACKAGE_TYPE" = "internal" ]; then
+              echo "   🔄 Route changes: catalyst-core → catalyst-core-internal"
+            else
+              echo "   🔄 Route changes: catalyst-core-internal → catalyst-core"
+            fi
+            echo ""
+            echo "To actually publish, run this workflow again with 'Dry run' set to false."
+          else
+            echo "🎉 PUBLISH COMPLETED SUCCESSFULLY!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✅ Published: ${{ steps.next_version.outputs.package_name }}@${{ steps.next_version.outputs.next_version }}"
+            echo "🌿 From branch: ${{ github.event.inputs.branch }}"
+            if [ -n "${{ steps.commit_info.outputs.commit_short }}" ]; then
+              echo "📍 Commit: ${{ steps.commit_info.outputs.commit_short }}"
+            fi
+            echo "🏷️ Git tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
+            echo "🔗 NPM: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}"
+            echo "📊 Check versions: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}?activeTab=versions"
+            echo ""
+            echo "📁 Repository status: All files restored to original state"
+            echo "🔄 Route changes were applied only for publishing"
+          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
