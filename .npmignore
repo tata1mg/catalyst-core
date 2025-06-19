@@ -10,3 +10,4 @@ tsconfig.json
 .catalyst-dev/
 /template
 test.sh
+context.md
