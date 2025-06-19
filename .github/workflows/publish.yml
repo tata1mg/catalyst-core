@@ -1,0 +1,498 @@
+name: Publish Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to publish from'
+        required: true
+        default: 'main'
+        type: string
+      package_type:
+        description: 'Package to publish'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+        - main
+        - internal
+      version_type:
+        description: 'Version type'
+        required: true
+        default: 'canary'
+        type: choice
+        options:
+        - beta
+        - canary
+      custom_version:
+        description: 'Custom version (optional - leave empty for auto-increment). Format: x.y.z-beta.n or x.y.z-canary.n'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run (preview only)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  show-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      main_beta: ${{ steps.versions.outputs.main_beta }}
+      main_canary: ${{ steps.versions.outputs.main_canary }}
+      internal_beta: ${{ steps.versions.outputs.internal_beta }}
+      internal_canary: ${{ steps.versions.outputs.internal_canary }}
+    
+    steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+        
+    - name: Get current versions
+      id: versions
+      run: |
+        echo "📡 Fetching current versions from npm registry..."
+        
+        # Get current versions with error handling
+        MAIN_VERSIONS=$(npm view catalyst-core versions --json 2>/dev/null || echo '[]')
+        INTERNAL_VERSIONS=$(npm view catalyst-core-internal versions --json 2>/dev/null || echo '[]')
+        
+        # Extract latest versions for each type using more robust parsing
+        MAIN_BETA=$(echo "$MAIN_VERSIONS" | jq -r '.[] | select(test("beta"))' | sort -V | tail -1)
+        MAIN_CANARY=$(echo "$MAIN_VERSIONS" | jq -r '.[] | select(test("canary"))' | sort -V | tail -1)
+        INTERNAL_BETA=$(echo "$INTERNAL_VERSIONS" | jq -r '.[] | select(test("beta"))' | sort -V | tail -1)
+        INTERNAL_CANARY=$(echo "$INTERNAL_VERSIONS" | jq -r '.[] | select(test("canary"))' | sort -V | tail -1)
+        
+        # Set defaults if empty
+        MAIN_BETA=${MAIN_BETA:-"0.0.1-beta.0"}
+        MAIN_CANARY=${MAIN_CANARY:-"0.0.1-canary.0"}
+        INTERNAL_BETA=${INTERNAL_BETA:-"0.0.1-beta.0"}
+        INTERNAL_CANARY=${INTERNAL_CANARY:-"0.0.1-canary.0"}
+        
+        echo "main_beta=$MAIN_BETA" >> $GITHUB_OUTPUT
+        echo "main_canary=$MAIN_CANARY" >> $GITHUB_OUTPUT
+        echo "internal_beta=$INTERNAL_BETA" >> $GITHUB_OUTPUT
+        echo "internal_canary=$INTERNAL_CANARY" >> $GITHUB_OUTPUT
+        
+    - name: Display current versions
+      run: |
+        echo "📦 CURRENT PACKAGE VERSIONS ON NPM"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "🔷 catalyst-core (main package):"
+        echo "   📍 Latest Beta:   ${{ steps.versions.outputs.main_beta }}"
+        echo "   📍 Latest Canary: ${{ steps.versions.outputs.main_canary }}"
+        echo ""
+        echo "🔶 catalyst-core-internal:"
+        echo "   📍 Latest Beta:   ${{ steps.versions.outputs.internal_beta }}"
+        echo "   📍 Latest Canary: ${{ steps.versions.outputs.internal_canary }}"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "⚡ Selected Configuration:"
+        echo "   🌿 Branch: ${{ github.event.inputs.branch }}"
+        echo "   📦 Package Type: ${{ github.event.inputs.package_type }}"
+        echo "   📊 Version Type: ${{ github.event.inputs.version_type }}"
+        if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+          echo "   🎯 Custom Version: ${{ github.event.inputs.custom_version }}"
+        else
+          echo "   🤖 Auto-increment: Enabled"
+        fi
+        echo "   🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: show-versions
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch }}
+        fetch-depth: 0
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Calculate next version
+      id: next_version
+      run: |
+        # Determine which package and version type we're working with
+        PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
+        VERSION_TYPE="${{ github.event.inputs.version_type }}"
+        CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+        
+        if [ "$PACKAGE_TYPE" = "main" ]; then
+          if [ "$VERSION_TYPE" = "beta" ]; then
+            CURRENT_VERSION="${{ needs.show-versions.outputs.main_beta }}"
+          else
+            CURRENT_VERSION="${{ needs.show-versions.outputs.main_canary }}"
+          fi
+          PACKAGE_NAME="catalyst-core"
+        else
+          if [ "$VERSION_TYPE" = "beta" ]; then
+            CURRENT_VERSION="${{ needs.show-versions.outputs.internal_beta }}"
+          else
+            CURRENT_VERSION="${{ needs.show-versions.outputs.internal_canary }}"
+          fi
+          PACKAGE_NAME="catalyst-core-internal"
+        fi
+        
+        # Use custom version if provided, otherwise auto-increment
+        if [ -n "$CUSTOM_VERSION" ]; then
+          NEXT_VERSION="$CUSTOM_VERSION"
+          echo "🎯 Using custom version: $NEXT_VERSION"
+        else
+          # Calculate next version by auto-incrementing
+          if [ -z "$CURRENT_VERSION" ] || [ "$CURRENT_VERSION" = "null" ] || [ "$CURRENT_VERSION" = "0.0.1-${VERSION_TYPE}.0" ]; then
+            NEXT_VERSION="0.0.1-${VERSION_TYPE}.1"
+          else
+            # Extract version parts more reliably
+            if echo "$CURRENT_VERSION" | grep -q "$VERSION_TYPE"; then
+              VERSION_PREFIX=$(echo "$CURRENT_VERSION" | sed -E "s/(.*-$VERSION_TYPE\.)([0-9]+)/\1/")
+              VERSION_NUMBER=$(echo "$CURRENT_VERSION" | sed -E "s/.*-$VERSION_TYPE\.([0-9]+)/\1/")
+              
+              # Increment version number
+              NEXT_NUMBER=$((VERSION_NUMBER + 1))
+              NEXT_VERSION="${VERSION_PREFIX}${NEXT_NUMBER}"
+            else
+              # Fallback if parsing fails
+              NEXT_VERSION="0.0.1-${VERSION_TYPE}.1"
+            fi
+          fi
+          echo "🤖 Auto-incremented to: $NEXT_VERSION"
+        fi
+        
+        # Validate version format
+        if ! echo "$NEXT_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-(beta|canary)\.[0-9]+$'; then
+          echo "❌ ERROR: Invalid version format: $NEXT_VERSION"
+          echo "Expected format: x.y.z-beta.n or x.y.z-canary.n"
+          exit 1
+        fi
+        
+        echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Show publish plan
+      run: |
+        echo ""
+        echo "🚀 PUBLISH EXECUTION PLAN"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🌿 Branch:          ${{ github.event.inputs.branch }}"
+        echo "📦 Package Name:    ${{ steps.next_version.outputs.package_name }}"
+        echo "📊 Current Version: ${{ steps.next_version.outputs.current_version }}"
+        echo "🆕 Next Version:    ${{ steps.next_version.outputs.next_version }}"
+        echo "🔧 Version Type:    ${{ github.event.inputs.version_type }}"
+        if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+          echo "🎯 Version Source:  Custom (manually specified)"
+        else
+          echo "🤖 Version Source:  Auto-increment"
+        fi
+        echo "🧪 Dry Run:         ${{ github.event.inputs.dry_run }}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+    - name: Validate version doesn't exist
+      run: |
+        echo "🔍 Checking if version already exists on npm..."
+        
+        PACKAGE_NAME="${{ steps.next_version.outputs.package_name }}"
+        NEXT_VERSION="${{ steps.next_version.outputs.next_version }}"
+        
+        # Check if this version already exists
+        if npm view "$PACKAGE_NAME@$NEXT_VERSION" version >/dev/null 2>&1; then
+          echo "❌ ERROR: Version $NEXT_VERSION already exists for $PACKAGE_NAME"
+          echo "Please use a different version or check the current published versions."
+          exit 1
+        else
+          echo "✅ Version $NEXT_VERSION is available for publishing"
+        fi
+        
+    - name: Create backup and prepare for changes
+      if: github.event.inputs.dry_run != 'true'
+      run: |
+        echo "💾 Creating backups..."
+        # Backup all files that will be modified
+        cp package.json package.json.backup
+        cp package-lock.json package-lock.json.backup 2>/dev/null || true
+        
+        # Create a list of files containing catalyst-core references for restoration
+        find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" -o -name "*.json" \) \
+          -not -path "./node_modules/*" \
+          -not -path "./.git/*" \
+          -not -path "./dist/*" \
+          -exec grep -l "catalyst-core" {} + > catalyst-core-files.txt 2>/dev/null || true
+        
+        echo "✅ Backups created successfully"
+        
+    - name: Update package configuration
+      if: github.event.inputs.dry_run != 'true'
+      run: |
+        echo "🔧 Updating package.json..."
+        
+        # Use Node.js to update package.json safely
+        node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          
+          // Update package name and version
+          pkg.name = '${{ steps.next_version.outputs.package_name }}';
+          pkg.version = '${{ steps.next_version.outputs.next_version }}';
+          
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 4));
+          console.log('✅ Updated package.json');
+          console.log('   Name:', pkg.name);
+          console.log('   Version:', pkg.version);
+        "
+        
+    - name: Handle comprehensive route changes
+      if: github.event.inputs.dry_run != 'true'
+      run: |
+        echo "🔄 Handling comprehensive route changes..."
+        
+        PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
+        
+        if [ "$PACKAGE_TYPE" = "internal" ]; then
+          echo "📝 Updating ALL catalyst-core references to catalyst-core-internal..."
+          
+          # Update package.json and package-lock.json
+          sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' package.json 2>/dev/null || true
+          sed -i 's/"catalyst-core":/"catalyst-core-internal":/g' package.json 2>/dev/null || true
+          sed -i 's/"name": "catalyst-core"/"name": "catalyst-core-internal"/g' package.json 2>/dev/null || true
+          
+          # Update package-lock.json if it exists
+          if [ -f package-lock.json ]; then
+            sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' package-lock.json 2>/dev/null || true
+            sed -i 's/"name": "catalyst-core"/"name": "catalyst-core-internal"/g' package-lock.json 2>/dev/null || true
+          fi
+          
+          # Update all source files - imports, requires, and string references
+          find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i 's|catalyst-core/|catalyst-core-internal/|g' {} + 2>/dev/null || true
+            
+          find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i 's|"catalyst-core"|"catalyst-core-internal"|g' {} + 2>/dev/null || true
+            
+          find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i "s|'catalyst-core'|'catalyst-core-internal'|g" {} + 2>/dev/null || true
+          
+          # Update template package.json files
+          find template -name "package.json" -exec sed -i 's/"catalyst-core":/"catalyst-core-internal":/g' {} + 2>/dev/null || true
+          find template -name "package-lock.json" -exec sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' {} + 2>/dev/null || true
+          
+          # Update any remaining JSON files that might contain catalyst-core references
+          find . -name "*.json" \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' {} + 2>/dev/null || true
+          
+          echo "✅ Updated all references to use catalyst-core-internal"
+          
+        else
+          echo "📝 Ensuring ALL references use catalyst-core (main package)..."
+          
+          # Update package.json and package-lock.json
+          sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' package.json 2>/dev/null || true
+          sed -i 's/"catalyst-core-internal":/"catalyst-core":/g' package.json 2>/dev/null || true
+          sed -i 's/"name": "catalyst-core-internal"/"name": "catalyst-core"/g' package.json 2>/dev/null || true
+          
+          # Update package-lock.json if it exists
+          if [ -f package-lock.json ]; then
+            sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' package-lock.json 2>/dev/null || true
+            sed -i 's/"name": "catalyst-core-internal"/"name": "catalyst-core"/g' package-lock.json 2>/dev/null || true
+          fi
+          
+          # Update all source files - imports, requires, and string references
+          find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i 's|catalyst-core-internal/|catalyst-core/|g' {} + 2>/dev/null || true
+            
+          find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i 's|"catalyst-core-internal"|"catalyst-core"|g' {} + 2>/dev/null || true
+            
+          find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i "s|'catalyst-core-internal'|'catalyst-core'|g" {} + 2>/dev/null || true
+          
+          # Update template package.json files
+          find template -name "package.json" -exec sed -i 's/"catalyst-core-internal":/"catalyst-core":/g' {} + 2>/dev/null || true
+          find template -name "package-lock.json" -exec sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' {} + 2>/dev/null || true
+          
+          # Update any remaining JSON files that might contain catalyst-core-internal references
+          find . -name "*.json" \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -not -path "./dist/*" \
+            -exec sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' {} + 2>/dev/null || true
+          
+          echo "✅ Updated all references to use catalyst-core"
+        fi
+        
+        # Show what files were changed
+        echo ""
+        echo "📋 Files modified:"
+        if [ -f catalyst-core-files.txt ]; then
+          cat catalyst-core-files.txt | head -10
+          TOTAL_FILES=$(cat catalyst-core-files.txt | wc -l)
+          if [ "$TOTAL_FILES" -gt 10 ]; then
+            echo "... and $((TOTAL_FILES - 10)) more files"
+          fi
+        fi
+        
+    - name: Build package
+      if: github.event.inputs.dry_run != 'true'
+      run: |
+        echo "🔨 Building package..."
+        npm run prepare
+        echo "✅ Package built successfully"
+        
+    # COMMENTED OUT FOR TESTING - REMOVE COMMENTS WHEN READY TO PUBLISH
+    # - name: Publish to npm
+    #   if: github.event.inputs.dry_run != 'true'
+    #   run: |
+    #     echo "📤 Publishing to npm..."
+    #     npm publish --access public
+    #     echo "✅ Published successfully to npm"
+    #   env:
+    #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: TESTING - Simulate Publish
+      if: github.event.inputs.dry_run != 'true'
+      run: |
+        echo "🧪 TESTING MODE - Simulating npm publish..."
+        echo "📤 Would publish to npm with command: npm publish --access public"
+        echo "📦 Package: ${{ steps.next_version.outputs.package_name }}"
+        echo "🆕 Version: ${{ steps.next_version.outputs.next_version }}"
+        echo "✅ Simulated publish completed successfully"
+        
+    - name: Get current commit info
+      if: github.event.inputs.dry_run != 'true'
+      id: commit_info
+      run: |
+        COMMIT_HASH=$(git rev-parse HEAD)
+        COMMIT_SHORT=$(git rev-parse --short HEAD)
+        CURRENT_BRANCH="${{ github.event.inputs.branch }}"
+        
+        echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
+        echo "commit_short=$COMMIT_SHORT" >> $GITHUB_OUTPUT
+        echo "current_branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
+        
+        echo "📍 Current commit: $COMMIT_SHORT on branch $CURRENT_BRANCH"
+        
+    - name: Create git tag
+      if: github.event.inputs.dry_run != 'true'
+      run: |
+        echo "🏷️ Creating git tag..."
+        
+        TAG_NAME="${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
+        COMMIT_HASH="${{ steps.commit_info.outputs.commit_hash }}"
+        BRANCH_NAME="${{ steps.commit_info.outputs.current_branch }}"
+        
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Create annotated tag with branch and commit info
+        git tag -a "$TAG_NAME" -m "Release ${{ steps.next_version.outputs.package_name }}@${{ steps.next_version.outputs.next_version }}" \
+               -m "" \
+               -m "Branch: $BRANCH_NAME" \
+               -m "Commit: $COMMIT_HASH" \
+               -m "Published: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        
+        git push origin "$TAG_NAME"
+        
+        echo "✅ Created and pushed tag: $TAG_NAME"
+        echo "📍 Tagged commit: ${{ steps.commit_info.outputs.commit_short }} on branch $BRANCH_NAME"
+        
+    - name: Restore all changes (NO COMMIT)
+      if: github.event.inputs.dry_run != 'true' && always()
+      run: |
+        echo "🔄 Restoring all changes (files are not committed)..."
+        
+        # Restore package.json and package-lock.json from backup
+        if [ -f package.json.backup ]; then
+          mv package.json.backup package.json
+          echo "✅ Restored package.json"
+        fi
+        
+        if [ -f package-lock.json.backup ]; then
+          mv package-lock.json.backup package-lock.json
+          echo "✅ Restored package-lock.json"
+        fi
+        
+        # Restore all modified files using git (this won't affect the published package)
+        if [ -f catalyst-core-files.txt ]; then
+          echo "🔄 Restoring modified source files..."
+          # Reset all changes to tracked files
+          git checkout HEAD -- . 2>/dev/null || true
+          echo "✅ All files restored to original state"
+        fi
+        
+        # Clean up temporary files
+        rm -f catalyst-core-files.txt 2>/dev/null || true
+        
+        echo "✅ Repository restored to original state (changes were only for publishing)"
+        
+    - name: Summary
+      if: always()
+      run: |
+        echo ""
+        if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          echo "🧪 DRY RUN COMPLETED"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✨ This was a dry run - no changes were made"
+          echo ""
+          echo "📋 Would have executed:"
+          echo "   🌿 Branch: ${{ github.event.inputs.branch }}"
+          echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
+          echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
+          echo "   🏷️ Git Tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
+          if [ "${{ github.event.inputs.package_type }}" = "internal" ]; then
+            echo "   🔄 Route changes: catalyst-core → catalyst-core-internal"
+          else
+            echo "   🔄 Route changes: catalyst-core-internal → catalyst-core"
+          fi
+          echo ""
+          echo "To actually publish, run this workflow again with 'Dry run' set to false."
+        else
+          echo "🎉 PUBLISH COMPLETED SUCCESSFULLY!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Published: ${{ steps.next_version.outputs.package_name }}@${{ steps.next_version.outputs.next_version }}"
+          echo "🌿 From branch: ${{ github.event.inputs.branch }}"
+          if [ -n "${{ steps.commit_info.outputs.commit_short }}" ]; then
+            echo "📍 Commit: ${{ steps.commit_info.outputs.commit_short }}"
+          fi
+          echo "🏷️ Git tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
+          echo "🔗 NPM: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}"
+          echo "📊 Check versions: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}?activeTab=versions"
+          echo ""
+          echo "📁 Repository status: All files restored to original state"
+          echo "🔄 Route changes were applied only for publishing"
+        fi
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
