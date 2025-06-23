@@ -17,6 +17,17 @@ CODE:
 npx create-catalyst-app@latest -y
 ```
 
+Catalyst has native support for typescript, tailwind, redux, and a local MCP server
+To configure these options, a new catalyst app can be created without using the default "-y" flag
+Creating an app using this will ask for prompts from the user to configure specific options
+
+LANGUAGE: bash
+CODE:
+
+```
+npx create-catalyst-app@latest
+```
+
 ---
 
 ---
