@@ -154,7 +154,7 @@ CODE:
 
 ```
 Page.clientFetcher = async ({ route, location, params, searchParams, navigate }, { store }) => {
-  const res = await await fetch('<https://api.example.com/data>');
+  const res = await fetch('<https://api.example.com/data>');
   const json = await res.json();
   return json;
 };
@@ -166,7 +166,7 @@ LANGUAGE: js
 CODE:
 
 ```
-Page.serverFunction = async ({ route, location, params, searchParams, navigate },{ store }) => {
+Page.serverFetcher = async ({ route, location, params, searchParams, navigate },{ store }) => {
   const res = await fetch('<https://api.example.com/data>');
   const json = await res.json();
   return json;
