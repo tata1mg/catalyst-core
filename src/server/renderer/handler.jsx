@@ -12,7 +12,7 @@ import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream, renderToString } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
-import { validateConfigureStore, validateCustomDocument, validateGetRoutes } from "../utils/validator.js"
+import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
 
 import CustomDocument from "@catalyst/template/server/document.jsx"
 
@@ -32,30 +32,6 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
             req.baseUrl || "/"
         )
 
-        // if (match) {
-        //     if (isProduction && !res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
-        //         extractAssets(res, route)
-        //     }
-        //     if (!res.locals.pageCss && !res.locals.pageJS && !res.locals.routePath) {
-        //         res.locals.routePath = path
-        //         //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
-        //         renderToString(
-        //             <ChunkExtractorManager extractor={}>
-        //                 <Provider store={store}>
-        //                     <StaticRouter context={context} location={req.originalUrl}>
-        //                         <ServerRouter store={store} intialData={fetcherData} />
-        //                     </StaticRouter>
-        //                 </Provider>
-        //             </ChunkExtractorManager>
-        //         )
-        //     }
-        //     const wc = route.component
-        //     matches.push({
-        //         route,
-        //         match,
-        //         serverSideFunction: (wc && wc.serverSideFunction) || (() => Promise.resolve()),
-        //     })
-        // }
         if (!match && route.children) {
             // recursively try to match nested routes
             const nested = getMatchRoutes(
@@ -163,7 +139,7 @@ const extractAssetsFromManifest = (usedComponents, ssrManifest, manifest) => {
 }
 
 // Generate script tags with necessary hints for JS assets
-const generateScriptTags = (jsAssets, req) => {
+const generateScriptTags = (jsAssets) => {
     const scriptElements = []
     const publicPath = process.env.PUBLIC_STATIC_ASSET_URL || "/client/assets/"
 
@@ -174,16 +150,6 @@ const generateScriptTags = (jsAssets, req) => {
         const isModule = asset.includes("-") && asset.endsWith(".js") // Vite generated modules typically have hashes
 
         if (isModule) {
-            // Generate modulepreload hint for ES modules
-            // scriptElements.push(
-            //     React.createElement('link', {
-            //         key: `modulepreload-${index}`,
-            //         rel: 'modulepreload',
-            //         href: assetUrl,
-            //         crossOrigin: 'anonymous'
-            //     })
-            // )
-            // Generate module script tag
             scriptElements.push(
                 React.createElement("script", {
                     key: `script-${index}`,
@@ -216,7 +182,7 @@ const generateScriptTags = (jsAssets, req) => {
 }
 
 // Read and inline CSS content and create React style element
-const createInlineCSSElement = (cssAssets, req) => {
+const createInlineCSSElement = (cssAssets) => {
     let inlinedCSS = ""
     const publicPath = process.env.BUILD_OUTPUT_PATH || "dist"
 
@@ -375,7 +341,6 @@ const performTwoPassRendering = (store, context, req, fetcherData, ssrManifest, 
                 </Provider>
             </div>
         )
-
         // Render to string (first pass)
         renderToString(firstPassComponent)
 
@@ -448,7 +413,6 @@ const renderMarkUp = async (
     // Update res.locals with processed assets
     res.locals.pageJS = allPageJS
     res.locals.pageCss = allPageCSS.length === 1 ? allPageCSS[0] : allPageCSS.length > 1 ? allPageCSS : null
-    console.log(">>>>>>>css", res.locals.pageCss)
 
     // Transforms Head Props with discovered assets
     const shellStart = await renderStart(res.locals.pageCss, res.locals.pageJS, metaTags, isBot, fetcherData)

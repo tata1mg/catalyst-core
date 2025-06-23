@@ -1,4 +1,3 @@
-// vite.config.prod.js - Production-specific configuration
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
 import { defineConfig } from "vite"
@@ -8,13 +7,11 @@ import { fileURLToPath } from "url"
 import { dirname } from "path"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-import { imageUrl, fontUrl } from "./scssParams.js"
 
 export default defineConfig({
     ...baseConfig,
     mode: "production",
 
-    // Ensure resolve configuration is inherited
     resolve: {
         ...baseConfig.resolve,
     },
@@ -32,7 +29,7 @@ export default defineConfig({
             ...baseConfig.build.rollupOptions,
             input: {
                 // Server entry point for SSR
-                server: path.join(__dirname, "./renderer/index.js"),
+                server: path.join(__dirname, "../server/renderer/index.js"),
             },
             output: {
                 format: "es",
@@ -68,32 +65,6 @@ export default defineConfig({
             fileName: "server",
             formats: ["es"],
         },
-    },
-
-    // Ensure SSR config is properly set for server builds
-    ssr: {
-        ...baseConfig.ssr,
-        // Don't externalize any modules for server build - bundle everything
-        noExternal: process.env.BUILD_TARGET === "server" ? true : baseConfig.ssr.noExternal,
-    },
-
-    // Production-specific CSS configuration
-    css: {
-        modules: {
-            localsConvention: "camelCase",
-            generateScopedName: "[name]__[local]___[hash:base64:5]",
-        },
-        preprocessorOptions: {
-            scss: {
-                additionalData: `@import "@css/resources/index.scss" ; $font_url: "${fontUrl()}";  $url_for: "${imageUrl()}"; `,
-            },
-        },
-    },
-
-    // Production server configuration
-    server: {
-        hmr: false,
-        watch: null,
     },
 
     // Optimization for production

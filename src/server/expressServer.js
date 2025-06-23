@@ -77,7 +77,7 @@ async function createServer() {
     } else {
         // In development, use Vite middleware
         vite = await createViteServer({
-            configFile: "./dist/server/vite.config.js",
+            configFile: "./dist/vite/vite.config.js",
             server: {
                 middlewareMode: true,
             },

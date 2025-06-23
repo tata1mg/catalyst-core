@@ -1,11 +1,9 @@
-// vite.config.client.js - Client-specific configuration
 import { defineConfig } from "vite"
 import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
-import { imageUrl, fontUrl } from "./scssParams.js"
 
 const clientConfig = defineConfig({
     ...baseConfig,
@@ -31,7 +29,6 @@ const clientConfig = defineConfig({
                 main: path.join(process.env.src_path, "client/index.jsx"),
             },
             output: {
-                emptyOutDir: true,
                 format: "es",
                 entryFileNames: (chunkInfo) => {
                     return chunkInfo.name === "server" ? "server/[name].js" : "client/assets/[name]-[hash].js"
@@ -56,49 +53,6 @@ const clientConfig = defineConfig({
         // Production-specific optimization
         chunkSizeWarningLimit: 1000,
     },
-
-    // Client-specific SSR config
-    ssr: {
-        ...baseConfig.ssr,
-        // Use base config noExternal for client build
-        noExternal: baseConfig.ssr.noExternal,
-    },
-
-    // Production-specific CSS configuration
-   css: {
-        modules: {
-            localsConvention: "camelCase",
-            generateScopedName:"[name]__[local]___[hash:base64:5]",
-        },
-        preprocessorOptions: {
-            scss: {
-                additionalData: `@import "@css/resources/index.scss" ; $font_url: "${fontUrl()}";  $url_for: "${imageUrl()}"; `,
-            },
-        },
-    },
-    json: {
-        stringify: true,
-    },
-    assetsInclude: [
-        "**/*.png",
-        "**/*.jpg",
-        "**/*.gif",
-        "**/*.jpeg",
-        "**/*.ico",
-        "**/*.svg",
-        "**/*.ttf",
-        "**/*.eot",
-        "**/*.woff2",
-    ],
-
-
-    // Production server configuration
-    server: {
-        hmr: false,
-        watch: null,
-    },
-
-    // Optimization for production
     esbuild: {
         legalComments: "none",
     },

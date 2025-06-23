@@ -1,4 +1,3 @@
-// vite.config.js
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 
@@ -59,7 +58,6 @@ const alias = () => {
     }, {})
 }
 
-// Function to create environment variable definitions for the client
 export const getClientEnvVariables = () => {
     const clientEnvVars = process.env.CLIENT_ENV_VARIABLES
 
@@ -85,7 +83,6 @@ export const getClientEnvVariables = () => {
 }
 
 const isProduction = process.env.NODE_ENV === "production"
-const isBuild = process.env.VITE_BUILD_MODE === "true"
 
 export default defineConfig({
     ssr: {
@@ -149,7 +146,7 @@ export default defineConfig({
     css: {
         modules: {
             localsConvention: "camelCase",
-            generateScopedName: isProduction ? "[hash:base64:8]" : "[name]__[local]___[hash:base64:5]",
+            generateScopedName: "[name]__[local]___[hash:base64:5]",
         },
         preprocessorOptions: {
             scss: {

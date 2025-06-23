@@ -40,7 +40,7 @@ function build() {
 
     // Build server bundle
     console.log("🔧 Building server bundle...")
-    const serverBuildCommand = `vite build --config ./dist/server/vite.config.server.js --ssr`
+    const serverBuildCommand = `vite build --config ./dist/vite/vite.config.server.js --ssr`
 
     const serverBuildResult = spawnSync(serverBuildCommand, [], {
         cwd: dirname,
@@ -59,7 +59,7 @@ function build() {
 
     // Build client bundle
     console.log("📦 Building client bundle...")
-    const clientBuildCommand = `vite build --config ./dist/server/vite.config.client.js`
+    const clientBuildCommand = `vite build --config ./dist/vite/vite.config.client.js`
 
     const clientBuildResult = spawnSync(clientBuildCommand, [], {
         cwd: dirname,

@@ -1,6 +1,6 @@
 import React from "react"
 import PropTypes from "prop-types"
-import FastRefresh from "./FastRefresh.jsx"
+import FastRefresh from "../../../vite/FastRefresh.jsx"
 
 /**
  * Head component which will be used in page rendering
