@@ -1,65 +1,4 @@
-run: |
-          echo ""
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
-          
-          if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            if [ "$IS_PR_MODE" = "true" ]; then
-              echo "🧪 PR TEST MODE COMPLETED"
-              BRANCH_NAME="${{ github.head_ref }}"
-              MODE_DESC="automatic PR test run"
-            else
-              echo "🧪 MANUAL PR TEST MODE COMPLETED"
-              BRANCH_NAME="${{ github.event.inputs.pr_test_branch }}"
-              MODE_DESC="manual PR test run"
-            fi
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✨ This was a $MODE_DESC - no actual changes were made"
-            echo ""
-            echo "📋 Pipeline validation results:"
-            echo "   🌿 Branch: $BRANCH_NAME"
-            echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
-            echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
-            echo "   🏷️ Git Tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
-            echo "   🔄 Route changes: Simulated successfully"
-            echo "   🔨 Build: Simulated successfully"
-            echo "   📤 Publish: Simulated successfully"
-            echo ""
-            echo "✅ Pipeline is ready for production use!"
-          elif [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "🧪 DRY RUN COMPLETED"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✨ This was a dry run - no changes were made"
-            echo ""
-            echo "📋 Would have executed:"
-            echo "   🌿 Branch: ${{ github.event.inputs.branch }}"
-            echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
-            echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
-            echo "   🏷️ Git Tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
-            PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
-            if [ "$PACKAGE_TYPE" = "internal" ]; then
-              echo "   🔄 Route changes: catalyst-core → catalyst-core-internal"
-            else
-              echo "   🔄 Route changes: catalyst-core-internal → catalyst-core"
-            fi
-            echo ""
-            echo "To actually publish, run this workflow again with 'Dry run' set to false."
-          else
-            echo "🎉 PUBLISH COMPLETED SUCCESSFULLY!"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ Published: ${{ steps.next_version.outputs.package_name }}@${{ steps.next_version.outputs.next_version }}"
-            echo "🌿 From branch: ${{ github.event.inputs.branch }}"
-            if [ -n "${{ steps.commit_info.outputs.commit_short }}" ]; then
-              echo "📍 Commit: ${{ steps.commit_info.outputs.commit_short }}"
-            fi
-            echo "🏷️ Git tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
-            echo "🔗 NPM: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}"
-            echo "📊 Check versions: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}?activeTab=versions"
-            echo ""
-            echo "📁 Repository status: All files restored to original state"
-            echo "🔄 Route changes were applied only for publishing"
-          fi
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"name: Publish Package
+name: Publish Package
 
 on:
   workflow_dispatch:
@@ -94,7 +33,6 @@ on:
         required: false
         default: false
         type: boolean
-      # PR Testing inputs (only used when manually testing PR workflow)
       pr_test_mode:
         description: 'Enable PR test mode (for testing PR workflow manually)'
         required: false
@@ -126,9 +64,9 @@ on:
         required: false
         type: string
   pull_request:
-    branches: [ main ]
-    paths: [ '.github/workflows/publish.yml' ]
-    types: [ opened, synchronize, reopened ]
+    branches: [main]
+    paths: ['.github/workflows/publish.yml']
+    types: [opened, synchronize, reopened]
 
 jobs:
   show-versions:
@@ -535,7 +473,6 @@ jobs:
             fi
           fi
 
-      # TEST MODE - Simulate the above changes for PR testing
       - name: TEST MODE - Simulate package changes
         if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
         run: |
@@ -572,7 +509,6 @@ jobs:
           npm run prepare
           echo "✅ Package built successfully"
 
-      # TEST MODE - Simulate build for PR testing  
       - name: TEST MODE - Simulate build
         if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
         run: |
@@ -582,7 +518,7 @@ jobs:
           
       # COMMENTED OUT FOR TESTING - REMOVE COMMENTS WHEN READY TO PUBLISH
       # - name: Publish to npm
-      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request'
+      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
       #   run: |
       #     echo "📤 Publishing to npm..."
       #     npm publish --access public
@@ -599,7 +535,6 @@ jobs:
           echo "🆕 Version: ${{ steps.next_version.outputs.next_version }}"
           echo "✅ Simulated publish completed successfully"
 
-      # TEST MODE - Show what would be published for PR testing
       - name: TEST MODE - Show publish simulation
         if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
         run: |
@@ -623,7 +558,6 @@ jobs:
           
           echo "📍 Current commit: $COMMIT_SHORT on branch $CURRENT_BRANCH"
 
-      # TEST MODE - Simulate commit info for PR testing
       - name: TEST MODE - Simulate commit info
         if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
         id: commit_info_test
@@ -650,7 +584,7 @@ jobs:
           echo "📍 TEST MODE - Current commit: $COMMIT_SHORT on branch $CURRENT_BRANCH"
           
       # - name: Create git tag
-      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request'
+      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
       #   run: |
       #     echo "🏷️ Creating git tag..."
       #     
@@ -673,7 +607,6 @@ jobs:
       #     echo "✅ Created and pushed tag: $TAG_NAME"
       #     echo "📍 Tagged commit: ${{ steps.commit_info.outputs.commit_short }} on branch $BRANCH_NAME"
 
-      # TEST MODE - Simulate git tag creation for PR testing
       - name: TEST MODE - Simulate git tag creation
         if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
         run: |
@@ -730,13 +663,24 @@ jobs:
         if: always()
         run: |
           echo ""
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "🧪 PR TEST MODE COMPLETED"
+          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          
+          if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ]; then
+            if [ "$IS_PR_MODE" = "true" ]; then
+              echo "🧪 PR TEST MODE COMPLETED"
+              BRANCH_NAME="${{ github.head_ref }}"
+              MODE_DESC="automatic PR test run"
+            else
+              echo "🧪 MANUAL PR TEST MODE COMPLETED"
+              BRANCH_NAME="${{ github.event.inputs.pr_test_branch }}"
+              MODE_DESC="manual PR test run"
+            fi
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✨ This was a PR test run - no actual changes were made"
+            echo "✨ This was a $MODE_DESC - no actual changes were made"
             echo ""
             echo "📋 Pipeline validation results:"
-            echo "   🌿 Branch: ${{ github.head_ref }}"
+            echo "   🌿 Branch: $BRANCH_NAME"
             echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
             echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
             echo "   🏷️ Git Tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
