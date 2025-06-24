@@ -5,18 +5,18 @@ on:
     inputs:
       branch:
         description: 'Branch to publish from'
-        required: false
+        required: true
         type: string
       package_type:
         description: 'Package to publish'
-        required: false
+        required: true
         type: choice
         options:
           - main
           - internal
       version_type:
         description: 'Version type'
-        required: false
+        required: true
         type: choice
         options:
           - beta
@@ -30,65 +30,16 @@ on:
         required: false
         default: false
         type: boolean
-      # PR Testing Mode
-      pr_test_mode:
-        description: '🧪 Enable PR Test Mode (check this for testing)'
-        required: false
-        type: boolean
-      pr_test_branch:
-        description: '🧪 Branch to test'
-        required: false
-        type: string
-      pr_test_package_type:
-        description: '🧪 Package type to test'
-        required: false
-        type: choice
-        options:
-          - main
-          - internal
-      pr_test_version_type:
-        description: '🧪 Version type to test'
-        required: false
-        type: choice
-        options:
-          - beta
-          - canary
-      pr_test_custom_version:
-        description: '🧪 Custom version to test (optional)'
-        required: false
-        type: string
-  pull_request:
-    branches: [main]
-    paths: ['.github/workflows/publish.yml']
-    types: [opened, synchronize, reopened]
   issue_comment:
     types: [created]
 
 jobs:
-  # Trigger manual input flow when comment is made on PR
-  trigger-manual-test:
-    if: |
-      github.event_name == 'issue_comment' && 
-      github.event.issue.pull_request != null &&
-      contains(github.event.comment.body, '/test')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger manual test workflow
-        run: |
-          echo "🔄 Comment-triggered manual test detected!"
-          echo "💡 This will show manual input options for testing"
-          echo ""
-          echo "📋 Available for manual input:"
-          echo "   🧪 PR Test Mode: Enable this for testing"
-          echo "   🌿 Branch: ${{ github.event.issue.pull_request.head.ref }}"
-          echo "   📦 Package Type: Choose main or internal"
-          echo "   📊 Version Type: Choose beta or canary"
-          echo "   🎯 Custom Version: Optional custom version"
-          echo ""
-          echo "✨ Ready for manual input configuration!"
-
   show-versions:
-    if: github.event_name != 'issue_comment' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && 
+       github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '/test'))
     runs-on: ubuntu-latest
     outputs:
       main_beta: ${{ steps.versions.outputs.main_beta }}
@@ -143,63 +94,44 @@ jobs:
           echo "   📍 Latest Canary: ${{ steps.versions.outputs.internal_canary }}"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "⚡ Selected Configuration:"
-          # Determine if we're in PR mode or manual test mode
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
-          IS_COMMENT_TEST="${{ github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') }}"
           
-          if [ "$IS_PR_MODE" = "true" ]; then
-            BRANCH_NAME="${{ github.head_ref }}"
-            PACKAGE_TYPE="main"
-            VERSION_TYPE="canary"
-            CUSTOM_VERSION=""
-            MODE_DESC="Automatic PR test mode"
-          elif [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            BRANCH_NAME="${{ github.event.inputs.pr_test_branch }}"
-            PACKAGE_TYPE="${{ github.event.inputs.pr_test_package_type }}"
-            VERSION_TYPE="${{ github.event.inputs.pr_test_version_type }}"
-            CUSTOM_VERSION="${{ github.event.inputs.pr_test_custom_version }}"
-            MODE_DESC="Manual PR test mode"
-          elif [ "$IS_COMMENT_TEST" = "true" ]; then
-            BRANCH_NAME="${{ github.event.pull_request.head.ref || github.head_ref }}"
-            PACKAGE_TYPE="main"
-            VERSION_TYPE="canary"
-            CUSTOM_VERSION=""
-            MODE_DESC="Comment-triggered manual test setup"
-          else
-            BRANCH_NAME="${{ github.event.inputs.branch }}"
-            PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
-            CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
-            MODE_DESC="Production mode"
-          fi
+      - name: Show selected configuration
+        run: |
+          echo "⚡ MANUAL INPUT CONFIGURATION:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
-          echo "   🌿 Branch: $BRANCH_NAME"
-          echo "   📦 Package Type: $PACKAGE_TYPE"
-          echo "   📊 Version Type: $VERSION_TYPE"
-          if [ -n "$CUSTOM_VERSION" ]; then
-            echo "   🎯 Custom Version: $CUSTOM_VERSION"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "🎯 Trigger: Manual workflow dispatch"
+            echo "🌿 Branch: ${{ github.event.inputs.branch }}"
+            echo "📦 Package Type: ${{ github.event.inputs.package_type }}"
+            echo "📊 Version Type: ${{ github.event.inputs.version_type }}"
+            if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+              echo "🎯 Custom Version: ${{ github.event.inputs.custom_version }}"
+            else
+              echo "🤖 Auto-increment: Enabled"
+            fi
+            echo "🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
           else
-            echo "   🤖 Auto-increment: Enabled"
-          fi
-          if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ] || [ "$IS_COMMENT_TEST" = "true" ]; then
-            echo "   🧪 Dry Run: true ($MODE_DESC)"
-          else
-            echo "   🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
+            echo "🎯 Trigger: Comment-triggered (/test)"
+            echo "💡 This enables the manual input workflow"
+            echo "🔄 Go to Actions → Re-run → Run workflow for manual inputs"
           fi
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   publish:
-    if: github.event_name != 'issue_comment' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && 
+       github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '/test'))
     runs-on: ubuntu-latest
-    needs: [show-versions]
+    needs: show-versions
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || github.event.inputs.pr_test_branch || github.head_ref || github.event.pull_request.head.ref }}
+          ref: ${{ github.event.inputs.branch || github.head_ref }}
           fetch-depth: 0
         
       - name: Setup Node.js
@@ -214,28 +146,16 @@ jobs:
       - name: Calculate next version
         id: next_version
         run: |
-          # Determine which package and version type we're working with
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
-          IS_COMMENT_TEST="${{ github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') }}"
-          
-          if [ "$IS_PR_MODE" = "true" ]; then
-            PACKAGE_TYPE="main"
-            VERSION_TYPE="canary"
-            CUSTOM_VERSION=""
-          elif [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            PACKAGE_TYPE="${{ github.event.inputs.pr_test_package_type }}"
-            VERSION_TYPE="${{ github.event.inputs.pr_test_version_type }}"
-            CUSTOM_VERSION="${{ github.event.inputs.pr_test_custom_version }}"
-          elif [ "$IS_COMMENT_TEST" = "true" ]; then
-            PACKAGE_TYPE="main"
-            VERSION_TYPE="canary"
-            CUSTOM_VERSION=""
-          else
-            PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
-            CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+          # Only run if this is a manual workflow_dispatch
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "ℹ️ Comment trigger detected - skipping version calculation"
+            echo "💡 Use manual workflow dispatch for actual testing"
+            exit 0
           fi
+          
+          PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
+          VERSION_TYPE="${{ github.event.inputs.version_type }}"
+          CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
           
           if [ "$PACKAGE_TYPE" = "main" ]; then
             if [ "$VERSION_TYPE" = "beta" ]; then
@@ -290,58 +210,27 @@ jobs:
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
           
       - name: Show publish plan
+        if: github.event_name == 'workflow_dispatch'
         run: |
           echo ""
           echo "🚀 PUBLISH EXECUTION PLAN"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Determine mode and get appropriate values
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
-          IS_COMMENT_TEST="${{ github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') }}"
-          
-          if [ "$IS_PR_MODE" = "true" ]; then
-            BRANCH_NAME="${{ github.head_ref }}"
-            VERSION_TYPE="canary"
-            CUSTOM_VERSION=""
-            MODE_DESC="PR test mode"
-          elif [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            BRANCH_NAME="${{ github.event.inputs.pr_test_branch }}"
-            VERSION_TYPE="${{ github.event.inputs.pr_test_version_type }}"
-            CUSTOM_VERSION="${{ github.event.inputs.pr_test_custom_version }}"
-            MODE_DESC="Manual PR test mode"
-          elif [ "$IS_COMMENT_TEST" = "true" ]; then
-            BRANCH_NAME="${{ github.event.pull_request.head.ref || github.head_ref }}"
-            VERSION_TYPE="canary"
-            CUSTOM_VERSION=""
-            MODE_DESC="Comment-triggered manual test"
-          else
-            BRANCH_NAME="${{ github.event.inputs.branch }}"
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
-            CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
-            MODE_DESC="Production mode"
-          fi
-          
-          echo "🌿 Branch:          $BRANCH_NAME"
+          echo "🌿 Branch:          ${{ github.event.inputs.branch }}"
           echo "📦 Package Name:    ${{ steps.next_version.outputs.package_name }}"
           echo "📊 Current Version: ${{ steps.next_version.outputs.current_version }}"
           echo "🆕 Next Version:    ${{ steps.next_version.outputs.next_version }}"
-          echo "🔧 Version Type:    $VERSION_TYPE"
-          if [ -n "$CUSTOM_VERSION" ]; then
+          echo "🔧 Version Type:    ${{ github.event.inputs.version_type }}"
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
             echo "🎯 Version Source:  Custom (manually specified)"
           else
             echo "🤖 Version Source:  Auto-increment"
           fi
-          if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            echo "🧪 Dry Run:         true ($MODE_DESC)"
-            echo "🔬 Test Mode:       No actual publishing"
-          else
-            echo "🧪 Dry Run:         ${{ github.event.inputs.dry_run }}"
-          fi
+          echo "🧪 Dry Run:         ${{ github.event.inputs.dry_run }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
       - name: Validate version doesn't exist
+        if: github.event_name == 'workflow_dispatch'
         run: |
           echo "🔍 Checking if version already exists on npm..."
           
@@ -357,407 +246,79 @@ jobs:
             echo "✅ Version $NEXT_VERSION is available for publishing"
           fi
           
-      - name: Create backup and prepare for changes
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true' && !(github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
+      - name: Simulate package changes
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "💾 Creating backups..."
-          # Backup all files that will be modified
-          cp package.json package.json.backup
-          cp package-lock.json package-lock.json.backup 2>/dev/null || true
-          
-          # Create a list of files containing catalyst-core references for restoration
-          find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" -o -name "*.json" \) \
-            -not -path "./node_modules/*" \
-            -not -path "./.git/*" \
-            -not -path "./dist/*" \
-            -exec grep -l "catalyst-core" {} + > catalyst-core-files.txt 2>/dev/null || true
-          
-          echo "✅ Backups created successfully"
-          
-      - name: Update package configuration
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
-        run: |
-          echo "🔧 Updating package.json..."
-          
-          # Use Node.js to update package.json safely
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            
-            // Update package name and version
-            pkg.name = '${{ steps.next_version.outputs.package_name }}';
-            pkg.version = '${{ steps.next_version.outputs.next_version }}';
-            
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 4));
-            console.log('✅ Updated package.json');
-            console.log('   Name:', pkg.name);
-            console.log('   Version:', pkg.version);
-          "
-          
-      - name: Handle comprehensive route changes
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
-        run: |
-          echo "🔄 Handling comprehensive route changes..."
-          
-          # Determine package type based on mode
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
-          if [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            PACKAGE_TYPE="${{ github.event.inputs.pr_test_package_type }}"
-          else
-            PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
-          fi
-          
-          if [ "$PACKAGE_TYPE" = "internal" ]; then
-            echo "📝 Updating ALL catalyst-core references to catalyst-core-internal..."
-            
-            # Update package.json and package-lock.json
-            sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' package.json 2>/dev/null || true
-            sed -i 's/"catalyst-core":/"catalyst-core-internal":/g' package.json 2>/dev/null || true
-            sed -i 's/"name": "catalyst-core"/"name": "catalyst-core-internal"/g' package.json 2>/dev/null || true
-            
-            # Update package-lock.json if it exists
-            if [ -f package-lock.json ]; then
-              sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' package-lock.json 2>/dev/null || true
-              sed -i 's/"name": "catalyst-core"/"name": "catalyst-core-internal"/g' package-lock.json 2>/dev/null || true
-            fi
-            
-            # Update all source files - imports, requires, and string references
-            find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i 's|catalyst-core/|catalyst-core-internal/|g' {} + 2>/dev/null || true
-              
-            find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i 's|"catalyst-core"|"catalyst-core-internal"|g' {} + 2>/dev/null || true
-              
-            find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i "s|'catalyst-core'|'catalyst-core-internal'|g" {} + 2>/dev/null || true
-            
-            # Update template package.json files
-            find template -name "package.json" -exec sed -i 's/"catalyst-core":/"catalyst-core-internal":/g' {} + 2>/dev/null || true
-            find template -name "package-lock.json" -exec sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' {} + 2>/dev/null || true
-            
-            # Update any remaining JSON files that might contain catalyst-core references
-            find . -name "*.json" \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' {} + 2>/dev/null || true
-            
-            echo "✅ Updated all references to use catalyst-core-internal"
-            
-          else
-            echo "📝 Ensuring ALL references use catalyst-core (main package)..."
-            
-            # Update package.json and package-lock.json
-            sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' package.json 2>/dev/null || true
-            sed -i 's/"catalyst-core-internal":/"catalyst-core":/g' package.json 2>/dev/null || true
-            sed -i 's/"name": "catalyst-core-internal"/"name": "catalyst-core"/g' package.json 2>/dev/null || true
-            
-            # Update package-lock.json if it exists
-            if [ -f package-lock.json ]; then
-              sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' package-lock.json 2>/dev/null || true
-              sed -i 's/"name": "catalyst-core-internal"/"name": "catalyst-core"/g' package-lock.json 2>/dev/null || true
-            fi
-            
-            # Update all source files - imports, requires, and string references
-            find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i 's|catalyst-core-internal/|catalyst-core/|g' {} + 2>/dev/null || true
-              
-            find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i 's|"catalyst-core-internal"|"catalyst-core"|g' {} + 2>/dev/null || true
-              
-            find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i "s|'catalyst-core-internal'|'catalyst-core'|g" {} + 2>/dev/null || true
-            
-            # Update template package.json files
-            find template -name "package.json" -exec sed -i 's/"catalyst-core-internal":/"catalyst-core":/g' {} + 2>/dev/null || true
-            find template -name "package-lock.json" -exec sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' {} + 2>/dev/null || true
-            
-            # Update any remaining JSON files that might contain catalyst-core-internal references
-            find . -name "*.json" \
-              -not -path "./node_modules/*" \
-              -not -path "./.git/*" \
-              -not -path "./dist/*" \
-              -exec sed -i 's/"catalyst-core-internal"/"catalyst-core"/g' {} + 2>/dev/null || true
-            
-            echo "✅ Updated all references to use catalyst-core"
-          fi
-          
-          # Show what files were changed
-          echo ""
-          echo "📋 Files modified:"
-          if [ -f catalyst-core-files.txt ]; then
-            cat catalyst-core-files.txt | head -10
-            TOTAL_FILES=$(cat catalyst-core-files.txt | wc -l)
-            if [ "$TOTAL_FILES" -gt 10 ]; then
-              echo "... and $((TOTAL_FILES - 10)) more files"
-            fi
-          fi
-
-      - name: TEST MODE - Simulate package changes
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
-        run: |
-          echo "🧪 TEST MODE - Simulating package configuration changes..."
+          echo "🧪 SIMULATING PACKAGE CHANGES..."
           echo "📝 Would update package.json:"
           echo "   Name: ${{ steps.next_version.outputs.package_name }}"
           echo "   Version: ${{ steps.next_version.outputs.next_version }}"
           echo ""
-          
-          # Determine package type based on mode
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
-          
-          if [ "$IS_PR_MODE" = "true" ]; then
-            PACKAGE_TYPE="main"
-          elif [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            PACKAGE_TYPE="${{ github.event.inputs.pr_test_package_type }}"
-          else
-            PACKAGE_TYPE="main"
-          fi
-          
-          echo "🔄 Would handle comprehensive route changes for package type: $PACKAGE_TYPE"
-          if [ "$PACKAGE_TYPE" = "internal" ]; then
+          echo "🔄 Would handle comprehensive route changes for package type: ${{ github.event.inputs.package_type }}"
+          if [ "${{ github.event.inputs.package_type }}" = "internal" ]; then
             echo "   📝 Would update ALL catalyst-core references to catalyst-core-internal"
           else
             echo "   📝 Would ensure ALL references use catalyst-core"
           fi
           echo "✅ Package change simulation completed"
           
-      - name: Build package
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
+      - name: Simulate build
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "🔨 Building package..."
-          npm run prepare
-          echo "✅ Package built successfully"
-
-      - name: TEST MODE - Simulate build
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
-        run: |
-          echo "🧪 TEST MODE - Simulating package build..."
+          echo "🧪 SIMULATING PACKAGE BUILD..."
           echo "🔨 Would run: npm run prepare"
           echo "✅ Build simulation completed"
           
-      # COMMENTED OUT FOR TESTING - REMOVE COMMENTS WHEN READY TO PUBLISH
-      # - name: Publish to npm
-      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
-      #   run: |
-      #     echo "📤 Publishing to npm..."
-      #     npm publish --access public
-      #     echo "✅ Published successfully to npm"
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      
-      - name: TESTING - Simulate Publish
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
+      - name: Simulate publish
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "🧪 TESTING MODE - Simulating npm publish..."
-          echo "📤 Would publish to npm with command: npm publish --access public"
-          echo "📦 Package: ${{ steps.next_version.outputs.package_name }}"
-          echo "🆕 Version: ${{ steps.next_version.outputs.next_version }}"
-          echo "✅ Simulated publish completed successfully"
-
-      - name: TEST MODE - Show publish simulation
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
-        run: |
-          echo "🧪 TEST MODE - Publishing simulation..."
+          echo "🧪 SIMULATING NPM PUBLISH..."
           echo "📤 Would publish to npm with command: npm publish --access public"
           echo "📦 Package: ${{ steps.next_version.outputs.package_name }}"
           echo "🆕 Version: ${{ steps.next_version.outputs.next_version }}"
           echo "✅ Publish simulation completed"
           
-      - name: Get current commit info
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
-        id: commit_info
+      - name: Simulate git tag creation
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          COMMIT_HASH=$(git rev-parse HEAD)
-          COMMIT_SHORT=$(git rev-parse --short HEAD)
-          CURRENT_BRANCH="${{ github.event.inputs.branch }}"
-          
-          echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
-          echo "commit_short=$COMMIT_SHORT" >> $GITHUB_OUTPUT
-          echo "current_branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
-          
-          echo "📍 Current commit: $COMMIT_SHORT on branch $CURRENT_BRANCH"
-
-      - name: TEST MODE - Simulate commit info
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
-        id: commit_info_test
-        run: |
-          COMMIT_HASH=$(git rev-parse HEAD)
-          COMMIT_SHORT=$(git rev-parse --short HEAD)
-          
-          # Determine branch based on mode
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
-          
-          if [ "$IS_PR_MODE" = "true" ]; then
-            CURRENT_BRANCH="${{ github.head_ref }}"
-          elif [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            CURRENT_BRANCH="${{ github.event.inputs.pr_test_branch }}"
-          else
-            CURRENT_BRANCH="unknown"
-          fi
-          
-          echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
-          echo "commit_short=$COMMIT_SHORT" >> $GITHUB_OUTPUT
-          echo "current_branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
-          
-          echo "📍 TEST MODE - Current commit: $COMMIT_SHORT on branch $CURRENT_BRANCH"
-          
-      # - name: Create git tag
-      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
-      #   run: |
-      #     echo "🏷️ Creating git tag..."
-      #     
-      #     TAG_NAME="${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
-      #     COMMIT_HASH="${{ steps.commit_info.outputs.commit_hash }}"
-      #     BRANCH_NAME="${{ steps.commit_info.outputs.current_branch }}"
-      #     
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #     
-      #     # Create annotated tag with branch and commit info
-      #     git tag -a "$TAG_NAME" -m "Release ${{ steps.next_version.outputs.package_name }}@${{ steps.next_version.outputs.next_version }}" \
-      #            -m "" \
-      #            -m "Branch: $BRANCH_NAME" \
-      #            -m "Commit: $COMMIT_HASH" \
-      #            -m "Published: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-      #     
-      #     git push origin "$TAG_NAME"
-      #     
-      #     echo "✅ Created and pushed tag: $TAG_NAME"
-      #     echo "📍 Tagged commit: ${{ steps.commit_info.outputs.commit_short }} on branch $BRANCH_NAME"
-
-      - name: TEST MODE - Simulate git tag creation
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
-        run: |
-          echo "🧪 TEST MODE - Simulating git tag creation..."
+          echo "🧪 SIMULATING GIT TAG CREATION..."
           TAG_NAME="${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
-          COMMIT_HASH="${{ steps.commit_info_test.outputs.commit_hash || 'test-commit' }}"
-          
-          # Determine branch based on mode
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
-          
-          if [ "$IS_PR_MODE" = "true" ]; then
-            BRANCH_NAME="${{ github.head_ref }}"
-          elif [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            BRANCH_NAME="${{ github.event.inputs.pr_test_branch }}"
-          else
-            BRANCH_NAME="unknown"
-          fi
-          
           echo "🏷️ Would create git tag: $TAG_NAME"
-          echo "📍 Would tag commit: ${{ steps.commit_info_test.outputs.commit_short || 'test-short' }} on branch $BRANCH_NAME"
+          echo "📍 Would tag commit on branch: ${{ github.event.inputs.branch }}"
           echo "✅ Git tag simulation completed"
-          
-      - name: Restore all changes (NO COMMIT)
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true' && always()
-        run: |
-          echo "🔄 Restoring all changes (files are not committed)..."
-          
-          # Restore package.json and package-lock.json from backup
-          if [ -f package.json.backup ]; then
-            mv package.json.backup package.json
-            echo "✅ Restored package.json"
-          fi
-          
-          if [ -f package-lock.json.backup ]; then
-            mv package-lock.json.backup package-lock.json
-            echo "✅ Restored package-lock.json"
-          fi
-          
-          # Restore all modified files using git (this won't affect the published package)
-          if [ -f catalyst-core-files.txt ]; then
-            echo "🔄 Restoring modified source files..."
-            # Reset all changes to tracked files
-            git checkout HEAD -- . 2>/dev/null || true
-            echo "✅ All files restored to original state"
-          fi
-          
-          # Clean up temporary files
-          rm -f catalyst-core-files.txt 2>/dev/null || true
-          
-          echo "✅ Repository restored to original state (changes were only for publishing)"
           
       - name: Summary
         if: always()
         run: |
           echo ""
-          IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
-          
-          if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ]; then
-            if [ "$IS_PR_MODE" = "true" ]; then
-              echo "🧪 AUTOMATIC PR TEST MODE COMPLETED"
-              BRANCH_NAME="${{ github.head_ref }}"
-              MODE_DESC="automatic PR test run"
-            else
-              echo "🧪 MANUAL PR TEST MODE COMPLETED"
-              BRANCH_NAME="${{ github.event.inputs.pr_test_branch }}"
-              MODE_DESC="manual PR test run"
-            fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "🎉 MANUAL TEST COMPLETED SUCCESSFULLY!"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✨ This was a $MODE_DESC - no actual changes were made"
+            echo "✨ This was a manual test with your custom inputs"
             echo ""
-            echo "📋 Pipeline validation results:"
-            echo "   🌿 Branch: $BRANCH_NAME"
-            echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
-            echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
-            echo "   🏷️ Git Tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
-            echo "   🔄 Route changes: Simulated successfully"
-            echo "   🔨 Build: Simulated successfully"
-            echo "   📤 Publish: Simulated successfully"
-            echo ""
-            echo "✅ Pipeline is ready for production use!"
-          elif [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "🧪 DRY RUN COMPLETED"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✨ This was a dry run - no changes were made"
-            echo ""
-            echo "📋 Would have executed:"
+            echo "📋 Executed with your inputs:"
             echo "   🌿 Branch: ${{ github.event.inputs.branch }}"
             echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
             echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
-            echo "   🏷️ Git Tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
-            PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
-            if [ "$PACKAGE_TYPE" = "internal" ]; then
+            echo "   🔧 Version Type: ${{ github.event.inputs.version_type }}"
+            if [ "${{ github.event.inputs.package_type }}" = "internal" ]; then
               echo "   🔄 Route changes: catalyst-core → catalyst-core-internal"
             else
               echo "   🔄 Route changes: catalyst-core-internal → catalyst-core"
             fi
+            echo "   🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
             echo ""
-            echo "To actually publish, run this workflow again with 'Dry run' set to false."
-          else
-            echo "🎉 PUBLISH COMPLETED SUCCESSFULLY!"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ Published: ${{ steps.next_version.outputs.package_name }}@${{ steps.next_version.outputs.next_version }}"
-            echo "🌿 From branch: ${{ github.event.inputs.branch }}"
-            if [ -n "${{ steps.commit_info.outputs.commit_short }}" ]; then
-              echo "📍 Commit: ${{ steps.commit_info.outputs.commit_short }}"
-            fi
-            echo "🏷️ Git tag: ${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
+            echo "✅ All simulations completed successfully!"
             echo "🔗 NPM: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}"
-            echo "📊 Check versions: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}?activeTab=versions"
+          else
+            echo "💡 COMMENT TRIGGER ACTIVATED"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✨ Ready for manual input testing!"
             echo ""
-            echo "📁 Repository status: All files restored to original state"
-            echo "🔄 Route changes were applied only for publishing"
+            echo "🎯 Next steps:"
+            echo "1. Go to Actions → Publish Package"
+            echo "2. Click 'Re-run jobs' dropdown → 'Run workflow'"
+            echo "3. Fill in your manual inputs"
+            echo "4. Click 'Run workflow' to test"
           fi
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
