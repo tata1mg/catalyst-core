@@ -5,21 +5,18 @@ on:
     inputs:
       branch:
         description: 'Branch to publish from'
-        required: true
-        default: 'main'
+        required: false
         type: string
       package_type:
         description: 'Package to publish'
-        required: true
-        default: 'main'
+        required: false
         type: choice
         options:
           - main
           - internal
       version_type:
         description: 'Version type'
-        required: true
-        default: 'canary'
+        required: false
         type: choice
         options:
           - beta
@@ -33,39 +30,65 @@ on:
         required: false
         default: false
         type: boolean
-      pr_manual_test:
-        description: 'Enable PR test mode with custom inputs'
+      # PR Testing Mode
+      pr_test_mode:
+        description: '🧪 Enable PR Test Mode (check this for testing)'
         required: false
         type: boolean
       pr_test_branch:
-        description: 'Branch to test (for PR test mode)'
+        description: '🧪 Branch to test'
         required: false
         type: string
       pr_test_package_type:
-        description: 'Package type to test (for PR test mode)'
+        description: '🧪 Package type to test'
         required: false
         type: choice
         options:
           - main
           - internal
       pr_test_version_type:
-        description: 'Version type to test (for PR test mode)'
+        description: '🧪 Version type to test'
         required: false
         type: choice
         options:
           - beta
           - canary
       pr_test_custom_version:
-        description: 'Custom version to test (for PR test mode)'
+        description: '🧪 Custom version to test (optional)'
         required: false
         type: string
   pull_request:
     branches: [main]
     paths: ['.github/workflows/publish.yml']
     types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
 
 jobs:
+  # Trigger manual input flow when comment is made on PR
+  trigger-manual-test:
+    if: |
+      github.event_name == 'issue_comment' && 
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '/test')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger manual test workflow
+        run: |
+          echo "🔄 Comment-triggered manual test detected!"
+          echo "💡 This will show manual input options for testing"
+          echo ""
+          echo "📋 Available for manual input:"
+          echo "   🧪 PR Test Mode: Enable this for testing"
+          echo "   🌿 Branch: ${{ github.event.issue.pull_request.head.ref }}"
+          echo "   📦 Package Type: Choose main or internal"
+          echo "   📊 Version Type: Choose beta or canary"
+          echo "   🎯 Custom Version: Optional custom version"
+          echo ""
+          echo "✨ Ready for manual input configuration!"
+
   show-versions:
+    if: github.event_name != 'issue_comment' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
     runs-on: ubuntu-latest
     outputs:
       main_beta: ${{ steps.versions.outputs.main_beta }}
@@ -123,7 +146,8 @@ jobs:
           echo "⚡ Selected Configuration:"
           # Determine if we're in PR mode or manual test mode
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_COMMENT_TEST="${{ github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             BRANCH_NAME="${{ github.head_ref }}"
@@ -137,6 +161,12 @@ jobs:
             VERSION_TYPE="${{ github.event.inputs.pr_test_version_type }}"
             CUSTOM_VERSION="${{ github.event.inputs.pr_test_custom_version }}"
             MODE_DESC="Manual PR test mode"
+          elif [ "$IS_COMMENT_TEST" = "true" ]; then
+            BRANCH_NAME="${{ github.event.pull_request.head.ref || github.head_ref }}"
+            PACKAGE_TYPE="main"
+            VERSION_TYPE="canary"
+            CUSTOM_VERSION=""
+            MODE_DESC="Comment-triggered manual test setup"
           else
             BRANCH_NAME="${{ github.event.inputs.branch }}"
             PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
@@ -153,7 +183,7 @@ jobs:
           else
             echo "   🤖 Auto-increment: Enabled"
           fi
-          if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ]; then
+          if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ] || [ "$IS_COMMENT_TEST" = "true" ]; then
             echo "   🧪 Dry Run: true ($MODE_DESC)"
           else
             echo "   🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
@@ -161,14 +191,15 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   publish:
+    if: github.event_name != 'issue_comment' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
     runs-on: ubuntu-latest
-    needs: show-versions
+    needs: [show-versions]
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || github.event.inputs.pr_test_branch || github.head_ref }}
+          ref: ${{ github.event.inputs.branch || github.event.inputs.pr_test_branch || github.head_ref || github.event.pull_request.head.ref }}
           fetch-depth: 0
         
       - name: Setup Node.js
@@ -185,7 +216,8 @@ jobs:
         run: |
           # Determine which package and version type we're working with
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_COMMENT_TEST="${{ github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             PACKAGE_TYPE="main"
@@ -195,6 +227,10 @@ jobs:
             PACKAGE_TYPE="${{ github.event.inputs.pr_test_package_type }}"
             VERSION_TYPE="${{ github.event.inputs.pr_test_version_type }}"
             CUSTOM_VERSION="${{ github.event.inputs.pr_test_custom_version }}"
+          elif [ "$IS_COMMENT_TEST" = "true" ]; then
+            PACKAGE_TYPE="main"
+            VERSION_TYPE="canary"
+            CUSTOM_VERSION=""
           else
             PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
             VERSION_TYPE="${{ github.event.inputs.version_type }}"
@@ -261,7 +297,8 @@ jobs:
           
           # Determine mode and get appropriate values
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_COMMENT_TEST="${{ github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             BRANCH_NAME="${{ github.head_ref }}"
@@ -273,6 +310,11 @@ jobs:
             VERSION_TYPE="${{ github.event.inputs.pr_test_version_type }}"
             CUSTOM_VERSION="${{ github.event.inputs.pr_test_custom_version }}"
             MODE_DESC="Manual PR test mode"
+          elif [ "$IS_COMMENT_TEST" = "true" ]; then
+            BRANCH_NAME="${{ github.event.pull_request.head.ref || github.head_ref }}"
+            VERSION_TYPE="canary"
+            CUSTOM_VERSION=""
+            MODE_DESC="Comment-triggered manual test"
           else
             BRANCH_NAME="${{ github.event.inputs.branch }}"
             VERSION_TYPE="${{ github.event.inputs.version_type }}"
@@ -316,7 +358,7 @@ jobs:
           fi
           
       - name: Create backup and prepare for changes
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true' && !(github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
         run: |
           echo "💾 Creating backups..."
           # Backup all files that will be modified
@@ -470,7 +512,7 @@ jobs:
           fi
 
       - name: TEST MODE - Simulate package changes
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
+        if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test'))
         run: |
           echo "🧪 TEST MODE - Simulating package configuration changes..."
           echo "📝 Would update package.json:"
