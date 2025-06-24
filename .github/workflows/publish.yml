@@ -3,40 +3,66 @@ name: Publish Package
 on:
   workflow_dispatch:
     inputs:
-
-  pull_request:
-    branches: [main]
-    paths: ['.github/workflows/publish.yml']
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
-    inputs:
-      # When triggered manually from PR branch, these inputs will be available
+      branch:
+        description: 'Branch to publish from'
+        required: true
+        default: 'main'
+        type: string
+      package_type:
+        description: 'Package to publish'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - internal
+      version_type:
+        description: 'Version type'
+        required: true
+        default: 'canary'
+        type: choice
+        options:
+          - beta
+          - canary
+      custom_version:
+        description: 'Custom version (optional - leave empty for auto-increment). Format: x.y.z-beta.n or x.y.z-canary.n'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run (preview only)'
+        required: false
+        default: false
+        type: boolean
       pr_manual_test:
-        description: '🧪 MANUAL PR TESTING MODE - Enable to test with custom inputs'
+        description: 'Enable PR test mode with custom inputs'
         required: false
         type: boolean
       pr_test_branch:
-        description: 'Branch to test'
+        description: 'Branch to test (for PR test mode)'
         required: false
         type: string
       pr_test_package_type:
-        description: 'Package type to test'
+        description: 'Package type to test (for PR test mode)'
         required: false
         type: choice
         options:
           - main
           - internal
       pr_test_version_type:
-        description: 'Version type to test'
+        description: 'Version type to test (for PR test mode)'
         required: false
         type: choice
         options:
           - beta
           - canary
       pr_test_custom_version:
-        description: 'Custom version to test (optional)'
+        description: 'Custom version to test (for PR test mode)'
         required: false
         type: string
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/publish.yml']
+    types: [opened, synchronize, reopened]
 
 jobs:
   show-versions:
@@ -488,7 +514,7 @@ jobs:
           
       # COMMENTED OUT FOR TESTING - REMOVE COMMENTS WHEN READY TO PUBLISH
       # - name: Publish to npm
-      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
       #   run: |
       #     echo "📤 Publishing to npm..."
       #     npm publish --access public
@@ -554,7 +580,7 @@ jobs:
           echo "📍 TEST MODE - Current commit: $COMMIT_SHORT on branch $CURRENT_BRANCH"
           
       # - name: Create git tag
-      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+      #   if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
       #   run: |
       #     echo "🏷️ Creating git tag..."
       #     
