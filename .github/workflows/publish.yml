@@ -3,8 +3,6 @@ name: Publish Package
 on:
   workflow_dispatch:
     inputs:
-  workflow_dispatch:
-    inputs:
       # Production inputs (for main branch publishing)
       branch:
         description: '🚀 PRODUCTION: Branch to publish from'
