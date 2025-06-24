@@ -50,6 +50,32 @@ npm run start
 
 ---
 
+TITLE: Building and serving the production version
+
+DESCRIPTION:
+
+-   To create an optimized production build of your Catalyst application, use the following command. This will generate the production-ready assets in the build directory.
+
+LANGUAGE: bash
+CODE:
+
+```
+npm run build
+```
+
+-   To serve the production build locally (for testing or preview), use the following command. This will start a server that serves your built application, typically on `http://localhost:3005`.
+
+LANGUAGE: bash
+CODE:
+
+```
+npm run serve
+```
+
+---
+
+---
+
 TITLE: Adding routes in catalyst
 
 DESCRIPTION:
@@ -516,5 +542,133 @@ module.exports = {
   ]
 };
 ```
+
+---
+
+---
+
+TITLE: State management
+
+DESCRIPTION:
+
+-   To address use cases where a global store is needed and must be accessible on both the client and server, Catalyst provides built-in support for Redux and Redux Toolkit
+-   The Redux store should be defined in src/js/store/index.js
+
+Redux integration demo
+
+LANGUAGE: js
+FILE: src/js/store/index.js
+CODE:
+
+```
+import { compose, createStore, applyMiddleware } from "redux"
+import homeReducer from "@reducers/homeReducer.js"
+
+export default function configureStore(initialState,request) {
+  // request object is available when the store is initialized on the server
+  // creating store with homeReducer and initialData recieved from server
+    const store = createStore(
+        homeReducer
+        initialState,
+    )
+    return store
+}
+```
+
+RTK integration demo
+
+LANGUAGE: js
+FILE: src/js/store/index.js
+CODE:
+
+```
+import { configureStore as createStore } from "@reduxjs/toolkit"
+import { combineReducers } from "redux"
+import { shellReducer } from "@containers/App/reducer.js"
+import fetchInstance from "@api"
+
+const configureStore = (initialState) => {
+    const api = fetchInstance
+    const store = createStore({
+        reducer: combineReducers({ shellReducer }),
+        middleware: (getDefaultMiddleware) =>
+            getDefaultMiddleware({
+                thunk: {
+                    extraArgument: { api },
+                },
+            }),
+        preloadedState: initialState,
+    })
+    return store
+}
+
+export default configureStore
+
+```
+
+-   This store is available in both clientFetcher and serverFetcher
+
+LANGUAGE: js
+CODE:
+
+```
+HomePage.serverFetcher = async ({ req }, { store }) => {
+  dispatch(isLoading())
+  // returning async action
+  return dispatch(getHomePageData())
+}
+HomePage.clientFetcher = async ({ req }, { store }) => {
+  dispatch(isLoading())
+  // returning async action
+  return dispatch(getHomePageData())
+}
+```
+
+---
+
+---
+
+TITLE: Universal App
+
+DESCRIPTION:
+
+-   Catalyst also provides support to build native iOS/android applications
+-   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.6`
+
+To install the android simulator
+
+1. Download and install Android Studio
+2. Launch Android Studio
+3. From the welcome screen, click More Actions and select SDK Manager
+4. Navigate to Settings > Languages & Frameworks > Android SDK
+5. In the SDK Platforms tab:
+    - Select the latest Android version (API level)
+    - Make sure the box next to the selected version is checked
+6. Switch to the SDK Tools tab and ensure these components are installed:
+    - At least one version of Android SDK Build-Tools
+    - Android Emulator
+    - Android SDK Platform-Tools
+7. Important: Note down the Android SDK Location path displayed at the top
+    - You'll need this path for environment variables or other development tools
+8. Click Apply and then OK to begin the installation
+    - Wait for all selected components to download and install
+    - This may take several minutes depending on your internet connection
+
+To install the ios simulator
+
+1. Install Xcode
+2. Install Xcode Command Line Tools
+
+```
+# Check if already installed
+xcode-select -p
+
+# If not installed, run:
+xcode-select --install
+```
+
+-   To configure the android / iOS simulators, run `npm run setupEmulator:android` or `npm run setupEmulator:ios`
+-   To run the application, first start the development server `npm run start`
+-   Then in a new terminal, build the app using `npm run buildApp:android` or `npm run buildApp:ios`
 
 ---
