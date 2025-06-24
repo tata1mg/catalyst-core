@@ -3,64 +3,7 @@ name: Publish Package
 on:
   workflow_dispatch:
     inputs:
-      # Production inputs (for main branch publishing)
-      branch:
-        description: '🚀 PRODUCTION: Branch to publish from'
-        required: true
-        default: 'main'
-        type: string
-      package_type:
-        description: '🚀 PRODUCTION: Package to publish'
-        required: true
-        default: 'main'
-        type: choice
-        options:
-          - main
-          - internal
-      version_type:
-        description: '🚀 PRODUCTION: Version type'
-        required: true
-        default: 'canary'
-        type: choice
-        options:
-          - beta
-          - canary
-      custom_version:
-        description: '🚀 PRODUCTION: Custom version (optional - leave empty for auto-increment). Format: x.y.z-beta.n or x.y.z-canary.n'
-        required: false
-        type: string
-      dry_run:
-        description: '🚀 PRODUCTION: Dry run (preview only)'
-        required: false
-        default: false
-        type: boolean
-      # PR Testing inputs (for feature branch testing)
-      pr_manual_test:
-        description: '🧪 MANUAL PR TESTING MODE - Enable to test with custom inputs'
-        required: false
-        type: boolean
-      pr_test_branch:
-        description: '🧪 PR TEST: Branch to test'
-        required: false
-        type: string
-      pr_test_package_type:
-        description: '🧪 PR TEST: Package type to test'
-        required: false
-        type: choice
-        options:
-          - main
-          - internal
-      pr_test_version_type:
-        description: '🧪 PR TEST: Version type to test'
-        required: false
-        type: choice
-        options:
-          - beta
-          - canary
-      pr_test_custom_version:
-        description: '🧪 PR TEST: Custom version to test (optional)'
-        required: false
-        type: string
+
   pull_request:
     branches: [main]
     paths: ['.github/workflows/publish.yml']
