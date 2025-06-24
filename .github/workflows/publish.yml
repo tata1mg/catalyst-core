@@ -36,17 +36,14 @@ on:
       pr_test_mode:
         description: 'Enable PR test mode (for testing PR workflow manually)'
         required: false
-        default: false
         type: boolean
       pr_test_branch:
         description: 'Branch to test (for PR test mode)'
         required: false
-        default: 'feature/publish_pipeline'
         type: string
       pr_test_package_type:
         description: 'Package type to test (for PR test mode)'
         required: false
-        default: 'main'
         type: choice
         options:
           - main
@@ -54,7 +51,6 @@ on:
       pr_test_version_type:
         description: 'Version type to test (for PR test mode)'
         required: false
-        default: 'canary'
         type: choice
         options:
           - beta
