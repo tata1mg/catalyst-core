@@ -3,13 +3,16 @@ name: Publish Package
 on:
   workflow_dispatch:
     inputs:
+  workflow_dispatch:
+    inputs:
+      # Production inputs (for main branch publishing)
       branch:
-        description: 'Branch to publish from'
+        description: '🚀 PRODUCTION: Branch to publish from'
         required: true
         default: 'main'
         type: string
       package_type:
-        description: 'Package to publish'
+        description: '🚀 PRODUCTION: Package to publish'
         required: true
         default: 'main'
         type: choice
@@ -17,7 +20,7 @@ on:
           - main
           - internal
       version_type:
-        description: 'Version type'
+        description: '🚀 PRODUCTION: Version type'
         required: true
         default: 'canary'
         type: choice
@@ -25,44 +28,74 @@ on:
           - beta
           - canary
       custom_version:
-        description: 'Custom version (optional - leave empty for auto-increment). Format: x.y.z-beta.n or x.y.z-canary.n'
+        description: '🚀 PRODUCTION: Custom version (optional - leave empty for auto-increment). Format: x.y.z-beta.n or x.y.z-canary.n'
         required: false
         type: string
       dry_run:
-        description: 'Dry run (preview only)'
+        description: '🚀 PRODUCTION: Dry run (preview only)'
         required: false
         default: false
         type: boolean
-      pr_test_mode:
-        description: 'Enable PR test mode (for testing PR workflow manually)'
+      # PR Testing inputs (for feature branch testing)
+      pr_manual_test:
+        description: '🧪 MANUAL PR TESTING MODE - Enable to test with custom inputs'
         required: false
         type: boolean
       pr_test_branch:
-        description: 'Branch to test (for PR test mode)'
+        description: '🧪 PR TEST: Branch to test'
         required: false
         type: string
       pr_test_package_type:
-        description: 'Package type to test (for PR test mode)'
+        description: '🧪 PR TEST: Package type to test'
         required: false
         type: choice
         options:
           - main
           - internal
       pr_test_version_type:
-        description: 'Version type to test (for PR test mode)'
+        description: '🧪 PR TEST: Version type to test'
         required: false
         type: choice
         options:
           - beta
           - canary
       pr_test_custom_version:
-        description: 'Custom version to test (for PR test mode)'
+        description: '🧪 PR TEST: Custom version to test (optional)'
         required: false
         type: string
   pull_request:
     branches: [main]
     paths: ['.github/workflows/publish.yml']
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      # When triggered manually from PR branch, these inputs will be available
+      pr_manual_test:
+        description: '🧪 MANUAL PR TESTING MODE - Enable to test with custom inputs'
+        required: false
+        type: boolean
+      pr_test_branch:
+        description: 'Branch to test'
+        required: false
+        type: string
+      pr_test_package_type:
+        description: 'Package type to test'
+        required: false
+        type: choice
+        options:
+          - main
+          - internal
+      pr_test_version_type:
+        description: 'Version type to test'
+        required: false
+        type: choice
+        options:
+          - beta
+          - canary
+      pr_test_custom_version:
+        description: 'Custom version to test (optional)'
+        required: false
+        type: string
 
 jobs:
   show-versions:
@@ -123,14 +156,14 @@ jobs:
           echo "⚡ Selected Configuration:"
           # Determine if we're in PR mode or manual test mode
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             BRANCH_NAME="${{ github.head_ref }}"
             PACKAGE_TYPE="main"
             VERSION_TYPE="canary"
             CUSTOM_VERSION=""
-            MODE_DESC="PR test mode"
+            MODE_DESC="Automatic PR test mode"
           elif [ "$IS_MANUAL_PR_TEST" = "true" ]; then
             BRANCH_NAME="${{ github.event.inputs.pr_test_branch }}"
             PACKAGE_TYPE="${{ github.event.inputs.pr_test_package_type }}"
@@ -185,7 +218,7 @@ jobs:
         run: |
           # Determine which package and version type we're working with
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             PACKAGE_TYPE="main"
@@ -261,7 +294,7 @@ jobs:
           
           # Determine mode and get appropriate values
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             BRANCH_NAME="${{ github.head_ref }}"
@@ -316,7 +349,7 @@ jobs:
           fi
           
       - name: Create backup and prepare for changes
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
         run: |
           echo "💾 Creating backups..."
           # Backup all files that will be modified
@@ -333,7 +366,7 @@ jobs:
           echo "✅ Backups created successfully"
           
       - name: Update package configuration
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
         run: |
           echo "🔧 Updating package.json..."
           
@@ -353,12 +386,12 @@ jobs:
           "
           
       - name: Handle comprehensive route changes
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
         run: |
           echo "🔄 Handling comprehensive route changes..."
           
           # Determine package type based on mode
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           if [ "$IS_MANUAL_PR_TEST" = "true" ]; then
             PACKAGE_TYPE="${{ github.event.inputs.pr_test_package_type }}"
           else
@@ -470,7 +503,7 @@ jobs:
           fi
 
       - name: TEST MODE - Simulate package changes
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
+        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
         run: |
           echo "🧪 TEST MODE - Simulating package configuration changes..."
           echo "📝 Would update package.json:"
@@ -480,7 +513,7 @@ jobs:
           
           # Determine package type based on mode
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             PACKAGE_TYPE="main"
@@ -499,14 +532,14 @@ jobs:
           echo "✅ Package change simulation completed"
           
       - name: Build package
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
         run: |
           echo "🔨 Building package..."
           npm run prepare
           echo "✅ Package built successfully"
 
       - name: TEST MODE - Simulate build
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
+        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
         run: |
           echo "🧪 TEST MODE - Simulating package build..."
           echo "🔨 Would run: npm run prepare"
@@ -523,7 +556,7 @@ jobs:
       #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       
       - name: TESTING - Simulate Publish
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
         run: |
           echo "🧪 TESTING MODE - Simulating npm publish..."
           echo "📤 Would publish to npm with command: npm publish --access public"
@@ -532,7 +565,7 @@ jobs:
           echo "✅ Simulated publish completed successfully"
 
       - name: TEST MODE - Show publish simulation
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
+        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
         run: |
           echo "🧪 TEST MODE - Publishing simulation..."
           echo "📤 Would publish to npm with command: npm publish --access public"
@@ -541,7 +574,7 @@ jobs:
           echo "✅ Publish simulation completed"
           
       - name: Get current commit info
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true'
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true'
         id: commit_info
         run: |
           COMMIT_HASH=$(git rev-parse HEAD)
@@ -555,7 +588,7 @@ jobs:
           echo "📍 Current commit: $COMMIT_SHORT on branch $CURRENT_BRANCH"
 
       - name: TEST MODE - Simulate commit info
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
+        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
         id: commit_info_test
         run: |
           COMMIT_HASH=$(git rev-parse HEAD)
@@ -563,7 +596,7 @@ jobs:
           
           # Determine branch based on mode
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             CURRENT_BRANCH="${{ github.head_ref }}"
@@ -604,7 +637,7 @@ jobs:
       #     echo "📍 Tagged commit: ${{ steps.commit_info.outputs.commit_short }} on branch $BRANCH_NAME"
 
       - name: TEST MODE - Simulate git tag creation
-        if: github.event_name == 'pull_request' || github.event.inputs.pr_test_mode == 'true'
+        if: github.event_name == 'pull_request' || github.event.inputs.pr_manual_test == 'true'
         run: |
           echo "🧪 TEST MODE - Simulating git tag creation..."
           TAG_NAME="${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
@@ -612,7 +645,7 @@ jobs:
           
           # Determine branch based on mode
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           
           if [ "$IS_PR_MODE" = "true" ]; then
             BRANCH_NAME="${{ github.head_ref }}"
@@ -627,7 +660,7 @@ jobs:
           echo "✅ Git tag simulation completed"
           
       - name: Restore all changes (NO COMMIT)
-        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_test_mode != 'true' && always()
+        if: github.event.inputs.dry_run != 'true' && github.event_name != 'pull_request' && github.event.inputs.pr_manual_test != 'true' && always()
         run: |
           echo "🔄 Restoring all changes (files are not committed)..."
           
@@ -660,11 +693,11 @@ jobs:
         run: |
           echo ""
           IS_PR_MODE="${{ github.event_name == 'pull_request' }}"
-          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_test_mode == 'true' }}"
+          IS_MANUAL_PR_TEST="${{ github.event.inputs.pr_manual_test == 'true' }}"
           
           if [ "$IS_PR_MODE" = "true" ] || [ "$IS_MANUAL_PR_TEST" = "true" ]; then
             if [ "$IS_PR_MODE" = "true" ]; then
-              echo "🧪 PR TEST MODE COMPLETED"
+              echo "🧪 AUTOMATIC PR TEST MODE COMPLETED"
               BRANCH_NAME="${{ github.head_ref }}"
               MODE_DESC="automatic PR test run"
             else
