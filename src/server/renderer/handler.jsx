@@ -363,13 +363,11 @@ const performTwoPassRendering = (store, context, req, fetcherData, ssrManifest, 
 const getComponent = (store, context, req, fetcherData) => {
     return (
         <div id="app">
-            <Suspense>
-                <Provider store={store}>
-                    <StaticRouter context={context} location={req.originalUrl}>
-                        <ServerRouter store={store} intialData={fetcherData} />
-                    </StaticRouter>
-                </Provider>
-            </Suspense>
+            <Provider store={store}>
+                <StaticRouter context={context} location={req.originalUrl}>
+                    <ServerRouter store={store} intialData={fetcherData} />
+                </StaticRouter>
+            </Provider>
         </div>
     )
 }
