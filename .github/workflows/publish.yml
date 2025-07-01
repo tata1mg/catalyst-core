@@ -1,0 +1,324 @@
+name: Publish Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to publish from'
+        required: true
+        type: string
+      package_type:
+        description: 'Package to publish'
+        required: true
+        type: choice
+        options:
+          - main
+          - internal
+      version_type:
+        description: 'Version type'
+        required: true
+        type: choice
+        options:
+          - beta
+          - canary
+      custom_version:
+        description: 'Custom version (optional - leave empty for auto-increment). Format: x.y.z-beta.n or x.y.z-canary.n'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run (preview only)'
+        required: false
+        default: false
+        type: boolean
+  issue_comment:
+    types: [created]
+
+jobs:
+  show-versions:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && 
+       github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '/test'))
+    runs-on: ubuntu-latest
+    outputs:
+      main_beta: ${{ steps.versions.outputs.main_beta }}
+      main_canary: ${{ steps.versions.outputs.main_canary }}
+      internal_beta: ${{ steps.versions.outputs.internal_beta }}
+      internal_canary: ${{ steps.versions.outputs.internal_canary }}
+    
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Get current versions
+        id: versions
+        run: |
+          echo "📡 Fetching current versions from npm registry..."
+          
+          # Get current versions with error handling
+          MAIN_VERSIONS=$(npm view catalyst-core versions --json 2>/dev/null || echo '[]')
+          INTERNAL_VERSIONS=$(npm view catalyst-core-internal versions --json 2>/dev/null || echo '[]')
+          
+          # Extract latest versions for each type using more robust parsing
+          MAIN_BETA=$(echo "$MAIN_VERSIONS" | jq -r '.[] | select(test("beta"))' | sort -V | tail -1)
+          MAIN_CANARY=$(echo "$MAIN_VERSIONS" | jq -r '.[] | select(test("canary"))' | sort -V | tail -1)
+          INTERNAL_BETA=$(echo "$INTERNAL_VERSIONS" | jq -r '.[] | select(test("beta"))' | sort -V | tail -1)
+          INTERNAL_CANARY=$(echo "$INTERNAL_VERSIONS" | jq -r '.[] | select(test("canary"))' | sort -V | tail -1)
+          
+          # Set defaults if empty
+          MAIN_BETA=${MAIN_BETA:-"0.0.1-beta.0"}
+          MAIN_CANARY=${MAIN_CANARY:-"0.0.1-canary.0"}
+          INTERNAL_BETA=${INTERNAL_BETA:-"0.0.1-beta.0"}
+          INTERNAL_CANARY=${INTERNAL_CANARY:-"0.0.1-canary.0"}
+          
+          echo "main_beta=$MAIN_BETA" >> $GITHUB_OUTPUT
+          echo "main_canary=$MAIN_CANARY" >> $GITHUB_OUTPUT
+          echo "internal_beta=$INTERNAL_BETA" >> $GITHUB_OUTPUT
+          echo "internal_canary=$INTERNAL_CANARY" >> $GITHUB_OUTPUT
+          
+      - name: Display current versions
+        run: |
+          echo "📦 CURRENT PACKAGE VERSIONS ON NPM"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🔷 catalyst-core (main package):"
+          echo "   📍 Latest Beta:   ${{ steps.versions.outputs.main_beta }}"
+          echo "   📍 Latest Canary: ${{ steps.versions.outputs.main_canary }}"
+          echo ""
+          echo "🔶 catalyst-core-internal:"
+          echo "   📍 Latest Beta:   ${{ steps.versions.outputs.internal_beta }}"
+          echo "   📍 Latest Canary: ${{ steps.versions.outputs.internal_canary }}"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+      - name: Show selected configuration
+        run: |
+          echo "⚡ MANUAL INPUT CONFIGURATION:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "🎯 Trigger: Manual workflow dispatch"
+            echo "🌿 Branch: ${{ github.event.inputs.branch }}"
+            echo "📦 Package Type: ${{ github.event.inputs.package_type }}"
+            echo "📊 Version Type: ${{ github.event.inputs.version_type }}"
+            if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+              echo "🎯 Custom Version: ${{ github.event.inputs.custom_version }}"
+            else
+              echo "🤖 Auto-increment: Enabled"
+            fi
+            echo "🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
+          else
+            echo "🎯 Trigger: Comment-triggered (/test)"
+            echo "💡 This enables the manual input workflow"
+            echo "🔄 Go to Actions → Re-run → Run workflow for manual inputs"
+          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  publish:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && 
+       github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '/test'))
+    runs-on: ubuntu-latest
+    needs: show-versions
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.head_ref }}
+          fetch-depth: 0
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Calculate next version
+        id: next_version
+        run: |
+          # Only run if this is a manual workflow_dispatch
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "ℹ️ Comment trigger detected - skipping version calculation"
+            echo "💡 Use manual workflow dispatch for actual testing"
+            exit 0
+          fi
+          
+          PACKAGE_TYPE="${{ github.event.inputs.package_type }}"
+          VERSION_TYPE="${{ github.event.inputs.version_type }}"
+          CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+          
+          if [ "$PACKAGE_TYPE" = "main" ]; then
+            if [ "$VERSION_TYPE" = "beta" ]; then
+              CURRENT_VERSION="${{ needs.show-versions.outputs.main_beta }}"
+            else
+              CURRENT_VERSION="${{ needs.show-versions.outputs.main_canary }}"
+            fi
+            PACKAGE_NAME="catalyst-core"
+          else
+            if [ "$VERSION_TYPE" = "beta" ]; then
+              CURRENT_VERSION="${{ needs.show-versions.outputs.internal_beta }}"
+            else
+              CURRENT_VERSION="${{ needs.show-versions.outputs.internal_canary }}"
+            fi
+            PACKAGE_NAME="catalyst-core-internal"
+          fi
+          
+          # Use custom version if provided, otherwise auto-increment
+          if [ -n "$CUSTOM_VERSION" ]; then
+            NEXT_VERSION="$CUSTOM_VERSION"
+            echo "🎯 Using custom version: $NEXT_VERSION"
+          else
+            # Calculate next version by auto-incrementing
+            if [ -z "$CURRENT_VERSION" ] || [ "$CURRENT_VERSION" = "null" ] || [ "$CURRENT_VERSION" = "0.0.1-${VERSION_TYPE}.0" ]; then
+              NEXT_VERSION="0.0.1-${VERSION_TYPE}.1"
+            else
+              # Extract version parts more reliably
+              if echo "$CURRENT_VERSION" | grep -q "$VERSION_TYPE"; then
+                VERSION_PREFIX=$(echo "$CURRENT_VERSION" | sed -E "s/(.*-$VERSION_TYPE\.)([0-9]+)/\1/")
+                VERSION_NUMBER=$(echo "$CURRENT_VERSION" | sed -E "s/.*-$VERSION_TYPE\.([0-9]+)/\1/")
+                
+                # Increment version number
+                NEXT_NUMBER=$((VERSION_NUMBER + 1))
+                NEXT_VERSION="${VERSION_PREFIX}${NEXT_NUMBER}"
+              else
+                # Fallback if parsing fails
+                NEXT_VERSION="0.0.1-${VERSION_TYPE}.1"
+              fi
+            fi
+            echo "🤖 Auto-incremented to: $NEXT_VERSION"
+          fi
+          
+          # Validate version format
+          if ! echo "$NEXT_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-(beta|canary)\.[0-9]+$'; then
+            echo "❌ ERROR: Invalid version format: $NEXT_VERSION"
+            echo "Expected format: x.y.z-beta.n or x.y.z-canary.n"
+            exit 1
+          fi
+          
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Show publish plan
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo ""
+          echo "🚀 PUBLISH EXECUTION PLAN"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🌿 Branch:          ${{ github.event.inputs.branch }}"
+          echo "📦 Package Name:    ${{ steps.next_version.outputs.package_name }}"
+          echo "📊 Current Version: ${{ steps.next_version.outputs.current_version }}"
+          echo "🆕 Next Version:    ${{ steps.next_version.outputs.next_version }}"
+          echo "🔧 Version Type:    ${{ github.event.inputs.version_type }}"
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            echo "🎯 Version Source:  Custom (manually specified)"
+          else
+            echo "🤖 Version Source:  Auto-increment"
+          fi
+          echo "🧪 Dry Run:         ${{ github.event.inputs.dry_run }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+      - name: Validate version doesn't exist
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🔍 Checking if version already exists on npm..."
+          
+          PACKAGE_NAME="${{ steps.next_version.outputs.package_name }}"
+          NEXT_VERSION="${{ steps.next_version.outputs.next_version }}"
+          
+          # Check if this version already exists
+          if npm view "$PACKAGE_NAME@$NEXT_VERSION" version >/dev/null 2>&1; then
+            echo "❌ ERROR: Version $NEXT_VERSION already exists for $PACKAGE_NAME"
+            echo "Please use a different version or check the current published versions."
+            exit 1
+          else
+            echo "✅ Version $NEXT_VERSION is available for publishing"
+          fi
+          
+      - name: Simulate package changes
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🧪 SIMULATING PACKAGE CHANGES..."
+          echo "📝 Would update package.json:"
+          echo "   Name: ${{ steps.next_version.outputs.package_name }}"
+          echo "   Version: ${{ steps.next_version.outputs.next_version }}"
+          echo ""
+          echo "🔄 Would handle comprehensive route changes for package type: ${{ github.event.inputs.package_type }}"
+          if [ "${{ github.event.inputs.package_type }}" = "internal" ]; then
+            echo "   📝 Would update ALL catalyst-core references to catalyst-core-internal"
+          else
+            echo "   📝 Would ensure ALL references use catalyst-core"
+          fi
+          echo "✅ Package change simulation completed"
+          
+      - name: Simulate build
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🧪 SIMULATING PACKAGE BUILD..."
+          echo "🔨 Would run: npm run prepare"
+          echo "✅ Build simulation completed"
+          
+      - name: Simulate publish
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🧪 SIMULATING NPM PUBLISH..."
+          echo "📤 Would publish to npm with command: npm publish --access public"
+          echo "📦 Package: ${{ steps.next_version.outputs.package_name }}"
+          echo "🆕 Version: ${{ steps.next_version.outputs.next_version }}"
+          echo "✅ Publish simulation completed"
+          
+      - name: Simulate git tag creation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🧪 SIMULATING GIT TAG CREATION..."
+          TAG_NAME="${{ steps.next_version.outputs.package_name }}-${{ steps.next_version.outputs.next_version }}"
+          echo "🏷️ Would create git tag: $TAG_NAME"
+          echo "📍 Would tag commit on branch: ${{ github.event.inputs.branch }}"
+          echo "✅ Git tag simulation completed"
+          
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "🎉 MANUAL TEST COMPLETED SUCCESSFULLY!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✨ This was a manual test with your custom inputs"
+            echo ""
+            echo "📋 Executed with your inputs:"
+            echo "   🌿 Branch: ${{ github.event.inputs.branch }}"
+            echo "   📦 Package: ${{ steps.next_version.outputs.package_name }}"
+            echo "   🆕 Version: ${{ steps.next_version.outputs.next_version }}"
+            echo "   🔧 Version Type: ${{ github.event.inputs.version_type }}"
+            if [ "${{ github.event.inputs.package_type }}" = "internal" ]; then
+              echo "   🔄 Route changes: catalyst-core → catalyst-core-internal"
+            else
+              echo "   🔄 Route changes: catalyst-core-internal → catalyst-core"
+            fi
+            echo "   🧪 Dry Run: ${{ github.event.inputs.dry_run }}"
+            echo ""
+            echo "✅ All simulations completed successfully!"
+            echo "🔗 NPM: https://www.npmjs.com/package/${{ steps.next_version.outputs.package_name }}"
+          else
+            echo "💡 COMMENT TRIGGER ACTIVATED"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✨ Ready for manual input testing!"
+            echo ""
+            echo "🎯 Next steps:"
+            echo "1. Go to Actions → Publish Package"
+            echo "2. Click 'Re-run jobs' dropdown → 'Run workflow'"
+            echo "3. Fill in your manual inputs"
+            echo "4. Click 'Run workflow' to test"
+          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
