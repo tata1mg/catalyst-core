@@ -88,21 +88,7 @@ export default defineConfig({
     ssr: {
         noExternal: ["@tata1mg/slowboi-react", "@tata1mg/prefetch-core", "@tata1mg/prefetch-core/react"],
         optimizeDeps: {
-            include: [
-                "react",
-                "react-dom",
-                "invariant",
-                "react-fast-compare",
-                "shallowequal",
-                "prop-types",
-                "redux-thunk",
-                "redux-logger",
-                "@tata1mg/slowboi-react",
-                "@tata1mg/prefetch-core",
-                "@tata1mg/prefetch-core/react",
-                "react-dom",
-                "react-dom/server.node",
-            ],
+            include: ["react", "react-dom", "invariant", "react-fast-compare", "shallowequal", "prop-types"],
             exclude: ["catalyst-core/router/ClientRouter"],
             force: true,
             esbuildOptions: {
@@ -127,14 +113,7 @@ export default defineConfig({
     },
 
     optimizeDeps: {
-        include: [
-            "invariant",
-            "react-fast-compare",
-            "shallowequal",
-            "prop-types",
-            "redux-thunk",
-            "redux-logger",
-        ],
+        include: ["react", "react-dom", "invariant", "react-fast-compare", "shallowequal", "prop-types"],
         exclude: ["catalyst-core/router/ClientRouter"],
         force: true,
         esbuildOptions: {
