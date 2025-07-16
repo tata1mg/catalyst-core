@@ -34,6 +34,7 @@ class CustomWebView(
     private var isInitialPageLoaded: Boolean = false
     private var buildOptimisation: Boolean = false // Added property for build optimization
     private lateinit var assetLoader: WebViewAssetLoader
+    private var allowedUrls: List<String> = emptyList()
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -56,6 +57,12 @@ class CustomWebView(
         // Parse buildOptimisation property
         buildOptimisation = properties.getProperty("buildOptimisation", "false").toBoolean()
 
+        // Load allowed URLs from properties
+        allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
         // Set initial flags based on buildOptimisation
         if (buildOptimisation) {
             isInitialApiCalled = false
@@ -71,6 +78,7 @@ class CustomWebView(
             Log.d(TAG, "Cache Pattern: $cachePatterns")
             Log.d(TAG, "API Base URL: $apiBaseUrl")
             Log.d(TAG, "Build Optimisation: $buildOptimisation")
+            Log.d(TAG, "Allowed URLs: $allowedUrls")
             Log.d(TAG, "Initial API Called: $isInitialApiCalled")
             Log.d(TAG, "Initial Page Loaded: $isInitialPageLoaded")
         }
@@ -198,6 +206,35 @@ class CustomWebView(
         }
     }
 
+
+    private fun isUrlAllowed(url: String): Boolean {
+        if (allowedUrls.isEmpty()) return false
+        
+        val parsedUrl = Uri.parse(url) ?: return false
+        val urlHost = "${parsedUrl.scheme}://${parsedUrl.host}${if (parsedUrl.port != -1) ":${parsedUrl.port}" else ""}"
+        
+        return allowedUrls.any { pattern ->
+            when {
+                pattern.contains("*") -> {
+                    val regex = pattern
+                        .replace(".", "\\.")
+                        .replace("*", ".*")
+                        .toRegex(RegexOption.IGNORE_CASE)
+                    regex.matches(url) || regex.matches(urlHost)
+                }
+                else -> {
+                    val patternUri = Uri.parse(pattern)
+                    val patternHost = "${patternUri.scheme}://${patternUri.host}${if (patternUri.port != -1) ":${patternUri.port}" else ""}"
+                    
+                    // Exact match or pattern without port matches URL with any port
+                    urlHost.equals(patternHost, ignoreCase = true) || 
+                    (patternUri.port == -1 && urlHost.startsWith("${patternUri.scheme}://${patternUri.host}", ignoreCase = true))
+                }
+            }
+        }
+    }
+    
+
     private fun isApiCall(url: String): Boolean {
         // Check if URL is an API call based on your API base URL
         return apiBaseUrl.isNotEmpty() && url.startsWith(apiBaseUrl)
@@ -290,6 +327,15 @@ class CustomWebView(
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 request?.url?.let { url ->
+                    val urlString = url.toString()
+                    
+                    if (!isUrlAllowed(urlString)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.w(TAG, "🚫 URL blocked by access control: $urlString")
+                        }
+                        return true
+                    }
+                    
                     // Let WebView handle loading non-API HTTP/HTTPS URLs
                     if (url.scheme in listOf("http", "https")) {
                         return false
@@ -305,6 +351,14 @@ class CustomWebView(
                 val url = request.url.toString()
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "🔄 Intercepting request for: $url on thread: ${Thread.currentThread().name}")
+                }
+
+                if (!isUrlAllowed(url)) {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "🚫 Network request blocked by access control: $url")
+                    }
+                    // Return an empty response to block the request
+                    return WebResourceResponse("text/plain", "utf-8", null)
                 }
 
                 // Handle the initial route request - intercept first request regardless of host
