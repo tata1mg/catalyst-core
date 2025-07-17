@@ -2,6 +2,7 @@ package io.yourname.androidproject
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -233,6 +234,53 @@ class CustomWebView(
             }
         }
     }
+
+    private fun isExternalDomain(url: String): Boolean {
+        if (allowedUrls.isEmpty()) return true
+        
+        val parsedUrl = Uri.parse(url)
+        val urlHost = parsedUrl.host ?: return true
+        val urlScheme = parsedUrl.scheme ?: return true
+        val urlPort = parsedUrl.port
+        
+        return !allowedUrls.any { pattern ->
+            if (pattern.startsWith("*.")) {
+                val domain = pattern.substring(2)
+                urlHost.equals(domain, ignoreCase = true) || urlHost.endsWith(".$domain", ignoreCase = true)
+            } else {
+                val patternUri = Uri.parse(pattern)
+                val patternHost = patternUri?.host ?: return@any false
+                val patternScheme = patternUri?.scheme ?: return@any false
+                val patternPort = patternUri?.port ?: -1
+                
+                val schemeMatches = urlScheme.equals(patternScheme, ignoreCase = true)
+                val hostMatches = if (patternHost.startsWith("*.")) {
+                    val domain = patternHost.substring(2)
+                    urlHost.equals(domain, ignoreCase = true) || urlHost.endsWith(".$domain", ignoreCase = true)
+                } else {
+                    urlHost.equals(patternHost, ignoreCase = true)
+                }
+                val portMatches = patternPort == -1 || urlPort == patternPort || 
+                    (urlPort == -1 && ((patternPort == 443 && patternScheme.equals("https", ignoreCase = true)) || 
+                                      (patternPort == 80 && patternScheme.equals("http", ignoreCase = true))))
+                
+                schemeMatches && hostMatches && portMatches
+            }
+        }
+    }
+
+    private fun openInInAppBrowser(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🌐 Opening external URL in in-app browser: $url")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to open URL in in-app browser: $url", e)
+        }
+    }
     
 
     private fun isApiCall(url: String): Boolean {
@@ -329,6 +377,16 @@ class CustomWebView(
                 request?.url?.let { url ->
                     val urlString = url.toString()
                     
+                    // Check if URL is an external domain
+                    if (url.scheme in listOf("http", "https") && isExternalDomain(urlString)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "🌍 External domain detected, opening in in-app browser: $urlString")
+                        }
+                        openInInAppBrowser(urlString)
+                        return true
+                    }
+                    
+                    // Check if URL is allowed for internal navigation
                     if (!isUrlAllowed(urlString)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🚫 URL blocked by access control: $urlString")
