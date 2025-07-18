@@ -87,6 +87,7 @@ export const useIntent = () => {
     if (typeof window === "undefined") {
         return {
             isLoading: false,
+            processingState: null,
             openFile: () => {},
             error: null,
             success: null,
@@ -98,24 +99,28 @@ export const useIntent = () => {
     }
 
     const [isLoading, setIsLoading] = useState(false)
+    const [processingState, setProcessingState] = useState(null) 
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
 
     useEffect(() => {
         window.WebBridge.register("ON_INTENT_SUCCESS", (data) => {
             setIsLoading(false)
+            setProcessingState(null)
             setSuccess(data)
             setError(null)
         })
 
         window.WebBridge.register("ON_INTENT_ERROR", (data) => {
             setIsLoading(false)
+            setProcessingState(null)
             setError(data)
             setSuccess(null)
         })
 
         window.WebBridge.register("ON_INTENT_CANCELLED", (data) => {
             setIsLoading(false)
+            setProcessingState(null)
             setError(null)
             setSuccess(null)
         })
@@ -134,6 +139,7 @@ export const useIntent = () => {
         }
 
         setIsLoading(true)
+        setProcessingState("processing")
         setError(null)
         setSuccess(null)
 
@@ -143,6 +149,7 @@ export const useIntent = () => {
 
     return {
         isLoading,
+        processingState, // 'processing', 'downloading', 'opening', null
         openFile,
         error,
         success,
@@ -155,6 +162,7 @@ export const useFilePicker = () => {
             selectedFile: null,
             pickFile: () => {},
             isLoading: false,
+            processingState: null,
             error: null,
         }
     }
@@ -165,6 +173,7 @@ export const useFilePicker = () => {
 
     const [selectedFile, setSelectedFile] = useState(null)
     const [isLoading, setIsLoading] = useState(false)
+    const [processingState, setProcessingState] = useState(null) // 'opening', 'processing'
     const [error, setError] = useState(null)
 
     useEffect(() => {
@@ -172,30 +181,44 @@ export const useFilePicker = () => {
             const fileData = JSON.parse(data)
             setSelectedFile(fileData)
             setIsLoading(false)
+            setProcessingState(null)
             setError(null)
         })
 
         window.WebBridge.register("ON_FILE_PICK_ERROR", (data) => {
             setError(data)
             setIsLoading(false)
+            setProcessingState(null)
             setSelectedFile(null)
         })
 
         window.WebBridge.register("ON_FILE_PICK_CANCELLED", (data) => {
             setIsLoading(false)
+            setProcessingState(null)
             setError(null)
             // Keep selectedFile as is when cancelled
+        })
+
+        // File picker state updates
+        window.WebBridge.register("ON_FILE_PICK_STATE_UPDATE", (data) => {
+            const stateData = JSON.parse(data)
+            setProcessingState(stateData.state)
+            if (stateData.state) {
+                setIsLoading(true)
+            }
         })
 
         return () => {
             window.WebBridge.unregister("ON_FILE_PICKED")
             window.WebBridge.unregister("ON_FILE_PICK_ERROR")
             window.WebBridge.unregister("ON_FILE_PICK_CANCELLED")
+            window.WebBridge.unregister("ON_FILE_PICK_STATE_UPDATE")
         }
     }, [])
 
     const pickFile = (mimeType = null) => {
         setIsLoading(true)
+        setProcessingState("opening")
         setError(null)
 
         const params = mimeType || "*/*"
@@ -206,6 +229,7 @@ export const useFilePicker = () => {
         selectedFile,
         pickFile,
         isLoading,
+        processingState, // 'opening', 'processing', null
         error,
     }
 }

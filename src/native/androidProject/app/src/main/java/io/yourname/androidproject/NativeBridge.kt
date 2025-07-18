@@ -22,6 +22,12 @@ import io.yourname.androidproject.MainActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.JavascriptInterface
+import android.content.Intent
+import android.webkit.MimeTypeMap
+import kotlinx.coroutines.*
+import java.net.URL
+import java.io.FileOutputStream
+import java.io.IOException
 
 
 enum class WebEvents(val eventName: String) {
@@ -37,11 +43,16 @@ enum class WebEvents(val eventName: String) {
     ON_FILE_PICKED("ON_FILE_PICKED"),
     ON_FILE_PICK_ERROR("ON_FILE_PICK_ERROR"),
     ON_FILE_PICK_CANCELLED("ON_FILE_PICK_CANCELLED"),
+    ON_FILE_PICK_STATE_UPDATE("ON_FILE_PICK_STATE_UPDATE"),
 }
 
-class NativeBridge(private val activity: MainActivity, private val webview: WebView) {
+class NativeBridge(private val activity: MainActivity, private val webview: WebView) : CoroutineScope {
     private var currentPhotoUri: Uri? = null
     private var shouldLaunchCameraAfterPermission = false
+    
+    // Coroutine scope for async operations
+    private val job = SupervisorJob()
+    override val coroutineContext = Dispatchers.Main + job
 
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
@@ -152,7 +163,7 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
         try {
             activity.runOnUiThread {
                 Log.d(TAG, "🔗 openFileWithIntent called from JavaScript")
-                Log.d(TAG, "📄 Received params: $params")
+                Log.d(TAG, "📄 Received params: $params")                
                 
                 if (params.isNullOrBlank()) {
                     Log.e(TAG, "❌ No parameters provided for openFileWithIntent")
@@ -171,14 +182,17 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
                 Log.d(TAG, "📁 File URL: $fileUrl")
                 Log.d(TAG, "🎯 MIME Type: ${mimeType ?: "auto-detect"}")
                 
-                // TODO: Implement actual intent logic
-                // For now, just log and send success callback
-                Log.d(TAG, "✅ Intent functionality logged successfully")
-                
-                webview.evaluateJavascript(
-                    "window.WebBridge.callback('${WebEvents.ON_INTENT_SUCCESS}', 'Intent logged successfully')",
-                    null
-                )
+                // Only handle remote URLs
+                if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+                    Log.d(TAG, "🌐 Remote URL detected, downloading file...")
+                    downloadAndOpenFile(fileUrl, mimeType)
+                } else {
+                    Log.e(TAG, "❌ Only remote URLs (http/https) are supported")
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.ON_INTENT_ERROR}', 'Only remote URLs (http/https) are supported')",
+                        null
+                    )
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in openFileWithIntent: ${e.message}")
@@ -198,8 +212,14 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
                 Log.d(TAG, "📂 pickFile called from JavaScript")
                 Log.d(TAG, "🎯 MIME Type filter: ${mimeType ?: "*/*"}")
                 
+                // Send initial state
+                sendFilePickStateUpdate("opening")
+                
                 val effectiveMimeType = mimeType?.takeIf { it.isNotBlank() } ?: "*/*"
                 Log.d(TAG, "🔍 Effective MIME Type: $effectiveMimeType")
+                
+                // Send processing state
+                sendFilePickStateUpdate("processing")
                 
                 // TODO: Implement actual file picker logic
                 // For now, just log and send success callback with mock data
@@ -373,5 +393,137 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
             Log.e(TAG, "Base64 conversion error: ${e.message}")
             null
         }
+    }
+
+    private fun downloadAndOpenFile(fileUrl: String, mimeType: String?) {
+        Log.d(TAG, "⬇️ Starting download for: $fileUrl")
+        
+        launch(Dispatchers.IO) {
+            try {
+                val url = URL(fileUrl)
+                val fileName = extractFileNameFromUrl(fileUrl)
+                val tempFile = createTempFile(fileName)
+                
+                Log.d(TAG, "💾 Downloading to: ${tempFile.absolutePath}")
+                
+                // Download file
+                url.openStream().use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                
+                Log.d(TAG, "✅ Download completed: ${tempFile.length()} bytes")
+                
+                // Switch back to main thread for intent
+                withContext(Dispatchers.Main) {
+                    
+                    val detectedMimeType = mimeType ?: detectMimeType(tempFile.absolutePath)
+                    openFileWithSystemIntent(tempFile, detectedMimeType)
+                }
+                
+            } catch (e: IOException) {
+                Log.e(TAG, "❌ Download failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.ON_INTENT_ERROR}', 'Failed to download file: ${e.message}')",
+                        null
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Unexpected error during download: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.ON_INTENT_ERROR}', 'Error downloading file: ${e.message}')",
+                        null
+                    )
+                }
+            }
+        }
+    }
+
+    private fun openFileWithSystemIntent(file: File, mimeType: String) {
+        try {
+            Log.d(TAG, "🚀 Creating intent for file: ${file.name}")
+            Log.d(TAG, "🎯 MIME type: $mimeType")
+            
+            val uri = FileProvider.getUriForFile(
+                activity,
+                FILE_PROVIDER_AUTHORITY,
+                file
+            )
+            
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            
+            // Check if any apps can handle this intent
+            if (intent.resolveActivity(activity.packageManager) != null) {
+                val chooser = Intent.createChooser(intent, "Open file with...")
+                activity.startActivity(chooser)
+                
+                Log.d(TAG, "✅ Intent launched successfully")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_INTENT_SUCCESS}', 'File opened successfully')",
+                    null
+                )
+            } else {
+                Log.e(TAG, "❌ No apps available to handle MIME type: $mimeType")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_INTENT_ERROR}', 'No apps available to open this file type')",
+                    null
+                )
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error creating intent: ${e.message}")
+            webview.evaluateJavascript(
+                "window.WebBridge.callback('${WebEvents.ON_INTENT_ERROR}', 'Error opening file: ${e.message}')",
+                null
+            )
+        }
+    }
+
+    private fun extractFileNameFromUrl(url: String): String {
+        return try {
+            val fileName = url.substringAfterLast("/").substringBefore("?")
+            if (fileName.isBlank()) "downloaded_file" else fileName
+        } catch (e: Exception) {
+            "downloaded_file"
+        }
+    }
+
+    private fun createTempFile(fileName: String): File {
+        val tempDir = File(activity.cacheDir, "downloaded_files")
+        if (!tempDir.exists()) {
+            tempDir.mkdirs()
+        }
+        
+        val cleanFileName = fileName.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+        return File(tempDir, cleanFileName)
+    }
+
+    private fun detectMimeType(filePath: String): String {
+        val extension = filePath.substringAfterLast(".", "")
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "*/*"
+    }
+
+    fun destroy() {
+        job.cancel()
+    }
+
+
+
+    private fun sendFilePickStateUpdate(state: String) {
+        val stateJson = JSONObject().apply {
+            put("state", state)
+        }.toString()
+        
+        Log.d(TAG, "📊 File picker state update: $state")
+        webview.evaluateJavascript(
+            "window.WebBridge.callback('${WebEvents.ON_FILE_PICK_STATE_UPDATE}', '$stateJson')",
+            null
+        )
     }
 }

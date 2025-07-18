@@ -34,7 +34,7 @@
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="io.yourname.androidproject.release.fileprovider"
+            android:authorities="io.yourname.androidproject.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
