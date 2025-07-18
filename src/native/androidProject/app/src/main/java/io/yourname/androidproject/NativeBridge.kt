@@ -29,6 +29,14 @@ enum class WebEvents(val eventName: String) {
     ON_CAMERA_ERROR("ON_CAMERA_ERROR"),
     CAMERA_PERMISSION_STATUS("CAMERA_PERMISSION_STATUS"),
     HAPTIC_FEEDBACK("HAPTIC_FEEDBACK"),
+    // Intent-related events
+    ON_INTENT_SUCCESS("ON_INTENT_SUCCESS"),
+    ON_INTENT_ERROR("ON_INTENT_ERROR"),
+    ON_INTENT_CANCELLED("ON_INTENT_CANCELLED"),
+    // File picker events
+    ON_FILE_PICKED("ON_FILE_PICKED"),
+    ON_FILE_PICK_ERROR("ON_FILE_PICK_ERROR"),
+    ON_FILE_PICK_CANCELLED("ON_FILE_PICK_CANCELLED"),
 }
 
 class NativeBridge(private val activity: MainActivity, private val webview: WebView) {
@@ -136,6 +144,87 @@ class NativeBridge(private val activity: MainActivity, private val webview: WebV
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in requestHapticFeedback: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun openFileWithIntent(params: String?) {
+        try {
+            activity.runOnUiThread {
+                Log.d(TAG, "🔗 openFileWithIntent called from JavaScript")
+                Log.d(TAG, "📄 Received params: $params")
+                
+                if (params.isNullOrBlank()) {
+                    Log.e(TAG, "❌ No parameters provided for openFileWithIntent")
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.ON_INTENT_ERROR}', 'No file URL provided')",
+                        null
+                    )
+                    return@runOnUiThread
+                }
+                
+                // Parse parameters (fileUrl|mimeType format or just fileUrl)
+                val parts = params.split("|")
+                val fileUrl = parts[0]
+                val mimeType = if (parts.size > 1) parts[1] else null
+                
+                Log.d(TAG, "📁 File URL: $fileUrl")
+                Log.d(TAG, "🎯 MIME Type: ${mimeType ?: "auto-detect"}")
+                
+                // TODO: Implement actual intent logic
+                // For now, just log and send success callback
+                Log.d(TAG, "✅ Intent functionality logged successfully")
+                
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_INTENT_SUCCESS}', 'Intent logged successfully')",
+                    null
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error in openFileWithIntent: ${e.message}")
+            activity.runOnUiThread {
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_INTENT_ERROR}', 'Error processing intent: ${e.message}')",
+                    null
+                )
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun pickFile(mimeType: String?) {
+        try {
+            activity.runOnUiThread {
+                Log.d(TAG, "📂 pickFile called from JavaScript")
+                Log.d(TAG, "🎯 MIME Type filter: ${mimeType ?: "*/*"}")
+                
+                val effectiveMimeType = mimeType?.takeIf { it.isNotBlank() } ?: "*/*"
+                Log.d(TAG, "🔍 Effective MIME Type: $effectiveMimeType")
+                
+                // TODO: Implement actual file picker logic
+                // For now, just log and send success callback with mock data
+                Log.d(TAG, "✅ File picker functionality logged successfully")
+                
+                val mockFileData = JSONObject().apply {
+                    put("fileName", "mock_file.txt")
+                    put("fileUri", "content://mock/path/file.txt")
+                    put("mimeType", effectiveMimeType)
+                    put("fileSize", 1024)
+                }.toString()
+                
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_FILE_PICKED}', '$mockFileData')",
+                    null
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error in pickFile: ${e.message}")
+            activity.runOnUiThread {
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_FILE_PICK_ERROR}', 'Error processing file picker: ${e.message}')",
+                    null
+                )
+            }
         }
     }
 
