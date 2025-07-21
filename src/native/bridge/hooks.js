@@ -164,6 +164,8 @@ export const useFilePicker = () => {
             isLoading: false,
             processingState: null,
             error: null,
+            clearFile: () => {},
+            clearError: () => {},
         }
     }
 
@@ -178,14 +180,23 @@ export const useFilePicker = () => {
 
     useEffect(() => {
         window.WebBridge.register("ON_FILE_PICKED", (data) => {
-            const fileData = JSON.parse(data)
-            setSelectedFile(fileData)
-            setIsLoading(false)
-            setProcessingState(null)
-            setError(null)
+            try {
+                const fileData = JSON.parse(data)
+                console.log("📁 File picked:", fileData)
+                setSelectedFile(fileData)
+                setIsLoading(false)
+                setProcessingState(null)
+                setError(null)
+            } catch (e) {
+                console.error("Error parsing file data:", e)
+                setError("Error processing selected file")
+                setIsLoading(false)
+                setProcessingState(null)
+            }
         })
 
         window.WebBridge.register("ON_FILE_PICK_ERROR", (data) => {
+            console.error("📁 File pick error:", data)
             setError(data)
             setIsLoading(false)
             setProcessingState(null)
@@ -193,6 +204,7 @@ export const useFilePicker = () => {
         })
 
         window.WebBridge.register("ON_FILE_PICK_CANCELLED", (data) => {
+            console.log("📁 File pick cancelled:", data)
             setIsLoading(false)
             setProcessingState(null)
             setError(null)
@@ -201,10 +213,15 @@ export const useFilePicker = () => {
 
         // File picker state updates
         window.WebBridge.register("ON_FILE_PICK_STATE_UPDATE", (data) => {
-            const stateData = JSON.parse(data)
-            setProcessingState(stateData.state)
-            if (stateData.state) {
-                setIsLoading(true)
+            try {
+                const stateData = JSON.parse(data)
+                console.log("📁 File picker state:", stateData.state)
+                setProcessingState(stateData.state)
+                if (stateData.state) {
+                    setIsLoading(true)
+                }
+            } catch (e) {
+                console.error("Error parsing state data:", e)
             }
         })
 
@@ -217,6 +234,7 @@ export const useFilePicker = () => {
     }, [])
 
     const pickFile = (mimeType = null) => {
+        console.log("📁 Picking file with MIME type:", mimeType || "*/*")
         setIsLoading(true)
         setProcessingState("opening")
         setError(null)
@@ -225,12 +243,23 @@ export const useFilePicker = () => {
         NativeBridge.call("pickFile", params)
     }
 
+    const clearFile = () => {
+        setSelectedFile(null)
+        setError(null)
+    }
+
+    const clearError = () => {
+        setError(null)
+    }
+
     return {
         selectedFile,
         pickFile,
         isLoading,
         processingState, // 'opening', 'processing', null
         error,
+        clearFile,
+        clearError,
     }
 }
 
