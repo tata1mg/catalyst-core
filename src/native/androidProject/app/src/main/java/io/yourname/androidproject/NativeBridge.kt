@@ -97,7 +97,7 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
     }
 
     @JavascriptInterface
-    fun openCamera() {
+    fun openCamera(abc:String) {
         try {
             mainActivity.runOnUiThread {
                 if (hasCameraPermission()) {
@@ -118,7 +118,7 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
     }
 
     @JavascriptInterface
-    fun requestCameraPermission() {
+    fun requestCameraPermission(abc:String) {
         try {
             mainActivity.runOnUiThread {
                 requestCameraPermissionAndLaunch(false)
