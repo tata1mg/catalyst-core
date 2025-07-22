@@ -7,6 +7,7 @@ import { fileURLToPath } from "url"
 import { dirname } from "path"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 
 export default defineConfig({
     ...baseConfig,
@@ -15,6 +16,7 @@ export default defineConfig({
     resolve: {
         ...baseConfig.resolve,
     },
+    plugins: [injectCacheKeyPlugin(), ...(baseConfig.plugins || [])],
 
     build: {
         ...baseConfig.build,

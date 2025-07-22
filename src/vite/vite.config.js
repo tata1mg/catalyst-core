@@ -41,7 +41,6 @@ import { imageUrl, fontUrl } from "./scssParams.js"
 
 const alias = () => {
     if (!allAliases || typeof allAliases !== "object") {
-        console.warn("No module aliases found or invalid aliases configuration")
         return {}
     }
 
@@ -111,7 +110,10 @@ export default defineConfig({
             },
         },
     },
-    plugins: [react()],
+    plugins: [
+        // Add cache key injection plugin first to transform createSplit calls
+        react(),
+    ],
     resolve: {
         alias: alias(),
     },
@@ -122,8 +124,20 @@ export default defineConfig({
     // Production build configuration
     build: {
         outDir: path.join(process.env.src_path, "build"),
-        sourcemap: !isProduction,
-        minify: isProduction ? "esbuild" : false,
+        sourcemap: isProduction,
+        minify: false,
+        rollupOptions: {
+            output: {
+                manualChunks: (id) => {
+                    // Create separate chunks for better categorization
+                    if (id.includes("node_modules")) {
+                        return "vendor"
+                    }
+                    // Let Vite handle the rest automatically
+                    return null
+                },
+            },
+        },
     },
 
     optimizeDeps: {

@@ -1,6 +1,7 @@
 import { defineConfig } from "vite"
 import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
+import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
@@ -13,6 +14,15 @@ const clientConfig = defineConfig({
     resolve: {
         ...baseConfig.resolve,
     },
+
+    // Add manifest categorization plugin (run it last to ensure Vite manifest is available)
+    plugins: [
+        ...(baseConfig.plugins || []),
+        manifestCategorizationPlugin({
+            outputFile: "asset-categories.json",
+            publicPath: "/client/assets/",
+        }),
+    ],
 
     build: {
         target: "esnext",

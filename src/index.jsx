@@ -1,6 +1,8 @@
 export * from "react-router-dom"
 export * from "./web-router/components/RouterDataProvider.jsx"
 export * from "./web-router/components/MetaTag.jsx"
+export { default as Split, createSplit, split } from "./web-router/components/Split.jsx"
+export { ChunkExtractor } from "./server/utils/ChunkExtractor.js"
 export * from "./web-router/hooks.jsx"
 export * from "./web-router/utils/metaDataUtils.jsx"
 export * from "./server/renderer/document/index.jsx"

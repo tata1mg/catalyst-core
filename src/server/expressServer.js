@@ -43,6 +43,7 @@ async function createServer() {
     let vite
     let manifest
     let ssrManifest
+    let assetManifest
 
     if (isProduction) {
         // In production, serve built assets
@@ -63,6 +64,7 @@ async function createServer() {
         try {
             const manifestPath = path.join(buildPath, ".vite", "manifest.json")
             const ssrManifestPath = path.join(buildPath, ".vite", "ssr-manifest.json")
+            const assetManifestPath = path.join(buildPath, ".vite", "asset-categories.json")
 
             if (fs.existsSync(manifestPath)) {
                 manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"))
@@ -70,6 +72,9 @@ async function createServer() {
 
             if (fs.existsSync(ssrManifestPath)) {
                 ssrManifest = JSON.parse(fs.readFileSync(ssrManifestPath, "utf-8"))
+            }
+            if (fs.existsSync(assetManifestPath)) {
+                assetManifest = JSON.parse(fs.readFileSync(assetManifestPath, "utf-8"))
             }
         } catch (error) {
             console.warn("Could not load build manifests:", error.message)
@@ -113,6 +118,7 @@ async function createServer() {
                 if (isProduction) {
                     req.manifest = manifest
                     req.ssrManifest = ssrManifest
+                    req.assetManifest = assetManifest
                 }
                 await render.default(req, res)
             } else {
