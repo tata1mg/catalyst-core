@@ -12,7 +12,7 @@
         <!-- Status bar color. -->
         <!-- Splash Screen -->
         <item name="android:windowSplashScreenBackground">@color/splashscreen_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splashscreen</item>
         <!-- Customize your theme here. -->
     </style>
 </resources>

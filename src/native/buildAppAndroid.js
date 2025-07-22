@@ -15,6 +15,7 @@ function _interopRequireDefault(e) {
 }
 
 const configPath = `${process.env.PWD}/config/config.json`
+const publicPath = `${process.env.PWD}/public`
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
 const ANDROID_PACKAGE = "io.yourname.androidproject"
 
@@ -218,6 +219,43 @@ async function copySplashscreenAssets() {
         // Check if splashscreen configuration exists
         if (!WEBVIEW_CONFIG.splashScreen) {
             return
+        }
+
+        // Check for splashscreen image file in public directory
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg"]
+        let splashscreenImageFound = false
+
+        for (const format of imageFormats) {
+            const splashscreenImagePath = `${publicPath}/splashscreen.${format}`
+            if (_fs.default.existsSync(splashscreenImagePath)) {
+                // Create drawable directories if they don't exist
+                const drawableDirs = [
+                    `${destPath}/drawable`,
+                    `${destPath}/drawable-mdpi`,
+                    `${destPath}/drawable-hdpi`,
+                    `${destPath}/drawable-xhdpi`,
+                    `${destPath}/drawable-xxhdpi`,
+                    `${destPath}/drawable-xxxhdpi`,
+                ]
+
+                drawableDirs.forEach((dir) => {
+                    if (!_fs.default.existsSync(dir)) {
+                        _fs.default.mkdirSync(dir, { recursive: true })
+                    }
+                })
+
+                // Copy splashscreen image to drawable directory
+                const destImagePath = `${destPath}/drawable/splashscreen.${format}`
+                _fs.default.copyFileSync(splashscreenImagePath, destImagePath)
+
+                progress.log(`Splashscreen image copied: splashscreen.${format}`, "success")
+                splashscreenImageFound = true
+                break
+            }
+        }
+
+        if (!splashscreenImageFound) {
+            progress.log("No splashscreen image found in public directory", "warning")
         }
 
         // Update colors.xml with background color
