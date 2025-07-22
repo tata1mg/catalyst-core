@@ -11,7 +11,7 @@
         <item name="colorOnSecondary">@color/black</item>
         <!-- Status bar color. -->
         <!-- Splash Screen -->
-        <item name="android:windowSplashScreenBackground">@color/purple_500</item>
+        <item name="android:windowSplashScreenBackground">@color/splashscreen_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <!-- Customize your theme here. -->
     </style>

@@ -176,8 +176,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     private fun configureSplashScreen(splashScreen: androidx.core.splashscreen.SplashScreen) {
-        val enabled = properties.getProperty("splashscreen.enabled", "true").toBoolean()
-        val durationProperty = properties.getProperty("splashscreen.duration")
+        val enabled = properties.getProperty("splashScreen.enabled", "true").toBoolean()
+        val durationProperty = properties.getProperty("splashScreen.duration")
         
         splashScreen.setKeepOnScreenCondition {
             if (!enabled) return@setKeepOnScreenCondition false
