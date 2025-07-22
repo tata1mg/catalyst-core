@@ -11,3 +11,4 @@ tsconfig.json
 **/androidProject/**/build/*
 /template
 test.sh
+context.md

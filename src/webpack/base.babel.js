@@ -27,6 +27,7 @@ export const basePlugins = [
                 "PUBLIC_STATIC_ASSET_URL",
                 "src_path",
                 "PWD",
+                "SENTRY_CONFIG",
             ] || []
         ).reduce((clientEnvMap, env) => {
             clientEnvMap[env] = JSON.stringify(process.env[env])
