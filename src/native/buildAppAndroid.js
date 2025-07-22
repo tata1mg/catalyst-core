@@ -225,6 +225,12 @@ async function copySplashscreenAssets() {
         const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg"]
         let splashscreenImageFound = false
 
+        // Ensure public directory exists
+        if (!_fs.default.existsSync(publicPath)) {
+            progress.log(`Warning: Public directory not found at ${publicPath}`, "warning")
+            return
+        }
+
         for (const format of imageFormats) {
             const splashscreenImagePath = `${publicPath}/splashscreen.${format}`
             if (_fs.default.existsSync(splashscreenImagePath)) {
@@ -255,7 +261,25 @@ async function copySplashscreenAssets() {
         }
 
         if (!splashscreenImageFound) {
-            progress.log("No splashscreen image found in public directory", "warning")
+            progress.log(
+                "No splashscreen image found in public directory - creating default transparent image",
+                "warning"
+            )
+
+            // Create a default transparent PNG image to avoid build errors
+            const drawableDir = `${destPath}/drawable`
+            if (!_fs.default.existsSync(drawableDir)) {
+                _fs.default.mkdirSync(drawableDir, { recursive: true })
+            }
+
+            // Create a 1x1 transparent PNG image as base64
+            const transparentPngBase64 =
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+            const transparentPngBuffer = Buffer.from(transparentPngBase64, "base64")
+
+            const defaultSplashscreenPath = `${drawableDir}/splashscreen.png`
+            _fs.default.writeFileSync(defaultSplashscreenPath, transparentPngBuffer)
+            progress.log("Created default transparent splashscreen.png", "info")
         }
 
         // Update colors.xml with background color
