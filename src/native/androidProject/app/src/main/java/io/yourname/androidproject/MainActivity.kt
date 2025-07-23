@@ -66,14 +66,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
         }
 
-        // Log all property values
-        if (BuildConfig.DEBUG) {
-            Log.d(TAG, "📋 Properties loaded - Total count: ${properties.size}")
-            properties.forEach { (key, value) ->
-                Log.d(TAG, "Property: $key = $value")
-            }
-        }
-
         // Configure splash screen
         splashStartTime = System.currentTimeMillis()
         configureSplashScreen(splashScreen)
