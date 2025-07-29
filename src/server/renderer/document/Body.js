@@ -10,9 +10,9 @@ import PropTypes from "prop-types"
  * @param {object} children - contains any child elements defined within the component
  */
 export function Body(props) {
-    const { jsx = "", initialState = {}, fetcherData = {}, children, bodyProps } = props
+    const { jsx = "", initialState = {}, fetcherData = {}, children, bodyProps = "" } = props
     return (
-        <body className={bodyProps.className}>
+        <body className={bodyProps.className || ""}>
             {jsx}
             <script
                 /* eslint-disable */
