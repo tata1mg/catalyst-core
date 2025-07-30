@@ -1,5 +1,5 @@
 {
-    "name": "catalyst-core-internal",
+    "name": "catalyst-core",
     "version": "0.0.2-canary.3",
     "type": "module",
     "description": "Web framework that provides great performance out of the box",
@@ -33,8 +33,8 @@
         "express": "^4.18.2",
         "express-static-gzip": "^2.1.7",
         "picocolors": "^1.0.0",
-        "react": "experimental",
-        "react-dom": "experimental",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
         "react-helmet-async": "^1.3.0",
         "react-redux": "^8.1.3",
         "react-refresh": "^0.14.0",
