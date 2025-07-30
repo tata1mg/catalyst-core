@@ -12,6 +12,8 @@ import android.webkit.*
 import android.widget.ProgressBar
 import androidx.webkit.WebViewAssetLoader
 import io.yourname.androidproject.WebCacheManager
+import io.yourname.androidproject.isUrlAllowed
+import io.yourname.androidproject.isExternalDomain
 import kotlinx.coroutines.*
 import java.util.Properties
 
@@ -208,66 +210,6 @@ class CustomWebView(
     }
 
 
-    private fun isUrlAllowed(url: String): Boolean {
-        if (allowedUrls.isEmpty()) return false
-        
-        val parsedUrl = Uri.parse(url) ?: return false
-        val urlHost = "${parsedUrl.scheme}://${parsedUrl.host}${if (parsedUrl.port != -1) ":${parsedUrl.port}" else ""}"
-        
-        return allowedUrls.any { pattern ->
-            when {
-                pattern.contains("*") -> {
-                    val regex = pattern
-                        .replace(".", "\\.")
-                        .replace("*", ".*")
-                        .toRegex(RegexOption.IGNORE_CASE)
-                    regex.matches(url) || regex.matches(urlHost)
-                }
-                else -> {
-                    val patternUri = Uri.parse(pattern)
-                    val patternHost = "${patternUri.scheme}://${patternUri.host}${if (patternUri.port != -1) ":${patternUri.port}" else ""}"
-                    
-                    // Exact match or pattern without port matches URL with any port
-                    urlHost.equals(patternHost, ignoreCase = true) || 
-                    (patternUri.port == -1 && urlHost.startsWith("${patternUri.scheme}://${patternUri.host}", ignoreCase = true))
-                }
-            }
-        }
-    }
-
-    private fun isExternalDomain(url: String): Boolean {
-        if (allowedUrls.isEmpty()) return true
-        
-        val parsedUrl = Uri.parse(url)
-        val urlHost = parsedUrl.host ?: return true
-        val urlScheme = parsedUrl.scheme ?: return true
-        val urlPort = parsedUrl.port
-        
-        return !allowedUrls.any { pattern ->
-            if (pattern.startsWith("*.")) {
-                val domain = pattern.substring(2)
-                urlHost.equals(domain, ignoreCase = true) || urlHost.endsWith(".$domain", ignoreCase = true)
-            } else {
-                val patternUri = Uri.parse(pattern)
-                val patternHost = patternUri?.host ?: return@any false
-                val patternScheme = patternUri?.scheme ?: return@any false
-                val patternPort = patternUri?.port ?: -1
-                
-                val schemeMatches = urlScheme.equals(patternScheme, ignoreCase = true)
-                val hostMatches = if (patternHost.startsWith("*.")) {
-                    val domain = patternHost.substring(2)
-                    urlHost.equals(domain, ignoreCase = true) || urlHost.endsWith(".$domain", ignoreCase = true)
-                } else {
-                    urlHost.equals(patternHost, ignoreCase = true)
-                }
-                val portMatches = patternPort == -1 || urlPort == patternPort || 
-                    (urlPort == -1 && ((patternPort == 443 && patternScheme.equals("https", ignoreCase = true)) || 
-                                      (patternPort == 80 && patternScheme.equals("http", ignoreCase = true))))
-                
-                schemeMatches && hostMatches && portMatches
-            }
-        }
-    }
 
     private fun openInInAppBrowser(url: String) {
         try {
@@ -378,7 +320,7 @@ class CustomWebView(
                     val urlString = url.toString()
                     
                     // Check if URL is an external domain
-                    if (url.scheme in listOf("http", "https") && isExternalDomain(urlString)) {
+                    if (url.scheme in listOf("http", "https") && isExternalDomain(urlString, allowedUrls)) {
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "🌍 External domain detected, opening in in-app browser: $urlString")
                         }
@@ -387,7 +329,7 @@ class CustomWebView(
                     }
                     
                     // Check if URL is allowed for internal navigation
-                    if (!isUrlAllowed(urlString)) {
+                    if (!isUrlAllowed(urlString, allowedUrls)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🚫 URL blocked by access control: $urlString")
                         }
@@ -411,7 +353,7 @@ class CustomWebView(
                     Log.d(TAG, "🔄 Intercepting request for: $url on thread: ${Thread.currentThread().name}")
                 }
 
-                if (!isUrlAllowed(url)) {
+                if (!isUrlAllowed(url, allowedUrls)) {
                     if (BuildConfig.DEBUG) {
                         Log.w(TAG, "🚫 Network request blocked by access control: $url")
                     }
