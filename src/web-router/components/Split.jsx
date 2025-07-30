@@ -32,11 +32,7 @@ const Split = ({ importFn, ssr = true, fallback = null, cacheKey, children, ...p
             return fallback
         }
     } else {
-        if (ssr) {
-            return children
-        } else {
-            return <Suspense fallback={fallback}>{children}</Suspense>
-        }
+        return <Suspense fallback={fallback}>{children}</Suspense>
     }
 }
 

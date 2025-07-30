@@ -1,34 +1,32 @@
 import path from "path"
 
+function normalizePath(importPath, viteConfig) {
+    const aliases = viteConfig.resolve.alias
+    let resolvedPath = importPath
+
+    // Check if the import path starts with any of the configured aliases
+    for (const { find: aliasKey, replacement: aliasPath } of Object.values(aliases)) {
+        if (typeof aliasKey === "string" && importPath.startsWith(aliasKey)) {
+            // Replace the alias with the actual path
+            resolvedPath = importPath.replace(aliasKey, aliasPath)
+            break
+        }
+    }
+    return resolvedPath.replace(/^\.\//, "")
+}
 /**
  * Resolve import path using Vite aliases
  * @param {string} importPath - The import path to resolve
  * @param {object} viteConfig - The Vite configuration object
  * @returns {string} - The resolved manifest key
  */
-function resolveImportPath(importPath, viteConfig) {
+function resolveImportPath(importPath) {
     try {
-        if (!viteConfig?.resolve?.alias) {
-            // Fallback to original import path if no aliases
-            return importPath
-        }
-
-        const aliases = viteConfig.resolve.alias
-        let resolvedPath = importPath
-
-        // Check if the import path starts with any of the configured aliases
-        for (const { find: aliasKey, replacement: aliasPath } of Object.values(aliases)) {
-            if (importPath.startsWith(aliasKey)) {
-                // Replace the alias with the actual path
-                resolvedPath = importPath.replace(aliasKey, aliasPath)
-                break
-            }
-        }
         // Convert to manifest-style key (relative to src_path)
-        if (process.env.src_path && resolvedPath !== importPath) {
+        if (process.env.src_path) {
             // If we resolved an alias, make it relative to the project source
             const outputPath = path.join(process.env.src_path, "build", "client")
-            const relativePath = path.relative(outputPath, resolvedPath)
+            const relativePath = path.relative(outputPath, importPath)
             return relativePath.replace(/\\/g, "/") // Normalize path separators
         }
 
@@ -104,7 +102,11 @@ export function injectCacheKeyPlugin() {
                         const optionsObject = code.slice(optionsStart, optionsEnd + 1)
 
                         // Resolve the import path using Vite aliases
-                        let manifestKey = resolveImportPath(importPath, viteConfig)
+                        const normalizedPath = normalizePath(importPath, viteConfig)
+                        const absolutePath = path.resolve(path.dirname(id), normalizedPath)
+
+                        let manifestKey = resolveImportPath(absolutePath)
+
                         // Find the closing parenthesis after the options
                         let closingParenPos = optionsEnd + 1
                         while (closingParenPos < code.length && /\s/.test(code[closingParenPos])) {
