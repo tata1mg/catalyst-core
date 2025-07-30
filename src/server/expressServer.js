@@ -19,7 +19,6 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const isProduction = process.env.NODE_ENV === "production"
-
 async function createServer() {
     const port = process.env.NODE_SERVER_PORT ?? 3005
     const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
@@ -75,6 +74,9 @@ async function createServer() {
             }
             if (fs.existsSync(assetManifestPath)) {
                 assetManifest = JSON.parse(fs.readFileSync(assetManifestPath, "utf-8"))
+
+                const cssLoadingStrategies = assetManifest.cssLoadingStrategies || {}
+                const cssLoadingStrategiesCount = Object.keys(cssLoadingStrategies).length
             }
         } catch (error) {
             console.warn("Could not load build manifests:", error.message)

@@ -2,17 +2,17 @@
  * Vite Plugin for Categorizing Assets by SSR Split Configuration
  *
  * This plugin categorizes build assets into three groups:
- * - essential: Assets not using createSplit or direct imports
- * - ssrTrue: Assets loaded via createSplit with ssr: true
- * - ssrFalse: Assets loaded via createSplit with ssr: false
- */
+ * - essential: Assets not using split or direct imports
+ * - ssrTrue: Assets loaded via split with ssr: true
+ * - ssrFalse: Assets loaded via split with ssr: false
+ **/
 import path from "path"
 import fs from "fs"
 
 export function manifestCategorizationPlugin(options = {}) {
     const { outputFile = "asset-categories.json", publicPath = "/client/assets/" } = options
 
-    // Track createSplit calls and their resolved module IDs
+    // Track split calls and their resolved module IDs
     const splitModules = new Map() // resolvedId -> { ssr: boolean, originalPath: string }
 
     // Track module ID to chunk mapping
@@ -74,7 +74,7 @@ export function manifestCategorizationPlugin(options = {}) {
             .filter(([_, chunk]) => chunk.type === "chunk" && chunk.isEntry)
             .map(([fileName]) => fileName)
 
-        // Get all createSplit chunks and their dependencies
+        // Get all split chunks and their dependencies
         const splitChunkNames = new Set()
         const splitDependencyChunks = new Set()
 
@@ -91,7 +91,7 @@ export function manifestCategorizationPlugin(options = {}) {
             }
         }
 
-        // Helper function to check if a chunk is only used by createSplit chunks
+        // Helper function to check if a chunk is only used by split chunks
         const isChunkOnlyUsedBySplits = (chunkName) => {
             // Check all chunks that import this chunk
             for (const [otherChunk, deps] of chunkDependencies.entries()) {
@@ -114,8 +114,8 @@ export function manifestCategorizationPlugin(options = {}) {
         }
 
         // Add dependencies that are:
-        // 1. Not createSplit chunks themselves
-        // 2. Not used exclusively by createSplit chunks (i.e., truly shared/core)
+        // 1. Not split chunks themselves
+        // 2. Not used exclusively by split chunks (i.e., truly shared/core)
         for (const [chunkName, deps] of chunkDependencies.entries()) {
             if (essentialChunkNames.has(chunkName)) {
                 for (const dep of deps) {
@@ -128,13 +128,13 @@ export function manifestCategorizationPlugin(options = {}) {
                 }
             }
         }
-        // Categorize createSplit chunks
+        // Categorize split chunks
         const categorizedChunkNames = new Set()
 
         for (const [moduleId, splitInfo] of splitModules.entries()) {
             const chunkName = moduleToChunk.get(moduleId)
             if (chunkName && bundle[chunkName]) {
-                // Only categorize the specific chunk for the createSplit module, not dependencies
+                // Only categorize the specific chunk for the split module, not dependencies
                 if (!categorizedChunkNames.has(chunkName)) {
                     const category = splitInfo.ssr ? "ssrTrue" : "ssrFalse"
                     categorizedChunks[category][chunkName] = {
@@ -182,8 +182,8 @@ export function manifestCategorizationPlugin(options = {}) {
             }
         }
 
-        // Return the initial categorization for later processing
-        return {
+        // Process CSS files with hybrid loading strategy
+        const initialCategorization = {
             ...categorizedChunks,
             metadata: {
                 generatedAt: new Date().toISOString(),
@@ -195,6 +195,12 @@ export function manifestCategorizationPlugin(options = {}) {
                 },
             },
         }
+
+        // Store initial result for CSS processing
+        processedManifest = initialCategorization
+
+        // Return the enhanced categorization
+        return processedManifest
     }
 
     // Apply Vite manifest structure to categorized chunks
@@ -262,21 +268,20 @@ export function manifestCategorizationPlugin(options = {}) {
             return null
         },
 
-        // Track createSplit calls during transform
+        // Scan source files to identify split calls
         transform(code, id) {
-            // Skip node_modules
             if (id.includes("node_modules")) {
                 return null
             }
 
-            // Look for createSplit calls
-            if (code.includes("createSplit")) {
-                // Single comprehensive regex for createSplit
-                const createSplitRegex =
-                    /createSplit\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*(?:,\s*\{([^}]*)\})?\s*\)/g
+            // Look for split calls
+            if (code.includes("split")) {
+                // Single comprehensive regex for split
+                const splitRegex =
+                    /split\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*(?:,\s*\{([^}]*)\})?\s*\)/g
 
                 let match
-                while ((match = createSplitRegex.exec(code)) !== null) {
+                while ((match = splitRegex.exec(code)) !== null) {
                     const importPath = match[1]
                     const options = match[2] || ""
 
@@ -295,8 +300,6 @@ export function manifestCategorizationPlugin(options = {}) {
                                     ssr: ssrValue,
                                     originalPath: importPath,
                                 })
-                            } else {
-                                console.log(`❌ Could not resolve: ${importPath}`)
                             }
                         })
                         .catch((err) => {

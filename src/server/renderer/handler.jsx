@@ -13,16 +13,20 @@ import { renderToPipeableStream, renderToString } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
-import { ChunkExtractor } from "../utils/ChunkExtractor.js"
+import { ChunkExtractor } from "./ChunkExtractor.js"
+import {
+    generateScriptTags,
+    generateStylesheetLinks,
+    generateScriptTagsAsStrings,
+    generateStylesheetLinksAsStrings,
+} from "./extract.js"
 
 import CustomDocument from "@catalyst/template/server/document.jsx"
 
 import App from "@catalyst/template/src/js/containers/App/index.jsx"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
 
-import configureStore from "@catalyst/template/src/js/store/index.dev.js"
-
-let createStore = configureStore
+import configureStore from "@catalyst/template/src/js/store/index.js"
 
 // matches request route with routes defined in the application.
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
@@ -53,128 +57,26 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
     }, [])
 }
 
-// Generate script tags with necessary hints for JS assets
-const generateScriptTags = (jsAssets, req) => {
-    const scriptElements = []
-
-    // Get the correct base URL for assets
-    const getAssetUrl = (asset) => {
-        if (asset.startsWith("http")) {
-            return asset
-        }
-
-        // Construct proper URL with host and port
-        const protocol = req?.protocol || "http"
-        const host = req?.get("host") || "localhost:3005"
-
-        // Ensure asset path starts with /
-        const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-        // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${protocol}://${host}/client/assets/${asset}`
-        }
-
-        return `${protocol}://${host}${assetPath}`
-    }
-
-    // Deduplicate assets by URL to prevent duplicates
-    const uniqueAssets = [...new Set(jsAssets)]
-
-    uniqueAssets.forEach((asset, index) => {
-        const assetUrl = getAssetUrl(asset)
-
-        // All Vite-generated JS files should be ES modules
-        const isModule = asset.endsWith(".js")
-
-        if (isModule) {
-            scriptElements.push(
-                React.createElement("script", {
-                    key: `script-${asset}-${index}`, // More unique key
-                    src: assetUrl,
-                    type: "module",
-                })
-            )
-        } else {
-            // Generate preload hint for non-JS assets
-            scriptElements.push(
-                React.createElement("link", {
-                    key: `preload-${asset}-${index}`,
-                    rel: "preload",
-                    href: assetUrl,
-                    as: "script",
-                })
-            )
-        }
-    })
-
-    return scriptElements
-}
-
-// Read and inline CSS content and create React style element
-const createInlineCSSElement = (cssAssets) => {
-    let inlinedCSS = ""
-    const publicPath = process.env.BUILD_OUTPUT_PATH || "dist"
-
-    cssAssets.forEach((asset) => {
-        try {
-            let cssFilePath
-
-            // Handle different asset path formats
-            if (asset.startsWith("/client/assets/css/")) {
-                cssFilePath = path.join(
-                    process.env.src_path,
-                    publicPath,
-                    "client/assets/css",
-                    path.basename(asset)
-                )
-            } else if (asset.startsWith("client/assets/css/")) {
-                cssFilePath = path.join(process.env.src_path, publicPath, asset)
-            } else {
-                cssFilePath = path.join(process.env.src_path, publicPath, "client/assets/css", asset)
-            }
-
-            // Read CSS file content
-            if (fs.existsSync(cssFilePath)) {
-                const cssContent = fs.readFileSync(cssFilePath, "utf-8")
-                inlinedCSS += `\n/* ${asset} */\n${cssContent}\n`
-            } else {
-                console.warn(`CSS file not found: ${cssFilePath}`)
-            }
-        } catch (error) {
-            console.warn(`Error reading CSS file ${asset}:`, error.message)
-        }
-    })
-
-    // Return React style element if there's CSS content
-    if (inlinedCSS.trim()) {
-        return inlinedCSS.trim()
-    }
-
-    return null
-}
-
-// Two-pass rendering: first pass to discover assets, second pass to render with assets
-const performTwoPassRendering = (store, context, req, fetcherData, ssrManifest, manifest, assetManifest) => {
+// Collects essential assets for the current route
+const collectEssentialAssets = (ssrManifest, manifest, assetManifest) => {
     let discoveredAssets = { js: [], css: [] }
+    let chunkExtractor = null
 
     try {
         // Create ChunkExtractor for this render
-        const chunkExtractor = new ChunkExtractor({
+        chunkExtractor = new ChunkExtractor({
             manifest: manifest || {},
             ssrManifest: ssrManifest || {},
             assetManifest: assetManifest || {},
         })
-        // Render to string (first pass) - this will track components via global.__CHUNK_EXTRACTOR__
-        renderToString(getComponent(store, context, req, fetcherData))
 
         // Get extracted assets from ChunkExtractor
-        discoveredAssets = chunkExtractor.getAssets()
+        discoveredAssets = chunkExtractor.getEssentialAssets()
     } catch (error) {
-        console.warn("Error in first pass rendering:", error)
+        console.warn("Error while collecting essential assets:", error)
     }
 
-    return discoveredAssets
+    return { discoveredAssets, chunkExtractor }
 }
 
 // Preloads chunks required for rendering document
@@ -200,29 +102,36 @@ const renderMarkUp = async (
     store,
     matches,
     context,
-    discoveredAssets = { js: [], css: [] }
+    discoveredAssets = { js: [], css: [] },
+    chunkExtractor = null
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
 
-    // Process ChunkExtractor discovered assets only
+    // Process ChunkExtractor discovered assets
     const scriptElements = generateScriptTags(discoveredAssets.js, req)
-    const inlinedCSS = createInlineCSSElement(discoveredAssets.css, req)
+    const stylesheetLinks = generateStylesheetLinks(discoveredAssets.css, req, chunkExtractor)
 
-    // Use only ChunkExtractor assets (no merging with old system)
+    // Use stylesheet links instead of inlined CSS
     res.locals.pageJS = scriptElements
-    res.locals.pageCss = inlinedCSS
+    res.locals.pageCss = stylesheetLinks
 
     // Transforms Head Props with discovered assets
     const shellStart = await renderStart(res.locals.pageCss, res.locals.pageJS, metaTags, isBot, fetcherData)
 
-    let state = {}
+    let state = store.getState()
     const jsx = getComponent(store, context, req, fetcherData)
 
     // Transforms Body Props
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
-    const finalProps = { ...shellStart, ...shellEnd, jsx: jsx, req, res }
+    const finalProps = {
+        ...shellStart,
+        ...shellEnd,
+        jsx: jsx,
+        req,
+        res,
+    }
 
     let CompleteDocument = () => {
         if (CustomDocument) {
@@ -240,8 +149,6 @@ const renderMarkUp = async (
                     />
                     <Body
                         initialState={finalProps.initialState}
-                        firstFoldCss={finalProps.firstFoldCss}
-                        firstFoldJS={finalProps.firstFoldJS}
                         jsx={finalProps.jsx}
                         statusCode={finalProps.statusCode}
                         fetcherData={finalProps.fetcherData}
@@ -258,8 +165,20 @@ const renderMarkUp = async (
         const { pipe } = renderToPipeableStream(<CompleteDocument />, {
             onShellReady() {
                 res.setHeader("content-type", "text/html")
+                res.write(`<!DOCTYPE html>`)
                 pipe(res)
                 // res.end()
+            },
+            onAllReady() {
+                const discoveredAssets = chunkExtractor.getNonEssentialAssets()
+                const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
+                const stylesheetLinks = generateStylesheetLinksAsStrings(
+                    discoveredAssets.css,
+                    req,
+                    chunkExtractor
+                )
+                res.write(stylesheetLinks)
+                res.write(scriptElements)
             },
             // onError(error) {
             //     console.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
@@ -280,7 +199,7 @@ export default async function (req, res) {
         let context = {}
         let fetcherData = {}
         // creates store
-        const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
+        const store = validateConfigureStore(configureStore) ? await configureStore({}, req, res) : null
         // user defined routes
         const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
 
@@ -299,19 +218,15 @@ export default async function (req, res) {
                         allTags = getMetaData(allMatches, fetcherData)
 
                         // Perform two-pass rendering to discover required assets
-                        const discoveredAssets = performTwoPassRendering(
-                            store,
-                            context,
-                            req,
-                            fetcherData,
+                        const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
                             req.ssrManifest,
                             req.manifest,
                             req.assetManifest
                         )
-                        return discoveredAssets
+                        return { discoveredAssets, chunkExtractor }
                     })
                     .then(
-                        async (discoveredAssets) =>
+                        async ({ discoveredAssets, chunkExtractor }) =>
                             await renderMarkUp(
                                 null,
                                 req,
@@ -321,17 +236,40 @@ export default async function (req, res) {
                                 store,
                                 matches,
                                 context,
-                                discoveredAssets
+                                discoveredAssets,
+                                chunkExtractor
                             )
                     )
                     .catch(async (error) => {
                         console.error("Error in executing serverFetcher functions: " + error)
-                        await renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context)
+                        await renderMarkUp(
+                            404,
+                            req,
+                            res,
+                            allTags,
+                            fetcherData,
+                            store,
+                            matches,
+                            context,
+                            { js: [], css: [] },
+                            null
+                        )
                     })
             })
             .catch((error) => {
                 console.error("Error in executing serverSideFunction inside App: " + error)
-                renderMarkUp(error.status_code, req, res, allTags, fetcherData, store, matches, context)
+                renderMarkUp(
+                    error.status_code,
+                    req,
+                    res,
+                    allTags,
+                    fetcherData,
+                    store,
+                    matches,
+                    context,
+                    { js: [], css: [] },
+                    null
+                )
             })
     } catch (error) {
         console.error("Error in handling document request: " + error.toString())

@@ -16,6 +16,7 @@ export default defineConfig({
     resolve: {
         ...baseConfig.resolve,
     },
+    // Add cache key injection plugin first to transform split calls
     plugins: [injectCacheKeyPlugin(), ...(baseConfig.plugins || [])],
 
     build: {

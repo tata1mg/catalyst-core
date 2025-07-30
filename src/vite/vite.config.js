@@ -77,7 +77,6 @@ export const getClientEnvVariables = () => {
         }
     })
     envVarDefinitions[`process.env.src_path`] = JSON.stringify(process.env["src_path"])
-
     return envVarDefinitions
 }
 
@@ -110,10 +109,7 @@ export default defineConfig({
             },
         },
     },
-    plugins: [
-        // Add cache key injection plugin first to transform createSplit calls
-        react(),
-    ],
+    plugins: [react()],
     resolve: {
         alias: alias(),
     },

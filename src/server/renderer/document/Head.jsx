@@ -5,14 +5,21 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
 /**
  * Head component which will be used in page rendering
  * @param {boolean} isBot - checks if request is made by bot
- * @param {string} pageCss - includes all styles for page css
+ * @param {array} pageCss - includes all stylesheet link elements for page css
  * @param {object} pageJS - async scripts for loading chunks
  * @param {array} metaTags - user defined function which returns meta tags in array
  * @param {string} publicAssetPath - public asset path for assets
  * @param {object} children - contains any child elements defined within the component
+ * @param {object} cssRegistry - CSS registry data for preventing duplicate loading
+ * @param {object} cssLoadingStrategies - CSS loading strategies for smart loading
  */
 export function Head(props) {
-    const { pageCss, pageJS, metaTags, isBot, publicAssetPath, children } = props
+    const { pageCss, pageJS, metaTags, isBot, publicAssetPath, children, cssRegistry, cssLoadingStrategies } =
+        props
+
+    /**
+     * Generate CSS registry and loading strategies initialization script
+     */
 
     return (
         <head>
@@ -22,13 +29,11 @@ export function Head(props) {
 
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
-
             {metaTags && metaTags}
+            {/* Render stylesheet link elements */}
+            {!isBot && pageCss && Array.isArray(pageCss) && pageCss}
 
             {!isBot && pageJS}
-
-            {/* eslint-disable */}
-            {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
 
             {children}
         </head>
@@ -38,8 +43,10 @@ export function Head(props) {
 Head.propTypes = {
     isBot: PropTypes.bool,
     pageJS: PropTypes.object,
-    pageCss: PropTypes.string,
+    pageCss: PropTypes.array, // Changed from string to array for stylesheet links
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
     children: PropTypes.node,
+    cssRegistry: PropTypes.object,
+    cssLoadingStrategies: PropTypes.object,
 }

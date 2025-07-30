@@ -42,7 +42,7 @@ function resolveImportPath(importPath, viteConfig) {
 }
 
 /**
- * Vite plugin to add cacheKey to createSplit calls with manifest keys
+ * Vite plugin to add cacheKey to split calls with manifest keys
  */
 export function injectCacheKeyPlugin() {
     let viteConfig
@@ -61,21 +61,20 @@ export function injectCacheKeyPlugin() {
                 return null
             }
 
-            // Skip if no createSplit calls
-            if (!code.includes("createSplit")) {
+            // Skip if no split calls
+            if (!code.includes("split")) {
                 return null
             }
 
             let transformedCode = code
             let hasTransforms = false
 
-            // Regex to match createSplit calls with import path
-            // Matches: createSplit(() => import("path"),
-            const createSplitRegex =
-                /(createSplit\s*\(\s*\(\s*\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*,\s*)/g
+            // Regex to match split calls with import path
+            // Matches: split(() => import("path"),
+            const splitRegex = /(split\s*\(\s*\(\s*\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*,\s*)/g
 
             let match
-            while ((match = createSplitRegex.exec(code)) !== null) {
+            while ((match = splitRegex.exec(code)) !== null) {
                 const [fullMatch, beforeOptions, importPath] = match
 
                 try {
@@ -124,7 +123,7 @@ export function injectCacheKeyPlugin() {
                     }
                 } catch (error) {
                     console.warn(
-                        `Could not process createSplit call with import path: ${importPath}`,
+                        `Could not process split call with import path: ${importPath}`,
                         error.message
                     )
                 }

@@ -35,7 +35,7 @@ const Split = ({ importFn, ssr = true, fallback = null, cacheKey, children, ...p
         if (ssr) {
             return children
         } else {
-        return <Suspense fallback={fallback}>{children}</Suspense>
+            return <Suspense fallback={fallback}>{children}</Suspense>
         }
     }
 }
@@ -48,7 +48,7 @@ const Split = ({ importFn, ssr = true, fallback = null, cacheKey, children, ...p
  * @param {React.ComponentType|React.ReactElement} options.fallback - Fallback component
  * @param {string} cacheKey - Resolved path for better asset tracking (injected by plugin)
  */
-export const createSplit = (importFn, { ssr = true, fallback = null, key } = {}, cacheKey) => {
+export const split = (importFn, { ssr = true, fallback = null, key } = {}, cacheKey) => {
     const LazyComponent = lazy(importFn)
 
     return (props) => (
@@ -56,16 +56,6 @@ export const createSplit = (importFn, { ssr = true, fallback = null, key } = {},
             <LazyComponent {...props} />
         </Split>
     )
-}
-
-/**
- * Utility function to create a split component with explicit SSR control
- * @param {Function} importFn - Function that returns a dynamic import
- * @param {React.ComponentType|React.ReactElement} fallback - Fallback component
- * @param {boolean} ssr - Whether to enable SSR
- */
-export const split = (importFn, fallback = null, ssr = true) => {
-    return createSplit(importFn, { ssr, fallback })
 }
 
 export default Split

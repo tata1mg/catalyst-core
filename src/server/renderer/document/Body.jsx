@@ -6,8 +6,6 @@ import path from "path"
  * @param {object} jsx - page jsx code
  * @param {object} statusCode - document request status code
  * @param {object} initialState - initial state object for redux store
- * @param {object} firstFoldCss - style elements extracted for initial page load
- * @param {object} firstFoldJS - javascript elements extracted for initial page load
  * @param {object} fetcherData - contains data from executing serverFetcher function
  * @param {object} children - contains any child elements defined within the component
  */
@@ -16,16 +14,13 @@ export function Body(props) {
         jsx = "",
         statusCode = "",
         initialState = {},
-        firstFoldCss = "",
-        firstFoldJS = "",
+
         fetcherData = {},
         children,
     } = props
 
     return (
         <body>
-            {firstFoldCss}
-            {firstFoldJS}
             {process.env.NODE_ENV === "development" && (
                 <script type="module" src={path.resolve(process.env.src_path, "client/index.jsx")}></script>
             )}
@@ -48,8 +43,6 @@ export function Body(props) {
 
 Body.propTypes = {
     initialState: PropTypes.object,
-    firstFoldCss: PropTypes.any,
-    firstFoldJS: PropTypes.any,
     jsx: PropTypes.any,
     statusCode: PropTypes.string,
     fetcherData: PropTypes.object,
