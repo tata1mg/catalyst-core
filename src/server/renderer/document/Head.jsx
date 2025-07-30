@@ -10,16 +10,10 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
  * @param {array} metaTags - user defined function which returns meta tags in array
  * @param {string} publicAssetPath - public asset path for assets
  * @param {object} children - contains any child elements defined within the component
- * @param {object} cssRegistry - CSS registry data for preventing duplicate loading
- * @param {object} cssLoadingStrategies - CSS loading strategies for smart loading
  */
 export function Head(props) {
     const { pageCss, pageJS, metaTags, isBot, publicAssetPath, children, cssRegistry, cssLoadingStrategies } =
         props
-
-    /**
-     * Generate CSS registry and loading strategies initialization script
-     */
 
     return (
         <head>
