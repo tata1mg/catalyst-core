@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import nativeBridge from './utils/NativeBridge.js';
 import { 
     NATIVE_CALLBACKS, 
@@ -497,4 +497,298 @@ export const useHapticFeedback = () => {
         triggerHaptic,
         isAvailable,
     };
+};
+
+/**
+ * Universal Storage interface - handles native and web transparently
+ * Provides localStorage-like API with native persistence
+ */
+export const Storage = {
+    // Batch queue for native operations
+    _writeQueue: new Map(),
+    _removeQueue: new Set(),
+    _batchTimer: null,
+    _batchDelay: 300, // 300ms batch window
+    _isInitialized: false,
+
+    // localStorage-compatible API
+    async setItem(key, value) {
+        try {
+            const jsonValue = JSON.stringify(value);
+            
+            // 1. Set in localStorage immediately (synchronous, fast)
+            localStorage.setItem(key, jsonValue);
+            
+            // 2. Queue for native storage (async, don't wait)
+            this._queueNativeWrite(key, jsonValue);
+            
+            console.log(`📦 Storage.setItem: ${key} set in localStorage, queued for native`);
+            
+        } catch (err) {
+            console.error(`❌ Storage.setItem error for ${key}:`, err);
+            throw err;
+        }
+    },
+
+    async getItem(key, defaultValue = null) {
+        try {
+            // Always read from localStorage (fast, synchronous)
+            const value = localStorage.getItem(key);
+            
+            if (value !== null) {
+                return JSON.parse(value);
+            }
+            
+            return defaultValue;
+            
+        } catch (err) {
+            console.error(`❌ Storage.getItem error for ${key}:`, err);
+            return defaultValue;
+        }
+    },
+
+    async removeItem(key) {
+        try {
+            // 1. Remove from localStorage immediately
+            localStorage.removeItem(key);
+            
+            // 2. Queue for native removal (don't wait)
+            this._queueNativeRemove(key);
+            
+            console.log(`🗑️ Storage.removeItem: ${key} removed from localStorage, queued for native`);
+            
+        } catch (err) {
+            console.error(`❌ Storage.removeItem error for ${key}:`, err);
+            throw err;
+        }
+    },
+
+    async clear() {
+        try {
+            // 1. Clear localStorage immediately
+            localStorage.clear();
+            
+            // 2. Clear native storage (don't wait)
+            this._clearNativeAsync();
+            
+            console.log('🧹 Storage.clear: localStorage cleared, clearing native async');
+            
+        } catch (err) {
+            console.error('❌ Storage.clear error:', err);
+            throw err;
+        }
+    },
+
+    async keys() {
+        try {
+            // Return localStorage keys (fast)
+            return Object.keys(localStorage);
+        } catch (err) {
+            console.error('❌ Storage.keys error:', err);
+            return [];
+        }
+    },
+
+    get length() {
+        try {
+            return localStorage.length;
+        } catch (err) {
+            console.error('❌ Storage.length error:', err);
+            return 0;
+        }
+    },
+
+    // Enhanced features
+    async batch(operations) {
+        try {
+            console.log(`🔄 Storage.batch processing ${operations.length} operations`);
+            
+            // Process all operations in localStorage first
+            operations.forEach(op => {
+                switch (op.type) {
+                    case 'set':
+                        localStorage.setItem(op.key, JSON.stringify(op.value));
+                        this._queueNativeWrite(op.key, JSON.stringify(op.value));
+                        break;
+                    case 'remove':
+                        localStorage.removeItem(op.key);
+                        this._queueNativeRemove(op.key);
+                        break;
+                }
+            });
+            
+            console.log('✅ Storage.batch completed in localStorage, queued for native');
+            
+        } catch (err) {
+            console.error('❌ Storage.batch error:', err);
+            throw err;
+        }
+    },
+
+    async size() {
+        try {
+            // Calculate localStorage size (approximate)
+            let total = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    total += localStorage[key].length + key.length;
+                }
+            }
+            return total; // bytes (approximate)
+        } catch (err) {
+            console.error('❌ Storage.size error:', err);
+            return 0;
+        }
+    },
+
+    // Initialize storage - sync native to localStorage
+    async initialize() {
+        if (this._isInitialized) {
+            return;
+        }
+
+        console.log('🚀 Initializing Storage...');
+        
+        try {
+            if (typeof window !== "undefined" && window.WebBridge && nativeBridge.isAvailable()) {
+                // Get all native data and sync to localStorage
+                const nativeData = await this._getAllNativeData();
+                
+                if (nativeData && typeof nativeData === 'object') {
+                    Object.entries(nativeData).forEach(([key, value]) => {
+                        // Only sync if localStorage doesn't have the key
+                        if (localStorage.getItem(key) === null) {
+                            localStorage.setItem(key, value);
+                            console.log(`🔄 Synced ${key} from native to localStorage`);
+                        }
+                    });
+                }
+            }
+            
+            this._isInitialized = true;
+            console.log('✅ Storage initialization complete');
+            
+        } catch (err) {
+            console.warn('⚠️ Storage sync failed, using localStorage only:', err);
+            this._isInitialized = true; // Still mark as initialized
+        }
+    },
+
+    // Private methods for native batching
+    _queueNativeWrite(key, value) {
+        this._writeQueue.set(key, value);
+        this._removeQueue.delete(key); // Cancel any pending remove
+        this._scheduleBatch();
+    },
+
+    _queueNativeRemove(key) {
+        this._removeQueue.add(key);
+        this._writeQueue.delete(key); // Cancel any pending write
+        this._scheduleBatch();
+    },
+
+    _scheduleBatch() {
+        if (this._batchTimer) {
+            clearTimeout(this._batchTimer);
+        }
+        
+        this._batchTimer = setTimeout(() => {
+            this._flushBatchAsync();
+        }, this._batchDelay);
+    },
+
+    async _flushBatchAsync() {
+        try {
+            const writes = Array.from(this._writeQueue.entries());
+            const removes = Array.from(this._removeQueue);
+            
+            if (writes.length === 0 && removes.length === 0) {
+                return;
+            }
+            
+            console.log(`🚀 Flushing ${writes.length} writes, ${removes.length} removes to native`);
+            
+            // Fire-and-forget native batch operation
+            this._sendBatchToNative({
+                writes: Object.fromEntries(writes),
+                removes: removes
+            }).catch(err => {
+                console.warn('⚠️ Native batch failed (non-blocking):', err);
+            });
+            
+            // Clear queues immediately (don't wait for native)
+            this._writeQueue.clear();
+            this._removeQueue.clear();
+            this._batchTimer = null;
+            
+        } catch (err) {
+            console.warn('⚠️ Storage batch flush error (non-blocking):', err);
+        }
+    },
+
+    async _getAllNativeData() {
+        if (typeof window === "undefined" || !window.WebBridge || !nativeBridge.isAvailable()) {
+            return {};
+        }
+
+        return new Promise((resolve, reject) => {
+            try {
+                // Set up one-time listener
+                const handleAllData = (data) => {
+                    window.WebBridge.unregister(NATIVE_CALLBACKS.ON_STORAGE_GET_ALL_DATA);
+                    resolve(data || {});
+                };
+
+                window.WebBridge.register(NATIVE_CALLBACKS.ON_STORAGE_GET_ALL_DATA, handleAllData);
+                nativeBridge.storage.getAllData();
+
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    window.WebBridge.unregister(NATIVE_CALLBACKS.ON_STORAGE_GET_ALL_DATA);
+                    resolve({});
+                }, 5000);
+
+            } catch (error) {
+                resolve({});
+            }
+        });
+    },
+
+    async _sendBatchToNative(operations) {
+        if (typeof window !== "undefined" && window.WebBridge && nativeBridge.isAvailable()) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Set up one-time listener
+                    const handleBatchResponse = (data) => {
+                        window.WebBridge.unregister(NATIVE_CALLBACKS.ON_STORAGE_BATCH_UPDATE);
+                        resolve(data);
+                    };
+
+                    window.WebBridge.register(NATIVE_CALLBACKS.ON_STORAGE_BATCH_UPDATE, handleBatchResponse);
+                    nativeBridge.storage.batchUpdate(operations);
+
+                    // Timeout after 10 seconds
+                    setTimeout(() => {
+                        window.WebBridge.unregister(NATIVE_CALLBACKS.ON_STORAGE_BATCH_UPDATE);
+                        resolve({ success: false, error: 'timeout' });
+                    }, 10000);
+
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+        // Silent fail on web platform
+        return Promise.resolve({ success: false, error: 'not_available' });
+    },
+
+    async _clearNativeAsync() {
+        if (typeof window !== "undefined" && window.WebBridge && nativeBridge.isAvailable()) {
+            try {
+                nativeBridge.storage.clear();
+            } catch (err) {
+                console.warn('⚠️ Native clear failed (non-blocking):', err);
+            }
+        }
+    }
 };

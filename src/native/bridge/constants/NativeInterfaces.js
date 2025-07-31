@@ -13,6 +13,14 @@ export const NATIVE_COMMANDS = {
     
     // Haptic feedback commands
     REQUEST_HAPTIC_FEEDBACK: 'requestHapticFeedback',
+    
+    // Storage commands
+    STORAGE_GET_ITEM: 'storageGetItem',
+    STORAGE_SET_ITEM: 'storageSetItem',
+    STORAGE_REMOVE_ITEM: 'storageRemoveItem',
+    STORAGE_CLEAR: 'storageClear',
+    STORAGE_GET_ALL_DATA: 'storageGetAllData',
+    STORAGE_BATCH_UPDATE: 'storageBatchUpdate',
 };
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -35,6 +43,14 @@ export const NATIVE_CALLBACKS = {
     
     // Haptic feedback callbacks
     HAPTIC_FEEDBACK: 'HAPTIC_FEEDBACK',
+    
+    // Storage callbacks
+    ON_STORAGE_GET_ITEM: 'ON_STORAGE_GET_ITEM',
+    ON_STORAGE_SET_ITEM: 'ON_STORAGE_SET_ITEM',
+    ON_STORAGE_REMOVE_ITEM: 'ON_STORAGE_REMOVE_ITEM',
+    ON_STORAGE_CLEAR: 'ON_STORAGE_CLEAR',
+    ON_STORAGE_GET_ALL_DATA: 'ON_STORAGE_GET_ALL_DATA',
+    ON_STORAGE_BATCH_UPDATE: 'ON_STORAGE_BATCH_UPDATE',
 };
 
 // Interface Categories for easier management
