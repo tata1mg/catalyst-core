@@ -47,7 +47,7 @@ async function createServer() {
     if (isProduction) {
         // In production, serve built assets
         const buildPath = path.join(process.env.src_path, "build")
-        const publicPath = path.join(buildPath, "public")
+        const publicPath = path.join(buildPath, "client")
 
         // Serve static assets
         app.use(

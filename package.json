@@ -41,6 +41,7 @@
         "react-router-dom": "^6.16.0",
         "redux": "^4.2.1",
         "sanitize-html": "^2.13.1",
+        "sass": "^1.89.2",
         "ua-parser-js": "^1.0.37",
         "vite": "^6.3.5"
     },
