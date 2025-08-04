@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.2-canary.3",
+    "version": "0.0.2-canary.1",
     "type": "module",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
