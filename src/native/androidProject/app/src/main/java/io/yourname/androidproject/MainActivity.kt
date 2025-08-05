@@ -10,6 +10,7 @@ import io.yourname.androidproject.NativeBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
@@ -20,6 +21,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var properties: Properties
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
+    private var splashStartTime: Long = 0
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -45,6 +47,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
@@ -62,6 +65,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.setProperty("buildType", if (BuildConfig.DEBUG) "debug" else "release")
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
         }
+
+        // Configure splash screen
+        splashStartTime = System.currentTimeMillis()
+        configureSplashScreen(splashScreen)
 
         // Setup UI
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -158,5 +165,25 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()
+    }
+
+    private fun configureSplashScreen(splashScreen: androidx.core.splashscreen.SplashScreen) {
+        val enabled = properties.getProperty("splashScreen.enabled", "true").toBoolean()
+        val durationProperty = properties.getProperty("splashScreen.duration")
+        
+        splashScreen.setKeepOnScreenCondition {
+            if (!enabled) return@setKeepOnScreenCondition false
+            
+            val webViewLoaded = ::customWebView.isInitialized && 
+                               customWebView.getWebView().progress >= 100
+            
+            if (durationProperty != null) {
+                val duration = durationProperty.toLong()
+                val timeElapsed = System.currentTimeMillis() - splashStartTime >= duration
+                !timeElapsed
+            } else {
+                !webViewLoaded
+            }
+        }
     }
 }
