@@ -75,7 +75,7 @@ object CameraUtils {
     }
     
     /**
-     * Process camera capture result and notify web
+     * Process camera capture result using tri-transport architecture
      * 
      * @param activity The activity context
      * @param webView The WebView for callbacks
@@ -85,25 +85,52 @@ object CameraUtils {
     fun processCameraResult(activity: Activity, webView: WebView, photoUri: Uri?, success: Boolean) {
         if (success && photoUri != null) {
             try {
-                // In production version, we avoid sending full base64 image for performance
-                // Instead, just send the image URI and do processing on the web side if needed
-                val imageUrl = photoUri.toString()
-
-                val json = JSONObject().apply {
-                    put("imageUrl", imageUrl)
-                    // Note: Removed base64 encoding for production - it's memory intensive
-                    // If needed, can be added back with size checks
+                BridgeUtils.logDebug(TAG, "Processing camera capture with tri-transport architecture")
+                
+                // Convert URI to File for tri-transport processing
+                val photoFile = FileUtils.uriToFile(activity, photoUri)
+                if (photoFile == null) {
+                    throw Exception("Unable to access captured photo file")
                 }
-
-                BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_CAMERA_CAPTURE, json)
-                BridgeUtils.logDebug(TAG, "Camera capture successful: $imageUrl")
+                
+                BridgeUtils.logDebug(TAG, "Camera captured file: ${photoFile.name} (${FileSizeRouterUtils.formatFileSize(photoFile.length())})")
+                
+                // Use tri-transport architecture for size-based routing
+                val routingDecision = FileSizeRouterUtils.determineTransport(photoFile)
+                BridgeUtils.logInfo(TAG, "Camera transport decision: ${routingDecision.transportType} - ${routingDecision.reason}")
+                
+                // Process using determined transport
+                val processingResult = FileSizeRouterUtils.processFile(activity, webView, routingDecision)
+                
+                if (processingResult.success && processingResult.fileSrc != null) {
+                    // Create result data in same format as file picker for consistency
+                    val resultData = mapOf(
+                        "fileName" to processingResult.fileName,
+                        "fileSrc" to processingResult.fileSrc,
+                        "filePath" to processingResult.filePath,
+                        "size" to processingResult.fileSize,
+                        "mimeType" to processingResult.mimeType,
+                        "transport" to processingResult.transportUsed.name,
+                        "source" to "camera" // Additional field to identify camera vs file picker
+                    )
+                    
+                    BridgeUtils.logInfo(TAG, "Camera photo processed successfully via ${processingResult.transportUsed}: ${processingResult.fileName}")
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_CAMERA_CAPTURE, 
+                        org.json.JSONObject(resultData).toString())
+                        
+                } else {
+                    // Processing failed
+                    val errorMsg = processingResult.error ?: "Unknown error processing camera photo"
+                    BridgeUtils.logError(TAG, "Camera photo processing failed: $errorMsg")
+                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, errorMsg)
+                }
                 
             } catch (e: Exception) {
-                BridgeUtils.logError(TAG, "Error processing image", e)
+                BridgeUtils.logError(TAG, "Error in tri-transport camera processing", e)
                 BridgeUtils.notifyWebError(
                     webView, 
                     BridgeUtils.WebEvents.ON_CAMERA_ERROR, 
-                    "Error processing captured image: ${e.message}"
+                    "Camera processing error: ${e.message}"
                 )
             }
         } else {

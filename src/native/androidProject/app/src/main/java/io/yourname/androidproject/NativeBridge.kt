@@ -34,6 +34,9 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
             initializeCameraLauncher()
             initializePermissionLauncher()
             initializeFilePickerLauncher()
+            
+            // Initialize FrameworkServer for large file handling
+            initializeFrameworkServer()
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error initializing NativeBridge", e)
         }
@@ -158,7 +161,8 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
                         FileUtils.sendFilePickStateUpdate(webView, "processing")
                         
                         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "process selected file") {
-                            FileUtils.processSelectedFile(mainActivity, webView, uri)
+                            // Use new tri-transport processing
+                            processSelectedFileWithTriTransport(uri)
                         }
                     } ?: run {
                         BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "No file selected")
@@ -172,6 +176,79 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
                     BridgeUtils.logError(TAG, "File picker failed with result code: ${result.resultCode}")
                     BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "File selection failed")
                 }
+            }
+        }
+    }
+    
+    private fun initializeFrameworkServer() {
+        BridgeUtils.logDebug(TAG, "Initializing FrameworkServer for large file handling")
+        
+        // Start framework server in background
+        launch {
+            try {
+                val serverStarted = FrameworkServerUtils.startServer(mainActivity, webView)
+                if (serverStarted) {
+                    BridgeUtils.logInfo(TAG, "FrameworkServer initialized successfully")
+                } else {
+                    BridgeUtils.logWarning(TAG, "FrameworkServer failed to start - large files will use fallback methods")
+                }
+            } catch (e: Exception) {
+                BridgeUtils.logError(TAG, "Error starting FrameworkServer", e)
+            }
+        }
+    }
+    
+    /**
+     * Process selected file using tri-transport architecture based on file size
+     */
+    private fun processSelectedFileWithTriTransport(uri: Uri) {
+        launch {
+            try {
+                // Convert URI to File
+                val file = FileUtils.uriToFile(mainActivity, uri)
+                if (file == null) {
+                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "Unable to access selected file")
+                    return@launch
+                }
+                
+                BridgeUtils.logDebug(TAG, "Processing file with tri-transport: ${file.name} (${FileSizeRouterUtils.formatFileSize(file.length())})")
+                
+                // Determine transport method based on file size
+                val routingDecision = FileSizeRouterUtils.determineTransport(file)
+                BridgeUtils.logInfo(TAG, "Transport decision: ${routingDecision.transportType} - ${routingDecision.reason}")
+                
+                // Update WebView with transport information
+                FileUtils.sendFilePickStateUpdate(webView, "routing")
+                
+                // Process file using determined transport
+                val processingResult = FileSizeRouterUtils.processFile(mainActivity, webView, routingDecision)
+                
+                if (processingResult.success && processingResult.fileSrc != null) {
+                    // Notify WebView with successful result
+                    val resultData = mapOf(
+                        "fileName" to processingResult.fileName,
+                        "fileSrc" to processingResult.fileSrc,
+                        "filePath" to processingResult.filePath,
+                        "size" to processingResult.fileSize,
+                        "mimeType" to processingResult.mimeType,
+                        "transport" to processingResult.transportUsed.name
+                    )
+                    
+                    BridgeUtils.logInfo(TAG, "File processed successfully via ${processingResult.transportUsed}: ${processingResult.fileName}")
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_FILE_PICKED, 
+                        org.json.JSONObject(resultData).toString())
+                    
+                } else {
+                    // Processing failed
+                    val errorMsg = processingResult.error ?: "Unknown error processing file"
+                    BridgeUtils.logError(TAG, "File processing failed: $errorMsg")
+                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, errorMsg)
+                }
+                
+            } catch (e: Exception) {
+                BridgeUtils.logError(TAG, "Error in tri-transport file processing", e)
+                BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, 
+                    "File processing error: ${e.message}")
             }
         }
     }
@@ -191,6 +268,25 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
     // Removed cleanupTempFiles - now handled by FileUtils.cleanupTempFiles
 
     // Removed getFileSize - now handled by FileUtils.getFileSize
+    
+    /**
+     * Cleanup method to be called when the bridge is being destroyed
+     */
+    fun cleanup() {
+        BridgeUtils.logDebug(TAG, "Cleaning up NativeBridge resources")
+        
+        try {
+            // Stop FrameworkServer
+            FrameworkServerUtils.stopServer()
+            
+            // Cancel any pending coroutines
+            supervisorJob.cancel()
+            
+            BridgeUtils.logInfo(TAG, "NativeBridge cleanup completed")
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Error during NativeBridge cleanup", e)
+        }
+    }
 
     // Removed getFileName - now handled by FileUtils.getFileName
 

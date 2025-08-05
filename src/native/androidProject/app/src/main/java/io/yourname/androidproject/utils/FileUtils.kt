@@ -295,6 +295,33 @@ object FileUtils {
     }
     
     /**
+     * Convert URI to File (for selected files)
+     * Creates a temporary copy of the file if needed
+     * 
+     * @param context The context
+     * @param uri The file URI
+     * @return File object or null if conversion fails
+     */
+    fun uriToFile(context: Context, uri: Uri): File? {
+        return try {
+            val fileName = getFileName(context, uri)
+            val tempFile = File(context.cacheDir, "temp_${System.currentTimeMillis()}_$fileName")
+            
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            
+            BridgeUtils.logDebug(TAG, "Successfully converted URI to file: ${tempFile.absolutePath}")
+            tempFile
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Failed to convert URI to file", e)
+            null
+        }
+    }
+    
+    /**
      * Detect MIME type from file path
      * 
      * @param filePath The file path

@@ -43,6 +43,11 @@ object BridgeUtils {
         ON_FILE_PICK_ERROR("ON_FILE_PICK_ERROR"),
         ON_FILE_PICK_CANCELLED("ON_FILE_PICK_CANCELLED"),
         ON_FILE_PICK_STATE_UPDATE("ON_FILE_PICK_STATE_UPDATE"),
+        
+        // FrameworkServer events
+        ON_FRAMEWORK_SERVER_READY("ON_FRAMEWORK_SERVER_READY"),
+        ON_FRAMEWORK_SERVER_ERROR("ON_FRAMEWORK_SERVER_ERROR"),
+        ON_FRAMEWORK_SERVER_STOPPED("ON_FRAMEWORK_SERVER_STOPPED"),
     }
     
     /**
@@ -200,5 +205,13 @@ object BridgeUtils {
             val maxSize = formatFileSize(maxSizeBytes)
             throw IllegalArgumentException("File too large for $operation: $fileSize (max: $maxSize)")
         }
+    }
+
+    fun logInfo(tag: String, message: String) {
+        Log.i(tag, message)
+    }
+    
+    fun logWarning(tag: String, message: String) {
+        Log.w(tag, message)
     }
 }

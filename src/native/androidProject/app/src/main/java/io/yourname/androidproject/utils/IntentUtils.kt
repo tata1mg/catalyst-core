@@ -2,6 +2,7 @@ package io.yourname.androidproject.utils
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.webkit.WebView
 import androidx.core.content.FileProvider
 import java.io.File
@@ -254,5 +255,20 @@ object IntentUtils {
             BridgeUtils.logError(TAG, "Error getting default app", e)
             null
         }
+    }
+    
+    /**
+     * Create a file provider URI for the given file
+     * 
+     * @param activity The activity context
+     * @param file The file to create URI for
+     * @return Content URI for the file
+     */
+    fun createFileProviderUri(activity: Activity, file: File): Uri {
+        return FileProvider.getUriForFile(
+            activity,
+            BridgeUtils.FILE_PROVIDER_AUTHORITY,
+            file
+        )
     }
 }

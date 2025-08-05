@@ -38,11 +38,31 @@ export const useCamera = () => {
         window.WebBridge.register(NATIVE_CALLBACKS.ON_CAMERA_CAPTURE, (data) => {
             try {
                 const result = typeof data === 'string' ? JSON.parse(data) : data;
-                const { imageUrl } = result;
-                setPhoto(imageUrl);
+                console.log("📷 Camera capture result:", result);
+                
+                // Handle new tri-transport format or legacy format
+                const photoData = result.fileSrc ? {
+                    // New tri-transport format
+                    fileSrc: result.fileSrc,
+                    fileName: result.fileName,
+                    size: result.size,
+                    mimeType: result.mimeType,
+                    transport: result.transport,
+                    source: result.source
+                } : {
+                    // Legacy format (fallback)
+                    fileSrc: result.imageUrl,
+                    fileName: 'camera_photo.jpg',
+                    size: 0,
+                    mimeType: 'image/jpeg',
+                    transport: 'LEGACY',
+                    source: 'camera'
+                };
+                
+                setPhoto(photoData);
                 setError(null);
                 setIsLoading(false);
-                console.log("📷 Photo captured successfully");
+                console.log("📷 Photo captured successfully via transport:", photoData.transport);
             } catch (parseError) {
                 console.error("📷 Error parsing camera capture data:", parseError);
                 setError("Failed to process captured photo");
