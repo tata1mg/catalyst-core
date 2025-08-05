@@ -218,7 +218,7 @@ export default async function (req, res) {
         let context = {}
         let fetcherData = {}
         // creates store
-        const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
+        const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
 
         // user defined routes
         const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
