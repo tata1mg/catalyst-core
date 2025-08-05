@@ -1,38 +1,37 @@
-"use strict"
+"use strict";
 
-var _child_process = require("child_process")
-var _fs = _interopRequireDefault(require("fs"))
-var _path = _interopRequireDefault(require("path"))
-var _utils = require("./utils.js")
-var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
+var _child_process = require("child_process");
+var _fs = _interopRequireDefault(require("fs"));
+var _path = _interopRequireDefault(require("path"));
+var _utils = require("./utils.js");
+var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"));
 
 // Import the AAB builder
-import { buildAndroidAAB } from "./renameAndroidProject.js"
-import { setupServer } from "./setupServer.js"
+import { buildAndroidAAB } from './renameAndroidProject.js';
+import { setupServer } from './setupServer.js';
 
 function _interopRequireDefault(e) {
-    return e && e.__esModule ? e : { default: e }
+    return e && e.__esModule ? e : { default: e };
 }
 
-const configPath = `${process.env.PWD}/config/config.json`
-const publicPath = `${process.env.PWD}/public`
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const ANDROID_PACKAGE = "io.yourname.androidproject"
+const configPath = `${process.env.PWD}/config/config.json`;
+const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`;
+const ANDROID_PACKAGE = "io.yourname.androidproject";
 
 // Default values for AAB building
-const DEFAULT_PROJECT_PATH = `${pwd}/androidProject`
-const DEFAULT_DEPLOYMENT_PATH = "./deployment"
-const DEFAULT_OLD_PROJECT_NAME = "androidProject" // Use actual project name in catalyst
-const DEFAULT_OVERWRITE_EXISTING = true
+const DEFAULT_PROJECT_PATH = `${pwd}/androidProject`;
+const DEFAULT_DEPLOYMENT_PATH = "./deployment";
+const DEFAULT_OLD_PROJECT_NAME = "androidProject"; // Use actual project name in catalyst
+const DEFAULT_OVERWRITE_EXISTING = true;
 
 const steps = {
-    config: "Initialize Configuration",
-    tools: "Validate Android Tools",
-    emulator: "Check and Start Emulator",
-    copyAssets: "Copy Build Assets",
-    build: "Build and Install Application",
-    aab: "Build Signed AAB",
-}
+    config: 'Initialize Configuration',
+    tools: 'Validate Android Tools',
+    emulator: 'Check and Start Emulator',
+    copyAssets: 'Copy Build Assets',
+    build: 'Build and Install Application',
+    aab: 'Build Signed AAB'
+};
 
 const progressConfig = {
     titlePaddingTop: 2,
@@ -40,92 +39,90 @@ const progressConfig = {
     stepPaddingLeft: 4,
     stepSpacing: 1,
     errorPaddingLeft: 6,
-    bottomMargin: 2,
-}
+    bottomMargin: 2
+};
 
-const progress = new _TerminalProgress.default(steps, "Catalyst Android Build", progressConfig)
+const progress = new _TerminalProgress.default(steps, "Catalyst Android Build", progressConfig);
 
 async function initializeConfig() {
-    const configFile = _fs.default.readFileSync(configPath, "utf8")
-    const config = JSON.parse(configFile)
-    const { WEBVIEW_CONFIG } = config
+    const configFile = _fs.default.readFileSync(configPath, 'utf8');
+    const config = JSON.parse(configFile);
+    const { WEBVIEW_CONFIG } = config;
 
     if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
-        throw new Error("WebView Config missing in " + configPath)
+        throw new Error('WebView Config missing in ' + configPath);
     }
 
     if (!WEBVIEW_CONFIG.android) {
-        throw new Error("Android config missing in WebView Config")
+        throw new Error('Android config missing in WebView Config');
     }
 
     // Log build type information
-    const buildType = WEBVIEW_CONFIG.android.buildType || "debug"
-    progress.log(`Build Type: ${buildType}`, "info")
-
-    if (buildType === "release") {
-        progress.log("Release build detected - AAB will be generated", "info")
+    const buildType = WEBVIEW_CONFIG.android.buildType || 'debug';
+    progress.log(`Build Type: ${buildType}`, 'info');
+    
+    if (buildType === 'release') {
+        progress.log('Release build detected - AAB will be generated', 'info');
     }
 
-    return { WEBVIEW_CONFIG }
+    return { WEBVIEW_CONFIG };
 }
 
 function validateAndroidTools(androidConfig) {
-    const ANDROID_SDK = androidConfig.sdkPath
-    const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
-    const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`
+    const ANDROID_SDK = androidConfig.sdkPath;
+    const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`;
+    const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`;
 
-    progress.log("Validating Android tools...", "info")
+    progress.log('Validating Android tools...', 'info');
 
     if (!ANDROID_SDK) {
-        throw new Error("Android SDK path is not configured")
+        throw new Error('Android SDK path is not configured');
     }
 
     if (!_fs.default.existsSync(ANDROID_SDK)) {
-        throw new Error(`Android SDK path does not exist: ${ANDROID_SDK}`)
+        throw new Error(`Android SDK path does not exist: ${ANDROID_SDK}`);
     }
 
     if (!_fs.default.existsSync(ADB_PATH)) {
-        throw new Error(`ADB not found at: ${ADB_PATH}`)
+        throw new Error(`ADB not found at: ${ADB_PATH}`);
     }
 
     try {
-        ;(0, _utils.runCommand)(`${ADB_PATH} version`)
-        progress.log("ADB validation successful", "success")
+        (0, _utils.runCommand)(`${ADB_PATH} version`);
+        progress.log('ADB validation successful', 'success');
     } catch (error) {
-        throw new Error(`ADB is not working properly: ${error.message}`)
+        throw new Error(`ADB is not working properly: ${error.message}`);
     }
 
     // Skip emulator validation for release builds
-    const buildType = androidConfig.buildType || "debug"
-    if (buildType !== "release") {
+    const buildType = androidConfig.buildType || 'debug';
+    if (buildType !== 'release') {
         if (!_fs.default.existsSync(EMULATOR_PATH)) {
-            throw new Error(`Emulator not found at: ${EMULATOR_PATH}`)
+            throw new Error(`Emulator not found at: ${EMULATOR_PATH}`);
         }
 
         try {
-            ;(0, _utils.runCommand)(`${EMULATOR_PATH} -version`)
-            progress.log("Emulator validation successful", "success")
+            (0, _utils.runCommand)(`${EMULATOR_PATH} -version`);
+            progress.log('Emulator validation successful', 'success');
         } catch (error) {
-            throw new Error(`Emulator is not working properly: ${error.message}`)
+            throw new Error(`Emulator is not working properly: ${error.message}`);
         }
 
         try {
-            const avdOutput = (0, _utils.runCommand)(`${EMULATOR_PATH} -list-avds`)
+            const avdOutput = (0, _utils.runCommand)(`${EMULATOR_PATH} -list-avds`);
             if (!avdOutput.includes(androidConfig.emulatorName)) {
-                throw new Error(
-                    `Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`
-                )
+                throw new Error(`Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`);
             }
-            progress.log(`Emulator "${androidConfig.emulatorName}" exists`, "success")
+            progress.log(`Emulator "${androidConfig.emulatorName}" exists`, 'success');
         } catch (error) {
-            throw new Error(`Error checking emulator AVD: ${error.message}`)
+            throw new Error(`Error checking emulator AVD: ${error.message}`);
         }
     } else {
-        progress.log("Skipping emulator validation for release build", "info")
+        progress.log('Skipping emulator validation for release build', 'info');
     }
 
-    progress.log("Android tools validation completed successfully!", "success")
-    return { ANDROID_SDK, ADB_PATH, EMULATOR_PATH }
+    progress.log('Android tools validation completed successfully!', 'success');
+    return { ANDROID_SDK, ADB_PATH, EMULATOR_PATH };
 }
 
 async function detectPhysicalDevice(ADB_PATH) {
@@ -225,11 +222,11 @@ async function testPhysicalDeviceInstallation(ADB_PATH, deviceId) {
 
 async function checkEmulator(ADB_PATH) {
     try {
-        const devices = (0, _utils.runCommand)(`${ADB_PATH} devices`)
-        return devices.includes("emulator")
+        const devices = (0, _utils.runCommand)(`${ADB_PATH} devices`);
+        return devices.includes('emulator');
     } catch (error) {
-        progress.log("Error checking emulator status: " + error.message, "error")
-        return false
+        progress.log('Error checking emulator status: ' + error.message, 'error');
+        return false;
     }
 }
 
@@ -247,71 +244,65 @@ async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
 }
 
 async function startEmulator(EMULATOR_PATH, androidConfig) {
-    progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
+    progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, 'info');
     return new Promise((resolve, reject) => {
-        ;(0, _child_process.exec)(
-            `${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`,
-            (error, stdout, stderr) => {
-                if (error) {
-                    progress.log("Error starting emulator: " + error.message, "error")
-                    reject(error)
-                } else {
-                    progress.log("Emulator started successfully", "success")
-                    resolve()
-                }
+        (0, _child_process.exec)(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, (error, stdout, stderr) => {
+            if (error) {
+                progress.log('Error starting emulator: ' + error.message, 'error');
+                reject(error);
+            } else {
+                progress.log('Emulator started successfully', 'success');
+                resolve();
             }
-        )
-    })
+        });
+    });
 }
 
 async function copyBuildAssets(androidConfig, buildOptimisation = false) {
-    if (!buildOptimisation) return
+    if (!buildOptimisation) return;
 
-    progress.log("Copying build assets to Android project...", "info")
+    progress.log('Copying build assets to Android project...', 'info');
     try {
         // Define source and destination paths
-        const sourcePath = `${process.env.PWD}/build/`
-        const destPath = `${pwd}/androidProject/app/src/main/assets/build/`
+        const sourcePath = `${process.env.PWD}/build/`;
+        const destPath = `${pwd}/androidProject/app/src/main/assets/build/`;
 
         // Create destination directory if it doesn't exist
-        ;(0, _utils.runCommand)(`mkdir -p ${destPath}`)
+        (0, _utils.runCommand)(`mkdir -p ${destPath}`);
 
         // Clear existing destination to avoid conflicts
-        ;(0, _utils.runCommand)(`rm -rf ${destPath}/*`)
+        (0, _utils.runCommand)(`rm -rf ${destPath}/*`);
 
         // Files to exclude from copying
-        const excludePatterns = ["route-manifest.json.gz", "route-manifest.json.br"]
+        const excludePatterns = ['route-manifest.json.gz', 'route-manifest.json.br'];
 
         if (buildOptimisation) {
-            progress.log("Running with build optimization...", "info")
-            const excludeParams = excludePatterns.map((pattern) => `--exclude="${pattern}"`).join(" ")
-            const rsyncCommand = `rsync -av ${excludeParams} ${sourcePath} ${destPath}`
-            progress.log("Executing rsync command with exclusions...", "info")
-            ;(0, _utils.runCommand)(rsyncCommand)
+            progress.log('Running with build optimization...', 'info');
+            const excludeParams = excludePatterns.map(pattern => `--exclude="${pattern}"`).join(' ');
+            const rsyncCommand = `rsync -av ${excludeParams} ${sourcePath} ${destPath}`;
+            progress.log('Executing rsync command with exclusions...', 'info');
+            (0, _utils.runCommand)(rsyncCommand);
 
             // Verify excluded files don't exist in destination
             for (const pattern of excludePatterns) {
-                const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`
-                const count = parseInt((0, _utils.runCommand)(checkCommand).trim(), 10)
+                const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`;
+                const count = parseInt((0, _utils.runCommand)(checkCommand).trim(), 10);
                 if (count > 0) {
-                    progress.log(`Warning: Found ${count} instances of excluded file ${pattern}`, "warning")
-                    ;(0, _utils.runCommand)(`find ${destPath} -name "${pattern}" -delete`)
+                    progress.log(`Warning: Found ${count} instances of excluded file ${pattern}`, 'warning');
+                    (0, _utils.runCommand)(`find ${destPath} -name "${pattern}" -delete`);
                 }
             }
-            progress.log(
-                "Build assets copied with optimization (excluded route-manifest JSON files)",
-                "success"
-            )
+            progress.log('Build assets copied with optimization (excluded route-manifest JSON files)', 'success');
         } else {
-            progress.log("Running without build optimization...", "info")
-            const exclusions = excludePatterns.map((pattern) => `-not -name "${pattern}"`).join(" ")
-            const copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`
-            progress.log(`Executing copy command with exclusions...`, "info")
-            ;(0, _utils.runCommand)(copyCommand)
-            progress.log("Build assets copied successfully!", "success")
+            progress.log('Running without build optimization...', 'info');
+            const exclusions = excludePatterns.map(pattern => `-not -name "${pattern}"`).join(' ');
+            const copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`;
+            progress.log(`Executing copy command with exclusions...`, 'info');
+            (0, _utils.runCommand)(copyCommand);
+            progress.log('Build assets copied successfully!', 'success');
         }
     } catch (error) {
-        throw new Error("Error copying build assets: " + error.message)
+        throw new Error('Error copying build assets: ' + error.message);
     }
 }
 
@@ -330,117 +321,6 @@ async function buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType = 
         progress.log('App build and installation completed successfully!', 'success');
     } catch (error) {
         throw new Error('Error building/installing app: ' + error.message);
-    }
-}
-
-async function copySplashscreenAssets() {
-    try {
-        const sourcePath = `${process.env.PWD}/build/`
-        const destPath = `${pwd}/androidProject/app/src/main/res`
-
-        const configFile = _fs.default.readFileSync(configPath, "utf8")
-        const config = JSON.parse(configFile)
-        const { WEBVIEW_CONFIG = {} } = config
-
-        // Check if splashscreen configuration exists
-        if (!WEBVIEW_CONFIG.splashScreen) {
-            return
-        }
-
-        // Check for splashscreen image file in public directory
-        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg"]
-        let splashscreenImageFound = false
-
-        // Ensure public directory exists
-        if (!_fs.default.existsSync(publicPath)) {
-            progress.log(`Warning: Public directory not found at ${publicPath}`, "warning")
-            return
-        }
-
-        for (const format of imageFormats) {
-            const splashscreenImagePath = `${publicPath}/splashscreen.${format}`
-            if (_fs.default.existsSync(splashscreenImagePath)) {
-                // Create drawable directories if they don't exist
-                const drawableDirs = [
-                    `${destPath}/drawable`,
-                    `${destPath}/drawable-mdpi`,
-                    `${destPath}/drawable-hdpi`,
-                    `${destPath}/drawable-xhdpi`,
-                    `${destPath}/drawable-xxhdpi`,
-                    `${destPath}/drawable-xxxhdpi`,
-                ]
-
-                drawableDirs.forEach((dir) => {
-                    if (!_fs.default.existsSync(dir)) {
-                        _fs.default.mkdirSync(dir, { recursive: true })
-                    }
-                })
-
-                // Copy splashscreen image to drawable directory
-                const destImagePath = `${destPath}/drawable/splashscreen.${format}`
-                _fs.default.copyFileSync(splashscreenImagePath, destImagePath)
-
-                progress.log(`Splashscreen image copied: splashscreen.${format}`, "success")
-                splashscreenImageFound = true
-                break
-            }
-        }
-
-        if (!splashscreenImageFound) {
-            progress.log(
-                "No splashscreen image found in public directory - creating default transparent image",
-                "warning"
-            )
-
-            // Create a default transparent PNG image to avoid build errors
-            const drawableDir = `${destPath}/drawable`
-            if (!_fs.default.existsSync(drawableDir)) {
-                _fs.default.mkdirSync(drawableDir, { recursive: true })
-            }
-
-            // Create a 1x1 transparent PNG image as base64
-            const transparentPngBase64 =
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-            const transparentPngBuffer = Buffer.from(transparentPngBase64, "base64")
-
-            const defaultSplashscreenPath = `${drawableDir}/splashscreen.png`
-            _fs.default.writeFileSync(defaultSplashscreenPath, transparentPngBuffer)
-            progress.log("Created default transparent splashscreen.png", "info")
-        }
-
-        // Update colors.xml with background color
-        if (WEBVIEW_CONFIG.splashScreen?.backgroundColor) {
-            const colorsFile = `${destPath}/values/colors.xml`
-            let colorsContent = _fs.default.readFileSync(colorsFile, "utf8")
-
-            // Check if splashscreen_background color already exists
-            if (!colorsContent.includes("splashscreen_background")) {
-                const backgroundColor = WEBVIEW_CONFIG.splashScreen.backgroundColor
-                // Ensure color starts with # and convert to Android format
-                const androidColor = backgroundColor.startsWith("#")
-                    ? `#FF${backgroundColor.slice(1).toUpperCase()}`
-                    : `#FF${backgroundColor.toUpperCase()}`
-
-                const colorEntry = `\t<color name="splashscreen_background">${androidColor}</color>`
-                colorsContent = colorsContent.replace("</resources>", `${colorEntry}\n</resources>`)
-                _fs.default.writeFileSync(colorsFile, colorsContent)
-            }
-        }
-
-        progress.log("Splashscreen assets copied successfully!", "success")
-    } catch (error) {
-        progress.log(`Warning: Error copying splashscreen assets: ${error.message}`, "warning")
-    }
-}
-
-async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType = "debug") {
-    progress.log("Building and installing app...", "info")
-    try {
-        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug --quiet --console=rich && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE}${buildType === "debug" ? ".debug" : ""} 1`
-        await (0, _utils.runInteractiveCommand)("sh", ["-c", buildCommand], { "BUILD SUCCESSFUL": "" })
-        progress.log("Installation completed successfully!", "success")
-    } catch (error) {
-        throw new Error("Error installing app: " + error.message)
     }
 }
 
@@ -481,27 +361,20 @@ async function createAABConfig(androidConfig) {
         // Apply defaults here in buildAppAndroid.js
         projectPath: androidConfig.projectPath || DEFAULT_PROJECT_PATH,
         deploymentPath: DEFAULT_DEPLOYMENT_PATH,
-        oldProjectName: DEFAULT_OLD_PROJECT_NAME,
-        overwriteExisting:
-            androidConfig.overwriteExisting !== undefined
-                ? androidConfig.overwriteExisting
-                : DEFAULT_OVERWRITE_EXISTING,
-
+        oldProjectName:DEFAULT_OLD_PROJECT_NAME,
+        overwriteExisting: androidConfig.overwriteExisting !== undefined ? androidConfig.overwriteExisting : DEFAULT_OVERWRITE_EXISTING,
+        
         // Required field - use configured value or derive from other config
-        newProjectName:
-            androidConfig.newProjectName ||
-            androidConfig.appName ||
-            androidConfig.packageName?.split(".").pop() ||
-            "catalystapp",
-
+        newProjectName: androidConfig.newProjectName || androidConfig.appName || androidConfig.packageName?.split('.').pop() || "catalystapp",
+        
         // AAB specific settings
         createSignedAAB: true,
-        outputPath: androidConfig.outputPath || `${process.env.PWD}/build-output`,
-    }
+        outputPath: androidConfig.outputPath || `${process.env.PWD}/build-output`
+    };
 
     // Add keystore configuration if available
     if (androidConfig.keystoreConfig) {
-        aabConfig.keystoreConfig = androidConfig.keystoreConfig
+        aabConfig.keystoreConfig = androidConfig.keystoreConfig;
     } else if (androidConfig.keystore) {
         // Map old keystore format to new format
         aabConfig.keystoreConfig = {
@@ -513,69 +386,57 @@ async function createAABConfig(androidConfig) {
                 companyName: androidConfig.keystore.organizationName || "YourCompany",
                 city: androidConfig.keystore.city || "YourCity",
                 state: androidConfig.keystore.state || "YourState",
-                countryCode: androidConfig.keystore.countryCode || "US",
-            },
-        }
+                countryCode: androidConfig.keystore.countryCode || "US"
+            }
+        };
     }
 
     // Log the configuration being used
-    progress.log(`AAB Configuration:`, "info")
-    progress.log(
-        `  Project Path: ${aabConfig.projectPath} ${aabConfig.projectPath === DEFAULT_PROJECT_PATH ? "(default)" : "(configured)"}`,
-        "info"
-    )
-    progress.log(
-        `  Deployment Path: ${aabConfig.deploymentPath} ${aabConfig.deploymentPath === DEFAULT_DEPLOYMENT_PATH ? "(default)" : "(configured)"}`,
-        "info"
-    )
-    progress.log(
-        `  Old Project Name: ${aabConfig.oldProjectName} ${aabConfig.oldProjectName === DEFAULT_OLD_PROJECT_NAME ? "(default)" : "(configured)"}`,
-        "info"
-    )
-    progress.log(`  New Project Name: ${aabConfig.newProjectName}`, "info")
-    progress.log(
-        `  Overwrite Existing: ${aabConfig.overwriteExisting} ${aabConfig.overwriteExisting === DEFAULT_OVERWRITE_EXISTING ? "(default)" : "(configured)"}`,
-        "info"
-    )
-    progress.log(`  Output Path: ${aabConfig.outputPath}`, "info")
+    progress.log(`AAB Configuration:`, 'info');
+    progress.log(`  Project Path: ${aabConfig.projectPath} ${aabConfig.projectPath === DEFAULT_PROJECT_PATH ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  Deployment Path: ${aabConfig.deploymentPath} ${aabConfig.deploymentPath === DEFAULT_DEPLOYMENT_PATH ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  Old Project Name: ${aabConfig.oldProjectName} ${aabConfig.oldProjectName === DEFAULT_OLD_PROJECT_NAME ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  New Project Name: ${aabConfig.newProjectName}`, 'info');
+    progress.log(`  Overwrite Existing: ${aabConfig.overwriteExisting} ${aabConfig.overwriteExisting === DEFAULT_OVERWRITE_EXISTING ? '(default)' : '(configured)'}`, 'info');
+    progress.log(`  Output Path: ${aabConfig.outputPath}`, 'info');
 
-    return aabConfig
+    return aabConfig;
 }
 
 async function buildSignedAAB(androidConfig) {
-    progress.log("Building signed AAB for release...", "info")
-
+    progress.log('Building signed AAB for release...', 'info');
+    
     try {
         // Create AAB configuration directly without temporary file
-        const aabConfig = await createAABConfig(androidConfig)
-
+        const aabConfig = await createAABConfig(androidConfig);
+        
         // Call the AAB builder directly with config object
-        await buildAndroidAAB(aabConfig)
-
-        progress.log("Signed AAB build completed successfully!", "success")
+        await buildAndroidAAB(aabConfig);
+        
+        progress.log('Signed AAB build completed successfully!', 'success');
     } catch (error) {
-        throw new Error("Error building signed AAB: " + error.message)
+        throw new Error('Error building signed AAB: ' + error.message);
     }
 }
 
 async function buildAndroidApp() {
     // Initialize androidConfig outside try block to ensure it's available in catch
-    let androidConfig = null
-
+    let androidConfig = null;
+    
     try {
         await setupServer(configPath)
         // Initialize configuration
-        progress.start("config")
-        const { WEBVIEW_CONFIG } = await initializeConfig()
-        androidConfig = WEBVIEW_CONFIG.android
-        const buildType = androidConfig.buildType || "debug"
-        const buildOptimisation = !!androidConfig.buildOptimisation || false
-        progress.complete("config")
+        progress.start('config');
+        const { WEBVIEW_CONFIG } = await initializeConfig();
+        androidConfig = WEBVIEW_CONFIG.android;
+        const buildType = androidConfig.buildType || 'debug';
+        const buildOptimisation = !!androidConfig.buildOptimisation || false;
+        progress.complete('config');
 
         // Validate tools and get paths
-        progress.start("tools")
-        const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = await validateAndroidTools(androidConfig)
-        progress.complete("tools")
+        progress.start('tools');
+        const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = await validateAndroidTools(androidConfig);
+        progress.complete('tools');
 
         // Device detection and setup (skip for release builds)
         let targetDevice = null;
@@ -615,18 +476,17 @@ async function buildAndroidApp() {
         }
 
         // Copy build assets
-        progress.start("copyAssets")
-        await copyBuildAssets(androidConfig, buildOptimisation)
-        await copySplashscreenAssets()
-        progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
-        progress.complete("copyAssets")
+        progress.start('copyAssets');
+        await copyBuildAssets(androidConfig, buildOptimisation);
+        progress.log(`Build optimization: ${buildOptimisation ? 'Enabled' : 'Disabled'}`, 'info');
+        progress.complete('copyAssets');
 
         // Build based on type
-        if (buildType === "release") {
+        if (buildType === 'release') {
             // Build signed AAB for release
-            progress.start("aab")
-            await buildSignedAAB(androidConfig)
-            progress.complete("aab")
+            progress.start('aab');
+            await buildSignedAAB(androidConfig);
+            progress.complete('aab');
         } else {
             // Install debug app for development
             progress.start('build');
@@ -637,24 +497,19 @@ async function buildAndroidApp() {
 
         // Print build summary
         const summaryItems = [
-            "Build completed successfully:",
-            { text: `Build Type: ${buildType}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: "├─ ", color: "gray" },
-            {
-                text: `Build Optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`,
-                indent: 1,
-                prefix: "├─ ",
-                color: "gray",
-            },
-        ]
+            'Build completed successfully:',
+            { text: `Build Type: ${buildType}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `Build Optimization: ${buildOptimisation ? 'Enabled' : 'Disabled'}`, indent: 1, prefix: '├─ ', color: 'gray' }
+        ];
 
-        if (buildType === "release") {
-            summaryItems.push({
-                text: `Output: Signed AAB generated in build-output/`,
-                indent: 1,
-                prefix: "└─ ",
-                color: "green",
-            })
+        if (buildType === 'release') {
+            summaryItems.push({ 
+                text: `Output: Signed AAB generated in build-output/`, 
+                indent: 1, 
+                prefix: '└─ ', 
+                color: 'green' 
+            });
         } else {
             if (targetDevice && targetDevice.type === 'physical') {
                 summaryItems.push({ 
@@ -673,27 +528,18 @@ async function buildAndroidApp() {
             }
         }
 
-        progress.printTreeContent("Build Summary", summaryItems)
-        process.exit(0)
+        progress.printTreeContent('Build Summary', summaryItems);
+        process.exit(0);
+
     } catch (error) {
         if (progress.currentStep) {
-            progress.fail(progress.currentStep.id, error.message)
-
+            progress.fail(progress.currentStep.id, error.message);
+            
             const troubleshootingItems = [
-                "Build failed. Please try the following steps:",
-                {
-                    text: "Check if Android SDK is properly configured",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                {
-                    text: "Verify build assets exist in the source directory",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-            ]
+                'Build failed. Please try the following steps:',
+                { text: 'Check if Android SDK is properly configured', indent: 1, prefix: '├─ ', color: 'yellow' },
+                { text: 'Verify build assets exist in the source directory', indent: 1, prefix: '├─ ', color: 'yellow' }
+            ];
 
             // Use androidConfig safely with null checks
             const buildType = androidConfig?.buildType || 'debug';
@@ -731,14 +577,9 @@ async function buildAndroidApp() {
             }
 
             troubleshootingItems.push(
-                {
-                    text: 'Run "npm run setupEmulator:android" to reconfigure Android settings',
-                    indent: 1,
-                    prefix: "└─ ",
-                    color: "yellow",
-                },
-                "\nVerify Configuration:"
-            )
+                { text: 'Run "npm run setupEmulator:android" to reconfigure Android settings', indent: 1, prefix: '└─ ', color: 'yellow' },
+                '\nVerify Configuration:'
+            );
 
             // Add configuration details only if androidConfig is available
             if (androidConfig) {
@@ -766,29 +607,24 @@ async function buildAndroidApp() {
                     }
                 } else {
                     troubleshootingItems.push({
-                        text: `Output Path: ${androidConfig.outputPath || "build-output/"}`,
+                        text: `Output Path: ${androidConfig.outputPath || 'build-output/'}`,
                         indent: 1,
-                        prefix: "└─ ",
-                        color: "gray",
-                    })
+                        prefix: '└─ ',
+                        color: 'gray'
+                    });
                 }
             } else {
                 troubleshootingItems.push(
-                    { text: "Configuration could not be loaded", indent: 1, prefix: "├─ ", color: "red" },
-                    {
-                        text: "Check if config/config.json exists and has valid Android configuration",
-                        indent: 1,
-                        prefix: "└─ ",
-                        color: "red",
-                    }
-                )
+                    { text: 'Configuration could not be loaded', indent: 1, prefix: '├─ ', color: 'red' },
+                    { text: 'Check if config/config.json exists and has valid Android configuration', indent: 1, prefix: '└─ ', color: 'red' }
+                );
             }
 
-            progress.printTreeContent("Troubleshooting Guide", troubleshootingItems)
+            progress.printTreeContent('Troubleshooting Guide', troubleshootingItems);
         }
-        process.exit(1)
+        process.exit(1);
     }
 }
 
 // Execute the main build process
-buildAndroidApp()
+buildAndroidApp();
