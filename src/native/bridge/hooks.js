@@ -7,31 +7,44 @@ import {
     FILE_PICKER_STATES,
     INTENT_STATES 
 } from './constants/NativeInterfaces.js';
+import { useBaseHook } from './useBaseHook.js';
+import { ERROR_CODES, createStandardError } from './errors.js';
 
 /**
- * React hook for camera functionality
+ * React hook for camera functionality using standardized interface
  * Handles camera permissions, photo capture, and error states
  */
 export const useCamera = () => {
+    // Use standardized base hook
+    const base = useBaseHook('useCamera');
+    
+    // Camera-specific state
+    const [permission, setPermission] = useState(null);
+
     // Server-side rendering safety
     if (typeof window === "undefined") {
         return {
+            data: null,
+            loading: false,
+            progress: null,
+            error: null,
+            isWeb: true,
+            isNative: false,
+            execute: () => {},
+            clear: () => {},
+            clearError: () => {},
+            permission: null,
+            // Legacy aliases
             photo: null,
             takePhoto: () => {},
-            error: null,
-            permission: null,
             isLoading: false,
+            clearPhoto: () => {}
         };
     }
 
     if (!window.WebBridge) {
         throw new Error("WebBridge is not initialized. Call WebBridge.init() first.");
     }
-
-    const [photo, setPhoto] = useState(null);
-    const [error, setError] = useState(null);
-    const [permission, setPermission] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         // Register callback handlers
@@ -59,14 +72,20 @@ export const useCamera = () => {
                     source: 'camera'
                 };
                 
-                setPhoto(photoData);
-                setError(null);
-                setIsLoading(false);
+                base.setDataAndComplete(photoData);
+                
+                // Update progress with transport info if available
+                if (photoData.transport) {
+                    base.updateProgress({
+                        transport: photoData.transport,
+                        bytesTotal: photoData.size || null
+                    });
+                }
+                
                 console.log("📷 Photo captured successfully via transport:", photoData.transport);
             } catch (parseError) {
                 console.error("📷 Error parsing camera capture data:", parseError);
-                setError("Failed to process captured photo");
-                setIsLoading(false);
+                base.handleNativeError("Failed to process captured photo");
             }
         });
 
@@ -76,9 +95,8 @@ export const useCamera = () => {
         });
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_CAMERA_ERROR, (data) => {
-            setError(data);
-            setIsLoading(false);
             console.error("📷 Camera error:", data);
+            base.handleNativeError(data);
         });
 
         return () => {
@@ -87,53 +105,74 @@ export const useCamera = () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_CAMERA_CAPTURE);
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_CAMERA_ERROR);
         };
-    }, []);
+    }, [base.setDataAndComplete, base.handleNativeError, base.updateProgress]);
 
     const takePhoto = () => {
-        try {
-            if (!nativeBridge.isAvailable()) {
-                throw new Error("Native bridge not available");
-            }
-            
-            setIsLoading(true);
-            setError(null);
+        console.log("📷 Camera open requested");
+        
+        base.executeOperation(() => {
+            // Update progress to show capturing state
+            base.updateProgress({
+                state: 'capturing',
+                phase: 'requesting',
+                message: 'Opening camera...'
+            });
             nativeBridge.camera.open();
-            console.log("📷 Camera open requested");
-        } catch (err) {
-            setError(err.message);
-            setIsLoading(false);
-            console.error("📷 Failed to open camera:", err);
-        }
+        }, 'camera capture');
     };
 
-    const clearPhoto = () => {
-        setPhoto(null);
-        setError(null);
-    };
+    // Standardized execute function (new interface)
+    const execute = takePhoto;
 
     return {
-        photo,
-        takePhoto,
-        clearPhoto,
-        error,
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        execute,
+        clear: base.clear,
+        clearError: base.clearError,
+        
+        // Camera-specific extras
         permission,
-        isLoading,
+        
+        // Legacy aliases for backward compatibility
+        photo: base.data,
+        takePhoto,
+        isLoading: base.loading,
+        clearPhoto: base.clear
     };
 };
 
 /**
- * React hook for intent handling (opening files with external apps)
- * Manages file opening operations and their states
+ * React hook for intent handling using standardized interface
+ * Manages file opening operations with external apps
  */
 export const useIntent = () => {
+    // Use standardized base hook
+    const base = useBaseHook('useIntent');
+
     // Server-side rendering safety
     if (typeof window === "undefined") {
         return {
+            data: null,
+            loading: false,
+            progress: null,
+            error: null,
+            isWeb: true,
+            isNative: false,
+            execute: () => {},
+            clear: () => {},
+            clearError: () => {},
+            // Legacy aliases
             isLoading: false,
             processingState: null,
             openFile: () => {},
-            error: null,
             success: null,
+            reset: () => {}
         };
     }
 
@@ -141,35 +180,23 @@ export const useIntent = () => {
         throw new Error("WebBridge is not initialized. Call WebBridge.init() first.");
     }
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [processingState, setProcessingState] = useState(null);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(null);
-
     useEffect(() => {
         // Register callback handlers
         window.WebBridge.register(NATIVE_CALLBACKS.ON_INTENT_SUCCESS, (data) => {
-            setIsLoading(false);
-            setProcessingState(null);
-            setSuccess(data);
-            setError(null);
             console.log("📄 Intent completed successfully:", data);
+            base.setDataAndComplete({ result: data, success: true });
         });
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_INTENT_ERROR, (data) => {
-            setIsLoading(false);
-            setProcessingState(null);
-            setError(data);
-            setSuccess(null);
             console.error("📄 Intent error:", data);
+            base.handleNativeError(data);
         });
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_INTENT_CANCELLED, (data) => {
-            setIsLoading(false);
-            setProcessingState(null);
-            setError(null);
-            setSuccess(null);
             console.log("📄 Intent cancelled:", data);
+            base.setLoading(false);
+            base.resetProgress();
+            // Keep data as is when cancelled
         });
 
         return () => {
@@ -178,66 +205,77 @@ export const useIntent = () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_INTENT_ERROR);
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_INTENT_CANCELLED);
         };
-    }, []);
+    }, [base.setDataAndComplete, base.handleNativeError, base.setLoading, base.resetProgress]);
 
     const openFile = (fileUrl, mimeType = null) => {
         if (!fileUrl) {
-            setError("File URL is required");
+            base.handleNativeError("File URL is required");
             return;
         }
 
-        try {
-            if (!nativeBridge.isAvailable()) {
-                throw new Error("Native bridge not available");
-            }
-
-            setIsLoading(true);
-            setProcessingState(INTENT_STATES.PROCESSING);
-            setError(null);
-            setSuccess(null);
-
+        console.log("📄 File open with intent requested:", { fileUrl, mimeType });
+        
+        base.executeOperation(() => {
+            // Update progress to show opening state
+            base.updateProgress({
+                state: 'opening_file',
+                phase: 'processing',
+                message: 'Opening file with external app...'
+            });
             nativeBridge.file.openWithIntent(fileUrl, mimeType);
-            console.log("📄 File open with intent requested:", { fileUrl, mimeType });
-        } catch (err) {
-            setIsLoading(false);
-            setProcessingState(null);
-            setError(err.message);
-            console.error("📄 Failed to open file with intent:", err);
-        }
+        }, 'intent file open');
     };
 
-    const reset = () => {
-        setIsLoading(false);
-        setProcessingState(null);
-        setError(null);
-        setSuccess(null);
-    };
+    // Standardized execute function (new interface)
+    const execute = openFile;
 
     return {
-        isLoading,
-        processingState, // Values from INTENT_STATES
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        execute,
+        clear: base.clear,
+        clearError: base.clearError,
+        
+        // Legacy aliases for backward compatibility
+        isLoading: base.loading,
+        processingState: base.progress?.phase || null,
         openFile,
-        error,
-        success,
-        reset,
+        success: base.data?.success || null,
+        reset: base.clear
     };
 };
 
 /**
  * React hook for file picker functionality
- * Manages file selection operations and their states
+ * Manages file selection operations using standardized interface
  */
 export const useFilePicker = () => {
+    // Use standardized base hook
+    const base = useBaseHook('useFilePicker');
+
     // Server-side rendering safety
     if (typeof window === "undefined") {
         return {
+            data: null,
+            loading: false,
+            progress: null,
+            error: null,
+            isWeb: true,
+            isNative: false,
+            execute: () => {},
+            clear: () => {},
+            clearError: () => {},
+            // Legacy aliases for backward compatibility
             selectedFile: null,
             pickFile: () => {},
             isLoading: false,
             processingState: null,
-            error: null,
-            clearFile: () => {},
-            clearError: () => {},
+            clearFile: () => {}
         };
     }
 
@@ -245,43 +283,37 @@ export const useFilePicker = () => {
         throw new Error("WebBridge is not initialized. Call WebBridge.init() first.");
     }
 
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [processingState, setProcessingState] = useState(null);
-    const [error, setError] = useState(null);
-
     useEffect(() => {
         // Register callback handlers
         window.WebBridge.register(NATIVE_CALLBACKS.ON_FILE_PICKED, (data) => {
             try {
                 const fileData = typeof data === 'string' ? JSON.parse(data) : data;
                 console.log("📁 File picked:", fileData);
-                setSelectedFile(fileData);
-                setIsLoading(false);
-                setProcessingState(null);
-                setError(null);
+                base.setDataAndComplete(fileData);
+                
+                // Update progress with transport info if available
+                if (fileData.transport) {
+                    base.updateProgress({
+                        transport: fileData.transport,
+                        bytesTotal: fileData.size || null
+                    });
+                }
             } catch (parseError) {
                 console.error("📁 Error parsing file data:", parseError);
-                setError("Error processing selected file");
-                setIsLoading(false);
-                setProcessingState(null);
+                base.handleNativeError("Error processing selected file");
             }
         });
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_FILE_PICK_ERROR, (data) => {
             console.error("📁 File pick error:", data);
-            setError(data);
-            setIsLoading(false);
-            setProcessingState(null);
-            setSelectedFile(null);
+            base.handleNativeError(data);
         });
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_FILE_PICK_CANCELLED, (data) => {
             console.log("📁 File pick cancelled:", data);
-            setIsLoading(false);
-            setProcessingState(null);
-            setError(null);
-            // Keep selectedFile as is when cancelled
+            base.setLoading(false);
+            base.resetProgress();
+            // Keep data as is when cancelled
         });
 
         // File picker state updates
@@ -289,9 +321,19 @@ export const useFilePicker = () => {
             try {
                 const stateData = typeof data === 'string' ? JSON.parse(data) : data;
                 console.log("📁 File picker state:", stateData.state);
-                setProcessingState(stateData.state);
+                
+                // Map file picker states to standardized progress states
+                const progressState = stateData.state === 'opening' ? 'opening' : 
+                                    stateData.state === 'processing' ? 'processing' : 'starting';
+                
+                base.updateProgress({
+                    state: progressState,
+                    phase: stateData.state,
+                    message: `File picker: ${stateData.state}...`
+                });
+                
                 if (stateData.state) {
-                    setIsLoading(true);
+                    base.setLoading(true);
                 }
             } catch (parseError) {
                 console.error("📁 Error parsing state data:", parseError);
@@ -305,55 +347,38 @@ export const useFilePicker = () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_FILE_PICK_CANCELLED);
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_FILE_PICK_STATE_UPDATE);
         };
-    }, []);
+    }, [base.setDataAndComplete, base.handleNativeError, base.setLoading, base.resetProgress, base.updateProgress]);
 
     const pickFile = (mimeType = null) => {
-        try {
-            if (!nativeBridge.isAvailable()) {
-                throw new Error("Native bridge not available");
-            }
-
-            const finalMimeType = mimeType || "*/*";
-            console.log("📁 Picking file with MIME type:", finalMimeType);
-            
-            setIsLoading(true);
-            setProcessingState(FILE_PICKER_STATES.OPENING);
-            setError(null);
-
+        const finalMimeType = mimeType || "*/*";
+        console.log("📁 Picking file with MIME type:", finalMimeType);
+        
+        base.executeOperation(() => {
             nativeBridge.file.pick(finalMimeType);
-        } catch (err) {
-            setIsLoading(false);
-            setProcessingState(null);
-            setError(err.message);
-            console.error("📁 Failed to pick file:", err);
-        }
+        }, 'file pick');
     };
 
-    const clearFile = () => {
-        setSelectedFile(null);
-        setError(null);
-    };
-
-    const clearError = () => {
-        setError(null);
-    };
-
-    const reset = () => {
-        setSelectedFile(null);
-        setIsLoading(false);
-        setProcessingState(null);
-        setError(null);
-    };
+    // Standardized execute function (new interface)
+    const execute = pickFile;
 
     return {
-        selectedFile,
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        execute,
+        clear: base.clear,
+        clearError: base.clearError,
+        
+        // Legacy aliases for backward compatibility
+        selectedFile: base.data,
         pickFile,
-        isLoading,
-        processingState, // Values from FILE_PICKER_STATES
-        error,
-        clearFile,
-        clearError,
-        reset,
+        isLoading: base.loading,
+        processingState: base.progress?.phase || null,
+        clearFile: base.clear
     };
 };
 
@@ -494,27 +519,164 @@ export const requestHapticFeedback = (feedbackType = "light") => {
  * Provides a function to trigger haptic feedback
  */
 export const useHapticFeedback = () => {
-    if (typeof window === "undefined") {
-        return {
-            triggerHaptic: () => Promise.resolve(null),
-            isAvailable: false,
-        };
-    }
+    const base = useBaseHook('useHapticFeedback');
+    const [capabilities, setCapabilities] = useState({
+        isSupported: false,
+        availableTypes: ['light', 'medium', 'heavy'],
+        platform: 'unknown'
+    });
 
-    const isAvailable = nativeBridge.isAvailable();
+    // Haptic types
+    const HAPTIC_TYPES = {
+        LIGHT: 'light',
+        MEDIUM: 'medium',
+        HEAVY: 'heavy',
+        SUCCESS: 'success',
+        WARNING: 'warning',
+        ERROR: 'error',
+        SELECTION: 'selection',
+        IMPACT: 'impact'
+    };
 
-    const triggerHaptic = async (feedbackType = "light") => {
+    useEffect(() => {
+        // Initialize capabilities
+        const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+        let platform = 'unknown';
+        let isSupported = false;
+        let availableTypes = [];
+
+        if (base.isNative) {
+            isSupported = true;
+            if (userAgent.includes('android')) {
+                platform = 'android';
+                availableTypes = [HAPTIC_TYPES.LIGHT, HAPTIC_TYPES.MEDIUM, HAPTIC_TYPES.HEAVY];
+            } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+                platform = 'ios'; 
+                availableTypes = Object.values(HAPTIC_TYPES);
+            }
+        } else {
+            platform = 'web';
+            isSupported = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+            if (isSupported) {
+                availableTypes = [HAPTIC_TYPES.LIGHT, HAPTIC_TYPES.MEDIUM, HAPTIC_TYPES.HEAVY];
+            }
+        }
+
+        setCapabilities({ isSupported, availableTypes, platform });
+    }, [base.isNative]);
+
+    // Main execute function for haptic superhook
+    const executeHaptic = (type = 'light', options = {}) => {
+        if (!capabilities.isSupported) {
+            const error = createStandardError(
+                ERROR_CODES.FEATURE_UNSUPPORTED,
+                "Haptic feedback not supported",
+                null,
+                "Device does not support haptic feedback"
+            );
+            base.handleNativeError(error);
+            return;
+        }
+
+        return handleHapticTrigger(type, options);
+    };
+
+    // Haptic trigger handler
+    const handleHapticTrigger = async (type, options = {}) => {
         try {
-            await requestHapticFeedback(feedbackType);
-            return true;
+            base.setLoading(true);
+            base.updateProgress({
+                state: 'active',
+                phase: 'triggering',
+                message: `Triggering ${type} haptic feedback...`
+            });
+
+            let success = false;
+
+            if (base.isNative) {
+                // Use existing native implementation
+                success = await requestHapticFeedback(type);
+            } else {
+                // Web fallback
+                success = handleWebHaptic(type, options);
+            }
+
+            const hapticData = {
+                lastType: type,
+                lastOptions: options,
+                timestamp: new Date().toISOString(),
+                success: success,
+                capabilities: capabilities,
+                lastOperation: 'trigger',
+                operationSuccess: success
+            };
+
+            base.setDataAndComplete(hapticData);
+            return success;
+
         } catch (error) {
             console.error("📳 Haptic feedback failed:", error);
+            base.handleNativeError(error);
             return false;
         }
     };
 
+    // Web haptic fallback
+    const handleWebHaptic = (type, options = {}) => {
+        if (!navigator.vibrate) {
+            return false;
+        }
+
+        const vibrationPatterns = {
+            [HAPTIC_TYPES.LIGHT]: [50],
+            [HAPTIC_TYPES.MEDIUM]: [100], 
+            [HAPTIC_TYPES.HEAVY]: [200],
+            [HAPTIC_TYPES.SUCCESS]: [100, 50, 100],
+            [HAPTIC_TYPES.WARNING]: [200, 100, 200],
+            [HAPTIC_TYPES.ERROR]: [300, 100, 300, 100, 300],
+            [HAPTIC_TYPES.SELECTION]: [25],
+            [HAPTIC_TYPES.IMPACT]: [150]
+        };
+
+        const pattern = vibrationPatterns[type] || [100];
+        navigator.vibrate(pattern);
+        return true;
+    };
+
+    // Return standardized superhook interface
     return {
-        triggerHaptic,
-        isAvailable,
+        // Standard interface (from useBaseHook)
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        clear: base.clear,
+        clearError: base.clearError,
+        
+        // Main execute function
+        execute: executeHaptic,
+        
+        // Semantic aliases for execute
+        triggerHaptic: executeHaptic,  // Legacy compatibility
+        trigger: executeHaptic,
+        light: () => executeHaptic(HAPTIC_TYPES.LIGHT),
+        medium: () => executeHaptic(HAPTIC_TYPES.MEDIUM),
+        heavy: () => executeHaptic(HAPTIC_TYPES.HEAVY),
+        success: () => executeHaptic(HAPTIC_TYPES.SUCCESS),
+        warning: () => executeHaptic(HAPTIC_TYPES.WARNING),
+        errorHaptic: () => executeHaptic(HAPTIC_TYPES.ERROR),
+        selection: () => executeHaptic(HAPTIC_TYPES.SELECTION),
+        impact: () => executeHaptic(HAPTIC_TYPES.IMPACT),
+        
+        // Capability info
+        capabilities: capabilities,
+        isSupported: capabilities.isSupported,
+        isAvailable: capabilities.isSupported, // Legacy compatibility
+        availableTypes: capabilities.availableTypes,
+        
+        // Haptic types constant
+        HAPTIC_TYPES
     };
 };
