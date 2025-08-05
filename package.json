@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.1-beta.14",
+    "version": "0.0.1-beta.15",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -28,7 +28,8 @@
         ".": "./dist/index.js",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
-        "./router/ClientRouter": "./dist/router/ClientRouter.js"
+        "./router/ClientRouter": "./dist/router/ClientRouter.js",
+        "./sentry": "./dist/sentry.js"
     },
     "scripts": {
         "lint": "eslint .",
