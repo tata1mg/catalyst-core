@@ -1,6 +1,6 @@
 {
-    "name": "catalyst-core",
-    "version": "0.0.2-canary.1",
+    "name": "catalyst-core-internal",
+    "version": "0.0.2-canary.7",
     "type": "module",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -41,7 +41,9 @@
         "sanitize-html": "^2.13.1",
         "sass": "^1.89.2",
         "ua-parser-js": "^1.0.37",
-        "vite": "^6.3.5"
+        "vite": "^6.3.5",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
     },
     "devDependencies": {
         "@babel/eslint-parser": "^7.19.1",
@@ -63,9 +65,5 @@
             "eslint .",
             "prettier . --write"
         ]
-    },
-    "peerDependencies": {
-        "react": "^18.3.1",
-        "react-dom": "^18.3.1"
     }
 }
