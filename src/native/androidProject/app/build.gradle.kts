@@ -1,6 +1,14 @@
 import java.net.NetworkInterface
 import java.io.File
 import java.util.Properties
+import org.json.JSONObject
+import org.json.JSONArray
+
+buildscript {
+    dependencies {
+        classpath("org.json:json:20231013")
+    }
+}
 
 val configPath: String? by project.properties
 val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
@@ -131,6 +139,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
 
 // Task to verify local IP
@@ -185,12 +194,15 @@ tasks.register("generateWebViewConfig") {
         }
 
         val configContent = configJsonFile.readText()
-
-        // Extract WEBVIEW_CONFIG section
-        val webviewConfigRegex = """"WEBVIEW_CONFIG"\s*:\s*\{([^}]*)\}""".toRegex()
-        val webviewConfigMatch = webviewConfigRegex.find(configContent)
-        val webviewConfigContent = webviewConfigMatch?.groupValues?.get(1)
-
+        
+        val jsonObject = JSONObject(configContent)
+        
+        if (!jsonObject.has("WEBVIEW_CONFIG")) {
+            throw GradleException("WEBVIEW_CONFIG not found in config file")
+        }
+        
+        val webviewConfig = jsonObject.getJSONObject("WEBVIEW_CONFIG")
+        
         val properties = Properties()
 
         // Set different IP based on build type
@@ -204,30 +216,36 @@ tasks.register("generateWebViewConfig") {
             properties.setProperty("buildOptimisation", "false")
         }
 
-        // Parse top-level properties
-        val topLevelRegex = """"([^"]+)"\s*:\s*"([^"]+)"""".toRegex()
-        webviewConfigContent?.let {
-            topLevelRegex.findAll(it).forEach { matchResult ->
-                val (key, value) = matchResult.destructured
-                if (key != "android") {
-                    properties.setProperty(key, value)
+        fun extractProperties(jsonObj: org.json.JSONObject, prefix: String = "") {
+            try {
+                val keys = jsonObj.keys()
+        
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val value = jsonObj.opt(key)
+                    val fullKey = if (prefix.isEmpty()) key else "$prefix.$key"
+                    
+                    when (value) {
+                        is org.json.JSONObject -> {
+                            extractProperties(value, fullKey)
+                        }
+                        is org.json.JSONArray -> {
+                            val arrayValues = (0 until value.length()).map { i ->
+                                value.opt(i).toString()
+                            }.joinToString(",")
+                            properties.setProperty(fullKey, arrayValues)
+                        }
+                        else -> {
+                            properties.setProperty(fullKey, value.toString())
+                        }
+                    }
                 }
+            } catch (e: Exception) {
+                throw RuntimeException("Failed to extract properties from JSON at prefix: $prefix", e)
             }
         }
 
-        // Parse android object specifically
-        val androidRegex = """"android"\s*:\s*\{([^}]*)\}""".toRegex()
-        val androidMatch = androidRegex.find(webviewConfigContent ?: "")
-        val androidContent = androidMatch?.groupValues?.get(1)
-
-        // Parse android object properties
-        val androidPropsRegex = """"([^"]+)"\s*:\s*"([^"]+)"""".toRegex()
-        androidContent?.let {
-            androidPropsRegex.findAll(it).forEach { matchResult ->
-                val (key, value) = matchResult.destructured
-                properties.setProperty("android.$key", value)
-            }
-        }
+        extractProperties(webviewConfig)
 
         // Set production-specific properties for release builds
         if (gradle.startParameter.taskNames.any { it.contains("Release") || it.contains("release") }) {
