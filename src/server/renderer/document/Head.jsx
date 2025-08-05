@@ -12,8 +12,7 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
  * @param {object} children - contains any child elements defined within the component
  */
 export function Head(props) {
-    const { pageCss, pageJS, metaTags, isBot, publicAssetPath, children, cssRegistry, cssLoadingStrategies } =
-        props
+    const { pageCss, pageJS, metaTags, isBot, publicAssetPath, children } = props
 
     return (
         <head>
@@ -41,6 +40,4 @@ Head.propTypes = {
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
     children: PropTypes.node,
-    cssRegistry: PropTypes.object,
-    cssLoadingStrategies: PropTypes.object,
 }
