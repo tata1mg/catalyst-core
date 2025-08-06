@@ -119,8 +119,6 @@ android {
             excludes.add("**/route-manifest.json.br")
             excludes.add("META-INF/LICENSE")
             excludes.add("META-INF/NOTICE")
-            excludes.add("META-INF/INDEX.LIST")
-            excludes.add("META-INF/io.netty.versions.properties")
         }
     }
 
@@ -141,15 +139,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
-    
-    // Ktor Server dependencies for FrameworkServer (~200KB total)
-    implementation("io.ktor:ktor-server-core:2.3.7")
-    implementation("io.ktor:ktor-server-netty:2.3.7")
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
-    // SLF4J simple logger for Ktor (optional, can be excluded if needed)
-    implementation("org.slf4j:slf4j-simple:2.0.9")
     implementation("androidx.core:core-splashscreen:1.0.1")
 }
 
