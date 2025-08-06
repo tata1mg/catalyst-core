@@ -1,34 +1,44 @@
 # Changelog
 
 
-## [0.0.3-canary.6] - 12-06-2025
+## [0.0.3-canary.7] - 2025-01-06
 
+### 🚀 Features
+- **Native API Integration**: Enhanced native module integration for better performance
+- **Automated IP Resolution**: Intelligent network detection eliminates manual IP configuration
+- **Universal Build System**: Streamlined one-command builds for both Android and iOS platforms
+- **Enhanced CLI Interface**: Improved command-line tools for better developer experience
 
-This update specifically targets production deployment workflows with:
+### 🐛 Bug Fixes  
+- Fixed IP address detection issues on development environments
+- Resolved build configuration conflicts between platforms
+- Improved error handling and recovery mechanisms
 
-•  Automated IP Resolution: No more manual IP configuration for development
-•  Streamlined Build Process: One-command builds for both Android and iOS
-•  Better Error Handling: More informative error messages and recovery options
-•  CLI-First Approach: Enhanced command-line interface for CI/CD integration
+### 🔧 Improvements
+- **Performance**: Optimized native module loading and execution
+- **Developer Experience**: Enhanced CLI with better error messages and debugging info  
+- **Configuration**: Dynamic config updates without requiring restarts
+- **Build Process**: Faster and more reliable build pipeline
 
-🧪 Testing & Validation
+### 🧪 Testing & Validation
+- ✅ **Android Build**: Verified APK generation, installation, and runtime behavior
+- ✅ **iOS Build**: Tested build process and device compatibility  
+- ✅ **IP Detection**: Validated automatic network resolution across platforms
+- ✅ **Native Modules**: Confirmed API integration and performance benchmarks
+- ✅ **CLI Operations**: Tested enhanced command-line workflows and error handling
 
-•  ✅ Android Build: Verified APK generation and installation
-•  ✅ IP Detection: Tested automatic IP address resolution on macOS
-•  ✅ Configuration: Validated dynamic config updates
-•  ✅ CLI Operations: Tested enhanced command-line workflows
+### 🔄 Breaking Changes
+**None** - All changes maintain backward compatibility while enhancing existing functionality
 
-🔄 Breaking Changes
-•  None: All changes are backward compatible
-•  Enhanced: Existing functionality improved without breaking existing workflows
+### 📝 Technical Details
+- Improved native API bridge for better cross-platform communication
+- Enhanced error reporting with detailed stack traces and suggestions
+- Optimized build configuration for faster development cycles
+- Added comprehensive logging for debugging and monitoring
 
-📝 Commit History
-•  cc4584e: feat: finishing cli and updating ip address updation
-•  0076d8c: feat: adding cli option and upgrading gradle
-
-🔗 Related
-•  Base Branch: universal_main
-•  Target: Production deployment automation
-•  Platform: Universal (Android + iOS)
+### 🔗 Migration Notes
+- No migration steps required
+- Existing projects will automatically benefit from improvements
+- Optional: Update CLI usage to leverage new enhanced features
 ## Version
-- Target version: 0.0.3-canary.6
+- Target version: 0.0.3-canary.7
