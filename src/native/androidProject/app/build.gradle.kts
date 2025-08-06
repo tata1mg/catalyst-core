@@ -139,7 +139,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
-    implementation("androidx.core:core-splashscreen:1.0.1")
 }
 
 // Task to verify local IP
