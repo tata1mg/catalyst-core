@@ -230,6 +230,19 @@ async function checkEmulator(ADB_PATH) {
     }
 }
 
+async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
+    progress.log('Setting up emulator...', 'info');
+    const emulatorRunning = await checkEmulator(ADB_PATH);
+    if (!emulatorRunning) {
+        progress.log('No emulator running, attempting to start one...', 'info');
+        await startEmulator(EMULATOR_PATH, androidConfig);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+    } else {
+        progress.log('Emulator already running', 'success');
+    }
+    return { type: 'emulator', name: androidConfig.emulatorName };
+}
+
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, 'info');
     return new Promise((resolve, reject) => {
@@ -293,14 +306,21 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
     }
 }
 
-async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType= 'debug') {
+async function buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType = 'debug', targetDevice = null) {
     progress.log('Building and installing app...', 'info');
     try {
-        const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug --quiet --console=rich && ${ADB_PATH} shell monkey -p ${ANDROID_PACKAGE}${buildType === 'debug' ? '.debug' : '' } 1`;
+        // Build command without monkey launch
+        let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug --quiet --console=rich`;
+        
+        // Add device-specific install target if physical device
+        if (targetDevice && targetDevice.type === 'physical') {
+            buildCommand = buildCommand.replace('installDebug', `installDebug -Pandroid.injected.target.device=${targetDevice.id}`);
+        }
+        
         await (0, _utils.runInteractiveCommand)('sh', ['-c', buildCommand], { 'BUILD SUCCESSFUL': '' });
-        progress.log('Installation completed successfully!', 'success');
+        progress.log('App build and installation completed successfully!', 'success');
     } catch (error) {
-        throw new Error('Error installing app: ' + error.message);
+        throw new Error('Error building/installing app: ' + error.message);
     }
 }
 
@@ -418,20 +438,41 @@ async function buildAndroidApp() {
         const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = await validateAndroidTools(androidConfig);
         progress.complete('tools');
 
-        // Handle emulator for debug builds only
+        // Device detection and setup (skip for release builds)
+        let targetDevice = null;
         if (buildType !== 'release') {
             progress.start('emulator');
-            const emulatorRunning = await checkEmulator(ADB_PATH);
-            if (!emulatorRunning) {
-                progress.log('No emulator running, attempting to start one...', 'info');
-                await startEmulator(EMULATOR_PATH, androidConfig);
-                await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            // Step 1: Check for physical device first
+            const physicalDevice = await detectPhysicalDevice(ADB_PATH);
+            
+            if (physicalDevice) {
+                progress.log(`Found physical device: ${physicalDevice.model} (${physicalDevice.id})`, 'success');
+                
+                // Test if we can install on physical device
+                const canInstallOnPhysical = await testPhysicalDeviceInstallation(ADB_PATH, physicalDevice.id);
+                
+                if (canInstallOnPhysical) {
+                    // Use physical device - skip emulator entirely
+                    targetDevice = { 
+                        type: 'physical', 
+                        id: physicalDevice.id, 
+                        model: physicalDevice.model 
+                    };
+                    progress.log(`Using physical device: ${physicalDevice.model}`, 'success');
+                } else {
+                    // Physical device failed, fallback to emulator
+                    progress.log('Physical device installation test failed, falling back to emulator', 'warning');
+                    targetDevice = await handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig);
+                }
             } else {
-                progress.log('Emulator already running', 'success');
+                // No physical device, use emulator (current behavior)
+                targetDevice = await handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig);
             }
+            
             progress.complete('emulator');
         } else {
-            progress.log('Skipping emulator setup for release build', 'info');
+            progress.log('Skipping device setup for release build', 'info');
         }
 
         // Copy build assets
@@ -449,7 +490,8 @@ async function buildAndroidApp() {
         } else {
             // Install debug app for development
             progress.start('build');
-            await installApp(ADB_PATH, androidConfig, buildOptimisation, buildType);
+            await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType, targetDevice);
+            await launchApp(ADB_PATH, buildType, targetDevice);
             progress.complete('build');
         }
 
@@ -469,12 +511,21 @@ async function buildAndroidApp() {
                 color: 'green' 
             });
         } else {
-            summaryItems.push({ 
-                text: `Emulator: ${androidConfig.emulatorName}`, 
-                indent: 1, 
-                prefix: '└─ ', 
-                color: 'gray' 
-            });
+            if (targetDevice && targetDevice.type === 'physical') {
+                summaryItems.push({ 
+                    text: `Target Device: ${targetDevice.model} (Physical)`, 
+                    indent: 1, 
+                    prefix: '└─ ', 
+                    color: 'green' 
+                });
+            } else {
+                summaryItems.push({ 
+                    text: `Target Device: ${androidConfig.emulatorName} (Emulator)`, 
+                    indent: 1, 
+                    prefix: '└─ ', 
+                    color: 'gray' 
+                });
+            }
         }
 
         progress.printTreeContent('Build Summary', summaryItems);
@@ -492,14 +543,36 @@ async function buildAndroidApp() {
 
             // Use androidConfig safely with null checks
             const buildType = androidConfig?.buildType || 'debug';
-            if (buildType === 'release') {
+            
+            // Device-specific troubleshooting
+            if (buildType !== 'release') {
+                // Check if error is related to device issues
+                if (error.message.includes('physical device') || error.message.includes('installation test')) {
+                    troubleshootingItems.push(
+                        '\nPhysical Device Issues:',
+                        { text: 'Enable Developer Options on your device', indent: 1, prefix: '├─ ', color: 'yellow' },
+                        { text: 'Enable USB Debugging in Developer Options', indent: 1, prefix: '├─ ', color: 'yellow' },
+                        { text: 'Accept the "Allow USB Debugging" prompt on your device', indent: 1, prefix: '├─ ', color: 'yellow' },
+                        { text: 'Try disconnecting and reconnecting your device', indent: 1, prefix: '├─ ', color: 'yellow' },
+                        { text: 'Check if "adb devices" shows your device as authorized', indent: 1, prefix: '├─ ', color: 'yellow' }
+                    );
+                }
+                
+                if (buildType === 'release') {
+                    troubleshootingItems.push(
+                        { text: 'Verify keystore configuration for release builds', indent: 1, prefix: '├─ ', color: 'yellow' },
+                        { text: 'Check that keystore passwords are properly set', indent: 1, prefix: '├─ ', color: 'yellow' }
+                    );
+                } else {
+                    troubleshootingItems.push(
+                        { text: 'Verify that the emulator exists and is working', indent: 1, prefix: '├─ ', color: 'yellow' },
+                        { text: 'If using physical device, ensure it stays connected', indent: 1, prefix: '├─ ', color: 'yellow' }
+                    );
+                }
+            } else {
                 troubleshootingItems.push(
                     { text: 'Verify keystore configuration for release builds', indent: 1, prefix: '├─ ', color: 'yellow' },
                     { text: 'Check that keystore passwords are properly set', indent: 1, prefix: '├─ ', color: 'yellow' }
-                );
-            } else {
-                troubleshootingItems.push(
-                    { text: 'Verify that the emulator exists and is working', indent: 1, prefix: '├─ ', color: 'yellow' }
                 );
             }
 
@@ -516,12 +589,22 @@ async function buildAndroidApp() {
                 );
 
                 if (buildType !== 'release') {
-                    troubleshootingItems.push({
-                        text: `Selected Emulator: ${androidConfig.emulatorName || 'Not configured'}`,
-                        indent: 1,
-                        prefix: '└─ ',
-                        color: 'gray'
-                    });
+                    // Show device information if available
+                    if (targetDevice) {
+                        troubleshootingItems.push({
+                            text: `Target Device: ${targetDevice.type === 'physical' ? `${targetDevice.model} (Physical)` : `${androidConfig.emulatorName} (Emulator)`}`,
+                            indent: 1,
+                            prefix: '└─ ',
+                            color: 'gray'
+                        });
+                    } else {
+                        troubleshootingItems.push({
+                            text: `Selected Emulator: ${androidConfig.emulatorName || 'Not configured'}`,
+                            indent: 1,
+                            prefix: '└─ ',
+                            color: 'gray'
+                        });
+                    }
                 } else {
                     troubleshootingItems.push({
                         text: `Output Path: ${androidConfig.outputPath || 'build-output/'}`,
