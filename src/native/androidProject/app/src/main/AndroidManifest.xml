@@ -25,8 +25,7 @@
         tools:targetApi="31">
         <activity
             android:name="io.yourname.androidproject.MainActivity"
-            android:exported="true"
-            android:screenOrientation="portrait">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -35,7 +34,7 @@
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="io.yourname.androidproject.fileprovider"
+            android:authorities="io.yourname.androidproject.release.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
