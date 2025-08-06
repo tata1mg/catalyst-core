@@ -111,8 +111,6 @@ android {
             excludes.add("**/route-manifest.json.br")
             excludes.add("META-INF/LICENSE")
             excludes.add("META-INF/NOTICE")
-            excludes.add("META-INF/INDEX.LIST")
-            excludes.add("META-INF/io.netty.versions.properties")
         }
     }
 

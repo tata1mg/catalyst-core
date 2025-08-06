@@ -9,10 +9,4 @@
     <files-path
         name="internal_files"
         path="." />
-    <cache-path
-        name="cache"
-        path="." />
-    <cache-path
-        name="downloaded_files"
-        path="downloaded_files" />
 </paths>

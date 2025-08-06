@@ -1,345 +1,288 @@
 package io.yourname.androidproject
 
-import android.app.Activity
-import android.content.Intent
+import java.io.File
+import java.util.Date
 import android.net.Uri
+import android.Manifest
 import android.util.Log
-import android.view.HapticFeedbackConstants
-import android.webkit.JavascriptInterface
+import java.util.Locale
+import android.util.Base64
+import org.json.JSONObject
+import java.io.InputStream
 import android.webkit.WebView
+import android.os.Environment
+import android.content.Context
+import java.text.SimpleDateFormat
+import android.content.pm.PackageManager
+import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
+import android.view.HapticFeedbackConstants
+import io.yourname.androidproject.BuildConfig
+import io.yourname.androidproject.MainActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import io.yourname.androidproject.MainActivity
-import io.yourname.androidproject.utils.*
-import kotlinx.coroutines.*
+import android.webkit.JavascriptInterface
 
-class NativeBridge(private val mainActivity: MainActivity, private val webView: WebView) : CoroutineScope {
+
+enum class WebEvents(val eventName: String) {
+    ON_CAMERA_CAPTURE("ON_CAMERA_CAPTURE"),
+    ON_CAMERA_ERROR("ON_CAMERA_ERROR"),
+    CAMERA_PERMISSION_STATUS("CAMERA_PERMISSION_STATUS"),
+    HAPTIC_FEEDBACK("HAPTIC_FEEDBACK"),
+}
+
+class NativeBridge(private val activity: MainActivity, private val webview: WebView) {
     private var currentPhotoUri: Uri? = null
     private var shouldLaunchCameraAfterPermission = false
 
-    // Coroutine scope for async operations
-    private val supervisorJob = SupervisorJob()
-    override val coroutineContext = Dispatchers.Main + supervisorJob
-
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
-    private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
 
     companion object {
         private const val TAG = "NativeBridge"
+        private const val CAMERA_PERMISSION = Manifest.permission.CAMERA
+        private const val FILE_PROVIDER_AUTHORITY = "io.yourname.androidproject.fileprovider"
     }
 
     init {
         try {
             initializeCameraLauncher()
             initializePermissionLauncher()
-            initializeFilePickerLauncher()
-            
-            // Initialize FrameworkServer for large file handling
-            initializeFrameworkServer()
         } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Error initializing NativeBridge", e)
+            Log.e(TAG, "Error initializing NativeBridge: ${e.message}")
         }
     }
 
     @JavascriptInterface
     fun logger() {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "logger") {
-            mainActivity.runOnUiThread {
-                BridgeUtils.logDebug(TAG, "Message from native")
+        try {
+            activity.runOnUiThread {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Message from native")
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in logger: ${e.message}")
         }
     }
 
     @JavascriptInterface
-    fun openCamera(options: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "open camera") {
-            mainActivity.runOnUiThread {
-                if (CameraUtils.hasCameraPermission(mainActivity)) {
+    fun openCamera() {
+        try {
+            activity.runOnUiThread {
+                if (hasCameraPermission()) {
                     launchCamera()
                 } else {
                     requestCameraPermissionAndLaunch(true)
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in openCamera: ${e.message}")
+            activity.runOnUiThread {
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Camera initialization error')",
+                    null
+                )
+            }
         }
     }
 
     @JavascriptInterface
-    fun requestCameraPermission(config: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.CAMERA_PERMISSION_STATUS, "request camera permission") {
-            mainActivity.runOnUiThread {
+    fun requestCameraPermission() {
+        try {
+            activity.runOnUiThread {
                 requestCameraPermissionAndLaunch(false)
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in requestCameraPermission: ${e.message}")
         }
     }
 
     @JavascriptInterface
     fun requestHapticFeedback(feedbackType: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.HAPTIC_FEEDBACK, "trigger haptic feedback") {
-            mainActivity.runOnUiThread {
-                val type = feedbackType?.uppercase() ?: "VIRTUAL_KEY"
-                val constant = when (type) {
-                    "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
-                    "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
-                    "DEFAULT" -> HapticFeedbackConstants.VIRTUAL_KEY
-                    else -> HapticFeedbackConstants.VIRTUAL_KEY
+        try {
+            activity.runOnUiThread {
+                try {
+                    val type = feedbackType?.uppercase() ?: "VIRTUAL_KEY"
+                    val constant = when (type) {
+                        "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
+                        "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
+                        "DEFAULT" -> HapticFeedbackConstants.VIRTUAL_KEY
+                        else -> HapticFeedbackConstants.VIRTUAL_KEY
+                    }
+
+                    if (webview.performHapticFeedback(constant)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "Haptic feedback performed: $type")
+                        }
+                        webview.evaluateJavascript(
+                            "window.WebBridge.callback('${WebEvents.HAPTIC_FEEDBACK}', 'SUCCESS')",
+                            null
+                        )
+                    } else {
+                        Log.w(TAG, "Haptic feedback failed for type: $type")
+                        webview.evaluateJavascript(
+                            "window.WebBridge.callback('${WebEvents.HAPTIC_FEEDBACK}', 'FAILED')",
+                            null
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error triggering haptic feedback: ${e.message}")
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.HAPTIC_FEEDBACK}', 'Error triggering feedback')",
+                        null
+                    )
                 }
-
-                if (webView.performHapticFeedback(constant)) {
-                    BridgeUtils.logDebug(TAG, "Haptic feedback performed: $type")
-                    BridgeUtils.notifyWebSuccess(webView, BridgeUtils.WebEvents.HAPTIC_FEEDBACK)
-                } else {
-                    throw Exception("Haptic feedback failed for type: $type")
-                }
             }
-        }
-    }
-
-    @JavascriptInterface
-    fun openFileWithIntent(params: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_INTENT_ERROR, "open file with intent") {
-            mainActivity.runOnUiThread {
-                BridgeUtils.logDebug(TAG, "openFileWithIntent called with params: $params")
-
-                // Parse and validate parameters
-                val (fileUrl, mimeType) = IntentUtils.parseIntentParams(params)
-                IntentUtils.validateFileUrl(fileUrl)
-
-                BridgeUtils.logDebug(TAG, "File URL: $fileUrl, MIME Type: ${mimeType ?: "auto-detect"}")
-
-                // Download and open file
-                downloadAndOpenFile(fileUrl, mimeType)
-            }
-        }
-    }
-
-    @JavascriptInterface
-    fun pickFile(mimeType: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "pick file") {
-            mainActivity.runOnUiThread {
-                BridgeUtils.logDebug(TAG, "pickFile called from JavaScript")
-                BridgeUtils.logDebug(TAG, "MIME Type filter: ${mimeType ?: "*/*"}")
-
-                // Send initial state
-                FileUtils.sendFilePickStateUpdate(webView, "opening")
-
-                val effectiveMimeType = mimeType?.takeIf { it.isNotBlank() } ?: "*/*"
-                BridgeUtils.logDebug(TAG, "Effective MIME Type: $effectiveMimeType")
-
-                // Launch file picker
-                launchFilePicker(effectiveMimeType)
-            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in requestHapticFeedback: ${e.message}")
         }
     }
 
     private fun initializeCameraLauncher() {
-        cameraLauncher = mainActivity.registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-            CameraUtils.processCameraResult(mainActivity, webView, currentPhotoUri, success)
+        cameraLauncher = activity.registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) {
+                currentPhotoUri?.let { uri ->
+                    try {
+                        // In production version, we avoid sending full base64 image for performance
+                        // Instead, just send the image URI and do processing on the web side if needed
+                        val imageUrl = uri.toString()
+
+                        val json = JSONObject().apply {
+                            // Removed base64 encoding for production - it's memory intensive
+                            // put("base64", base64Image)
+                            put("imageUrl", imageUrl)
+                        }.toString()
+
+                        val jsCode = "window.WebBridge.callback('${WebEvents.ON_CAMERA_CAPTURE}', '$json')"
+                        webview.evaluateJavascript(
+                            jsCode,
+                            null
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing image: ${e.message}")
+                        webview.evaluateJavascript(
+                            "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Error processing image')",
+                            null
+                        )
+                    }
+                } ?: run {
+                    Log.e(TAG, "Photo URI is null")
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Photo URI is null')",
+                        null
+                    )
+                }
+            } else {
+                Log.e(TAG, "Camera capture failed or was cancelled")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Camera capture failed or was cancelled')",
+                    null
+                )
+            }
         }
     }
 
     private fun initializePermissionLauncher() {
-        permissionLauncher = mainActivity.registerForActivityResult(
+        permissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            val onPermissionGranted = if (shouldLaunchCameraAfterPermission) {
-                { launchCamera() }
-            } else null
-            
-            CameraUtils.handlePermissionResult(webView, isGranted, onPermissionGranted)
-        }
-    }
-
-    private fun initializeFilePickerLauncher() {
-        filePickerLauncher = mainActivity.registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            when (result.resultCode) {
-                Activity.RESULT_OK -> {
-                    result.data?.data?.let { uri ->
-                        BridgeUtils.logDebug(TAG, "File selected: $uri")
-                        FileUtils.sendFilePickStateUpdate(webView, "processing")
-                        
-                        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "process selected file") {
-                            // Use new tri-transport processing
-                            processSelectedFileWithTriTransport(uri)
-                        }
-                    } ?: run {
-                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "No file selected")
-                    }
+            if (isGranted) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Camera permission granted, launching camera")
                 }
-                Activity.RESULT_CANCELED -> {
-                    BridgeUtils.logDebug(TAG, "File picker cancelled")
-                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_FILE_PICK_CANCELLED, "File selection cancelled")
+                if (shouldLaunchCameraAfterPermission) {
+                    launchCamera()
                 }
-                else -> {
-                    BridgeUtils.logError(TAG, "File picker failed with result code: ${result.resultCode}")
-                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "File selection failed")
-                }
-            }
-        }
-    }
-    
-    private fun initializeFrameworkServer() {
-        BridgeUtils.logDebug(TAG, "Initializing FrameworkServer for large file handling")
-        
-        // Start framework server in background
-        launch {
-            try {
-                val serverStarted = FrameworkServerUtils.startServer(mainActivity, webView)
-                if (serverStarted) {
-                    BridgeUtils.logInfo(TAG, "FrameworkServer initialized successfully")
-                } else {
-                    BridgeUtils.logWarning(TAG, "FrameworkServer failed to start - large files will use fallback methods")
-                }
-            } catch (e: Exception) {
-                BridgeUtils.logError(TAG, "Error starting FrameworkServer", e)
-            }
-        }
-    }
-    
-    /**
-     * Process selected file using tri-transport architecture based on file size
-     */
-    private fun processSelectedFileWithTriTransport(uri: Uri) {
-        launch {
-            try {
-                // Convert URI to File
-                val file = FileUtils.uriToFile(mainActivity, uri)
-                if (file == null) {
-                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "Unable to access selected file")
-                    return@launch
-                }
-                
-                BridgeUtils.logDebug(TAG, "Processing file with tri-transport: ${file.name} (${FileSizeRouterUtils.formatFileSize(file.length())})")
-                
-                // Determine transport method based on file size
-                val routingDecision = FileSizeRouterUtils.determineTransport(file)
-                BridgeUtils.logInfo(TAG, "Transport decision: ${routingDecision.transportType} - ${routingDecision.reason}")
-                
-                // Update WebView with transport information
-                FileUtils.sendFilePickStateUpdate(webView, "routing")
-                
-                // Process file using determined transport
-                val processingResult = FileSizeRouterUtils.processFile(mainActivity, webView, routingDecision)
-                
-                if (processingResult.success && processingResult.fileSrc != null) {
-                    // Notify WebView with successful result
-                    val resultData = mapOf(
-                        "fileName" to processingResult.fileName,
-                        "fileSrc" to processingResult.fileSrc,
-                        "filePath" to processingResult.filePath,
-                        "size" to processingResult.fileSize,
-                        "mimeType" to processingResult.mimeType,
-                        "transport" to processingResult.transportUsed.name
-                    )
-                    
-                    BridgeUtils.logInfo(TAG, "File processed successfully via ${processingResult.transportUsed}: ${processingResult.fileName}")
-                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_FILE_PICKED, 
-                        org.json.JSONObject(resultData).toString())
-                    
-                } else {
-                    // Processing failed
-                    val errorMsg = processingResult.error ?: "Unknown error processing file"
-                    BridgeUtils.logError(TAG, "File processing failed: $errorMsg")
-                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, errorMsg)
-                }
-                
-            } catch (e: Exception) {
-                BridgeUtils.logError(TAG, "Error in tri-transport file processing", e)
-                BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, 
-                    "File processing error: ${e.message}")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.CAMERA_PERMISSION_STATUS}', 'GRANTED')",
+                    null
+                )
+            } else {
+                Log.e(TAG, "Camera permission denied")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.CAMERA_PERMISSION_STATUS}', 'DENIED')",
+                    null
+                )
             }
         }
     }
 
-    private fun launchFilePicker(mimeType: String) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "launch file picker") {
-            val intent = IntentUtils.createFilePickerIntent(mimeType, false)
-            BridgeUtils.logDebug(TAG, "Launching file picker with MIME type: $mimeType")
-            filePickerLauncher.launch(intent)
-        }
+    private fun hasCameraPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            activity,
+            CAMERA_PERMISSION
+        ) == PackageManager.PERMISSION_GRANTED
     }
-
-    // Removed processSelectedFile - now handled by FileUtils.processSelectedFile
-
-    // Removed createAccessibleFileUrl - now handled by FileUtils.createAccessibleFileUrl
-
-    // Removed cleanupTempFiles - now handled by FileUtils.cleanupTempFiles
-
-    // Removed getFileSize - now handled by FileUtils.getFileSize
-    
-    /**
-     * Cleanup method to be called when the bridge is being destroyed
-     */
-    fun cleanup() {
-        BridgeUtils.logDebug(TAG, "Cleaning up NativeBridge resources")
-        
-        try {
-            // Stop FrameworkServer
-            FrameworkServerUtils.stopServer()
-            
-            // Cancel any pending coroutines
-            supervisorJob.cancel()
-            
-            BridgeUtils.logInfo(TAG, "NativeBridge cleanup completed")
-        } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Error during NativeBridge cleanup", e)
-        }
-    }
-
-    // Removed getFileName - now handled by FileUtils.getFileName
-
-    // Removed getDisplayName - now handled by FileUtils.getDisplayName
-
-    // Removed getMimeType - now handled by FileUtils.getMimeType
-
-    // Removed hasCameraPermission - now handled by CameraUtils.hasCameraPermission
 
     private fun requestCameraPermissionAndLaunch(shouldLaunch: Boolean) {
-        BridgeUtils.logDebug(TAG, "Requesting camera permission")
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Requesting camera permission")
+        }
         shouldLaunchCameraAfterPermission = shouldLaunch
-        permissionLauncher.launch(android.Manifest.permission.CAMERA)
+        permissionLauncher.launch(CAMERA_PERMISSION)
     }
 
     private fun launchCamera() {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "launch camera") {
-            currentPhotoUri = CameraUtils.createCameraUri(mainActivity)
+        try {
+            val photoFile = createImageFile()
+            currentPhotoUri = FileProvider.getUriForFile(
+                activity,
+                FILE_PROVIDER_AUTHORITY,
+                photoFile
+            )
+
             currentPhotoUri?.let { uri ->
-                cameraLauncher.launch(uri)
-            } ?: throw Exception("Failed to create photo URI")
-        }
-    }
-
-    // Removed createImageFile - now handled by CameraUtils.createCameraUri
-
-    // Removed convertUriToBase64 - now handled by FileUtils.convertUriToBase64
-
-    private fun downloadAndOpenFile(fileUrl: String, mimeType: String?) {
-        launch(Dispatchers.IO) {
-            DownloadUtils.downloadFileWithCallback(
-                mainActivity,
-                webView,
-                fileUrl,
-                mimeType,
-                onSuccess = { downloadedFile, detectedMimeType ->
-                    IntentUtils.openFileWithSystemIntent(mainActivity, webView, downloadedFile, detectedMimeType)
+                try {
+                    cameraLauncher.launch(uri)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Camera launch failed: ${e.message}")
+                    webview.evaluateJavascript(
+                        "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Camera launch failed')",
+                        null
+                    )
                 }
+            } ?: run {
+                Log.e(TAG, "Failed to create photo URI")
+                webview.evaluateJavascript(
+                    "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Failed to create photo URI')",
+                    null
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error preparing camera: ${e.message}")
+            webview.evaluateJavascript(
+                "window.WebBridge.callback('${WebEvents.ON_CAMERA_ERROR}', 'Error preparing camera')",
+                null
             )
         }
     }
 
-    // Removed openFileWithSystemIntent - now handled by IntentUtils.openFileWithSystemIntent
+    private fun createImageFile(): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        
+        // Ensure the directory exists
+        storageDir?.mkdirs()
+        
+        return File.createTempFile(
+            "JPEG_${timeStamp}_",
+            ".jpg",
+            storageDir
+        ).apply {
+            parentFile?.mkdirs()
+        }
+    }
 
-    // Removed extractFileNameFromUrl - now handled by DownloadUtils.extractFileNameFromUrl
-
-    // Removed createTempFile - now handled by FileUtils.createTempFile
-
-    // Removed detectMimeType - now handled by FileUtils.detectMimeType
-
-    // Removed sendFilePickStateUpdate - now handled by FileUtils.sendFilePickStateUpdate
-
-    fun destroy() {
-        supervisorJob.cancel()
+    private fun convertUriToBase64(context: Context, uri: Uri): String? {
+        return try {
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            val bytes = inputStream?.readBytes()
+            inputStream?.close()
+            Base64.encodeToString(bytes, Base64.DEFAULT)
+        } catch (e: Exception) {
+            Log.e(TAG, "Base64 conversion error: ${e.message}")
+            null
+        }
     }
 }
