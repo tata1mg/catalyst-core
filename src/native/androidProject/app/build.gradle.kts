@@ -141,6 +141,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
+    implementation("androidx.core:core-splashscreen:1.0.1")
     
     // Ktor Server dependencies for FrameworkServer (~200KB total)
     implementation("io.ktor:ktor-server-core:2.3.7")
