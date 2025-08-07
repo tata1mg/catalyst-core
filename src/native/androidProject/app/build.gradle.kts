@@ -217,28 +217,31 @@ tasks.register("generateWebViewConfig") {
         }
 
         fun extractProperties(jsonObj: org.json.JSONObject, prefix: String = "") {
-            val keys = jsonObj.keys()
-
-            while (keys.hasNext()) {
-                val key = keys.next()
-                val value = jsonObj.opt(key)
-                val fullKey = if (prefix.isEmpty()) key else "$prefix.$key"
-                
-                when (value) {
-                    is org.json.JSONObject -> {
-                         extractProperties(value, fullKey)
-                    }
-                    // Only supports array of strings
-                    is org.json.JSONArray -> {
-                        val arrayValues = (0 until value.length()).map { i ->
-                            value.opt(i).toString()
-                        }.joinToString(",")
-                        properties.setProperty(fullKey, arrayValues)
-                    }
-                    else -> {
-                         properties.setProperty(fullKey, value.toString())
+            try {
+                val keys = jsonObj.keys()
+        
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val value = jsonObj.opt(key)
+                    val fullKey = if (prefix.isEmpty()) key else "$prefix.$key"
+                    
+                    when (value) {
+                        is org.json.JSONObject -> {
+                            extractProperties(value, fullKey)
+                        }
+                        is org.json.JSONArray -> {
+                            val arrayValues = (0 until value.length()).map { i ->
+                                value.opt(i).toString()
+                            }.joinToString(",")
+                            properties.setProperty(fullKey, arrayValues)
+                        }
+                        else -> {
+                            properties.setProperty(fullKey, value.toString())
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                throw RuntimeException("Failed to extract properties from JSON at prefix: $prefix", e)
             }
         }
 
