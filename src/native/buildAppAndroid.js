@@ -452,6 +452,15 @@ async function copySplashscreenAssets() {
             _fs.default.mkdirSync(drawableDir, { recursive: true })
         }
 
+        // Remove existing splashscreen assets to avoid conflicts
+        for (const format of imageFormats) {
+            const existingSplashscreenPath = `${destPath}/drawable/splashscreen.${format}`
+            if (_fs.default.existsSync(existingSplashscreenPath)) {
+                _fs.default.unlinkSync(existingSplashscreenPath)
+                progress.log(`Removed existing splashscreen.${format}`, "info")
+            }
+        }
+
         for (const format of imageFormats) {
             const splashscreenImagePath = `${publicPath}/splashscreen.${format}`
             if (_fs.default.existsSync(splashscreenImagePath)) {
