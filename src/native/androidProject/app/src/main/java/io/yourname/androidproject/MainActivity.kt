@@ -168,12 +168,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     private fun configureSplashScreen(splashScreen: androidx.core.splashscreen.SplashScreen) {
-        val enabled = properties.getProperty("splashScreen.enabled", "true").toBoolean()
         val durationProperty = properties.getProperty("splashScreen.duration")
         
         splashScreen.setKeepOnScreenCondition {
-            if (!enabled) return@setKeepOnScreenCondition false
-            
             val webViewLoaded = ::customWebView.isInitialized && 
                                customWebView.getWebView().progress >= 100
             

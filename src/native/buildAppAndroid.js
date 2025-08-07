@@ -216,13 +216,59 @@ async function copySplashscreenAssets() {
         const config = JSON.parse(configFile)
         const { WEBVIEW_CONFIG = {} } = config
 
-        // Check if splashscreen configuration exists
-        if (!WEBVIEW_CONFIG.splashScreen) {
+        const themesFile = `${destPath}/values/themes.xml`
+        let themesContent = _fs.default.readFileSync(themesFile, "utf8")
+
+        const colorsFile = `${destPath}/values/colors.xml`
+        let colorsContent = _fs.default.readFileSync(colorsFile, "utf8")
+
+        const splashscreenProperties = {
+            icon: '<item name="android:windowSplashScreenAnimatedIcon">@drawable/splashscreen</item>',
+            backgroundColor:
+                '<item name="android:windowSplashScreenBackground">@color/splashscreen_background</item>',
+        }
+
+        const hasSplashscreenConfig = !!WEBVIEW_CONFIG.splashScreen
+
+        // Always remove splashscreen properties and colors first (regardless of config)
+        themesContent = themesContent.replace(splashscreenProperties.backgroundColor, "")
+        themesContent = themesContent.replace(splashscreenProperties.icon, "")
+
+        // Also remove splashscreen color from colors.xml
+        const existingColorLine = colorsContent
+            .split("\n")
+            .find((line) => line.includes('name="splashscreen_background"'))
+
+        if (existingColorLine) {
+            colorsContent = colorsContent.replace(existingColorLine, "")
+        }
+
+        if (!hasSplashscreenConfig) {
+            progress.log("Removed splashscreen properties from themes.xml and colors.xml", "info")
+            _fs.default.writeFileSync(colorsFile, colorsContent)
+            _fs.default.writeFileSync(themesFile, themesContent)
             return
         }
 
+        const styleEndTag = "</style>"
+        const insertPosition = themesContent.lastIndexOf(styleEndTag)
+        if (insertPosition !== -1) {
+            const beforeStyle = themesContent.substring(0, insertPosition).trimEnd()
+            const afterStyle = themesContent.substring(insertPosition)
+
+            const splashscreenProps = Object.values(splashscreenProperties)
+                .map((prop) => `\t\t${prop}`)
+                .join("\n")
+
+            // Insert properties with proper spacing
+            themesContent = beforeStyle + "\n" + splashscreenProps + "\n\t" + afterStyle
+            progress.log("Added splashscreen properties to themes.xml", "info")
+        }
+
+        _fs.default.writeFileSync(themesFile, themesContent)
+
         // Check for splashscreen image file in public directory
-        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg"]
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]
         let splashscreenImageFound = false
 
         // Ensure public directory exists
@@ -231,29 +277,18 @@ async function copySplashscreenAssets() {
             return
         }
 
+        // Create drawable directory if it doesn't exist
+        const drawableDir = `${destPath}/drawable`
+        if (!_fs.default.existsSync(drawableDir)) {
+            _fs.default.mkdirSync(drawableDir, { recursive: true })
+        }
+
         for (const format of imageFormats) {
             const splashscreenImagePath = `${publicPath}/splashscreen.${format}`
             if (_fs.default.existsSync(splashscreenImagePath)) {
-                // Create drawable directories if they don't exist
-                const drawableDirs = [
-                    `${destPath}/drawable`,
-                    `${destPath}/drawable-mdpi`,
-                    `${destPath}/drawable-hdpi`,
-                    `${destPath}/drawable-xhdpi`,
-                    `${destPath}/drawable-xxhdpi`,
-                    `${destPath}/drawable-xxxhdpi`,
-                ]
-
-                drawableDirs.forEach((dir) => {
-                    if (!_fs.default.existsSync(dir)) {
-                        _fs.default.mkdirSync(dir, { recursive: true })
-                    }
-                })
-
                 // Copy splashscreen image to drawable directory
                 const destImagePath = `${destPath}/drawable/splashscreen.${format}`
                 _fs.default.copyFileSync(splashscreenImagePath, destImagePath)
-
                 progress.log(`Splashscreen image copied: splashscreen.${format}`, "success")
                 splashscreenImageFound = true
                 break
@@ -261,44 +296,28 @@ async function copySplashscreenAssets() {
         }
 
         if (!splashscreenImageFound) {
-            progress.log(
-                "No splashscreen image found in public directory - creating default transparent image",
-                "warning"
-            )
+            // Use the default Android launcher icon
+            const launcherIconPath = `${destPath}/drawable/splashscreen_fallback.png`
+            const destinationPath = `${destPath}/drawable/splashscreen.png`
 
-            // Create a default transparent PNG image to avoid build errors
-            const drawableDir = `${destPath}/drawable`
-            if (!_fs.default.existsSync(drawableDir)) {
-                _fs.default.mkdirSync(drawableDir, { recursive: true })
+            if (_fs.default.existsSync(launcherIconPath)) {
+                _fs.default.copyFileSync(launcherIconPath, destinationPath)
+                progress.log("Using default Android launcher icon as splashscreen", "info")
             }
-
-            // Create a 1x1 transparent PNG image as base64
-            const transparentPngBase64 =
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-            const transparentPngBuffer = Buffer.from(transparentPngBase64, "base64")
-
-            const defaultSplashscreenPath = `${drawableDir}/splashscreen.png`
-            _fs.default.writeFileSync(defaultSplashscreenPath, transparentPngBuffer)
-            progress.log("Created default transparent splashscreen.png", "info")
         }
 
-        // Update colors.xml with background color
-        if (WEBVIEW_CONFIG.splashScreen?.backgroundColor) {
-            const colorsFile = `${destPath}/values/colors.xml`
-            let colorsContent = _fs.default.readFileSync(colorsFile, "utf8")
+        const backgroundColor = WEBVIEW_CONFIG.splashScreen?.backgroundColor || "#FFFFFF"
+        // Ensure color starts with # and convert to Android format
+        const androidColor = backgroundColor.startsWith("#")
+            ? `#FF${backgroundColor.slice(1).toUpperCase()}`
+            : `#FF${backgroundColor.toUpperCase()}`
 
-            // Check if splashscreen_background color already exists
-            if (!colorsContent.includes("splashscreen_background")) {
-                const backgroundColor = WEBVIEW_CONFIG.splashScreen.backgroundColor
-                // Ensure color starts with # and convert to Android format
-                const androidColor = backgroundColor.startsWith("#")
-                    ? `#FF${backgroundColor.slice(1).toUpperCase()}`
-                    : `#FF${backgroundColor.toUpperCase()}`
+        const newColorEntry = `\t<color name="splashscreen_background">${androidColor}</color>`
+        colorsContent = colorsContent.replace("</resources>", `${newColorEntry}\n</resources>`)
+        _fs.default.writeFileSync(colorsFile, colorsContent)
 
-                const colorEntry = `\t<color name="splashscreen_background">${androidColor}</color>`
-                colorsContent = colorsContent.replace("</resources>", `${colorEntry}\n</resources>`)
-                _fs.default.writeFileSync(colorsFile, colorsContent)
-            }
+        if (!WEBVIEW_CONFIG.splashScreen?.backgroundColor) {
+            progress.log("Using fallback background color: #FFFFFF", "info")
         }
 
         progress.log("Splashscreen assets copied successfully!", "success")
