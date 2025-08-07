@@ -504,6 +504,82 @@ async function copySplashscreenAssets() {
     }
 }
 
+async function copyIconAssets() {
+    try {
+        const destPath = `${pwd}/androidProject/app/src/main/res`
+        const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+
+        // Check for icon image file in public directory
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]
+        let iconImageFound = false
+
+        // Ensure public directory exists
+        if (!_fs.default.existsSync(publicPath)) {
+            progress.log(`Warning: Public directory not found at ${publicPath}`, "warning")
+            return
+        }
+
+        // Create drawable directory if it doesn't exist
+        const drawableDir = `${destPath}/drawable`
+        if (!_fs.default.existsSync(drawableDir)) {
+            _fs.default.mkdirSync(drawableDir, { recursive: true })
+        }
+
+        // Remove existing custom icon assets to avoid conflicts
+        for (const format of imageFormats) {
+            const existingIconPath = `${destPath}/drawable/icon.${format}`
+            if (_fs.default.existsSync(existingIconPath)) {
+                _fs.default.unlinkSync(existingIconPath)
+                progress.log(`Removed existing icon.${format}`, "info")
+            }
+        }
+
+        // Look for icon in public directory
+        for (const format of imageFormats) {
+            const iconImagePath = `${publicPath}/icon.${format}`
+            if (_fs.default.existsSync(iconImagePath)) {
+                // Copy icon image to drawable directory
+                const destImagePath = `${destPath}/drawable/icon.${format}`
+                _fs.default.copyFileSync(iconImagePath, destImagePath)
+                progress.log(`App icon copied: icon.${format} -> icon.${format}`, "success")
+                iconImageFound = true
+                break
+            }
+        }
+
+        // If no custom icon found, just log and return (keep default icon)
+        if (!iconImageFound) {
+            progress.log("No custom app icon found (icon.png/jpg/jpeg), using default", "info")
+            return
+        }
+
+        // Update AndroidManifest.xml if it exists
+        if (_fs.default.existsSync(manifestPath)) {
+            let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+            // Look for the application tag and update the icon reference
+            const applicationTagRegex = /<application([^>]*android:icon="[^"]*"[^>]*>)/
+            const iconAttributeRegex = /android:icon="[^"]*"/
+            const roundIconAttributeRegex = /android:roundIcon="[^"]*"/
+
+            if (applicationTagRegex.test(manifestContent)) {
+                // Replace existing icon attribute
+                manifestContent = manifestContent.replace(iconAttributeRegex, 'android:icon="@drawable/icon"')
+                manifestContent = manifestContent.replace(
+                    roundIconAttributeRegex,
+                    'android:roundIcon="@drawable/icon"'
+                )
+                progress.log("Updated app icon reference in AndroidManifest.xml", "success")
+            }
+
+            _fs.default.writeFileSync(manifestPath, manifestContent)
+        }
+        progress.log("App icon assets processed successfully!", "success")
+    } catch (error) {
+        progress.log(`Warning: Error copying app icon assets: ${error.message}`, "warning")
+    }
+}
+
 // Legacy function for backward compatibility
 async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType = "debug") {
     await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType)
@@ -659,6 +735,7 @@ async function buildAndroidApp() {
         progress.start("copyAssets")
         await copyBuildAssets(androidConfig, buildOptimisation)
         await copySplashscreenAssets()
+        await copyIconAssets()
         progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
         progress.complete("copyAssets")
 
