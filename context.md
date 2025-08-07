@@ -633,7 +633,7 @@ TITLE: Universal App
 DESCRIPTION:
 
 -   Catalyst also provides support to build native iOS/android applications
--   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.6`
+-   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.7`
 
 To install the android simulator
 
