@@ -386,7 +386,9 @@ async function copySplashscreenAssets() {
         const { WEBVIEW_CONFIG = {} } = config
 
         const themesFile = `${destPath}/values/themes.xml`
+        const themesNightFile = `${destPath}/values-night/themes.xml`
         let themesContent = _fs.default.readFileSync(themesFile, "utf8")
+        let themesNightContent = _fs.default.readFileSync(themesNightFile, "utf8")
 
         const colorsFile = `${destPath}/values/colors.xml`
         let colorsContent = _fs.default.readFileSync(colorsFile, "utf8")
@@ -402,6 +404,8 @@ async function copySplashscreenAssets() {
         // Always remove splashscreen properties and colors first (regardless of config)
         themesContent = themesContent.replace(splashscreenProperties.backgroundColor, "")
         themesContent = themesContent.replace(splashscreenProperties.icon, "")
+        themesNightContent = themesNightContent.replace(splashscreenProperties.backgroundColor, "")
+        themesNightContent = themesNightContent.replace(splashscreenProperties.icon, "")
 
         // Also remove splashscreen color from colors.xml
         const existingColorLine = colorsContent
@@ -416,6 +420,7 @@ async function copySplashscreenAssets() {
             progress.log("Removed splashscreen properties from themes.xml and colors.xml", "info")
             _fs.default.writeFileSync(colorsFile, colorsContent)
             _fs.default.writeFileSync(themesFile, themesContent)
+            _fs.default.writeFileSync(themesNightFile, themesNightContent)
             return
         }
 
@@ -434,7 +439,22 @@ async function copySplashscreenAssets() {
             progress.log("Added splashscreen properties to themes.xml", "info")
         }
 
+        const nightInsertPosition = themesNightContent.lastIndexOf(styleEndTag)
+        if (nightInsertPosition !== -1) {
+            const beforeNightStyle = themesNightContent.substring(0, nightInsertPosition).trimEnd()
+            const afterNightStyle = themesNightContent.substring(nightInsertPosition)
+
+            const splashscreenProps = Object.values(splashscreenProperties)
+                .map((prop) => `\t\t${prop}`)
+                .join("\n")
+
+            // Insert properties with proper spacing
+            themesNightContent = beforeNightStyle + "\n" + splashscreenProps + "\n\t" + afterNightStyle
+            progress.log("Added splashscreen properties to themes-night.xml", "info")
+        }
+
         _fs.default.writeFileSync(themesFile, themesContent)
+        _fs.default.writeFileSync(themesNightFile, themesNightContent)
 
         // Check for splashscreen image file in public directory
         const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]
