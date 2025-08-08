@@ -1,26 +1,26 @@
-import { 
-    NATIVE_CALLBACKS, 
-    ALL_CALLBACKS, 
+import {
+    NATIVE_CALLBACKS,
+    ALL_CALLBACKS,
     isValidCallback,
-    debugInterfaces 
-} from './constants/NativeInterfaces.js';
+    debugInterfaces,
+} from "./constants/NativeInterfaces.js"
 
 class WebBridge {
     constructor() {
-        this.handlers = new Map();
-        this.initialized = false;
-        this._logInitialization();
+        this.handlers = new Map()
+        this.initialized = false
+        this._logInitialization()
     }
 
     /**
      * Log initialization info
      */
     _logInitialization() {
-        console.log("🌉 WebBridge initialized");
-        console.log("🌉 Available callback interfaces:", ALL_CALLBACKS.length);
-        
-        if (process.env.NODE_ENV === 'development') {
-            debugInterfaces();
+        console.log("🌉 WebBridge initialized")
+        console.log("🌉 Available callback interfaces:", ALL_CALLBACKS.length)
+
+        if (process.env.NODE_ENV === "development") {
+            debugInterfaces()
         }
     }
 
@@ -28,22 +28,22 @@ class WebBridge {
      * Static method to initialize WebBridge on window object
      */
     static init = () => {
-        if (typeof window === 'undefined') {
-            console.error("🌉 WebBridge cannot be initialized outside the browser!");
-            return null;
+        if (typeof window === "undefined") {
+            console.error("🌉 WebBridge cannot be initialized outside the browser!")
+            return null
         }
 
         if (window.WebBridge) {
-            console.warn("🌉 WebBridge already initialized!");
-            return window.WebBridge;
+            console.warn("🌉 WebBridge already initialized!")
+            return window.WebBridge
         }
 
-        const bridge = new WebBridge();
-        window.WebBridge = bridge;
-        bridge.initialized = true;
-        
-        console.log("🌉 WebBridge created and attached to window");
-        return bridge;
+        const bridge = new WebBridge()
+        window.WebBridge = bridge
+        bridge.initialized = true
+
+        console.log("🌉 WebBridge created and attached to window")
+        return bridge
     }
 
     /**
@@ -52,33 +52,33 @@ class WebBridge {
      * @param {any} data - Data from native platform
      */
     callback = (interfaceName, data) => {
-        console.log(`🌉 WebBridge callback: ${interfaceName}`, data ? { data } : '');
-        
+        console.log(`🌉 WebBridge callback: ${interfaceName}`, data ? { data } : "")
+
         // Validate interface
         if (!isValidCallback(interfaceName)) {
-            console.error(`🌉 Invalid callback interface: ${interfaceName}`);
-            console.log("🌉 Available callbacks:", ALL_CALLBACKS);
-            return;
+            console.error(`🌉 Invalid callback interface: ${interfaceName}`)
+            console.log("🌉 Available callbacks:", ALL_CALLBACKS)
+            return
         }
-        
+
         if (!this.handlers.has(interfaceName)) {
-            console.warn(`🌉 No handler registered for interface: ${interfaceName}`);
-            return;
+            console.warn(`🌉 No handler registered for interface: ${interfaceName}`)
+            return
         }
 
         try {
-            const handler = this.handlers.get(interfaceName);
-            handler(data);
+            const handler = this.handlers.get(interfaceName)
+            handler(data)
         } catch (error) {
-            console.error(`🌉 Error executing callback for ${interfaceName}:`, error);
-            
+            console.error(`🌉 Error executing callback for ${interfaceName}:`, error)
+
             // In development, provide more helpful error info
-            if (process.env.NODE_ENV === 'development') {
-                console.error('🌉 Handler details:', {
+            if (process.env.NODE_ENV === "development") {
+                console.error("🌉 Handler details:", {
                     interfaceName,
                     data,
-                    handlerType: typeof this.handlers.get(interfaceName)
-                });
+                    handlerType: typeof this.handlers.get(interfaceName),
+                })
             }
         }
     }
@@ -92,25 +92,25 @@ class WebBridge {
     register = (interfaceName, callback) => {
         // Validate callback function
         if (typeof callback !== "function") {
-            console.error("🌉 Callback must be a function!");
-            return false;
+            console.error("🌉 Callback must be a function!")
+            return false
         }
 
         // Validate interface name
         if (!isValidCallback(interfaceName)) {
-            console.error(`🌉 Invalid callback interface: ${interfaceName}`);
-            console.log("🌉 Available callback interfaces:", ALL_CALLBACKS);
-            return false;
+            console.error(`🌉 Invalid callback interface: ${interfaceName}`)
+            console.log("🌉 Available callback interfaces:", ALL_CALLBACKS)
+            return false
         }
 
         // Warn if overriding existing handler
         if (this.handlers.has(interfaceName)) {
-            console.warn(`🌉 Interface ${interfaceName} already registered! Overriding existing handler.`);
+            console.warn(`🌉 Interface ${interfaceName} already registered! Overriding existing handler.`)
         }
 
-        console.log(`🌉 Registering callback interface: ${interfaceName}`);
-        this.handlers.set(interfaceName, callback);
-        return true;
+        console.log(`🌉 Registering callback interface: ${interfaceName}`)
+        this.handlers.set(interfaceName, callback)
+        return true
     }
 
     /**
@@ -120,13 +120,13 @@ class WebBridge {
      */
     unregister = (interfaceName) => {
         if (!this.handlers.has(interfaceName)) {
-            console.warn(`🌉 Interface ${interfaceName} not registered, nothing to unregister.`);
-            return false;
+            console.warn(`🌉 Interface ${interfaceName} not registered, nothing to unregister.`)
+            return false
         }
 
-        console.log(`🌉 Unregistering callback interface: ${interfaceName}`);
-        this.handlers.delete(interfaceName);
-        return true;
+        console.log(`🌉 Unregistering callback interface: ${interfaceName}`)
+        this.handlers.delete(interfaceName)
+        return true
     }
 
     /**
@@ -135,7 +135,7 @@ class WebBridge {
      * @returns {boolean} - Registration status
      */
     isRegistered = (interfaceName) => {
-        return this.handlers.has(interfaceName);
+        return this.handlers.has(interfaceName)
     }
 
     /**
@@ -143,7 +143,7 @@ class WebBridge {
      * @returns {string[]} - Array of registered interface names
      */
     getRegisteredInterfaces = () => {
-        return Array.from(this.handlers.keys());
+        return Array.from(this.handlers.keys())
     }
 
     /**
@@ -152,36 +152,36 @@ class WebBridge {
      * @returns {function|null} - The registered handler or null
      */
     getHandler = (interfaceName) => {
-        return this.handlers.get(interfaceName) || null;
+        return this.handlers.get(interfaceName) || null
     }
 
     /**
      * Clear all registered handlers
      */
     clearAll = () => {
-        const count = this.handlers.size;
-        this.handlers.clear();
-        console.log(`🌉 Cleared ${count} registered callback handlers`);
+        const count = this.handlers.size
+        this.handlers.clear()
+        console.log(`🌉 Cleared ${count} registered callback handlers`)
     }
 
     /**
      * Debug method to log current state
      */
     debug = () => {
-        console.group("🌉 WebBridge Debug Info");
-        console.log("Initialized:", this.initialized);
-        console.log("Available callback interfaces:", ALL_CALLBACKS);
-        console.log("Registered interfaces:", this.getRegisteredInterfaces());
-        console.log("Total handlers:", this.handlers.size);
-        
+        console.group("🌉 WebBridge Debug Info")
+        console.log("Initialized:", this.initialized)
+        console.log("Available callback interfaces:", ALL_CALLBACKS)
+        console.log("Registered interfaces:", this.getRegisteredInterfaces())
+        console.log("Total handlers:", this.handlers.size)
+
         if (this.handlers.size > 0) {
-            console.log("Handler details:");
+            console.log("Handler details:")
             this.handlers.forEach((handler, interfaceName) => {
-                console.log(`  ${interfaceName}:`, typeof handler);
-            });
+                console.log(`  ${interfaceName}:`, typeof handler)
+            })
         }
-        
-        console.groupEnd();
+
+        console.groupEnd()
     }
 
     /**
@@ -189,14 +189,14 @@ class WebBridge {
      * @param {string} interfaceName - The callback interface to test
      * @param {any} testData - Test data to pass
      */
-    testCallback = (interfaceName, testData = 'test') => {
-        if (process.env.NODE_ENV !== 'development') {
-            console.warn('🌉 testCallback is only available in development mode');
-            return;
+    testCallback = (interfaceName, testData = "test") => {
+        if (process.env.NODE_ENV !== "development") {
+            console.warn("🌉 testCallback is only available in development mode")
+            return
         }
 
-        console.log(`🌉 Testing callback: ${interfaceName}`);
-        this.callback(interfaceName, testData);
+        console.log(`🌉 Testing callback: ${interfaceName}`)
+        this.callback(interfaceName, testData)
     }
 }
 

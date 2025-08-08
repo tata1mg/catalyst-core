@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.3-canary.7",
+    "version": "0.0.3-canary.8",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {

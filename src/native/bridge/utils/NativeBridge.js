@@ -1,4 +1,4 @@
-import { NATIVE_COMMANDS, isValidCommand } from '../constants/NativeInterfaces.js';
+import { NATIVE_COMMANDS, isValidCommand } from "../constants/NativeInterfaces.js"
 
 /**
  * NativeBridge Utility
@@ -7,12 +7,12 @@ import { NATIVE_COMMANDS, isValidCommand } from '../constants/NativeInterfaces.j
  */
 class NativeBridgeUtil {
     constructor() {
-        this.isAndroid = this._detectAndroid();
-        this.isIOS = this._detectIOS();
-        this.isNativeEnvironment = this.isAndroid || this.isIOS;
-        
-        if (typeof window !== 'undefined') {
-            this._logEnvironmentInfo();
+        this.isAndroid = this._detectAndroid()
+        this.isIOS = this._detectIOS()
+        this.isNativeEnvironment = this.isAndroid || this.isIOS
+
+        if (typeof window !== "undefined") {
+            this._logEnvironmentInfo()
         }
     }
 
@@ -20,29 +20,29 @@ class NativeBridgeUtil {
      * Detect if running on Android WebView
      */
     _detectAndroid() {
-        if (typeof window === 'undefined') return false;
-        return !!(window.NativeBridge && typeof window.NativeBridge === 'object');
+        if (typeof window === "undefined") return false
+        return !!(window.NativeBridge && typeof window.NativeBridge === "object")
     }
 
     /**
      * Detect if running on iOS WebView
      */
     _detectIOS() {
-        if (typeof window === 'undefined') return false;
-        return !!(window.webkit?.messageHandlers?.NativeBridge);
+        if (typeof window === "undefined") return false
+        return !!window.webkit?.messageHandlers?.NativeBridge
     }
 
     /**
      * Log environment detection info for debugging
      */
     _logEnvironmentInfo() {
-        console.log('🌉 NativeBridge Environment Detection:', {
+        console.log("🌉 NativeBridge Environment Detection:", {
             isAndroid: this.isAndroid,
             isIOS: this.isIOS,
             isNativeEnvironment: this.isNativeEnvironment,
             hasAndroidBridge: !!window.NativeBridge,
-            hasIOSBridge: !!window.webkit?.messageHandlers?.NativeBridge
-        });
+            hasIOSBridge: !!window.webkit?.messageHandlers?.NativeBridge,
+        })
     }
 
     /**
@@ -50,15 +50,19 @@ class NativeBridgeUtil {
      */
     _validateCommand(command) {
         if (!command) {
-            throw new Error('Command is required');
+            throw new Error("Command is required")
         }
 
         if (!isValidCommand(command)) {
-            throw new Error(`Invalid command: ${command}. Available commands: ${Object.values(NATIVE_COMMANDS).join(', ')}`);
+            throw new Error(
+                `Invalid command: ${command}. Available commands: ${Object.values(NATIVE_COMMANDS).join(", ")}`
+            )
         }
 
         if (!this.isNativeEnvironment) {
-            throw new Error('Native bridge not available. Ensure you are running in a native WebView environment.');
+            throw new Error(
+                "Native bridge not available. Ensure you are running in a native WebView environment."
+            )
         }
     }
 
@@ -67,17 +71,17 @@ class NativeBridgeUtil {
      */
     _executeAndroidCommand(command, data) {
         try {
-            if (typeof window.NativeBridge[command] === 'function') {
-                console.log(`🌉 Calling Android method '${command}'`, data ? { data } : '(no data)');
+            if (typeof window.NativeBridge[command] === "function") {
+                console.log(`🌉 Calling Android method '${command}'`, data ? { data } : "(no data)")
                 // Always pass data parameter to match Kotlin method signatures
-                window.NativeBridge[command](data);
-                return true;
+                window.NativeBridge[command](data)
+                return true
             } else {
-                throw new Error(`Android bridge method '${command}' not found`);
+                throw new Error(`Android bridge method '${command}' not found`)
             }
         } catch (error) {
-            console.error(`Error executing Android command '${command}':`, error);
-            throw error;
+            console.error(`Error executing Android command '${command}':`, error)
+            throw error
         }
     }
 
@@ -90,14 +94,14 @@ class NativeBridgeUtil {
             const message = {
                 command: command,
                 data: data, // This can be null/undefined, iOS bridge should handle it
-            };
-            
-            console.log(`🌉 Calling iOS method '${command}'`, data ? { data } : '(no data)');
-            window.webkit.messageHandlers.NativeBridge.postMessage(message);
-            return true;
+            }
+
+            console.log(`🌉 Calling iOS method '${command}'`, data ? { data } : "(no data)")
+            window.webkit.messageHandlers.NativeBridge.postMessage(message)
+            return true
         } catch (error) {
-            console.error(`Error executing iOS command '${command}':`, error);
-            throw error;
+            console.error(`Error executing iOS command '${command}':`, error)
+            throw error
         }
     }
 
@@ -110,27 +114,29 @@ class NativeBridgeUtil {
     call(command, data = null) {
         try {
             // Validate environment and command
-            this._validateCommand(command);
+            this._validateCommand(command)
 
-            console.log(`🌉 Executing native command: ${command}`, data ? { data } : '');
+            console.log(`🌉 Executing native command: ${command}`, data ? { data } : "")
 
             // Execute on appropriate platform
             if (this.isAndroid) {
-                return this._executeAndroidCommand(command, data);
+                return this._executeAndroidCommand(command, data)
             } else if (this.isIOS) {
-                return this._executeIOSCommand(command, data);
+                return this._executeIOSCommand(command, data)
             }
 
-            return false;
+            return false
         } catch (error) {
-            console.error(`🌉 Failed to execute command '${command}':`, error);
-            
+            console.error(`🌉 Failed to execute command '${command}':`, error)
+
             // In development, we might want to show user-friendly errors
-            if (process.env.NODE_ENV === 'development') {
-                console.warn(`🌉 Development mode: Native command '${command}' failed. This is expected when running in browser.`);
+            if (process.env.NODE_ENV === "development") {
+                console.warn(
+                    `🌉 Development mode: Native command '${command}' failed. This is expected when running in browser.`
+                )
             }
-            
-            throw error;
+
+            throw error
         }
     }
 
@@ -147,7 +153,7 @@ class NativeBridgeUtil {
          * Request camera permission
          */
         requestPermission: () => this.call(NATIVE_COMMANDS.REQUEST_CAMERA_PERMISSION),
-    };
+    }
 
     /**
      * File-specific methods for easier usage
@@ -157,7 +163,7 @@ class NativeBridgeUtil {
          * Open file picker
          * @param {string} mimeType - MIME type filter (e.g., 'image/*', 'application/pdf')
          */
-        pick: (mimeType = '*/*') => this.call(NATIVE_COMMANDS.PICK_FILE, mimeType),
+        pick: (mimeType = "*/*") => this.call(NATIVE_COMMANDS.PICK_FILE, mimeType),
 
         /**
          * Open file with external app
@@ -165,10 +171,10 @@ class NativeBridgeUtil {
          * @param {string} mimeType - Optional MIME type
          */
         openWithIntent: (fileUrl, mimeType = null) => {
-            const params = mimeType ? `${fileUrl}|${mimeType}` : fileUrl;
-            return this.call(NATIVE_COMMANDS.OPEN_FILE_WITH_INTENT, params);
+            const params = mimeType ? `${fileUrl}|${mimeType}` : fileUrl
+            return this.call(NATIVE_COMMANDS.OPEN_FILE_WITH_INTENT, params)
         },
-    };
+    }
 
     /**
      * Haptic feedback methods
@@ -178,8 +184,9 @@ class NativeBridgeUtil {
          * Request haptic feedback
          * @param {string} feedbackType - Type of haptic feedback
          */
-        feedback: (feedbackType = 'light') => this.call(NATIVE_COMMANDS.REQUEST_HAPTIC_FEEDBACK, feedbackType),
-    };
+        feedback: (feedbackType = "light") =>
+            this.call(NATIVE_COMMANDS.REQUEST_HAPTIC_FEEDBACK, feedbackType),
+    }
 
     /**
      * Get environment info
@@ -189,41 +196,41 @@ class NativeBridgeUtil {
             isAndroid: this.isAndroid,
             isIOS: this.isIOS,
             isNativeEnvironment: this.isNativeEnvironment,
-            platform: this.isAndroid ? 'android' : this.isIOS ? 'ios' : 'web'
-        };
+            platform: this.isAndroid ? "android" : this.isIOS ? "ios" : "web",
+        }
     }
 
     /**
      * Check if native bridge is available
      */
     isAvailable() {
-        return this.isNativeEnvironment;
+        return this.isNativeEnvironment
     }
 
     /**
      * Debug method to test native bridge connectivity
      */
     testConnection() {
-        console.group('🌉 NativeBridge Connection Test');
-        console.log('Environment:', this.getEnvironmentInfo());
-        console.log('Available commands:', Object.values(NATIVE_COMMANDS));
-        
+        console.group("🌉 NativeBridge Connection Test")
+        console.log("Environment:", this.getEnvironmentInfo())
+        console.log("Available commands:", Object.values(NATIVE_COMMANDS))
+
         if (this.isAndroid && window.NativeBridge) {
-            console.log('Android bridge methods:', Object.getOwnPropertyNames(window.NativeBridge));
+            console.log("Android bridge methods:", Object.getOwnPropertyNames(window.NativeBridge))
         }
-        
+
         if (this.isIOS && window.webkit?.messageHandlers?.NativeBridge) {
-            console.log('iOS webkit bridge available');
+            console.log("iOS webkit bridge available")
         }
-        
-        console.groupEnd();
+
+        console.groupEnd()
     }
 }
 
 // Export singleton instance
-const nativeBridge = new NativeBridgeUtil();
+const nativeBridge = new NativeBridgeUtil()
 
-export default nativeBridge;
+export default nativeBridge
 
 // Also export the class for advanced usage
-export { NativeBridgeUtil };
+export { NativeBridgeUtil }
