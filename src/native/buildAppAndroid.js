@@ -570,6 +570,26 @@ async function copyIconAssets() {
         // If no custom icon found, just log and return (keep default icon)
         if (!iconImageFound) {
             progress.log("No custom app icon found (icon.png/jpg/jpeg), using default", "info")
+
+            if (_fs.default.existsSync(manifestPath)) {
+                let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+                // Only revert if manifest currently references custom icon
+                if (manifestContent.includes('android:icon="@drawable/icon"')) {
+                    manifestContent = manifestContent.replace(
+                        /android:icon="@drawable\/icon"/,
+                        'android:icon="@mipmap/ic_launcher"'
+                    )
+                    manifestContent = manifestContent.replace(
+                        /android:roundIcon="@drawable\/icon"/,
+                        'android:roundIcon="@mipmap/ic_launcher_round"'
+                    )
+
+                    _fs.default.writeFileSync(manifestPath, manifestContent)
+                    progress.log("Reverted AndroidManifest.xml to use default launcher icon", "info")
+                }
+            }
+
             return
         }
 
