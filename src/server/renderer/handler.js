@@ -196,9 +196,12 @@ const renderMarkUp = async (
                 onAllReady() {
                     const renderEndTime = process.hrtime.bigint()
                     const renderDuration = Number(renderEndTime - renderStartTime) / 1e6
-                    logger.info(
-                        `renderToPipeableStream duration: ${renderDuration.toFixed(2)}ms - ${req.originalUrl}`
-                    )
+                    logger.info({
+                        message: "renderToPipeableStream completed",
+                        duration_ms: renderDuration.toFixed(2),
+                        url: req.originalUrl,
+                        type: "render_duration",
+                    })
 
                     const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
                     res.write(firstFoldCss)
@@ -209,9 +212,13 @@ const renderMarkUp = async (
                 onError(error) {
                     const renderEndTime = process.hrtime.bigint()
                     const renderDuration = Number(renderEndTime - renderStartTime) / 1e6
-                    logger.info(
-                        `renderToPipeableStream duration (error): ${renderDuration.toFixed(2)}ms - ${req.originalUrl}`
-                    )
+                    logger.info({
+                        message: "renderToPipeableStream failed",
+                        duration_ms: renderDuration.toFixed(2),
+                        url: req.originalUrl,
+                        type: "render_duration",
+                        status: "error",
+                    })
                     logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
                     // function defined by user which needs to run if rendering fails
                     safeCall(onRenderError)
@@ -308,9 +315,12 @@ export default async function (req, res) {
                         .then(() => {
                             const requestEndTime = process.hrtime.bigint()
                             const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
-                            logger.info(
-                                `Document request processing time: ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
-                            )
+                            logger.info({
+                                message: "Document request completed",
+                                duration_ms: requestDuration.toFixed(2),
+                                url: req.originalUrl,
+                                type: "request_duration",
+                            })
                             resolve()
                         })
                         .catch(reject)
@@ -329,9 +339,13 @@ export default async function (req, res) {
                         .then(() => {
                             const requestEndTime = process.hrtime.bigint()
                             const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
-                            logger.info(
-                                `Document request processing time (error): ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
-                            )
+                            logger.info({
+                                message: "Document request completed with error",
+                                duration_ms: requestDuration.toFixed(2),
+                                url: req.originalUrl,
+                                type: "request_duration",
+                                status: "error",
+                            })
                             resolve()
                         })
                         .catch(reject)
@@ -354,9 +368,13 @@ export default async function (req, res) {
                     .then(() => {
                         const requestEndTime = process.hrtime.bigint()
                         const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
-                        logger.info(
-                            `Document request processing time (App error): ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
-                        )
+                        logger.info({
+                            message: "Document request completed with App error",
+                            duration_ms: requestDuration.toFixed(2),
+                            url: req.originalUrl,
+                            type: "request_duration",
+                            status: "app_error",
+                        })
                         resolve()
                     })
                     .catch(reject)
@@ -365,9 +383,13 @@ export default async function (req, res) {
     } catch (error) {
         const requestEndTime = process.hrtime.bigint()
         const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
-        logger.info(
-            `Document request processing time (handler error): ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
-        )
+        logger.info({
+            message: "Document request completed with handler error",
+            duration_ms: requestDuration.toFixed(2),
+            url: req.originalUrl,
+            type: "request_duration",
+            status: "handler_error",
+        })
         logger.error("Error in handling document request: " + error.toString())
         // function defined by user which needs to run when an error occurs in the handler
         safeCall(onRequestError, { req, res, error })
