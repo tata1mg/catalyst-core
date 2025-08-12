@@ -187,12 +187,19 @@ const renderMarkUp = async (
         res.status(status)
 
         return new Promise((resolve, reject) => {
+            const renderStartTime = process.hrtime.bigint()
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
                 onShellReady() {
                     res.setHeader("content-type", "text/html")
                     pipe(res)
                 },
                 onAllReady() {
+                    const renderEndTime = process.hrtime.bigint()
+                    const renderDuration = Number(renderEndTime - renderStartTime) / 1e6
+                    logger.info(
+                        `renderToPipeableStream duration: ${renderDuration.toFixed(2)}ms - ${req.originalUrl}`
+                    )
+
                     const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
                     res.write(firstFoldCss)
                     res.write(firstFoldJS)
@@ -200,6 +207,11 @@ const renderMarkUp = async (
                     resolve()
                 },
                 onError(error) {
+                    const renderEndTime = process.hrtime.bigint()
+                    const renderDuration = Number(renderEndTime - renderStartTime) / 1e6
+                    logger.info(
+                        `renderToPipeableStream duration (error): ${renderDuration.toFixed(2)}ms - ${req.originalUrl}`
+                    )
                     logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
                     // function defined by user which needs to run if rendering fails
                     safeCall(onRenderError)
@@ -225,6 +237,8 @@ const renderMarkUp = async (
  * @param {object} res - response object
  */
 export default async function (req, res) {
+    const requestStartTime = process.hrtime.bigint()
+
     try {
         let context = {}
         let fetcherData = {}
@@ -291,7 +305,14 @@ export default async function (req, res) {
 
                 return new Promise((resolve, reject) => {
                     renderMarkUp(null, req, res, allTags, fetcherData, store, matches, context, webExtractor)
-                        .then(resolve)
+                        .then(() => {
+                            const requestEndTime = process.hrtime.bigint()
+                            const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
+                            logger.info(
+                                `Document request processing time: ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
+                            )
+                            resolve()
+                        })
                         .catch(reject)
                 })
             } catch (error) {
@@ -305,7 +326,14 @@ export default async function (req, res) {
 
                 return new Promise((resolve, reject) => {
                     renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, webExtractor)
-                        .then(resolve)
+                        .then(() => {
+                            const requestEndTime = process.hrtime.bigint()
+                            const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
+                            logger.info(
+                                `Document request processing time (error): ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
+                            )
+                            resolve()
+                        })
                         .catch(reject)
                 })
             }
@@ -323,11 +351,23 @@ export default async function (req, res) {
                     context,
                     webExtractor
                 )
-                    .then(resolve)
+                    .then(() => {
+                        const requestEndTime = process.hrtime.bigint()
+                        const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
+                        logger.info(
+                            `Document request processing time (App error): ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
+                        )
+                        resolve()
+                    })
                     .catch(reject)
             })
         }
     } catch (error) {
+        const requestEndTime = process.hrtime.bigint()
+        const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
+        logger.info(
+            `Document request processing time (handler error): ${requestDuration.toFixed(2)}ms - ${req.originalUrl}`
+        )
         logger.error("Error in handling document request: " + error.toString())
         // function defined by user which needs to run when an error occurs in the handler
         safeCall(onRequestError, { req, res, error })
