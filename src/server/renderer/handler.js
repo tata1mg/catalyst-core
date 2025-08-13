@@ -246,6 +246,13 @@ const renderMarkUp = async (
 export default async function (req, res) {
     const requestStartTime = process.hrtime.bigint()
 
+    logger.info({
+        message: "Document request started",
+        elapsed_ms: 0,
+        url: req.originalUrl,
+        type: "request_start",
+    })
+
     try {
         let context = {}
         let fetcherData = {}
@@ -292,10 +299,32 @@ export default async function (req, res) {
 
             try {
                 // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
+                const serverFetcherStartTime = process.hrtime.bigint()
+                const elapsedAtFetcherStart = Number(serverFetcherStartTime - requestStartTime) / 1e6
+
+                logger.info({
+                    message: "ServerFetcher execution started",
+                    elapsed_ms: elapsedAtFetcherStart.toFixed(2),
+                    url: req.originalUrl,
+                    type: "server_fetcher_start",
+                })
+
                 fetcherData = await serverDataFetcher(
                     { routes: routes, req, res, url: req.originalUrl },
                     { store }
                 )
+
+                const serverFetcherEndTime = process.hrtime.bigint()
+                const elapsedAtFetcherEnd = Number(serverFetcherEndTime - requestStartTime) / 1e6
+                const serverFetcherDuration = Number(serverFetcherEndTime - serverFetcherStartTime) / 1e6
+
+                logger.info({
+                    message: "ServerFetcher execution completed",
+                    elapsed_ms: elapsedAtFetcherEnd.toFixed(2),
+                    duration_ms: serverFetcherDuration.toFixed(2),
+                    url: req.originalUrl,
+                    type: "server_fetcher_duration",
+                })
 
                 if (res.headersSent) {
                     return Promise.resolve(res)
@@ -317,7 +346,7 @@ export default async function (req, res) {
                             const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
                             logger.info({
                                 message: "Document request completed",
-                                duration_ms: requestDuration.toFixed(2),
+                                elapsed_ms: requestDuration.toFixed(2),
                                 url: req.originalUrl,
                                 type: "request_duration",
                             })
@@ -341,7 +370,7 @@ export default async function (req, res) {
                             const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
                             logger.info({
                                 message: "Document request completed with error",
-                                duration_ms: requestDuration.toFixed(2),
+                                elapsed_ms: requestDuration.toFixed(2),
                                 url: req.originalUrl,
                                 type: "request_duration",
                                 status: "error",
@@ -370,7 +399,7 @@ export default async function (req, res) {
                         const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
                         logger.info({
                             message: "Document request completed with App error",
-                            duration_ms: requestDuration.toFixed(2),
+                            elapsed_ms: requestDuration.toFixed(2),
                             url: req.originalUrl,
                             type: "request_duration",
                             status: "app_error",
@@ -385,7 +414,7 @@ export default async function (req, res) {
         const requestDuration = Number(requestEndTime - requestStartTime) / 1e6
         logger.info({
             message: "Document request completed with handler error",
-            duration_ms: requestDuration.toFixed(2),
+            elapsed_ms: requestDuration.toFixed(2),
             url: req.originalUrl,
             type: "request_duration",
             status: "handler_error",
