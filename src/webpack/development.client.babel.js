@@ -80,67 +80,66 @@ const webpackClientConfig = merge(baseConfig, {
 })
 
 // Create SSR config
-const webpackSSRConfig = mergeWithCustomize({
-    customizeArray: customizeArray({
-        entry: "replace",
-        optimization: "replace",
-        plugins: "prepend",
-    }),
-    customizeObject: customizeObject({
-        entry: "replace",
-        optimization: "replace",
-        plugins: "prepend",
-    }),
-})(baseConfig, {
-    mode: "development",
-    stats: "none",
-    target: "node",
-    entry: {
-        handler: path.resolve(__dirname, "..", "./server/renderer/handler.js"),
-    },
-    externals: [
-        /\.(html|png|gif|jpg)$/,
-        nodeExternals({
-            modulesDir: path.resolve(process.env.src_path, "./node_modules"),
-            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
-        }),
-        nodeExternals({
-            modulesDir: path.join(rootWorkspacePath.path, "./node_modules"),
-            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
-        }),
-    ],
-    resolve: {
-        alias: catalystResultMap,
-    },
-    output: {
-        path: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
-        chunkFilename: catalystConfig.chunkFileName,
-        filename: "handler.development.js",
-        libraryTarget: "commonjs",
-    },
-    plugins: [
-        new LoadablePlugin({
-            filename: "loadable-stats.json",
-            writeToDisk: {
-                filename: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
-            },
-        }),
-        new MiniCssExtractPlugin({
-            filename: catalystConfig.cssChunkFileName,
-            ignoreOrder: true,
-        }),
-        ...customWebpackConfig.ssrPlugins,
-    ].filter(Boolean),
-})
+// const webpackSSRConfig = mergeWithCustomize({
+//     customizeArray: customizeArray({
+//         entry: "replace",
+//         optimization: "replace",
+//         plugins: "prepend",
+//     }),
+//     customizeObject: customizeObject({
+//         entry: "replace",
+//         optimization: "replace",
+//         plugins: "prepend",
+//     }),
+// })(baseConfig, {
+//     mode: "development",
+//     target: "node",
+//     entry: {
+//         handler: path.resolve(__dirname, "..", "./server/renderer/handler.js"),
+//     },
+//     externals: [
+//         /\.(html|png|gif|jpg)$/,
+//         nodeExternals({
+//             modulesDir: path.resolve(process.env.src_path, "./node_modules"),
+//             allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
+//         }),
+//         nodeExternals({
+//             modulesDir: path.join(rootWorkspacePath.path, "./node_modules"),
+//             allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
+//         }),
+//     ],
+//     resolve: {
+//         alias: catalystResultMap,
+//     },
+//     output: {
+//         path: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
+//         chunkFilename: catalystConfig.chunkFileName,
+//         filename: "handler.development.js",
+//         libraryTarget: "commonjs",
+//     },
+//     plugins: [
+//         new LoadablePlugin({
+//             filename: "loadable-stats.json",
+//             writeToDisk: {
+//                 filename: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
+//             },
+//         }),
+//         new MiniCssExtractPlugin({
+//             filename: catalystConfig.cssChunkFileName,
+//             ignoreOrder: true,
+//         }),
+//         ...customWebpackConfig.ssrPlugins,
+//     ].filter(Boolean),
+// })
 
 // Create separate compiler for SSR that writes to disk
-const ssrCompiler = webpack(webpackSSRConfig)
-const watchInstance = ssrCompiler.watch({}, (err) => {
-    if (err) {
-        console.error(err)
-        return
-    }
-})
+// const ssrCompiler = webpack(webpackSSRConfig)
+// const watchInstance = ssrCompiler.watch({}, (err) => {
+//     if (err) {
+//         console.error(err)
+//         return
+//     }
+// })
 
 // Create dev server for client-side only
 let devServer = new WebpackDevServer(
@@ -166,37 +165,41 @@ let devServer = new WebpackDevServer(
     webpack(webpackClientConfig)
 )
 
-devServer.startCallback(() => {
-    console.log("Catalyst is compiling your files.")
-    console.log("Please wait until bundling is finished.\n")
-})
+// let serverDevServer = new WebpackDevServer(
+//     {
+//         port: 3008,
+//         host: WEBPACK_DEV_SERVER_HOSTNAME,
+//         // static: {
+//         //     publicPath: webpackClientConfig.output.publicPath,
+//         // },
+//         hot: true,
+//         historyApiFallback: true,
+//         headers: { "Access-Control-Allow-Origin": "*" },
+//         client: {
+//             logging: "error",
+//             overlay: {
+//                 errors: false,
+//                 warnings: false,
+//                 runtimeErrors: false,
+//             },
+//             reconnect: true,
+//         },
+//         devMiddleware: {
+//             serverSideRender: true,
+//             writeToDisk: true,
+//         },
+//     },
+//     webpack(webpackSSRConfig)
+// )
+// serverDevServer.start()
+
+devServer.start()
 
 // Cleanup on exit
 const cleanup = () => {
-    // Close webpack watch
-    watchInstance.close(() => {
-        // Delete the development handler file
-        try {
-            // Delete the file
-            require("fs").unlinkSync(
-                path.join(
-                    __dirname,
-                    "../..",
-                    ".catalyst-dev",
-                    "/server",
-                    "/renderer",
-                    "handler.development.js"
-                )
-            )
-            // Try to remove the renderer directory
-            require("fs").rmdirSync(path.join(process.env.src_path, ".catalyst-dev", "/renderer"))
-            // Try to remove the parent directory
-            require("fs").rmdirSync(path.join(process.env.src_path, ".catalyst-dev"))
-        } catch (err) {
-            // Ignore errors during cleanup
-        }
-        process.exit()
-    })
+    devServer.stop()
+
+    // Delete the development handler file
 }
 
 // Handle various ways the process might exit

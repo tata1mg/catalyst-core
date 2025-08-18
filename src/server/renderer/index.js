@@ -7,8 +7,7 @@ if (process.env.NODE_ENV === "production") {
 
     router.use(handler)
 } else {
-    const developmentHandler =
-        require("../../../.catalyst-dev/server/renderer/handler.development.js").default
+    const developmentHandler = require("./handler").default
 
     router.use(developmentHandler)
 }
