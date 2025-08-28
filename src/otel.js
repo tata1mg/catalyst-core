@@ -57,21 +57,12 @@ function init(config = {}) {
         })
 
         sdk.start()
-        console.log("✅ OpenTelemetry started successfully")
-        console.log("🔍 Service configuration:", {
-            serviceName,
-            serviceVersion,
-            environment,
-            exportIntervalMillis,
-            exportTimeoutMillis,
-            traceUrl,
-            metricUrl,
-        })
+        logger.info("✅ OpenTelemetry started successfully")
 
-        initializeCustomMetrics(serviceName, serviceVersion)
+        const meter = initializeCustomMetrics(serviceName, serviceVersion)
 
         const gracefulShutdown = (signal) => {
-            console.log(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
+            logger.info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
             sdk.shutdown()
                 .then(() => console.log("✅ OpenTelemetry shutdown completed"))
                 .catch((error) => {
@@ -83,7 +74,7 @@ function init(config = {}) {
         process.on("SIGTERM", () => gracefulShutdown("SIGTERM"))
         process.on("SIGINT", () => gracefulShutdown("SIGINT"))
 
-        return { sdk }
+        return { sdk, meter }
     } catch (error) {
         console.error("❌ Failed to initialize OpenTelemetry:", error)
         throw error
@@ -148,7 +139,7 @@ function initializeCustomMetrics(serviceName, serviceVersion) {
         result.observe(memUsage.heapTotal)
     })
 
-    console.log("✅ Custom metrics initialized")
+    return meter
 }
 
 export default { init }
