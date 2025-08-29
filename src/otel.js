@@ -64,9 +64,9 @@ function init(config = {}) {
         const gracefulShutdown = (signal) => {
             logger.info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
             sdk.shutdown()
-                .then(() => console.log("✅ OpenTelemetry shutdown completed"))
+                .then(() => logger.info("✅ OpenTelemetry shutdown completed"))
                 .catch((error) => {
-                    console.error("❌ Error terminating OpenTelemetry:", error)
+                    logger.error("❌ Error terminating OpenTelemetry:", error)
                 })
                 .finally(() => process.exit())
         }
@@ -76,7 +76,7 @@ function init(config = {}) {
 
         return { sdk, meter }
     } catch (error) {
-        console.error("❌ Failed to initialize OpenTelemetry:", error)
+        logger.error("❌ Failed to initialize OpenTelemetry:", error)
         throw error
     }
 }
