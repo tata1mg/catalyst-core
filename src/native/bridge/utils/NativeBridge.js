@@ -189,6 +189,17 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Device info methods
+     */
+    device = {
+        /**
+         * Get device information
+         * @returns {Promise} - Returns device info through callback
+         */
+        getDeviceInfo: () => this.call(NATIVE_COMMANDS.GET_DEVICE_INFO),
+    }
+
+    /**
      * Get environment info
      */
     getEnvironmentInfo() {
