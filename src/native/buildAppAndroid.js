@@ -620,6 +620,37 @@ async function copyIconAssets() {
     }
 }
 
+async function configureAppName(androidConfig) {
+    try {
+        const destPath = `${pwd}/androidProject/app/src/main/res`
+        const stringsFile = `${destPath}/values/strings.xml`
+
+        let stringsContent = _fs.default.readFileSync(stringsFile, "utf8")
+
+        // Check if androidConfig.appName exists
+        if (androidConfig.appName) {
+            stringsContent = stringsContent.replace(
+                /<string name="app_name">.*?<\/string>/,
+                `<string name="app_name">${androidConfig.appName}</string>`
+            )
+
+            _fs.default.writeFileSync(stringsFile, stringsContent)
+            progress.log(`App display name configured: ${androidConfig.appName}`, "success")
+        } else {
+            // No appName configured, revert to default
+            stringsContent = stringsContent.replace(
+                /<string name="app_name">.*?<\/string>/,
+                `<string name="app_name">My Application</string>`
+            )
+
+            _fs.default.writeFileSync(stringsFile, stringsContent)
+            progress.log("App display name reverted to default: My Application", "info")
+        }
+    } catch (error) {
+        progress.log(`Warning: Error configuring app name: ${error.message}`, "warning")
+    }
+}
+
 // Legacy function for backward compatibility
 async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType = "debug") {
     await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType)
@@ -776,6 +807,7 @@ async function buildAndroidApp() {
         await copyBuildAssets(androidConfig, buildOptimisation)
         await copySplashscreenAssets()
         await copyIconAssets()
+        await configureAppName(androidConfig)
         progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
         progress.complete("copyAssets")
 
