@@ -4,6 +4,7 @@ import {
     isValidCallback,
     debugInterfaces,
 } from "./constants/NativeInterfaces.js"
+import nativeBridge from "./utils/NativeBridge.js"
 
 class WebBridge {
     constructor() {
@@ -42,8 +43,10 @@ class WebBridge {
         window.WebBridge = bridge
         bridge.initialized = true
 
+        const { platform } = nativeBridge.getEnvironmentInfo()
+
         console.log("🌉 WebBridge created and attached to window")
-        return bridge
+        return { bridge, platform, getDeviceInfo: bridge.getDeviceInfo }
     }
 
     /**
@@ -197,6 +200,36 @@ class WebBridge {
 
         console.log(`🌉 Testing callback: ${interfaceName}`)
         this.callback(interfaceName, testData)
+    }
+
+    /**
+     * Get device information
+     * @returns {Promise<Object>} - Promise that resolves with device info or rejects with error
+     */
+    getDeviceInfo = () => {
+        return new Promise((resolve, reject) => {
+            const cleanup = () => {
+                this.unregister(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS)
+                this.unregister(NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR)
+            }
+
+            this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, (data) => {
+                cleanup()
+                resolve(JSON.parse(data))
+            })
+
+            this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR, (error) => {
+                cleanup()
+                reject(new Error(error))
+            })
+
+            try {
+                nativeBridge.device.getDeviceInfo()
+            } catch (error) {
+                cleanup()
+                reject(error)
+            }
+        })
     }
 }
 

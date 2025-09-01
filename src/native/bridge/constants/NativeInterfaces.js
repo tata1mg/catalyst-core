@@ -13,6 +13,9 @@ export const NATIVE_COMMANDS = {
 
     // Haptic feedback commands
     REQUEST_HAPTIC_FEEDBACK: "requestHapticFeedback",
+
+    // Device info commands
+    GET_DEVICE_INFO: "getDeviceInfo",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -35,6 +38,10 @@ export const NATIVE_CALLBACKS = {
 
     // Haptic feedback callbacks
     HAPTIC_FEEDBACK: "HAPTIC_FEEDBACK",
+
+    // Device info callbacks
+    ON_DEVICE_INFO_SUCCESS: "ON_DEVICE_INFO_SUCCESS",
+    ON_DEVICE_INFO_ERROR: "ON_DEVICE_INFO_ERROR",
 }
 
 // Interface Categories for easier management
@@ -67,6 +74,13 @@ export const INTERFACE_CATEGORIES = {
     HAPTIC: {
         commands: [NATIVE_COMMANDS.REQUEST_HAPTIC_FEEDBACK],
         callbacks: [NATIVE_CALLBACKS.HAPTIC_FEEDBACK],
+    },
+    DEVICE_INFO: {
+        commands: [NATIVE_COMMANDS.GET_DEVICE_INFO],
+        callbacks: [
+            NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS,
+            NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR,
+        ],
     },
 }
 
