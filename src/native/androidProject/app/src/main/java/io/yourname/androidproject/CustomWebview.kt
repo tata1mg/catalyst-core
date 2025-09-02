@@ -38,6 +38,7 @@ class CustomWebView(
     private var buildOptimisation: Boolean = false // Added property for build optimization
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
+    private var accessControlEnabled: Boolean = false
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -60,7 +61,8 @@ class CustomWebView(
         // Parse buildOptimisation property
         buildOptimisation = properties.getProperty("buildOptimisation", "false").toBoolean()
 
-        // Load allowed URLs from properties
+        // Load access control settings from properties
+        accessControlEnabled = properties.getProperty("accessControl.enabled", "false").toBoolean()
         allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
             .split(",")
             .map { it.trim() }
@@ -81,6 +83,7 @@ class CustomWebView(
             Log.d(TAG, "Cache Pattern: $cachePatterns")
             Log.d(TAG, "API Base URL: $apiBaseUrl")
             Log.d(TAG, "Build Optimisation: $buildOptimisation")
+            Log.d(TAG, "Access Control Enabled: $accessControlEnabled")
             Log.d(TAG, "Allowed URLs: $allowedUrls")
             Log.d(TAG, "Initial API Called: $isInitialApiCalled")
             Log.d(TAG, "Initial Page Loaded: $isInitialPageLoaded")
@@ -319,21 +322,23 @@ class CustomWebView(
                 request?.url?.let { url ->
                     val urlString = url.toString()
                     
-                    // Check if URL is an external domain
-                    if (url.scheme in listOf("http", "https") && isExternalDomain(urlString, allowedUrls)) {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "🌍 External domain detected, opening in in-app browser: $urlString")
+                    if (accessControlEnabled) {
+                        // Check if URL is an external domain
+                        if (url.scheme in listOf("http", "https") && isExternalDomain(urlString, allowedUrls)) {
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "🌍 External domain detected, opening in in-app browser: $urlString")
+                            }
+                            openInInAppBrowser(urlString)
+                            return true
                         }
-                        openInInAppBrowser(urlString)
-                        return true
-                    }
-                    
-                    // Check if URL is allowed for internal navigation
-                    if (!isUrlAllowed(urlString, allowedUrls)) {
-                        if (BuildConfig.DEBUG) {
-                            Log.w(TAG, "🚫 URL blocked by access control: $urlString")
+                        
+                        // Check if URL is allowed for internal navigation
+                        if (!isUrlAllowed(urlString, allowedUrls)) {
+                            if (BuildConfig.DEBUG) {
+                                Log.w(TAG, "🚫 URL blocked by access control: $urlString")
+                            }
+                            return true
                         }
-                        return true
                     }
                     
                     // Let WebView handle loading non-API HTTP/HTTPS URLs
@@ -353,7 +358,7 @@ class CustomWebView(
                     Log.d(TAG, "🔄 Intercepting request for: $url on thread: ${Thread.currentThread().name}")
                 }
 
-                if (!isUrlAllowed(url, allowedUrls)) {
+                if (accessControlEnabled && !isUrlAllowed(url, allowedUrls)) {
                     if (BuildConfig.DEBUG) {
                         Log.w(TAG, "🚫 Network request blocked by access control: $url")
                     }
