@@ -39,7 +39,7 @@ process.on("message", function (msg) {
 
 // if (env === "development") {
 // Add better stack tracing for promises in dev mode
-process.on("unhandledRejection", (r) => console.debug(r))
+process.on("unhandledRejection", (err) => console.log("unhandledRejection in Catalyst", err))
 // }
 
 const port = process.env.NODE_SERVER_PORT ?? 3005
