@@ -43,7 +43,8 @@ function safeStringify(err) {
     try {
         JSON.stringify(err)
     } catch (e) {
-        return e
+        console.log("error in safeStringify", e)
+        return err
     }
 }
 
