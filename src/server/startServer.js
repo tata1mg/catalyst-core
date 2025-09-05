@@ -41,7 +41,7 @@ process.on("message", function (msg) {
 // Add better stack tracing for promises in dev mode
 function safeStringify(err) {
     try {
-        JSON.stringify(err)
+        return JSON.stringify(err)
     } catch (e) {
         console.log("error in safeStringify", e)
         return err
