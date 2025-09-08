@@ -115,7 +115,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 // Use the local development server in debug mode
                 val local_ip = properties.getProperty("LOCAL_IP", "localhost")
                 val port = properties.getProperty("port", "3005")
-                val protocol = properties.getProperty("protocol", "http")
+                val useHttps = properties.getProperty("useHttps", "false").toBoolean()
+                val protocol = if (useHttps) "https" else "http"
                 currentUrl = "$protocol://$local_ip:$port"
             } else {
                 // In production, use the configured production URL or fallback to a file:// URL
