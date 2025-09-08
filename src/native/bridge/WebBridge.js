@@ -207,6 +207,36 @@ class WebBridge {
      * @returns {Promise<Object>} - Promise that resolves with device info or rejects with error
      */
     getDeviceInfo = () => {
+        // Key mapping from native to web keys
+        const DEVICE_INFO_KEY_MAP = {
+            android: {
+                model: "model",
+                manufacturer: "manufacturer",
+                platform: "platform",
+                screenWidth: "screenWidth",
+                screenHeight: "screenHeight",
+                screenDensity: "screenDensity",
+            },
+            ios: {
+                model: "model",
+                manufacturer: "manufacturer",
+                platform: "platform",
+                screenWidth: "screenWidth",
+                screenHeight: "screenHeight",
+                screenDensity: "screenDensity",
+            },
+        }
+
+        const parseDeviceInfo = (data) => {
+            const rawDeviceInfo = JSON.parse(data)
+            const { platform } = nativeBridge.getEnvironmentInfo()
+            const platformMapping = DEVICE_INFO_KEY_MAP[platform] || {}
+
+            return Object.fromEntries(
+                Object.entries(rawDeviceInfo).map(([key, value]) => [platformMapping[key] || key, value])
+            )
+        }
+
         return new Promise((resolve, reject) => {
             const cleanup = () => {
                 this.unregister(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS)
@@ -215,7 +245,7 @@ class WebBridge {
 
             this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, (data) => {
                 cleanup()
-                resolve(JSON.parse(data))
+                resolve(parseDeviceInfo(data))
             })
 
             this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR, (error) => {
