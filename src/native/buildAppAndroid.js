@@ -640,11 +640,11 @@ async function configureAppName(androidConfig) {
             // No appName configured, revert to default
             stringsContent = stringsContent.replace(
                 /<string name="app_name">.*?<\/string>/,
-                `<string name="app_name">My Application</string>`
+                `<string name="app_name">Catalyst Application</string>`
             )
 
             _fs.default.writeFileSync(stringsFile, stringsContent)
-            progress.log("App display name reverted to default: My Application", "info")
+            progress.log("App display name reverted to default: Catalyst Application", "info")
         }
     } catch (error) {
         progress.log(`Warning: Error configuring app name: ${error.message}`, "warning")
