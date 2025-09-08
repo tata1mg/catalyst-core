@@ -19,7 +19,6 @@ object DeviceInfoUtils {
             deviceInfo.apply {
                 put("model", Build.MODEL)
                 put("manufacturer", Build.MANUFACTURER)
-                put("androidVersion", Build.VERSION.RELEASE)
                 put("platform", "android")
             }
             
