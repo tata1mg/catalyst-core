@@ -132,6 +132,17 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
         }
     }
 
+    @JavascriptInterface
+    fun getDeviceInfo(options: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_ERROR, "get device info") {
+            mainActivity.runOnUiThread {
+                val deviceInfo = DeviceInfoUtils.getDeviceInfo(mainActivity)
+                BridgeUtils.logDebug(TAG, "Device info retrieved: $deviceInfo")
+                BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, deviceInfo.toString())
+            }
+        }
+    }
+
     private fun initializeCameraLauncher() {
         cameraLauncher = mainActivity.registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
             CameraUtils.processCameraResult(mainActivity, webView, currentPhotoUri, success)
