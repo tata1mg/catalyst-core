@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.3-canary.9] - 2025-09-11
+
+-   **App name configuration**
+-   **Device Info API**
+-   **Access control configuration**
+
 ## [0.0.3-canary.8] - 2025-01-06
 
 -   **App icon configuration**

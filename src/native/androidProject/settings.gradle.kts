@@ -31,5 +31,5 @@ dependencyResolutionManagement {
 }
 
 
-rootProject.name = "My Application"
+rootProject.name = "Catalyst Application"
 include(":app")

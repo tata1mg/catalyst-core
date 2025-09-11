@@ -20,6 +20,9 @@ export const NATIVE_COMMANDS = {
     REQUEST_NOTIFICATION_PERMISSION: "requestNotificationPermission",
     REGISTER_FOR_PUSH_NOTIFICATIONS: "registerForPushNotifications",
     UPDATE_BADGE_COUNT: "updateBadgeCount",
+
+    // Device info commands
+    GET_DEVICE_INFO: "getDeviceInfo",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -49,6 +52,10 @@ export const NATIVE_CALLBACKS = {
     PUSH_NOTIFICATION_TOKEN: "PUSH_NOTIFICATION_TOKEN",
     NOTIFICATION_RECEIVED: "NOTIFICATION_RECEIVED",
     NOTIFICATION_ACTION_PERFORMED: "NOTIFICATION_ACTION_PERFORMED",
+
+    // Device info callbacks
+    ON_DEVICE_INFO_SUCCESS: "ON_DEVICE_INFO_SUCCESS",
+    ON_DEVICE_INFO_ERROR: "ON_DEVICE_INFO_ERROR",
 }
 
 // Interface Categories for easier management
@@ -97,6 +104,10 @@ export const INTERFACE_CATEGORIES = {
             NATIVE_CALLBACKS.NOTIFICATION_RECEIVED,
             NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED,
         ],
+    },
+    DEVICE_INFO: {
+        commands: [NATIVE_COMMANDS.GET_DEVICE_INFO],
+        callbacks: [NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR],
     },
 }
 

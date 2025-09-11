@@ -196,7 +196,8 @@ class NativeBridgeUtil {
          * Schedule a local notification
          * @param {Object} config - Notification configuration object
          */
-        scheduleLocal: (config) => this.call(NATIVE_COMMANDS.SCHEDULE_LOCAL_NOTIFICATION, JSON.stringify(config)),
+        scheduleLocal: (config) =>
+            this.call(NATIVE_COMMANDS.SCHEDULE_LOCAL_NOTIFICATION, JSON.stringify(config)),
 
         /**
          * Cancel a local notification
@@ -219,6 +220,17 @@ class NativeBridgeUtil {
          * @param {number} count - Badge count number
          */
         updateBadge: (count) => this.call(NATIVE_COMMANDS.UPDATE_BADGE_COUNT, count?.toString()),
+    }
+
+    /**
+     * Device info methods
+     */
+    device = {
+        /**
+         * Get device information
+         * @returns {Promise} - Returns device info through callback
+         */
+        getDeviceInfo: () => this.call(NATIVE_COMMANDS.GET_DEVICE_INFO),
     }
 
     /**
