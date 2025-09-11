@@ -966,21 +966,52 @@ TITLE: Universal App Whitelisting
 
 DESCRIPTION:
 
-Network access control and navigation management for universal apps. All network calls are blocked by default, and all links are considered external by default and will open in the browser. To allow network calls or internal navigation, URLs must be added to the "allowedUrls" configuration.
+Network access control and navigation management for universal apps. Control URL access through the access control toggle and allowedUrls configuration.
 
 SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/Whitelisting
 
 ## Configuration
 
-The whitelisting system is configured through the `accessControl.allowedUrls` array in your app configuration:
+The whitelisting system is configured through the `WEBVIEW_CONFIG.accessControl` object:
 
 ```json
 {
+  "WEBVIEW_CONFIG": {
     "accessControl": {
-        "allowedUrls": ["https://api.example.com/users", "*.example.com", "subdomain.*.example.com"]
+      "enabled": true,
+      "allowedUrls": [
+        "https://api.example.com/users",
+        "*.example.com",
+        "subdomain.*.example.com"
+      ]
     }
+  }
 }
 ```
+
+## Access Control Toggle
+
+Control URL access restrictions through the `accessControl.enabled` setting.
+
+### Properties
+
+#### enabled
+- **Type**: Boolean
+- **Default**: `false`
+- **Description**: Enables or disables access control whitelisting
+- **Behavior**: 
+  - `true`: Only URLs in `allowedUrls` array can be accessed (default deny)
+  - `false`: All URLs are accessible (no restrictions)
+
+#### allowedUrls
+- **Type**: Array of strings
+- **Default**: `[]`
+- **Description**: List of URLs that are permitted when access control is enabled
+- **Format**: Supports exact URLs, wildcard patterns, and subdomain matching
+
+## Whitelisting Behavior
+
+All network calls are blocked by default when access control is enabled, and all links are considered external by default and will open in the browser. To allow network calls or internal navigation, URLs must be added to the "allowedUrls" configuration.
 
 ## URL Matching Patterns
 
@@ -1475,3 +1506,102 @@ Available Storage APIs:
 -   localStorage
 -   sessionStorage
 -   document.cookie
+
+---
+
+---
+
+TITLE: App name configuration
+
+DESCRIPTION:
+
+Custom app name configuration for universal apps. Control the display name of your application that appears in device launchers, app stores, and system settings.
+
+## Configuration
+
+The app name is configured through the `WEBVIEW_CONFIG` object in your app configuration:
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "android": {
+      "appName": "My Awesome App"
+    }
+  }
+}
+```
+
+---
+
+---
+
+TITLE: Device Info API
+
+DESCRIPTION:
+
+# Device Information API
+
+Access basic device details in your universal app using the Device Information API. This API provides essential device characteristics including hardware specifications and display properties.
+
+## API Usage
+
+### Initialization Method
+```javascript
+const { getDeviceInfo } = WebBridge.init()
+const deviceInfo = await getDeviceInfo();
+```
+
+### Direct Access Method
+```javascript
+const { getDeviceInfo } = window.WebBridge;
+const deviceInfo = await getDeviceInfo();
+```
+
+## Response Format
+
+The `getDeviceInfo()` method returns an object with the following keys:
+
+```javascript
+{
+  model: "Pixel 10",           // Device model name
+  manufacturer: "Google",            // Device manufacturer
+  platform: "android",                 // Operating system platform
+  screenWidth: 393,                // Screen width in pixels
+  screenHeight: 852,               // Screen height in pixels
+  screenDensity: 3.0               // Screen pixel density
+}
+```
+
+---
+
+
+---
+
+---
+
+TITLE: Protocol Configuration
+
+DESCRIPTION:
+
+# Protocol Configuration
+
+Configure webview protocol settings for your universal app. Control whether the webview uses HTTP or HTTPS protocol to customize app behavior and security.
+
+## Configuration
+
+The protocol setting is configured through the `WEBVIEW_CONFIG.useHttps` property:
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "useHttps": true
+  }
+}
+```
+
+- **Type**: Boolean
+- **Default**: `false`
+- **Description**: Controls the protocol used for webview URLs
+- **Behavior**:
+  - `true`: Uses HTTPS protocol
+  - `false`: Uses HTTP protocol
