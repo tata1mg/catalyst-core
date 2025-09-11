@@ -691,3 +691,118 @@ export const useHapticFeedback = () => {
         HAPTIC_TYPES,
     }
 }
+
+/**
+ * React hook for notification functionality
+ * Handles local notifications, push notifications, and badge management
+ */
+export const useNotification = () => {
+    const base = useBaseHook("useNotification")
+    const [permissionStatus, setPermissionStatus] = useState(null)
+    const [pushToken, setPushToken] = useState(null)
+    const [badges, setBadges] = useState(0)
+    const [lastNotification, setLastNotification] = useState(null)
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return {
+            data: null,
+            loading: false,
+            error: null,
+            execute: () => {},
+            scheduleLocal: () => {},
+            cancelLocal: () => {},
+            registerForPush: () => {},
+            updateBadge: () => {},
+            permissionStatus: null,
+            pushToken: null,
+            badges: 0,
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        // Register callbacks for all notification events
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+            setPermissionStatus(data)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            base.setDataAndComplete(result)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            setPushToken(result.token)
+            base.setDataAndComplete(result)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED, (data) => {
+            const notification = typeof data === "string" ? JSON.parse(data) : data
+            setLastNotification(notification)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED, (data) => {
+            const action = typeof data === "string" ? JSON.parse(data) : data
+            base.setDataAndComplete(action)
+        })
+
+        return () => {
+            // Cleanup
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED)
+        }
+    }, [])
+
+    // Local notification scheduling with all supported styles
+    const scheduleLocal = (config) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.scheduleLocal(config)
+        }, "schedule local notification")
+    }
+
+    const cancelLocal = (notificationId) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.cancelLocal(notificationId)
+        }, "cancel notification")
+    }
+
+    const registerForPush = () => {
+        base.executeOperation(() => {
+            nativeBridge.notification.registerForPush()
+        }, "register for push")
+    }
+
+    const updateBadge = (count) => {
+        nativeBridge.notification.updateBadge(count)
+        setBadges(count)
+    }
+
+    return {
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        execute: scheduleLocal,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Notification-specific
+        permissionStatus,
+        pushToken,
+        badges,
+        lastNotification,
+        scheduleLocal,
+        cancelLocal,
+        registerForPush,
+        updateBadge,
+    }
+}

@@ -13,6 +13,13 @@ export const NATIVE_COMMANDS = {
 
     // Haptic feedback commands
     REQUEST_HAPTIC_FEEDBACK: "requestHapticFeedback",
+
+    // Notification commands
+    SCHEDULE_LOCAL_NOTIFICATION: "scheduleLocalNotification",
+    CANCEL_LOCAL_NOTIFICATION: "cancelLocalNotification",
+    REQUEST_NOTIFICATION_PERMISSION: "requestNotificationPermission",
+    REGISTER_FOR_PUSH_NOTIFICATIONS: "registerForPushNotifications",
+    UPDATE_BADGE_COUNT: "updateBadgeCount",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -35,6 +42,13 @@ export const NATIVE_CALLBACKS = {
 
     // Haptic feedback callbacks
     HAPTIC_FEEDBACK: "HAPTIC_FEEDBACK",
+
+    // Notification callbacks
+    NOTIFICATION_PERMISSION_STATUS: "NOTIFICATION_PERMISSION_STATUS",
+    LOCAL_NOTIFICATION_SCHEDULED: "LOCAL_NOTIFICATION_SCHEDULED",
+    PUSH_NOTIFICATION_TOKEN: "PUSH_NOTIFICATION_TOKEN",
+    NOTIFICATION_RECEIVED: "NOTIFICATION_RECEIVED",
+    NOTIFICATION_ACTION_PERFORMED: "NOTIFICATION_ACTION_PERFORMED",
 }
 
 // Interface Categories for easier management
@@ -67,6 +81,22 @@ export const INTERFACE_CATEGORIES = {
     HAPTIC: {
         commands: [NATIVE_COMMANDS.REQUEST_HAPTIC_FEEDBACK],
         callbacks: [NATIVE_CALLBACKS.HAPTIC_FEEDBACK],
+    },
+    NOTIFICATION: {
+        commands: [
+            NATIVE_COMMANDS.SCHEDULE_LOCAL_NOTIFICATION,
+            NATIVE_COMMANDS.CANCEL_LOCAL_NOTIFICATION,
+            NATIVE_COMMANDS.REQUEST_NOTIFICATION_PERMISSION,
+            NATIVE_COMMANDS.REGISTER_FOR_PUSH_NOTIFICATIONS,
+            NATIVE_COMMANDS.UPDATE_BADGE_COUNT,
+        ],
+        callbacks: [
+            NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS,
+            NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED,
+            NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN,
+            NATIVE_CALLBACKS.NOTIFICATION_RECEIVED,
+            NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED,
+        ],
     },
 }
 
