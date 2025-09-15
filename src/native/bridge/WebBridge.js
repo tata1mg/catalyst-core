@@ -53,7 +53,7 @@ class WebBridge {
 
         const { platform } = nativeBridge.getEnvironmentInfo()
         // Auto-initialize native input handling if on Android
-        if (this._detectAndroid()) {
+        if (window.NativeBridge && typeof window.NativeBridge === "object") {
             bridge._initializeNativeInputs()
         }
 
