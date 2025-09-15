@@ -763,6 +763,11 @@ export const useNotification = () => {
 
     // Local notification scheduling with all supported styles
     const scheduleLocal = (config) => {
+        if (permissionStatus !== PERMISSION_STATUS.GRANTED) {
+            nativeBridge.notification.requestPermission()
+            return
+        }
+
         base.executeOperation(() => {
             nativeBridge.notification.scheduleLocal(config)
         }, "schedule local notification")

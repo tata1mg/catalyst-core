@@ -18,7 +18,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
-    private lateinit var properties: Properties
+    lateinit var properties: Properties
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var splashStartTime: Long = 0
@@ -167,6 +167,19 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        // Handle notification permission request result
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.handlePermissionResult(requestCode, permissions, grantResults)
+        }
     }
 
     private fun configureSplashScreen(splashScreen: androidx.core.splashscreen.SplashScreen) {
