@@ -2,7 +2,10 @@ package io.yourname.androidproject
 
 import android.os.Bundle
 import android.util.Log
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.EditText
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
@@ -22,6 +25,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var splashStartTime: Long = 0
+    
+    // Input overlay container for native input fields
+    private lateinit var inputOverlayContainer: FrameLayout
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -74,6 +80,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
         setContentView(binding.root)
+        
+        // Initialize input overlay container
+        setupInputOverlayContainer()
 
         // Enable hardware acceleration for the window
         enableHardwareAcceleration()
@@ -183,6 +192,48 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             } else {
                 !webViewLoaded
             }
+        }
+    }
+    
+    /**
+     * Setup input overlay container for native input fields
+     */
+    private fun setupInputOverlayContainer() {
+        inputOverlayContainer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            isClickable = false
+            isFocusable = false
+        }
+        
+        // Add overlay container to the root view
+        val rootView = findViewById<ViewGroup>(android.R.id.content)
+        rootView.addView(inputOverlayContainer)
+        
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Input overlay container initialized")
+        }
+    }
+    
+    /**
+     * Add input overlay to the container
+     */
+    fun addInputOverlay(editText: EditText) {
+        inputOverlayContainer.addView(editText)
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Input overlay added to container")
+        }
+    }
+    
+    /**
+     * Remove input overlay from the container
+     */
+    fun removeInputOverlay(editText: EditText) {
+        inputOverlayContainer.removeView(editText)
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Input overlay removed from container")
         }
     }
 }

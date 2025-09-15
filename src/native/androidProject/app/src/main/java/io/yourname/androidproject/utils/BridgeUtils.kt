@@ -33,6 +33,10 @@ object BridgeUtils {
         // Haptic feedback events
         HAPTIC_FEEDBACK("HAPTIC_FEEDBACK"),
         
+        // Native input events
+        ON_NATIVE_INPUT_VALUE("ON_NATIVE_INPUT_VALUE"),
+        ON_NATIVE_INPUT_CANCELLED("ON_NATIVE_INPUT_CANCELLED"),
+        
         // Intent-related events
         ON_INTENT_SUCCESS("ON_INTENT_SUCCESS"),
         ON_INTENT_ERROR("ON_INTENT_ERROR"),

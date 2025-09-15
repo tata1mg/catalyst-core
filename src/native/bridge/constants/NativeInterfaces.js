@@ -16,6 +16,8 @@ export const NATIVE_COMMANDS = {
 
     // Device info commands
     GET_DEVICE_INFO: "getDeviceInfo",
+    // Native input commands
+    SHOW_NATIVE_INPUT: "showNativeInput",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -42,6 +44,8 @@ export const NATIVE_CALLBACKS = {
     // Device info callbacks
     ON_DEVICE_INFO_SUCCESS: "ON_DEVICE_INFO_SUCCESS",
     ON_DEVICE_INFO_ERROR: "ON_DEVICE_INFO_ERROR",
+    ON_NATIVE_INPUT_VALUE: "ON_NATIVE_INPUT_VALUE",
+    ON_NATIVE_INPUT_CANCELLED: "ON_NATIVE_INPUT_CANCELLED",
 }
 
 // Interface Categories for easier management
@@ -77,10 +81,12 @@ export const INTERFACE_CATEGORIES = {
     },
     DEVICE_INFO: {
         commands: [NATIVE_COMMANDS.GET_DEVICE_INFO],
-        callbacks: [
-            NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS,
-            NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR,
-        ],
+        callbacks: [NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR],
+
+        INPUT: {
+            commands: [NATIVE_COMMANDS.SHOW_NATIVE_INPUT],
+            callbacks: [NATIVE_CALLBACKS.ON_NATIVE_INPUT_VALUE, NATIVE_CALLBACKS.ON_NATIVE_INPUT_CANCELLED],
+        },
     },
 }
 
