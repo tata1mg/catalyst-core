@@ -652,12 +652,21 @@ async function configureAppName(androidConfig) {
 }
 
 async function processNotifications(WEBVIEW_CONFIG) {
-    if (!WEBVIEW_CONFIG.notifications?.enabled) {
-        progress.log("Notifications disabled - skipping notification setup", "info")
-        return
-    }
+    const hasNotificationConfig = !!WEBVIEW_CONFIG.notifications?.enabled
 
     try {
+        // Always clean up notification configurations first (regardless of config)
+        await cleanupNotificationPermissions()
+        await cleanupNotificationResources()
+        await cleanupNotificationMetadata()
+        await cleanupNotificationAssets()
+
+        if (!hasNotificationConfig) {
+            progress.log("Notifications disabled - cleaned up notification configurations", "info")
+            return
+        }
+
+        // Only add configurations if notifications are enabled
         await addNotificationPermissions()
         await generateNotificationResources(WEBVIEW_CONFIG.notifications)
         await addNotificationMetadata()
@@ -717,20 +726,16 @@ async function addNotificationMetadata() {
         <meta-data
             android:name="default_notification_channel_id"
             android:value="default_notifications" />
-        
         <meta-data
             android:name="default_notification_icon"
             android:resource="@drawable/ic_notification" />
-        
         <meta-data
             android:name="default_notification_color"
             android:resource="@color/notification_color" />`
 
-        if (!manifestContent.includes("default_notification_channel_id")) {
-            manifestContent = manifestContent.replace(/(\s*<\/application>)/, `${metadataXml}\n$1`)
-            _fs.default.writeFileSync(manifestPath, manifestContent)
-            progress.log("Added notification metadata to AndroidManifest.xml", "success")
-        }
+        manifestContent = manifestContent.replace(/(\s*<\/application>)/, `${metadataXml}\n$1`)
+        _fs.default.writeFileSync(manifestPath, manifestContent)
+        progress.log("Added notification metadata to AndroidManifest.xml", "success")
     } catch (error) {
         throw new Error(`Failed to add notification metadata: ${error.message}`)
     }
@@ -747,13 +752,13 @@ async function processNotificationAssets() {
         // Define notification icons to process
         const notificationIcons = [
             { sourceName: "notification-icon", resourceName: "ic_notification" },
-            { sourceName: "notification-large", resourceName: "ic_notification_large" }
+            { sourceName: "notification-large", resourceName: "ic_notification_large" },
         ]
 
         // Define notification sounds to process
         const notificationSounds = [
             { sourceName: "notification-sound-default", resourceName: "notification_sound_default" },
-            { sourceName: "notification-sound-urgent", resourceName: "notification_sound_urgent" }
+            { sourceName: "notification-sound-urgent", resourceName: "notification_sound_urgent" },
         ]
 
         // Remove existing notification icons to avoid conflicts
@@ -786,7 +791,10 @@ async function processNotificationAssets() {
                 if (_fs.default.existsSync(iconImagePath)) {
                     const destImagePath = `${destPath}/drawable/${icon.resourceName}.${format}`
                     _fs.default.copyFileSync(iconImagePath, destImagePath)
-                    progress.log(`Notification icon copied: ${icon.sourceName}.${format} -> ${icon.resourceName}.${format}`, "success")
+                    progress.log(
+                        `Notification icon copied: ${icon.sourceName}.${format} -> ${icon.resourceName}.${format}`,
+                        "success"
+                    )
                     assetsProcessed++
 
                     // Track if we found the main notification icon
@@ -811,7 +819,10 @@ async function processNotificationAssets() {
                 if (_fs.default.existsSync(soundImagePath)) {
                     const destSoundPath = `${destPath}/raw/${sound.resourceName}.${format}`
                     _fs.default.copyFileSync(soundImagePath, destSoundPath)
-                    progress.log(`Notification sound copied: ${sound.sourceName}.${format} -> ${sound.resourceName}.${format}`, "success")
+                    progress.log(
+                        `Notification sound copied: ${sound.sourceName}.${format} -> ${sound.resourceName}.${format}`,
+                        "success"
+                    )
                     assetsProcessed++
                     break
                 }
@@ -842,6 +853,123 @@ function generateNotificationIconDrawable(iconName, destPath) {
 </vector>`
 
     _fs.default.writeFileSync(`${destPath}/drawable/${iconName}.xml`, iconXml)
+}
+
+// Cleanup functions to remove notification configurations
+async function cleanupNotificationPermissions() {
+    try {
+        const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+        // Remove notification permissions
+        const notificationPermissions = [
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.VIBRATE",
+            "android.permission.WAKE_LOCK",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+        ]
+
+        notificationPermissions.forEach((permission) => {
+            const permissionRegex = new RegExp(
+                `\\s*<uses-permission android:name="${permission}"[^>]*/>`,
+                "g"
+            )
+            manifestContent = manifestContent.replace(permissionRegex, "")
+        })
+
+        _fs.default.writeFileSync(manifestPath, manifestContent)
+    } catch (error) {
+        // Don't throw error for cleanup operations, just log
+        progress.log(`Warning: Error cleaning notification permissions: ${error.message}`, "warning")
+    }
+}
+
+async function cleanupNotificationResources() {
+    try {
+        const colorsPath = `${pwd}/androidProject/app/src/main/res/values/colors.xml`
+        let colorsContent = _fs.default.readFileSync(colorsPath, "utf8")
+
+        // Remove notification color
+        const existingColorLine = colorsContent
+            .split("\n")
+            .find((line) => line.includes('name="notification_color"'))
+
+        if (existingColorLine) {
+            colorsContent = colorsContent.replace(existingColorLine, "")
+            _fs.default.writeFileSync(colorsPath, colorsContent)
+        }
+    } catch (error) {
+        progress.log(`Warning: Error cleaning notification resources: ${error.message}`, "warning")
+    }
+}
+
+async function cleanupNotificationMetadata() {
+    try {
+        const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+        // Remove notification metadata entries
+        const metadataNames = [
+            "default_notification_channel_id",
+            "default_notification_icon",
+            "default_notification_color",
+        ]
+
+        metadataNames.forEach((metadataName) => {
+            // Remove the meta-data block including comments
+            const metadataRegex = new RegExp(
+                `\\s*<!--[^>]*notification[^>]*-->\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>|\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>`,
+                "gi"
+            )
+            manifestContent = manifestContent.replace(metadataRegex, "")
+        })
+
+        // Clean up any standalone notification comments
+        manifestContent = manifestContent.replace(/\s*<!--\s*Default notification configuration\s*-->/gi, "")
+
+        _fs.default.writeFileSync(manifestPath, manifestContent)
+    } catch (error) {
+        progress.log(`Warning: Error cleaning notification metadata: ${error.message}`, "warning")
+    }
+}
+
+async function cleanupNotificationAssets() {
+    try {
+        const destPath = `${pwd}/androidProject/app/src/main/res`
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp", "xml"]
+        const audioFormats = ["mp3", "wav", "ogg"]
+
+        // Define notification icons to clean up
+        const notificationIcons = ["ic_notification", "ic_notification_large"]
+
+        // Define notification sounds to clean up
+        const notificationSounds = ["notification_sound_default", "notification_sound_urgent"]
+
+        // Remove existing notification icons
+        for (const icon of notificationIcons) {
+            for (const format of imageFormats) {
+                const iconPath = `${destPath}/drawable/${icon}.${format}`
+                if (_fs.default.existsSync(iconPath)) {
+                    _fs.default.unlinkSync(iconPath)
+                }
+            }
+        }
+
+        // Remove existing notification sounds
+        const rawDir = `${destPath}/raw`
+        if (_fs.default.existsSync(rawDir)) {
+            for (const sound of notificationSounds) {
+                for (const format of audioFormats) {
+                    const soundPath = `${rawDir}/${sound}.${format}`
+                    if (_fs.default.existsSync(soundPath)) {
+                        _fs.default.unlinkSync(soundPath)
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        progress.log(`Warning: Error cleaning notification assets: ${error.message}`, "warning")
+    }
 }
 
 // Legacy function for backward compatibility
