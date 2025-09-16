@@ -783,7 +783,7 @@ async function addNotificationMetadata() {
 
         <!-- Push Notification Service -->
         <service
-            android:name="io.yourname.androidproject.utils.PushNotificationService"
+            android:name="io.yourname.androidproject.utils.PushNotificationUtils"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
@@ -984,7 +984,7 @@ async function cleanupNotificationMetadata() {
         })
 
         // Remove Push Notification Service
-        const serviceRegex = /\s*<!--\s*Push Notification Service\s*-->\s*<service[^>]*android:name="[^"]*PushNotificationService"[\s\S]*?<\/service>/gi
+        const serviceRegex = /\s*<!--\s*Push Notification Service\s*-->\s*<service[^>]*android:name="[^"]*PushNotificationUtils"[\s\S]*?<\/service>/gi
         manifestContent = manifestContent.replace(serviceRegex, "")
 
         // Clean up any standalone notification comments

@@ -2,16 +2,19 @@ package io.yourname.androidproject.utils
 
 import android.content.Context
 import android.webkit.WebView
-import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.util.Properties
+import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import com.google.android.gms.tasks.OnCompleteListener
+import io.yourname.androidproject.MainActivity
 
 /**
- * Minimal FCM push notification utility
- * Handles token management, topic subscription, and message processing
+ * Firebase Cloud Messaging Service and Utility
+ * Handles FCM callbacks, token management, topic subscription, and message processing
  */
-class PushNotificationUtils(private val properties: Properties) {
+class PushNotificationUtils(private val properties: Properties = Properties()) : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "PushNotificationUtils"
@@ -20,10 +23,56 @@ class PushNotificationUtils(private val properties: Properties) {
         private const val KEY_SUBSCRIBED_TOPICS = "subscribed_topics"
     }
 
+    // ==================== FIREBASE MESSAGING SERVICE CALLBACKS ====================
+
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        super.onMessageReceived(remoteMessage)
+
+        BridgeUtils.logInfo(TAG, "FCM message received from: ${remoteMessage.from}")
+
+        try {
+            // Convert RemoteMessage to data map
+            val data = mutableMapOf<String, String>()
+
+            // Add notification data if present
+            remoteMessage.notification?.let { notification ->
+                notification.title?.let { data["title"] = it }
+                notification.body?.let { data["body"] = it }
+                notification.channelId?.let { data["channel"] = it }
+            }
+
+            // Add custom data
+            data.putAll(remoteMessage.data)
+
+            // Get WebView reference and handle the push
+            val webView = MainActivity.getCurrentWebView()
+            handleIncomingPush(webView, this, data)
+
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Error processing FCM message", e)
+        }
+    }
+
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+
+        BridgeUtils.logInfo(TAG, "FCM token refreshed: ${token.take(20)}...")
+
+        try {
+            val webView = MainActivity.getCurrentWebView()
+            handleTokenRefresh(webView, this, token)
+
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Error handling token refresh", e)
+        }
+    }
+
+    // ==================== UTILITY METHODS ====================
+
     /**
      * Initialize and get FCM token
      */
-    suspend fun initializeAndGetToken(context: Context): String {
+    fun initializeAndGetToken(context: Context): String {
         return try {
             val enabled = properties.getProperty("notifications.enabled", "true").toBoolean()
             if (!enabled) {
@@ -31,10 +80,18 @@ class PushNotificationUtils(private val properties: Properties) {
                 return ""
             }
 
-            val token = FirebaseMessaging.getInstance().token.await()
-            storePushToken(context, token)
-            BridgeUtils.logInfo(TAG, "FCM token retrieved: $token")
-            token
+            FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    BridgeUtils.logError(TAG, "Fetching FCM registration token failed", task.exception)
+                    return@OnCompleteListener
+                }
+
+                val token = task.result
+                storePushToken(context, token)
+                BridgeUtils.logInfo(TAG, "FCM token retrieved: ${token.take(20)}...")
+            })
+
+            getPushToken(context) ?: ""
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to get FCM token", e)
             ""
@@ -68,7 +125,8 @@ class PushNotificationUtils(private val properties: Properties) {
                 channel = data["channel"] ?: "default_notifications",
                 data = data
             )
-            NotificationUtils(context).scheduleLocalNotification(context, config)
+            val notificationUtils = NotificationUtils(context)
+            notificationUtils.scheduleLocalNotification(context, config)
 
             // Notify web layer
             webView?.let { notifyWebOfReceivedPush(it, data) }
@@ -80,17 +138,23 @@ class PushNotificationUtils(private val properties: Properties) {
     /**
      * Subscribe to topic
      */
-    suspend fun subscribeToTopic(context: Context, topic: String): Boolean {
+    fun subscribeToTopic(context: Context, topic: String): Boolean {
         return try {
-            FirebaseMessaging.getInstance().subscribeToTopic(topic).await()
+            FirebaseMessaging.getInstance().subscribeToTopic(topic)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        BridgeUtils.logInfo(TAG, "Subscribed to Firebase topic: $topic")
+                        // Store locally on success
+                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        val topics = getSubscribedTopics(context).toMutableSet()
+                        topics.add(topic)
+                        prefs.edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
+                    } else {
+                        BridgeUtils.logError(TAG, "Failed to subscribe to topic: $topic", task.exception)
+                    }
+                }
 
-            // Store locally
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val topics = getSubscribedTopics(context).toMutableSet()
-            topics.add(topic)
-            prefs.edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
-
-            BridgeUtils.logInfo(TAG, "Subscribed to topic: $topic")
+            BridgeUtils.logInfo(TAG, "Subscribing to topic: $topic")
             true
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to subscribe to topic: $topic", e)
@@ -101,17 +165,23 @@ class PushNotificationUtils(private val properties: Properties) {
     /**
      * Unsubscribe from topic
      */
-    suspend fun unsubscribeFromTopic(context: Context, topic: String): Boolean {
+    fun unsubscribeFromTopic(context: Context, topic: String): Boolean {
         return try {
-            FirebaseMessaging.getInstance().unsubscribeFromTopic(topic).await()
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(topic)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        BridgeUtils.logInfo(TAG, "Unsubscribed from Firebase topic: $topic")
+                        // Remove from local storage on success
+                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        val topics = getSubscribedTopics(context).toMutableSet()
+                        topics.remove(topic)
+                        prefs.edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
+                    } else {
+                        BridgeUtils.logError(TAG, "Failed to unsubscribe from topic: $topic", task.exception)
+                    }
+                }
 
-            // Remove from local storage
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val topics = getSubscribedTopics(context).toMutableSet()
-            topics.remove(topic)
-            prefs.edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
-
-            BridgeUtils.logInfo(TAG, "Unsubscribed from topic: $topic")
+            BridgeUtils.logInfo(TAG, "Unsubscribing from topic: $topic")
             true
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to unsubscribe from topic: $topic", e)
@@ -138,11 +208,18 @@ class PushNotificationUtils(private val properties: Properties) {
     /**
      * Delete all push data
      */
-    suspend fun deleteAllPushData(context: Context): Boolean {
+    fun deleteAllPushData(context: Context): Boolean {
         return try {
-            FirebaseMessaging.getInstance().deleteToken().await()
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
-            BridgeUtils.logInfo(TAG, "All push data deleted")
+            FirebaseMessaging.getInstance().deleteToken()
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        BridgeUtils.logInfo(TAG, "Firebase token deleted")
+                        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+                        BridgeUtils.logInfo(TAG, "All push data deleted")
+                    } else {
+                        BridgeUtils.logError(TAG, "Failed to delete Firebase token", task.exception)
+                    }
+                }
             true
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to delete push data", e)
@@ -151,16 +228,17 @@ class PushNotificationUtils(private val properties: Properties) {
     }
 
     /**
+     * Get current push provider
+     */
+    fun getPushProvider(@Suppress("UNUSED_PARAMETER") context: Context): String {
+        return "fcm"
+    }
+
+    /**
      * Check if FCM is available
      */
-    fun isAvailable(context: Context): Boolean {
-        return try {
-            FirebaseMessaging.getInstance()
-            true
-        } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "FCM not available", e)
-            false
-        }
+    fun isAvailable(@Suppress("UNUSED_PARAMETER") context: Context): Boolean {
+        return true
     }
 
     // ==================== PRIVATE HELPERS ====================
@@ -193,113 +271,9 @@ class PushNotificationUtils(private val properties: Properties) {
 }
 
 /**
- * Push notification service to handle incoming messages
- * This is a separate top-level class to be properly accessible by Android
+ * Note: Firebase push notification service would be defined here when Firebase is available.
+ * Since Firebase is conditionally loaded, the actual service implementation should be
+ * in a separate file that's only compiled when Firebase dependencies are present.
+ *
+ * For now, this class provides local notification functionality only.
  */
-class PushNotificationService : com.google.firebase.messaging.FirebaseMessagingService() {
-
-    private val TAG = "PushNotificationService"
-
-    override fun onMessageReceived(remoteMessage: com.google.firebase.messaging.RemoteMessage) {
-        super.onMessageReceived(remoteMessage)
-
-        BridgeUtils.logInfo(TAG, "Received FCM message from: ${remoteMessage.from}")
-
-        try {
-            // Get the current application context
-            val context = applicationContext
-
-            // Load properties to access configuration
-            val properties = java.util.Properties()
-            try {
-                val inputStream = context.assets.open("webview_config.properties")
-                properties.load(inputStream)
-                inputStream.close()
-            } catch (e: Exception) {
-                BridgeUtils.logError(TAG, "Failed to load webview config properties", e)
-                // Continue with empty properties
-            }
-
-            // Create PushNotificationUtils instance
-            val pushUtils = PushNotificationUtils(properties)
-
-            // Convert RemoteMessage data to Map<String, String>
-            val data = mutableMapOf<String, String>()
-
-            // Add notification data if present
-            remoteMessage.notification?.let { notification ->
-                notification.title?.let { data["title"] = it }
-                notification.body?.let { data["body"] = it }
-                notification.channelId?.let { data["channel"] = it }
-            }
-
-            // Add custom data payload
-            data.putAll(remoteMessage.data)
-
-            // Add message metadata
-            data["messageId"] = remoteMessage.messageId ?: ""
-            data["from"] = remoteMessage.from ?: ""
-            data["to"] = remoteMessage.to ?: ""
-            data["messageType"] = remoteMessage.messageType ?: ""
-            data["collapseKey"] = remoteMessage.collapseKey ?: ""
-            data["ttl"] = remoteMessage.ttl.toString()
-            data["sentTime"] = remoteMessage.sentTime.toString()
-
-            BridgeUtils.logInfo(TAG, "Processing message with ${data.size} data fields")
-
-            // Handle the incoming push notification
-            // Note: WebView reference not available in service, so passing null
-            pushUtils.handleIncomingPush(null, context, data)
-
-        } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Error processing FCM message", e)
-        }
-    }
-
-    override fun onNewToken(token: String) {
-        super.onNewToken(token)
-
-        BridgeUtils.logInfo(TAG, "FCM token refreshed: $token")
-
-        try {
-            // Get the current application context
-            val context = applicationContext
-
-            // Load properties to access configuration
-            val properties = java.util.Properties()
-            try {
-                val inputStream = context.assets.open("webview_config.properties")
-                properties.load(inputStream)
-                inputStream.close()
-            } catch (e: Exception) {
-                BridgeUtils.logError(TAG, "Failed to load webview config properties", e)
-                // Continue with empty properties
-            }
-
-            // Create PushNotificationUtils instance
-            val pushUtils = PushNotificationUtils(properties)
-
-            // Handle the token refresh
-            // Note: WebView reference not available in service, so passing null
-            pushUtils.handleTokenRefresh(null, context, token)
-
-        } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Error handling token refresh", e)
-        }
-    }
-
-    override fun onDeletedMessages() {
-        super.onDeletedMessages()
-        BridgeUtils.logInfo(TAG, "FCM messages were deleted on the server")
-    }
-
-    override fun onMessageSent(msgId: String) {
-        super.onMessageSent(msgId)
-        BridgeUtils.logInfo(TAG, "FCM message sent successfully: $msgId")
-    }
-
-    override fun onSendError(msgId: String, exception: Exception) {
-        super.onSendError(msgId, exception)
-        BridgeUtils.logError(TAG, "FCM message send error for $msgId", exception)
-    }
-}

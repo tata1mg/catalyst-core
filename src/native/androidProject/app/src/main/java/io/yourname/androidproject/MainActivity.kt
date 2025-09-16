@@ -14,6 +14,14 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
+    companion object {
+        private var currentInstance: MainActivity? = null
+
+        fun getCurrentWebView(): android.webkit.WebView? {
+            return currentInstance?.customWebView?.getWebView()
+        }
+    }
+
     private val TAG = "WebViewDebug"
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
@@ -47,6 +55,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        currentInstance = this
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         if (BuildConfig.DEBUG) {
@@ -164,6 +173,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
+        currentInstance = null
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()

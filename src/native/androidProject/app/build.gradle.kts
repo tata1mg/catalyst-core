@@ -23,40 +23,6 @@ fun getLocalIpAddress(): String {
         .firstOrNull() ?: "127.0.0.1"
 }
 
-// Check if Firebase should be enabled based on config
-fun isFirebaseEnabled(): Boolean {
-    val configJsonPath = configPath
-    if (configJsonPath.isNullOrEmpty()) {
-        println("📱 Config path not provided - skipping Firebase dependencies")
-        return false
-    }
-    if (configJsonPath != null) {
-        val configJsonFile = File(configJsonPath)
-        if (configJsonFile.exists()) {
-            try {
-                val configContent = configJsonFile.readText()
-                val jsonObject = JSONObject(configContent)
-
-                if (jsonObject.has("WEBVIEW_CONFIG")) {
-                    val webviewConfig = jsonObject.getJSONObject("WEBVIEW_CONFIG")
-                    val notificationsEnabled = webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
-
-                    if (notificationsEnabled) {
-                        println("📱 Notifications enabled - Firebase dependencies will be added")
-                        return true
-                    } else {
-                        println("📱 Notifications disabled - skipping Firebase dependencies")
-                        return false
-                    }
-                }
-            } catch (e: Exception) {
-                println("⚠️ Could not parse config for Firebase check: ${e.message}")
-            }
-        }
-    }
-    return false
-}
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -186,11 +152,9 @@ dependencies {
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
-    // Firebase dependencies - only added when notifications are enabled
-    if (isFirebaseEnabled()) {
-        implementation("com.google.firebase:firebase-messaging:23.4.0")
-        implementation("com.google.firebase:firebase-analytics:21.5.0")
-    }
+    // Firebase dependencies - always included
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
+    implementation("com.google.firebase:firebase-analytics:21.5.0")
 }
 
 // Task to verify local IP
@@ -317,10 +281,8 @@ tasks.register("generateWebViewConfig") {
     }
 }
 
-// Apply Firebase plugin conditionally
-if (isFirebaseEnabled()) {
-    apply(plugin = "com.google.gms.google-services")
-}
+// Apply Firebase plugin always
+apply(plugin = "com.google.gms.google-services")
 
 // Task to create key store if it doesn't exist
 // Add this task to your build.gradle.kts
