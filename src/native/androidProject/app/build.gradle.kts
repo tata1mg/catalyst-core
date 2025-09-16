@@ -10,7 +10,7 @@ buildscript {
     }
 }
 
-val configPath: String? by project.properties
+val configPath: String? = project.properties["configPath"] as String?
 val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
 val keyAlias: String? by project.properties
 val keyPassword: String? by project.properties
@@ -21,6 +21,40 @@ fun getLocalIpAddress(): String {
         .filter { !it.isLoopbackAddress && it.hostAddress.indexOf(':') == -1 }
         .map { it.hostAddress }
         .firstOrNull() ?: "127.0.0.1"
+}
+
+// Check if Firebase should be enabled based on config
+fun isFirebaseEnabled(): Boolean {
+    val configJsonPath = configPath
+    if (configJsonPath.isNullOrEmpty()) {
+        println("📱 Config path not provided - skipping Firebase dependencies")
+        return false
+    }
+    if (configJsonPath != null) {
+        val configJsonFile = File(configJsonPath)
+        if (configJsonFile.exists()) {
+            try {
+                val configContent = configJsonFile.readText()
+                val jsonObject = JSONObject(configContent)
+
+                if (jsonObject.has("WEBVIEW_CONFIG")) {
+                    val webviewConfig = jsonObject.getJSONObject("WEBVIEW_CONFIG")
+                    val notificationsEnabled = webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+
+                    if (notificationsEnabled) {
+                        println("📱 Notifications enabled - Firebase dependencies will be added")
+                        return true
+                    } else {
+                        println("📱 Notifications disabled - skipping Firebase dependencies")
+                        return false
+                    }
+                }
+            } catch (e: Exception) {
+                println("⚠️ Could not parse config for Firebase check: ${e.message}")
+            }
+        }
+    }
+    return false
 }
 
 plugins {
@@ -151,6 +185,12 @@ dependencies {
     
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
+
+    // Firebase dependencies - only added when notifications are enabled
+    if (isFirebaseEnabled()) {
+        implementation("com.google.firebase:firebase-messaging:23.4.0")
+        implementation("com.google.firebase:firebase-analytics:21.5.0")
+    }
 }
 
 // Task to verify local IP
@@ -275,6 +315,11 @@ tasks.register("generateWebViewConfig") {
             properties.store(it, "WebView Configuration")
         }
     }
+}
+
+// Apply Firebase plugin conditionally
+if (isFirebaseEnabled()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 // Task to create key store if it doesn't exist

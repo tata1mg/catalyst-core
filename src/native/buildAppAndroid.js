@@ -651,6 +651,40 @@ async function configureAppName(androidConfig) {
     }
 }
 
+async function handleGoogleServicesJson() {
+    try {
+        const rootGoogleServicesPath = `${process.env.PWD}/google-services.json`
+        const androidGoogleServicesPath = `${pwd}/androidProject/app/google-services.json`
+
+        // Check if google-services.json exists in the root directory
+        if (_fs.default.existsSync(rootGoogleServicesPath)) {
+            progress.log("Found google-services.json in root directory", "info")
+
+            // Create the app directory if it doesn't exist
+            const appDir = `${pwd}/androidProject/app`
+            if (!_fs.default.existsSync(appDir)) {
+                _fs.default.mkdirSync(appDir, { recursive: true })
+            }
+
+            // Copy the file to the Android project
+            _fs.default.copyFileSync(rootGoogleServicesPath, androidGoogleServicesPath)
+            progress.log("Copied google-services.json to androidProject/app/", "success")
+
+            return true
+        } else if (_fs.default.existsSync(androidGoogleServicesPath)) {
+            progress.log("google-services.json already exists in androidProject/app/", "info")
+            return true
+        } else {
+            progress.log("google-services.json not found - Firebase push notifications will not work", "warning")
+            progress.log("Place google-services.json in project root or src/native/androidProject/app/", "info")
+            return false
+        }
+    } catch (error) {
+        progress.log(`Warning: Error handling google-services.json: ${error.message}`, "warning")
+        return false
+    }
+}
+
 async function processNotifications(WEBVIEW_CONFIG) {
     const hasNotificationConfig = !!WEBVIEW_CONFIG.notifications?.enabled
 
@@ -664,6 +698,12 @@ async function processNotifications(WEBVIEW_CONFIG) {
         if (!hasNotificationConfig) {
             progress.log("Notifications disabled - cleaned up notification configurations", "info")
             return
+        }
+
+        // Handle google-services.json file for Firebase
+        const hasGoogleServices = await handleGoogleServicesJson()
+        if (!hasGoogleServices) {
+            progress.log("Continuing without Firebase - only local notifications will work", "warning")
         }
 
         // Only add configurations if notifications are enabled
@@ -721,7 +761,7 @@ async function addNotificationMetadata() {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
         let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
 
-        const metadataXml = `        
+        const metadataXml = `
         <!-- Default notification configuration -->
         <meta-data
             android:name="default_notification_channel_id"
@@ -731,11 +771,28 @@ async function addNotificationMetadata() {
             android:resource="@drawable/ic_notification" />
         <meta-data
             android:name="default_notification_color"
-            android:resource="@color/notification_color" />`
+            android:resource="@color/notification_color" />
+
+        <!-- Firebase default notification configuration -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="fcm_default_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+
+        <!-- Push Notification Service -->
+        <service
+            android:name="io.yourname.androidproject.utils.PushNotificationService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>`
 
         manifestContent = manifestContent.replace(/(\s*<\/application>)/, `${metadataXml}\n$1`)
         _fs.default.writeFileSync(manifestPath, manifestContent)
-        progress.log("Added notification metadata to AndroidManifest.xml", "success")
+        progress.log("Added notification metadata and push notification service to AndroidManifest.xml", "success")
     } catch (error) {
         throw new Error(`Failed to add notification metadata: ${error.message}`)
     }
@@ -913,6 +970,8 @@ async function cleanupNotificationMetadata() {
             "default_notification_channel_id",
             "default_notification_icon",
             "default_notification_color",
+            "com.google.firebase.messaging.default_notification_channel_id",
+            "com.google.firebase.messaging.default_notification_icon",
         ]
 
         metadataNames.forEach((metadataName) => {
@@ -924,8 +983,14 @@ async function cleanupNotificationMetadata() {
             manifestContent = manifestContent.replace(metadataRegex, "")
         })
 
+        // Remove Push Notification Service
+        const serviceRegex = /\s*<!--\s*Push Notification Service\s*-->\s*<service[^>]*android:name="[^"]*PushNotificationService"[\s\S]*?<\/service>/gi
+        manifestContent = manifestContent.replace(serviceRegex, "")
+
         // Clean up any standalone notification comments
         manifestContent = manifestContent.replace(/\s*<!--\s*Default notification configuration\s*-->/gi, "")
+        manifestContent = manifestContent.replace(/\s*<!--\s*Firebase default notification configuration\s*-->/gi, "")
+        manifestContent = manifestContent.replace(/\s*<!--\s*Push Notification Service\s*-->/gi, "")
 
         _fs.default.writeFileSync(manifestPath, manifestContent)
     } catch (error) {

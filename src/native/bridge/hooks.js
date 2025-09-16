@@ -702,6 +702,7 @@ export const useNotification = () => {
     const [pushToken, setPushToken] = useState(null)
     const [badges, setBadges] = useState(0)
     const [lastNotification, setLastNotification] = useState(null)
+    const [subscribedTopics, setSubscribedTopics] = useState([])
 
     // Server-side rendering safety
     if (typeof window === "undefined") {
@@ -714,9 +715,13 @@ export const useNotification = () => {
             cancelLocal: () => {},
             registerForPush: () => {},
             updateBadge: () => {},
+            subscribeToTopic: () => {},
+            unsubscribeFromTopic: () => {},
+            getSubscribedTopics: () => {},
             permissionStatus: null,
             pushToken: null,
             badges: 0,
+            subscribedTopics: [],
         }
     }
 
@@ -751,6 +756,17 @@ export const useNotification = () => {
             base.setDataAndComplete(action)
         })
 
+        window.WebBridge.register(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            base.setDataAndComplete(result)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            setSubscribedTopics(result.topics || [])
+            base.setDataAndComplete(result)
+        })
+
         return () => {
             // Cleanup
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
@@ -758,6 +774,8 @@ export const useNotification = () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT)
         }
     }, [])
 
@@ -790,6 +808,24 @@ export const useNotification = () => {
         setBadges(count)
     }
 
+    const subscribeToTopic = (topic) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.subscribeToTopic(topic)
+        }, "subscribe to topic")
+    }
+
+    const unsubscribeFromTopic = (topic) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.unsubscribeFromTopic(topic)
+        }, "unsubscribe from topic")
+    }
+
+    const getSubscribedTopics = () => {
+        base.executeOperation(() => {
+            nativeBridge.notification.getSubscribedTopics()
+        }, "get subscribed topics")
+    }
+
     return {
         // Standardized interface
         data: base.data,
@@ -805,9 +841,13 @@ export const useNotification = () => {
         pushToken,
         badges,
         lastNotification,
+        subscribedTopics,
         scheduleLocal,
         cancelLocal,
         registerForPush,
         updateBadge,
+        subscribeToTopic,
+        unsubscribeFromTopic,
+        getSubscribedTopics,
     }
 }
