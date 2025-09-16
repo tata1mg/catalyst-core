@@ -159,6 +159,7 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
                 }
         }
     }
+    @JavascriptInterface
     fun showNativeInput(inputDataJson: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_NATIVE_INPUT_CANCELLED, "show native input") {
             mainActivity.runOnUiThread {
