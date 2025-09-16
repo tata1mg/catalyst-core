@@ -628,12 +628,14 @@ HomePage.clientFetcher = async ({ req }, { store }) => {
 
 ---
 
-TITLE: Universal App
+TITLE: Universal App Setup
 
 DESCRIPTION:
 
 -   Catalyst also provides support to build native iOS/android applications
--   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.7`
+-   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.10`
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/universal-app
 
 To install the android simulator
 
@@ -672,3 +674,933 @@ xcode-select --install
 -   Then in a new terminal, build the app using `npm run buildApp:android` or `npm run buildApp:ios`
 
 ---
+
+---
+
+TITLE: Universal App Cache Management
+
+DESCRIPTION:
+
+The cache manager implementation provides efficient caching mechanisms for web resources in both Android and iOS WebView applications. It supports configurable caching patterns, revalidation strategies, and automatic cache cleanup.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/UniversalCacheManagement
+
+## Configuration
+
+### Android Configuration
+
+Configure caching through the `config.json` file:
+
+```json
+{
+    "WEBVIEW_CONFIG": {
+        "android": {
+            "buildType": "debug",
+            "cachePattern": "*.css,*.js"
+        }
+    }
+}
+```
+
+Configuration options:
+
+-   `buildType`: Set to "debug" to bypass caching. This is crucial for development with Hot Module Replacement (HMR), ensuring that WebView receives real-time updates without cache interference
+-   `cachePattern`: Comma-separated list of file patterns to cache (e.g., "_.css,_.js")
+
+### iOS Configuration
+
+Configure caching by setting cache patterns in constants:
+
+-   Define patterns for files to be cached (e.g., CSS and JS files)
+-   Multiple patterns can be specified in an array
+
+## Cache Pattern Format
+
+Both platforms support wildcard patterns for cache matching:
+
+-   `*.css`: Matches all CSS files
+-   `*.js`: Matches all JavaScript files
+-   Multiple patterns can be specified
+-   File extensions are case-insensitive
+
+## Internal Implementation
+
+### Android Cache Manager
+
+The Android implementation features:
+
+1. Two-Level Caching:
+    - Memory cache using LruCache for fast access
+    - Disk cache for persistence
+2. Cache Entry Management:
+
+    - Cache entries include:
+        - Response data
+        - Timestamp
+        - ETag
+        - Last-Modified headers
+
+3. Cache Validation Strategy:
+
+    - Implements stale-while-revalidate pattern
+    - Handles cache expiration
+    - Supports background revalidation
+
+4. Automatic Cache Maintenance:
+    - Maximum cache size: 100MB
+    - Automatic cleanup of expired entries
+    - LRU (Least Recently Used) eviction policy
+
+### iOS Cache Manager
+
+The iOS implementation uses a custom URL protocol :
+
+1. Request Interception:
+
+    - Intercepts WebView requests matching cache patterns
+    - Handles both HTTP and HTTPS schemes
+
+2. Caching Strategy:
+
+    - Checks cache before network requests
+    - Supports conditional requests (ETag, Last-Modified)
+    - Automatic cache invalidation
+
+3. Resource Handling:
+    - MIME type preservation
+    - Content validation
+    - Error handling
+
+## Cache Lifecycle
+
+The cache implements a sophisticated lifecycle management strategy that balances performance with data freshness:
+
+### Content States
+
+1. Fresh Content (< 24 hours)
+
+    - Content is served directly from cache
+    - No network requests made
+    - Fastest possible response time
+
+2. Stale Content (24-25 hours)
+
+    - Content is served from cache immediately
+    - Background revalidation is triggered
+    - User sees cached content while fresh data is fetched
+    - Updates cache if content has changed
+
+3. Expired Content (> 25 hours)
+    - Cache entry is considered invalid
+    - Fresh content is fetched from network
+    - New cache entry is created
+    - User waits for network response
+
+This stale-while-revalidate pattern provides:
+
+-   Optimal user experience with immediate responses
+-   Efficient network usage
+-   Up-to-date content without sacrificing performance
+-   Graceful handling of network issues
+
+### Production vs Development
+
+```json
+{
+    "WEBVIEW_CONFIG": {
+        "android": {
+            "buildType": "debug", // Development: enables HMR
+            "cachePattern": "*.css,*.js"
+        }
+    }
+}
+```
+
+```json
+{
+    "WEBVIEW_CONFIG": {
+        "android": {
+            "buildType": "release", // Production: enables caching
+            "cachePattern": "*.css,*.js"
+        }
+    }
+}
+```
+
+---
+
+---
+
+TITLE: Universal App Build Optimization
+
+DESCRIPTION:
+
+The Build Optimization feature significantly enhances performance by preloading static assets directly from device storage rather than retrieving them over the network. This approach reduces page load times by approximately 90%, especially for the initial app launch.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/BuildOptimisation
+
+## Configuration
+
+Configure the build optimization through the `config.json` file:
+
+```json
+{
+    "WEBVIEW_CONFIG": {
+        "android": {
+            "sdkPath": "/path/to/android/sdk",
+            "emulatorName": "your_emulator_name",
+            "buildOptimisation": true,
+            "cachePattern": "*.png,*.jpg,*.css,*.js",
+            "buildType": "debug"
+        }
+    }
+}
+```
+
+Configuration options:
+
+-   `buildOptimisation`: Enable/disable the feature (set to `true` to enable)
+
+## Asset Loading Process
+
+The optimized asset loading follows this sequence:
+
+1. **Initial Route Request**:
+
+    - Intercepts the first GET request
+    - Serves `index.html` from assets regardless of URL
+    - Sets flags to track initial page load status
+
+2. **Static Resource Loading**:
+
+    - Checks if requested resources match static file patterns
+    - Extracts asset path from URL
+    - Loads resource directly from device storage
+    - Logs asset loading statistics
+
+3. **Fallback Mechanism**:
+    - If assets can't be loaded locally, falls back to network
+    - For cacheable network requests, utilizes the WebCacheManager
+    - Maintains loading statistics for monitoring
+
+## Load Time Impact
+
+With Build Optimization enabled:
+
+-   **Load Time Reduction**: ~90% faster page loading
+-   **Network Requests**: Near-zero network requests for static assets
+-   **Asset Success Rate**: 100% for bundled resources
+-   **Initial Page Loading**: Directly from device storage, eliminating network latency
+
+## Best Practices
+
+1. **Asset Selection**:
+
+    - Include critical JS, CSS, and images in your build folder
+    - Keep bundle size reasonable to avoid large APK sizes
+    - Consider excluding rarely used resources to optimize size
+
+2. **Development vs. Production**:
+
+    ```json
+    {
+        "WEBVIEW_CONFIG": {
+            "android": {
+                "buildOptimisation": true, // Enable for production
+                "buildType": "release", // Use release for production
+                "cachePattern": "*.png,*.jpg,*.css,*.js"
+            }
+        }
+    }
+    ```
+
+    For development:
+
+    ```json
+    {
+        "WEBVIEW_CONFIG": {
+            "android": {
+                "buildOptimisation": false, // Disable for faster development builds
+                "buildType": "debug", // Use debug for development
+                "cachePattern": "*.png,*.jpg,*.css,*.js"
+            }
+        }
+    }
+    ```
+
+3. **Performance Monitoring**:
+    - Check asset loading statistics in logs
+    - Monitor cache hit rates
+    - Track page load times between versions
+
+## Troubleshooting
+
+If you encounter issues with asset loading:
+
+1. **Check Logs**:
+
+    - Look for "Asset loading stats" in logs
+    - Check for failed asset loading attempts
+    - Verify MIME type assignment
+
+2. **Configuration Issues**:
+
+    - Ensure `buildOptimisation` is correctly set
+    - Verify build assets were copied successfully
+
+3. **Loading Failures**:
+
+    - Asset paths may be incorrect
+    - Assets might be missing from the build
+    - Check for file permission issues
+
+4. **Rebuild When Required**:
+    - Update your app when static assets change significantly
+    - Clear cache when troubleshooting loading issues
+
+---
+
+---
+
+TITLE: Universal App Whitelisting
+
+DESCRIPTION:
+
+Network access control and navigation management for universal apps. Control URL access through the access control toggle and allowedUrls configuration.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/Whitelisting
+
+## Configuration
+
+The whitelisting system is configured through the `WEBVIEW_CONFIG.accessControl` object:
+
+```json
+{
+    "WEBVIEW_CONFIG": {
+        "accessControl": {
+            "enabled": true,
+            "allowedUrls": ["https://api.example.com/users", "*.example.com", "subdomain.*.example.com"]
+        }
+    }
+}
+```
+
+## Access Control Toggle
+
+Control URL access restrictions through the `accessControl.enabled` setting.
+
+### Properties
+
+#### enabled
+
+-   **Type**: Boolean
+-   **Default**: `false`
+-   **Description**: Enables or disables access control whitelisting
+-   **Behavior**:
+    -   `true`: Only URLs in `allowedUrls` array can be accessed (default deny)
+    -   `false`: All URLs are accessible (no restrictions)
+
+#### allowedUrls
+
+-   **Type**: Array of strings
+-   **Default**: `[]`
+-   **Description**: List of URLs that are permitted when access control is enabled
+-   **Format**: Supports exact URLs, wildcard patterns, and subdomain matching
+
+## Whitelisting Behavior
+
+All network calls are blocked by default when access control is enabled, and all links are considered external by default and will open in the browser. To allow network calls or internal navigation, URLs must be added to the "allowedUrls" configuration.
+
+## URL Matching Patterns
+
+### Exact Match
+
+Match specific URLs exactly as they appear:
+
+```json
+{
+    "accessControl": {
+        "allowedUrls": ["https://api.example.com/users", "https://cdn.example.com/assets/logo.png"]
+    }
+}
+```
+
+### Wildcard Match
+
+Use `*` to match any characters within a URL segment:
+
+```json
+{
+    "accessControl": {
+        "allowedUrls": ["https://api.example.com/*", "https://*.example.com/api/v1/*"]
+    }
+}
+```
+
+### Subdomain Match
+
+Match all subdomains of a domain:
+
+```json
+{
+    "accessControl": {
+        "allowedUrls": ["*.example.com", "subdomain.*.example.com"]
+    }
+}
+```
+
+## Security Benefits
+
+-   **Default Deny**: All network requests are blocked by default, providing a secure baseline
+-   **Explicit Allow**: Only explicitly whitelisted URLs can be accessed
+-   **Pattern Flexibility**: Support for exact, wildcard, and subdomain matching patterns
+-   **Navigation Control**: External links are automatically handled by the system browser
+
+## Use Cases
+
+### API Endpoints
+
+Whitelist specific API endpoints your app needs to access:
+
+```json
+{
+    "accessControl": {
+        "allowedUrls": [
+            "https://api.myapp.com/auth/*",
+            "https://api.myapp.com/users/*",
+            "https://api.myapp.com/data/*"
+        ]
+    }
+}
+```
+
+### CDN Resources
+
+Allow access to content delivery networks:
+
+```json
+{
+    "accessControl": {
+        "allowedUrls": ["https://cdn.jsdelivr.net/*", "https://unpkg.com/*", "*.cloudfront.net"]
+    }
+}
+```
+
+### Third-party Services
+
+Whitelist external services and APIs:
+
+```json
+{
+    "accessControl": {
+        "allowedUrls": ["https://maps.googleapis.com/*", "https://api.stripe.com/*", "*.analytics.google.com"]
+    }
+}
+```
+
+## Implementation Notes
+
+-   URLs are matched against the patterns in the order they appear in the array
+-   The first matching pattern allows the request
+-   If no patterns match, the request is blocked
+-   Subdomain patterns support multiple levels (e.g., `*.*.example.com`)
+-   Wildcard patterns are greedy and match everything within the segment
+
+---
+
+---
+
+TITLE: Universal App Splashscreen
+
+DESCRIPTION:
+
+Custom splashscreen configuration for universal apps. Control the duration, background color, and custom icon to provide a branded app launch experience.
+The splashscreen is configured through the `splashScreen` object in your app configuration:
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/Splashscreen
+
+```json
+{
+    "splashScreen": {
+        "duration": 1000,
+        "backgroundColor": "#ffffff"
+    }
+}
+```
+
+## Custom Icon
+
+Place your custom splashscreen icon at `public/splashscreen.jpg`. Supported file extensions:
+
+-   `.png`
+-   `.jpg`
+-   `.jpeg`
+-   `.gif`
+-   `.bmp`
+-   `.svg`
+-   `.webp`
+
+## Behavior
+
+### Default Behavior
+
+-   **No Configuration**: Default Android splashscreen is shown
+-   **No Custom Icon**: Fallback Catalyst logo is displayed
+-   **With Configuration**: Custom splashscreen with specified duration and background
+
+### Configuration Options
+
+#### Duration
+
+Controls how long the splashscreen is displayed:
+
+```json
+{
+    "splashScreen": {
+        "duration": 2000
+    }
+}
+```
+
+-   **Range**: 500ms - 5000ms
+-   **Default**: 1000ms (1 second)
+-   **Unit**: Milliseconds
+
+#### Background Color
+
+Sets the background color of the splashscreen:
+
+```json
+{
+    "splashScreen": {
+        "backgroundColor": "#2196F3"
+    }
+}
+```
+
+-   **Format**: Hex color code (e.g., `#ffffff`, `#2196F3`)
+-   **Default**: `#ffffff` (white)
+-   **Transparency**: Not supported, use solid colors only
+
+## Implementation Notes
+
+-   Configuration is required to enable custom splashscreen
+-   Without configuration, the default Android splashscreen is used
+-   Custom icon at `public/splashscreen.jpg` is automatically detected
+-   Fallback Catalyst logo is shown if configuration exists but no custom icon is found
+-   Background color applies to the entire screen, not just behind the icon
+
+---
+
+---
+
+TITLE: Universal App Icon
+
+DESCRIPTION:
+Custom app icon configuration for universal apps. Replace the default Android icon with your branded app icon for a professional appearance in device launchers and app stores.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/App-Icon
+
+## Configuration
+
+App icons are automatically detected and applied when placed in the correct location. No additional configuration is required in your app settings.
+
+## Custom Icon Setup
+
+### File Location
+
+Place your custom app icon at `public/icon.jpg`
+
+## File Structure
+
+```
+your-project/
+├── public/
+│   └── icon.jpg          # Your custom app icon
+├── src/
+└── package.json
+```
+
+### Supported File Extensions
+
+-   `.png`
+-   `.jpg`
+-   `.jpeg`
+-   `.gif`
+-   `.bmp`
+-   `.svg`
+-   `.webp`
+
+## Behavior
+
+### Default Behavior
+
+-   **No Custom Icon**: Default Android icon is displayed
+-   **With Custom Icon**: Automatically uses `public/icon.jpg` as the app icon
+
+## Important Notes
+
+-   Icon replacement is automatic - no code changes required
+-   Changes take effect on the next app build
+-   Default Android icon is used as fallback if custom icon is not found
+-   Icon appears in device launchers, app stores, and system settings
+
+---
+
+---
+
+TITLE: Universal App Native APIs
+
+DESCRIPTION:
+Catalyst Core provides a comprehensive set of native APIs through React hooks that enable seamless integration between web and native platforms in universal apps.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Available-APIs
+
+## Camera API
+
+Comprehensive camera functionality for universal apps with photo capture, permission management, and error handling.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Camera-APIs
+
+LANGUAGE: js
+CODE:
+
+```
+import React from 'react';
+import { useCamera } from "catalyst-core/hooks";
+
+function CameraApp() {
+  const {
+    // New standardized interface
+    data: photoData,
+    execute: executeCamera
+  } = useCamera();
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <h2>📷 Camera Demo</h2>
+
+      {/* Camera Controls */}
+
+        <button onClick={executeCamera} >
+          "Take Photo"
+        </button>
+        </div>
+
+        {photoData && (
+          <div>
+            <h3>Photo Captured!</h3>
+            <p>Name: {photoData.fileName}</p>
+            <p>Size: {formatFileSize(photoData.size)}</p>
+            <img src={photoData.fileSrc} alt="Captured" style={{ maxWidth: '300px' }} />
+
+          </div>
+        )}
+    </div>
+  );
+}
+
+export default CameraApp;
+```
+
+## File management API
+
+Comprehensive file management functionality for selecting files and opening them with external applications in universal apps.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/File-APIs
+
+LANGUAGE: js
+CODE:
+
+```
+import React from 'react';
+import { useFilePicker, useIntent } from "catalyst-core/hooks";
+
+function FileManagementApp() {
+  const {
+    data: fileData,
+    execute: executeFilePicker
+  } = useFilePicker();
+  const {
+    execute: executeIntent
+  } = useIntent();
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '600px' }}>
+      <h2>📁 File Management Demo</h2>
+
+      {/* File Picker Section */}
+      <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+        <h3>📂 File Picker</h3>
+
+        <div style={{ marginBottom: '15px' }}>
+          <button
+            onClick={() => executeFilePicker('image/*')}
+
+            style={{ padding: '10px 15px', marginRight: '10px', fontSize: '14px' }}
+          >
+            '📁 Pick Image'
+          </button>
+
+          <button
+            onClick={() => executeFilePicker('application/pdf')}
+
+            style={{ padding: '10px 15px', marginRight: '10px', fontSize: '14px' }}
+          >
+            '📄 Pick PDF'
+          </button>
+
+          <button
+            onClick={() => executeFilePicker()}
+
+            style={{ padding: '10px 15px', fontSize: '14px' }}
+          >
+            '📋 Pick Any File'
+          </button>
+        </div>
+
+        {fileData && (
+          <div style={{
+            padding: '10px',
+            backgroundColor: '#e8f5e8',
+            borderRadius: '4px',
+            marginBottom: '10px'
+          }}>
+            <p><strong>Selected File:</strong></p>
+            <p>📄 Name: {fileData.fileName}</p>
+            <p>📏 Size: {(fileData.size / 1024).toFixed(2)} KB</p>
+            <p>🔗 Type: {fileData.mimeType || 'Unknown'}</p>
+            <p>📏 Transport: {fileData.transport}</p>
+
+          </div>
+        )}
+      </div>
+
+      {/* Intent Section */}
+      <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f0f8ff', borderRadius: '8px' }}>
+        <h3>🔗 Open with External App</h3>
+
+        <div style={{ marginBottom: '15px' }}>
+          <button
+            onClick={() => executeIntent('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 'application/pdf')}
+
+            style={{ padding: '10px 15px', marginRight: '10px', fontSize: '14px' }}
+          >
+            '📄 Open Sample PDF'
+          </button>
+
+          <button
+            onClick={() => executeIntent('https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4', 'video/mp4')}
+
+            style={{ padding: '10px 15px', fontSize: '14px' }}
+          >
+            '🎥 Open Sample Video'
+          </button>
+        </div>
+      </div>
+
+      {/* Combined Actions */}
+      {fileData && (
+        <div style={{ padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px' }}>
+          <h3>🔄 File Actions</h3>
+          <p>Selected file: <strong>{fileData.fileName}</strong></p>
+
+          <button
+            onClick={() => executeIntent(fileData.fileSrc, fileData.mimeType)}
+
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              marginRight: '10px'
+            }}
+          >
+            '🔗 Open Selected File'
+          </button>
+
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default FileManagementApp;
+```
+
+## Haptic Feedback API
+
+Enhanced user experience through haptic feedback with multiple intensity levels and contextual feedback types for universal apps.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Haptic-APIs
+
+LANGUAGE: js
+CODE:
+
+```
+import React from 'react';
+import { useHapticFeedback } from "catalyst-core/hooks";
+
+function ButtonFeedbackDemo() {
+  const {
+    // New standardized interface
+    execute: executeHaptic,
+    isSupported
+  } = useHapticFeedback();
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '500px' }}>
+      <h2>🔘 Button Feedback Demo</h2>
+
+      {/* Device availability check */}
+      {isSupported ? (
+        <p style={{ color: 'green', marginBottom: '20px' }}>
+          ✅ Haptic feedback is available on this device
+        </p>
+      ) : (
+        <p style={{ color: 'red', marginBottom: '20px' }}>
+          ❌ Haptic feedback is not available on this device
+        </p>
+      )}
+
+      {/* Haptic feedback buttons */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gap: '1rem',
+        marginBottom: '20px'
+      }}>
+        <button onClick={() => executeHaptic('light')}>🔹 Light</button>
+        <button onClick={() => executeHaptic('medium')}>🔸 Medium</button>
+        <button onClick={() => executeHaptic('heavy')}>🔶 Heavy</button>
+        <button onClick={() => executeHaptic('success')}>✅ Success</button>
+        <button onClick={() => executeHaptic('warning')}>⚠️ Warning</button>
+        <button onClick={() => executeHaptic('error')}>❌ Error</button>
+      </div>
+    </div>
+  );
+}
+
+export default HapticFeedbackApp;
+```
+
+## Universal Storage API
+
+Standard web storage APIs for client-side data persistence in Catalyst Core universal apps.
+
+SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Storage-API
+
+Available Storage APIs:
+
+-   localStorage
+-   sessionStorage
+-   document.cookie
+
+---
+
+---
+
+TITLE: App name configuration
+
+DESCRIPTION:
+
+Custom app name configuration for universal apps. Control the display name of your application that appears in device launchers, app stores, and system settings.
+
+## Configuration
+
+The app name is configured through the `WEBVIEW_CONFIG` object in your app configuration:
+
+```json
+{
+    "WEBVIEW_CONFIG": {
+        "android": {
+            "appName": "My Awesome App"
+        }
+    }
+}
+```
+
+---
+
+---
+
+TITLE: Device Info API
+
+DESCRIPTION:
+
+# Device Information API
+
+Access basic device details in your universal app using the Device Information API. This API provides essential device characteristics including hardware specifications and display properties.
+
+## API Usage
+
+### Initialization Method
+
+```javascript
+const { getDeviceInfo } = WebBridge.init()
+const deviceInfo = await getDeviceInfo()
+```
+
+### Direct Access Method
+
+```javascript
+const { getDeviceInfo } = window.WebBridge
+const deviceInfo = await getDeviceInfo()
+```
+
+## Response Format
+
+The `getDeviceInfo()` method returns an object with the following keys:
+
+```javascript
+{
+  model: "Pixel 10",           // Device model name
+  manufacturer: "Google",            // Device manufacturer
+  platform: "android",                 // Operating system platform
+  screenWidth: 393,                // Screen width in pixels
+  screenHeight: 852,               // Screen height in pixels
+  screenDensity: 3.0               // Screen pixel density
+}
+```
+
+---
+
+---
+
+---
+
+TITLE: Protocol Configuration
+
+DESCRIPTION:
+
+# Protocol Configuration
+
+Configure webview protocol settings for your universal app. Control whether the webview uses HTTP or HTTPS protocol to customize app behavior and security.
+
+## Configuration
+
+The protocol setting is configured through the `WEBVIEW_CONFIG.useHttps` property:
+
+```json
+{
+    "WEBVIEW_CONFIG": {
+        "useHttps": true
+    }
+}
+```
+
+-   **Type**: Boolean
+-   **Default**: `false`
+-   **Description**: Controls the protocol used for webview URLs
+-   **Behavior**:
+    -   `true`: Uses HTTPS protocol
+    -   `false`: Uses HTTP protocol

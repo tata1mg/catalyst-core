@@ -1,12 +1,11 @@
-import { execSync, spawn } from 'child_process';
-import readline from 'readline';
-import fs from 'fs';
-import path from 'path';
+import { execSync, spawn } from "child_process"
+import readline from "readline"
+import fs from "fs"
 
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-});
+})
 
 function runCommand(command) {
     try {
@@ -85,40 +84,40 @@ async function runSdkManagerCommand(sdkManagerPath, args) {
 
 async function validateAndCompleteConfig(platform, configPath) {
     // Read existing config
-    let config;
+    let config
     try {
-        const configContent = fs.readFileSync(configPath, 'utf8');
-        config = JSON.parse(configContent);
+        const configContent = fs.readFileSync(configPath, "utf8")
+        config = JSON.parse(configContent)
     } catch (error) {
-        console.error(`Error reading config file: ${error.message}`);
-        config = {};
+        console.error(`Error reading config file: ${error.message}`)
+        config = {}
     }
 
     // Initialize WEBVIEW_CONFIG if it doesn't exist
     if (!config.WEBVIEW_CONFIG) {
-        config.WEBVIEW_CONFIG = {};
+        config.WEBVIEW_CONFIG = {}
     }
 
     // Check if WEBVIEW_CONFIG already has all required fields
-    const webviewConfig = config.WEBVIEW_CONFIG;
-    
+    const webviewConfig = config.WEBVIEW_CONFIG
+
     const commonFields = {
-        port: 'Enter port number (e.g., 3005): ',
+        port: "Enter port number (e.g., 3005): ",
     }
 
     const platformConfigs = {
         android: {
-            buildType: 'Enter Android build type (debug/release): ',
-            sdkPath: 'Enter Android SDK path: ',
-            emulatorName: 'Enter Android emulator name (e.g., Small_Phone_API_35): ',
-            cachePattern: 'Enter Cache pattern (e.g.,  *.css): '
+            buildType: "Enter Android build type (debug/release): ",
+            sdkPath: "Enter Android SDK path: ",
+            emulatorName: "Enter Android emulator name (e.g., Small_Phone_API_35): ",
+            cachePattern: "Enter Cache pattern (e.g.,  *.css): ",
         },
         ios: {
-            buildType: 'Enter iOS build type (debug/release): ',
-            appBundleId: 'Enter iOS bundle ID (e.g., com.test.test): ',
-            simulatorName: 'Enter iOS simulator name (e.g., iPhone 16 Pro): ',
-            cachePattern: 'Enter Cache pattern (e.g.,  *.css): '
-        }
+            buildType: "Enter iOS build type (debug/release): ",
+            appBundleId: "Enter iOS bundle ID (e.g., com.test.test): ",
+            simulatorName: "Enter iOS simulator name (e.g., iPhone 16 Pro): ",
+            cachePattern: "Enter Cache pattern (e.g.,  *.css): ",
+        },
     }
 
     if (!platformConfigs[platform]) {
@@ -126,25 +125,25 @@ async function validateAndCompleteConfig(platform, configPath) {
     }
 
     // Check if all required fields are present
-    let hasAllFields = true;
-    
+    let hasAllFields = true
+
     // Check common fields
     for (const key of Object.keys(commonFields)) {
         if (!webviewConfig[key]) {
-            hasAllFields = false;
-            break;
+            hasAllFields = false
+            break
         }
     }
 
     // Check platform-specific fields
     if (!webviewConfig[platform]) {
-        webviewConfig[platform] = {};
-        hasAllFields = false;
+        webviewConfig[platform] = {}
+        hasAllFields = false
     } else {
         for (const key of Object.keys(platformConfigs[platform])) {
             if (!webviewConfig[platform][key]) {
-                hasAllFields = false;
-                break;
+                hasAllFields = false
+                break
             }
         }
     }
@@ -153,8 +152,8 @@ async function validateAndCompleteConfig(platform, configPath) {
     if (hasAllFields) {
         return {
             port: webviewConfig.port,
-            [platform]: webviewConfig[platform]
-        };
+            [platform]: webviewConfig[platform],
+        }
     }
 
     // Handle common fields
@@ -162,11 +161,6 @@ async function validateAndCompleteConfig(platform, configPath) {
         if (!webviewConfig[key]) {
             webviewConfig[key] = await promptUser(prompt)
         }
-    }
-
-    // Set domain and port from URL if not provided
-    if (!webviewConfig.port) {
-        webviewConfig.port = webviewConfig.port
     }
 
     // Handle platform-specific fields
@@ -178,18 +172,18 @@ async function validateAndCompleteConfig(platform, configPath) {
 
     // Save updated config back to file
     try {
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-        console.log('Configuration updated successfully.');
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+        console.log("Configuration updated successfully.")
     } catch (error) {
-        console.error(`Error saving config file: ${error.message}`);
-        throw error;
+        console.error(`Error saving config file: ${error.message}`)
+        throw error
     }
 
     // Return only the platform-specific config
     return {
         port: webviewConfig.port,
-        [platform]: webviewConfig[platform]
-    };
+        [platform]: webviewConfig[platform],
+    }
 }
 
 export {
@@ -199,4 +193,4 @@ export {
     runSdkManagerCommand,
     runInteractiveCommand,
     validateAndCompleteConfig,
-};
+}

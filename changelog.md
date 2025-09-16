@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.3-canary.10] - 2025-09-11
+
+-   **Sentry import bug fix**
+-   **Open telemetry SDK**
+
 ## [0.0.3-canary.9] - 2025-09-11
 
 -   **App name configuration**
