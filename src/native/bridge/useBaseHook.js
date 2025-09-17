@@ -7,10 +7,9 @@ import { translateError, isDevelopment } from "./errors"
  * Handles environment detection, error standardization, and common state management
  *
  * @param {string} hookName - Name of the hook for debugging purposes
- * @param {Object} options - Configuration options
  * @returns {Object} Base hook interface with common functionality
  */
-export const useBaseHook = (hookName, options = {}) => {
+export const useBaseHook = (hookName) => {
     // Environment detection
     const isNative = useCallback(() => {
         // Server-side rendering safety

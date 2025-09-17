@@ -8,9 +8,17 @@ const args = process.argv.slice(2)
 
 // Array of valid commands
 const validCommands = [
-    "build", "start", "serve", "devBuild", "devServe",
-    "buildApp", "buildApp:ios", "buildApp:android",
-    "setupEmulator", "setupEmulator:ios", "setupEmulator:android"
+    "build",
+    "start",
+    "serve",
+    "devBuild",
+    "devServe",
+    "buildApp",
+    "buildApp:ios",
+    "buildApp:android",
+    "setupEmulator",
+    "setupEmulator:ios",
+    "setupEmulator:android",
 ]
 
 // Map of platform-specific commands to their script paths
@@ -18,16 +26,15 @@ const platformScripts = {
     "setupEmulator:ios": "../dist/native/setupEmulatorIos.js",
     "setupEmulator:android": "../dist/native/androidSetup.js",
     "buildApp:ios": "../dist/native/buildAppIos.js",
-    "buildApp:android": "../dist/native/buildAppAndroid.js"
+    "buildApp:android": "../dist/native/buildAppAndroid.js",
 }
 
 // Helper to check if arg is a platform command
 const isPlatformCommand = (arg, prefix) => {
     if (!arg.startsWith(`${prefix}:`)) return false
-    const platform = arg.split(':')[1]
-    return ['ios', 'android'].includes(platform) || platform === undefined
+    const platform = arg.split(":")[1]
+    return ["ios", "android"].includes(platform) || platform === undefined
 }
-
 
 // Helper function to run a platform command
 const runPlatformCommand = (baseCommand, platform) => {
@@ -42,7 +49,7 @@ const runPlatformCommand = (baseCommand, platform) => {
 
 // Helper function to run commands for all platforms
 const runAllPlatforms = (baseCommand) => {
-    const platforms = ['ios', 'android']
+    const platforms = ["ios", "android"]
     for (const platform of platforms) {
         const result = runPlatformCommand(baseCommand, platform)
         if (result.status !== 0) {
@@ -54,8 +61,14 @@ const runAllPlatforms = (baseCommand) => {
 }
 
 const scriptIndex = args.findIndex(
-    (x) => x === "build" || x === "start" || x === "serve" || x === "devBuild" || x === "devServe" || 
-    isPlatformCommand(x, 'buildApp') || isPlatformCommand(x, 'setupEmulator')
+    (x) =>
+        x === "build" ||
+        x === "start" ||
+        x === "serve" ||
+        x === "devBuild" ||
+        x === "devServe" ||
+        isPlatformCommand(x, "buildApp") ||
+        isPlatformCommand(x, "setupEmulator")
 )
 const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
 const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
@@ -92,14 +105,14 @@ function handleProcessResult(result) {
         if (result.signal === "SIGKILL") {
             console.log(
                 "The build failed because the process exited too early. " +
-                "This probably means the system ran out of memory or someone called " +
-                "`kill -9` on the process."
+                    "This probably means the system ran out of memory or someone called " +
+                    "`kill -9` on the process."
             )
         } else if (result.signal === "SIGTERM") {
             console.log(
                 "The build failed because the process exited too early. " +
-                "Someone might have called `kill` or `killall`, or the system could " +
-                "be shutting down."
+                    "Someone might have called `kill` or `killall`, or the system could " +
+                    "be shutting down."
             )
         }
         process.exit(1)

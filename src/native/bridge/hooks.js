@@ -1,12 +1,7 @@
+/* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
 import { useEffect, useState } from "react"
 import nativeBridge from "./utils/NativeBridge.js"
-import {
-    NATIVE_CALLBACKS,
-    PERMISSION_STATUS,
-    RESPONSE_STATUS,
-    FILE_PICKER_STATES,
-    INTENT_STATES,
-} from "./constants/NativeInterfaces.js"
+import { NATIVE_CALLBACKS, PERMISSION_STATUS, RESPONSE_STATUS } from "./constants/NativeInterfaces.js"
 import { useBaseHook } from "./useBaseHook.js"
 import { ERROR_CODES, createStandardError } from "./errors.js"
 
@@ -633,7 +628,7 @@ export const useHapticFeedback = () => {
     }
 
     // Web haptic fallback
-    const handleWebHaptic = (type, options = {}) => {
+    const handleWebHaptic = (type) => {
         if (!navigator.vibrate) {
             return false
         }
