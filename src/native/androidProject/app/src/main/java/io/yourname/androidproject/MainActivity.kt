@@ -1,16 +1,13 @@
 package io.yourname.androidproject
 
-import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
-import android.view.View
-import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
+import io.yourname.androidproject.utils.KeyboardUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
@@ -23,16 +20,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
     private lateinit var properties: Properties
+    private lateinit var keyboardUtil: KeyboardUtil
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var splashStartTime: Long = 0
-    
-    // Keyboard and WebView resize handling
-    private var originalWebViewHeight: Int = 0
-    private var isKeyboardVisible = false
-    private var keyboardHeight = 0
-    private lateinit var rootView: View
-    private var globalLayoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
     
 
     private fun enableHardwareAcceleration() {
@@ -87,8 +78,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         supportActionBar?.hide()
         setContentView(binding.root)
         
-        // Setup keyboard detection
-        setupKeyboardDetection()
+        // Initialize keyboard utility
+        keyboardUtil = KeyboardUtil(this, binding.webviewContainer)
+        keyboardUtil.initialize()
         
 
         // Enable hardware acceleration for the window
@@ -180,11 +172,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
-        // Clean up keyboard detection listener
-        globalLayoutListener?.let {
-            if (::rootView.isInitialized) {
-                rootView.viewTreeObserver.removeOnGlobalLayoutListener(it)
-            }
+        // Clean up keyboard utility
+        if (::keyboardUtil.isInitialized) {
+            keyboardUtil.cleanup()
         }
         
         coroutineContext.cancelChildren()
@@ -211,140 +201,5 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         }
     }
     
-    /**
-     * Setup keyboard visibility detection and WebView resizing
-     */
-    private fun setupKeyboardDetection() {
-        // Set window soft input mode to pan (not resize, we'll handle it manually)
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
-        
-        // Get root view for keyboard detection
-        rootView = findViewById<ViewGroup>(android.R.id.content)
-        
-        // Store original WebView container height
-        binding.webviewContainer.post {
-            originalWebViewHeight = binding.webviewContainer.height
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Original WebView container height: $originalWebViewHeight")
-            }
-        }
-        
-        // Setup global layout listener for keyboard detection
-        globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
-            detectKeyboardVisibility()
-        }
-        
-        rootView.viewTreeObserver.addOnGlobalLayoutListener(globalLayoutListener)
-        
-        if (BuildConfig.DEBUG) {
-            Log.d(TAG, "Keyboard detection setup completed")
-        }
-    }
-    
-    /**
-     * Detect keyboard visibility and handle WebView resizing
-     */
-    private fun detectKeyboardVisibility() {
-        val rect = Rect()
-        rootView.getWindowVisibleDisplayFrame(rect)
-        
-        val screenHeight = resources.displayMetrics.heightPixels
-        val visibleHeight = rect.height()
-        val heightDifference = screenHeight - visibleHeight
-        
-        // Consider keyboard visible if height difference is more than 200dp
-        val keyboardThreshold = (200 * resources.displayMetrics.density).toInt()
-        val newKeyboardVisible = heightDifference > keyboardThreshold
-        val newKeyboardHeight = if (newKeyboardVisible) heightDifference else 0
-        
-        if (BuildConfig.DEBUG) {
-            Log.d(TAG, "Keyboard detection: screenHeight=$screenHeight, visibleHeight=$visibleHeight, " +
-                    "heightDifference=$heightDifference, threshold=$keyboardThreshold")
-        }
-        
-        // Only process if keyboard state changed significantly
-        if (newKeyboardVisible != isKeyboardVisible || Math.abs(newKeyboardHeight - keyboardHeight) > 50) {
-            isKeyboardVisible = newKeyboardVisible
-            keyboardHeight = newKeyboardHeight
-            
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Keyboard visibility changed: visible=$isKeyboardVisible, height=$keyboardHeight")
-            }
-            
-            // Handle WebView resizing with a small delay to ensure layout is stable
-            rootView.post {
-                handleKeyboardVisibilityChange()
-            }
-        }
-    }
-    
-    /**
-     * Handle keyboard visibility changes and resize WebView accordingly
-     */
-    private fun handleKeyboardVisibilityChange() {
-        if (!::customWebView.isInitialized) return
-        
-        if (isKeyboardVisible) {
-            // Keyboard is visible - resize WebView
-            resizeWebViewForKeyboard()
-        } else {
-            // Keyboard is hidden - restore WebView size
-            restoreWebViewSize()
-        }
-        
-        // Notify CustomWebView about keyboard state
-        customWebView.onKeyboardVisibilityChanged(isKeyboardVisible, keyboardHeight)
-    }
-    
-    /**
-     * Resize WebView when keyboard is visible
-     */
-    private fun resizeWebViewForKeyboard() {
-        val webViewContainer = binding.webviewContainer
-        val layoutParams = webViewContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-        
-        // Calculate new height (original height minus keyboard height)
-        val newHeight = originalWebViewHeight - keyboardHeight
-        
-        if (newHeight > 0 && layoutParams.height != newHeight) {
-            layoutParams.height = newHeight
-            webViewContainer.layoutParams = layoutParams
-            
-            // Enable scrolling on WebView
-            binding.webview.isVerticalScrollBarEnabled = true
-            binding.webview.isScrollbarFadingEnabled = true
-            
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "WebView container resized for keyboard: height=$newHeight")
-            }
-        }
-    }
-    
-    /**
-     * Restore WebView to original size when keyboard is hidden
-     */
-    private fun restoreWebViewSize() {
-        val webViewContainer = binding.webviewContainer
-        val layoutParams = webViewContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-        
-        if (layoutParams.height != originalWebViewHeight) {
-            layoutParams.height = originalWebViewHeight
-            webViewContainer.layoutParams = layoutParams
-            
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "WebView container size restored: height=$originalWebViewHeight")
-            }
-        }
-    }
-    
-    /**
-     * Get current keyboard height
-     */
-    fun getKeyboardHeight(): Int = keyboardHeight
-    
-    /**
-     * Check if keyboard is currently visible
-     */
-    fun isKeyboardCurrentlyVisible(): Boolean = isKeyboardVisible
     
 }
