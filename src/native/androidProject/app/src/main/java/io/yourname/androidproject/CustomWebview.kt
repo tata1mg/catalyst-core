@@ -43,7 +43,6 @@ class CustomWebView(
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
     private var assetLoadFailures = 0
-    
 
     init {
         cacheManager = WebCacheManager(context)
@@ -494,8 +493,6 @@ class CustomWebView(
                     Log.d(TAG, "✅ Page load finished for: $url - Load time: ${loadTime}ms - Hardware Acceleration: $isHardwareAccelerationEnabled")
                     Log.d(TAG, "📊 Asset loading stats: Attempted: $assetLoadAttempts, Failed: $assetLoadFailures (${String.format("%.1f", assetLoadFailures * 100.0 / assetLoadAttempts.coerceAtLeast(1))}%)")
                 }
-                
-                
                 super.onPageFinished(view, url)
             }
 
@@ -535,5 +532,4 @@ class CustomWebView(
         // Only enable WebView debugging in debug builds
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     }
-
 }

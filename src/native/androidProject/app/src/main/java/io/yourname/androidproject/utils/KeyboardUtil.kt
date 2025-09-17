@@ -20,7 +20,6 @@ class KeyboardUtil(
         webViewContainer.post {
             originalHeight = webViewContainer.height
         }
-        
         listener = ViewTreeObserver.OnGlobalLayoutListener {
             val rect = Rect()
             rootView.getWindowVisibleDisplayFrame(rect)
@@ -38,7 +37,6 @@ class KeyboardUtil(
                 webViewContainer.layoutParams = params
             }
         }
-        
         rootView.viewTreeObserver.addOnGlobalLayoutListener(listener)
     }
 

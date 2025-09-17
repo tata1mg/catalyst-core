@@ -24,7 +24,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var splashStartTime: Long = 0
-    
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -82,7 +81,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         keyboardUtil = KeyboardUtil(this, binding.webviewContainer)
         keyboardUtil.initialize()
         
-
         // Enable hardware acceleration for the window
         enableHardwareAcceleration()
 
@@ -172,15 +170,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
-        // Clean up keyboard utility
         if (::keyboardUtil.isInitialized) {
             keyboardUtil.cleanup()
         }
-        
         coroutineContext.cancelChildren()
-        if (::customWebView.isInitialized) {
-            customWebView.destroy()
-        }
+        customWebView.destroy()
         super.onDestroy()
     }
 
@@ -200,6 +194,4 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             }
         }
     }
-    
-    
 }
