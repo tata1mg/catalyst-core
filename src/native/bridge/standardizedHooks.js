@@ -1,3 +1,4 @@
+/* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps, no-case-declarations */
 import { useEffect, useState } from "react"
 import { useBaseHook } from "./useBaseHook"
 import nativeBridge from "./utils/NativeBridge.js"

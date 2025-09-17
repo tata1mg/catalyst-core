@@ -1,8 +1,8 @@
+/* eslint-disable no-extra-semi */
 "use strict"
 
 var _child_process = require("child_process")
 var _fs = _interopRequireDefault(require("fs"))
-var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
 
@@ -260,7 +260,7 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
     return new Promise((resolve, reject) => {
         ;(0, _child_process.exec)(
             `${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`,
-            (error, stdout, stderr) => {
+            (error) => {
                 if (error) {
                     progress.log("Error starting emulator: " + error.message, "error")
                     reject(error)
@@ -324,13 +324,7 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
     }
 }
 
-async function buildApp(
-    ADB_PATH,
-    androidConfig,
-    buildOptimisation,
-    buildType = "debug",
-    targetDevice = null
-) {
+async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice = null) {
     progress.log("Building and installing app...", "info")
     try {
         // Build command without monkey launch
@@ -378,7 +372,6 @@ async function launchApp(ADB_PATH, buildType = "debug", targetDevice = null) {
 
 async function copySplashscreenAssets() {
     try {
-        const sourcePath = `${process.env.PWD}/build/`
         const destPath = `${pwd}/androidProject/app/src/main/res`
 
         const configFile = _fs.default.readFileSync(configPath, "utf8")
@@ -652,10 +645,10 @@ async function configureAppName(androidConfig) {
 }
 
 // Legacy function for backward compatibility
-async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType = "debug") {
-    await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType)
-    await launchApp(ADB_PATH, buildType, { type: "emulator" })
-}
+// async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType = "debug") {
+//     await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType)
+//     await launchApp(ADB_PATH, buildType, { type: "emulator" })
+// }
 
 async function createAABConfig(androidConfig) {
     // Create AAB configuration based on WebView config with defaults applied
@@ -743,6 +736,7 @@ async function buildSignedAAB(androidConfig) {
 async function buildAndroidApp() {
     // Initialize androidConfig outside try block to ensure it's available in catch
     let androidConfig = null
+    let targetDevice = null
 
     try {
         await setupServer(configPath)
@@ -756,11 +750,11 @@ async function buildAndroidApp() {
 
         // Validate tools and get paths
         progress.start("tools")
-        const { ANDROID_SDK, ADB_PATH, EMULATOR_PATH } = await validateAndroidTools(androidConfig)
+        const { ADB_PATH, EMULATOR_PATH } = await validateAndroidTools(androidConfig)
         progress.complete("tools")
 
         // Device detection and setup (skip for release builds)
-        let targetDevice = null
+
         if (buildType !== "release") {
             progress.start("emulator")
 
@@ -820,7 +814,7 @@ async function buildAndroidApp() {
         } else {
             // Install debug app for development
             progress.start("build")
-            await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType, targetDevice)
+            await buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice)
             await launchApp(ADB_PATH, buildType, targetDevice)
             progress.complete("build")
         }
