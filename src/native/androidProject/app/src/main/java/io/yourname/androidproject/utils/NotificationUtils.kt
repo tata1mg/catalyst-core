@@ -206,10 +206,17 @@ class NotificationUtils(private val context: Context) {
      * Build notification based on style
      */
     fun buildNotification(context: Context, config: NotificationConfig): NotificationCompat.Builder {
-        val intent = Intent(context, MainActivity::class.java)
+        val intent = Intent(context, MainActivity::class.java).apply {
+            // Add deep link data from notification config for push notification deep linking
+            config.data?.let { data ->
+                data["route"]?.let { putExtra("deeplink_route", it) }
+                data["params"]?.let { putExtra("deeplink_params", it) }
+            }
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            0,
+            System.currentTimeMillis().toInt(), // Use unique request code to ensure deep links work
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -306,19 +313,25 @@ class NotificationUtils(private val context: Context) {
     /**
      * Add action button to notification
      */
-    private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: String) {
-        val intent = Intent(context, MainActivity::class.java)
-        intent.putExtra("notification_action", action)
-        
+    private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra("notification_action", action.action)
+            // Add deep link support for action buttons with route
+            action.route?.let { route ->
+                putExtra("deeplink_route", route)
+            }
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
         val pendingIntent = PendingIntent.getActivity(
             context,
-            action.hashCode(),
+            action.action.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         val icon = android.R.drawable.ic_menu_view // Default icon
-        builder.addAction(icon, action.capitalize(), pendingIntent)
+        builder.addAction(icon, action.title, pendingIntent)
     }
     
     /**
@@ -406,13 +419,19 @@ class NotificationUtils(private val context: Context) {
 /**
  * Data class representing notification configuration
  */
+data class NotificationAction(
+    val title: String,
+    val action: String,
+    val route: String? = null
+)
+
 data class NotificationConfig(
     val title: String,
     val body: String,
     val channel: String = "default_notifications",
     val category: String? = null,
     val badge: Int? = null,
-    val actions: List<String>? = null,
+    val actions: List<NotificationAction>? = null,
     val smallIconResId: Int? = null,
     val largeIconBitmap: String? = null, // Base64 or URL
     val style: NotificationStyle = NotificationStyle.BASIC,

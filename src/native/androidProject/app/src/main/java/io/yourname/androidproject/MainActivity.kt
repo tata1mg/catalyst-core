@@ -1,5 +1,6 @@
 package io.yourname.androidproject
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -11,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
@@ -118,7 +120,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")
         }
         
-        // Load URL based on environment
+        // Load URL based on environment and deep link data
         try {
             if (BuildConfig.DEBUG) {
                 // Use the local development server in debug mode
@@ -135,13 +137,26 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     currentUrl = "file:///android_asset/build/public/index.html"
                 }
             }
-            
-            // Load URL
-            customWebView.loadUrl(currentUrl)
+
+            // Check for deep link and modify URL accordingly
+            val finalUrl = buildUrlWithDeepLink(currentUrl, intent)
+            Log.d(TAG, "🔗 Loading URL: $finalUrl")
+            customWebView.loadUrl(finalUrl)
+
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
             // Fallback to local asset as a last resort
             customWebView.loadUrl("file:///android_asset/build/public/error.html")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        // Handle deep link when app is already running and notification is tapped
+        intent?.let { newIntent ->
+            val finalUrl = buildUrlWithDeepLink(currentUrl, newIntent)
+            Log.d(TAG, "🔗 onNewIntent - Loading URL: $finalUrl")
+            customWebView.loadUrl(finalUrl)
         }
     }
 
@@ -206,6 +221,51 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             } else {
                 !webViewLoaded
             }
+        }
+    }
+
+    /**
+     * Build URL with deep link route for direct navigation
+     * Simply appends the route from notification payload to base URL
+     */
+    private fun buildUrlWithDeepLink(baseUrl: String, intent: Intent): String {
+        try {
+            val route = intent.getStringExtra("deeplink_route") ?: intent.getStringExtra("route")
+            val params = intent.getStringExtra("deeplink_params") ?: intent.getStringExtra("params")
+
+            if (route.isNullOrEmpty()) {
+                Log.d(TAG, "🔗 No deep link route found, loading base URL")
+                return baseUrl
+            }
+
+            // Start with base URL + route
+            val baseWithRoute = "$baseUrl$route"
+
+            // Add query parameters if present
+            val finalUrl = if (!params.isNullOrEmpty()) {
+                try {
+                    val paramsJson = JSONObject(params)
+                    val queryParams = mutableListOf<String>()
+                    paramsJson.keys().forEach { key ->
+                        val value = paramsJson.getString(key)
+                        queryParams.add("$key=$value")
+                    }
+                    val queryString = queryParams.joinToString("&")
+                    "$baseWithRoute?$queryString"
+                } catch (e: Exception) {
+                    Log.w(TAG, "🔗 Failed to parse params, using route only: ${e.message}")
+                    baseWithRoute
+                }
+            } else {
+                baseWithRoute
+            }
+
+            Log.d(TAG, "🔗 Deep link URL built: $route -> $finalUrl")
+            return finalUrl
+
+        } catch (e: Exception) {
+            Log.e(TAG, "🔗 Error building deep link URL: ${e.message}", e)
+            return baseUrl
         }
     }
 }

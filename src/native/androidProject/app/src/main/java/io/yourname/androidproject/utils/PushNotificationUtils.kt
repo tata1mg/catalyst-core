@@ -3,6 +3,7 @@ package io.yourname.androidproject.utils
 import android.content.Context
 import android.webkit.WebView
 import org.json.JSONObject
+import org.json.JSONArray
 import java.util.Properties
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -119,10 +120,13 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
 
         try {
             // Show local notification
+            val actions = parseActionsFromData(data["actions"])
             val config = NotificationConfig(
                 title = data["title"] ?: "Notification",
                 body = data["body"] ?: "You have a new message",
                 channel = data["channel"] ?: "default_notifications",
+                actions = actions,
+                style = if (actions?.isNotEmpty() == true) NotificationStyle.ACTION_BUTTONS else NotificationStyle.BASIC,
                 data = data
             )
             val notificationUtils = NotificationUtils(context)
@@ -266,6 +270,33 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
             BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, messageData.toString())
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to notify web", e)
+        }
+    }
+
+    /**
+     * Parse actions array from FCM data
+     */
+    private fun parseActionsFromData(actionsJson: String?): List<NotificationAction>? {
+        if (actionsJson.isNullOrEmpty()) return null
+
+        return try {
+            val actionsArray = JSONArray(actionsJson)
+            val actions = mutableListOf<NotificationAction>()
+
+            for (i in 0 until actionsArray.length()) {
+                val actionObj = actionsArray.getJSONObject(i)
+                val action = NotificationAction(
+                    title = actionObj.getString("title"),
+                    action = actionObj.getString("action"),
+                    route = actionObj.optString("route", null)
+                )
+                actions.add(action)
+            }
+
+            actions
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Failed to parse actions from JSON: $actionsJson", e)
+            null
         }
     }
 }

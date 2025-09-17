@@ -227,11 +227,11 @@ class NotificationManager(
      * Show a notification with action buttons
      * @param title Notification title
      * @param body Notification body
-     * @param actions List of action button labels
+     * @param actions List of action objects with titles and routes
      * @param channelId Channel ID (optional)
      * @return Notification ID for tracking/canceling
      */
-    fun showWithActions(title: String, body: String, actions: List<String>, channelId: String = "default_notifications"): String {
+    fun showWithActions(title: String, body: String, actions: List<NotificationAction>, channelId: String = "default_notifications"): String {
         val config = NotificationConfig(
             title = title,
             body = body,
@@ -240,6 +240,21 @@ class NotificationManager(
             channel = channelId
         )
         return scheduleLocal(config)
+    }
+
+    /**
+     * Show a notification with action buttons (legacy - string labels only)
+     * @param title Notification title
+     * @param body Notification body
+     * @param actionLabels List of action button labels (no routes)
+     * @param channelId Channel ID (optional)
+     * @return Notification ID for tracking/canceling
+     */
+    fun showWithActionLabels(title: String, body: String, actionLabels: List<String>, channelId: String = "default_notifications"): String {
+        val actions = actionLabels.map { label ->
+            NotificationAction(title = label, action = label.lowercase().replace(" ", "_"))
+        }
+        return showWithActions(title, body, actions, channelId)
     }
     
     // ==================== LIFECYCLE METHODS ====================
