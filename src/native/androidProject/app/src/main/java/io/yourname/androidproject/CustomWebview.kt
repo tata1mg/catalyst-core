@@ -156,6 +156,15 @@ class CustomWebView(
         webView.destroy()
     }
 
+    fun applySafeAreaPadding(left: Int, top: Int, right: Int, bottom: Int) {
+        // Apply padding to WebView for safe area (you can adjust this as needed)
+        webView.setPadding(left, top, right, bottom)
+        
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Applied safe area padding to WebView - Left: $left, Top: $top, Right: $right, Bottom: $bottom")
+        }
+    }
+
     fun cleanupCache() {
         launch(Dispatchers.IO) {
             if (BuildConfig.DEBUG) {

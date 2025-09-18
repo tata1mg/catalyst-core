@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+import android.os.Build
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
@@ -12,6 +13,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.ViewCompat
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
@@ -51,6 +55,20 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // Enable edge-to-edge display
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
+        // Configure display cutout mode
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode = 
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
+        
+        // Make sure status bar and navigation bar are transparent
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
         }
@@ -91,6 +109,37 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             progressBar = binding.progress,
             properties = properties
         )
+        
+        // Setup window insets for edge-to-edge with WebView padding
+        ViewCompat.setOnApplyWindowInsetsListener(binding.webviewContainer) { view, windowInsets ->
+            val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val displayCutout = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            
+            // Container has no padding (background extends edge-to-edge)
+            view.setPadding(0, 0, 0, 0)
+            
+            // Calculate safe area insets with extra padding for status bar
+            val safeTopInset = maxOf(systemBars.top, displayCutout.top) + 32 // Add extra padding
+            val safeBottomInset = maxOf(systemBars.bottom, displayCutout.bottom)
+            val safeLeftInset = maxOf(systemBars.left, displayCutout.left)
+            val safeRightInset = maxOf(systemBars.right, displayCutout.right)
+            
+            // Apply safe area padding to WebView through CustomWebView
+            customWebView.applySafeAreaPadding(
+                safeLeftInset,
+                safeTopInset,
+                safeRightInset,
+                safeBottomInset
+            )
+            
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Applied WebView safe area padding - Top: $safeTopInset, Bottom: $safeBottomInset, Left: $safeLeftInset, Right: $safeRightInset")
+                Log.d(TAG, "System bar insets - Top: ${systemBars.top}, Bottom: ${systemBars.bottom}, Left: ${systemBars.left}, Right: ${systemBars.right}")
+                Log.d(TAG, "Display cutout insets - Top: ${displayCutout.top}, Left: ${displayCutout.left}, Right: ${displayCutout.right}, Bottom: ${displayCutout.bottom}")
+            }
+            
+            windowInsets
+        }
 
         // Handle state restoration
         if (savedInstanceState == null) {
