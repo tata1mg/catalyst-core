@@ -668,8 +668,14 @@ async function handleGoogleServicesJson() {
             progress.log("google-services.json already exists in androidProject/app/", "info")
             return true
         } else {
-            progress.log("google-services.json not found - Firebase push notifications will not work", "warning")
-            progress.log("Place google-services.json in project root or src/native/androidProject/app/", "info")
+            progress.log(
+                "google-services.json not found - Firebase push notifications will not work",
+                "warning"
+            )
+            progress.log(
+                "Place google-services.json in project root or src/native/androidProject/app/",
+                "info"
+            )
             return false
         }
     } catch (error) {
@@ -785,7 +791,10 @@ async function addNotificationMetadata() {
 
         manifestContent = manifestContent.replace(/(\s*<\/application>)/, `${metadataXml}\n$1`)
         _fs.default.writeFileSync(manifestPath, manifestContent)
-        progress.log("Added notification metadata and push notification service to AndroidManifest.xml", "success")
+        progress.log(
+            "Added notification metadata and push notification service to AndroidManifest.xml",
+            "success"
+        )
     } catch (error) {
         throw new Error(`Failed to add notification metadata: ${error.message}`)
     }
@@ -860,6 +869,12 @@ async function processNotificationAssets() {
         if (!iconFound) {
             generateNotificationIconDrawable("ic_notification", destPath)
             progress.log("Generated default notification icon", "info")
+        }
+
+        // Create raw directory if it doesn't exist
+        const rawDir = `${destPath}/raw`
+        if (!_fs.default.existsSync(rawDir)) {
+            _fs.default.mkdirSync(rawDir, { recursive: true })
         }
 
         // Process notification sounds
@@ -977,12 +992,16 @@ async function cleanupNotificationMetadata() {
         })
 
         // Remove Push Notification Service
-        const serviceRegex = /\s*<!--\s*Push Notification Service\s*-->\s*<service[^>]*android:name="[^"]*PushNotificationUtils"[\s\S]*?<\/service>/gi
+        const serviceRegex =
+            /\s*<!--\s*Push Notification Service\s*-->\s*<service[^>]*android:name="[^"]*PushNotificationUtils"[\s\S]*?<\/service>/gi
         manifestContent = manifestContent.replace(serviceRegex, "")
 
         // Clean up any standalone notification comments
         manifestContent = manifestContent.replace(/\s*<!--\s*Default notification configuration\s*-->/gi, "")
-        manifestContent = manifestContent.replace(/\s*<!--\s*Firebase default notification configuration\s*-->/gi, "")
+        manifestContent = manifestContent.replace(
+            /\s*<!--\s*Firebase default notification configuration\s*-->/gi,
+            ""
+        )
         manifestContent = manifestContent.replace(/\s*<!--\s*Push Notification Service\s*-->/gi, "")
 
         _fs.default.writeFileSync(manifestPath, manifestContent)

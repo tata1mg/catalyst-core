@@ -21,9 +21,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import io.yourname.androidproject.MainActivity
-// Removed ShortcutBadger - using native implementation
 import org.json.JSONObject
 import java.util.*
+import java.net.URL
+import java.io.InputStream
 
 /**
  * Utility class for handling notifications (local and push)
@@ -237,13 +238,13 @@ class NotificationUtils(private val context: Context) {
             }
         }
         
-        // Set small icon
-        val smallIcon = config.smallIconResId ?: android.R.drawable.ic_dialog_info
-        builder.setSmallIcon(smallIcon)
-        
-        // Set large icon if provided
-        config.largeIconBitmap?.let { bitmap ->
-            val largeBitmap = decodeBase64ToBitmap(bitmap)
+        // Set small icon (status bar icon - must be drawable resource)
+        val systemSmallIcon = getSmallIconResource(context)
+        builder.setSmallIcon(systemSmallIcon)
+
+        // Set large icon from URL if provided
+        config.largeImage?.let { imageUrl ->
+            val largeBitmap = loadImageFromUrl(context, imageUrl)
             largeBitmap?.let { builder.setLargeIcon(it) }
         }
         
@@ -286,8 +287,8 @@ class NotificationUtils(private val context: Context) {
                 builder.setStyle(bigTextStyle)
             }
             NotificationStyle.BIG_IMAGE -> {
-                config.largeIconBitmap?.let { bitmap ->
-                    val largeBitmap = decodeBase64ToBitmap(bitmap)
+                config.largeImage?.let { imageUrl ->
+                    val largeBitmap = loadImageFromUrl(context, imageUrl)
                     largeBitmap?.let {
                         val bigPictureStyle = NotificationCompat.BigPictureStyle()
                             .bigPicture(it)
@@ -383,34 +384,82 @@ class NotificationUtils(private val context: Context) {
     }
     
     /**
-     * Get sound URI from sound name using properties
+     * Get sound URI from sound name (build assets only)
      */
     private fun getSoundUri(context: Context, soundName: String?): Uri? {
-        val effectiveSoundName = soundName ?: properties.getProperty("notifications.defaults.sound", "default")
+        val effectiveSoundName = soundName ?: "default"
         return when (effectiveSoundName) {
-            "default" -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            "urgent" -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            else -> {
-                // Try to find custom sound from properties
-                val customSoundPath = properties.getProperty("notifications.assets.sounds.$effectiveSoundName")
-                if (!customSoundPath.isNullOrEmpty()) {
-                    Uri.parse("android.resource://${context.packageName}/raw/$effectiveSoundName")
-                } else {
-                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                }
+            "default" -> {
+                // Try custom default sound first, fallback to system
+                val customResource = getSoundResource(context, "notification_sound_default")
+                customResource ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             }
+            "urgent" -> {
+                // Try custom urgent sound first, fallback to system
+                val customResource = getSoundResource(context, "notification_sound_urgent")
+                customResource ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            }
+            else -> {
+                // Try to find custom sound from build assets
+                getSoundResource(context, "notification_sound_$effectiveSoundName")
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            }
+        }
+    }
+
+    /**
+     * Get sound resource URI from raw folder
+     */
+    private fun getSoundResource(context: Context, resourceName: String): Uri? {
+        val resourceId = context.resources.getIdentifier(
+            resourceName,
+            "raw",
+            context.packageName
+        )
+        return if (resourceId != 0) {
+            Uri.parse("android.resource://${context.packageName}/raw/$resourceName")
+        } else {
+            null
         }
     }
     
     /**
-     * Decode base64 string to bitmap
+     * Get small icon resource (fallback chain: build asset -> default)
      */
-    private fun decodeBase64ToBitmap(base64String: String): Bitmap? {
+    private fun getSmallIconResource(context: Context): Int {
+        // Try to find build-time notification icon first
+        val resourceId = context.resources.getIdentifier(
+            "ic_notification",
+            "drawable",
+            context.packageName
+        )
+        return if (resourceId != 0) {
+            resourceId
+        } else {
+            // Fallback to default Android icon
+            android.R.drawable.ic_dialog_info
+        }
+    }
+
+    /**
+     * Load image from HTTP/HTTPS URL
+     */
+    private fun loadImageFromUrl(context: Context, imageUrl: String): Bitmap? {
         return try {
-            val decodedBytes = Base64.decode(base64String, Base64.DEFAULT)
-            BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+            if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+                // Download from URL (synchronous - runs on background thread)
+                val url = java.net.URL(imageUrl)
+                val connection = url.openConnection()
+                connection.doInput = true
+                connection.connect()
+                val inputStream = connection.getInputStream()
+                BitmapFactory.decodeStream(inputStream)
+            } else {
+                BridgeUtils.logWarning(TAG, "Only HTTP/HTTPS URLs are supported for images: $imageUrl")
+                null
+            }
         } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Failed to decode base64 to bitmap", e)
+            BridgeUtils.logError(TAG, "Failed to load image from URL: $imageUrl", e)
             null
         }
     }
@@ -429,18 +478,15 @@ data class NotificationConfig(
     val title: String,
     val body: String,
     val channel: String = "default_notifications",
-    val category: String? = null,
     val badge: Int? = null,
     val actions: List<NotificationAction>? = null,
-    val smallIconResId: Int? = null,
-    val largeIconBitmap: String? = null, // Base64 or URL
+    val largeImage: String? = null, // Large image URL (optional)
     val style: NotificationStyle = NotificationStyle.BASIC,
     val priority: Int = NotificationCompat.PRIORITY_DEFAULT,
     val sound: String? = null,
     val vibrate: Boolean = true,
     val autoCancel: Boolean = true,
     val ongoing: Boolean = false,
-    val scheduledTime: Long? = null, // For scheduled notifications
     val data: Map<String, String>? = null // Extra data
 )
 
