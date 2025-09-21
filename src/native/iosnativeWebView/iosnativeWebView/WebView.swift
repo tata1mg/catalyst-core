@@ -38,6 +38,11 @@ struct WebView: UIViewRepresentable {
         // Create and register the native bridge
         context.coordinator.setupNativeBridge(webView)
         
+        // Initialize keyboard utility with WebView
+        let keyboardUtil = KeyboardUtil(webViewContainer: webView)
+        keyboardUtil.initialize()
+        context.coordinator.keyboardUtil = keyboardUtil
+        
         // Initial load
         if let url = URL(string: urlString) {
             let request = URLRequest(url: url)
@@ -58,6 +63,7 @@ struct WebView: UIViewRepresentable {
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
         coordinator.nativeBridge?.unregister()
+        coordinator.keyboardUtil?.cleanup()
         ResourceURLProtocol.unregister()
     }
     
@@ -65,6 +71,7 @@ struct WebView: UIViewRepresentable {
         var parent: WebView
         var nativeBridge: NativeBridge?
         var hostingController: UIViewController?
+        var keyboardUtil: KeyboardUtil?
         
         init(_ parent: WebView) {
             self.parent = parent
