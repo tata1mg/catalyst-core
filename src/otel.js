@@ -1,11 +1,14 @@
 import { metrics } from "@opentelemetry/api"
 import { NodeSDK } from "@opentelemetry/sdk-node"
+import { trace, context } from "@opentelemetry/api"
 import { resourceFromAttributes } from "@opentelemetry/resources"
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node"
+import { HttpInstrumentation } from "@opentelemetry/instrumentation-http"
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
-import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
+import { ExpressInstrumentation } from "@opentelemetry/instrumentation-express"
+// import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
 
 import {
     ATTR_SERVICE_NAME,
@@ -24,6 +27,7 @@ function init(config = {}) {
         metricHeaders = {},
         exportIntervalMillis = 10000,
         exportTimeoutMillis = 10000,
+        regexPatterns = [],
     } = config
 
     try {
@@ -53,7 +57,47 @@ function init(config = {}) {
                 exporter: otlpMetricExporter,
                 exportIntervalMillis,
             }),
-            instrumentations: [getNodeAutoInstrumentations()],
+            instrumentations: [
+                new HttpInstrumentation({
+                    // ignoreIncomingRequestHook: (req) => {
+                    //     const isApiPath = apiPatternList.some((pattern) => req.url?.includes?.(pattern))
+                    //     return !isApiPath
+                    // },
+                    applyCustomAttributesOnSpan: (span, request) => {
+                        const pathname = request.path || ""
+                        const baseUrl = request.baseUrl || ""
+                        const fullRoute = baseUrl ? baseUrl : pathname
+
+                        const selectedPattern = regexPatterns.find((patternObj) =>
+                            patternObj.regex.test(fullRoute)
+                        ) // find if the api path is one of the above defined patterns
+                        const finalRoute = selectedPattern ? selectedPattern.originalPattern : fullRoute
+
+                        span.setAttribute("http.route", finalRoute)
+                        span.updateName(`${request.method} ${finalRoute}`)
+                    },
+                }),
+                new ExpressInstrumentation({
+                    requestHook: (span, { request, route }) => {
+                        const pathname = route || ""
+                        const baseUrl = request.baseUrl || ""
+                        const fullRoute = baseUrl ? baseUrl : pathname
+
+                        const selectedPattern = regexPatterns.find((patternObj) =>
+                            patternObj.regex.test(fullRoute)
+                        ) // find if the api path is one of the above defined patterns
+                        const finalRoute = selectedPattern ? selectedPattern.originalPattern : fullRoute
+
+                        span.setAttribute("http.route", finalRoute)
+                        const parentSpan = trace.getSpan(context.active())
+                        if (parentSpan) {
+                            parentSpan.setAttribute("http.route", finalRoute)
+                            parentSpan.updateName(`${request.method} ${finalRoute}`)
+                        }
+                    },
+                    // ignoreLayersType: ["middleware", "request_handler"],
+                }),
+            ],
         })
 
         sdk.start()
