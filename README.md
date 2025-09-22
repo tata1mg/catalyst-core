@@ -16,7 +16,6 @@ Catalyst offers a comprehensive suite of features designed for modern web develo
 
 This version adds support for Universal app for both Android and iOS. Please checkout [Universal App Documentaion](https://catalyst.1mg.com/public_docs/content/Universal%20App/RunUniversalApp)
 
-
 ## Installation
 
 **System Requirements**

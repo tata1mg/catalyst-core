@@ -77,10 +77,7 @@ export const INTERFACE_CATEGORIES = {
     },
     DEVICE_INFO: {
         commands: [NATIVE_COMMANDS.GET_DEVICE_INFO],
-        callbacks: [
-            NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS,
-            NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR,
-        ],
+        callbacks: [NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR],
     },
 }
 
