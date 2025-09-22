@@ -30,19 +30,96 @@ class NativeBridge: NSObject, ImageHandlerDelegate {
         let userContentController = webView?.configuration.userContentController
         userContentController?.add(self, name: "NativeBridge")
         
-        // Inject the JavaScript interface
+        // Inject the complete JavaScript interface to match Android functionality
         let script = """
         window.WebBridge = {
+            // Native method calls (matching Android @JavascriptInterface methods)
+            openCamera: function(options) {
+                console.log('📱 iOS Bridge: openCamera called with options:', options);
+                webkit.messageHandlers.NativeBridge.postMessage({
+                    command: 'openCamera',
+                    params: options || null
+                });
+            },
+
+            requestCameraPermission: function(config) {
+                console.log('📱 iOS Bridge: requestCameraPermission called with config:', config);
+                webkit.messageHandlers.NativeBridge.postMessage({
+                    command: 'requestCameraPermission',
+                    params: config || null
+                });
+            },
+
+            logger: function() {
+                console.log('📱 iOS Bridge: logger called');
+                webkit.messageHandlers.NativeBridge.postMessage({
+                    command: 'logger',
+                    params: null
+                });
+            },
+
+            getDeviceInfo: function(options) {
+                console.log('📱 iOS Bridge: getDeviceInfo called with options:', options);
+                webkit.messageHandlers.NativeBridge.postMessage({
+                    command: 'getDeviceInfo',
+                    params: options || null
+                });
+            },
+
+            // Registration system for callback handling
+            handlers: new Map(),
+
+            register: function(interfaceName, handler) {
+                if (typeof handler !== 'function') {
+                    console.error('📱 iOS Bridge: Handler must be a function');
+                    return false;
+                }
+
+                if (this.handlers.has(interfaceName)) {
+                    console.warn('📱 iOS Bridge: Interface ' + interfaceName + ' already registered, overriding');
+                }
+
+                console.log('📱 iOS Bridge: Registering callback interface:', interfaceName);
+                this.handlers.set(interfaceName, handler);
+                return true;
+            },
+
+            unregister: function(interfaceName) {
+                if (!this.handlers.has(interfaceName)) {
+                    console.warn('📱 iOS Bridge: Interface ' + interfaceName + ' not registered');
+                    return false;
+                }
+
+                console.log('📱 iOS Bridge: Unregistering callback interface:', interfaceName);
+                this.handlers.delete(interfaceName);
+                return true;
+            },
+
+            isRegistered: function(interfaceName) {
+                return this.handlers.has(interfaceName);
+            },
+
             callback: function(eventName, data) {
-                console.log('📱 Native Bridge:', eventName, data);
-                // This function will be defined by web code to handle native callbacks
+                console.log('📱 iOS Bridge callback:', eventName, data ? {data: data} : '');
+
+                if (!this.handlers.has(eventName)) {
+                    console.warn('📱 iOS Bridge: No handler registered for interface:', eventName);
+                    return;
+                }
+
+                try {
+                    const handler = this.handlers.get(eventName);
+                    handler(data);
+                } catch (error) {
+                    console.error('📱 iOS Bridge: Error executing callback for ' + eventName + ':', error);
+                }
             }
         };
-        
+
         // Auto-trigger a message to verify the bridge is working
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('📱 Native Bridge: DOM ready, bridge initialized');
-            // This will be visible in the console without any user interaction
+            console.log('📱 iOS Bridge: DOM ready, complete bridge initialized');
+            console.log('📱 iOS Bridge: Available methods:', Object.keys(window.WebBridge));
         });
         """
         
@@ -154,6 +231,36 @@ class NativeBridge: NSObject, ImageHandlerDelegate {
         }
     }
     
+    // Get device information
+    @objc func getDeviceInfo() {
+        iosnativeWebView.logger.debug("getDeviceInfo called")
+
+        let device = UIDevice.current
+        let screen = UIScreen.main
+
+        let deviceInfo: [String: Any] = [
+            "model": device.model,
+            "manufacturer": "Apple",
+            "platform": "iOS",
+            "systemVersion": device.systemVersion,
+            "screenWidth": Int(screen.bounds.width * screen.scale),
+            "screenHeight": Int(screen.bounds.height * screen.scale),
+            "screenDensity": screen.scale
+        ]
+
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: deviceInfo)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                sendCallback(eventName: "ON_DEVICE_INFO_SUCCESS", data: jsonString)
+            } else {
+                sendCallback(eventName: "ON_DEVICE_INFO_ERROR", data: "Failed to serialize device info")
+            }
+        } catch {
+            iosnativeWebView.logger.error("Error serializing device info: \(error.localizedDescription)")
+            sendCallback(eventName: "ON_DEVICE_INFO_ERROR", data: "Error: \(error.localizedDescription)")
+        }
+    }
+
     // Log message (test function)
     @objc func logger() {
         iosnativeWebView.logger.debug("Message from native")
@@ -201,11 +308,15 @@ extension NativeBridge: WKScriptMessageHandler {
         
         if message.name == "NativeBridge" {
             if let command = body["command"] as? String {
+                let params = body["params"]
+
                 switch command {
                 case "openCamera":
                     openCamera()
-                case "requestCameraPermission" :
+                case "requestCameraPermission":
                     requestCameraPermission()
+                case "getDeviceInfo":
+                    getDeviceInfo()
                 case "logger":
                     logger()
                 default:
