@@ -242,11 +242,9 @@ class NotificationUtils(private val context: Context) {
         val systemSmallIcon = getSmallIconResource(context)
         builder.setSmallIcon(systemSmallIcon)
 
-        // Set large icon from URL if provided
-        config.largeImage?.let { imageUrl ->
-            val largeBitmap = loadImageFromUrl(context, imageUrl)
-            largeBitmap?.let { builder.setLargeIcon(it) }
-        }
+        // Set large icon with fallback logic
+        val largeBitmap = getLargeIconBitmap(context, config.largeImage)
+        largeBitmap?.let { builder.setLargeIcon(it) }
         
         // Set sound
         if (config.sound != null) {
@@ -287,14 +285,12 @@ class NotificationUtils(private val context: Context) {
                 builder.setStyle(bigTextStyle)
             }
             NotificationStyle.BIG_IMAGE -> {
-                config.largeImage?.let { imageUrl ->
-                    val largeBitmap = loadImageFromUrl(context, imageUrl)
-                    largeBitmap?.let {
-                        val bigPictureStyle = NotificationCompat.BigPictureStyle()
-                            .bigPicture(it)
-                            .setBigContentTitle(config.title)
-                        builder.setStyle(bigPictureStyle)
-                    }
+                val largeBitmap = getLargeIconBitmap(context, config.largeImage)
+                largeBitmap?.let {
+                    val bigPictureStyle = NotificationCompat.BigPictureStyle()
+                        .bigPicture(it)
+                        .setBigContentTitle(config.title)
+                    builder.setStyle(bigPictureStyle)
                 }
             }
             NotificationStyle.CHAT_MESSAGE -> {
@@ -424,20 +420,76 @@ class NotificationUtils(private val context: Context) {
     }
     
     /**
-     * Get small icon resource (fallback chain: build asset -> default)
+     * Get small icon resource (fallback chain: notification icon -> app icon -> system default)
+     * Note: Small icons are required for Android notifications, so we always return a valid resource
      */
     private fun getSmallIconResource(context: Context): Int {
         // Try to find build-time notification icon first
-        val resourceId = context.resources.getIdentifier(
+        val notificationIconId = context.resources.getIdentifier(
             "ic_notification",
             "drawable",
             context.packageName
         )
-        return if (resourceId != 0) {
-            resourceId
-        } else {
-            // Fallback to default Android icon
-            android.R.drawable.ic_dialog_info
+        if (notificationIconId != 0) {
+            return notificationIconId
+        }
+
+        // Try to use app icon as fallback
+        val appIconId = context.resources.getIdentifier(
+            "ic_launcher",
+            "mipmap",
+            context.packageName
+        )
+        if (appIconId != 0) {
+            return appIconId
+        }
+
+        // Final fallback to system default (required for notifications to work)
+        return android.R.drawable.ic_dialog_info
+    }
+
+    /**
+     * Get large icon bitmap (fallback chain: provided URL -> notification large icon -> app icon)
+     */
+    private fun getLargeIconBitmap(context: Context, largeImageUrl: String?): Bitmap? {
+        // First try to load from provided URL
+        largeImageUrl?.let { imageUrl ->
+            val bitmap = loadImageFromUrl(context, imageUrl)
+            if (bitmap != null) {
+                return bitmap
+            }
+        }
+
+        // Second, try to find build-time large notification icon
+        val notificationLargeIconId = context.resources.getIdentifier(
+            "ic_notification_large",
+            "drawable",
+            context.packageName
+        )
+        if (notificationLargeIconId != 0) {
+            return try {
+                BitmapFactory.decodeResource(context.resources, notificationLargeIconId)
+            } catch (e: Exception) {
+                BridgeUtils.logError(TAG, "Failed to load local large notification icon", e)
+                null
+            }
+        }
+
+        // Finally, fallback to app icon
+        return try {
+            val appIconId = context.resources.getIdentifier(
+                "ic_launcher",
+                "mipmap",
+                context.packageName
+            )
+            if (appIconId != 0) {
+                BitmapFactory.decodeResource(context.resources, appIconId)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Failed to load app icon as large icon fallback", e)
+            null
         }
     }
 

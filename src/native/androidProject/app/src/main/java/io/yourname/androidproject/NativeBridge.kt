@@ -9,6 +9,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationCompat
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
@@ -153,18 +154,66 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
     fun scheduleLocalNotification(config: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED, "schedule local notification") {
             mainActivity.runOnUiThread {
-                // Parse config directly without parseNotificationConfig method
+                // Parse config with full NotificationConfig support
                 val notificationConfig = if (config.isNullOrBlank()) {
                     NotificationConfig(title = "Notification", body = "You have a new message")
                 } else {
                     try {
                         val json = org.json.JSONObject(config)
+
+                        // Parse actions array if present
+                        val actions = if (json.has("actions")) {
+                            val actionsArray = json.getJSONArray("actions")
+                            val actionsList = mutableListOf<NotificationAction>()
+                            for (i in 0 until actionsArray.length()) {
+                                val actionObj = actionsArray.getJSONObject(i)
+                                actionsList.add(
+                                    NotificationAction(
+                                        title = actionObj.getString("title"),
+                                        action = actionObj.getString("action"),
+                                        route = actionObj.optString("route", null)
+                                    )
+                                )
+                            }
+                            actionsList
+                        } else null
+
+                        // Parse data map if present
+                        val data = if (json.has("data")) {
+                            val dataObj = json.getJSONObject("data")
+                            val dataMap = mutableMapOf<String, String>()
+                            dataObj.keys().forEach { key ->
+                                dataMap[key] = dataObj.getString(key)
+                            }
+                            dataMap
+                        } else null
+
+                        // Parse style enum if present
+                        val style = if (json.has("style")) {
+                            try {
+                                NotificationStyle.valueOf(json.getString("style"))
+                            } catch (e: IllegalArgumentException) {
+                                NotificationStyle.BASIC
+                            }
+                        } else NotificationStyle.BASIC
+
                         NotificationConfig(
                             title = json.optString("title", "Notification"),
                             body = json.optString("body", "You have a new message"),
-                            channel = json.optString("channel", "default_notifications")
+                            channel = json.optString("channel", "default_notifications"),
+                            badge = if (json.has("badge")) json.getInt("badge") else null,
+                            actions = actions,
+                            largeImage = json.optString("largeImage", null),
+                            style = style,
+                            priority = json.optInt("priority", NotificationCompat.PRIORITY_DEFAULT),
+                            sound = json.optString("sound", null),
+                            vibrate = json.optBoolean("vibrate", true),
+                            autoCancel = json.optBoolean("autoCancel", true),
+                            ongoing = json.optBoolean("ongoing", false),
+                            data = data
                         )
                     } catch (e: Exception) {
+                        BridgeUtils.logError(TAG, "Error parsing notification config", e)
                         NotificationConfig(title = "Notification", body = "You have a new message")
                     }
                 }
