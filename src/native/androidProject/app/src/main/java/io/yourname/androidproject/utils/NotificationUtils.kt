@@ -34,7 +34,7 @@ import java.util.concurrent.Executors
 class NotificationUtils(private val context: Context) {
 
     private val TAG = "NotificationUtils"
-    private val DEFAULT_CHANNEL_ID = "default_notifications"
+    private val DEFAULT_CHANNEL_ID = "default"
     private val REQUEST_CODE_PERMISSION = 100
 
     // Callback for permission request result
@@ -280,13 +280,6 @@ class NotificationUtils(private val context: Context) {
             BridgeUtils.logInfo(TAG, "Skipping large icon for BASIC style")
         }
         
-        // Set sound
-        if (config.sound != null) {
-            val soundUri = getSoundUri(context, config.sound)
-            builder.setSound(soundUri)
-        } else {
-            builder.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
-        }
         
         // Set vibration
         if (config.vibrate) {
@@ -384,33 +377,49 @@ class NotificationUtils(private val context: Context) {
      * Get channel configuration based on channel ID using properties
      */
     private fun getChannelConfig(channelId: String): NotificationChannelConfig {
-        val channelName = properties.getProperty("notifications.channels.$channelId.name", 
+        val channelName = properties.getProperty("notifications.channels.$channelId.name",
             when (channelId) {
-                "messages" -> "Messages"
-                "updates" -> "App Updates"
+                "default" -> "Notifications"
+                "urgent" -> "Urgent Notifications"
                 else -> "Notifications"
             })
-        
+
         val channelDescription = properties.getProperty("notifications.channels.$channelId.description",
             when (channelId) {
-                "messages" -> "Chat messages and communications"
-                "updates" -> "Application updates and news"
+                "default" -> "General notifications"
+                "urgent" -> "Urgent notifications that require immediate attention"
                 else -> "General notifications"
             })
-            
-        val importance = when (properties.getProperty("notifications.channels.$channelId.importance", "DEFAULT")) {
-            "MIN" -> NotificationManager.IMPORTANCE_MIN
-            "LOW" -> NotificationManager.IMPORTANCE_LOW
-            "HIGH" -> NotificationManager.IMPORTANCE_HIGH
-            "MAX" -> NotificationManager.IMPORTANCE_MAX
-            else -> NotificationManager.IMPORTANCE_DEFAULT
+
+        val importance = if (channelId == "urgent") {
+            NotificationManager.IMPORTANCE_HIGH
+        } else {
+            NotificationManager.IMPORTANCE_DEFAULT
         }
-        
+
+        // Configure sound based on channel type with fallbacks
+        val soundUri = when (channelId) {
+            "default" -> {
+                // Try custom default sound first, fallback to system default
+                getSoundResource(context, "notification_sound_default")
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            }
+            "urgent" -> {
+                // Try custom urgent sound first, fallback to system alarm
+                getSoundResource(context, "notification_sound_urgent")
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            }
+            else -> {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            }
+        }
+
         return NotificationChannelConfig(
             id = channelId,
             name = channelName,
             description = channelDescription,
-            importance = importance
+            importance = importance,
+            sound = soundUri
         )
     }
     
@@ -558,13 +567,12 @@ data class NotificationAction(
 data class NotificationConfig(
     val title: String,
     val body: String,
-    val channel: String = "default_notifications",
+    val channel: String = "default",
     val badge: Int? = null,
     val actions: List<NotificationAction>? = null,
     val largeImage: String? = null, // Large image URL (optional)
     val style: NotificationStyle = NotificationStyle.BASIC,
     val priority: Int = NotificationCompat.PRIORITY_DEFAULT,
-    val sound: String? = null,
     val vibrate: Boolean = true,
     val autoCancel: Boolean = true,
     val ongoing: Boolean = false,
