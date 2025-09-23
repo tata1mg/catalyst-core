@@ -207,6 +207,23 @@ class WebBridge {
      * @returns {Promise<Object>} - Promise that resolves with device info or rejects with error
      */
     getDeviceInfo = () => {
+        const { platform, isNativeEnvironment } = nativeBridge.getEnvironmentInfo()
+
+        // Handle web environment
+        if (!isNativeEnvironment || platform === "web") {
+            return new Promise((resolve) => {
+                const webDeviceInfo = {
+                    model: navigator.userAgent,
+                    manufacturer: "browser",
+                    platform: "web",
+                    screenWidth: screen.width,
+                    screenHeight: screen.height,
+                    screenDensity: window.devicePixelRatio,
+                }
+                resolve(webDeviceInfo)
+            })
+        }
+
         // Key mapping from native to web keys
         const DEVICE_INFO_KEY_MAP = {
             android: {
@@ -229,7 +246,6 @@ class WebBridge {
 
         const parseDeviceInfo = (data) => {
             const rawDeviceInfo = JSON.parse(data)
-            const { platform } = nativeBridge.getEnvironmentInfo()
             const platformMapping = DEVICE_INFO_KEY_MAP[platform] || {}
 
             return Object.fromEntries(
