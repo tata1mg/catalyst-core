@@ -763,6 +763,11 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             return null
         }
 
+        // Remove existing app if it exists
+        if (!_fs.default.existsSync(destinationApkPath)) {
+            _fs.default.rmSync(destinationApkPath, { recursive: true, force: true })
+        }
+
         // Create destination directory if it doesn't exist
         if (!_fs.default.existsSync(destinationDir)) {
             _fs.default.mkdirSync(destinationDir, { recursive: true })
