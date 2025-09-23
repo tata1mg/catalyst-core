@@ -3,6 +3,7 @@
 
 var _child_process = require("child_process")
 var _fs = _interopRequireDefault(require("fs"))
+var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
 
@@ -48,7 +49,7 @@ const progress = new _TerminalProgress.default(steps, "Catalyst Android Build", 
 async function initializeConfig() {
     const configFile = _fs.default.readFileSync(configPath, "utf8")
     const config = JSON.parse(configFile)
-    const { WEBVIEW_CONFIG } = config
+    const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
     if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
         throw new Error("WebView Config missing in " + configPath)
@@ -66,7 +67,7 @@ async function initializeConfig() {
         progress.log("Release build detected - AAB will be generated", "info")
     }
 
-    return { WEBVIEW_CONFIG }
+    return { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }
 }
 
 function validateAndroidTools(androidConfig) {
@@ -717,6 +718,65 @@ async function createAABConfig(androidConfig) {
     return aabConfig
 }
 
+async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
+    try {
+        // Check if required environment variables are set
+        if (!process.env.PWD || !BUILD_OUTPUT_PATH) {
+            progress.log(
+                "Environment variables PWD or BUILD_OUTPUT_PATH not set, skipping APK move",
+                "warning"
+            )
+            return null
+        }
+        let apkFileName = ""
+        // Construct source and destination paths
+        if (appName) {
+            apkFileName = buildType === "release" ? `${appName}-release.apk` : `${appName}-debug.apk`
+        } else {
+            apkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
+        }
+        const sourceApkPath = _path.default.join(
+            pwd,
+            "androidProject",
+            "app",
+            "build",
+            "outputs",
+            "apk",
+            buildType,
+            apkFileName
+        )
+        const destinationDir = _path.default.join(
+            process.env.PWD,
+            BUILD_OUTPUT_PATH,
+            "native",
+            "android",
+            buildType
+        )
+        const destinationApkPath = _path.default.join(destinationDir, apkFileName)
+
+        // Check if source APK exists
+        if (!_fs.default.existsSync(sourceApkPath)) {
+            progress.log(`APK not found at source path: ${sourceApkPath}`, "warning")
+            return null
+        }
+
+        // Create destination directory if it doesn't exist
+        if (!_fs.default.existsSync(destinationDir)) {
+            _fs.default.mkdirSync(destinationDir, { recursive: true })
+            progress.log(`Created output directory: ${destinationDir}`, "info")
+        }
+
+        // Copy APK to destination
+        _fs.default.copyFileSync(sourceApkPath, destinationApkPath)
+        progress.log(`APK moved successfully to: ${destinationApkPath}`, "success")
+
+        return destinationApkPath
+    } catch (error) {
+        progress.log(`Error moving APK: ${error.message}`, "error")
+        return null
+    }
+}
+
 async function buildSignedAAB(androidConfig) {
     progress.log("Building signed AAB for release...", "info")
 
@@ -742,7 +802,7 @@ async function buildAndroidApp() {
         await setupServer(configPath)
         // Initialize configuration
         progress.start("config")
-        const { WEBVIEW_CONFIG } = await initializeConfig()
+        const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = await initializeConfig()
         androidConfig = WEBVIEW_CONFIG.android
         const buildType = androidConfig.buildType || "debug"
         const buildOptimisation = !!androidConfig.buildOptimisation || false
@@ -806,17 +866,22 @@ async function buildAndroidApp() {
         progress.complete("copyAssets")
 
         // Build based on type
+        let movedApkPath = null
         if (buildType === "release") {
             // Build signed AAB for release
             progress.start("aab")
             await buildSignedAAB(androidConfig)
             progress.complete("aab")
+            // Move APK to output directory
+            movedApkPath = await moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, androidConfig.appName)
         } else {
             // Install debug app for development
             progress.start("build")
             await buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice)
             await launchApp(ADB_PATH, buildType, targetDevice)
             progress.complete("build")
+            // Move APK to output directory
+            movedApkPath = await moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, androidConfig.appName)
         }
 
         // Print build summary
@@ -833,6 +898,25 @@ async function buildAndroidApp() {
         ]
 
         if (buildType === "release") {
+            // Add APK path for release builds
+            const releaseApkPath = `${pwd}/androidProject/app/build/outputs/apk/release/${androidConfig.appName}-release.apk`
+            summaryItems.push({
+                text: `APK Build Location: ${releaseApkPath}`,
+                indent: 1,
+                prefix: "├─ ",
+                color: "blue",
+            })
+
+            // Show moved APK location if move was successful
+            if (movedApkPath) {
+                summaryItems.push({
+                    text: `APK Output Location: ${movedApkPath}`,
+                    indent: 1,
+                    prefix: "├─ ",
+                    color: "green",
+                })
+            }
+
             summaryItems.push({
                 text: `Output: Signed AAB generated in build-output/`,
                 indent: 1,
@@ -840,6 +924,25 @@ async function buildAndroidApp() {
                 color: "green",
             })
         } else {
+            // Add APK path for debug builds
+            const debugApkPath = `${pwd}/androidProject/app/build/outputs/apk/debug/${androidConfig.appName}-debug.apk`
+            summaryItems.push({
+                text: `APK Build Location: ${debugApkPath}`,
+                indent: 1,
+                prefix: "├─ ",
+                color: "blue",
+            })
+
+            // Show moved APK location if move was successful
+            if (movedApkPath) {
+                summaryItems.push({
+                    text: `APK Output Location: ${movedApkPath}`,
+                    indent: 1,
+                    prefix: "├─ ",
+                    color: "green",
+                })
+            }
+
             if (targetDevice && targetDevice.type === "physical") {
                 summaryItems.push({
                     text: `Target Device: ${targetDevice.model} (Physical)`,
