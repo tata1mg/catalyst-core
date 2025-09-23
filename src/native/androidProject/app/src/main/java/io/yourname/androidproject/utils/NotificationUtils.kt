@@ -571,8 +571,6 @@ enum class NotificationStyle {
     BASIC,
     BIG_TEXT,
     BIG_IMAGE,
-    CHAT_MESSAGE,
-    PROGRESS,
     ACTION_BUTTONS
 }
 
