@@ -25,6 +25,7 @@ import org.json.JSONObject
 import java.util.*
 import java.net.URL
 import java.io.InputStream
+import java.util.concurrent.Executors
 
 /**
  * Utility class for handling notifications (local and push)
@@ -38,6 +39,9 @@ class NotificationUtils(private val context: Context) {
 
     // Callback for permission request result
     private var permissionCallback: ((Boolean) -> Unit)? = null
+
+    // Thread pool for image loading
+    private val imageLoadExecutor = Executors.newFixedThreadPool(3)
     
     private val properties: Properties = Properties().apply {
         try {
@@ -58,20 +62,46 @@ class NotificationUtils(private val context: Context) {
      */
     fun scheduleLocalNotification(context: Context, config: NotificationConfig): String {
         val notificationId = generateNotificationId()
-        
+
         // Check if notifications are enabled
         if (!areNotificationsEnabled(context)) {
             BridgeUtils.logWarning(TAG, "Notifications are disabled by user")
             return notificationId
         }
-        
+
         // Create or update notification channel
         createNotificationChannel(context, config)
-        
-        // Build and show notification
-        val notification = buildNotification(context, config)
+
+        // If there's a remote image URL, load it asynchronously
+        if (!config.largeImage.isNullOrBlank()) {
+            imageLoadExecutor.execute {
+                try {
+                    val bitmap = loadImageFromUrl(context, config.largeImage)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        showNotification(context, config, notificationId, bitmap)
+                    }
+                } catch (e: Exception) {
+                    BridgeUtils.logError(TAG, "Error loading image: ${config.largeImage}", e)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        showNotification(context, config, notificationId, null)
+                    }
+                }
+            }
+        } else {
+            // No remote image, show immediately
+            showNotification(context, config, notificationId, null)
+        }
+
+        return notificationId
+    }
+
+    /**
+     * Show notification with optional pre-loaded bitmap
+     */
+    private fun showNotification(context: Context, config: NotificationConfig, notificationId: String, preloadedBitmap: Bitmap?) {
+        val notification = buildNotification(context, config, preloadedBitmap)
         val notificationManager = NotificationManagerCompat.from(context)
-        
+
         try {
             if (ActivityCompat.checkSelfPermission(
                     context,
@@ -86,13 +116,11 @@ class NotificationUtils(private val context: Context) {
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to schedule notification", e)
         }
-        
+
         // Update badge count if specified
         config.badge?.let { badge ->
             updateBadgeCount(context, badge)
         }
-        
-        return notificationId
     }
     
     /**
@@ -206,7 +234,7 @@ class NotificationUtils(private val context: Context) {
     /**
      * Build notification based on style
      */
-    fun buildNotification(context: Context, config: NotificationConfig): NotificationCompat.Builder {
+    fun buildNotification(context: Context, config: NotificationConfig, preloadedBitmap: Bitmap? = null): NotificationCompat.Builder {
         val intent = Intent(context, MainActivity::class.java).apply {
             // Add deep link data from notification config for push notification deep linking
             config.data?.let { data ->
@@ -242,8 +270,8 @@ class NotificationUtils(private val context: Context) {
         val systemSmallIcon = getSmallIconResource(context)
         builder.setSmallIcon(systemSmallIcon)
 
-        // Set large icon with fallback logic
-        val largeBitmap = getLargeIconBitmap(context, config.largeImage)
+        // Set large icon - use preloaded bitmap or fallback to local resources
+        val largeBitmap = preloadedBitmap ?: getLargeIconBitmapLocal(context)
         largeBitmap?.let { builder.setLargeIcon(it) }
         
         // Set sound
@@ -260,7 +288,7 @@ class NotificationUtils(private val context: Context) {
         }
         
         // Apply notification style
-        applyNotificationStyle(builder, config)
+        applyNotificationStyle(builder, config, preloadedBitmap)
         
         // Add action buttons
         config.actions?.forEach { action ->
@@ -269,7 +297,9 @@ class NotificationUtils(private val context: Context) {
         
         return builder
     }
-    
+
+
+
     /**
      * Determine the optimal notification style based on content and user preference
      */
@@ -301,7 +331,7 @@ class NotificationUtils(private val context: Context) {
     /**
      * Apply notification style based on configuration with smart detection
      */
-    private fun applyNotificationStyle(builder: NotificationCompat.Builder, config: NotificationConfig) {
+    private fun applyNotificationStyle(builder: NotificationCompat.Builder, config: NotificationConfig, preloadedBitmap: Bitmap? = null) {
         val effectiveStyle = determineOptimalStyle(config)
 
         when (effectiveStyle) {
@@ -315,10 +345,10 @@ class NotificationUtils(private val context: Context) {
                 builder.setStyle(bigTextStyle)
             }
             NotificationStyle.BIG_IMAGE -> {
-                val largeBitmap = getLargeIconBitmap(context, config.largeImage)
-                largeBitmap?.let {
+                // Use preloaded bitmap if available, otherwise fallback gracefully per NOTIFICATIONS.md
+                preloadedBitmap?.let { bitmap ->
                     val bigPictureStyle = NotificationCompat.BigPictureStyle()
-                        .bigPicture(it)
+                        .bigPicture(bitmap)
                         .setBigContentTitle(config.title)
                     builder.setStyle(bigPictureStyle)
                 }
@@ -328,7 +358,8 @@ class NotificationUtils(private val context: Context) {
             }
         }
     }
-    
+
+
     /**
      * Add action button to notification
      */
@@ -470,19 +501,13 @@ class NotificationUtils(private val context: Context) {
         return android.R.drawable.ic_dialog_info
     }
 
-    /**
-     * Get large icon bitmap (fallback chain: provided URL -> notification large icon -> app icon)
-     */
-    private fun getLargeIconBitmap(context: Context, largeImageUrl: String?): Bitmap? {
-        // First try to load from provided URL
-        largeImageUrl?.let { imageUrl ->
-            val bitmap = loadImageFromUrl(context, imageUrl)
-            if (bitmap != null) {
-                return bitmap
-            }
-        }
 
-        // Second, try to find build-time large notification icon
+    /**
+     * Get large icon bitmap from local resources only (no network calls)
+     * Fallback chain: notification large icon -> app icon
+     */
+    private fun getLargeIconBitmapLocal(context: Context): Bitmap? {
+        // Try to find build-time large notification icon
         val notificationLargeIconId = context.resources.getIdentifier(
             "ic_notification_large",
             "drawable",
