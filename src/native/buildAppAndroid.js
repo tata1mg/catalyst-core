@@ -731,8 +731,7 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
         let destinationApkFileName = ""
         // Construct source and destination paths
         if (appName) {
-            destinationApkFileName =
-                buildType === "release" ? `${appName}-release.apk` : `${appName}-debug.apk`
+            destinationApkFileName = buildType === "release" ? `${appName}.apk` : `${appName}.apk`
         } else {
             destinationApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
         }
