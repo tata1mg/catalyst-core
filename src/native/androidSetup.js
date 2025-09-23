@@ -5,6 +5,7 @@ import TerminalProgress from "./TerminalProgress.js"
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
 const configPath = `${process.env.PWD}/config/config.json`
+import { setupServer } from "./setupServer.js"
 
 const steps = {
     java: "Check Java Environment",
@@ -13,6 +14,7 @@ const steps = {
     emulator: "Configure Android Emulator",
     properties: "Update Local Properties",
     saveConfig: "Save Configuration",
+    setupServer: "Setup Server",
 }
 
 const progressPaddingConfig = {
@@ -266,6 +268,10 @@ async function setupAndroidEnvironment() {
         progress.start("androidTools")
         const { EMULATOR_PATH, ADB_PATH } = validateAndroidTools(config.android)
         progress.complete("androidTools")
+
+        progress.start("setupServer")
+        await setupServer(configPath)
+        progress.complete("setupServer")
 
         progress.start("emulator")
         const emulatorRunning = await checkEmulator(ADB_PATH)
