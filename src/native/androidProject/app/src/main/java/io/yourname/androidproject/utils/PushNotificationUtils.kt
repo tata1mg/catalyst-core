@@ -121,14 +121,16 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
         try {
             // Show local notification
             val actions = parseActionsFromData(data["actions"])
+
             val config = NotificationConfig(
                 title = data["title"] ?: "Notification",
                 body = data["body"] ?: "You have a new message",
                 channel = data["channel"] ?: "default_notifications",
                 actions = actions,
-                style = if (actions?.isNotEmpty() == true) NotificationStyle.ACTION_BUTTONS else NotificationStyle.BASIC,
+                largeImage = data["largeImage"],
                 data = data
             )
+
             val notificationUtils = NotificationUtils(context)
             notificationUtils.scheduleLocalNotification(context, config)
 

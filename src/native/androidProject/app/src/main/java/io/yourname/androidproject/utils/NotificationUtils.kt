@@ -271,10 +271,40 @@ class NotificationUtils(private val context: Context) {
     }
     
     /**
-     * Apply notification style based on configuration
+     * Determine the optimal notification style based on content and user preference
+     */
+    fun determineOptimalStyle(config: NotificationConfig): NotificationStyle {
+        val detectedStyle = when {
+            // Large image takes priority - always show it if provided
+            !config.largeImage.isNullOrBlank() -> NotificationStyle.BIG_IMAGE
+
+            // Actions should be prominently displayed
+            config.actions?.isNotEmpty() == true -> NotificationStyle.ACTION_BUTTONS
+
+            // Long text benefits from expanded view
+            config.body.length > 100 -> NotificationStyle.BIG_TEXT
+
+            // Fall back to user's preference
+            else -> config.style
+        }
+
+        // Log style decision for debugging
+        if (detectedStyle != config.style) {
+            BridgeUtils.logInfo(TAG, "Style auto-detected: ${detectedStyle.name} (user specified: ${config.style.name})")
+        } else {
+            BridgeUtils.logDebug(TAG, "Using user-specified style: ${config.style.name}")
+        }
+
+        return detectedStyle
+    }
+
+    /**
+     * Apply notification style based on configuration with smart detection
      */
     private fun applyNotificationStyle(builder: NotificationCompat.Builder, config: NotificationConfig) {
-        when (config.style) {
+        val effectiveStyle = determineOptimalStyle(config)
+
+        when (effectiveStyle) {
             NotificationStyle.BASIC -> {
                 // Basic style is default, no additional styling needed
             }
@@ -292,14 +322,6 @@ class NotificationUtils(private val context: Context) {
                         .setBigContentTitle(config.title)
                     builder.setStyle(bigPictureStyle)
                 }
-            }
-            NotificationStyle.CHAT_MESSAGE -> {
-                val messagingStyle = NotificationCompat.MessagingStyle("You")
-                    .addMessage(config.body, System.currentTimeMillis(), "Sender")
-                builder.setStyle(messagingStyle)
-            }
-            NotificationStyle.PROGRESS -> {
-                builder.setProgress(100, 0, true) // Indeterminate progress
             }
             NotificationStyle.ACTION_BUTTONS -> {
                 // Action buttons are added separately, no specific style needed
