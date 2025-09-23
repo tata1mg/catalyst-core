@@ -270,9 +270,15 @@ class NotificationUtils(private val context: Context) {
         val systemSmallIcon = getSmallIconResource(context)
         builder.setSmallIcon(systemSmallIcon)
 
-        // Set large icon - use preloaded bitmap or fallback to local resources
-        val largeBitmap = preloadedBitmap ?: getLargeIconBitmapLocal(context)
-        largeBitmap?.let { builder.setLargeIcon(it) }
+        // Set large icon only if style is not BASIC
+        if (config.style != NotificationStyle.BASIC) {
+            val largeBitmap = preloadedBitmap ?: getLargeIconBitmapLocal(context)
+            largeBitmap?.let {
+                builder.setLargeIcon(it)
+            }
+        } else {
+            BridgeUtils.logInfo(TAG, "Skipping large icon for BASIC style")
+        }
         
         // Set sound
         if (config.sound != null) {
@@ -290,9 +296,13 @@ class NotificationUtils(private val context: Context) {
         // Apply notification style
         applyNotificationStyle(builder, config, preloadedBitmap)
         
-        // Add action buttons
-        config.actions?.forEach { action ->
-            addActionButton(builder, context, action)
+        // Add action buttons only for non-BASIC styles
+        if (config.style != NotificationStyle.BASIC) {
+            config.actions?.forEach { action ->
+                addActionButton(builder, context, action)
+            }
+        } else if (!config.actions.isNullOrEmpty()) {
+            BridgeUtils.logWarning(TAG, "BASIC style ignoring ${config.actions.size} action buttons. Use ACTION_BUTTONS style if you need actions.")
         }
         
         return builder
@@ -301,40 +311,10 @@ class NotificationUtils(private val context: Context) {
 
 
     /**
-     * Determine the optimal notification style based on content and user preference
-     */
-    fun determineOptimalStyle(config: NotificationConfig): NotificationStyle {
-        val detectedStyle = when {
-            // Large image takes priority - always show it if provided
-            !config.largeImage.isNullOrBlank() -> NotificationStyle.BIG_IMAGE
-
-            // Actions should be prominently displayed
-            config.actions?.isNotEmpty() == true -> NotificationStyle.ACTION_BUTTONS
-
-            // Long text benefits from expanded view
-            config.body.length > 100 -> NotificationStyle.BIG_TEXT
-
-            // Fall back to user's preference
-            else -> config.style
-        }
-
-        // Log style decision for debugging
-        if (detectedStyle != config.style) {
-            BridgeUtils.logInfo(TAG, "Style auto-detected: ${detectedStyle.name} (user specified: ${config.style.name})")
-        } else {
-            BridgeUtils.logDebug(TAG, "Using user-specified style: ${config.style.name}")
-        }
-
-        return detectedStyle
-    }
-
-    /**
-     * Apply notification style based on configuration with smart detection
+     * Apply notification style based on configuration
      */
     private fun applyNotificationStyle(builder: NotificationCompat.Builder, config: NotificationConfig, preloadedBitmap: Bitmap? = null) {
-        val effectiveStyle = determineOptimalStyle(config)
-
-        when (effectiveStyle) {
+        when (config.style) {
             NotificationStyle.BASIC -> {
                 // Basic style is default, no additional styling needed
             }
@@ -345,11 +325,13 @@ class NotificationUtils(private val context: Context) {
                 builder.setStyle(bigTextStyle)
             }
             NotificationStyle.BIG_IMAGE -> {
-                // Use preloaded bitmap if available, otherwise fallback gracefully per NOTIFICATIONS.md
-                preloadedBitmap?.let { bitmap ->
+                // Use preloaded bitmap if available, otherwise try local large icon
+                val bitmap = preloadedBitmap ?: getLargeIconBitmapLocal(context)
+                if (bitmap != null) {
                     val bigPictureStyle = NotificationCompat.BigPictureStyle()
                         .bigPicture(bitmap)
                         .setBigContentTitle(config.title)
+                        .bigLargeIcon(null as Bitmap?) // Hide large icon when expanded per Android standards
                     builder.setStyle(bigPictureStyle)
                 }
             }
@@ -591,6 +573,12 @@ data class NotificationConfig(
 
 /**
  * Enum representing different notification styles
+ *
+ * Style behaviors:
+ * - BASIC: Minimal notification (title, text, small icon only). Ignores large icons and action buttons.
+ * - BIG_TEXT: Expanded text view with large text area
+ * - BIG_IMAGE: Large image display with expanded view
+ * - ACTION_BUTTONS: Basic notification with action buttons enabled
  */
 enum class NotificationStyle {
     BASIC,
