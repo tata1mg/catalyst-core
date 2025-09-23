@@ -1,15 +1,16 @@
 const { exec, execSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
-const { setupServer } = require("./setupServer.js")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
+    `${process.env.PWD}/config/config.json`
+)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
-const url = `http://${getLocalIPAddress()}:${WEBVIEW_CONFIG.port}`
+const url = `http://${NODE_SERVER_HOSTNAME}:${WEBVIEW_CONFIG.port}`
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
 const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
@@ -583,7 +584,6 @@ async function launchIOSSimulator(simulatorName) {
 
 async function main() {
     try {
-        await setupServer(`${process.env.PWD}/config/config.json`)
         const originalDir = process.cwd()
         progress.log("Starting build process from: " + originalDir, "info")
 

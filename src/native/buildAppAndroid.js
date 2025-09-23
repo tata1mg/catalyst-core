@@ -9,7 +9,6 @@ var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
 
 // Import the AAB builder
 import { buildAndroidAAB } from "./renameAndroidProject.js"
-import { setupServer } from "./setupServer.js"
 
 function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e }
@@ -804,7 +803,6 @@ async function buildAndroidApp() {
     let targetDevice = null
 
     try {
-        await setupServer(configPath)
         // Initialize configuration
         progress.start("config")
         const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = await initializeConfig()
