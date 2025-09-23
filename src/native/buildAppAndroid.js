@@ -728,13 +728,17 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             )
             return null
         }
-        let apkFileName = ""
+        let destinationApkFileName = ""
         // Construct source and destination paths
         if (appName) {
-            apkFileName = buildType === "release" ? `${appName}-release.apk` : `${appName}-debug.apk`
+            destinationApkFileName =
+                buildType === "release" ? `${appName}-release.apk` : `${appName}-debug.apk`
         } else {
-            apkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
+            destinationApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
         }
+
+        const sourceApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
+
         const sourceApkPath = _path.default.join(
             pwd,
             "androidProject",
@@ -743,7 +747,7 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             "outputs",
             "apk",
             buildType,
-            apkFileName
+            sourceApkFileName
         )
         const destinationDir = _path.default.join(
             process.env.PWD,
@@ -752,7 +756,7 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             "android",
             buildType
         )
-        const destinationApkPath = _path.default.join(destinationDir, apkFileName)
+        const destinationApkPath = _path.default.join(destinationDir, destinationApkFileName)
 
         // Check if source APK exists
         if (!_fs.default.existsSync(sourceApkPath)) {
@@ -763,13 +767,10 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
         // Create destination directory if it doesn't exist
         if (!_fs.default.existsSync(destinationDir)) {
             _fs.default.mkdirSync(destinationDir, { recursive: true })
-            progress.log(`Created output directory: ${destinationDir}`, "info")
         }
 
         // Copy APK to destination
         _fs.default.copyFileSync(sourceApkPath, destinationApkPath)
-        progress.log(`APK moved successfully to: ${destinationApkPath}`, "success")
-
         return destinationApkPath
     } catch (error) {
         progress.log(`Error moving APK: ${error.message}`, "error")
@@ -899,18 +900,11 @@ async function buildAndroidApp() {
 
         if (buildType === "release") {
             // Add APK path for release builds
-            const releaseApkPath = `${pwd}/androidProject/app/build/outputs/apk/release/${androidConfig.appName}-release.apk`
-            summaryItems.push({
-                text: `APK Build Location: ${releaseApkPath}`,
-                indent: 1,
-                prefix: "├─ ",
-                color: "blue",
-            })
 
             // Show moved APK location if move was successful
             if (movedApkPath) {
                 summaryItems.push({
-                    text: `APK Output Location: ${movedApkPath}`,
+                    text: `APK Build Location: ${movedApkPath}`,
                     indent: 1,
                     prefix: "├─ ",
                     color: "green",
@@ -925,18 +919,11 @@ async function buildAndroidApp() {
             })
         } else {
             // Add APK path for debug builds
-            const debugApkPath = `${pwd}/androidProject/app/build/outputs/apk/debug/${androidConfig.appName}-debug.apk`
-            summaryItems.push({
-                text: `APK Build Location: ${debugApkPath}`,
-                indent: 1,
-                prefix: "├─ ",
-                color: "blue",
-            })
 
             // Show moved APK location if move was successful
             if (movedApkPath) {
                 summaryItems.push({
-                    text: `APK Output Location: ${movedApkPath}`,
+                    text: `APK Build Location: ${movedApkPath}`,
                     indent: 1,
                     prefix: "├─ ",
                     color: "green",
