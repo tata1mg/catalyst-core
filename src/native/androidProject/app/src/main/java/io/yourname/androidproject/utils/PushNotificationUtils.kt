@@ -134,19 +134,18 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
                 }
             } ?: payload.optJSONArray("actions")?.let { parseActionsFromJson(it) }
 
-            // Extract custom data - exclude notification-specific fields
-            val notificationFields = setOf("title", "body", "channel", "badge", "style", "priority",
-                "vibrate", "autoCancel", "ongoing", "largeImage", "actions")
+            // Extract custom data only from the "data" field
             val customData = mutableMapOf<String, Any>().apply {
-                data.forEach { (key, value) ->
-                    if (key !in notificationFields) {
-                        // Try to parse numeric values
-                        val parsedValue = when {
-                            value.toIntOrNull() != null -> value.toInt()
-                            value.toBooleanStrictOrNull() != null -> value.toBoolean()
-                            else -> value
+                data["data"]?.let { dataStr ->
+                    try {
+                        val dataJson = JSONObject(dataStr)
+                        dataJson.keys().forEach { key ->
+                            put(key, dataJson.get(key))
                         }
-                        put(key, parsedValue)
+                    } catch (e: Exception) {
+                        BridgeUtils.logError(TAG, "Failed to parse custom data from FCM", e)
+                        // If parsing fails, treat it as a string value
+                        put("data", dataStr)
                     }
                 }
             }
