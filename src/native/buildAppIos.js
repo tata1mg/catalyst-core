@@ -215,18 +215,28 @@ async function moveAppToBuildOutput(APP_PATH) {
         const buildType = iosConfig.buildType || "debug"
         const appName = iosConfig.appName || "app"
 
-        // Construct the destination path: BUILD_OUTPUT_PATH/native/ios/webviewconfig.ios.buildType/appName.app
-        const destinationDir = path.join(process.env.PWD, BUILD_OUTPUT_PATH, "native", "ios", buildType)
-        const destinationPath = path.join(destinationDir, `${appName}.app`)
+        const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-") // DD-MM-YYYY format
+        const currentTime = new Date()
+            .toLocaleTimeString("en-US", {
+                hour12: true,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            })
+            .replace(/:/g, ":") // HH-MM-SS AM/PM format
+        const destinationDir = path.join(
+            process.env.PWD,
+            BUILD_OUTPUT_PATH,
+            "native",
+            "ios",
+            currentDate,
+            buildType
+        )
+        const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`)
 
         // Create destination directory if it doesn't exist
         if (!fs.existsSync(destinationDir)) {
             fs.mkdirSync(destinationDir, { recursive: true })
-        }
-
-        // Remove existing app if it exists
-        if (fs.existsSync(destinationPath)) {
-            await runCommand(`rm -rf "${destinationPath}"`)
         }
 
         // Copy the app to the destination using shell command
