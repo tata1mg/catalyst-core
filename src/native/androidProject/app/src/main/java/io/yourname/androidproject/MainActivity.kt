@@ -241,6 +241,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
             Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
 
+            // Dismiss the notification
+            val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            notificationManager.cancelAll() // This dismisses all notifications from this app
+
             // Build simple /notification URL
             val url = buildNotificationUrl(baseUrl, action, notificationData)
             Log.d(TAG, "🔔 Navigating to: $url")

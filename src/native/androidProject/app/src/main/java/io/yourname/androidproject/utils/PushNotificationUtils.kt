@@ -124,24 +124,52 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
                 data.forEach { (key, value) -> put(key, value) }
             }
 
-            val customData = payload.optJSONObject("data")?.let { dataObj ->
-                mutableMapOf<String, Any>().apply {
-                    dataObj.keys().forEach { key -> put(key, dataObj.get(key)) }
+            // Parse actions from JSON string if present
+            val actions = data["actions"]?.let { actionsStr ->
+                try {
+                    parseActionsFromJson(JSONArray(actionsStr))
+                } catch (e: Exception) {
+                    BridgeUtils.logError(TAG, "Failed to parse actions from FCM data", e)
+                    null
                 }
-            } ?: emptyMap()
+            } ?: payload.optJSONArray("actions")?.let { parseActionsFromJson(it) }
+
+            // Extract custom data - exclude notification-specific fields
+            val notificationFields = setOf("title", "body", "channel", "badge", "style", "priority",
+                "vibrate", "autoCancel", "ongoing", "largeImage", "actions")
+            val customData = mutableMapOf<String, Any>().apply {
+                data.forEach { (key, value) ->
+                    if (key !in notificationFields) {
+                        // Try to parse numeric values
+                        val parsedValue = when {
+                            value.toIntOrNull() != null -> value.toInt()
+                            value.toBooleanStrictOrNull() != null -> value.toBoolean()
+                            else -> value
+                        }
+                        put(key, parsedValue)
+                    }
+                }
+            }
+
+            // Handle badge - it might come as string from FCM
+            val badge = data["badge"]?.toIntOrNull() ?: payload.optInt("badge", -1).takeIf { it >= 0 }
 
             val config = NotificationConfig(
-                title = payload.optString("title", "Notification"),
-                body = payload.optString("body", "You have a new message"),
-                channel = payload.optString("channel", "default"),
-                badge = payload.optInt("badge", -1).takeIf { it >= 0 },
-                actions = payload.optJSONArray("actions")?.let { parseActionsFromJson(it) },
-                largeImage = payload.optString("largeImage").takeIf { it.isNotBlank() },
-                style = try { NotificationStyle.valueOf(payload.optString("style")) } catch (e: IllegalArgumentException) { NotificationStyle.BASIC },
-                priority = payload.optInt("priority", NotificationCompat.PRIORITY_DEFAULT),
-                vibrate = payload.optBoolean("vibrate", true),
-                autoCancel = payload.optBoolean("autoCancel", true),
-                ongoing = payload.optBoolean("ongoing", false),
+                title = data["title"] ?: payload.optString("title", "Notification"),
+                body = data["body"] ?: payload.optString("body", "You have a new message"),
+                channel = data["channel"] ?: payload.optString("channel", "default"),
+                badge = badge,
+                actions = actions,
+                largeImage = (data["largeImage"] ?: payload.optString("largeImage")).takeIf { it?.isNotBlank() == true },
+                style = try {
+                    NotificationStyle.valueOf(data["style"] ?: payload.optString("style", "BASIC"))
+                } catch (e: IllegalArgumentException) {
+                    NotificationStyle.BASIC
+                },
+                priority = data["priority"]?.toIntOrNull() ?: payload.optInt("priority", NotificationCompat.PRIORITY_DEFAULT),
+                vibrate = data["vibrate"]?.toBooleanStrictOrNull() ?: payload.optBoolean("vibrate", true),
+                autoCancel = data["autoCancel"]?.toBooleanStrictOrNull() ?: payload.optBoolean("autoCancel", true),
+                ongoing = data["ongoing"]?.toBooleanStrictOrNull() ?: payload.optBoolean("ongoing", false),
                 data = customData
             )
 
