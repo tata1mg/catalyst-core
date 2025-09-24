@@ -67,14 +67,6 @@ class NotificationManager(
         notificationUtils.createNotificationChannel(context, config)
     }
     
-    /**
-     * Update app badge count
-     * @param count Badge number to display
-     * @return true if successfully updated
-     */
-    fun updateBadge(count: Int): Boolean {
-        return notificationUtils.updateBadgeCount(context, count)
-    }
     
     /**
      * Request notification permission (Android 13+)

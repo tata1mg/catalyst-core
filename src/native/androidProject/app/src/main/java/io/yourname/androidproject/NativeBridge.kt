@@ -161,7 +161,7 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
                     try {
                         val json = org.json.JSONObject(config)
 
-                        // Parse actions array if present
+                        // Parse actions array with title and actionId
                         val actions = if (json.has("actions")) {
                             val actionsArray = json.getJSONArray("actions")
                             val actionsList = mutableListOf<NotificationAction>()
@@ -170,20 +170,19 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
                                 actionsList.add(
                                     NotificationAction(
                                         title = actionObj.getString("title"),
-                                        action = actionObj.getString("action"),
-                                        route = actionObj.optString("route", null)
+                                        actionId = actionObj.getString("action")
                                     )
                                 )
                             }
                             actionsList
                         } else null
 
-                        // Parse data map if present
+                        // Parse data map if present - support Any type
                         val data = if (json.has("data")) {
                             val dataObj = json.getJSONObject("data")
-                            val dataMap = mutableMapOf<String, String>()
+                            val dataMap = mutableMapOf<String, Any>()
                             dataObj.keys().forEach { key ->
-                                dataMap[key] = dataObj.getString(key)
+                                dataMap[key] = dataObj.get(key)
                             }
                             dataMap
                         } else null
@@ -265,16 +264,6 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
         }
     }
 
-    @JavascriptInterface
-    fun updateBadgeCount(count: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, "update badge count") {
-            mainActivity.runOnUiThread {
-                val badgeCount = count?.toIntOrNull() ?: 0
-                val success = notificationManager.updateBadge(badgeCount)
-                BridgeUtils.logDebug(TAG, "Badge count updated: $badgeCount, success: $success")
-            }
-        }
-    }
 
     @JavascriptInterface
     fun subscribeToTopic(config: String?) {

@@ -117,10 +117,6 @@ class NotificationUtils(private val context: Context) {
             BridgeUtils.logError(TAG, "Failed to schedule notification", e)
         }
 
-        // Update badge count if specified
-        config.badge?.let { badge ->
-            updateBadgeCount(context, badge)
-        }
     }
     
     /**
@@ -170,22 +166,6 @@ class NotificationUtils(private val context: Context) {
         }
     }
     
-    /**
-     * Update badge count on app icon using native Android notification badges
-     * Note: Badge display depends on launcher support (API 26+ with notification badges)
-     */
-    fun updateBadgeCount(context: Context, count: Int): Boolean {
-        return try {
-            // Modern Android handles badges through notifications automatically
-            // The badge count is set via notification.setNumber() and setBadgeIconType()
-            // which is already implemented in buildNotification()
-            BridgeUtils.logInfo(TAG, "Badge count will be updated to: $count via notification badges")
-            true
-        } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Failed to update badge count", e)
-            false
-        }
-    }
     
     /**
      * Request notification permission (Android 13+)
@@ -236,10 +216,10 @@ class NotificationUtils(private val context: Context) {
      */
     fun buildNotification(context: Context, config: NotificationConfig, preloadedBitmap: Bitmap? = null): NotificationCompat.Builder {
         val intent = Intent(context, MainActivity::class.java).apply {
-            // Add deep link data from notification config for push notification deep linking
+            // Ultra-simple approach: just pass notification data
+            putExtra("is_notification", true)
             config.data?.let { data ->
-                data["route"]?.let { putExtra("deeplink_route", it) }
-                data["params"]?.let { putExtra("deeplink_params", it) }
+                putExtra("notification_data", org.json.JSONObject(data).toString())
             }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -292,7 +272,7 @@ class NotificationUtils(private val context: Context) {
         // Add action buttons only for non-BASIC styles
         if (config.style != NotificationStyle.BASIC) {
             config.actions?.forEach { action ->
-                addActionButton(builder, context, action)
+                addActionButton(builder, context, action, config)
             }
         } else if (!config.actions.isNullOrEmpty()) {
             BridgeUtils.logWarning(TAG, "BASIC style ignoring ${config.actions.size} action buttons. Use ACTION_BUTTONS style if you need actions.")
@@ -338,19 +318,20 @@ class NotificationUtils(private val context: Context) {
     /**
      * Add action button to notification
      */
-    private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction) {
+    private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction, config: NotificationConfig) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            putExtra("notification_action", action.action)
-            // Add deep link support for action buttons with route
-            action.route?.let { route ->
-                putExtra("deeplink_route", route)
+            // Ultra-simple approach: just mark as notification and pass action + data
+            putExtra("is_notification", true)
+            putExtra("action", action.actionId)
+            config.data?.let { data ->
+                putExtra("notification_data", org.json.JSONObject(data).toString())
             }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
         val pendingIntent = PendingIntent.getActivity(
             context,
-            action.action.hashCode(),
+            action.actionId.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -366,12 +347,6 @@ class NotificationUtils(private val context: Context) {
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
     
-    /**
-     * Generate unique notification ID
-     */
-    private fun generateNotificationId(): String {
-        return "notification_${System.currentTimeMillis()}_${Random().nextInt(1000)}"
-    }
     
     /**
      * Get channel configuration based on channel ID using properties
@@ -553,30 +528,44 @@ class NotificationUtils(private val context: Context) {
             null
         }
     }
+
+    /**
+     * Generate unique notification ID
+     */
+    private fun generateNotificationId(): String {
+        return "notification_${System.currentTimeMillis()}_${Random().nextInt(1000)}"
+    }
 }
 
 /**
- * Data class representing notification configuration
+ * Simple notification action with display title and action ID
  */
 data class NotificationAction(
-    val title: String,
-    val action: String,
-    val route: String? = null
+    val title: String,      // What user sees: "Reply", "Mark as Read"
+    val actionId: String    // What developer uses: "reply", "mark_read"
 )
 
+/**
+ * Simplified notification configuration
+ */
 data class NotificationConfig(
+    // Display fields
     val title: String,
     val body: String,
     val channel: String = "default",
+
+    // Optional display settings
     val badge: Int? = null,
-    val actions: List<NotificationAction>? = null,
-    val largeImage: String? = null, // Large image URL (optional)
+    val largeImage: String? = null,
     val style: NotificationStyle = NotificationStyle.BASIC,
     val priority: Int = NotificationCompat.PRIORITY_DEFAULT,
     val vibrate: Boolean = true,
     val autoCancel: Boolean = true,
     val ongoing: Boolean = false,
-    val data: Map<String, String>? = null // Extra data
+
+    // Simple data and actions
+    val data: Map<String, Any>? = null,
+    val actions: List<NotificationAction>? = null
 )
 
 /**

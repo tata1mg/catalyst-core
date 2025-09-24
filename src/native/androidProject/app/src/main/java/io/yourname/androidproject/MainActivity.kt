@@ -138,10 +138,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 }
             }
 
-            // Check for deep link and modify URL accordingly
-            val finalUrl = buildUrlWithDeepLink(currentUrl, intent)
-            Log.d(TAG, "🔗 Loading URL: $finalUrl")
-            customWebView.loadUrl(finalUrl)
+            // Check for notification and handle via /notification endpoint
+            if (intent.getBooleanExtra("is_notification", false)) {
+                handleNotificationClick(currentUrl, intent)
+            } else {
+                Log.d(TAG, "🔗 Loading base URL: $currentUrl")
+                customWebView.loadUrl(currentUrl)
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
@@ -152,11 +155,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        // Handle deep link when app is already running and notification is tapped
+        // Handle notification click when app is already running
         intent?.let { newIntent ->
-            val finalUrl = buildUrlWithDeepLink(currentUrl, newIntent)
-            Log.d(TAG, "🔗 onNewIntent - Loading URL: $finalUrl")
-            customWebView.loadUrl(finalUrl)
+            if (newIntent.getBooleanExtra("is_notification", false)) {
+                handleNotificationClick(currentUrl, newIntent)
+            } else {
+                Log.d(TAG, "🔗 onNewIntent - Loading base URL: $currentUrl")
+                customWebView.loadUrl(currentUrl)
+            }
         }
     }
 
@@ -225,47 +231,55 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     /**
-     * Build URL with deep link route for direct navigation
-     * Simply appends the route from notification payload to base URL
+     * Handle notification click by navigating to /notification route
+     * Ultra-simple approach: always go to /notification with minimal params
      */
-    private fun buildUrlWithDeepLink(baseUrl: String, intent: Intent): String {
+    private fun handleNotificationClick(baseUrl: String, intent: Intent) {
         try {
-            val route = intent.getStringExtra("deeplink_route") ?: intent.getStringExtra("route")
-            val params = intent.getStringExtra("deeplink_params") ?: intent.getStringExtra("params")
+            val action = intent.getStringExtra("action")
+            val notificationData = intent.getStringExtra("notification_data")
 
-            if (route.isNullOrEmpty()) {
-                Log.d(TAG, "🔗 No deep link route found, loading base URL")
-                return baseUrl
-            }
+            Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
 
-            // Start with base URL + route
-            val baseWithRoute = "$baseUrl$route"
+            // Build simple /notification URL
+            val url = buildNotificationUrl(baseUrl, action, notificationData)
+            Log.d(TAG, "🔔 Navigating to: $url")
 
-            // Add query parameters if present
-            val finalUrl = if (!params.isNullOrEmpty()) {
-                try {
-                    val paramsJson = JSONObject(params)
-                    val queryParams = mutableListOf<String>()
-                    paramsJson.keys().forEach { key ->
-                        val value = paramsJson.getString(key)
-                        queryParams.add("$key=$value")
-                    }
-                    val queryString = queryParams.joinToString("&")
-                    "$baseWithRoute?$queryString"
-                } catch (e: Exception) {
-                    Log.w(TAG, "🔗 Failed to parse params, using route only: ${e.message}")
-                    baseWithRoute
-                }
-            } else {
-                baseWithRoute
-            }
-
-            Log.d(TAG, "🔗 Deep link URL built: $route -> $finalUrl")
-            return finalUrl
+            customWebView.loadUrl(url)
 
         } catch (e: Exception) {
-            Log.e(TAG, "🔗 Error building deep link URL: ${e.message}", e)
-            return baseUrl
+            Log.e(TAG, "🔔 Error handling notification click: ${e.message}", e)
+            customWebView.loadUrl(baseUrl)
+        }
+    }
+
+    /**
+     * Build ultra-simple /notification URL
+     */
+    private fun buildNotificationUrl(baseUrl: String, action: String?, notificationData: String?): String {
+        return try {
+            val url = StringBuilder("$baseUrl/notification")
+            val params = mutableListOf<String>()
+
+            // Add action if present
+            if (!action.isNullOrEmpty()) {
+                params.add("action=${java.net.URLEncoder.encode(action, "UTF-8")}")
+            }
+
+            // Add data if present
+            if (!notificationData.isNullOrEmpty()) {
+                params.add("data=${java.net.URLEncoder.encode(notificationData, "UTF-8")}")
+            }
+
+            if (params.isNotEmpty()) {
+                url.append("?").append(params.joinToString("&"))
+            }
+
+            url.toString()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error building notification URL: ${e.message}", e)
+            "$baseUrl/notification"
         }
     }
 }

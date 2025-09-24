@@ -2,6 +2,7 @@ package io.yourname.androidproject.utils
 
 import android.content.Context
 import android.webkit.WebView
+import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 import org.json.JSONArray
 import java.util.Properties
@@ -119,25 +120,35 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
         BridgeUtils.logInfo(TAG, "Processing incoming push notification")
 
         try {
-            // Show local notification
-            val actions = parseActionsFromData(data["actions"])
+            val payload = data["payload"]?.let { JSONObject(it) } ?: JSONObject().apply {
+                data.forEach { (key, value) -> put(key, value) }
+            }
+
+            val customData = payload.optJSONObject("data")?.let { dataObj ->
+                mutableMapOf<String, Any>().apply {
+                    dataObj.keys().forEach { key -> put(key, dataObj.get(key)) }
+                }
+            } ?: emptyMap()
 
             val config = NotificationConfig(
-                title = data["title"] ?: "Notification",
-                body = data["body"] ?: "You have a new message",
-                channel = data["channel"] ?: "default_notifications",
-                actions = actions,
-                largeImage = data["largeImage"],
-                data = data
+                title = payload.optString("title", "Notification"),
+                body = payload.optString("body", "You have a new message"),
+                channel = payload.optString("channel", "default"),
+                badge = payload.optInt("badge", -1).takeIf { it >= 0 },
+                actions = payload.optJSONArray("actions")?.let { parseActionsFromJson(it) },
+                largeImage = payload.optString("largeImage").takeIf { it.isNotBlank() },
+                style = try { NotificationStyle.valueOf(payload.optString("style")) } catch (e: IllegalArgumentException) { NotificationStyle.BASIC },
+                priority = payload.optInt("priority", NotificationCompat.PRIORITY_DEFAULT),
+                vibrate = payload.optBoolean("vibrate", true),
+                autoCancel = payload.optBoolean("autoCancel", true),
+                ongoing = payload.optBoolean("ongoing", false),
+                data = customData
             )
 
-            val notificationUtils = NotificationUtils(context)
-            notificationUtils.scheduleLocalNotification(context, config)
-
-            // Notify web layer
-            webView?.let { notifyWebOfReceivedPush(it, data) }
+            NotificationUtils(context).scheduleLocalNotification(context, config)
+            webView?.let { notifyWebOfReceivedPush(it, config.title, config.body, config.channel, customData) }
         } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Error handling push", e)
+            BridgeUtils.logError(TAG, "Error handling push notification", e)
         }
     }
 
@@ -150,16 +161,14 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         BridgeUtils.logInfo(TAG, "Subscribed to Firebase topic: $topic")
-                        // Store locally on success
-                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         val topics = getSubscribedTopics(context).toMutableSet()
                         topics.add(topic)
-                        prefs.edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
+                        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                            .edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
                     } else {
                         BridgeUtils.logError(TAG, "Failed to subscribe to topic: $topic", task.exception)
                     }
                 }
-
             BridgeUtils.logInfo(TAG, "Subscribing to topic: $topic")
             true
         } catch (e: Exception) {
@@ -177,16 +186,14 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         BridgeUtils.logInfo(TAG, "Unsubscribed from Firebase topic: $topic")
-                        // Remove from local storage on success
-                        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         val topics = getSubscribedTopics(context).toMutableSet()
                         topics.remove(topic)
-                        prefs.edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
+                        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                            .edit().putStringSet(KEY_SUBSCRIBED_TOPICS, topics).apply()
                     } else {
                         BridgeUtils.logError(TAG, "Failed to unsubscribe from topic: $topic", task.exception)
                     }
                 }
-
             BridgeUtils.logInfo(TAG, "Unsubscribing from topic: $topic")
             true
         } catch (e: Exception) {
@@ -249,6 +256,29 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
 
     // ==================== PRIVATE HELPERS ====================
 
+    /**
+     * Parse actions from JSONArray (for unified format)
+     */
+    private fun parseActionsFromJson(actionsArray: JSONArray?): List<NotificationAction>? {
+        if (actionsArray == null || actionsArray.length() == 0) return null
+
+        return try {
+            val actions = mutableListOf<NotificationAction>()
+            for (i in 0 until actionsArray.length()) {
+                val actionObj = actionsArray.getJSONObject(i)
+                val action = NotificationAction(
+                    title = actionObj.optString("title", "Action ${i + 1}"),
+                    actionId = actionObj.optString("action", actionObj.optString("id", "action_$i"))
+                )
+                actions.add(action)
+            }
+            actions
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Failed to parse actions from JSONArray", e)
+            null
+        }
+    }
+
     private fun storePushToken(context: Context, token: String) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
@@ -256,17 +286,17 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
             .apply()
     }
 
-    private fun notifyWebOfReceivedPush(webView: WebView, data: Map<String, String>) {
+    private fun notifyWebOfReceivedPush(webView: WebView, title: String, body: String, channel: String, customData: Map<String, Any>) {
         try {
             val messageData = JSONObject().apply {
                 put("provider", "fcm")
                 put("timestamp", System.currentTimeMillis())
                 put("type", "push_notification")
-                put("data", JSONObject(data))
+                put("data", JSONObject(customData))
                 put("notification", JSONObject().apply {
-                    put("title", data["title"] ?: "")
-                    put("body", data["body"] ?: "")
-                    put("channel", data["channel"] ?: "")
+                    put("title", title)
+                    put("body", body)
+                    put("channel", channel)
                 })
             }
             BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, messageData.toString())
@@ -275,32 +305,6 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
         }
     }
 
-    /**
-     * Parse actions array from FCM data
-     */
-    private fun parseActionsFromData(actionsJson: String?): List<NotificationAction>? {
-        if (actionsJson.isNullOrEmpty()) return null
-
-        return try {
-            val actionsArray = JSONArray(actionsJson)
-            val actions = mutableListOf<NotificationAction>()
-
-            for (i in 0 until actionsArray.length()) {
-                val actionObj = actionsArray.getJSONObject(i)
-                val action = NotificationAction(
-                    title = actionObj.getString("title"),
-                    action = actionObj.getString("action"),
-                    route = actionObj.optString("route", null)
-                )
-                actions.add(action)
-            }
-
-            actions
-        } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Failed to parse actions from JSON: $actionsJson", e)
-            null
-        }
-    }
 }
 
 /**
