@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.3-canary.11] - 2025-09-24
+
+-   **iOS build and Android APK output path improvements**: Move ios build and android apk to BUILD_OUTPUT_PATH and log the path
+-   **Enhanced Android native support**: Add support for native keyboard and webview resizing in Android
+-   **Device info API web support**: Web support in device info API
+
 ## [0.0.3-canary.10] - 2025-09-11
 
 -   **Sentry import bug fix**
