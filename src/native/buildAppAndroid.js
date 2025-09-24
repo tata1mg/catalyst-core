@@ -741,10 +741,12 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
         // Construct source and destination paths
         if (appName) {
             destinationApkFileName =
-                buildType === "release" ? `${appName}-${currentTime}.apk` : `${appName}-${currentTime}.apk`
+                buildType === "release"
+                    ? `${appName}-${currentTime}.release.apk`
+                    : `${appName}-${currentTime}.debug.apk`
         } else {
             destinationApkFileName =
-                buildType === "release" ? `app-${currentTime}.apk` : `app-${currentTime}.apk`
+                buildType === "release" ? `app-${currentTime}.release.apk` : `app-${currentTime}.debug.apk`
         }
 
         const sourceApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
@@ -764,8 +766,8 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             BUILD_OUTPUT_PATH,
             "native",
             "android",
-            buildType,
-            currentDate
+            currentDate,
+            buildType
         )
         const destinationApkPath = _path.default.join(destinationDir, destinationApkFileName)
 

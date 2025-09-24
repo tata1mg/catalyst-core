@@ -269,10 +269,6 @@ async function setupAndroidEnvironment() {
         const { EMULATOR_PATH, ADB_PATH } = validateAndroidTools(config.android)
         progress.complete("androidTools")
 
-        progress.start("setupServer")
-        await setupServer(configPath)
-        progress.complete("setupServer")
-
         progress.start("emulator")
         const emulatorRunning = await checkEmulator(ADB_PATH)
         if (!emulatorRunning) {
@@ -290,6 +286,10 @@ async function setupAndroidEnvironment() {
         progress.start("saveConfig")
         await saveConfig({ WEBVIEW_CONFIG: config })
         progress.complete("saveConfig")
+
+        progress.start("setupServer")
+        await setupServer(configPath)
+        progress.complete("setupServer")
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
