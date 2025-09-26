@@ -1,8 +1,8 @@
 # Changelog
 
-## [0.0.3-canary.11] - 2025-09-24
+## [0.0.3-canary.11] - 2025-09-26
 
--   **iOS build and Android APK output path improvements**: Move ios build and android apk to BUILD_OUTPUT_PATH and log the path
+-   **Build organization**: Store APKs and iOS builds organized by generation date and time for better tracking and management
 -   **Enhanced Android native support**: Add support for native keyboard and webview resizing in Android
 -   **Device info API web support**: Web support in device info API
 
