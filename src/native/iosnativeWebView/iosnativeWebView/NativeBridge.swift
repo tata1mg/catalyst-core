@@ -16,6 +16,8 @@ class NativeBridge: NSObject, ImageHandlerDelegate, FilePickerHandlerDelegate {
     private weak var viewController: UIViewController?
     private let imageHandler = ImageHandler()
     private let filePickerHandler = FilePickerHandler()
+    private var documentInteractionController: UIDocumentInteractionController?
+    private var downloadTask: URLSessionDownloadTask?
 
     init(webView: WKWebView, viewController: UIViewController) {
         self.webView = webView
@@ -203,7 +205,235 @@ class NativeBridge: NSObject, ImageHandlerDelegate, FilePickerHandlerDelegate {
 
         filePickerHandler.presentFilePicker(from: presentingVC, mimeType: mimeType)
     }
-    
+
+    // Open file with external app using intent (iOS equivalent of Android intent)
+    @objc func openFileWithIntent(params: Any?) {
+        iosnativeWebView.logger.debug("openFileWithIntent called with params: \(String(describing: params))")
+
+        // Extract parameter string
+        let paramsString: String?
+        if let directString = params as? String {
+            paramsString = directString
+        } else if let paramsDict = params as? [String: Any], let dataString = paramsDict["data"] as? String {
+            paramsString = dataString
+        } else {
+            paramsString = nil
+        }
+
+        guard let paramStr = paramsString, !paramStr.isEmpty else {
+            iosnativeWebView.logger.error("Intent parameters cannot be empty")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Intent parameters cannot be empty", code: "INVALID_PARAMETERS")
+            return
+        }
+
+        // Parse "fileUrl|mimeType" format
+        let components = paramStr.components(separatedBy: "|")
+        let fileUrl = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let mimeType = components.count > 1 ? components[1].trimmingCharacters(in: .whitespacesAndNewlines) : nil
+
+        guard !fileUrl.isEmpty else {
+            iosnativeWebView.logger.error("File URL cannot be empty")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "File URL cannot be empty", code: "INVALID_FILE_URL")
+            return
+        }
+
+        iosnativeWebView.logger.debug("Processing intent for file: \(fileUrl), mimeType: \(mimeType ?? "auto-detect")")
+
+        // Validate URL scheme
+        guard fileUrl.hasPrefix("http://") || fileUrl.hasPrefix("https://") || fileUrl.hasPrefix("file://") else {
+            iosnativeWebView.logger.error("Unsupported URL scheme for file: \(fileUrl)")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Only remote URLs (http/https) and file URLs are supported", code: "INVALID_URL_SCHEME")
+            return
+        }
+
+        // Validate URL format
+        guard URL(string: fileUrl) != nil else {
+            iosnativeWebView.logger.error("Invalid URL format: \(fileUrl)")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Invalid URL format", code: "INVALID_URL")
+            return
+        }
+
+        iosnativeWebView.logger.debug("URL validation successful")
+
+        // Handle remote URLs by downloading first
+        if fileUrl.hasPrefix("http://") || fileUrl.hasPrefix("https://") {
+            downloadFile(urlString: fileUrl, mimeType: mimeType)
+        } else if fileUrl.hasPrefix("file://") {
+            // Handle local file URLs (for future implementation)
+            sendJSONCallback(eventName: "ON_INTENT_SUCCESS", data: [
+                "message": "Local file URLs not yet implemented",
+                "fileUrl": fileUrl,
+                "timestamp": ISO8601DateFormatter().string(from: Date()),
+                "platform": "ios"
+            ])
+        }
+    }
+
+    // Download remote file for intent operations
+    private func downloadFile(urlString: String, mimeType: String?) {
+        guard let url = URL(string: urlString) else {
+            iosnativeWebView.logger.error("Invalid URL: \(urlString)")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Invalid URL", code: "INVALID_URL")
+            return
+        }
+
+        iosnativeWebView.logger.debug("Starting download from: \(urlString)")
+
+        // Create a download task
+        let session = URLSession.shared
+        downloadTask = session.downloadTask(with: url) { [weak self] localURL, response, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                if (error as NSError).code == NSURLErrorCancelled {
+                    iosnativeWebView.logger.debug("Download cancelled by user")
+                    self.sendCallback(eventName: "ON_INTENT_CANCELLED", data: "Download cancelled")
+                    return
+                }
+                iosnativeWebView.logger.error("Download failed: \(error.localizedDescription)")
+                self.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Download failed: \(error.localizedDescription)", code: "DOWNLOAD_ERROR")
+                return
+            }
+
+            guard let localURL = localURL else {
+                iosnativeWebView.logger.error("Download completed but no local file URL")
+                self.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Download completed but no local file URL", code: "DOWNLOAD_ERROR")
+                return
+            }
+
+            // Check file size (100MB limit like Android)
+            do {
+                let fileSize = try FileManager.default.attributesOfItem(atPath: localURL.path)[.size] as? Int64 ?? 0
+                let maxSizeBytes: Int64 = 100 * 1024 * 1024 // 100MB
+
+                if fileSize > maxSizeBytes {
+                    iosnativeWebView.logger.error("File too large: \(fileSize) bytes (max: \(maxSizeBytes) bytes)")
+                    self.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "File too large (max: 100MB)", code: "FILE_TOO_LARGE")
+                    return
+                }
+            } catch {
+                iosnativeWebView.logger.error("Error checking file size: \(error.localizedDescription)")
+            }
+
+            // Move the downloaded file to Documents directory
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let fileName = response?.suggestedFilename ?? url.lastPathComponent
+            let destinationURL = documentsPath.appendingPathComponent(fileName)
+
+            do {
+                // Remove existing file if it exists
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                }
+
+                // Move downloaded file to permanent location
+                try FileManager.default.moveItem(at: localURL, to: destinationURL)
+
+                // Set proper file permissions
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destinationURL.path)
+
+                iosnativeWebView.logger.debug("File downloaded successfully to: \(destinationURL.path)")
+
+                // Open the downloaded file with external app
+                DispatchQueue.main.async {
+                    self.openFileWithExternalApp(fileURL: destinationURL, mimeType: mimeType)
+                }
+
+            } catch {
+                iosnativeWebView.logger.error("Failed to move downloaded file: \(error.localizedDescription)")
+                self.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Failed to process downloaded file", code: "FILE_PROCESSING_ERROR")
+            }
+        }
+
+        downloadTask?.resume()
+    }
+
+    // Helper method to find the top view controller
+    private func findTopViewController() -> UIViewController? {
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = scene.windows.first?.rootViewController {
+            // Use the root view controller or find a presented controller
+            return rootVC.presentedViewController ?? rootVC
+        } else {
+            // Fallback to the provided viewController
+            return viewController
+        }
+    }
+
+    // Open file with external app using UIDocumentInteractionController
+    private func openFileWithExternalApp(fileURL: URL, mimeType: String?) {
+        iosnativeWebView.logger.debug("Opening file with external app: \(fileURL.lastPathComponent)")
+
+        // Find a valid UIViewController using helper method
+        guard let viewController = findTopViewController() else {
+            iosnativeWebView.logger.error("No valid view controller available")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "No valid view controller available", code: "VIEW_CONTROLLER_ERROR")
+            return
+        }
+
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            iosnativeWebView.logger.error("File does not exist: \(fileURL.path)")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "File does not exist", code: "FILE_NOT_FOUND")
+            return
+        }
+
+        // Create document interaction controller
+        documentInteractionController = UIDocumentInteractionController(url: fileURL)
+        documentInteractionController?.delegate = self
+
+        // Try to present open-in menu
+        let presented = documentInteractionController?.presentOpenInMenu(from: viewController.view.bounds, in: viewController.view, animated: true) ?? false
+
+        if !presented {
+            iosnativeWebView.logger.info("No apps available for open-in menu, trying sharing sheet")
+            presentSharingSheet(for: fileURL)
+        } else {
+            iosnativeWebView.logger.debug("Open-in menu presented successfully")
+        }
+    }
+
+    // Present sharing sheet as fallback
+    private func presentSharingSheet(for fileURL: URL) {
+        // Find a valid UIViewController using helper method
+        guard let viewController = findTopViewController() else {
+            iosnativeWebView.logger.error("No valid view controller available for sharing sheet")
+            sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Unable to present sharing options", code: "VIEW_CONTROLLER_ERROR")
+            return
+        }
+
+        let shareController = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+
+        // Configure for iPad
+        if let popoverController = shareController.popoverPresentationController {
+            popoverController.sourceView = viewController.view
+            popoverController.sourceRect = CGRect(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY, width: 0, height: 0)
+            popoverController.permittedArrowDirections = []
+        }
+
+        shareController.completionWithItemsHandler = { [weak self] activityType, completed, returnedItems, error in
+            if let error = error {
+                iosnativeWebView.logger.error("Sharing failed: \(error.localizedDescription)")
+                self?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Sharing failed: \(error.localizedDescription)", code: "SHARING_ERROR")
+            } else if completed {
+                iosnativeWebView.logger.debug("File shared/opened successfully")
+                self?.sendJSONCallback(eventName: "ON_INTENT_SUCCESS", data: [
+                    "message": "File opened successfully",
+                    "timestamp": ISO8601DateFormatter().string(from: Date()),
+                    "platform": "ios"
+                ])
+            } else {
+                iosnativeWebView.logger.debug("Sharing cancelled by user")
+                self?.sendJSONCallback(eventName: "ON_INTENT_CANCELLED", data: [
+                    "message": "File opening cancelled",
+                    "timestamp": ISO8601DateFormatter().string(from: Date()),
+                    "platform": "ios"
+                ])
+            }
+        }
+
+        viewController.present(shareController, animated: true)
+    }
+
     // MARK: - ImageHandlerDelegate
     func imageHandler(_ handler: ImageHandler, didCaptureImageAt url: URL) {
         // Create JSON response with file URL
@@ -303,6 +533,36 @@ extension NativeBridge {
     }
 }
 
+// MARK: - UIDocumentInteractionControllerDelegate
+extension NativeBridge: UIDocumentInteractionControllerDelegate {
+
+    func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+        return viewController ?? UIViewController()
+    }
+
+    func documentInteractionController(_ controller: UIDocumentInteractionController, willBeginSendingToApplication application: String?) {
+        iosnativeWebView.logger.debug("Will begin sending to application: \(application ?? "unknown")")
+    }
+
+    func documentInteractionController(_ controller: UIDocumentInteractionController, didEndSendingToApplication application: String?) {
+        iosnativeWebView.logger.debug("Did end sending to application: \(application ?? "unknown")")
+        sendJSONCallback(eventName: "ON_INTENT_SUCCESS", data: [
+            "message": "File opened successfully with \(application ?? "external app")",
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "platform": "ios"
+        ])
+    }
+
+    func documentInteractionControllerDidDismissOpenInMenu(_ controller: UIDocumentInteractionController) {
+        iosnativeWebView.logger.debug("Open-in menu dismissed")
+        sendJSONCallback(eventName: "ON_INTENT_CANCELLED", data: [
+            "message": "File opening cancelled",
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "platform": "ios"
+        ])
+    }
+}
+
 // MARK: - WKScriptMessageHandler
 extension NativeBridge: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -343,7 +603,7 @@ extension NativeBridge: WKScriptMessageHandler {
         }
 
         // Validate command is supported
-        let supportedCommands = ["openCamera", "requestCameraPermission", "getDeviceInfo", "logger", "pickFile"]
+        let supportedCommands = ["openCamera", "requestCameraPermission", "getDeviceInfo", "logger", "pickFile", "openFileWithIntent"]
         guard supportedCommands.contains(command) else {
             iosnativeWebView.logger.error("Unsupported command: \(command)")
             return nil
@@ -371,6 +631,8 @@ extension NativeBridge: WKScriptMessageHandler {
             case "pickFile":
                 let mimeType = extractMimeType(from: params)
                 pickFile(mimeType: mimeType)
+            case "openFileWithIntent":
+                openFileWithIntent(params: params)
             default:
                 // This should never happen due to validation, but keeping for safety
                 iosnativeWebView.logger.error("Unexpected command reached execution: \(command)")
