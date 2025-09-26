@@ -727,12 +727,26 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             )
             return null
         }
+
+        const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-") // DD-MM-YYYY format
+        const currentTime = new Date()
+            .toLocaleTimeString("en-US", {
+                hour12: true,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            })
+            .replace(/:/g, ":") // HH-MM-SS AM/PM format
         let destinationApkFileName = ""
         // Construct source and destination paths
         if (appName) {
-            destinationApkFileName = buildType === "release" ? `${appName}.apk` : `${appName}.apk`
+            destinationApkFileName =
+                buildType === "release"
+                    ? `${appName}-${currentTime}.release.apk`
+                    : `${appName}-${currentTime}.debug.apk`
         } else {
-            destinationApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
+            destinationApkFileName =
+                buildType === "release" ? `app-${currentTime}.release.apk` : `app-${currentTime}.debug.apk`
         }
 
         const sourceApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
@@ -752,6 +766,7 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             BUILD_OUTPUT_PATH,
             "native",
             "android",
+            currentDate,
             buildType
         )
         const destinationApkPath = _path.default.join(destinationDir, destinationApkFileName)
@@ -760,11 +775,6 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
         if (!_fs.default.existsSync(sourceApkPath)) {
             progress.log(`APK not found at source path: ${sourceApkPath}`, "warning")
             return null
-        }
-
-        // Remove existing app if it exists
-        if (!_fs.default.existsSync(destinationApkPath)) {
-            _fs.default.rmSync(destinationApkPath, { recursive: true, force: true })
         }
 
         // Create destination directory if it doesn't exist
