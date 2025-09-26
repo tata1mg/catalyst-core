@@ -155,6 +155,46 @@ class NativeBridge: NSObject, ImageHandlerDelegate, FilePickerHandlerDelegate {
         }
     }
     
+    // Request haptic feedback
+    @objc func requestHapticFeedback(feedbackType: String = "VIRTUAL_KEY") {
+        iosnativeWebView.logger.debug("requestHapticFeedback called with type: \(feedbackType)")
+        
+        // Check if device supports haptics (iOS 10+)
+        guard #available(iOS 10.0, *) else {
+            iosnativeWebView.logger.warning("Haptic feedback not supported on this iOS version")
+            sendErrorCallback(eventName: "HAPTIC_FEEDBACK", error: "Haptic feedback not supported on this iOS version", code: "HAPTIC_NOT_SUPPORTED")
+            return
+        }
+        
+        DispatchQueue.main.async {
+            let type = feedbackType.uppercased()
+            let feedbackGenerator: UIImpactFeedbackGenerator
+            
+            switch type {
+            case "VIRTUAL_KEY":
+                feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
+            case "LONG_PRESS":
+                feedbackGenerator = UIImpactFeedbackGenerator(style: .heavy)
+            case "DEFAULT":
+                feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
+            default:
+                iosnativeWebView.logger.debug("Unknown haptic type '\(type)', using default (.light)")
+                feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
+            }
+            
+            // Prepare and trigger haptic feedback
+            feedbackGenerator.prepare()
+            feedbackGenerator.impactOccurred()
+            
+            iosnativeWebView.logger.debug("Haptic feedback performed: \(type)")
+            self.sendJSONCallback(eventName: "HAPTIC_FEEDBACK", data: [
+                "status": "success",
+                "type": type,
+                "platform": "ios"
+            ])
+        }
+    }
+
     // Get device information
     @objc func getDeviceInfo() {
         iosnativeWebView.logger.debug("getDeviceInfo called")
@@ -531,6 +571,36 @@ extension NativeBridge {
         iosnativeWebView.logger.warning("Unable to extract MIME type from params: \(String(describing: params)), using default: \(defaultMimeType)")
         return defaultMimeType
     }
+    
+    // Helper method to extract feedback type from various parameter formats
+    private func extractFeedbackType(from params: Any?) -> String {
+        // Default fallback matching Android implementation
+        let defaultFeedbackType = "VIRTUAL_KEY"
+
+        // Handle direct string parameter
+        if let directString = params as? String {
+            iosnativeWebView.logger.debug("Extracted feedback type from direct string: \(directString)")
+            return directString.isEmpty ? defaultFeedbackType : directString
+        }
+
+        // Handle nested dictionary parameter
+        if let paramsDict = params as? [String: Any] {
+            if let dataString = paramsDict["data"] as? String {
+                iosnativeWebView.logger.debug("Extracted feedback type from nested data: \(dataString)")
+                return dataString.isEmpty ? defaultFeedbackType : dataString
+            }
+
+            // Check for other possible keys
+            if let feedbackTypeString = paramsDict["feedbackType"] as? String {
+                iosnativeWebView.logger.debug("Extracted feedback type from feedbackType key: \(feedbackTypeString)")
+                return feedbackTypeString.isEmpty ? defaultFeedbackType : feedbackTypeString
+            }
+        }
+
+        // Fallback for unsupported parameter formats
+        iosnativeWebView.logger.warning("Unable to extract feedback type from params: \(String(describing: params)), using default: \(defaultFeedbackType)")
+        return defaultFeedbackType
+    }
 }
 
 // MARK: - UIDocumentInteractionControllerDelegate
@@ -603,7 +673,7 @@ extension NativeBridge: WKScriptMessageHandler {
         }
 
         // Validate command is supported
-        let supportedCommands = ["openCamera", "requestCameraPermission", "getDeviceInfo", "logger", "pickFile", "openFileWithIntent"]
+        let supportedCommands = ["openCamera", "requestCameraPermission", "getDeviceInfo", "logger", "pickFile", "openFileWithIntent", "requestHapticFeedback"]
         guard supportedCommands.contains(command) else {
             iosnativeWebView.logger.error("Unsupported command: \(command)")
             return nil
@@ -633,6 +703,9 @@ extension NativeBridge: WKScriptMessageHandler {
                 pickFile(mimeType: mimeType)
             case "openFileWithIntent":
                 openFileWithIntent(params: params)
+            case "requestHapticFeedback":
+                let feedbackType = extractFeedbackType(from: params)
+                requestHapticFeedback(feedbackType: feedbackType)
             default:
                 // This should never happen due to validation, but keeping for safety
                 iosnativeWebView.logger.error("Unexpected command reached execution: \(command)")

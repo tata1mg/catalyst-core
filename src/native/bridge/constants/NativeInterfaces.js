@@ -94,14 +94,15 @@ export const PERMISSION_STATUS = {
     RESTRICTED: "RESTRICTED",
 }
 
-// Haptic feedback types
+// Haptic feedback types (matching Android implementation)
 export const HAPTIC_FEEDBACK_TYPES = {
-    LIGHT: "light",
-    MEDIUM: "medium",
-    HEAVY: "heavy",
-    SUCCESS: "success",
-    WARNING: "warning",
-    ERROR: "error",
+    VIRTUAL_KEY: "VIRTUAL_KEY",
+    LONG_PRESS: "LONG_PRESS",
+    DEFAULT: "DEFAULT",
+    // Legacy types for backward compatibility
+    LIGHT: "VIRTUAL_KEY",
+    MEDIUM: "DEFAULT",
+    HEAVY: "LONG_PRESS",
 }
 
 // File picker state constants
