@@ -2,6 +2,8 @@ import Foundation
 import UserNotifications
 import UIKit
 import os
+import Firebase
+import FirebaseMessaging
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NotificationManager")
 
@@ -17,8 +19,15 @@ class NotificationManager: ObservableObject {
         self.localHandler = LocalNotificationHandler()
         self.pushHandler = PushNotificationHandler()
 
+        initializeFirebase()
         setupNotificationCenter()
         setupChannels()
+    }
+
+    private func initializeFirebase() {
+        FirebaseApp.configure()
+        Messaging.messaging().delegate = pushHandler
+        logger.info("Firebase initialized")
     }
 
     private func setupNotificationCenter() {
@@ -119,6 +128,9 @@ class NotificationManager: ObservableObject {
     }
 
     func handlePushNotification(_ userInfo: [AnyHashable: Any]) {
+        if let messageID = userInfo["gcm.message_id"] {
+            logger.debug("Firebase Message ID: \(messageID)")
+        }
         pushHandler.handleIncomingPush(userInfo)
     }
 
@@ -139,6 +151,30 @@ class NotificationManager: ObservableObject {
 
     func setNavigationHandler(_ handler: @escaping (URL) -> Void) {
         self.navigationHandler = handler
+    }
+
+    // MARK: - AppDelegate Integration
+
+    func handleAppLaunch(with launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
+        if let notificationUserInfo = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
+            logger.info("App launched from push notification")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.handlePushNotification(notificationUserInfo)
+            }
+        }
+    }
+
+    func handleDeviceTokenRegistration(_ deviceToken: Data) {
+        let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
+        let token = tokenParts.joined()
+        logger.debug("APNS device token: \(token)")
+
+        handlePushToken(token)
+        Messaging.messaging().apnsToken = deviceToken
+    }
+
+    func handleRegistrationFailure(_ error: Error) {
+        logger.error("Failed to register for remote notifications: \(error.localizedDescription)")
     }
 }
 
