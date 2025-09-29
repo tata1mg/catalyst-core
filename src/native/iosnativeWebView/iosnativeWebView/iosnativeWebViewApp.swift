@@ -9,9 +9,15 @@ import SwiftUI
 
 @main
 struct iosnativeWebViewApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    // Configure notification system when app appears
+                    appDelegate.configureNotificationSystem()
+                }
         }
     }
 }

@@ -1,0 +1,195 @@
+import Foundation
+import UserNotifications
+import UIKit
+import os
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NotificationManager")
+
+class NotificationManager: ObservableObject {
+    static let shared = NotificationManager()
+
+    private let localHandler: LocalNotificationHandler
+    private let pushHandler: PushNotificationHandler
+    private var navigationHandler: ((URL) -> Void)?
+
+
+    private init() {
+        self.localHandler = LocalNotificationHandler()
+        self.pushHandler = PushNotificationHandler()
+
+        setupNotificationCenter()
+        setupChannels()
+    }
+
+    private func setupNotificationCenter() {
+        UNUserNotificationCenter.current().delegate = localHandler
+        localHandler.onDeepLinkRequested = { [weak self] url in
+            DispatchQueue.main.async {
+                self?.navigationHandler?(url)
+            }
+        }
+    }
+
+    private func setupChannels() {
+        NotificationChannelManager.setupChannels()
+    }
+
+
+    // MARK: - Permission Management
+
+    func requestPermission() async -> Bool {
+        let center = UNUserNotificationCenter.current()
+
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            logger.info("Notification permission granted: \(granted)")
+
+            if granted {
+                await setupForPushNotifications()
+            }
+
+            return granted
+        } catch {
+            logger.error("Failed to request notification permission: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func checkPermissionStatus() async -> UNAuthorizationStatus {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        return settings.authorizationStatus
+    }
+
+    private func setupForPushNotifications() async {
+        await MainActor.run {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
+    }
+
+    // MARK: - Local Notifications
+
+    @discardableResult
+    func scheduleLocal(_ config: NotificationConfig) -> String {
+        let notificationId = UUID().uuidString
+
+        Task {
+            do {
+                let request = await localHandler.createNotificationRequest(config, identifier: notificationId)
+                try await UNUserNotificationCenter.current().add(request)
+
+                logger.info("Local notification scheduled with ID: \(notificationId)")
+            } catch {
+                logger.error("Failed to schedule local notification: \(error.localizedDescription)")
+            }
+        }
+
+        return notificationId
+    }
+
+    func cancelLocal(_ notificationId: String) -> Bool {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationId])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationId])
+
+        logger.info("Cancelled local notification with ID: \(notificationId)")
+        return true
+    }
+
+    func cancelAllLocal() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        logger.info("Cancelled all local notifications")
+    }
+
+    // MARK: - Push Notifications
+
+    func initializePush() async -> String? {
+        return await pushHandler.registerForPushNotifications()
+    }
+
+    func subscribeToTopic(_ topic: String) async -> Bool {
+        return await pushHandler.subscribeToTopic(topic)
+    }
+
+    func unsubscribeFromTopic(_ topic: String) async -> Bool {
+        return await pushHandler.unsubscribeFromTopic(topic)
+    }
+
+    func getSubscribedTopics() async -> [String] {
+        return await pushHandler.getSubscribedTopics()
+    }
+
+    func handlePushNotification(_ userInfo: [AnyHashable: Any]) {
+        pushHandler.handleIncomingPush(userInfo)
+    }
+
+    func handlePushToken(_ token: String) {
+        pushHandler.handleTokenRefresh(token)
+    }
+
+    // MARK: - Badge Management
+
+    func updateBadge(_ count: Int) {
+        Task { @MainActor in
+            UIApplication.shared.applicationIconBadgeNumber = count
+            logger.info("Updated badge count to: \(count)")
+        }
+    }
+
+    // MARK: - Navigation
+
+    func setNavigationHandler(_ handler: @escaping (URL) -> Void) {
+        self.navigationHandler = handler
+    }
+}
+
+// MARK: - Channel Management
+
+class NotificationChannelManager {
+    static func setupChannels() {
+        let center = UNUserNotificationCenter.current()
+
+        // Create categories for action buttons
+        var categories = Set<UNNotificationCategory>()
+
+        // Default category (no actions)
+        let defaultCategory = UNNotificationCategory(
+            identifier: "DEFAULT",
+            actions: [],
+            intentIdentifiers: [],
+            options: []
+        )
+        categories.insert(defaultCategory)
+
+        // Action buttons category
+        let actionCategory = UNNotificationCategory(
+            identifier: "ACTION_BUTTONS",
+            actions: createDefaultActions(),
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        categories.insert(actionCategory)
+
+        center.setNotificationCategories(categories)
+
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NotificationChannelManager")
+        logger.info("Notification channels and categories configured")
+    }
+
+    private static func createDefaultActions() -> [UNNotificationAction] {
+        return []
+    }
+
+    static func createActionsFromConfig(_ actions: [NotificationAction]) -> [UNNotificationAction] {
+        return actions.map { actionConfig in
+            UNNotificationAction(
+                identifier: actionConfig.action,
+                title: actionConfig.title,
+                options: []
+            )
+        }
+    }
+
+    static func getChannelConfig(_ channelId: String) -> NotificationChannel {
+        return NotificationChannel(rawValue: channelId) ?? .default
+    }
+}

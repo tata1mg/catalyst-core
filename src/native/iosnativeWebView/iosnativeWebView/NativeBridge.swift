@@ -8,6 +8,7 @@ import Foundation
 import WebKit
 import UIKit
 import os
+import UserNotifications
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NativeBridge")
 
@@ -15,12 +16,12 @@ class NativeBridge: NSObject, ImageHandlerDelegate {
     private weak var webView: WKWebView?
     private weak var viewController: UIViewController?
     private let imageHandler = ImageHandler()
+    private let notificationManager = NotificationManager.shared
     
     init(webView: WKWebView, viewController: UIViewController) {
         self.webView = webView
         self.viewController = viewController
         super.init()
-        
         imageHandler.delegate = self
         iosnativeWebView.logger.debug("NativeBridge initialized")
     }
@@ -92,10 +93,11 @@ class NativeBridge: NSObject, ImageHandlerDelegate {
         let escapedData = data.replacingOccurrences(of: "'", with: "\\'")
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\n", with: "\\n")
-        
+            
         let script = "window.WebBridge.callback('\(eventName)', \"\(escapedData)\")"
         evaluateJavaScript(script)
     }
+
     
     // Open camera and capture image
     @objc func openCamera() {
@@ -153,7 +155,237 @@ class NativeBridge: NSObject, ImageHandlerDelegate {
             }
         }
     }
-    
+
+
+    // MARK: - Notification Methods
+
+    // TODO: replace json data parsing with file intent flow logic
+    @objc func requestNotificationPermission() {
+        iosnativeWebView.logger.debug("Notification permission requested")
+
+        Task {
+            let granted = await notificationManager.requestPermission()
+            let status = granted ? "GRANTED" : "DENIED"
+
+            DispatchQueue.main.async {
+                let json: [String: Any] = [
+                    "status": status,
+                    "granted": granted
+                ]
+
+                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    self.sendCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: jsonString)
+                } else {
+                    let jsonString = "{\"status\": \"\(status)\", \"granted\": \(granted)}"
+                    self.sendCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: jsonString)
+                }
+            }
+        }
+    }
+
+    @objc func scheduleLocalNotification(_ configString: String?) {
+        guard let configString = configString,
+              let config = NotificationConfig.fromJSON(configString) else {
+            iosnativeWebView.logger.error("Invalid notification configuration")
+            let json: [String: Any] = [
+                "success": false,
+                "error": "Invalid configuration"
+            ]
+
+            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
+            } else {
+                let jsonString = "{\"success\": false, \"error\": \"Invalid configuration\"}"
+                sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
+            }
+            return
+        }
+
+        iosnativeWebView.logger.debug("Scheduling local notification")
+        let notificationId = notificationManager.scheduleLocal(config)
+
+        iosnativeWebView.logger.debug("Local notification scheduled with ID: \(notificationId)")
+    }
+
+    @objc func cancelLocalNotification(_ notificationId: String?) {
+        guard let notificationId = notificationId else {
+            iosnativeWebView.logger.error("Missing notification ID")
+            return
+        }
+
+        let success = notificationManager.cancelLocal(notificationId)
+        iosnativeWebView.logger.debug("Cancelled notification \(notificationId): \(success)")
+
+        let json: [String: Any] = [
+            "notificationId": notificationId,
+            "success": success
+        ]
+
+        if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            sendCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: jsonString)
+        } else {
+            let jsonString = "{\"notificationId\": \"\(notificationId)\", \"success\": \(success)}"
+            sendCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: jsonString)
+        }
+    }
+
+    @objc func registerForPushNotifications() {
+        iosnativeWebView.logger.debug("Registering for push notifications")
+
+        Task {
+            let token = await notificationManager.initializePush()
+
+            DispatchQueue.main.async {
+                if let token = token {
+                    let json: [String: Any] = [
+                        "token": token,
+                        "success": true
+                    ]
+
+                    if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+                       let jsonString = String(data: jsonData, encoding: .utf8) {
+                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
+                    } else {
+                        let jsonString = "{\"token\": \"\(token)\", \"success\": true}"
+                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
+                    }
+                } else {
+                    let json: [String: Any] = [
+                        "success": false,
+                        "error": "Failed to get push token"
+                    ]
+
+                    if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+                       let jsonString = String(data: jsonData, encoding: .utf8) {
+                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
+                    } else {
+                        let jsonString = "{\"success\": false, \"error\": \"Failed to get push token\"}"
+                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
+                    }
+                }
+            }
+        }
+    }
+
+    @objc func subscribeToTopic(_ configString: String?) {
+        guard let configString = configString,
+              let data = configString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let topic = json["topic"] as? String else {
+            iosnativeWebView.logger.error("Invalid topic subscription configuration")
+            let json: [String: Any] = [
+                "success": false,
+                "error": "Invalid topic configuration"
+            ]
+
+            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+            } else {
+                let jsonString = "{\"success\": false, \"error\": \"Invalid topic configuration\"}"
+                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+            }
+            return
+        }
+
+        iosnativeWebView.logger.debug("Subscribing to topic: \(topic)")
+
+        Task {
+            let success = await notificationManager.subscribeToTopic(topic)
+
+            DispatchQueue.main.async {
+                let json: [String: Any] = [
+                    "topic": topic,
+                    "success": success,
+                    "action": "subscribe"
+                ]
+
+                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+                } else {
+                    let jsonString = "{\"topic\": \"\(topic)\", \"success\": \(success), \"action\": \"subscribe\"}"
+                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+                }
+            }
+        }
+    }
+
+    @objc func unsubscribeFromTopic(_ configString: String?) {
+        guard let configString = configString,
+              let data = configString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let topic = json["topic"] as? String else {
+            iosnativeWebView.logger.error("Invalid topic unsubscription configuration")
+            let json: [String: Any] = [
+                "success": false,
+                "error": "Invalid topic configuration"
+            ]
+
+            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+            } else {
+                let jsonString = "{\"success\": false, \"error\": \"Invalid topic configuration\"}"
+                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+            }
+            return
+        }
+
+        iosnativeWebView.logger.debug("Unsubscribing from topic: \(topic)")
+
+        Task {
+            let success = await notificationManager.unsubscribeFromTopic(topic)
+
+            DispatchQueue.main.async {
+                let json: [String: Any] = [
+                    "topic": topic,
+                    "success": success,
+                    "action": "unsubscribe"
+                ]
+
+                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+                } else {
+                    let jsonString = "{\"topic\": \"\(topic)\", \"success\": \(success), \"action\": \"unsubscribe\"}"
+                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
+                }
+            }
+        }
+    }
+
+    @objc func getSubscribedTopics() {
+        iosnativeWebView.logger.debug("Getting subscribed topics")
+
+        Task {
+            let topics = await notificationManager.getSubscribedTopics()
+
+            DispatchQueue.main.async {
+                let json: [String: Any] = [
+                    "topics": topics,
+                    "success": true
+                ]
+
+                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    self.sendCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: jsonString)
+                } else {
+                    let jsonString = "{\"topics\": [], \"success\": true}"
+                    self.sendCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: jsonString)
+                }
+            }
+        }
+    }
+
+    @objc func updateBadge(_ count: Int) {
+        iosnativeWebView.logger.debug("Updating badge count to: \(count)")
+        notificationManager.updateBadge(count)
+    }
+
     // Log message (test function)
     @objc func logger() {
         iosnativeWebView.logger.debug("Message from native")
@@ -208,6 +440,25 @@ extension NativeBridge: WKScriptMessageHandler {
                     requestCameraPermission()
                 case "logger":
                     logger()
+                // Notification commands
+                case "requestNotificationPermission":
+                    requestNotificationPermission()
+                case "scheduleLocalNotification":
+                    let config = body["config"] as? String
+                    scheduleLocalNotification(config)
+                case "cancelLocalNotification":
+                    let notificationId = body["notificationId"] as? String
+                    cancelLocalNotification(notificationId)
+                case "registerForPushNotifications":
+                    registerForPushNotifications()
+                case "subscribeToTopic":
+                    let config = body["config"] as? String
+                    subscribeToTopic(config)
+                case "unsubscribeFromTopic":
+                    let config = body["config"] as? String
+                    unsubscribeFromTopic(config)
+                case "getSubscribedTopics":
+                    getSubscribedTopics()
                 default:
                     iosnativeWebView.logger.error("Unknown command: \(command)")
                 }
