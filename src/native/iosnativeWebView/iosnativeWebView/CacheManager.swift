@@ -14,15 +14,16 @@ class CacheManager {
     }
     
     private struct CachePolicy {
-        static let freshWindow: TimeInterval = 24 * 60 * 60  // 24 hours
-        static let staleWindow: TimeInterval = 60 * 60       // 1 hour after fresh window
+        static let freshWindow: TimeInterval = CatalystConstants.Cache.freshWindow
+        static let staleWindow: TimeInterval = CatalystConstants.Cache.staleWindow
     }
-    
-    private let memoryCapacity = 20 * 1024 * 1024  // 20MB
-    private let diskCapacity = 100 * 1024 * 1024   // 100MB
+
+    private let memoryCapacity = CatalystConstants.Cache.memoryCapacity
+    private let diskCapacity = CatalystConstants.Cache.diskCapacity
     private let session: URLSession
     private var resourceCache: [String: CachedResource] = [:]
     private let cacheDirectory: URL
+    private let compiledCachePatterns: [NSRegularExpression]
     
     private struct CachedResource: Codable {
         let data: Data
@@ -54,7 +55,20 @@ class CacheManager {
             withIntermediateDirectories: true,
             attributes: nil
         )
-        
+
+        // Pre-compile regex patterns for better performance
+        self.compiledCachePatterns = ConfigConstants.cachePattern.compactMap { pattern in
+            do {
+                return try NSRegularExpression(
+                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
+                    options: .caseInsensitive
+                )
+            } catch {
+                logger.error("Failed to compile cache pattern '\(pattern)': \(error)")
+                return nil
+            }
+        }
+
         let configuration = URLSessionConfiguration.default
         configuration.requestCachePolicy = .returnCacheDataElseLoad
         configuration.urlCache = URLCache(
@@ -107,20 +121,17 @@ class CacheManager {
     }
     
     func shouldCacheURL(_ url: URL) -> Bool {
-        return queue.sync {
-            let urlString = url.absoluteString
-            return ConfigConstants.cachePattern.contains { pattern in
-                guard let regex = try? NSRegularExpression(
-                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
-                    options: .caseInsensitive
-                ) else {
-                    return false
-                }
-                
-                let range = NSRange(urlString.startIndex..., in: urlString)
-                return regex.firstMatch(in: urlString, options: [], range: range) != nil
+        let urlString = url.absoluteString
+
+        // Use pre-compiled regex patterns for better performance
+        for regex in compiledCachePatterns {
+            let range = NSRange(urlString.startIndex..., in: urlString)
+            if regex.firstMatch(in: urlString, options: [], range: range) != nil {
+                return true
             }
         }
+
+        return false
     }
     
     private func getCacheState(for timestamp: Date) -> CacheState {
@@ -246,10 +257,9 @@ class CacheManager {
     }
     
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
-        return queue.sync {
-            let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
-            let diskUsed = session.configuration.urlCache?.currentDiskUsage ?? 0
-            return (memoryUsed, diskUsed)
-        }
+        // URLCache methods are thread-safe, no need for sync queue
+        let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
+        let diskUsed = session.configuration.urlCache?.currentDiskUsage ?? 0
+        return (memoryUsed, diskUsed)
     }
 }

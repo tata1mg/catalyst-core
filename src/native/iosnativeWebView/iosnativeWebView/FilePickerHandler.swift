@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import UniformTypeIdentifiers
+import PhotosUI
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "FilePickerHandler")
@@ -29,13 +30,11 @@ struct FileMetadata {
 
 enum FileTransportMethod {
     case base64
-    case fileURL
     case frameworkServer
 
     var name: String {
         switch self {
-        case .base64: return "BASE64"
-        case .fileURL: return "FILE_URL"
+        case .base64: return "BRIDGE_BASE64"
         case .frameworkServer: return "FRAMEWORK_SERVER"
         }
     }
@@ -54,11 +53,11 @@ struct FileProcessingResult {
 class FilePickerHandler: NSObject {
     weak var delegate: FilePickerHandlerDelegate?
     private var documentPicker: UIDocumentPickerViewController?
+    private var photoPicker: PHPickerViewController?
 
-    // File size constants (matching Android implementation)
-    private let BASE64_SIZE_LIMIT: Int64 = 5 * 1024 * 1024  // 5MB
-    private let FILE_URL_SIZE_LIMIT: Int64 = 50 * 1024 * 1024  // 50MB
-    private let MAX_FILE_SIZE: Int64 = 100 * 1024 * 1024  // 100MB
+    // File size constants from unified configuration
+    private let BASE64_SIZE_LIMIT: Int64 = CatalystConstants.FileTransport.base64SizeLimit
+    private let FRAMEWORK_SERVER_SIZE_LIMIT: Int64 = CatalystConstants.FileTransport.frameworkServerSizeLimit
 
     override init() {
         super.init()
@@ -71,6 +70,49 @@ class FilePickerHandler: NSObject {
         logger.debug("Presenting file picker with MIME type: \(mimeType)")
 
         delegate?.filePickerHandler(self, stateDidChange: "opening")
+
+        // For image selection, use PHPickerViewController for better photo library access
+        // Only use photo picker for image-specific requests or when explicitly asking for media
+        if (mimeType.lowercased() == "image/*" || mimeType.lowercased() == "*/*") {
+            if #available(iOS 14.0, *) {
+                presentPhotoPicker(from: viewController, mimeType: mimeType)
+                return
+            }
+        }
+
+        // Use document picker for other file types
+        presentDocumentPicker(from: viewController, mimeType: mimeType)
+    }
+
+    @available(iOS 14.0, *)
+    private func presentPhotoPicker(from viewController: UIViewController, mimeType: String) {
+        logger.debug("Using PHPickerViewController for image selection")
+
+        var config = PHPickerConfiguration()
+        config.selectionLimit = 1
+
+        // Configure for images only if specifically requested
+        if mimeType.lowercased() == "image/*" {
+            config.filter = .images
+        } else {
+            // For *.* allow images and videos
+            config.filter = .any(of: [.images, .videos])
+        }
+
+        photoPicker = PHPickerViewController(configuration: config)
+        photoPicker?.delegate = self
+
+        viewController.present(photoPicker!, animated: true) { [weak self] in
+            guard let strongSelf = self else {
+                logger.error("FilePickerHandler deallocated during photo picker presentation")
+                return
+            }
+            strongSelf.delegate?.filePickerHandler(strongSelf, stateDidChange: "opened")
+        }
+    }
+
+    private func presentDocumentPicker(from viewController: UIViewController, mimeType: String) {
+        logger.debug("Using UIDocumentPickerViewController for file selection")
 
         // Convert MIME type to UTType
         let allowedTypes = convertMimeTypeToUTTypes(mimeType)
@@ -88,15 +130,27 @@ class FilePickerHandler: NSObject {
         documentPicker?.allowsMultipleSelection = false
         documentPicker?.modalPresentationStyle = .formSheet
 
+        // Enable access to all locations including Photos
+        if #available(iOS 14.0, *) {
+            documentPicker?.shouldShowFileExtensions = true
+        }
+
         // Log the actual UTTypes being used for debugging
-        logger.debug("Document picker created with \(allowedTypes.count) UTTypes")
+        logger.debug("Document picker created with \(allowedTypes.count) UTTypes for MIME: \(mimeType)")
         for (index, utType) in allowedTypes.enumerated() {
             logger.debug("UTType \(index): \(utType.identifier) - \(utType.description)")
+            if let preferredMimeType = utType.preferredMIMEType {
+                logger.debug("  Preferred MIME: \(preferredMimeType)")
+            }
         }
 
         if let picker = documentPicker {
             viewController.present(picker, animated: true) { [weak self] in
-                self?.delegate?.filePickerHandler(self!, stateDidChange: "opened")
+                guard let strongSelf = self else {
+                    logger.error("FilePickerHandler deallocated during document picker presentation")
+                    return
+                }
+                strongSelf.delegate?.filePickerHandler(strongSelf, stateDidChange: "opened")
             }
         } else {
             let error = NSError(domain: "FilePickerError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create document picker"])
@@ -146,13 +200,22 @@ class FilePickerHandler: NSObject {
     private func handleWildcardMimeType(_ mimeType: String) -> [UTType] {
         switch mimeType.lowercased() {
         case "*/*":
-            logger.debug("Allowing all file types")
-            return [UTType.data] // Allow all files
+            logger.debug("Allowing all file types including photos")
+            // Use UTType.item which includes all content types, including photos
+            // Also explicitly add image types to ensure photo library access
+            return [UTType.item, UTType.image, UTType.jpeg, UTType.png, UTType.heic]
 
         case "image/*":
             logger.debug("Restricting to common image formats only")
-            // Only common image formats to prevent unwanted files like PDFs
-            return [UTType.jpeg, UTType.png, UTType.gif, UTType.webP, UTType.heic]
+            // Common image formats with broader compatibility
+            var imageTypes: [UTType] = [UTType.jpeg, UTType.png, UTType.gif, UTType.heic, UTType.image]
+
+            // Add webP if available (iOS 14+)
+            if #available(iOS 14.0, *), let webPType = UTType("public.webp") {
+                imageTypes.append(webPType)
+            }
+
+            return imageTypes
 
         case "video/*":
             logger.debug("Restricting to common video formats")
@@ -237,8 +300,6 @@ class FilePickerHandler: NSObject {
     private func determineTransportMethod(fileSize: Int64) -> FileTransportMethod {
         if fileSize <= BASE64_SIZE_LIMIT {
             return .base64
-        } else if fileSize <= FILE_URL_SIZE_LIMIT {
-            return .fileURL
         } else {
             return .frameworkServer
         }
@@ -248,7 +309,7 @@ class FilePickerHandler: NSObject {
         logger.debug("Processing file: \(metadata.fileName) (\(self.formatFileSize(metadata.fileSize)))")
 
         // Check file size limits
-        if metadata.fileSize > MAX_FILE_SIZE {
+        if metadata.fileSize > FRAMEWORK_SERVER_SIZE_LIMIT {
             return FileProcessingResult(
                 success: false,
                 fileSrc: nil,
@@ -256,7 +317,7 @@ class FilePickerHandler: NSObject {
                 fileSize: metadata.fileSize,
                 mimeType: metadata.mimeType,
                 transport: .base64,
-                error: "File too large. Maximum size: \(self.formatFileSize(MAX_FILE_SIZE))"
+                error: "File too large. Maximum size: \(self.formatFileSize(FRAMEWORK_SERVER_SIZE_LIMIT))"
             )
         }
 
@@ -266,11 +327,8 @@ class FilePickerHandler: NSObject {
         switch transport {
         case .base64:
             return processFileAsBase64(url: url, metadata: metadata)
-        case .fileURL:
-            return processFileAsURL(url: url, metadata: metadata)
         case .frameworkServer:
-            // For now, fallback to file URL (framework server not implemented yet)
-            return processFileAsURL(url: url, metadata: metadata)
+            return processFileWithFrameworkServer(url: url, metadata: metadata)
         }
     }
 
@@ -305,9 +363,47 @@ class FilePickerHandler: NSObject {
         }
     }
 
-    private func processFileAsURL(url: URL, metadata: FileMetadata) -> FileProcessingResult {
+
+    private func processFileWithFrameworkServer(url: URL, metadata: FileMetadata) -> FileProcessingResult {
+        logger.info("Processing file with framework server transport")
+
+        let frameworkServer = FrameworkServerUtils.shared
+
+        // Ensure framework server is running
+        if !frameworkServer.isRunning() {
+            logger.info("Framework server not running, starting server...")
+            if !frameworkServer.startServer() {
+                logger.error("Failed to start framework server, falling back to local file URL")
+                return fallbackToFileUrlProcessing(url: url, metadata: metadata)
+            }
+        }
+
+        // Copy file to server cache and get serving URL
+        guard let serverUrl = frameworkServer.copyAndServeFile(
+            originalFile: url,
+            fileName: metadata.fileName,
+            mimeType: metadata.mimeType
+        ) else {
+            logger.error("Failed to add file to framework server, falling back to local file URL")
+            return fallbackToFileUrlProcessing(url: url, metadata: metadata)
+        }
+
+        logger.debug("Successfully processed file with framework server: \(serverUrl)")
+
+        return FileProcessingResult(
+            success: true,
+            fileSrc: serverUrl,
+            fileName: metadata.fileName,
+            fileSize: metadata.fileSize,
+            mimeType: metadata.mimeType,
+            transport: .frameworkServer,
+            error: nil
+        )
+    }
+
+    private func fallbackToFileUrlProcessing(url: URL, metadata: FileMetadata) -> FileProcessingResult {
         do {
-            // Copy file to app's documents directory to ensure access
+            // Copy file to app's documents directory to ensure access (iOS equivalent of content provider)
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let fileName = "\(UUID().uuidString)_\(metadata.fileName)"
             let destinationURL = documentsPath.appendingPathComponent(fileName)
@@ -319,9 +415,9 @@ class FilePickerHandler: NSObject {
 
             try FileManager.default.copyItem(at: url, to: destinationURL)
 
-            logger.debug("File copied to accessible location: \(destinationURL.path)")
+            logger.debug("File copied to accessible location for fallback: \(destinationURL.path)")
 
-            // Use secure relative path instead of absolute file:// URL to prevent path exposure
+            // Use secure relative path instead of absolute file:// URL
             let secureFilePath = "catalyst-files/\(fileName)"
 
             return FileProcessingResult(
@@ -330,19 +426,19 @@ class FilePickerHandler: NSObject {
                 fileName: metadata.fileName,
                 fileSize: metadata.fileSize,
                 mimeType: metadata.mimeType,
-                transport: .fileURL,
+                transport: .frameworkServer, // Still report as framework server since it's the intended transport
                 error: nil
             )
         } catch {
-            logger.error("Failed to copy file: \(error.localizedDescription)")
+            logger.error("Fallback file URL processing failed: \(error.localizedDescription)")
             return FileProcessingResult(
                 success: false,
                 fileSrc: nil,
                 fileName: metadata.fileName,
                 fileSize: metadata.fileSize,
                 mimeType: metadata.mimeType,
-                transport: .fileURL,
-                error: "Failed to copy file: \(error.localizedDescription)"
+                transport: .frameworkServer,
+                error: "Framework server and fallback both failed: \(error.localizedDescription)"
             )
         }
     }
@@ -351,6 +447,147 @@ class FilePickerHandler: NSObject {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: bytes)
+    }
+}
+
+// MARK: - PHPickerViewControllerDelegate
+
+@available(iOS 14.0, *)
+extension FilePickerHandler: PHPickerViewControllerDelegate {
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+
+        guard let result = results.first else {
+            logger.debug("Photo picker was cancelled or no selection made")
+            delegate?.filePickerHandlerDidCancel(self)
+            return
+        }
+
+        delegate?.filePickerHandler(self, stateDidChange: "processing")
+
+        // Get the item provider
+        let itemProvider = result.itemProvider
+
+        // Handle different content types
+        if itemProvider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            // Handle images
+            logger.debug("Processing selected image")
+            loadItemData(itemProvider: itemProvider, typeIdentifier: UTType.image.identifier, result: result)
+        } else if itemProvider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+            // Handle videos
+            logger.debug("Processing selected video")
+            loadItemData(itemProvider: itemProvider, typeIdentifier: UTType.movie.identifier, result: result)
+        } else if itemProvider.hasItemConformingToTypeIdentifier(UTType.data.identifier) {
+            // Handle other data types
+            logger.debug("Processing selected data file")
+            loadItemData(itemProvider: itemProvider, typeIdentifier: UTType.data.identifier, result: result)
+        } else {
+            // Try to get any available type
+            if let availableType = itemProvider.registeredTypeIdentifiers.first {
+                logger.debug("Processing selected file with type: \(availableType)")
+                loadItemData(itemProvider: itemProvider, typeIdentifier: availableType, result: result)
+            } else {
+                logger.error("Selected item has no supported type identifiers")
+                let nsError = NSError(domain: "FilePickerError", code: -8, userInfo: [NSLocalizedDescriptionKey: "Selected item type not supported"])
+                self.delegate?.filePickerHandler(self, didFailWithError: nsError)
+            }
+        }
+    }
+
+    private func loadItemData(itemProvider: NSItemProvider, typeIdentifier: String, result: PHPickerResult) {
+        itemProvider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] (data, error) in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+
+                if let error = error {
+                    logger.error("Failed to load item data: \(error.localizedDescription)")
+                    let nsError = NSError(domain: "FilePickerError", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to load file: \(error.localizedDescription)"])
+                    self.delegate?.filePickerHandler(self, didFailWithError: nsError)
+                    return
+                }
+
+                guard let itemData = data else {
+                    let nsError = NSError(domain: "FilePickerError", code: -7, userInfo: [NSLocalizedDescriptionKey: "No file data received"])
+                    self.delegate?.filePickerHandler(self, didFailWithError: nsError)
+                    return
+                }
+
+                // Create a temporary file
+                self.savePhotoPickerResult(data: itemData, result: result, typeIdentifier: typeIdentifier)
+            }
+        }
+    }
+
+    private func savePhotoPickerResult(data: Data, result: PHPickerResult, typeIdentifier: String) {
+        do {
+            // Create a temporary file name
+            let fileExtension = getFileExtension(from: result, typeIdentifier: typeIdentifier)
+            let fileName = "\(UUID().uuidString).\(fileExtension)"
+
+            // Save to documents directory
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let fileURL = documentsPath.appendingPathComponent(fileName)
+
+            try data.write(to: fileURL)
+
+            // Create metadata
+            let metadata = FileMetadata(
+                fileName: fileName,
+                fileSize: Int64(data.count),
+                mimeType: getMimeTypeFromTypeIdentifier(typeIdentifier) ?? getMimeType(for: fileURL),
+                fileExtension: fileExtension,
+                lastModified: Date()
+            )
+
+            logger.debug("Photo picker result saved: \(fileName), type: \(typeIdentifier), size: \(self.formatFileSize(metadata.fileSize))")
+
+            delegate?.filePickerHandler(self, didPickFileAt: fileURL, withMetadata: metadata)
+
+        } catch {
+            logger.error("Failed to save photo picker result: \(error.localizedDescription)")
+            let nsError = NSError(domain: "FilePickerError", code: -9, userInfo: [NSLocalizedDescriptionKey: "Failed to save file: \(error.localizedDescription)"])
+            delegate?.filePickerHandler(self, didFailWithError: nsError)
+        }
+    }
+
+    private func getFileExtension(from result: PHPickerResult, typeIdentifier: String) -> String {
+        // Try to get the file extension from the suggested name first
+        if let suggestedName = result.itemProvider.suggestedName,
+           !URL(fileURLWithPath: suggestedName).pathExtension.isEmpty {
+            return URL(fileURLWithPath: suggestedName).pathExtension
+        }
+
+        // Fallback based on type identifier
+        if let utType = UTType(typeIdentifier) {
+            if let preferredExtension = utType.preferredFilenameExtension {
+                return preferredExtension
+            }
+        }
+
+        // Final fallback based on common type identifiers
+        switch typeIdentifier {
+        case UTType.jpeg.identifier, "public.jpeg":
+            return "jpg"
+        case UTType.png.identifier, "public.png":
+            return "png"
+        case UTType.heic.identifier, "public.heic":
+            return "heic"
+        case UTType.gif.identifier, "public.gif":
+            return "gif"
+        case UTType.mpeg4Movie.identifier, "public.mpeg-4":
+            return "mp4"
+        case UTType.quickTimeMovie.identifier, "com.apple.quicktime-movie":
+            return "mov"
+        default:
+            return "dat" // Generic data file
+        }
+    }
+
+    private func getMimeTypeFromTypeIdentifier(_ typeIdentifier: String) -> String? {
+        if let utType = UTType(typeIdentifier) {
+            return utType.preferredMIMEType
+        }
+        return nil
     }
 }
 

@@ -34,6 +34,7 @@ struct WebView: UIViewRepresentable {
                            forKeyPath: #keyPath(WKWebView.estimatedProgress),
                            options: .new,
                            context: nil)
+        context.coordinator.isObserverAdded = true
         
         // Create and register the native bridge
         context.coordinator.setupNativeBridge(webView)
@@ -56,16 +57,36 @@ struct WebView: UIViewRepresentable {
     }
     
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
-        webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+        // Safely remove observer with error handling
+        if coordinator.isObserverAdded {
+            do {
+                webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+                coordinator.isObserverAdded = false
+                logger.debug("Successfully removed WebView progress observer")
+            } catch {
+                logger.warning("Failed to remove WebView observer - may have already been removed: \(error.localizedDescription)")
+            }
+        } else {
+            logger.debug("Observer was not added or already removed, skipping removal")
+        }
+
+        // Clean up native bridge
         coordinator.nativeBridge?.unregister()
+        coordinator.nativeBridge = nil
+        coordinator.hostingController = nil
+
+        // Unregister custom URL protocol
         ResourceURLProtocol.unregister()
+
+        logger.debug("WebView cleanup completed")
     }
     
     class Coordinator: NSObject {
         var parent: WebView
         var nativeBridge: NativeBridge?
         var hostingController: UIViewController?
-        
+        var isObserverAdded = false
+
         init(_ parent: WebView) {
             self.parent = parent
         }
