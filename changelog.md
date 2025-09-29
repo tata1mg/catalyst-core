@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.3-canary.11] - 2025-09-26
+
+-   **Build organization**: Store APKs and iOS builds organized by generation date and time for better tracking and management
+-   **Enhanced Android native support**: Add support for native keyboard and webview resizing in Android
+-   **Device info API web support**: Web support in device info API
+
 ## [0.0.3-canary.10] - 2025-09-11
 
 -   **Sentry import bug fix**

@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
+import io.yourname.androidproject.utils.KeyboardUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
@@ -29,6 +30,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
     lateinit var properties: Properties
+    private lateinit var keyboardUtil: KeyboardUtil
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var splashStartTime: Long = 0
@@ -85,7 +87,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
         setContentView(binding.root)
-
+        
+        // Initialize keyboard utility
+        keyboardUtil = KeyboardUtil(this, binding.webviewContainer)
+        keyboardUtil.initialize()
+        
         // Enable hardware acceleration for the window
         enableHardwareAcceleration()
 
@@ -195,6 +201,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     override fun onDestroy() {
         currentInstance = null
+        if (::keyboardUtil.isInitialized) {
+            keyboardUtil.cleanup()
+        }
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()

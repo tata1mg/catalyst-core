@@ -1,15 +1,16 @@
 const { exec, execSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
-const { setupServer } = require("./setupServer.js")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
+    `${process.env.PWD}/config/config.json`
+)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
-const url = `http://${getLocalIPAddress()}:${WEBVIEW_CONFIG.port}`
+const url = `http://${NODE_SERVER_HOSTNAME}:${WEBVIEW_CONFIG.port}`
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
 const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
@@ -209,6 +210,45 @@ async function findAppPath() {
     }
 }
 
+async function moveAppToBuildOutput(APP_PATH) {
+    try {
+        const buildType = iosConfig.buildType || "debug"
+        const appName = iosConfig.appName || "app"
+
+        const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-") // DD-MM-YYYY format
+        const currentTime = new Date()
+            .toLocaleTimeString("en-US", {
+                hour12: true,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            })
+            .replace(/:/g, ":") // HH-MM-SS AM/PM format
+        const destinationDir = path.join(
+            process.env.PWD,
+            BUILD_OUTPUT_PATH,
+            "native",
+            "ios",
+            currentDate,
+            buildType
+        )
+        const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`)
+
+        // Create destination directory if it doesn't exist
+        if (!fs.existsSync(destinationDir)) {
+            fs.mkdirSync(destinationDir, { recursive: true })
+        }
+
+        // Copy the app to the destination using shell command
+        await runCommand(`cp -R "${APP_PATH}" "${destinationPath}"`)
+
+        return destinationPath
+    } catch (error) {
+        console.error("Error moving app to build output:", error.message)
+        throw error
+    }
+}
+
 async function installAndLaunchApp(APP_PATH) {
     progress.start("install")
     try {
@@ -304,15 +344,15 @@ async function focusSimulator() {
 }
 
 // Utility functions (kept from original file)
-function getLocalIPAddress() {
-    try {
-        const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`
-        return execSync(command).toString().trim()
-    } catch (error) {
-        console.error("Error getting local IP:", error)
-        return "localhost"
-    }
-}
+// function getLocalIPAddress() {
+//     try {
+//         const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`
+//         return execSync(command).toString().trim()
+//     } catch (error) {
+//         console.error("Error getting local IP:", error)
+//         return "localhost"
+//     }
+// }
 
 function runCommand(command, options = {}) {
     return new Promise((resolve, reject) => {
@@ -554,7 +594,6 @@ async function launchIOSSimulator(simulatorName) {
 
 async function main() {
     try {
-        await setupServer(`${process.env.PWD}/config/config.json`)
         const originalDir = process.cwd()
         progress.log("Starting build process from: " + originalDir, "info")
 
@@ -569,14 +608,15 @@ async function main() {
         await buildXcodeProject()
 
         const APP_PATH = await findAppPath()
-        progress.log("Found app at: " + APP_PATH, "success")
         await installAndLaunchApp(APP_PATH)
 
         process.chdir(originalDir)
 
+        const MOVED_APP_PATH = await moveAppToBuildOutput(APP_PATH)
+
         progress.printTreeContent("Build Summary", [
             "Build completed successfully:",
-            { text: `App Path: ${APP_PATH}`, indent: 1, prefix: "├─ ", color: "gray" },
+            { text: `App Path: ${MOVED_APP_PATH}`, indent: 1, prefix: "├─ ", color: "gray" },
             { text: `Simulator: ${IPHONE_MODEL}`, indent: 1, prefix: "├─ ", color: "gray" },
             { text: `URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
         ])
