@@ -5,6 +5,7 @@ import {
     debugInterfaces,
 } from "./constants/NativeInterfaces.js"
 import nativeBridge from "./utils/NativeBridge.js"
+import CameraUtils from "./utils/CameraUtils.js"
 
 class WebBridge {
     constructor() {
@@ -234,6 +235,24 @@ class WebBridge {
                 reject(error)
             }
         })
+    }
+
+    /**
+     * Open camera and capture image
+     * @param {Object} options - Camera options (quality, format, cameraDevice, flashMode, allowEditing)
+     * @returns {Promise<Object>} - Promise that resolves with camera result or rejects with error
+     */
+    openCamera = (options = {}) => {
+        return CameraUtils.openCamera(options, this.register, this.unregister)
+    }
+
+    /**
+     * Request camera permission
+     * @param {Object} config - Permission configuration (includeDetails)
+     * @returns {Promise<Object>} - Promise that resolves with permission status or rejects with error
+     */
+    requestCameraPermission = (config = {}) => {
+        return CameraUtils.requestCameraPermission(config, this.register, this.unregister)
     }
 
     /**

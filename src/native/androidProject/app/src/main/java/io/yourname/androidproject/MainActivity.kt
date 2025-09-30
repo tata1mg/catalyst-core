@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
@@ -19,6 +20,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
     private lateinit var properties: Properties
+    private lateinit var metricsMonitor: MetricsMonitor
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var splashStartTime: Long = 0
@@ -65,6 +67,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.setProperty("buildType", if (BuildConfig.DEBUG) "debug" else "release")
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
         }
+
+        // Initialize MetricsMonitor
+        metricsMonitor = MetricsMonitor.getInstance(this)
 
         // Configure splash screen
         splashStartTime = System.currentTimeMillis()
@@ -114,10 +119,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             if (BuildConfig.DEBUG) {
                 // Use the local development server in debug mode
                 val local_ip = properties.getProperty("LOCAL_IP", "localhost")
+                val initial_url = properties.getProperty("initial_url", "")
                 val port = properties.getProperty("port", "3005")
                 val useHttps = properties.getProperty("useHttps", "false").toBoolean()
                 val protocol = if (useHttps) "https" else "http"
-                currentUrl = "$protocol://$local_ip:$port"
+                currentUrl = "$protocol://$local_ip:$port/$initial_url"
             } else {
                 // In production, use the configured production URL or fallback to a file:// URL
                 currentUrl = properties.getProperty("PRODUCTION_URL", "")
@@ -129,6 +135,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             
             // Load URL
             customWebView.loadUrl(currentUrl)
+            metricsMonitor.markAppStartComplete()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
             // Fallback to local asset as a last resort
@@ -156,6 +163,12 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     override fun onPause() {
         super.onPause()
         customWebView.onPause()
+
+        // Log metrics on pause in case onDestroy isn't called
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "⏸️ App paused - logging current metrics...")
+            metricsMonitor.logAllMetrics()
+        }
     }
 
     override fun onResume() {
@@ -164,6 +177,18 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
+        // Log all performance metrics before destroying
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "🏁 App shutting down - logging final metrics...")
+        }
+        metricsMonitor.logAllMetrics()
+        metricsMonitor.cleanup()
+
+        // Cleanup NativeBridge resources (stops FrameworkServer, cancels coroutines)
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.cleanup()
+        }
+
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()

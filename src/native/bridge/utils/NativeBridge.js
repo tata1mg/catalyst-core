@@ -146,13 +146,15 @@ class NativeBridgeUtil {
     camera = {
         /**
          * Open camera for photo capture
+         * @param {string} options - JSON string of camera options
          */
-        open: () => this.call(NATIVE_COMMANDS.OPEN_CAMERA),
+        open: (options = null) => this.call(NATIVE_COMMANDS.OPEN_CAMERA, options),
 
         /**
          * Request camera permission
+         * @param {string} config - JSON string of permission config
          */
-        requestPermission: () => this.call(NATIVE_COMMANDS.REQUEST_CAMERA_PERMISSION),
+        requestPermission: (config = null) => this.call(NATIVE_COMMANDS.REQUEST_CAMERA_PERMISSION, config),
     }
 
     /**

@@ -120,6 +120,46 @@ export const INTENT_STATES = {
     IDLE: null,
 }
 
+// Camera quality constants
+export const CAMERA_QUALITY = {
+    HIGH: "high",
+    MEDIUM: "medium",
+    LOW: "low",
+}
+
+// Camera format constants
+export const CAMERA_FORMAT = {
+    JPEG: "jpeg",
+    PNG: "png",
+}
+
+// Camera device constants
+export const CAMERA_DEVICE = {
+    FRONT: "front",
+    REAR: "rear",
+    BACK: "rear", // Alias for rear
+}
+
+// Camera flash mode constants
+export const CAMERA_FLASH_MODE = {
+    AUTO: "auto",
+    ON: "on",
+    OFF: "off",
+}
+
+// Transport type constants (matching native implementation)
+export const TRANSPORT_TYPES = {
+    BASE64: "BASE64",
+    FILE_URL: "FILE_URL",
+    FRAMEWORK_SERVER: "FRAMEWORK_SERVER",
+}
+
+// Camera source constants
+export const CAMERA_SOURCE = {
+    CAMERA: "camera",
+    FILE_PICKER: "file_picker",
+}
+
 // Response status constants
 export const RESPONSE_STATUS = {
     SUCCESS: "SUCCESS",
@@ -161,6 +201,12 @@ export default {
     HAPTIC_FEEDBACK_TYPES,
     FILE_PICKER_STATES,
     INTENT_STATES,
+    CAMERA_QUALITY,
+    CAMERA_FORMAT,
+    CAMERA_DEVICE,
+    CAMERA_FLASH_MODE,
+    TRANSPORT_TYPES,
+    CAMERA_SOURCE,
     RESPONSE_STATUS,
     isValidCommand,
     isValidCallback,

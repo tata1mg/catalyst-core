@@ -111,6 +111,9 @@ class FrameworkServerUtils {
     private let maxConnections = CatalystConstants.NetworkServer.maxConnections
     private let connectionTimeoutSeconds: TimeInterval = CatalystConstants.NetworkServer.connectionTimeout
 
+    // CORS configuration - store the base URL from WebView
+    private var allowedOrigin: String = "*"
+
     // File management
     private var servedFiles: [String: ServedFile] = [:]
     private let fileQueue = DispatchQueue(label: "framework.server.files", attributes: .concurrent)
@@ -198,6 +201,44 @@ class FrameworkServerUtils {
         cleanupAllFiles()
 
         logger.info("Framework server stopped successfully")
+    }
+
+    /**
+     * Update allowed CORS origin from current WebView URL
+     * @param url The current URL loaded in the WebView
+     */
+    func updateAllowedOrigin(from url: String) {
+        guard !url.isEmpty else {
+            logger.warning("Empty URL provided for CORS origin, using wildcard")
+            self.allowedOrigin = "*"
+            return
+        }
+
+        // Extract protocol, host and port from URL
+        // e.g., "http://192.168.0.104:3005/path" -> "http://192.168.0.104:3005"
+        if let urlComponents = URLComponents(string: url) {
+            var origin = ""
+            if let scheme = urlComponents.scheme {
+                origin += "\(scheme)://"
+            }
+            if let host = urlComponents.host {
+                origin += host
+            }
+            if let port = urlComponents.port {
+                origin += ":\(port)"
+            }
+
+            if !origin.isEmpty {
+                self.allowedOrigin = origin
+                logger.debug("Updated CORS allowed origin to: \(origin)")
+            } else {
+                self.allowedOrigin = "*"
+                logger.warning("Could not extract origin from URL, using wildcard")
+            }
+        } else {
+            self.allowedOrigin = "*"
+            logger.warning("Could not parse URL for CORS origin, using wildcard")
+        }
     }
 
     /**
@@ -578,6 +619,11 @@ class FrameworkServerUtils {
         let statusText = HTTPURLResponse.localizedString(forStatusCode: statusCode)
         var response = "HTTP/1.1 \(statusCode) \(statusText)\r\n"
 
+        // Add CORS headers
+        response += "Access-Control-Allow-Origin: \(allowedOrigin)\r\n"
+        response += "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+        response += "Access-Control-Allow-Headers: *\r\n"
+
         // Add headers
         response += "Content-Type: \(contentType)\r\n"
         response += "Content-Length: \(contentLength)\r\n"
@@ -648,6 +694,11 @@ class FrameworkServerUtils {
     private func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: Data, headers: [String: String] = [:]) {
         let statusText = HTTPURLResponse.localizedString(forStatusCode: statusCode)
         var response = "HTTP/1.1 \(statusCode) \(statusText)\r\n"
+
+        // Add CORS headers
+        response += "Access-Control-Allow-Origin: \(allowedOrigin)\r\n"
+        response += "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+        response += "Access-Control-Allow-Headers: *\r\n"
 
         // Add default headers
         response += "Content-Length: \(body.count)\r\n"

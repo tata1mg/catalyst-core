@@ -41,7 +41,10 @@ object FrameworkServerUtils {
     private var serverPort: Int = 0
     private var sessionId: String = ""
     private var isServerRunning: Boolean = false
-    
+
+    // CORS configuration - store the base URL from WebView
+    private var allowedOrigin: String = "*"
+
     // File management
     private val servedFiles = ConcurrentHashMap<String, ServedFile>()
     private var cacheDirectory: File? = null
@@ -74,15 +77,18 @@ object FrameworkServerUtils {
         return try {
             // Initialize cache directory
             initializeCacheDirectory(context)
-            
+
+            // Extract base URL from WebView for CORS
+            extractBaseUrlFromWebView(webView)
+
             // Generate session ID
             sessionId = generateSessionId()
             Log.d(TAG, "Generated session ID: $sessionId")
-            
+
             // Find available port
             serverPort = findAvailablePort()
             Log.d(TAG, "Found available port: $serverPort")
-            
+
             // Start Ktor server
             startKtorServer()
             
@@ -226,6 +232,30 @@ object FrameworkServerUtils {
             Log.d(TAG, "Created cache directory: ${cacheDirectory!!.absolutePath}")
         }
     }
+
+    private fun extractBaseUrlFromWebView(webView: WebView) {
+        try {
+            val url = webView.url
+            if (url != null && url.isNotEmpty()) {
+                // Extract protocol, host and port from current WebView URL
+                // e.g., "http://192.168.0.104:3005/path" -> "http://192.168.0.104:3005"
+                val urlParts = url.split("/")
+                if (urlParts.size >= 3) {
+                    allowedOrigin = "${urlParts[0]}//${urlParts[2]}"
+                    Log.d(TAG, "Extracted CORS origin from WebView: $allowedOrigin")
+                } else {
+                    Log.w(TAG, "Could not parse WebView URL for CORS, using wildcard")
+                    allowedOrigin = "*"
+                }
+            } else {
+                Log.w(TAG, "WebView URL is empty, using wildcard CORS")
+                allowedOrigin = "*"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting base URL from WebView, using wildcard CORS", e)
+            allowedOrigin = "*"
+        }
+    }
     
     private fun generateSessionId(): String {
         val random = SecureRandom()
@@ -282,18 +312,28 @@ object FrameworkServerUtils {
                     }
                     
                     Log.d(TAG, "Serving file: ${servedFile.fileName} (${servedFile.file.length()} bytes)")
-                    
+
+                    // Set CORS headers
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowMethods, "GET, OPTIONS")
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+
                     // Set appropriate headers
                     call.response.header(HttpHeaders.ContentType, servedFile.mimeType)
                     call.response.header(HttpHeaders.ContentLength, servedFile.file.length().toString())
                     call.response.header(HttpHeaders.ContentDisposition, "inline; filename=\"${servedFile.fileName}\"")
                     call.response.header(HttpHeaders.CacheControl, "no-cache, no-store, must-revalidate")
-                    
+
                     // Serve the file
                     call.respondFile(servedFile.file)
                 }
                 
                 get("/framework-$sessionId/status") {
+                    // Set CORS headers
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowMethods, "GET, OPTIONS")
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+
                     call.respond(HttpStatusCode.OK, mapOf(
                         "status" to "running",
                         "sessionId" to sessionId,
@@ -301,7 +341,16 @@ object FrameworkServerUtils {
                         "servedFiles" to servedFiles.size
                     ))
                 }
-                
+
+                // Handle OPTIONS preflight requests for CORS
+                options("/framework-$sessionId/{...}") {
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowMethods, "GET, OPTIONS")
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+                    call.response.header(HttpHeaders.AccessControlMaxAge, "86400") // 24 hours
+                    call.respond(HttpStatusCode.OK)
+                }
+
                 // Catch-all for invalid routes
                 get("/framework-$sessionId/{...}") {
                     Log.w(TAG, "Invalid route requested: ${call.request.local.uri}")
