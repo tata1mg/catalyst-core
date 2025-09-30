@@ -12,6 +12,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.google.android.gms.tasks.OnCompleteListener
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 
 /**
  * Firebase Cloud Messaging Service and Utility
@@ -24,6 +26,7 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
         private const val PREFS_NAME = "push_notifications"
         private const val KEY_PUSH_TOKEN = "push_token"
         private const val KEY_SUBSCRIBED_TOPICS = "subscribed_topics"
+        private const val PROVIDER_FCM = "fcm"
 
         // Broadcast actions
         const val ACTION_MESSAGE_RECEIVED = "io.yourname.androidproject.PUSH_MESSAGE_RECEIVED"
@@ -177,7 +180,7 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
      */
     fun handleTokenRefresh(webView: WebView?, newToken: String) {
         webView?.let {
-            val tokenData = """{"token": "$newToken", "refreshed": true, "provider": "fcm"}"""
+            val tokenData = """{"token": "$newToken", "refreshed": true, "provider": "$PROVIDER_FCM"}"""
             BridgeUtils.notifyWeb(it, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN, tokenData)
         }
     }
@@ -274,14 +277,21 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
      * Get current push provider
      */
     fun getPushProvider(@Suppress("UNUSED_PARAMETER") context: Context): String {
-        return "fcm"
+        return PROVIDER_FCM
     }
 
     /**
      * Check if FCM is available
      */
-    fun isAvailable(@Suppress("UNUSED_PARAMETER") context: Context): Boolean {
-        return true
+    fun isAvailable(context: Context): Boolean {
+        return try {
+            val googleApiAvailability = GoogleApiAvailability.getInstance()
+            val resultCode = googleApiAvailability.isGooglePlayServicesAvailable(context)
+            resultCode == ConnectionResult.SUCCESS
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Error checking FCM availability", e)
+            false
+        }
     }
 
     // ==================== PRIVATE HELPERS ====================
@@ -319,7 +329,7 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
     private fun notifyWebOfReceivedPush(webView: WebView, title: String, body: String, channel: String, customData: Map<String, Any>) {
         try {
             val messageData = JSONObject().apply {
-                put("provider", "fcm")
+                put("provider", PROVIDER_FCM)
                 put("timestamp", System.currentTimeMillis())
                 put("type", "push_notification")
                 put("data", JSONObject(customData))
