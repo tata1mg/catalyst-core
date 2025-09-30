@@ -17,14 +17,6 @@ import org.json.JSONObject
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
-    companion object {
-        private var currentInstance: MainActivity? = null
-
-        fun getCurrentWebView(): android.webkit.WebView? {
-            return currentInstance?.customWebView?.getWebView()
-        }
-    }
-
     private val TAG = "WebViewDebug"
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
@@ -59,9 +51,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        currentInstance = this
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
         }
@@ -117,7 +109,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Clean the cache
         customWebView.cleanupCache()
-        
+
         // Setup NativeBridge
         try {
             nativeBridge = NativeBridge(this, customWebView.getWebView())
@@ -200,9 +192,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
-        currentInstance = null
         if (::keyboardUtil.isInitialized) {
             keyboardUtil.cleanup()
+        }
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.cleanup()
         }
         coroutineContext.cancelChildren()
         customWebView.destroy()

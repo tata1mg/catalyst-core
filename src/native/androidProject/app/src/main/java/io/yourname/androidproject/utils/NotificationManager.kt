@@ -1,8 +1,12 @@
 package io.yourname.androidproject.utils
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.webkit.WebView
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.util.Properties
 
 /**
@@ -12,9 +16,9 @@ class NotificationManager(
     private val context: Context,
     private val properties: Properties
 ) {
-    
+
     private val TAG = "NotificationManager"
-    
+
     // Delegate instances
     private val notificationUtils = NotificationUtils(context)
     private val pushNotificationUtils = PushNotificationUtils(properties)
@@ -22,13 +26,56 @@ class NotificationManager(
     // WebView reference for push notification communication
     private var webView: WebView? = null
 
+    // Broadcast receiver for push notifications
+    private val pushNotificationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                PushNotificationUtils.ACTION_MESSAGE_RECEIVED -> {
+                    @Suppress("UNCHECKED_CAST", "DEPRECATION")
+                    val data = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        intent.getSerializableExtra(PushNotificationUtils.EXTRA_MESSAGE_DATA, HashMap::class.java) as? HashMap<String, String>
+                    } else {
+                        intent.getSerializableExtra(PushNotificationUtils.EXTRA_MESSAGE_DATA) as? HashMap<String, String>
+                    }
+                    data?.let { handleIncomingPush(it) }
+                }
+                PushNotificationUtils.ACTION_TOKEN_REFRESHED -> {
+                    val token = intent.getStringExtra(PushNotificationUtils.EXTRA_TOKEN)
+                    token?.let { handleTokenRefresh(it) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Initialize notification manager and register broadcast receivers
+     * Should be called during app initialization
+     */
+    fun initialize() {
+        val filter = IntentFilter().apply {
+            addAction(PushNotificationUtils.ACTION_MESSAGE_RECEIVED)
+            addAction(PushNotificationUtils.ACTION_TOKEN_REFRESHED)
+        }
+        LocalBroadcastManager.getInstance(context).registerReceiver(pushNotificationReceiver, filter)
+        BridgeUtils.logInfo(TAG, "NotificationManager initialized and broadcast receiver registered")
+    }
+
     /**
      * Set WebView reference for push notification communication
      * Should be called during app initialization
      */
     fun setWebViewReference(webView: WebView?) {
         this.webView = webView
-        BridgeUtils.logInfo(TAG, "NotificationManager initialized with WebView reference")
+        BridgeUtils.logInfo(TAG, "WebView reference set")
+    }
+
+    /**
+     * Cleanup and unregister broadcast receivers
+     * Should be called when the activity is destroyed
+     */
+    fun cleanup() {
+        LocalBroadcastManager.getInstance(context).unregisterReceiver(pushNotificationReceiver)
+        BridgeUtils.logInfo(TAG, "NotificationManager cleanup completed")
     }
 
     /**
@@ -101,7 +148,7 @@ class NotificationManager(
      * @param newToken New registration token
      */
     fun handleTokenRefresh(newToken: String) {
-        pushNotificationUtils.handleTokenRefresh(webView, context, newToken)
+        pushNotificationUtils.handleTokenRefresh(webView, newToken)
     }
     
     /**

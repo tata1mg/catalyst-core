@@ -14,7 +14,10 @@ import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
 
-class NativeBridge(private val mainActivity: MainActivity, private val webView: WebView) : CoroutineScope {
+class NativeBridge(
+    private val mainActivity: MainActivity,
+    private val webView: WebView
+) : CoroutineScope {
     private var currentPhotoUri: Uri? = null
     private var shouldLaunchCameraAfterPermission = false
 
@@ -25,9 +28,9 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
-    
+
     // Unified notification manager
-    private val notificationManager by lazy { NotificationManager(mainActivity, mainActivity.properties) }
+    private val notificationManager = NotificationManager(mainActivity, mainActivity.properties)
 
     companion object {
         private const val TAG = "NativeBridge"
@@ -38,11 +41,12 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
             initializeCameraLauncher()
             initializePermissionLauncher()
             initializeFilePickerLauncher()
-            
+
             // Initialize FrameworkServer for large file handling
             initializeFrameworkServer()
-            
-            // Set WebView reference for notifications
+
+            // Initialize NotificationManager and set WebView reference
+            notificationManager.initialize()
             notificationManager.setWebViewReference(webView)
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error initializing NativeBridge", e)
@@ -493,6 +497,9 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
         BridgeUtils.logDebug(TAG, "Cleaning up NativeBridge resources")
 
         try {
+            // Cleanup NotificationManager
+            notificationManager.cleanup()
+
             // Stop FrameworkServer
             FrameworkServerUtils.stopServer()
 
