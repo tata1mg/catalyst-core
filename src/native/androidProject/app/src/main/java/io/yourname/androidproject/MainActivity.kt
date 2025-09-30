@@ -9,6 +9,7 @@ import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
 import io.yourname.androidproject.utils.KeyboardUtil
+import io.yourname.androidproject.utils.NotificationConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
@@ -137,7 +138,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             }
 
             // Check for notification and handle via /notification endpoint
-            if (intent.getBooleanExtra("is_notification", false)) {
+            if (intent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
                 handleNotificationClick(currentUrl, intent)
             } else {
                 Log.d(TAG, "🔗 Loading base URL: $currentUrl")
@@ -155,7 +156,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         super.onNewIntent(intent)
         // Handle notification click when app is already running
         intent?.let { newIntent ->
-            if (newIntent.getBooleanExtra("is_notification", false)) {
+            if (newIntent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
                 handleNotificationClick(currentUrl, newIntent)
             } else {
                 Log.d(TAG, "🔗 onNewIntent - Loading base URL: $currentUrl")
@@ -239,8 +240,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
      */
     private fun handleNotificationClick(baseUrl: String, intent: Intent) {
         try {
-            val action = intent.getStringExtra("action")
-            val notificationData = intent.getStringExtra("notification_data")
+            val action = intent.getStringExtra(NotificationConstants.EXTRA_ACTION)
+            val notificationData = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA)
 
             Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
 

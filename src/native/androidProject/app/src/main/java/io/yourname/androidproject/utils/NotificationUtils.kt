@@ -219,9 +219,9 @@ class NotificationUtils(private val context: Context) {
     fun buildNotification(context: Context, config: NotificationConfig, preloadedBitmap: Bitmap? = null): NotificationCompat.Builder {
         val intent = Intent(context, MainActivity::class.java).apply {
             // Ultra-simple approach: just pass notification data
-            putExtra("is_notification", true)
+            putExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, true)
             config.data?.let { data ->
-                putExtra("notification_data", org.json.JSONObject(data).toString())
+                putExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA, org.json.JSONObject(data).toString())
             }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -322,10 +322,10 @@ class NotificationUtils(private val context: Context) {
      */
     private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction, config: NotificationConfig) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            putExtra("is_notification", true)
-            putExtra("action", action.actionId)
+            putExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, true)
+            putExtra(NotificationConstants.EXTRA_ACTION, action.actionId)
             config.data?.let { data ->
-                putExtra("notification_data", org.json.JSONObject(data).toString())
+                putExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA, org.json.JSONObject(data).toString())
             }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }

@@ -19,4 +19,9 @@ object NotificationConstants {
     // Default notification messages
     const val DEFAULT_NOTIFICATION_TITLE = "Notification"
     const val DEFAULT_NOTIFICATION_BODY = "You have a new message"
+
+    // Intent extras
+    const val EXTRA_IS_NOTIFICATION = "is_notification"
+    const val EXTRA_ACTION = "action"
+    const val EXTRA_NOTIFICATION_DATA = "notification_data"
 }
