@@ -150,9 +150,9 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
             val badge = data["badge"]?.toIntOrNull() ?: payload.optInt("badge", -1).takeIf { it >= 0 }
 
             val config = NotificationConfig(
-                title = data["title"] ?: payload.optString("title", "Notification"),
-                body = data["body"] ?: payload.optString("body", "You have a new message"),
-                channel = data["channel"] ?: payload.optString("channel", "default"),
+                title = data["title"] ?: payload.optString("title", NotificationConstants.DEFAULT_NOTIFICATION_TITLE),
+                body = data["body"] ?: payload.optString("body", NotificationConstants.DEFAULT_NOTIFICATION_BODY),
+                channel = data["channel"] ?: payload.optString("channel", NotificationConstants.DEFAULT_CHANNEL_ID),
                 badge = badge,
                 actions = actions,
                 largeImage = (data["largeImage"] ?: payload.optString("largeImage")).takeIf { it?.isNotBlank() == true },

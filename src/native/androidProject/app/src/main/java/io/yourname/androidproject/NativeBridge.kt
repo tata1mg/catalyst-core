@@ -160,7 +160,7 @@ class NativeBridge(
             mainActivity.runOnUiThread {
                 // Parse config with full NotificationConfig support
                 val notificationConfig = if (config.isNullOrBlank()) {
-                    NotificationConfig(title = "Notification", body = "You have a new message")
+                    NotificationConfig(title = NotificationConstants.DEFAULT_NOTIFICATION_TITLE, body = NotificationConstants.DEFAULT_NOTIFICATION_BODY)
                 } else {
                     try {
                         val json = org.json.JSONObject(config)
@@ -201,9 +201,9 @@ class NativeBridge(
                         } else NotificationStyle.BASIC
 
                         NotificationConfig(
-                            title = json.optString("title", "Notification"),
-                            body = json.optString("body", "You have a new message"),
-                            channel = json.optString("channel", "default"),
+                            title = json.optString("title", NotificationConstants.DEFAULT_NOTIFICATION_TITLE),
+                            body = json.optString("body", NotificationConstants.DEFAULT_NOTIFICATION_BODY),
+                            channel = json.optString("channel", NotificationConstants.DEFAULT_CHANNEL_ID),
                             badge = if (json.has("badge")) json.getInt("badge") else null,
                             actions = actions,
                             largeImage = json.optString("largeImage", null),
@@ -216,7 +216,7 @@ class NativeBridge(
                         )
                     } catch (e: Exception) {
                         BridgeUtils.logError(TAG, "Error parsing notification config", e)
-                        NotificationConfig(title = "Notification", body = "You have a new message")
+                        NotificationConfig(title = NotificationConstants.DEFAULT_NOTIFICATION_TITLE, body = NotificationConstants.DEFAULT_NOTIFICATION_BODY)
                     }
                 }
                 

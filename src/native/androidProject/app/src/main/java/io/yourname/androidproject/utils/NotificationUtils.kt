@@ -34,7 +34,6 @@ import java.util.concurrent.Executors
 class NotificationUtils(private val context: Context) {
 
     private val TAG = "NotificationUtils"
-    private val DEFAULT_CHANNEL_ID = "default"
     private val REQUEST_CODE_PERMISSION = 100
 
     // Callback for permission request result
@@ -75,16 +74,19 @@ class NotificationUtils(private val context: Context) {
         // If there's a remote image URL, load it asynchronously
         if (!config.largeImage.isNullOrBlank()) {
             imageLoadExecutor.execute {
+                var bitmap: Bitmap? = null
                 try {
-                    val bitmap = loadImageFromUrl(context, config.largeImage)
+                    bitmap = loadImageFromUrl(context, config.largeImage)
                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                         showNotification(context, config, notificationId, bitmap)
+                        bitmap?.recycle()
                     }
                 } catch (e: Exception) {
                     BridgeUtils.logError(TAG, "Error loading image: ${config.largeImage}", e)
                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                         showNotification(context, config, notificationId, null)
                     }
+                    bitmap?.recycle()
                 }
             }
         } else {
@@ -320,7 +322,6 @@ class NotificationUtils(private val context: Context) {
      */
     private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction, config: NotificationConfig) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            // Ultra-simple approach: just mark as notification and pass action + data
             putExtra("is_notification", true)
             putExtra("action", action.actionId)
             config.data?.let { data ->
@@ -354,19 +355,19 @@ class NotificationUtils(private val context: Context) {
     private fun getChannelConfig(channelId: String): NotificationChannelConfig {
         val channelName = properties.getProperty("notifications.channels.$channelId.name",
             when (channelId) {
-                "default" -> "Notifications"
-                "urgent" -> "Urgent Notifications"
-                else -> "Notifications"
+                NotificationConstants.DEFAULT_CHANNEL_ID -> NotificationConstants.DEFAULT_CHANNEL_NAME
+                NotificationConstants.URGENT_CHANNEL_ID -> NotificationConstants.URGENT_CHANNEL_NAME
+                else -> NotificationConstants.DEFAULT_CHANNEL_NAME
             })
 
         val channelDescription = properties.getProperty("notifications.channels.$channelId.description",
             when (channelId) {
-                "default" -> "General notifications"
-                "urgent" -> "Urgent notifications that require immediate attention"
-                else -> "General notifications"
+                NotificationConstants.DEFAULT_CHANNEL_ID -> NotificationConstants.DEFAULT_CHANNEL_DESCRIPTION
+                NotificationConstants.URGENT_CHANNEL_ID -> NotificationConstants.URGENT_CHANNEL_DESCRIPTION
+                else -> NotificationConstants.DEFAULT_CHANNEL_DESCRIPTION
             })
 
-        val importance = if (channelId == "urgent") {
+        val importance = if (channelId == NotificationConstants.URGENT_CHANNEL_ID) {
             NotificationManager.IMPORTANCE_HIGH
         } else {
             NotificationManager.IMPORTANCE_DEFAULT
@@ -374,12 +375,12 @@ class NotificationUtils(private val context: Context) {
 
         // Configure sound based on channel type with fallbacks
         val soundUri = when (channelId) {
-            "default" -> {
+            NotificationConstants.DEFAULT_CHANNEL_ID -> {
                 // Try custom default sound first, fallback to system default
                 getSoundResource(context, "notification_sound_default")
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             }
-            "urgent" -> {
+            NotificationConstants.URGENT_CHANNEL_ID -> {
                 // Try custom urgent sound first, fallback to system alarm
                 getSoundResource(context, "notification_sound_urgent")
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -402,14 +403,14 @@ class NotificationUtils(private val context: Context) {
      * Get sound URI from sound name (build assets only)
      */
     private fun getSoundUri(context: Context, soundName: String?): Uri? {
-        val effectiveSoundName = soundName ?: "default"
+        val effectiveSoundName = soundName ?: NotificationConstants.DEFAULT_CHANNEL_ID
         return when (effectiveSoundName) {
-            "default" -> {
+            NotificationConstants.DEFAULT_CHANNEL_ID -> {
                 // Try custom default sound first, fallback to system
                 val customResource = getSoundResource(context, "notification_sound_default")
                 customResource ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             }
-            "urgent" -> {
+            NotificationConstants.URGENT_CHANNEL_ID -> {
                 // Try custom urgent sound first, fallback to system
                 val customResource = getSoundResource(context, "notification_sound_urgent")
                 customResource ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -552,7 +553,7 @@ data class NotificationConfig(
     // Display fields
     val title: String,
     val body: String,
-    val channel: String = "default",
+    val channel: String = NotificationConstants.DEFAULT_CHANNEL_ID,
 
     // Optional display settings
     val badge: Int? = null,
