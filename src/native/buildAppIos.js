@@ -40,10 +40,8 @@ const progressConfig = {
 
 const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
 
-async function generateConfigConstants() {
-    progress.start("config")
+async function updateInfoPlist() {
     try {
-        // Update Info.plist with dynamic app name
         const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
 
         if (fs.existsSync(infoPlistPath)) {
@@ -67,7 +65,15 @@ async function generateConfigConstants() {
                 }
             }
         }
+    } catch (err) {
+        progress.fail("config", err)
+        process.exit(1)
+    }
+}
 
+async function generateConfigConstants() {
+    progress.start("config")
+    try {
         // Update ConfigConstants.swift
         const configOutputPath = path.join(PROJECT_DIR, PROJECT_NAME, "ConfigConstants.swift")
 
@@ -624,6 +630,7 @@ async function main() {
         progress.log("Starting build process from: " + originalDir, "info")
 
         await generateConfigConstants()
+        await updateInfoPlist()
 
         progress.log("Changing directory to: " + PROJECT_DIR, "info")
         process.chdir(PROJECT_DIR)
