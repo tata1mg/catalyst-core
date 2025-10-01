@@ -20,7 +20,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
-        logger.info("🌐 Navigation requested to: \(url.absoluteString)")
+        logWithTimestamp("🌐 Navigation requested to: \(url.absoluteString)")
 
         Task {
             if CacheManager.shared.shouldCacheURL(url) {
@@ -99,20 +99,23 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     }
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        logWithTimestamp("📡 didStartProvisionalNavigation - loading started")
         Task { @MainActor in
             viewModel.setLoading(true, fromCache: false)
         }
     }
-    
+
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        logWithTimestamp("✅ didCommit - content started arriving")
         Task { @MainActor in
             if let url = webView.url {
                 viewModel.lastLoadedURL = url
             }
         }
     }
-    
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        logWithTimestamp("🎉 didFinish - page fully loaded")
         Task { @MainActor in
             if let url = webView.url {
                 viewModel.lastLoadedURL = url
@@ -122,18 +125,21 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             }
         }
     }
-    
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        logWithTimestamp("❌ didFail - navigation failed")
         handleNavigationError(error)
     }
-    
+
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        logWithTimestamp("❌ didFailProvisionalNavigation - provisional load failed")
         handleNavigationError(error)
     }
-    
+
     private func handleNavigationError(_ error: Error) {
         Task { @MainActor in
             viewModel.reset()
+            logWithTimestamp("🔴 Navigation error: \(error.localizedDescription)")
             logger.error("Navigation failed: \(error.localizedDescription)")
         }
     }

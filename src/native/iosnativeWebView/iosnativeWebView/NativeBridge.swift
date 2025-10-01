@@ -15,36 +15,64 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDelegate, BridgeDelegateHandlerDelegate {
     private weak var webView: WKWebView?
     private weak var viewController: UIViewController?
-    private let imageHandler = ImageHandler()
-    private let filePickerHandler = FilePickerHandler()
 
-    // JavaScript communication interface
+    // Lazy initialization for non-critical handlers
+    private lazy var imageHandler: ImageHandler = {
+        logWithTimestamp("🔧 ImageHandler initialized (lazy)")
+        return ImageHandler()
+    }()
+
+    private lazy var filePickerHandler: FilePickerHandler = {
+        logWithTimestamp("🔧 FilePickerHandler initialized (lazy)")
+        return FilePickerHandler()
+    }()
+
+    // JavaScript communication interface - critical, initialize immediately
     private let jsInterface: BridgeJavaScriptInterface
 
-    // Native command handler
-    private let commandHandler: BridgeCommandHandler
+    // Native command handler - lazy init since it depends on image/file handlers
+    private lazy var commandHandler: BridgeCommandHandler = {
+        logWithTimestamp("🔧 BridgeCommandHandler initialized (lazy)")
+        let handler = BridgeCommandHandler(
+            viewController: viewController!,
+            imageHandler: imageHandler,
+            filePickerHandler: filePickerHandler
+        )
+        handler.setDelegate(self)
+        return handler
+    }()
 
-    // File operations handler
-    private let fileHandler: BridgeFileHandler
+    // File operations handler - lazy init
+    private lazy var fileHandler: BridgeFileHandler = {
+        logWithTimestamp("🔧 BridgeFileHandler initialized (lazy)")
+        let handler = BridgeFileHandler(viewController: viewController!)
+        handler.setDelegate(self)
+        return handler
+    }()
 
-    // Delegate handler for ImageHandler and FilePickerHandler callbacks
-    private let delegateHandler: BridgeDelegateHandler
+    // Delegate handler - lazy init
+    private lazy var delegateHandler: BridgeDelegateHandler = {
+        logWithTimestamp("🔧 BridgeDelegateHandler initialized (lazy)")
+        let handler = BridgeDelegateHandler(filePickerHandler: filePickerHandler)
+        imageHandler.delegate = handler
+        filePickerHandler.delegate = handler
+        handler.setDelegate(self)
+        return handler
+    }()
 
     init(webView: WKWebView, viewController: UIViewController) {
+        let initStart = CFAbsoluteTimeGetCurrent()
+
         self.webView = webView
         self.viewController = viewController
+
+        // Only initialize critical JS interface immediately
         self.jsInterface = BridgeJavaScriptInterface(webView: webView)
-        self.commandHandler = BridgeCommandHandler(viewController: viewController, imageHandler: imageHandler, filePickerHandler: filePickerHandler)
-        self.fileHandler = BridgeFileHandler(viewController: viewController)
-        self.delegateHandler = BridgeDelegateHandler(filePickerHandler: filePickerHandler)
+
         super.init()
 
-        imageHandler.delegate = delegateHandler
-        filePickerHandler.delegate = delegateHandler
-        commandHandler.setDelegate(self)
-        fileHandler.setDelegate(self)
-        delegateHandler.setDelegate(self)
-        iosnativeWebView.logger.debug("NativeBridge initialized with JavaScript interface, command handler, file handler, and delegate handler")
+        let initTime = (CFAbsoluteTimeGetCurrent() - initStart) * 1000
+        logWithTimestamp("⚡️ NativeBridge initialized (took \(String(format: "%.2f", initTime))ms, handlers deferred)")
     }
 
     deinit {
@@ -54,10 +82,13 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     
     // Register the JavaScript interface with the WebView
     func register() {
+        let registerStart = CFAbsoluteTimeGetCurrent()
+
         let userContentController = webView?.configuration.userContentController
         userContentController?.add(self, name: "NativeBridge")
-        
-        iosnativeWebView.logger.debug("NativeBridge registered - platform detection handled by NativeBridge.js utility")
+
+        let registerTime = (CFAbsoluteTimeGetCurrent() - registerStart) * 1000
+        logWithTimestamp("✅ NativeBridge registered (took \(String(format: "%.2f", registerTime))ms)")
     }
     
     // Unregister to prevent memory leaks

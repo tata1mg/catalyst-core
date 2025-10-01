@@ -43,13 +43,15 @@ class CacheManager {
     }
     
     private init() {
+        let initStart = CFAbsoluteTimeGetCurrent()
+
         let baseDirectory = FileManager.default.urls(
             for: .cachesDirectory,
             in: .userDomainMask
         )[0]
-        
+
         self.cacheDirectory = baseDirectory.appendingPathComponent("WebCache", isDirectory: true)
-        
+
         try? FileManager.default.createDirectory(
             at: cacheDirectory,
             withIntermediateDirectories: true,
@@ -76,14 +78,18 @@ class CacheManager {
             diskCapacity: diskCapacity,
             directory: cacheDirectory
         )
-        
+
         session = URLSession(configuration: configuration)
-        logger.info("Cache initialized at: \(self.cacheDirectory.path)")
-        
+
+        let initTime = (CFAbsoluteTimeGetCurrent() - initStart) * 1000
+        logWithTimestamp("💾 Cache initialized at: \(self.cacheDirectory.path) (took \(String(format: "%.2f", initTime))ms)")
+
         loadCacheFromDisk()
     }
     
     private func loadCacheFromDisk() {
+        let loadStart = CFAbsoluteTimeGetCurrent()
+
         queue.async {
             do {
                 let fileManager = FileManager.default
@@ -91,7 +97,7 @@ class CacheManager {
                     at: self.cacheDirectory,
                     includingPropertiesForKeys: nil
                 ).filter { $0.pathExtension == "cache" }
-                
+
                 for file in files {
                     do {
                         let data = try Data(contentsOf: file)
@@ -102,8 +108,9 @@ class CacheManager {
                         logger.error("Failed to load cached file: \(error.localizedDescription)")
                     }
                 }
-                
-                logger.info("Loaded \(self.resourceCache.count) resources from disk cache")
+
+                let loadTime = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
+                logWithTimestamp("📂 Loaded \(self.resourceCache.count) resources from disk cache (took \(String(format: "%.2f", loadTime))ms)")
             } catch {
                 logger.error("Failed to load cache from disk: \(error.localizedDescription)")
             }
