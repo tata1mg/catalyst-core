@@ -1,8 +1,10 @@
 package io.yourname.androidproject.utils
 
 import android.content.Context
+import android.content.Intent
 import android.webkit.WebView
 import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import org.json.JSONObject
 import org.json.JSONArray
 import java.util.Properties
@@ -10,7 +12,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.google.android.gms.tasks.OnCompleteListener
-import io.yourname.androidproject.MainActivity
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 
 /**
  * Firebase Cloud Messaging Service and Utility
@@ -23,6 +26,13 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
         private const val PREFS_NAME = "push_notifications"
         private const val KEY_PUSH_TOKEN = "push_token"
         private const val KEY_SUBSCRIBED_TOPICS = "subscribed_topics"
+        private const val PROVIDER_FCM = "fcm"
+
+        // Broadcast actions
+        const val ACTION_MESSAGE_RECEIVED = "io.yourname.androidproject.PUSH_MESSAGE_RECEIVED"
+        const val ACTION_TOKEN_REFRESHED = "io.yourname.androidproject.PUSH_TOKEN_REFRESHED"
+        const val EXTRA_MESSAGE_DATA = "message_data"
+        const val EXTRA_TOKEN = "token"
     }
 
     // ==================== FIREBASE MESSAGING SERVICE CALLBACKS ====================
@@ -46,9 +56,8 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
             // Add custom data
             data.putAll(remoteMessage.data)
 
-            // Get WebView reference and handle the push
-            val webView = MainActivity.getCurrentWebView()
-            handleIncomingPush(webView, this, data)
+            // Send broadcast to notify activity about the message
+            sendMessageReceivedBroadcast(this, data)
 
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error processing FCM message", e)
@@ -61,8 +70,8 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
         BridgeUtils.logInfo(TAG, "FCM token refreshed: ${token.take(20)}...")
 
         try {
-            val webView = MainActivity.getCurrentWebView()
-            handleTokenRefresh(webView, this, token)
+            storePushToken(this, token)
+            sendTokenRefreshedBroadcast(this, token)
 
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error handling token refresh", e)
@@ -101,20 +110,7 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
     }
 
     /**
-     * Handle token refresh
-     */
-    fun handleTokenRefresh(webView: WebView?, context: Context, newToken: String) {
-        BridgeUtils.logInfo(TAG, "FCM token refreshed: $newToken")
-        storePushToken(context, newToken)
-
-        webView?.let {
-            val tokenData = """{"token": "$newToken", "refreshed": true, "provider": "fcm"}"""
-            BridgeUtils.notifyWeb(it, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN, tokenData)
-        }
-    }
-
-    /**
-     * Handle incoming push notification
+     * Handle incoming push notification (called from broadcast receiver)
      */
     fun handleIncomingPush(webView: WebView?, context: Context, data: Map<String, String>) {
         BridgeUtils.logInfo(TAG, "Processing incoming push notification")
@@ -154,9 +150,9 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
             val badge = data["badge"]?.toIntOrNull() ?: payload.optInt("badge", -1).takeIf { it >= 0 }
 
             val config = NotificationConfig(
-                title = data["title"] ?: payload.optString("title", "Notification"),
-                body = data["body"] ?: payload.optString("body", "You have a new message"),
-                channel = data["channel"] ?: payload.optString("channel", "default"),
+                title = data["title"] ?: payload.optString("title", NotificationConstants.DEFAULT_NOTIFICATION_TITLE),
+                body = data["body"] ?: payload.optString("body", NotificationConstants.DEFAULT_NOTIFICATION_BODY),
+                channel = data["channel"] ?: payload.optString("channel", NotificationConstants.DEFAULT_CHANNEL_ID),
                 badge = badge,
                 actions = actions,
                 largeImage = (data["largeImage"] ?: payload.optString("largeImage")).takeIf { it?.isNotBlank() == true },
@@ -176,6 +172,16 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
             webView?.let { notifyWebOfReceivedPush(it, config.title, config.body, config.channel, customData) }
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error handling push notification", e)
+        }
+    }
+
+    /**
+     * Handle token refresh (called from broadcast receiver)
+     */
+    fun handleTokenRefresh(webView: WebView?, newToken: String) {
+        webView?.let {
+            val tokenData = """{"token": "$newToken", "refreshed": true, "provider": "$PROVIDER_FCM"}"""
+            BridgeUtils.notifyWeb(it, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN, tokenData)
         }
     }
 
@@ -271,14 +277,21 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
      * Get current push provider
      */
     fun getPushProvider(@Suppress("UNUSED_PARAMETER") context: Context): String {
-        return "fcm"
+        return PROVIDER_FCM
     }
 
     /**
      * Check if FCM is available
      */
-    fun isAvailable(@Suppress("UNUSED_PARAMETER") context: Context): Boolean {
-        return true
+    fun isAvailable(context: Context): Boolean {
+        return try {
+            val googleApiAvailability = GoogleApiAvailability.getInstance()
+            val resultCode = googleApiAvailability.isGooglePlayServicesAvailable(context)
+            resultCode == ConnectionResult.SUCCESS
+        } catch (e: Exception) {
+            BridgeUtils.logError(TAG, "Error checking FCM availability", e)
+            false
+        }
     }
 
     // ==================== PRIVATE HELPERS ====================
@@ -316,7 +329,7 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
     private fun notifyWebOfReceivedPush(webView: WebView, title: String, body: String, channel: String, customData: Map<String, Any>) {
         try {
             val messageData = JSONObject().apply {
-                put("provider", "fcm")
+                put("provider", PROVIDER_FCM)
                 put("timestamp", System.currentTimeMillis())
                 put("type", "push_notification")
                 put("data", JSONObject(customData))
@@ -330,6 +343,28 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to notify web", e)
         }
+    }
+
+    /**
+     * Send broadcast when a message is received
+     */
+    private fun sendMessageReceivedBroadcast(context: Context, data: Map<String, String>) {
+        val intent = Intent(ACTION_MESSAGE_RECEIVED).apply {
+            putExtra(EXTRA_MESSAGE_DATA, HashMap(data))
+        }
+        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
+        BridgeUtils.logInfo(TAG, "Broadcast sent: $ACTION_MESSAGE_RECEIVED")
+    }
+
+    /**
+     * Send broadcast when token is refreshed
+     */
+    private fun sendTokenRefreshedBroadcast(context: Context, token: String) {
+        val intent = Intent(ACTION_TOKEN_REFRESHED).apply {
+            putExtra(EXTRA_TOKEN, token)
+        }
+        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
+        BridgeUtils.logInfo(TAG, "Broadcast sent: $ACTION_TOKEN_REFRESHED")
     }
 
 }

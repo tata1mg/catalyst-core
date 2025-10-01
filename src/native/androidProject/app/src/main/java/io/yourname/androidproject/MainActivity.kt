@@ -9,6 +9,7 @@ import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
 import io.yourname.androidproject.utils.KeyboardUtil
+import io.yourname.androidproject.utils.NotificationConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
@@ -16,14 +17,6 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
-
-    companion object {
-        private var currentInstance: MainActivity? = null
-
-        fun getCurrentWebView(): android.webkit.WebView? {
-            return currentInstance?.customWebView?.getWebView()
-        }
-    }
 
     private val TAG = "WebViewDebug"
     private lateinit var binding: ActivityMainBinding
@@ -59,9 +52,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        currentInstance = this
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
         }
@@ -117,7 +110,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Clean the cache
         customWebView.cleanupCache()
-        
+
         // Setup NativeBridge
         try {
             nativeBridge = NativeBridge(this, customWebView.getWebView())
@@ -145,7 +138,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             }
 
             // Check for notification and handle via /notification endpoint
-            if (intent.getBooleanExtra("is_notification", false)) {
+            if (intent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
                 handleNotificationClick(currentUrl, intent)
             } else {
                 Log.d(TAG, "🔗 Loading base URL: $currentUrl")
@@ -163,7 +156,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         super.onNewIntent(intent)
         // Handle notification click when app is already running
         intent?.let { newIntent ->
-            if (newIntent.getBooleanExtra("is_notification", false)) {
+            if (newIntent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
                 handleNotificationClick(currentUrl, newIntent)
             } else {
                 Log.d(TAG, "🔗 onNewIntent - Loading base URL: $currentUrl")
@@ -200,9 +193,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
-        currentInstance = null
         if (::keyboardUtil.isInitialized) {
             keyboardUtil.cleanup()
+        }
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.cleanup()
         }
         coroutineContext.cancelChildren()
         customWebView.destroy()
@@ -245,8 +240,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
      */
     private fun handleNotificationClick(baseUrl: String, intent: Intent) {
         try {
-            val action = intent.getStringExtra("action")
-            val notificationData = intent.getStringExtra("notification_data")
+            val action = intent.getStringExtra(NotificationConstants.EXTRA_ACTION)
+            val notificationData = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA)
 
             Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
 

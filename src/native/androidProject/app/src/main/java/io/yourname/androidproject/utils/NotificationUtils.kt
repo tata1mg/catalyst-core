@@ -26,6 +26,11 @@ import java.util.*
 import java.net.URL
 import java.io.InputStream
 import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Utility class for handling notifications (local and push)
@@ -34,7 +39,6 @@ import java.util.concurrent.Executors
 class NotificationUtils(private val context: Context) {
 
     private val TAG = "NotificationUtils"
-    private val DEFAULT_CHANNEL_ID = "default"
     private val REQUEST_CODE_PERMISSION = 100
 
     // Callback for permission request result
@@ -42,6 +46,9 @@ class NotificationUtils(private val context: Context) {
 
     // Thread pool for image loading
     private val imageLoadExecutor = Executors.newFixedThreadPool(3)
+
+    // Coroutine scope for notification operations
+    private val notificationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
     private val properties: Properties = Properties().apply {
         try {
@@ -74,22 +81,25 @@ class NotificationUtils(private val context: Context) {
 
         // If there's a remote image URL, load it asynchronously
         if (!config.largeImage.isNullOrBlank()) {
-            imageLoadExecutor.execute {
+            notificationScope.launch {
+                var bitmap: Bitmap? = null
                 try {
-                    val bitmap = loadImageFromUrl(context, config.largeImage)
-                    android.os.Handler(android.os.Looper.getMainLooper()).post {
-                        showNotification(context, config, notificationId, bitmap)
+                    bitmap = withContext(Dispatchers.IO) {
+                        loadImageFromUrl(config.largeImage)
                     }
+                    showNotification(context, config, notificationId, bitmap)
+                    bitmap?.recycle()
                 } catch (e: Exception) {
                     BridgeUtils.logError(TAG, "Error loading image: ${config.largeImage}", e)
-                    android.os.Handler(android.os.Looper.getMainLooper()).post {
-                        showNotification(context, config, notificationId, null)
-                    }
+                    showNotification(context, config, notificationId, null)
+                    bitmap?.recycle()
                 }
             }
         } else {
             // No remote image, show immediately
-            showNotification(context, config, notificationId, null)
+            notificationScope.launch {
+                showNotification(context, config, notificationId, null)
+            }
         }
 
         return notificationId
@@ -98,7 +108,7 @@ class NotificationUtils(private val context: Context) {
     /**
      * Show notification with optional pre-loaded bitmap
      */
-    private fun showNotification(context: Context, config: NotificationConfig, notificationId: String, preloadedBitmap: Bitmap?) {
+    private suspend fun showNotification(context: Context, config: NotificationConfig, notificationId: String, preloadedBitmap: Bitmap?) {
         val notification = buildNotification(context, config, preloadedBitmap)
         val notificationManager = NotificationManagerCompat.from(context)
 
@@ -214,12 +224,12 @@ class NotificationUtils(private val context: Context) {
     /**
      * Build notification based on style
      */
-    fun buildNotification(context: Context, config: NotificationConfig, preloadedBitmap: Bitmap? = null): NotificationCompat.Builder {
+    suspend fun buildNotification(context: Context, config: NotificationConfig, preloadedBitmap: Bitmap? = null): NotificationCompat.Builder {
         val intent = Intent(context, MainActivity::class.java).apply {
             // Ultra-simple approach: just pass notification data
-            putExtra("is_notification", true)
+            putExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, true)
             config.data?.let { data ->
-                putExtra("notification_data", org.json.JSONObject(data).toString())
+                putExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA, org.json.JSONObject(data).toString())
             }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -286,7 +296,7 @@ class NotificationUtils(private val context: Context) {
     /**
      * Apply notification style based on configuration
      */
-    private fun applyNotificationStyle(builder: NotificationCompat.Builder, config: NotificationConfig, preloadedBitmap: Bitmap? = null) {
+    private suspend fun applyNotificationStyle(builder: NotificationCompat.Builder, config: NotificationConfig, preloadedBitmap: Bitmap? = null) {
         when (config.style) {
             NotificationStyle.BASIC -> {
                 // Basic style is default, no additional styling needed
@@ -320,11 +330,10 @@ class NotificationUtils(private val context: Context) {
      */
     private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction, config: NotificationConfig) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            // Ultra-simple approach: just mark as notification and pass action + data
-            putExtra("is_notification", true)
-            putExtra("action", action.actionId)
+            putExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, true)
+            putExtra(NotificationConstants.EXTRA_ACTION, action.actionId)
             config.data?.let { data ->
-                putExtra("notification_data", org.json.JSONObject(data).toString())
+                putExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA, org.json.JSONObject(data).toString())
             }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -354,19 +363,19 @@ class NotificationUtils(private val context: Context) {
     private fun getChannelConfig(channelId: String): NotificationChannelConfig {
         val channelName = properties.getProperty("notifications.channels.$channelId.name",
             when (channelId) {
-                "default" -> "Notifications"
-                "urgent" -> "Urgent Notifications"
-                else -> "Notifications"
+                NotificationConstants.DEFAULT_CHANNEL_ID -> NotificationConstants.DEFAULT_CHANNEL_NAME
+                NotificationConstants.URGENT_CHANNEL_ID -> NotificationConstants.URGENT_CHANNEL_NAME
+                else -> NotificationConstants.DEFAULT_CHANNEL_NAME
             })
 
         val channelDescription = properties.getProperty("notifications.channels.$channelId.description",
             when (channelId) {
-                "default" -> "General notifications"
-                "urgent" -> "Urgent notifications that require immediate attention"
-                else -> "General notifications"
+                NotificationConstants.DEFAULT_CHANNEL_ID -> NotificationConstants.DEFAULT_CHANNEL_DESCRIPTION
+                NotificationConstants.URGENT_CHANNEL_ID -> NotificationConstants.URGENT_CHANNEL_DESCRIPTION
+                else -> NotificationConstants.DEFAULT_CHANNEL_DESCRIPTION
             })
 
-        val importance = if (channelId == "urgent") {
+        val importance = if (channelId == NotificationConstants.URGENT_CHANNEL_ID) {
             NotificationManager.IMPORTANCE_HIGH
         } else {
             NotificationManager.IMPORTANCE_DEFAULT
@@ -374,12 +383,12 @@ class NotificationUtils(private val context: Context) {
 
         // Configure sound based on channel type with fallbacks
         val soundUri = when (channelId) {
-            "default" -> {
+            NotificationConstants.DEFAULT_CHANNEL_ID -> {
                 // Try custom default sound first, fallback to system default
                 getSoundResource(context, "notification_sound_default")
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             }
-            "urgent" -> {
+            NotificationConstants.URGENT_CHANNEL_ID -> {
                 // Try custom urgent sound first, fallback to system alarm
                 getSoundResource(context, "notification_sound_urgent")
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -402,14 +411,14 @@ class NotificationUtils(private val context: Context) {
      * Get sound URI from sound name (build assets only)
      */
     private fun getSoundUri(context: Context, soundName: String?): Uri? {
-        val effectiveSoundName = soundName ?: "default"
+        val effectiveSoundName = soundName ?: NotificationConstants.DEFAULT_CHANNEL_ID
         return when (effectiveSoundName) {
-            "default" -> {
+            NotificationConstants.DEFAULT_CHANNEL_ID -> {
                 // Try custom default sound first, fallback to system
                 val customResource = getSoundResource(context, "notification_sound_default")
                 customResource ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             }
-            "urgent" -> {
+            NotificationConstants.URGENT_CHANNEL_ID -> {
                 // Try custom urgent sound first, fallback to system
                 val customResource = getSoundResource(context, "notification_sound_urgent")
                 customResource ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -471,8 +480,9 @@ class NotificationUtils(private val context: Context) {
     /**
      * Get large icon bitmap from local resources only (no network calls)
      * Fallback chain: notification large icon -> app icon
+     * Uses coroutine to offload bitmap decoding to worker thread
      */
-    private fun getLargeIconBitmapLocal(context: Context): Bitmap? {
+    private suspend fun getLargeIconBitmapLocal(context: Context): Bitmap? = withContext(Dispatchers.IO) {
         // Try to find build-time large notification icon
         val notificationLargeIconId = context.resources.getIdentifier(
             "ic_notification_large",
@@ -480,8 +490,9 @@ class NotificationUtils(private val context: Context) {
             context.packageName
         )
         if (notificationLargeIconId != 0) {
-            return try {
-                BitmapFactory.decodeResource(context.resources, notificationLargeIconId)
+            return@withContext try {
+                val bitmap = BitmapFactory.decodeResource(context.resources, notificationLargeIconId)
+                bitmap
             } catch (e: Exception) {
                 BridgeUtils.logError(TAG, "Failed to load local large notification icon", e)
                 null
@@ -489,14 +500,15 @@ class NotificationUtils(private val context: Context) {
         }
 
         // Finally, fallback to app icon
-        return try {
+        return@withContext try {
             val appIconId = context.resources.getIdentifier(
                 "ic_launcher",
                 "mipmap",
                 context.packageName
             )
             if (appIconId != 0) {
-                BitmapFactory.decodeResource(context.resources, appIconId)
+                val bitmap = BitmapFactory.decodeResource(context.resources, appIconId)
+                bitmap
             } else {
                 null
             }
@@ -509,7 +521,7 @@ class NotificationUtils(private val context: Context) {
     /**
      * Load image from HTTP/HTTPS URL
      */
-    private fun loadImageFromUrl(context: Context, imageUrl: String): Bitmap? {
+    private fun loadImageFromUrl(imageUrl: String): Bitmap? {
         return try {
             if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
                 // Download from URL (synchronous - runs on background thread)
@@ -552,7 +564,7 @@ data class NotificationConfig(
     // Display fields
     val title: String,
     val body: String,
-    val channel: String = "default",
+    val channel: String = NotificationConstants.DEFAULT_CHANNEL_ID,
 
     // Optional display settings
     val badge: Int? = null,

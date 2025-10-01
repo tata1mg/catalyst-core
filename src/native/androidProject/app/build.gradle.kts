@@ -10,10 +10,26 @@ buildscript {
     }
 }
 
-val configPath: String? = project.properties["configPath"] as String?
+val configPath: String? by project.properties
 val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
 val keyAlias: String? by project.properties
 val keyPassword: String? by project.properties
+
+fun isNotificationsEnabled(): Boolean {
+    return try {
+        if (configPath == null) return false
+        val configFile = File(configPath!!)
+        if (!configFile.exists()) return false
+
+        val json = JSONObject(configFile.readText())
+        if (!json.has("WEBVIEW_CONFIG")) return false
+
+        val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
+        webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+    } catch (e: Exception) {
+        false
+    }
+}
 
 fun getLocalIpAddress(): String {
     return NetworkInterface.getNetworkInterfaces().toList()
@@ -129,6 +145,19 @@ android {
         checkReleaseBuilds = true
         abortOnError = true
     }
+
+    // Conditional source sets based on notifications config
+    sourceSets {
+        getByName("main") {
+            if (isNotificationsEnabled()) {
+                logger.info("SourceSet selected: withFcm (notifications enabled)")
+                java.srcDirs("src/withFcm/java")
+            } else {
+                logger.info("SourceSet selected: noFcm (notifications disabled)")
+                java.srcDirs("src/noFcm/java")
+            }
+        }
+    }
 }
 
 dependencies {
@@ -142,19 +171,22 @@ dependencies {
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
     implementation("androidx.core:core-splashscreen:1.0.1")
-    
+
     // Ktor Server dependencies for FrameworkServer (~200KB total)
     implementation("io.ktor:ktor-server-core:2.3.7")
     implementation("io.ktor:ktor-server-netty:2.3.7")
     implementation("io.ktor:ktor-server-content-negotiation:2.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
-    // Firebase dependencies - always included
-    implementation("com.google.firebase:firebase-messaging:23.4.0")
-    implementation("com.google.firebase:firebase-analytics:21.5.0")
+    // Notification dependencies - conditional based on config
+    if (isNotificationsEnabled()) {
+        implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+        implementation("com.google.firebase:firebase-messaging:23.4.0")
+        implementation("com.google.firebase:firebase-analytics:21.5.0")
+    }
 }
 
 // Task to verify local IP
@@ -281,8 +313,9 @@ tasks.register("generateWebViewConfig") {
     }
 }
 
-// Apply Firebase plugin always
-apply(plugin = "com.google.gms.google-services")
+if (isNotificationsEnabled()) {
+    apply(plugin = "com.google.gms.google-services")
+}
 
 // Task to create key store if it doesn't exist
 // Add this task to your build.gradle.kts
