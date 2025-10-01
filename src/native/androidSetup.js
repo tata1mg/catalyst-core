@@ -5,6 +5,7 @@ import TerminalProgress from "./TerminalProgress.js"
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
 const configPath = `${process.env.PWD}/config/config.json`
+import { setupServer } from "./setupServer.js"
 
 const steps = {
     java: "Check Java Environment",
@@ -13,6 +14,7 @@ const steps = {
     emulator: "Configure Android Emulator",
     properties: "Update Local Properties",
     saveConfig: "Save Configuration",
+    setupServer: "Setup Server",
 }
 
 const progressPaddingConfig = {
@@ -284,6 +286,10 @@ async function setupAndroidEnvironment() {
         progress.start("saveConfig")
         await saveConfig({ WEBVIEW_CONFIG: config })
         progress.complete("saveConfig")
+
+        progress.start("setupServer")
+        await setupServer(configPath)
+        progress.complete("setupServer")
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",

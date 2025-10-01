@@ -1,15 +1,16 @@
 const { exec, execSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
-const { setupServer } = require("./setupServer.js")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const { WEBVIEW_CONFIG } = require(`${process.env.PWD}/config/config.json`)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
+    `${process.env.PWD}/config/config.json`
+)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
-const url = `http://${getLocalIPAddress()}:${WEBVIEW_CONFIG.port}`
+const url = `http://${NODE_SERVER_HOSTNAME}:${WEBVIEW_CONFIG.port}`
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
 const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
@@ -19,6 +20,7 @@ const IPHONE_MODEL = iosConfig.simulatorName
 // Define build steps for progress tracking
 const steps = {
     config: "Generating Required Configuration for build",
+    deviceDetection: "Detecting Physical Device",
     launchSimulator: "Launch iOS Simulator",
     clean: "Clean Build Artifacts",
     build: "Build IOS Project",
@@ -38,6 +40,77 @@ const progressConfig = {
 }
 
 const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
+
+// Utility function to run shell commands
+function runCommand(command, options = {}) {
+    return new Promise((resolve, reject) => {
+        exec(command, { maxBuffer: 1024 * 1024 * 10, ...options }, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Command failed: ${command}`)
+                console.error(`Error: ${error.message}`)
+                console.error(`stderr: ${stderr}`)
+                reject(error)
+                return
+            }
+            if (stderr) {
+                console.warn(`Warning: ${stderr}`)
+            }
+            resolve(stdout.trim())
+        })
+    })
+}
+
+async function getBootedSimulatorUUID(modelName) {
+    try {
+        // First try to find a booted simulator of the specified model
+        let command = `xcrun simctl list devices | grep "${modelName}" | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
+        let uuid = execSync(command).toString().trim()
+
+        if (uuid) {
+            console.log(`Found booted simulator of model ${modelName}`)
+            return uuid
+        }
+
+        // If no booted simulator of the specified model is found, check any booted simulator
+        console.log(`No booted simulator of model ${modelName} found, checking for any booted simulator...`)
+        command = `xcrun simctl list devices | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
+        uuid = execSync(command).toString().trim()
+
+        if (uuid) {
+            console.log("Found another booted simulator, will use it instead")
+            return uuid
+        }
+
+        return null
+    } catch (error) {
+        console.log("No booted simulators found")
+        return null
+    }
+}
+
+async function getBootedSimulatorInfo() {
+    try {
+        const listCommand = "xcrun simctl list devices --json"
+        const simulatorList = JSON.parse(execSync(listCommand).toString())
+
+        for (const runtime in simulatorList.devices) {
+            const devices = simulatorList.devices[runtime]
+            for (const device of devices) {
+                if (device.state === "Booted") {
+                    return {
+                        udid: device.udid,
+                        name: device.name,
+                        runtime: runtime
+                    }
+                }
+            }
+        }
+        return null
+    } catch (error) {
+        console.log("Failed to get booted simulator info:", error.message)
+        return null
+    }
+}
 
 async function generateConfigConstants() {
     progress.start("config")
@@ -60,6 +133,17 @@ enum ConfigConstants {
         function generateSwiftProperty(key, value, indent = '    ') {
             if (value === null || value === undefined) {
                 return `${indent}static let ${key}: String? = nil`;
+            }
+
+            // Special handling for cachePattern - always convert to array
+            if (key === 'cachePattern') {
+                if (typeof value === 'string') {
+                    // Convert single string to array
+                    return `${indent}static let ${key}: [String] = ["${value}"]`;
+                } else if (Array.isArray(value)) {
+                    const arrayValues = value.map(v => `"${v}"`).join(", ");
+                    return `${indent}static let ${key}: [String] = [${arrayValues}]`;
+                }
             }
 
             if (typeof value === 'string') {
@@ -116,13 +200,17 @@ enum ConfigConstants {
             return `${indent}static let ${key} = "${value}"`;
         }
 
+        // Track keys already added to avoid duplicates
+        const addedKeys = new Set();
+
         // Process all properties from WEBVIEW_CONFIG
         if (WEBVIEW_CONFIG && typeof WEBVIEW_CONFIG === 'object') {
             for (const [key, value] of Object.entries(WEBVIEW_CONFIG)) {
-                // Skip 'ios' key to avoid duplication, as we process iosConfig separately
-                if (key === 'ios') continue;
+                // Skip 'ios' and 'android' keys to avoid duplication
+                if (key === 'ios' || key === 'android') continue;
 
                 configContent += '\n' + generateSwiftProperty(key, value);
+                addedKeys.add(key);
             }
         }
 
@@ -130,6 +218,9 @@ enum ConfigConstants {
         if (iosConfig && typeof iosConfig === 'object') {
             configContent += '\n    \n    // iOS-specific configuration';
             for (const [key, value] of Object.entries(iosConfig)) {
+                // Skip if key was already added from WEBVIEW_CONFIG
+                if (addedKeys.has(key)) continue;
+
                 configContent += '\n' + generateSwiftProperty(key, value);
             }
         }
@@ -270,6 +361,45 @@ async function findAppPath() {
         return APP_PATH
     } catch (error) {
         progress.fail("findApp", error.message)
+        throw error
+    }
+}
+
+async function moveAppToBuildOutput(APP_PATH) {
+    try {
+        const buildType = iosConfig.buildType || "debug"
+        const appName = iosConfig.appName || "app"
+
+        const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-") // DD-MM-YYYY format
+        const currentTime = new Date()
+            .toLocaleTimeString("en-US", {
+                hour12: true,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            })
+            .replace(/:/g, ":") // HH-MM-SS AM/PM format
+        const destinationDir = path.join(
+            process.env.PWD,
+            BUILD_OUTPUT_PATH,
+            "native",
+            "ios",
+            currentDate,
+            buildType
+        )
+        const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`)
+
+        // Create destination directory if it doesn't exist
+        if (!fs.existsSync(destinationDir)) {
+            fs.mkdirSync(destinationDir, { recursive: true })
+        }
+
+        // Copy the app to the destination using shell command
+        await runCommand(`cp -R "${APP_PATH}" "${destinationPath}"`)
+
+        return destinationPath
+    } catch (error) {
+        console.error("Error moving app to build output:", error.message)
         throw error
     }
 }
@@ -886,8 +1016,6 @@ async function buildForIOS() {
     const originalDir = process.cwd();
 
     try {
-        progress.log('🔥 TESTING PHYSICAL DEVICE ONLY - Simulator disabled', 'info');
-
         await generateConfigConstants();
 
         progress.log('Changing directory to: ' + PROJECT_DIR, 'info');
@@ -944,11 +1072,7 @@ async function buildForIOS() {
             await installAndLaunchOnPhysicalDevice(APP_PATH, physicalDevice);
 
         } else {
-            // SIMULATOR WORKFLOW COMMENTED OUT FOR TESTING
-            throw new Error('❌ PHYSICAL DEVICE TEST: No physical device detected! Check device connection.');
-
-            /*
-            // Simulator workflow (existing)
+            // Simulator workflow (with moveAppToBuildOutput improvement)
             progress.log('📱 Building for simulator workflow', 'info');
             targetInfo = {
                 type: 'simulator',
@@ -962,7 +1086,10 @@ async function buildForIOS() {
             APP_PATH = await findAppPath();
             progress.log('Found app at: ' + APP_PATH, 'success');
             await installAndLaunchApp(APP_PATH);
-            */
+
+            // Move app to organized build output directory
+            const MOVED_APP_PATH = await moveAppToBuildOutput(APP_PATH);
+            APP_PATH = MOVED_APP_PATH;
         }
 
         progress.printTreeContent('Build Summary', [
@@ -985,7 +1112,6 @@ async function buildForIOS() {
 
 async function main() {
     try {
-        await setupServer(`${process.env.PWD}/config/config.json`);
         progress.log('Starting build process...', 'info');
 
         await buildForIOS();

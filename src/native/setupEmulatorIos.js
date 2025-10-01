@@ -4,6 +4,8 @@ import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
 
 const configPath = `${process.env.PWD}/config/config.json`
+const { setupServer } = require("./setupServer.js")
+
 const ITEMS_PER_PAGE = 10
 
 const steps = {
@@ -12,6 +14,7 @@ const steps = {
     simulator: "Configure iOS Simulator",
     launch: "Launch iOS Simulator",
     saveConfig: "Saving configuration",
+    setupServer: "Setup Server",
 }
 const progressPaddingConfig = {
     titlePaddingTop: 2,
@@ -88,6 +91,10 @@ async function setupIOSEnvironment() {
         progress.start("saveConfig")
         const config = await validateAndCompleteConfig("ios", configPath)
         progress.complete("saveConfig")
+
+        progress.start("setupServer")
+        await setupServer(configPath)
+        progress.start("setupServer")
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
