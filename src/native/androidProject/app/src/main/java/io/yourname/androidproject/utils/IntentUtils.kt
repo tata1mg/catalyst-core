@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.webkit.WebView
 import androidx.core.content.FileProvider
+import io.yourname.androidproject.CatalystConstants
 import java.io.File
 
 /**
@@ -12,8 +13,8 @@ import java.io.File
  * Handles system intents for opening files with external applications
  */
 object IntentUtils {
-    
-    private const val TAG = "IntentUtils"
+
+    private const val TAG = CatalystConstants.Logging.Categories.INTENT_UTILS
     
     /**
      * Open file with system intent (external app)
