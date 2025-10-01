@@ -30,7 +30,7 @@ class NativeBridge(
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
 
     // Unified notification manager
-    private val notificationManager = NotificationManager(mainActivity, mainActivity.properties)
+    private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
 
     companion object {
         private const val TAG = "NativeBridge"

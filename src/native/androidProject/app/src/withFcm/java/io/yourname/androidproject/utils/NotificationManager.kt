@@ -12,12 +12,12 @@ import java.util.Properties
 /**
  * Unified notification manager providing a single interface for all notification operations
  */
-class NotificationManager(
+class AppNotificationManager(
     private val context: Context,
     private val properties: Properties
 ) {
 
-    private val TAG = "NotificationManager"
+    private val TAG = "AppNotificationManager"
 
     // Delegate instances
     private val notificationUtils = NotificationUtils(context)
@@ -57,7 +57,7 @@ class NotificationManager(
             addAction(PushNotificationUtils.ACTION_TOKEN_REFRESHED)
         }
         LocalBroadcastManager.getInstance(context).registerReceiver(pushNotificationReceiver, filter)
-        BridgeUtils.logInfo(TAG, "NotificationManager initialized and broadcast receiver registered")
+        BridgeUtils.logInfo(TAG, "AppNotificationManager initialized and broadcast receiver registered")
     }
 
     /**
@@ -75,7 +75,7 @@ class NotificationManager(
      */
     fun cleanup() {
         LocalBroadcastManager.getInstance(context).unregisterReceiver(pushNotificationReceiver)
-        BridgeUtils.logInfo(TAG, "NotificationManager cleanup completed")
+        BridgeUtils.logInfo(TAG, "AppNotificationManager cleanup completed")
     }
 
     /**
@@ -129,10 +129,15 @@ class NotificationManager(
     /**
      * Initialize push notifications and get registration token
      * @param runtimeConfig Optional runtime configuration
-     * @return Push token for the device
+     * @return Push token for the device (empty string if not available)
      */
     suspend fun initializePush(): String {
-        return pushNotificationUtils.initializeAndGetToken(context)
+        return try {
+            pushNotificationUtils.initializeAndGetToken(context)
+        } catch (e: Exception) {
+            BridgeUtils.logWarning(TAG, "Push notifications not available: ${e.message}")
+            ""
+        }
     }
     
     /**
@@ -206,6 +211,11 @@ class NotificationManager(
      * @return true if push notifications are supported
      */
     fun isPushAvailable(): Boolean {
-        return pushNotificationUtils.isAvailable(context)
+        return try {
+            pushNotificationUtils.isAvailable(context)
+        } catch (e: Exception) {
+            BridgeUtils.logWarning(TAG, "Push notifications not available")
+            false
+        }
     }
 }

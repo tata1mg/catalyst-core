@@ -328,7 +328,7 @@ async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice
     progress.log("Building and installing app...", "info")
     try {
         // Build command without monkey launch
-        let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug --quiet --console=rich`
+        let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --quiet --console=rich`
 
         // Add device-specific install target if physical device
         if (targetDevice && targetDevice.type === "physical") {
