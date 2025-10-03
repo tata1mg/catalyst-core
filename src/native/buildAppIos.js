@@ -70,6 +70,36 @@ enum ConfigConstants {
     static let cachePattern: [String] = [${patterns}]`
         }
 
+        // Add URL whitelisting configuration if it exists
+        if (iosConfig.accessControl) {
+            const accessControl = iosConfig.accessControl
+
+            configContent += `
+    static let accessControlEnabled = ${accessControl.enabled || false}`
+
+            if (accessControl.allowedUrls && Array.isArray(accessControl.allowedUrls)) {
+                const allowedUrls = accessControl.allowedUrls.map((url) => `"${url}"`).join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            } else if (accessControl.allowedUrls && typeof accessControl.allowedUrls === "string") {
+                // Handle comma-separated string format
+                const allowedUrls = accessControl.allowedUrls
+                    .split(",")
+                    .map((url) => url.trim())
+                    .filter((url) => url.length > 0)
+                    .map((url) => `"${url}"`)
+                    .join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            }
+        } else {
+            // Default values when no access control is configured
+            configContent += `
+    static let accessControlEnabled = false
+    static let allowedUrls: [String] = []`
+        }
         // Close the enum
         configContent += `
 }`
