@@ -4,13 +4,16 @@ const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
-    `${process.env.PWD}/config/config.json`
-)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
-const url = `http://${NODE_SERVER_HOSTNAME}:${WEBVIEW_CONFIG.port}`
+
+const protocol = WEBVIEW_CONFIG.useHttps ? "https" : "http"
+const ip = WEBVIEW_CONFIG.LOCAL_IP ?? null
+const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 403 : WEBVIEW_CONFIG.port) : null
+let url = port ? `${protocol}://${ip}:${port}` : `${protocol}://${ip}`
+
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
 const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
