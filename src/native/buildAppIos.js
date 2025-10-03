@@ -53,7 +53,7 @@ async function updateInfoPlist() {
             // Add CFBundleDisplayName if it doesn't exist
             if (!plistContent.includes("CFBundleDisplayName")) {
                 const insertPoint = plistContent.lastIndexOf("</dict>")
-                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "iosnativeWebView"}</string>\n`
+                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "Catalyst Application"}</string>\n`
                 plistContent = plistContent.slice(0, insertPoint) + newEntry + plistContent.slice(insertPoint)
                 fs.writeFileSync(infoPlistPath, plistContent, "utf8")
             } else {
@@ -62,7 +62,7 @@ async function updateInfoPlist() {
                 if (displayNameRegex.test(plistContent)) {
                     plistContent = plistContent.replace(
                         displayNameRegex,
-                        `$1${iosConfig.appName || "iosnativeWebView"}$3`
+                        `$1${iosConfig.appName || "Catalyst Application"}$3`
                     )
                     fs.writeFileSync(infoPlistPath, plistContent, "utf8")
                 }
@@ -105,6 +105,36 @@ enum ConfigConstants {
     static let cachePattern: [String] = [${patterns}]`
         }
 
+        // Add URL whitelisting configuration if it exists
+        if (iosConfig.accessControl) {
+            const accessControl = iosConfig.accessControl
+
+            configContent += `
+    static let accessControlEnabled = ${accessControl.enabled || false}`
+
+            if (accessControl.allowedUrls && Array.isArray(accessControl.allowedUrls)) {
+                const allowedUrls = accessControl.allowedUrls.map((url) => `"${url}"`).join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            } else if (accessControl.allowedUrls && typeof accessControl.allowedUrls === "string") {
+                // Handle comma-separated string format
+                const allowedUrls = accessControl.allowedUrls
+                    .split(",")
+                    .map((url) => url.trim())
+                    .filter((url) => url.length > 0)
+                    .map((url) => `"${url}"`)
+                    .join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            }
+        } else {
+            // Default values when no access control is configured
+            configContent += `
+    static let accessControlEnabled = false
+    static let allowedUrls: [String] = []`
+        }
         // Close the enum
         configContent += `
 }`
