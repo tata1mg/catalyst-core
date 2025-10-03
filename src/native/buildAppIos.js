@@ -50,7 +50,7 @@ async function updateInfoPlist() {
             // Add CFBundleDisplayName if it doesn't exist
             if (!plistContent.includes("CFBundleDisplayName")) {
                 const insertPoint = plistContent.lastIndexOf("</dict>")
-                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "iosnativeWebView"}</string>\n`
+                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "Catalyst Application"}</string>\n`
                 plistContent = plistContent.slice(0, insertPoint) + newEntry + plistContent.slice(insertPoint)
                 fs.writeFileSync(infoPlistPath, plistContent, "utf8")
             } else {
@@ -59,7 +59,7 @@ async function updateInfoPlist() {
                 if (displayNameRegex.test(plistContent)) {
                     plistContent = plistContent.replace(
                         displayNameRegex,
-                        `$1${iosConfig.appName || "iosnativeWebView"}$3`
+                        `$1${iosConfig.appName || "Catalyst Application"}$3`
                     )
                     fs.writeFileSync(infoPlistPath, plistContent, "utf8")
                 }
