@@ -40,9 +40,41 @@ const progressConfig = {
 
 const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
 
+async function updateInfoPlist() {
+    try {
+        const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
+
+        if (fs.existsSync(infoPlistPath)) {
+            let plistContent = fs.readFileSync(infoPlistPath, "utf8")
+
+            // Add CFBundleDisplayName if it doesn't exist
+            if (!plistContent.includes("CFBundleDisplayName")) {
+                const insertPoint = plistContent.lastIndexOf("</dict>")
+                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "Catalyst Application"}</string>\n`
+                plistContent = plistContent.slice(0, insertPoint) + newEntry + plistContent.slice(insertPoint)
+                fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+            } else {
+                // Update existing CFBundleDisplayName with new appName
+                const displayNameRegex = /(<key>CFBundleDisplayName<\/key>\s*<string>)([^<]*)(<\/string>)/
+                if (displayNameRegex.test(plistContent)) {
+                    plistContent = plistContent.replace(
+                        displayNameRegex,
+                        `$1${iosConfig.appName || "Catalyst Application"}$3`
+                    )
+                    fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+                }
+            }
+        }
+    } catch (err) {
+        progress.fail("config", err)
+        process.exit(1)
+    }
+}
+
 async function generateConfigConstants() {
     progress.start("config")
     try {
+        // Update ConfigConstants.swift
         const configOutputPath = path.join(PROJECT_DIR, PROJECT_NAME, "ConfigConstants.swift")
 
         const configDir = path.dirname(configOutputPath)
@@ -628,6 +660,7 @@ async function main() {
         progress.log("Starting build process from: " + originalDir, "info")
 
         await generateConfigConstants()
+        await updateInfoPlist()
 
         progress.log("Changing directory to: " + PROJECT_DIR, "info")
         process.chdir(PROJECT_DIR)
