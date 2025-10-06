@@ -4,13 +4,16 @@ const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
-    `${process.env.PWD}/config/config.json`
-)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
-const url = `http://${NODE_SERVER_HOSTNAME}:${WEBVIEW_CONFIG.port}`
+
+const protocol = WEBVIEW_CONFIG.useHttps ? "https" : "http"
+const ip = WEBVIEW_CONFIG.LOCAL_IP ?? null
+const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 403 : WEBVIEW_CONFIG.port) : null
+let url = port ? `${protocol}://${ip}:${port}` : `${protocol}://${ip}`
+
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
 const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
@@ -102,6 +105,36 @@ enum ConfigConstants {
     static let cachePattern: [String] = [${patterns}]`
         }
 
+        // Add URL whitelisting configuration if it exists
+        if (iosConfig.accessControl) {
+            const accessControl = iosConfig.accessControl
+
+            configContent += `
+    static let accessControlEnabled = ${accessControl.enabled || false}`
+
+            if (accessControl.allowedUrls && Array.isArray(accessControl.allowedUrls)) {
+                const allowedUrls = accessControl.allowedUrls.map((url) => `"${url}"`).join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            } else if (accessControl.allowedUrls && typeof accessControl.allowedUrls === "string") {
+                // Handle comma-separated string format
+                const allowedUrls = accessControl.allowedUrls
+                    .split(",")
+                    .map((url) => url.trim())
+                    .filter((url) => url.length > 0)
+                    .map((url) => `"${url}"`)
+                    .join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            }
+        } else {
+            // Default values when no access control is configured
+            configContent += `
+    static let accessControlEnabled = false
+    static let allowedUrls: [String] = []`
+        }
         // Close the enum
         configContent += `
 }`
