@@ -24,25 +24,25 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         logWithTimestamp("🌐 Navigation requested to: \(url.absoluteString)")
 
         if URLWhitelistManager.shared.isAccessControlEnabled {
-            
+
             // Check if URL is an external domain
-            let isExternal = URLWhitelistManager.shared.isExternalDomain(url)            
+            let isExternal = URLWhitelistManager.shared.isExternalDomain(url)
             if ["http", "https"].contains(url.scheme?.lowercased() ?? "") && isExternal {
                 logger.info("🌍 External domain detected, opening in system browser: \(url.absoluteString)")
                 openInSystemBrowser(url)
                 decisionHandler(.cancel)
                 return
             }
-            
+
             // Check if URL is allowed for internal navigation
             let isAllowed = URLWhitelistManager.shared.isUrlAllowed(url)
-            
+
             if !isAllowed {
                 logger.warning("🚫 URL blocked by access control: \(url.absoluteString)")
                 decisionHandler(.cancel)
                 return
             }
-            
+
             logger.info("✅ URL passed whitelist checks, allowing navigation: \(url.absoluteString)")
         } else {
             logger.info("⚠️ Access control disabled, allowing all navigation: \(url.absoluteString)")
