@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.1-beta.16] - 28-08-2025
+
+-   Adds SDK for Open Telemetry
+
+## [0.0.1-beta.15] - 1-07-2025
+
+-   Adds SDK for Sentry
+
 ## [0.0.1-beta.14] - 19-05-2025
 
 -   Fixes header sent bug
