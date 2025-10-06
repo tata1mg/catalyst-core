@@ -1,0 +1,21 @@
+//
+//  Release.xcconfig
+//  iosnativeWebView
+//
+//  Release configuration settings
+//
+
+// Use Release-specific Info.plist (HTTPS only for production)
+INFOPLIST_FILE = iosnativeWebView/Info-Release.plist
+
+// Release specific settings
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) RELEASE
+OTHER_SWIFT_FLAGS = $(inherited) -DRELEASE
+
+// Optimization settings for production
+SWIFT_OPTIMIZATION_LEVEL = -O
+GCC_OPTIMIZATION_LEVEL = s
+
+// Strip debug symbols in release
+STRIP_INSTALLED_PRODUCT = YES
+COPY_PHASE_STRIP = YES

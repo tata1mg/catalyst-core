@@ -5,6 +5,7 @@ import {
     debugInterfaces,
 } from "./constants/NativeInterfaces.js"
 import nativeBridge from "./utils/NativeBridge.js"
+import CameraUtils from "./utils/CameraUtils.js"
 
 class WebBridge {
     constructor() {
@@ -200,6 +201,58 @@ class WebBridge {
 
         console.log(`🌉 Testing callback: ${interfaceName}`)
         this.callback(interfaceName, testData)
+    }
+
+    /**
+     * Request haptic feedback
+     * @param {string} feedbackType - Type of haptic feedback (VIRTUAL_KEY, LONG_PRESS, DEFAULT)
+     * @returns {Promise<Object>} - Promise that resolves with haptic feedback result or rejects with error
+     */
+    requestHapticFeedback = (feedbackType = "VIRTUAL_KEY") => {
+        return new Promise((resolve, reject) => {
+            const cleanup = () => {
+                this.unregister(NATIVE_CALLBACKS.HAPTIC_FEEDBACK)
+            }
+
+            this.register(NATIVE_CALLBACKS.HAPTIC_FEEDBACK, (data) => {
+                cleanup()
+                try {
+                    const result = typeof data === "string" ? JSON.parse(data) : data
+                    if (result.error) {
+                        reject(new Error(result.error))
+                    } else {
+                        resolve(result)
+                    }
+                } catch (error) {
+                    reject(error)
+                }
+            })
+
+            try {
+                nativeBridge.haptic.feedback(feedbackType)
+            } catch (error) {
+                cleanup()
+                reject(error)
+            }
+        })
+    }
+
+    /**
+     * Open camera and capture image
+     * @param {Object} options - Camera options (quality, format, cameraDevice, flashMode, allowEditing)
+     * @returns {Promise<Object>} - Promise that resolves with camera result or rejects with error
+     */
+    openCamera = (options = {}) => {
+        return CameraUtils.openCamera(options, this.register, this.unregister)
+    }
+
+    /**
+     * Request camera permission
+     * @param {Object} config - Permission configuration (includeDetails)
+     * @returns {Promise<Object>} - Promise that resolves with permission status or rejects with error
+     */
+    requestCameraPermission = (config = {}) => {
+        return CameraUtils.requestCameraPermission(config, this.register, this.unregister)
     }
 
     /**

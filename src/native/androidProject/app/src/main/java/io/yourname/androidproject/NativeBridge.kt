@@ -34,6 +34,44 @@ class NativeBridge(
 
     companion object {
         private const val TAG = "NativeBridge"
+
+        /**
+         * Parse and validate bridge message
+         * @param messageJson JSON string containing bridge message
+         * @return BridgeValidationResult with validation status
+         */
+        fun parseAndValidateMessage(messageJson: String): BridgeValidationResult {
+            return try {
+                val jsonObject = org.json.JSONObject(messageJson)
+                BridgeMessageValidator.validate(jsonObject)
+            } catch (e: org.json.JSONException) {
+                BridgeUtils.logError(TAG, "Failed to parse message JSON", e)
+                BridgeValidationResult(
+                    isValid = false,
+                    command = null,
+                    params = null,
+                    body = null,
+                    error = BridgeValidationError(
+                        message = "Invalid JSON format: ${e.message}",
+                        code = "INVALID_JSON",
+                        eventName = "BRIDGE_ERROR"
+                    )
+                )
+            } catch (e: Exception) {
+                BridgeUtils.logError(TAG, "Unexpected error during validation", e)
+                BridgeValidationResult(
+                    isValid = false,
+                    command = null,
+                    params = null,
+                    body = null,
+                    error = BridgeValidationError(
+                        message = "Validation error: ${e.message}",
+                        code = "VALIDATION_ERROR",
+                        eventName = "BRIDGE_ERROR"
+                    )
+                )
+            }
+        }
     }
 
     init {

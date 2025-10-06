@@ -12,27 +12,40 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
-class WebCacheManager(private val context: Context) {
+class WebCacheManager(private val context: Context, private val properties: java.util.Properties? = null) {
     private val TAG = "WebCacheManager"
     private val cacheDir = File(context.cacheDir, "webview_cache")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val BUFFER_SIZE = 32 * 1024 
 
-    // Cache timing configurations
-    private val maxAge = TimeUnit.HOURS.toMillis(24) // Time until content becomes stale
-    private val staleWhileRevalidate = TimeUnit.HOURS.toMillis(1) // Additional time content can be served while revalidating
+    // Cache timing configurations - now configurable via properties
+    private val maxAge = properties?.getProperty("cache.maxAge", "24")?.toLongOrNull()?.let { TimeUnit.HOURS.toMillis(it) } 
+        ?: TimeUnit.HOURS.toMillis(24) // Default 24 hours
+    private val staleWhileRevalidate = properties?.getProperty("cache.staleWhileRevalidate", "1")?.toLongOrNull()?.let { TimeUnit.HOURS.toMillis(it) } 
+        ?: TimeUnit.HOURS.toMillis(1) // Default 1 hour
+    private val maxCacheSize = properties?.getProperty("cache.maxSize", "100")?.toLongOrNull()?.let { it * 1024 * 1024 } 
+        ?: (100 * 1024 * 1024) // Default 100MB
+    private val memoryFraction = properties?.getProperty("cache.memoryFraction", "8")?.toIntOrNull() ?: 8 // Default 1/8 of memory
 
     // Track ongoing revalidations to prevent duplicate requests
     private val ongoingRevalidations = mutableSetOf<String>()
 
-    // Memory cache
+    // Memory cache - now configurable
     private val memoryCache: LruCache<String, CacheEntry> = LruCache<String, CacheEntry>(
-        (Runtime.getRuntime().maxMemory() / 1024 / 8).toInt()
+        (Runtime.getRuntime().maxMemory() / 1024 / memoryFraction).toInt()
     )
 
     init {
         try {
             cacheDir.mkdirs()
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "📦 Cache configuration:")
+                Log.d(TAG, "  - Max age: ${maxAge / (1000 * 60 * 60)} hours")
+                Log.d(TAG, "  - Stale while revalidate: ${staleWhileRevalidate / (1000 * 60 * 60)} hours")
+                Log.d(TAG, "  - Max cache size: ${maxCacheSize / (1024 * 1024)} MB")
+                Log.d(TAG, "  - Memory cache size: ${memoryCache.maxSize() / 1024} KB")
+                Log.d(TAG, "  - Cache directory: ${cacheDir.absolutePath}")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create cache directory: ${e.message}")
         }
@@ -44,6 +57,54 @@ class WebCacheManager(private val context: Context) {
         val eTag: String? = null,
         val lastModified: String? = null
     )
+
+    /**
+     * Synchronous cache check - only returns cached content if immediately available
+     * Does not perform network requests or background revalidation
+     * Used by ServiceWorker to avoid blocking
+     */
+    fun getCachedResponseSync(url: String, headers: Map<String, String>): WebResourceResponse? {
+        return try {
+            val cacheKey = generateCacheKey(url)
+            val currentTime = System.currentTimeMillis()
+
+            // Check memory cache first
+            val memoryCacheEntry = memoryCache.get(cacheKey)
+            if (memoryCacheEntry != null) {
+                val age = currentTime - memoryCacheEntry.timestamp
+                // Only return if fresh or within stale-while-revalidate window
+                if (age <= maxAge + staleWhileRevalidate) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "✅ Serving from memory cache (sync): $url")
+                    }
+                    return memoryCacheEntry.response
+                }
+            }
+
+            // Check disk cache synchronously
+            val cacheFile = File(cacheDir, cacheKey)
+            if (cacheFile.exists()) {
+                val fileAge = currentTime - cacheFile.lastModified()
+                if (fileAge <= maxAge + staleWhileRevalidate) {
+                    val metadata = loadMetadata(cacheKey)
+                    val response = createResponseFromCache(cacheFile, metadata)
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "✅ Serving from disk cache (sync): $url")
+                    }
+                    return response
+                }
+            }
+
+            // No valid cache available
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "❌ No valid cache available (sync): $url")
+            }
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in getCachedResponseSync for URL: $url: ${e.message}")
+            null
+        }
+    }
 
     suspend fun getCachedResponse(url: String, headers: Map<String, String>): WebResourceResponse? =
         withContext(Dispatchers.IO) {
@@ -121,7 +182,7 @@ class WebCacheManager(private val context: Context) {
         withContext(Dispatchers.IO) {
             try {
                 val currentTime = System.currentTimeMillis()
-                val maxCacheSize = 100 * 1024 * 1024 // 100MB max cache size
+                // Use configurable max cache size
                 var totalSize = 0L
 
                 // Get all cache files sorted by last modified time (oldest first)
@@ -274,7 +335,7 @@ class WebCacheManager(private val context: Context) {
                     response = WebResourceResponse(
                         mimeType,
                         encoding,
-                        ByteArrayInputStream(responseBytes.clone())
+                        ByteArrayInputStream(responseBytes.copyOf())
                     ),
                     eTag = eTag,
                     lastModified = lastModified
