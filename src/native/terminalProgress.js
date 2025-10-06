@@ -119,7 +119,7 @@ class TerminalProgress {
     }
 
     clearLines() {
-        if (this.lineCount > 0) {
+        if (this.lineCount > 0 && process.stdout.isTTY && process.stdout.moveCursor) {
             process.stdout.moveCursor(0, -this.lineCount)
             process.stdout.cursorTo(0)
             process.stdout.clearScreenDown()

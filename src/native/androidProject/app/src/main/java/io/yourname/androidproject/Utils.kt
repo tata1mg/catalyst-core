@@ -3,11 +3,17 @@ package io.yourname.androidproject
 import android.net.Uri
 
 fun isUrlAllowed(url: String, allowedUrls: List<String>): Boolean {
+    // Always allow framework server URLs (localhost with /framework- pattern)
+    // These are internal infrastructure URLs used for large file handling
+    if (url.contains("localhost") && url.contains("/framework-")) {
+        return true
+    }
+
     if (allowedUrls.isEmpty()) return false
-    
+
     val parsedUrl = Uri.parse(url) ?: return false
     val urlHost = "${parsedUrl.scheme}://${parsedUrl.host}${if (parsedUrl.port != -1) ":${parsedUrl.port}" else ""}"
-    
+
     return allowedUrls.any { pattern ->
         when {
             pattern.contains("*") -> {

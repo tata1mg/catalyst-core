@@ -47,7 +47,11 @@ class ResourceURLProtocol: URLProtocol {
         }
         
         // Mark this request as handled to prevent recursion
-        let mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+        guard let mutableRequest = (request as NSURLRequest).mutableCopy() as? NSMutableURLRequest else {
+            logger.error("❌ Failed to create mutable copy of request")
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
         URLProtocol.setProperty(true, forKey: ResourceURLProtocol.handledKey, in: mutableRequest)
         
         Task {
@@ -65,12 +69,18 @@ class ResourceURLProtocol: URLProtocol {
                         headers["Content-Type"] = mimeType
                     }
                     
-                    let response = HTTPURLResponse(
+                    guard let response = HTTPURLResponse(
                         url: url,
                         statusCode: 200,
                         httpVersion: "HTTP/1.1",
                         headerFields: headers
-                    )!
+                    ) else {
+                        logger.error("❌ Failed to create HTTP response for cached content")
+                        await MainActor.run {
+                            self.client?.urlProtocol(self, didFailWithError: URLError(.cannotCreateFile))
+                        }
+                        return
+                    }
                     
                     // Send cached response
                     await MainActor.run {

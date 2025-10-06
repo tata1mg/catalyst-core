@@ -2,6 +2,7 @@ package io.yourname.androidproject.utils
 
 import android.util.Log
 import android.webkit.WebView
+import io.yourname.androidproject.CatalystConstants
 import org.json.JSONObject
 
 /**
@@ -9,17 +10,17 @@ import org.json.JSONObject
  * Handles web communication, error reporting, and shared constants
  */
 object BridgeUtils {
-    
+
     private const val TAG = "BridgeUtils"
-    
-    // File size limits
-    const val MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024L // 10MB absolute limit
-    const val MAX_FILE_SIZE_MB = 10
-    const val BASE64_SIZE_LIMIT = 2 * 1024 * 1024L // 2MB limit for base64 conversion
-    const val BASE64_SIZE_LIMIT_MB = 2
-    
-    // File provider authority
-    const val FILE_PROVIDER_AUTHORITY = "io.yourname.androidproject.fileprovider"
+
+    // File size limits (from CatalystConstants)
+    const val MAX_FILE_SIZE_BYTES = CatalystConstants.FileTransport.FRAMEWORK_SERVER_SIZE_LIMIT
+    const val MAX_FILE_SIZE_MB = CatalystConstants.FileTransport.FRAMEWORK_SERVER_SIZE_LIMIT_MB
+    const val BASE64_SIZE_LIMIT = CatalystConstants.FileTransport.BASE64_SIZE_LIMIT
+    const val BASE64_SIZE_LIMIT_MB = CatalystConstants.FileTransport.BASE64_SIZE_LIMIT_MB
+
+    // File provider authority (from CatalystConstants)
+    const val FILE_PROVIDER_AUTHORITY = CatalystConstants.FileProvider.AUTHORITY
     
     /**
      * Web events enum for JavaScript callbacks

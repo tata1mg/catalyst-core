@@ -7,6 +7,7 @@ import android.util.Base64
 import android.webkit.MimeTypeMap
 import android.webkit.WebView
 import androidx.core.content.FileProvider
+import io.yourname.androidproject.CatalystConstants
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -17,8 +18,8 @@ import java.io.InputStream
  * Handles file operations, URI handling, and file metadata
  */
 object FileUtils {
-    
-    private const val TAG = "FileUtils"
+
+    private const val TAG = CatalystConstants.Logging.Categories.FILE_UTILS
     
     /**
      * Get file size from URI

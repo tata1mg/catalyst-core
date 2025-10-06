@@ -1,0 +1,33 @@
+{
+  "originHash" : "9763ac480cd1df5b43d73fccfa4a9f6b77e2fe90b3f807228fa87cbabbd52e8a",
+  "pins" : [
+    {
+      "identity" : "jsonschema.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kylef/JSONSchema.swift",
+      "state" : {
+        "revision" : "d14de4b2d9205068c9db89c00d097ca43c897000",
+        "version" : "0.6.0"
+      }
+    },
+    {
+      "identity" : "pathkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kylef/PathKit.git",
+      "state" : {
+        "revision" : "3bfd2737b700b9a36565a8c94f4ad2b050a5e574",
+        "version" : "1.0.1"
+      }
+    },
+    {
+      "identity" : "spectre",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kylef/Spectre.git",
+      "state" : {
+        "revision" : "26cc5e9ae0947092c7139ef7ba612e34646086c7",
+        "version" : "0.10.1"
+      }
+    }
+  ],
+  "version" : 3
+}

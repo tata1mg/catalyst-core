@@ -146,13 +146,15 @@ class NativeBridgeUtil {
     camera = {
         /**
          * Open camera for photo capture
+         * @param {string} options - JSON string of camera options
          */
-        open: () => this.call(NATIVE_COMMANDS.OPEN_CAMERA),
+        open: (options = null) => this.call(NATIVE_COMMANDS.OPEN_CAMERA, options),
 
         /**
          * Request camera permission
+         * @param {string} config - JSON string of permission config
          */
-        requestPermission: () => this.call(NATIVE_COMMANDS.REQUEST_CAMERA_PERMISSION),
+        requestPermission: (config = null) => this.call(NATIVE_COMMANDS.REQUEST_CAMERA_PERMISSION, config),
     }
 
     /**
@@ -231,7 +233,8 @@ class NativeBridgeUtil {
          * Unsubscribe from push notification topic
          * @param {string} topic - Topic name to unsubscribe from
          */
-        unsubscribeFromTopic: (topic) => this.call(NATIVE_COMMANDS.UNSUBSCRIBE_FROM_TOPIC, JSON.stringify({ topic })),
+        unsubscribeFromTopic: (topic) =>
+            this.call(NATIVE_COMMANDS.UNSUBSCRIBE_FROM_TOPIC, JSON.stringify({ topic })),
 
         /**
          * Get list of subscribed topics

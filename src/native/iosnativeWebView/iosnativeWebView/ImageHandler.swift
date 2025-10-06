@@ -10,15 +10,16 @@ import os
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "ImageHandler")
 
 protocol ImageHandlerDelegate: AnyObject {
-    func imageHandler(_ handler: ImageHandler, didCaptureImageAt url: URL)
+    func imageHandler(_ handler: ImageHandler, didCaptureImageAt url: URL, withOptions options: [String: Any])
     func imageHandlerDidCancel(_ handler: ImageHandler)
     func imageHandler(_ handler: ImageHandler, didFailWithError error: Error)
 }
 
 class ImageHandler: NSObject {
-    
+
     weak var delegate: ImageHandlerDelegate?
     private var currentPhotoURL: URL?
+    private var currentCameraOptions: [String: Any] = [:]
     
     // Helper to check camera permissions
     func checkCameraPermission(completion: @escaping (Bool) -> Void) {
@@ -116,17 +117,39 @@ class ImageHandler: NSObject {
         return UIGraphicsGetImageFromCurrentImageContext()
     }
     
-    // Save mock image and notify delegate
+    // Save actual camera captured image and notify delegate
+    func saveActualCameraImage(_ image: UIImage) {
+        let fileURL = createImageFile()
+        currentPhotoURL = fileURL
+
+        do {
+            // Apply quality and format based on current options
+            let imageData = processImageWithOptions(image, options: currentCameraOptions)
+            try imageData.write(to: fileURL)
+
+            logger.debug("Actual camera image saved successfully to: \(fileURL.path)")
+            delegate?.imageHandler(self, didCaptureImageAt: fileURL, withOptions: currentCameraOptions)
+
+        } catch {
+            logger.error("Failed to save actual camera image: \(error.localizedDescription)")
+            delegate?.imageHandler(self, didFailWithError: error)
+        }
+    }
+
+    // Save mock image and notify delegate (for simulator/testing)
     func saveMockImage() {
         let fileURL = createImageFile()
         currentPhotoURL = fileURL
-        
+
         if let mockImage = createMockImage() {
             do {
-                if let imageData = mockImage.jpegData(compressionQuality: 0.8) {
-                    try imageData.write(to: fileURL)
-                    delegate?.imageHandler(self, didCaptureImageAt: fileURL)
-                }
+                // Apply quality based on current options
+                let imageData = processImageWithOptions(mockImage, options: currentCameraOptions)
+                try imageData.write(to: fileURL)
+
+                logger.debug("Mock camera image saved for testing/simulator")
+                delegate?.imageHandler(self, didCaptureImageAt: fileURL, withOptions: currentCameraOptions)
+
             } catch {
                 logger.error("Failed to save mock image: \(error.localizedDescription)")
                 delegate?.imageHandler(self, didFailWithError: error)
@@ -138,16 +161,23 @@ class ImageHandler: NSObject {
     }
     
     // Present camera
-    func presentCamera(from viewController: UIViewController) {
+    func presentCamera(from viewController: UIViewController, options: [String: Any] = [:]) {
+        logger.debug("presentCamera called with options: \(options)")
+
+        // Store options for later use during image processing
+        currentCameraOptions = options
+
         // Set up error observer for AVCaptureSession
         setupAVCaptureErrorObserver()
-        
+
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
             let imagePicker = UIImagePickerController()
             imagePicker.delegate = self
             imagePicker.sourceType = .camera
-            imagePicker.allowsEditing = false
-            
+
+            // Apply camera options
+            applyCameraOptions(to: imagePicker, options: options)
+
             DispatchQueue.main.async {
                 viewController.present(imagePicker, animated: true)
             }
@@ -207,15 +237,27 @@ class ImageHandler: NSObject {
     
     // Show camera unavailable alert
     private func presentCameraUnavailableAlert(from viewController: UIViewController) {
+        let isSimulator = isRunningOnSimulator()
+        let title = isSimulator ? "Camera Not Available in Simulator" : "Camera Not Available"
+        let message = isSimulator
+            ? "Camera functionality requires a physical device. Would you like to use a mock image for testing?"
+            : "Would you like to select a photo from your library instead?"
+
         let alert = UIAlertController(
-            title: "Camera Not Available",
-            message: "Would you like to select a photo from your library instead?",
+            title: title,
+            message: message,
             preferredStyle: .alert
         )
         
         alert.addAction(UIAlertAction(title: "Yes", style: .default) { [weak self] _ in
             guard let self = self else { return }
-            self.presentPhotoLibrary(from: viewController)
+            if isSimulator {
+                // Use mock image for simulator testing
+                self.saveMockImage()
+            } else {
+                // Use photo library on device when camera unavailable
+                self.presentPhotoLibrary(from: viewController)
+            }
         })
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
@@ -252,6 +294,131 @@ class ImageHandler: NSObject {
         }
     }
     
+    // Apply camera options to UIImagePickerController
+    private func applyCameraOptions(to imagePicker: UIImagePickerController, options: [String: Any]) {
+        logger.debug("Applying camera options: \(options)")
+
+        // Handle allowEditing option
+        if let allowEditing = options["allowEditing"] as? Bool {
+            imagePicker.allowsEditing = allowEditing
+            logger.debug("Set allowsEditing to: \(allowEditing)")
+        } else {
+            imagePicker.allowsEditing = false // Default to false
+        }
+
+        // Handle camera device (front/rear) - this will be available if we extend later
+        if let cameraDevice = options["cameraDevice"] as? String {
+            switch cameraDevice.lowercased() {
+            case "front":
+                if UIImagePickerController.isCameraDeviceAvailable(.front) {
+                    imagePicker.cameraDevice = .front
+                    logger.debug("Set camera device to front")
+                }
+            case "rear", "back":
+                if UIImagePickerController.isCameraDeviceAvailable(.rear) {
+                    imagePicker.cameraDevice = .rear
+                    logger.debug("Set camera device to rear")
+                }
+            default:
+                logger.debug("Unknown camera device: \(cameraDevice), using default")
+            }
+        }
+
+        // Handle flash mode
+        if let flashMode = options["flashMode"] as? String {
+            switch flashMode.lowercased() {
+            case "auto":
+                if UIImagePickerController.isFlashAvailable(for: imagePicker.cameraDevice) {
+                    imagePicker.cameraFlashMode = .auto
+                    logger.debug("Set flash mode to auto")
+                }
+            case "on":
+                if UIImagePickerController.isFlashAvailable(for: imagePicker.cameraDevice) {
+                    imagePicker.cameraFlashMode = .on
+                    logger.debug("Set flash mode to on")
+                }
+            case "off":
+                imagePicker.cameraFlashMode = .off
+                logger.debug("Set flash mode to off")
+            default:
+                logger.debug("Unknown flash mode: \(flashMode), using default")
+            }
+        }
+
+        // Quality setting will be handled during image processing
+        if let quality = options["quality"] as? String {
+            logger.debug("Camera quality setting noted for processing: \(quality)")
+        }
+
+        // Format setting will be handled during image processing
+        if let format = options["format"] as? String {
+            logger.debug("Camera format setting noted for processing: \(format)")
+        }
+    }
+
+    /**
+     * Process image with camera options (quality, format)
+     */
+    private func processImageWithOptions(_ image: UIImage, options: [String: Any]) -> Data {
+        let quality = getCompressionQuality(from: options)
+        let format = getImageFormat(from: options)
+
+        switch format.lowercased() {
+        case "png":
+            logger.debug("Processing image as PNG format")
+            return image.pngData() ?? Data()
+
+        case "jpeg", "jpg":
+            logger.debug("Processing image as JPEG with quality: \(quality)")
+            return image.jpegData(compressionQuality: quality) ?? Data()
+
+        default:
+            logger.debug("Using default JPEG format with quality: \(quality)")
+            return image.jpegData(compressionQuality: quality) ?? Data()
+        }
+    }
+
+    /**
+     * Get compression quality from camera options
+     */
+    private func getCompressionQuality(from options: [String: Any]) -> CGFloat {
+        guard let qualityString = options["quality"] as? String else {
+            return CatalystConstants.ImageProcessing.defaultQuality
+        }
+
+        switch qualityString.lowercased() {
+        case "high":
+            return CatalystConstants.ImageProcessing.Quality.high
+        case "low":
+            return CatalystConstants.ImageProcessing.Quality.low
+        case "medium":
+            return CatalystConstants.ImageProcessing.Quality.medium
+        default:
+            return CatalystConstants.ImageProcessing.defaultQuality
+        }
+    }
+
+    /**
+     * Get image format from camera options
+     */
+    private func getImageFormat(from options: [String: Any]) -> String {
+        guard let format = options["format"] as? String else {
+            return "jpeg" // Default format
+        }
+        return format.lowercased()
+    }
+
+    /**
+     * Check if running on simulator
+     */
+    private func isRunningOnSimulator() -> Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #else
+        return false
+        #endif
+    }
+
     // Clean up when done
     deinit {
         NotificationCenter.default.removeObserver(self)
@@ -262,9 +429,15 @@ class ImageHandler: NSObject {
 extension ImageHandler: UIImagePickerControllerDelegate & UINavigationControllerDelegate {
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         picker.dismiss(animated: true)
-        
-        // Always create a mock image file, regardless of the actual capture
-        saveMockImage()
+
+        // Process actual camera capture or use mock for simulator
+        if let capturedImage = info[UIImagePickerController.InfoKey.originalImage] as? UIImage {
+            logger.debug("Processing actual camera capture")
+            saveActualCameraImage(capturedImage)
+        } else {
+            logger.warning("No captured image found in info dictionary, using mock fallback")
+            saveMockImage()
+        }
     }
     
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
