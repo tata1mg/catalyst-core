@@ -17,23 +17,30 @@ struct ContentView: View {
                 }
             
             if webViewModel.isLoading {
-                VStack {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                    
-                    Text("\(Int(webViewModel.loadingProgress * 100))%")
-                        .foregroundColor(.blue)
-                        .padding(.top, 8)
-                    
-                    if webViewModel.isLoadingFromCache {
-                        Text("Loading from cache...")
+                if ConfigConstants.splashScreenEnabled {
+                    // Show splash screen if enabled in configuration
+                    SplashView( webViewModel: webViewModel)
+                        .zIndex(1)
+                } else {
+                    // Show old progress bar if splash screen is disabled
+                    VStack {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        
+                        Text("\(Int(webViewModel.loadingProgress * 100))%")
                             .foregroundColor(.blue)
-                            .padding(.top, 4)
+                            .padding(.top, 8)
+                        
+                        if webViewModel.isLoadingFromCache {
+                            Text("Loading from cache...")
+                                .foregroundColor(.blue)
+                                .padding(.top, 4)
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.1))
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.1))
             }
         }
         .onAppear {

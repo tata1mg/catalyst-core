@@ -10,8 +10,8 @@ const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config
 const iosConfig = WEBVIEW_CONFIG.ios
 
 const protocol = WEBVIEW_CONFIG.useHttps ? "https" : "http"
-const ip = WEBVIEW_CONFIG.LOCAL_IP ?? null
-const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 403 : WEBVIEW_CONFIG.port) : null
+const ip = WEBVIEW_CONFIG.LOCAL_IP || "localhost"
+const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 443 : WEBVIEW_CONFIG.port) : null
 let url = port ? `${protocol}://${ip}:${port}` : `${protocol}://${ip}`
 
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
@@ -135,6 +135,53 @@ enum ConfigConstants {
     static let accessControlEnabled = false
     static let allowedUrls: [String] = []`
         }
+        // Add splash screen configuration from WEBVIEW_CONFIG.splashScreen
+        const splashConfig = WEBVIEW_CONFIG.splashScreen
+        if (splashConfig) {
+            configContent += `
+    
+    // Splash Screen Configuration
+    static let splashScreenEnabled = true`
+
+            if (splashConfig.duration) {
+                // Convert milliseconds to seconds for iOS TimeInterval
+                const durationInSeconds = splashConfig.duration / 1000.0
+                configContent += `
+    static let splashScreenDuration: TimeInterval? = ${durationInSeconds}`
+            } else {
+                configContent += `
+    static let splashScreenDuration: TimeInterval? = nil`
+            }
+
+            if (splashConfig.backgroundColor) {
+                configContent += `
+    static let splashScreenBackgroundColor = "${splashConfig.backgroundColor}"`
+            } else {
+                configContent += `
+    static let splashScreenBackgroundColor = "#ffffff"`
+            }
+
+            // Add splash screen image styling configuration
+            const imageWidth = splashConfig.imageWidth || 120
+            const imageHeight = splashConfig.imageHeight || 120
+            const cornerRadius = splashConfig.cornerRadius || 20
+
+            configContent += `
+    static let splashScreenImageWidth: CGFloat = ${imageWidth}
+    static let splashScreenImageHeight: CGFloat = ${imageHeight}
+    static let splashScreenCornerRadius: CGFloat = ${cornerRadius}`
+        } else {
+            configContent += `
+    
+    // Splash Screen Configuration
+    static let splashScreenEnabled = false
+    static let splashScreenDuration: TimeInterval? = nil
+    static let splashScreenBackgroundColor = "#ffffff"
+    static let splashScreenImageWidth: CGFloat = 120
+    static let splashScreenImageHeight: CGFloat = 120
+    static let splashScreenCornerRadius: CGFloat = 20`
+        }
+
         // Close the enum
         configContent += `
 }`
@@ -657,6 +704,67 @@ async function launchIOSSimulator(simulatorName) {
     }
 }
 
+async function copySplashscreenAssets() {
+    try {
+        const publicDir = `${process.env.PWD}/public`
+        const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
+
+        // Check if splash screen is configured
+        if (!WEBVIEW_CONFIG.splashScreen) {
+            progress.log("No splash screen configuration found, skipping asset copy", "info")
+            return
+        }
+
+        // Look for splash screen image in public folder (similar to Android)
+        const imageExtensions = ["png", "jpg", "jpeg"]
+        let splashImageFound = false
+
+        for (const ext of imageExtensions) {
+            const sourcePath = `${publicDir}/splashscreen.${ext}`
+
+            if (fs.existsSync(sourcePath)) {
+                // Create launchscreen.imageset directory in Assets.xcassets
+                const imagesetDir = `${assetsDir}/launchscreen.imageset`
+                if (!fs.existsSync(imagesetDir)) {
+                    fs.mkdirSync(imagesetDir, { recursive: true })
+                }
+
+                // Copy the image to the imageset with a standard name
+                const destinationPath = `${imagesetDir}/launchscreen.${ext}`
+                fs.copyFileSync(sourcePath, destinationPath)
+
+                // Create Contents.json for the imageset
+                const contentsJson = {
+                    images: [
+                        {
+                            filename: `launchscreen.${ext}`,
+                            idiom: "universal",
+                            scale: "1x",
+                        },
+                    ],
+                    info: {
+                        author: "xcode",
+                        version: 1,
+                    },
+                }
+
+                fs.writeFileSync(`${imagesetDir}/Contents.json`, JSON.stringify(contentsJson, null, 2))
+
+                progress.log(`Created launch screen imageset: launchscreen.${ext}`, "success")
+                splashImageFound = true
+                break
+            }
+        }
+
+        if (!splashImageFound) {
+            progress.log("No custom splash screen image found in public folder", "info")
+            progress.log("Supported formats: splashscreen.png, splashscreen.jpg, splashscreen.jpeg", "info")
+        }
+    } catch (error) {
+        progress.log(`Warning: Error copying splash screen assets: ${error.message}`, "warning")
+    }
+}
+
 async function main() {
     try {
         const originalDir = process.cwd()
@@ -664,6 +772,7 @@ async function main() {
 
         await generateConfigConstants()
         await updateInfoPlist()
+        await copySplashscreenAssets()
 
         progress.log("Changing directory to: " + PROJECT_DIR, "info")
         process.chdir(PROJECT_DIR)
