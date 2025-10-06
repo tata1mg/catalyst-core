@@ -25,6 +25,8 @@ import {
     onRouteMatch,
     onFetcherSuccess,
     onFetcherError,
+    onAppServerSideSuccess,
+    onAppServerSideError,
     onRenderError,
     onRequestError,
 } from "@catalyst/template/server/index.js"
@@ -182,7 +184,7 @@ const renderMarkUp = async (
     }
 
     try {
-        let status = matches.length && matches[0].match.path === "*" ? 404 : 200
+        let status = errorCode || (matches.length && matches[0].match.path === "*" ? 404 : 200)
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
 
@@ -202,7 +204,7 @@ const renderMarkUp = async (
                 onError(error) {
                     logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
                     // function defined by user which needs to run if rendering fails
-                    safeCall(onRenderError)
+                    safeCall(onRenderError, { req, res, store, error })
                     reject(error)
                 },
             })
@@ -214,7 +216,7 @@ const renderMarkUp = async (
             url: req.originalUrl,
         })
         // function defined by user which needs to run if rendering fails
-        safeCall(onRenderError)
+        safeCall(onRenderError, { req, res, store, error })
         return Promise.reject(error)
     }
 }
@@ -255,7 +257,7 @@ export default async function (req, res) {
         let allTags = []
 
         // function defined by user which needs to run after route is matched
-        safeCall(onRouteMatch, { req, res, matches })
+        safeCall(onRouteMatch, { req, res, matches, store })
 
         if (res.headersSent) {
             return Promise.resolve(res)
@@ -264,6 +266,9 @@ export default async function (req, res) {
         try {
             // Executing app server side function
             await App.serverSideFunction({ store, req, res })
+
+            // function defined by user which needs to run after app server side function succeeds
+            safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) {
                 return Promise.resolve(res)
@@ -280,24 +285,65 @@ export default async function (req, res) {
                     return Promise.resolve(res)
                 }
 
+                // Check if serverDataFetcher returned an error in the response
+                const err = fetcherData?.[req.originalUrl]?.error
+
                 allTags = getMetaData(allMatches, fetcherData)
 
-                // function defined by user which needs to run after SSR functions are executed
-                safeCall(onFetcherSuccess, { req, res, fetcherData })
+                if (err) {
+                    // function defined by user which needs to run when serverDataFetcher returns an error
+                    safeCall(onFetcherError, { req, res, store, error: err })
 
-                if (res.headersSent) {
-                    return Promise.resolve(res)
+                    if (res.headersSent) {
+                        return Promise.reject(err)
+                    }
+
+                    // TODO: this seems very dependent on developers error handling, we are assuming they attach status_code key in their errors (same in App.serverSideFunction error)
+                    const statusCode = err.status_code || 404
+
+                    return new Promise((resolve, reject) => {
+                        renderMarkUp(
+                            statusCode,
+                            req,
+                            res,
+                            allTags,
+                            fetcherData,
+                            store,
+                            matches,
+                            context,
+                            webExtractor
+                        )
+                            .then(resolve)
+                            .catch(reject)
+                    })
+                } else {
+                    // function defined by user which needs to run after SSR functions are executed successfully
+                    safeCall(onFetcherSuccess, { req, res, store })
+
+                    if (res.headersSent) {
+                        return Promise.resolve(res)
+                    }
+
+                    return new Promise((resolve, reject) => {
+                        renderMarkUp(
+                            null,
+                            req,
+                            res,
+                            allTags,
+                            fetcherData,
+                            store,
+                            matches,
+                            context,
+                            webExtractor
+                        )
+                            .then(resolve)
+                            .catch(reject)
+                    })
                 }
-
-                return new Promise((resolve, reject) => {
-                    renderMarkUp(null, req, res, allTags, fetcherData, store, matches, context, webExtractor)
-                        .then(resolve)
-                        .catch(reject)
-                })
             } catch (error) {
-                // TODO: serverDataFetcher never throws any error
+                // TODO: This catch block is kept for any unexpected errors from serverDataFetcher or getMetaData
                 logger.error("Error in executing serverFetcher functions: " + error)
-                safeCall(onFetcherError, { req, res, error })
+                safeCall(onFetcherError, { req, res, store, error })
 
                 if (res.headersSent) {
                     return Promise.reject(error)
@@ -311,6 +357,13 @@ export default async function (req, res) {
             }
         } catch (error) {
             logger.error("Error in executing serverSideFunction inside App: " + error)
+            // function defined by user which needs to run after app server side function fails
+            safeCall(onAppServerSideError, { req, res, store, error })
+
+            if (res.headersSent) {
+                return Promise.reject(error)
+            }
+
             return new Promise((resolve, reject) => {
                 renderMarkUp(
                     error.status_code,
