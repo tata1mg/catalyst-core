@@ -1,5 +1,6 @@
 import WebKit
 import os
+import UIKit
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
 
@@ -21,6 +22,31 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             return
         }
         logWithTimestamp("🌐 Navigation requested to: \(url.absoluteString)")
+
+        if URLWhitelistManager.shared.isAccessControlEnabled {
+            
+            // Check if URL is an external domain
+            let isExternal = URLWhitelistManager.shared.isExternalDomain(url)            
+            if ["http", "https"].contains(url.scheme?.lowercased() ?? "") && isExternal {
+                logger.info("🌍 External domain detected, opening in system browser: \(url.absoluteString)")
+                openInSystemBrowser(url)
+                decisionHandler(.cancel)
+                return
+            }
+            
+            // Check if URL is allowed for internal navigation
+            let isAllowed = URLWhitelistManager.shared.isUrlAllowed(url)
+            
+            if !isAllowed {
+                logger.warning("🚫 URL blocked by access control: \(url.absoluteString)")
+                decisionHandler(.cancel)
+                return
+            }
+            
+            logger.info("✅ URL passed whitelist checks, allowing navigation: \(url.absoluteString)")
+        } else {
+            logger.info("⚠️ Access control disabled, allowing all navigation: \(url.absoluteString)")
+        }
 
         Task {
             if CacheManager.shared.shouldCacheURL(url) {
@@ -141,6 +167,23 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             viewModel.reset()
             logWithTimestamp("🔴 Navigation error: \(error.localizedDescription)")
             logger.error("Navigation failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Open URL in system browser
+    private func openInSystemBrowser(_ url: URL) {
+        Task { @MainActor in
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url, options: [:]) { success in
+                    if success {
+                        logger.info("Successfully opened external URL in system browser")
+                    } else {
+                        logger.error("Failed to open external URL in system browser")
+                    }
+                }
+            } else {
+                logger.error("Cannot open URL in system browser: \(url.absoluteString)")
+            }
         }
     }
 }

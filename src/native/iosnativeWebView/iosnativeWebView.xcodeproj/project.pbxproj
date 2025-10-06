@@ -33,6 +33,7 @@
 		E9341300FF7BF45A0009FD6D /* CameraTransportUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9341301FF7BF45A0009FD6D /* CameraTransportUtils.swift */; };
 		E9341302FF7BF45A0009FD6D /* FrameworkServerUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9341303FF7BF45A0009FD6D /* FrameworkServerUtils.swift */; };
 		E984F0542E7BE93D00D061F5 /* ConfigConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = E984F0532E7BE93D00D061F5 /* ConfigConstants.swift */; };
+		47F3CABF2C63A0E9007CF14B /* URLWhitelistManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F3CABC2C63A0E9007CF14B /* URLWhitelistManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +83,7 @@
 		E9341301FF7BF45A0009FD6D /* CameraTransportUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraTransportUtils.swift; sourceTree = "<group>"; };
 		E9341303FF7BF45A0009FD6D /* FrameworkServerUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameworkServerUtils.swift; sourceTree = "<group>"; };
 		E984F0532E7BE93D00D061F5 /* ConfigConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigConstants.swift; sourceTree = "<group>"; };
+		47F3CABC2C63A0E9007CF14B /* URLWhitelistManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLWhitelistManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -152,6 +154,7 @@
 				47E177D52CD0C1DC0033C825 /* CacheManager.swift */,
 				47E177D32CD0BF8C0033C825 /* WebView.swift */,
 				E984F0532E7BE93D00D061F5 /* ConfigConstants.swift */,
+				47F3CABC2C63A0E9007CF14B /* URLWhitelistManager.swift */,
 				E93412FD2E7BF45A0009FD6D /* FilePickerHandler.swift */,
 				4777D5482C61EC1500E85AC6 /* Info.plist */,
 				4777D51E2C60B87500E85AC6 /* iosnativeWebViewApp.swift */,
@@ -311,6 +314,7 @@
 				E9341302FF7BF45A0009FD6D /* FrameworkServerUtils.swift in Sources */,
 				E90872A62E8AA6A40076627C /* CatalystConstants.swift in Sources */,
 				E984F0542E7BE93D00D061F5 /* ConfigConstants.swift in Sources */,
+				47F3CABF2C63A0E9007CF14B /* URLWhitelistManager.swift in Sources */,
 				E90872B22E8CFD780076627C /* BootTimingUtility.swift in Sources */,
 				E92114092D2FB0EE003BC3EB /* ResourceURLProtocol.swift in Sources */,
 				47A91A452CD0D38400419554 /* WebViewModel.swift in Sources */,
