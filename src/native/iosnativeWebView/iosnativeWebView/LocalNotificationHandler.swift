@@ -8,11 +8,11 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 class LocalNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
     var onNotificationReceived: ((String, [String: Any]) -> Void)?
     var onDeepLinkRequested: ((URL) -> Void)?
-    private var baseURL: String = "http://localhost:3000"
+    private let baseURL: String
 
-    // Configure base URL for notifications
-    func configureBaseURL(_ url: String) {
-        self.baseURL = url
+    init(baseURL: String) {
+        self.baseURL = baseURL
+        super.init()
     }
 
     // MARK: - Notification Creation

@@ -1,20 +1,23 @@
 import UIKit
-import os
-
-private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "AppDelegate")
 
 class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        logger.info("App delegate didFinishLaunching")
-        NotificationManager.shared.handleAppLaunch(with: launchOptions)
+        #if canImport(Firebase)
+        // Handle app launch from notification
+        // NotificationManager.shared.handleAppLaunch(with: launchOptions)
+        #else
+        // Notifications disabled - skip initialization
+        print("⚠️ Notifications disabled (Firebase packages not available)")
+        #endif
+
         return true
     }
 
-    // MARK: - Push Notification Registration
+    // MARK: - Push Notification Handling
 
+    #if canImport(Firebase)
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        logger.info("Successfully registered for remote notifications")
         NotificationManager.shared.handleDeviceTokenRegistration(deviceToken)
     }
 
@@ -22,20 +25,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         NotificationManager.shared.handleRegistrationFailure(error)
     }
 
-    // MARK: - Push Notification Handling
-
-    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        logger.info("Received remote notification")
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         NotificationManager.shared.handlePushNotification(userInfo)
         completionHandler(.newData)
     }
+    #endif
 
 }
 
 // MARK: - Helper Methods
 
 extension AppDelegate {
-
 
     // Helper to get current active scene for navigation
     func getCurrentWindow() -> UIWindow? {

@@ -14,10 +14,6 @@ struct iosnativeWebViewApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .onAppear {
-                    // Configure notification system when app appears
-                    appDelegate.configureNotificationSystem()
-                }
         }
     }
 }

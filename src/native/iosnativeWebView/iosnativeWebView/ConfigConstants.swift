@@ -3,6 +3,6 @@ import Foundation
 
 
 enum ConfigConstants {
- static let url = "http://192.168.0.104:3005"
+ static let url = "http://10.0.33.164:3005"
  static let cachePattern: [String] = ["*.ico"]
 }

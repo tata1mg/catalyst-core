@@ -2,8 +2,11 @@ import Foundation
 import UserNotifications
 import UIKit
 import os
+
+#if canImport(Firebase) && canImport(FirebaseMessaging)
 import Firebase
 import FirebaseMessaging
+#endif
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NotificationManager")
 
@@ -16,18 +19,22 @@ class NotificationManager: ObservableObject {
 
 
     private init() {
-        self.localHandler = LocalNotificationHandler()
+        self.localHandler = LocalNotificationHandler(baseURL: ConfigConstants.url)
         self.pushHandler = PushNotificationHandler()
 
-        initializeFirebase()
+        // initializeFirebase()
         setupNotificationCenter()
         setupChannels()
     }
 
     private func initializeFirebase() {
+        #if canImport(Firebase) && canImport(FirebaseMessaging)
         FirebaseApp.configure()
         Messaging.messaging().delegate = pushHandler
-        logger.info("Firebase initialized")
+        logger.info("Firebase initialized successfully")
+        #else
+        logger.warning("Firebase disabled - push notifications not available (Firebase packages not found)")
+        #endif
     }
 
     private func setupNotificationCenter() {
@@ -128,7 +135,7 @@ class NotificationManager: ObservableObject {
     }
 
     func handlePushNotification(_ userInfo: [AnyHashable: Any]) {
-        if let messageID = userInfo["gcm.message_id"] {
+        if let messageID = userInfo["gcm.message_id"] as? String {
             logger.debug("Firebase Message ID: \(messageID)")
         }
         pushHandler.handleIncomingPush(userInfo)
@@ -142,8 +149,18 @@ class NotificationManager: ObservableObject {
 
     func updateBadge(_ count: Int) {
         Task { @MainActor in
-            UIApplication.shared.applicationIconBadgeNumber = count
-            logger.info("Updated badge count to: \(count)")
+            if #available(iOS 16.0, *) {
+                UNUserNotificationCenter.current().setBadgeCount(count) { error in
+                    if let error = error {
+                        logger.error("Failed to set badge count: \(error)")
+                    } else {
+                        logger.info("Updated badge count to: \(count)")
+                    }
+                }
+            } else {
+                UIApplication.shared.applicationIconBadgeNumber = count
+                logger.info("Updated badge count to: \(count)")
+            }
         }
     }
 
@@ -170,7 +187,11 @@ class NotificationManager: ObservableObject {
         logger.debug("APNS device token: \(token)")
 
         handlePushToken(token)
+        #if canImport(FirebaseMessaging)
         Messaging.messaging().apnsToken = deviceToken
+        #else
+        logger.warning("Firebase Messaging disabled - APNS token not registered")
+        #endif
     }
 
     func handleRegistrationFailure(_ error: Error) {

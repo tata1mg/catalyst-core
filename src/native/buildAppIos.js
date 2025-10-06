@@ -4,6 +4,7 @@ const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
+const publicPath = `${process.env.PWD}/public`
 const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
     `${process.env.PWD}/config/config.json`
 )
@@ -22,6 +23,7 @@ const steps = {
     config: "Generating Required Configuration for build",
     launchSimulator: "Launch iOS Simulator",
     clean: "Clean Build Artifacts",
+    assets: "Process Notification Assets",
     build: "Build IOS Project",
     findApp: "Locate Built Application",
     install: "Install Application",
@@ -80,6 +82,493 @@ enum ConfigConstants {
     } catch (error) {
         progress.fail("config", error.message)
         process.exit(1)
+    }
+}
+
+// MARK: - Notification Asset Processing
+
+// Notification asset definitions
+const NOTIFICATION_ICONS = [
+    { sourceName: "notification-icon", resourceName: "NotificationIcon" },
+    { sourceName: "notification-large", resourceName: "NotificationLargeIcon" },
+]
+
+const NOTIFICATION_SOUNDS = [
+    { sourceName: "notification-sound-default", resourceName: "notification_sound_default" },
+    { sourceName: "notification-sound-urgent", resourceName: "notification_sound_urgent" },
+]
+
+// async function handleGoogleServicesPlist() {
+//     try {
+//         const rootGoogleServicesPath = `${process.env.PWD}/GoogleService-Info.plist`
+//         const iosGoogleServicesPath = `${PROJECT_DIR}/${PROJECT_NAME}/GoogleService-Info.plist`
+
+//         // Check if GoogleService-Info.plist exists in the root directory
+//         if (fs.existsSync(rootGoogleServicesPath)) {
+//             progress.log("Found GoogleService-Info.plist in root directory", "info")
+
+//             // Create the directory if it doesn't exist
+//             const targetDir = path.dirname(iosGoogleServicesPath)
+//             if (!fs.existsSync(targetDir)) {
+//                 fs.mkdirSync(targetDir, { recursive: true })
+//             }
+
+//             // Copy the file to the iOS project
+//             fs.copyFileSync(rootGoogleServicesPath, iosGoogleServicesPath)
+//             progress.log("Copied GoogleService-Info.plist to iOS project", "success")
+
+//             return true
+//         } else if (fs.existsSync(iosGoogleServicesPath)) {
+//             progress.log("GoogleService-Info.plist already exists in iOS project", "info")
+//             return true
+//         } else {
+//             progress.log(
+//                 "GoogleService-Info.plist not found - Firebase push notifications will not work",
+//                 "warning"
+//             )
+//             progress.log(
+//                 "Place GoogleService-Info.plist in project root or src/native/iosnativeWebView/iosnativeWebView/",
+//                 "info"
+//             )
+//             return false
+//         }
+//     } catch (error) {
+//         // Critical error if file exists but can't be copied
+//         if (error.code === "EACCES" && fs.existsSync(rootGoogleServicesPath)) {
+//             throw new Error(`Permission denied copying GoogleService-Info.plist: ${error.message}`)
+//         }
+//         progress.log(`Warning: Error handling GoogleService-Info.plist: ${error.message}`, "warning")
+//         return false
+//     }
+// }
+
+async function validateNotificationAsset(filePath, assetType) {
+    const stats = fs.statSync(filePath)
+    const fileSizeKB = stats.size / 1024
+
+    if (assetType === "icon") {
+        // Warn if icon is too large (recommended <100KB)
+        if (fileSizeKB > 100) {
+            progress.log(
+                `Warning: Notification icon ${path.basename(filePath)} is ${fileSizeKB.toFixed(1)}KB (recommended <100KB for optimal performance)`,
+                "warning"
+            )
+        }
+    } else if (assetType === "sound") {
+        // Warn if sound is too large (recommended <1MB)
+        if (fileSizeKB > 1024) {
+            progress.log(
+                `Warning: Notification sound ${path.basename(filePath)} is ${fileSizeKB.toFixed(1)}KB (recommended <1MB)`,
+                "warning"
+            )
+        }
+    }
+}
+
+async function processNotificationIcons() {
+    try {
+        const assetsPath = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
+        const imageFormats = ["png", "jpg", "jpeg", "webp"]
+
+        let iconsProcessed = 0
+
+        // Ensure public directory exists
+        if (!fs.existsSync(publicPath)) {
+            progress.log(`Public directory not found at ${publicPath}`, "info")
+            return 0
+        }
+
+        // Create Assets.xcassets if it doesn't exist
+        if (!fs.existsSync(assetsPath)) {
+            fs.mkdirSync(assetsPath, { recursive: true })
+        }
+
+        // Remove existing notification icon imagesets to avoid conflicts when assets are updated
+        for (const icon of NOTIFICATION_ICONS) {
+            const imagesetPath = `${assetsPath}/${icon.resourceName}.imageset`
+            if (fs.existsSync(imagesetPath)) {
+                fs.rmSync(imagesetPath, { recursive: true, force: true })
+                progress.log(`Removed existing ${icon.resourceName}.imageset`, "info")
+            }
+        }
+
+        // Process notification icons
+        for (const icon of NOTIFICATION_ICONS) {
+            for (const format of imageFormats) {
+                const iconImagePath = `${publicPath}/${icon.sourceName}.${format}`
+                if (fs.existsSync(iconImagePath)) {
+                    // Validate asset size
+                    validateNotificationAsset(iconImagePath, "icon")
+
+                    // Create imageset directory
+                    const imagesetPath = `${assetsPath}/${icon.resourceName}.imageset`
+                    if (!fs.existsSync(imagesetPath)) {
+                        fs.mkdirSync(imagesetPath, { recursive: true })
+                    }
+
+                    // Copy icon
+                    const destImagePath = `${imagesetPath}/${icon.sourceName}.${format}`
+                    fs.copyFileSync(iconImagePath, destImagePath)
+
+                    // Create Contents.json for the imageset
+                    const contentsJson = {
+                        images: [
+                            {
+                                filename: `${icon.sourceName}.${format}`,
+                                idiom: "universal",
+                                scale: "1x",
+                            },
+                            {
+                                idiom: "universal",
+                                scale: "2x",
+                            },
+                            {
+                                idiom: "universal",
+                                scale: "3x",
+                            },
+                        ],
+                        info: {
+                            author: "xcode",
+                            version: 1,
+                        },
+                    }
+
+                    fs.writeFileSync(`${imagesetPath}/Contents.json`, JSON.stringify(contentsJson, null, 2))
+
+                    progress.log(
+                        `Notification icon copied: ${icon.sourceName}.${format} -> ${icon.resourceName}`,
+                        "success"
+                    )
+                    iconsProcessed++
+                    break
+                }
+            }
+        }
+
+        if (iconsProcessed > 0) {
+            progress.log(`Processed ${iconsProcessed} notification icon(s) from public/`, "success")
+        } else {
+            progress.log("No notification icons found in public/ - using default bell icon", "info")
+        }
+
+        return iconsProcessed
+    } catch (error) {
+        // Distinguish between critical and non-critical errors
+        if (error.code === "EACCES") {
+            throw new Error(
+                `Permission denied accessing notification icons: ${error.message}. Check directory permissions.`
+            )
+        } else if (error.code === "ENOSPC") {
+            throw new Error(`Insufficient disk space to process notification icons: ${error.message}`)
+        } else {
+            progress.log(`Warning: Could not process notification icons: ${error.message}`, "warning")
+            return 0
+        }
+    }
+}
+
+async function processNotificationSounds() {
+    try {
+        const bundlePath = `${PROJECT_DIR}/${PROJECT_NAME}`
+        const audioFormats = ["mp3", "wav", "m4a", "caf"]
+
+        let soundsProcessed = 0
+
+        // Ensure public directory exists
+        if (!fs.existsSync(publicPath)) {
+            progress.log(`Public directory not found at ${publicPath}`, "info")
+            return 0
+        }
+
+        // Remove existing notification sounds to avoid conflicts
+        for (const sound of NOTIFICATION_SOUNDS) {
+            for (const format of audioFormats) {
+                const existingSoundPath = `${bundlePath}/${sound.resourceName}.${format}`
+                if (fs.existsSync(existingSoundPath)) {
+                    fs.unlinkSync(existingSoundPath)
+                    progress.log(`Removed existing ${sound.resourceName}.${format}`, "info")
+                }
+            }
+        }
+
+        // Process notification sounds
+        for (const sound of NOTIFICATION_SOUNDS) {
+            for (const format of audioFormats) {
+                const soundPath = `${publicPath}/${sound.sourceName}.${format}`
+                if (fs.existsSync(soundPath)) {
+                    // Validate asset size
+                    validateNotificationAsset(soundPath, "sound")
+
+                    const destSoundPath = `${bundlePath}/${sound.resourceName}.${format}`
+                    fs.copyFileSync(soundPath, destSoundPath)
+                    progress.log(
+                        `Notification sound copied: ${sound.sourceName}.${format} -> ${sound.resourceName}.${format}`,
+                        "success"
+                    )
+                    soundsProcessed++
+                    break
+                }
+            }
+        }
+
+        if (soundsProcessed > 0) {
+            progress.log(`Processed ${soundsProcessed} notification sound(s) from public/`, "success")
+        } else {
+            progress.log("No notification sounds found in public/ - using system default sounds", "info")
+        }
+
+        return soundsProcessed
+    } catch (error) {
+        // Distinguish between critical and non-critical errors
+        if (error.code === "EACCES") {
+            throw new Error(
+                `Permission denied accessing notification sounds: ${error.message}. Check directory permissions.`
+            )
+        } else if (error.code === "ENOSPC") {
+            throw new Error(`Insufficient disk space to process notification sounds: ${error.message}`)
+        } else {
+            progress.log(`Warning: Could not process notification sounds: ${error.message}`, "warning")
+            return 0
+        }
+    }
+}
+
+async function cleanupNotificationAssets() {
+    try {
+        const assetsPath = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
+        const bundlePath = `${PROJECT_DIR}/${PROJECT_NAME}`
+        const audioFormats = ["mp3", "wav", "m4a", "caf"]
+
+        // Remove existing notification icon imagesets
+        for (const icon of NOTIFICATION_ICONS) {
+            const imagesetPath = `${assetsPath}/${icon.resourceName}.imageset`
+            if (fs.existsSync(imagesetPath)) {
+                fs.rmSync(imagesetPath, { recursive: true, force: true })
+                progress.log(`Removed ${icon.resourceName}.imageset`, "info")
+            }
+        }
+
+        // Remove existing notification sounds
+        for (const sound of NOTIFICATION_SOUNDS) {
+            for (const format of audioFormats) {
+                const soundPath = `${bundlePath}/${sound.resourceName}.${format}`
+                if (fs.existsSync(soundPath)) {
+                    fs.unlinkSync(soundPath)
+                    progress.log(`Removed ${sound.resourceName}.${format}`, "info")
+                }
+            }
+        }
+
+        // Remove GoogleService-Info.plist when notifications are disabled
+        const iosGoogleServicesPath = `${bundlePath}/GoogleService-Info.plist`
+        if (fs.existsSync(iosGoogleServicesPath)) {
+            fs.unlinkSync(iosGoogleServicesPath)
+            progress.log("Removed GoogleService-Info.plist from iOS project", "info")
+        }
+
+        progress.log("Cleaned up notification assets", "success")
+    } catch (error) {
+        progress.log(`Warning: Error cleaning notification assets: ${error.message}`, "warning")
+    }
+}
+
+// async function addGoogleServicesCopyScript(isEnabled) {
+//     const projectPath = `${PROJECT_DIR}/${PROJECT_NAME}.xcodeproj/project.pbxproj`
+
+//     try {
+//         let projectContent = fs.readFileSync(projectPath, "utf8")
+//         const originalContent = projectContent
+
+//         // Marker comment to identify our script
+//         const scriptMarker = "Copy GoogleService-Info.plist to bundle"
+
+//         if (isEnabled) {
+//             // Check if script already exists
+//             if (projectContent.includes(scriptMarker)) {
+//                 progress.log("GoogleService-Info.plist copy script already configured", "info")
+//                 return
+//             }
+
+//             progress.log("Adding Run Script to copy GoogleService-Info.plist to bundle...", "info")
+
+//             // Generate UUIDs for the build phase (96 hex chars like Xcode)
+//             const generateUUID = () => {
+//                 return Array.from({ length: 24 }, () =>
+//                     Math.floor(Math.random() * 16)
+//                         .toString(16)
+//                         .toUpperCase()
+//                 ).join("")
+//             }
+
+//             const scriptPhaseUUID = generateUUID()
+
+//             // The shell script to copy GoogleService-Info.plist
+//             const shellScript = `# ${scriptMarker}
+// PLIST_PATH="$PROJECT_DIR/$PROJECT_NAME/GoogleService-Info.plist"
+// if [ -f "$PLIST_PATH" ]; then
+//   cp "$PLIST_PATH" "$\{BUILT_PRODUCTS_DIR\}/$\{PRODUCT_NAME\}.app/"
+//   echo "Copied GoogleService-Info.plist to app bundle"
+// else
+//   echo "Warning: GoogleService-Info.plist not found at $PLIST_PATH"
+// fi`
+
+//             // Create the PBXShellScriptBuildPhase section entry
+//             const scriptPhaseEntry = `\t\t${scriptPhaseUUID} /* ShellScript */ = {
+// \t\t\tisa = PBXShellScriptBuildPhase;
+// \t\t\tbuildActionMask = 2147483647;
+// \t\t\tfiles = (
+// \t\t\t);
+// \t\t\tinputFileListPaths = (
+// \t\t\t);
+// \t\t\tinputPaths = (
+// \t\t\t);
+// \t\t\tname = "Copy GoogleService-Info.plist";
+// \t\t\toutputFileListPaths = (
+// \t\t\t);
+// \t\t\toutputPaths = (
+// \t\t\t);
+// \t\t\trunOnlyForDeploymentPostprocessing = 0;
+// \t\t\tshellPath = /bin/sh;
+// \t\t\tshellScript = "${shellScript.replace(/\n/g, "\\n").replace(/"/g, '\\"')}";
+// \t\t};`
+
+//             // Find the main target's buildPhases array
+//             const targetBuildPhasesRegex =
+//                 /buildPhases = \(\n(\t\t\t\t[A-F0-9]+ \/\* Sources \*\/,\n)(\t\t\t\t[A-F0-9]+ \/\* Frameworks \*\/,\n)(\t\t\t\t[A-F0-9]+ \/\* Resources \*\/,\n)/
+
+//             const match = projectContent.match(targetBuildPhasesRegex)
+//             if (!match) {
+//                 throw new Error("Could not find main target buildPhases array in project.pbxproj")
+//             }
+
+//             // Insert the script phase UUID before Resources phase
+//             const updatedBuildPhases = `buildPhases = (\n${match[1]}${match[2]}\t\t\t\t${scriptPhaseUUID} /* ShellScript */,\n${match[3]}`
+//             projectContent = projectContent.replace(targetBuildPhasesRegex, updatedBuildPhases)
+
+//             // Add the script phase entry to the PBXShellScriptBuildPhase section
+//             // Find where to insert it - look for the end of PBXResourcesBuildPhase section
+//             const shellScriptSectionRegex = /\/\* End PBXShellScriptBuildPhase section \*\//
+//             if (shellScriptSectionRegex.test(projectContent)) {
+//                 // Section exists, add to it
+//                 projectContent = projectContent.replace(
+//                     shellScriptSectionRegex,
+//                     `${scriptPhaseEntry}\n/* End PBXShellScriptBuildPhase section */`
+//                 )
+//             } else {
+//                 // Section doesn't exist, create it
+//                 const resourcesSectionEnd = /\/\* End PBXResourcesBuildPhase section \*\//
+//                 projectContent = projectContent.replace(
+//                     resourcesSectionEnd,
+//                     `/* End PBXResourcesBuildPhase section */\n\n/* Begin PBXShellScriptBuildPhase section */\n${scriptPhaseEntry}\n/* End PBXShellScriptBuildPhase section */`
+//                 )
+//             }
+
+//             if (projectContent !== originalContent) {
+//                 fs.writeFileSync(projectPath, projectContent, "utf8")
+//                 progress.log(
+//                     "Successfully added Run Script phase to copy GoogleService-Info.plist",
+//                     "success"
+//                 )
+//             }
+//         } else {
+//             // Remove the script if it exists
+//             if (!projectContent.includes(scriptMarker)) {
+//                 progress.log(
+//                     "GoogleService-Info.plist copy script not found (already removed or never added)",
+//                     "info"
+//                 )
+//                 return
+//             }
+
+//             progress.log("Removing GoogleService-Info.plist copy script from project...", "info")
+
+//             // Find and remove the script phase UUID from buildPhases array
+//             const scriptUUIDRegex = /\t\t\t\t([A-F0-9]+) \/\* ShellScript \*\/,\n/g
+//             let scriptUUID = null
+//             let tempContent = projectContent
+
+//             // Find the UUID by looking for the script content
+//             const scriptSectionRegex =
+//                 /([A-F0-9]+) \/\* ShellScript \*\/ = \{[^}]*Copy GoogleService-Info\.plist[^}]*\};/
+//             const scriptMatch = projectContent.match(scriptSectionRegex)
+//             if (scriptMatch) {
+//                 scriptUUID = scriptMatch[1]
+
+//                 // Remove from buildPhases array
+//                 projectContent = projectContent.replace(
+//                     new RegExp(`\\t\\t\\t\\t${scriptUUID} /\\* ShellScript \\*/,\\n`),
+//                     ""
+//                 )
+
+//                 // Remove the script phase entry
+//                 projectContent = projectContent.replace(
+//                     new RegExp(`\\t\\t${scriptUUID} /\\* ShellScript \\*/ = \\{[^}]*\\};\\n`),
+//                     ""
+//                 )
+
+//                 // If PBXShellScriptBuildPhase section is now empty, remove it
+//                 const emptyShellScriptSection =
+//                     /\/\* Begin PBXShellScriptBuildPhase section \*\/\n\/\* End PBXShellScriptBuildPhase section \*\//
+//                 projectContent = projectContent.replace(emptyShellScriptSection, "")
+//                 // Also remove the extra newline
+//                 projectContent = projectContent.replace(/\n\n\n/g, "\n\n")
+//             }
+
+//             if (projectContent !== originalContent) {
+//                 fs.writeFileSync(projectPath, projectContent, "utf8")
+//                 progress.log("GoogleService-Info.plist copy script removed from project", "success")
+//             } else {
+//                 progress.log("No changes made to project", "info")
+//             }
+//         }
+//     } catch (error) {
+//         progress.log(
+//             `Warning: Could not manage GoogleService-Info.plist copy script: ${error.message}`,
+//             "warning"
+//         )
+//     }
+// }
+
+// Note: Firebase packages should be managed manually via Xcode
+// We don't automatically add/remove them to avoid project file corruption
+// The Swift code uses canImport(FirebaseCore) to handle optional Firebase
+
+async function processNotificationAssets(webviewConfig) {
+    const hasNotificationConfig = !!webviewConfig.notifications?.enabled
+
+    try {
+        // Always clean up notification assets first
+        await cleanupNotificationAssets()
+
+        // Manage GoogleService-Info.plist copy script
+        // await addGoogleServicesCopyScript(hasNotificationConfig)
+
+        if (!hasNotificationConfig) {
+            progress.log("Notifications disabled - skipped asset processing", "info")
+            return
+        }
+
+        // Handle GoogleService-Info.plist file for Firebase
+        // const hasGoogleServices = await handleGoogleServicesPlist()
+        // if (!hasGoogleServices) {
+        //     progress.log("Continuing without Firebase - only local notifications will work", "warning")
+        // }
+
+        // Process notification assets
+        const iconsProcessed = await processNotificationIcons()
+        const soundsProcessed = await processNotificationSounds()
+
+        const totalAssets = iconsProcessed + soundsProcessed
+        if (totalAssets > 0) {
+            progress.log(
+                `Notification asset processing completed: ${totalAssets} asset(s) processed`,
+                "success"
+            )
+        } else {
+            progress.log("No notification assets found - using system defaults", "info")
+        }
+    } catch (error) {
+        progress.log(`Warning: Error processing notifications: ${error.message}`, "warning")
     }
 }
 
@@ -451,6 +940,15 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
     const destinationWithRuntime = `${destination},OS=${bootedInfo.version}`
     console.log(`Building with destination: ${destinationWithRuntime}`)
 
+    // Notifications are now controlled via canImport() - no need for compilation flags
+    const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
+
+    if (isNotificationsEnabled) {
+        progress.log("Building with notifications enabled (using canImport(Firebase))", "info")
+    } else {
+        progress.log("Building with notifications disabled (Firebase packages removed)", "info")
+    }
+
     const buildCommand = `xcodebuild \
         -scheme "${scheme}" \
         -sdk ${sdk} \
@@ -598,6 +1096,11 @@ async function main() {
         progress.log("Starting build process from: " + originalDir, "info")
 
         await generateConfigConstants()
+
+        // Process notification assets
+        progress.start("assets")
+        await processNotificationAssets(WEBVIEW_CONFIG)
+        progress.complete("assets")
 
         progress.log("Changing directory to: " + PROJECT_DIR, "info")
         process.chdir(PROJECT_DIR)

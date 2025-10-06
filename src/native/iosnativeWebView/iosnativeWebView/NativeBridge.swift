@@ -23,11 +23,28 @@ class NativeBridge: NSObject, ImageHandlerDelegate {
         self.viewController = viewController
         super.init()
         imageHandler.delegate = self
+        setupNotificationNavigationHandler()
+
         iosnativeWebView.logger.debug("NativeBridge initialized")
     }
-    
+
+    private func setupNotificationNavigationHandler() {
+        notificationManager.setNavigationHandler { [weak self] url in
+            DispatchQueue.main.async {
+                guard let webView = self?.webView else {
+                    iosnativeWebView.logger.error("WebView not available for notification navigation")
+                    return
+                }
+                let request = URLRequest(url: url)
+                webView.load(request)
+                iosnativeWebView.logger.info("Navigating to notification URL: \(url.absoluteString)")
+            }
+        }
+    }
+
     // Register the JavaScript interface with the WebView
     func register() {
+
         let userContentController = webView?.configuration.userContentController
         userContentController?.add(self, name: "NativeBridge")
         
@@ -207,6 +224,20 @@ class NativeBridge: NSObject, ImageHandlerDelegate {
         let notificationId = notificationManager.scheduleLocal(config)
 
         iosnativeWebView.logger.debug("Local notification scheduled with ID: \(notificationId)")
+
+        // Send back the notification ID like Android does
+        let json: [String: Any] = [
+            "notificationId": notificationId,
+            "scheduled": true
+        ]
+
+        if let jsonData = try? JSONSerialization.data(withJSONObject: json),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
+        } else {
+            let jsonString = "{\"notificationId\": \"\(notificationId)\", \"scheduled\": true}"
+            sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
+        }
     }
 
     @objc func cancelLocalNotification(_ notificationId: String?) {
@@ -459,6 +490,12 @@ extension NativeBridge: WKScriptMessageHandler {
                     unsubscribeFromTopic(config)
                 case "getSubscribedTopics":
                     getSubscribedTopics()
+                case "updateBadge":
+                    if let count = body["count"] as? Int {
+                        updateBadge(count)
+                    } else {
+                        iosnativeWebView.logger.error("Invalid badge count for updateBadge command")
+                    }
                 default:
                     iosnativeWebView.logger.error("Unknown command: \(command)")
                 }
