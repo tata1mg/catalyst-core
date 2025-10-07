@@ -4,13 +4,16 @@ const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
-    `${process.env.PWD}/config/config.json`
-)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
-const url = `http://${NODE_SERVER_HOSTNAME}:${WEBVIEW_CONFIG.port}`
+
+const protocol = WEBVIEW_CONFIG.useHttps ? "https" : "http"
+const ip = WEBVIEW_CONFIG.LOCAL_IP ?? null
+const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 403 : WEBVIEW_CONFIG.port) : null
+let url = port ? `${protocol}://${ip}:${port}` : `${protocol}://${ip}`
+
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
 const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
@@ -40,9 +43,41 @@ const progressConfig = {
 
 const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
 
+async function updateInfoPlist() {
+    try {
+        const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
+
+        if (fs.existsSync(infoPlistPath)) {
+            let plistContent = fs.readFileSync(infoPlistPath, "utf8")
+
+            // Add CFBundleDisplayName if it doesn't exist
+            if (!plistContent.includes("CFBundleDisplayName")) {
+                const insertPoint = plistContent.lastIndexOf("</dict>")
+                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "Catalyst Application"}</string>\n`
+                plistContent = plistContent.slice(0, insertPoint) + newEntry + plistContent.slice(insertPoint)
+                fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+            } else {
+                // Update existing CFBundleDisplayName with new appName
+                const displayNameRegex = /(<key>CFBundleDisplayName<\/key>\s*<string>)([^<]*)(<\/string>)/
+                if (displayNameRegex.test(plistContent)) {
+                    plistContent = plistContent.replace(
+                        displayNameRegex,
+                        `$1${iosConfig.appName || "Catalyst Application"}$3`
+                    )
+                    fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+                }
+            }
+        }
+    } catch (err) {
+        progress.fail("config", err)
+        process.exit(1)
+    }
+}
+
 async function generateConfigConstants() {
     progress.start("config")
     try {
+        // Update ConfigConstants.swift
         const configOutputPath = path.join(PROJECT_DIR, PROJECT_NAME, "ConfigConstants.swift")
 
         const configDir = path.dirname(configOutputPath)
@@ -245,18 +280,28 @@ async function moveAppToBuildOutput(APP_PATH) {
         const buildType = iosConfig.buildType || "debug"
         const appName = iosConfig.appName || "app"
 
-        // Construct the destination path: BUILD_OUTPUT_PATH/native/ios/webviewconfig.ios.buildType/appName.app
-        const destinationDir = path.join(process.env.PWD, BUILD_OUTPUT_PATH, "native", "ios", buildType)
-        const destinationPath = path.join(destinationDir, `${appName}.app`)
+        const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-") // DD-MM-YYYY format
+        const currentTime = new Date()
+            .toLocaleTimeString("en-US", {
+                hour12: true,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            })
+            .replace(/:/g, ":") // HH-MM-SS AM/PM format
+        const destinationDir = path.join(
+            process.env.PWD,
+            BUILD_OUTPUT_PATH,
+            "native",
+            "ios",
+            currentDate,
+            buildType
+        )
+        const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`)
 
         // Create destination directory if it doesn't exist
         if (!fs.existsSync(destinationDir)) {
             fs.mkdirSync(destinationDir, { recursive: true })
-        }
-
-        // Remove existing app if it exists
-        if (fs.existsSync(destinationPath)) {
-            await runCommand(`rm -rf "${destinationPath}"`)
         }
 
         // Copy the app to the destination using shell command
@@ -618,6 +663,7 @@ async function main() {
         progress.log("Starting build process from: " + originalDir, "info")
 
         await generateConfigConstants()
+        await updateInfoPlist()
 
         progress.log("Changing directory to: " + PROJECT_DIR, "info")
         process.chdir(PROJECT_DIR)

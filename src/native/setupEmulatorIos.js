@@ -80,11 +80,6 @@ async function setupIOSEnvironment() {
         const { WEBVIEW_CONFIG } = await initializeConfig()
         progress.complete("config")
 
-        progress.start("setupServer")
-        await setupServer(configPath)
-        progress.complete("config")
-        progress.start("setupServer")
-
         progress.start("simulator")
         await configureSimulator(WEBVIEW_CONFIG)
         progress.complete("simulator")
@@ -96,6 +91,10 @@ async function setupIOSEnvironment() {
         progress.start("saveConfig")
         const config = await validateAndCompleteConfig("ios", configPath)
         progress.complete("saveConfig")
+
+        progress.start("setupServer")
+        await setupServer(configPath)
+        progress.start("setupServer")
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
