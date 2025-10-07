@@ -62,7 +62,15 @@ enum CatalystConstants {
             "logger",
             "pickFile",
             "openFileWithIntent",
-            "requestHapticFeedback"
+            "requestHapticFeedback",
+            // Notification commands
+            "requestNotificationPermission",
+            "scheduleLocalNotification",
+            "cancelLocalNotification",
+            "registerForPushNotifications",
+            "subscribeToTopic",
+            "unsubscribeFromTopic",
+            "getSubscribedTopics"
         ]
     }
 

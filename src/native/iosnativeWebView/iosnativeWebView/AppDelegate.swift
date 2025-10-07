@@ -38,24 +38,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
         logWithTimestamp("✅ AppDelegate initialization complete")
 
-        // 3. Notifications 
-        #if canImport(Firebase)
+        // 3. Notifications
         // Handle app launch from notification
-        // NotificationManager.shared.handleAppLaunch(with: launchOptions)
-        #else
-        // Notifications disabled - skip initialization
-        print("⚠️ Notifications disabled (Firebase packages not available)")
-        #endif
+        NotificationManager.shared.handleAppLaunch(with: launchOptions)
 
         return true
     }
 
-    #if canImport(Firebase)
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        logger.info("📱 APNS device token received in AppDelegate")
         NotificationManager.shared.handleDeviceTokenRegistration(deviceToken)
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        logger.error("❌ Failed to register for remote notifications in AppDelegate")
         NotificationManager.shared.handleRegistrationFailure(error)
     }
 
@@ -63,5 +59,4 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         NotificationManager.shared.handlePushNotification(userInfo)
         completionHandler(.newData)
     }
-    #endif
 }

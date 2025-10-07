@@ -15,6 +15,13 @@
 		47A91A472CD0D39100419554 /* WebViewNavigationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47A91A462CD0D39100419554 /* WebViewNavigationDelegate.swift */; };
 		47E177D42CD0BF950033C825 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E177D32CD0BF8C0033C825 /* WebView.swift */; };
 		47E177D62CD0C1DC0033C825 /* CacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E177D52CD0C1DC0033C825 /* CacheManager.swift */; };
+		C9DAB6432E950A2500A02A44 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C9DAB6422E950A2500A02A44 /* GoogleService-Info.plist */; };
+		C9DAB6462E950A4D00A02A44 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = C9DAB6452E950A4D00A02A44 /* FirebaseCore */; };
+		C9DAB6482E950A4D00A02A44 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = C9DAB6472E950A4D00A02A44 /* FirebaseMessaging */; };
+		C9F4E7EF2E93AE1300C11CDF /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9F4E7EE2E93AE1300C11CDF /* NotificationManager.swift */; };
+		C9F4E7F12E93AE2D00C11CDF /* LocalNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9F4E7F02E93AE2D00C11CDF /* LocalNotificationHandler.swift */; };
+		C9F4E7F32E93AE3800C11CDF /* NotificationConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9F4E7F22E93AE3800C11CDF /* NotificationConfig.swift */; };
+		C9F4E7F52E93AE3F00C11CDF /* PushNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9F4E7F42E93AE3F00C11CDF /* PushNotificationHandler.swift */; };
 		E90872A02E8A963B0076627C /* BridgeMessageValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E908729F2E8A963B0076627C /* BridgeMessageValidator.swift */; };
 		E90872A22E8AA5970076627C /* JSONSchema in Frameworks */ = {isa = PBXBuildFile; productRef = E90872A12E8AA5970076627C /* JSONSchema */; };
 		E90872A42E8AA5A20076627C /* JSONSchema in Frameworks */ = {isa = PBXBuildFile; productRef = E90872A32E8AA5A20076627C /* JSONSchema */; };
@@ -66,6 +73,12 @@
 		47E177D32CD0BF8C0033C825 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		47E177D52CD0C1DC0033C825 /* CacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheManager.swift; sourceTree = "<group>"; };
 		47F3CABC2C639BF5007CF14B /* build.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = build.swift; sourceTree = "<group>"; };
+		C9DAB6422E950A2500A02A44 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		C9DAB6492E950DDC00A02A44 /* iosnativeWebView.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iosnativeWebView.entitlements; sourceTree = "<group>"; };
+		C9F4E7EE2E93AE1300C11CDF /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		C9F4E7F02E93AE2D00C11CDF /* LocalNotificationHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotificationHandler.swift; sourceTree = "<group>"; };
+		C9F4E7F22E93AE3800C11CDF /* NotificationConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationConfig.swift; sourceTree = "<group>"; };
+		C9F4E7F42E93AE3F00C11CDF /* PushNotificationHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationHandler.swift; sourceTree = "<group>"; };
 		E908729F2E8A963B0076627C /* BridgeMessageValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeMessageValidator.swift; sourceTree = "<group>"; };
 		E90872A52E8AA6A40076627C /* CatalystConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalystConstants.swift; sourceTree = "<group>"; };
 		E90872A72E8AB01A0076627C /* BridgeJavaScriptInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeJavaScriptInterface.swift; sourceTree = "<group>"; };
@@ -89,7 +102,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C9DAB6482E950A4D00A02A44 /* FirebaseMessaging in Frameworks */,
 				E90872A22E8AA5970076627C /* JSONSchema in Frameworks */,
+				C9DAB6462E950A4D00A02A44 /* FirebaseCore in Frameworks */,
 				E90872A42E8AA5A20076627C /* JSONSchema in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -133,6 +148,12 @@
 		4777D51D2C60B87500E85AC6 /* iosnativeWebView */ = {
 			isa = PBXGroup;
 			children = (
+				C9DAB6492E950DDC00A02A44 /* iosnativeWebView.entitlements */,
+				C9DAB6422E950A2500A02A44 /* GoogleService-Info.plist */,
+				C9F4E7F42E93AE3F00C11CDF /* PushNotificationHandler.swift */,
+				C9F4E7F22E93AE3800C11CDF /* NotificationConfig.swift */,
+				C9F4E7F02E93AE2D00C11CDF /* LocalNotificationHandler.swift */,
+				C9F4E7EE2E93AE1300C11CDF /* NotificationManager.swift */,
 				E90872B32E8D00D80076627C /* AppDelegate.swift */,
 				E90872B12E8CFD780076627C /* BootTimingUtility.swift */,
 				E90872AF2E8AB78B0076627C /* BridgeDelegateHandler.swift */,
@@ -261,6 +282,7 @@
 			mainGroup = 4777D5122C60B87500E85AC6;
 			packageReferences = (
 				E908729C2E8A8E0F0076627C /* XCRemoteSwiftPackageReference "JSONSchema" */,
+				C9DAB6442E950A4D00A02A44 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			productRefGroup = 4777D51C2C60B87500E85AC6 /* Products */;
 			projectDirPath = "";
@@ -279,6 +301,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4777D5262C60B87700E85AC6 /* Preview Assets.xcassets in Resources */,
+				C9DAB6432E950A2500A02A44 /* GoogleService-Info.plist in Resources */,
 				4777D5232C60B87700E85AC6 /* Assets.xcassets in Resources */,
 				E90872AA2E8AB01A0076627C /* Info-Release.plist in Resources */,
 			);
@@ -309,8 +332,11 @@
 				E93412FE2E7BF45A0009FD6D /* FilePickerHandler.swift in Sources */,
 				E9341300FF7BF45A0009FD6D /* CameraTransportUtils.swift in Sources */,
 				E9341302FF7BF45A0009FD6D /* FrameworkServerUtils.swift in Sources */,
+				C9F4E7EF2E93AE1300C11CDF /* NotificationManager.swift in Sources */,
+				C9F4E7F12E93AE2D00C11CDF /* LocalNotificationHandler.swift in Sources */,
 				E90872A62E8AA6A40076627C /* CatalystConstants.swift in Sources */,
 				E984F0542E7BE93D00D061F5 /* ConfigConstants.swift in Sources */,
+				C9F4E7F32E93AE3800C11CDF /* NotificationConfig.swift in Sources */,
 				E90872B22E8CFD780076627C /* BootTimingUtility.swift in Sources */,
 				E92114092D2FB0EE003BC3EB /* ResourceURLProtocol.swift in Sources */,
 				47A91A452CD0D38400419554 /* WebViewModel.swift in Sources */,
@@ -325,6 +351,7 @@
 				E90872AE2E8AB6010076627C /* BridgeFileHandler.swift in Sources */,
 				E90872B42E8D00D80076627C /* AppDelegate.swift in Sources */,
 				4777D51F2C60B87500E85AC6 /* iosnativeWebViewApp.swift in Sources */,
+				C9F4E7F52E93AE3F00C11CDF /* PushNotificationHandler.swift in Sources */,
 				E90872A92E8AB01A0076627C /* BridgeJavaScriptInterface.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -484,6 +511,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = NO;
+				CODE_SIGN_ENTITLEMENTS = iosnativeWebView/iosnativeWebView.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
@@ -524,6 +552,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = NO;
+				CODE_SIGN_ENTITLEMENTS = iosnativeWebView/iosnativeWebView.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
@@ -666,6 +695,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		C9DAB6442E950A4D00A02A44 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.3.0;
+			};
+		};
 		E908729C2E8A8E0F0076627C /* XCRemoteSwiftPackageReference "JSONSchema" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kylef/JSONSchema.swift";
@@ -677,6 +714,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		C9DAB6452E950A4D00A02A44 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C9DAB6442E950A4D00A02A44 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		C9DAB6472E950A4D00A02A44 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C9DAB6442E950A4D00A02A44 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
 		E90872A12E8AA5970076627C /* JSONSchema */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E908729C2E8A8E0F0076627C /* XCRemoteSwiftPackageReference "JSONSchema" */;

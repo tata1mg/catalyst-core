@@ -43,6 +43,14 @@ class BridgeJavaScriptInterface {
 
     // MARK: - Callback Methods
 
+    // Send plain string value directly (matches Android's BridgeUtils.notifyWeb)
+    // Used for simple string responses like permission status: "GRANTED", "DENIED", etc.
+    func sendStringCallback(eventName: String, data: String) {
+        let escapedData = data.replacingOccurrences(of: "'", with: "\\'")
+        let script = "window.WebBridge.callback('\(eventName)', '\(escapedData)')"
+        evaluateJavaScript(script)
+    }
+
     // Legacy helper function for backward compatibility - converts string to JSON format
     func sendCallback(eventName: String, data: String = "") {
         sendJSONCallback(eventName: eventName, data: ["message": data])

@@ -1,11 +1,8 @@
 import Foundation
 import UIKit
 import os
-
-#if canImport(Firebase) && canImport(FirebaseMessaging)
 import FirebaseMessaging
 import Firebase
-#endif
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "PushNotificationHandler")
 
@@ -13,6 +10,7 @@ class PushNotificationHandler: NSObject {
     private var fcmToken: String?
     private var subscribedTopics: Set<String> = []
     private var onTokenRefresh: ((String) -> Void)?
+    private var apnsTokenContinuation: CheckedContinuation<Void, Never>?
 
     override init() {
         super.init()
@@ -27,29 +25,47 @@ class PushNotificationHandler: NSObject {
     // MARK: - Push Notification Registration
 
     func registerForPushNotifications() async -> String? {
-        #if canImport(FirebaseMessaging)
         logger.info("Registering for push notifications")
 
-        do {
-            let token = try await Messaging.messaging().token()
-            self.fcmToken = token
-            logger.info("FCM token retrieved: \(token)")
-            await requestAPNSToken()
-            return token
-        } catch {
-            logger.error("Failed to retrieve FCM token: \(error.localizedDescription)")
-            return nil
-        }
-        #else
-        logger.warning("Push notifications disabled - Firebase packages not available")
+        #if targetEnvironment(simulator)
+        logger.warning("⚠️ Running on simulator - APNS not supported. Push notifications require a physical device.")
         return nil
+        #else
+
+        // Wait for APNS token to be set
+        await withCheckedContinuation { continuation in
+            self.apnsTokenContinuation = continuation
+
+            // Register for APNS - this will eventually call handleAPNSToken
+            Task { @MainActor in
+                logger.info("📞 Calling registerForRemoteNotifications")
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+
+        logger.info("✅ APNS token received, now getting FCM token")
+
+        // Now get FCM token - APNS token is guaranteed to be set
+        return await withCheckedContinuation { continuation in
+            Messaging.messaging().token { token, error in
+                if let error = error {
+                    logger.error("Failed to retrieve FCM token: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
+                } else if let token = token {
+                    self.fcmToken = token
+                    logger.info("FCM token retrieved: \(token)")
+                    continuation.resume(returning: token)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
         #endif
     }
 
-    private func requestAPNSToken() async {
-        await MainActor.run {
-            UIApplication.shared.registerForRemoteNotifications()
-        }
+    func notifyAPNSTokenReceived() {
+        apnsTokenContinuation?.resume()
+        apnsTokenContinuation = nil
     }
 
     func handleTokenRefresh(_ newToken: String) {
@@ -65,7 +81,6 @@ class PushNotificationHandler: NSObject {
     // MARK: - Topic Management
 
     func subscribeToTopic(_ topic: String) async -> Bool {
-        #if canImport(FirebaseMessaging)
         logger.info("Subscribing to topic: \(topic)")
 
         do {
@@ -77,14 +92,9 @@ class PushNotificationHandler: NSObject {
             logger.error("Failed to subscribe to topic \(topic): \(error.localizedDescription)")
             return false
         }
-        #else
-        logger.warning("Topic subscription disabled - Firebase packages not available")
-        return false
-        #endif
     }
 
     func unsubscribeFromTopic(_ topic: String) async -> Bool {
-        #if canImport(FirebaseMessaging)
         logger.info("Unsubscribing from topic: \(topic)")
 
         do {
@@ -96,10 +106,6 @@ class PushNotificationHandler: NSObject {
             logger.error("Failed to unsubscribe from topic \(topic): \(error.localizedDescription)")
             return false
         }
-        #else
-        logger.warning("Topic unsubscription disabled - Firebase packages not available")
-        return false
-        #endif
     }
 
     func getSubscribedTopics() async -> [String] {
@@ -148,12 +154,8 @@ extension PushNotificationHandler {
 
         logger.info("APNS token received: \(token)")
 
-        #if canImport(FirebaseMessaging)
         // Set APNS token for Firebase
         Messaging.messaging().apnsToken = deviceToken
-        #else
-        logger.warning("Firebase Messaging disabled - APNS token not set")
-        #endif
 
         handleTokenRefresh(token)
     }
@@ -165,7 +167,6 @@ extension PushNotificationHandler {
 
 // MARK: - Firebase Messaging Delegate
 
-#if canImport(FirebaseMessaging)
 extension PushNotificationHandler: MessagingDelegate {
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let fcmToken = fcmToken else { return }
@@ -175,4 +176,3 @@ extension PushNotificationHandler: MessagingDelegate {
         onTokenRefresh?(fcmToken)
     }
 }
-#endif

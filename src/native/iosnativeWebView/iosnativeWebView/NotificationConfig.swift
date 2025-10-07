@@ -37,6 +37,26 @@ struct NotificationConfig: Codable {
         self.data = data?.mapValues { AnyCodable($0) }
         self.actions = actions
     }
+
+    // Custom decoder to provide default values for missing fields
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Required fields
+        title = try container.decode(String.self, forKey: .title)
+        body = try container.decode(String.self, forKey: .body)
+
+        // Optional fields with defaults (matching Android behavior)
+        channel = try container.decodeIfPresent(String.self, forKey: .channel) ?? "default"
+        badge = try container.decodeIfPresent(Int.self, forKey: .badge)
+        largeImage = try container.decodeIfPresent(String.self, forKey: .largeImage)
+        style = try container.decodeIfPresent(String.self, forKey: .style) ?? "BASIC"
+        priority = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
+        vibrate = try container.decodeIfPresent(Bool.self, forKey: .vibrate) ?? true
+        autoCancel = try container.decodeIfPresent(Bool.self, forKey: .autoCancel) ?? true
+        data = try container.decodeIfPresent([String: AnyCodable].self, forKey: .data)
+        actions = try container.decodeIfPresent([NotificationAction].self, forKey: .actions)
+    }
 }
 
 struct NotificationAction: Codable {
@@ -143,8 +163,34 @@ struct AnyCodable: Codable {
 
 extension NotificationConfig {
     static func fromJSON(_ jsonString: String) -> NotificationConfig? {
-        guard let data = jsonString.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        guard let data = jsonString.data(using: .utf8) else {
+            print("❌ NotificationConfig: Failed to convert string to data")
+            return nil
+        }
+
+        do {
+            let decoder = JSONDecoder()
+            let config = try decoder.decode(NotificationConfig.self, from: data)
+            print("✅ NotificationConfig: Successfully decoded - title: \(config.title), body: \(config.body)")
+            return config
+        } catch {
+            print("❌ NotificationConfig: JSON decoding error: \(error)")
+            if let decodingError = error as? DecodingError {
+                switch decodingError {
+                case .keyNotFound(let key, let context):
+                    print("   Missing key '\(key.stringValue)' - \(context.debugDescription)")
+                case .typeMismatch(let type, let context):
+                    print("   Type mismatch for type '\(type)' - \(context.debugDescription)")
+                case .valueNotFound(let type, let context):
+                    print("   Value not found for type '\(type)' - \(context.debugDescription)")
+                case .dataCorrupted(let context):
+                    print("   Data corrupted - \(context.debugDescription)")
+                @unknown default:
+                    print("   Unknown decoding error")
+                }
+            }
+            return nil
+        }
     }
 
     func toJSON() -> String? {

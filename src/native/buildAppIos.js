@@ -213,9 +213,21 @@ enum ConfigConstants {
                 // Skip 'ios' and 'android' keys to avoid duplication
                 if (key === "ios" || key === "android") continue
 
+                if (key === "notifications") {
+                    progress.log(`Processing notifications config: ${JSON.stringify(value)}`, "info")
+                }
                 configContent += "\n" + generateSwiftProperty(key, value)
                 addedKeys.add(key)
             }
+        }
+
+        // Ensure Notifications.enabled always exists (default to false if not configured)
+        if (!addedKeys.has("notifications")) {
+            progress.log("Notifications not found in config, adding default (false)", "info")
+            configContent += "\n    enum Notifications {\n        static let enabled = false\n    }"
+            addedKeys.add("notifications")
+        } else {
+            progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
         }
 
         // Process iOS-specific config
@@ -517,178 +529,18 @@ async function cleanupNotificationAssets() {
         }
 
         // Remove GoogleService-Info.plist when notifications are disabled
-        const iosGoogleServicesPath = `${bundlePath}/GoogleService-Info.plist`
-        if (fs.existsSync(iosGoogleServicesPath)) {
-            fs.unlinkSync(iosGoogleServicesPath)
-            progress.log("Removed GoogleService-Info.plist from iOS project", "info")
-        }
+        // NOTE: Commented out - GoogleService-Info.plist is managed in Xcode project
+        // const iosGoogleServicesPath = `${bundlePath}/GoogleService-Info.plist`
+        // if (fs.existsSync(iosGoogleServicesPath)) {
+        //     fs.unlinkSync(iosGoogleServicesPath)
+        //     progress.log("Removed GoogleService-Info.plist from iOS project", "info")
+        // }
 
         progress.log("Cleaned up notification assets", "success")
     } catch (error) {
         progress.log(`Warning: Error cleaning notification assets: ${error.message}`, "warning")
     }
 }
-
-// async function addGoogleServicesCopyScript(isEnabled) {
-//     const projectPath = `${PROJECT_DIR}/${PROJECT_NAME}.xcodeproj/project.pbxproj`
-
-//     try {
-//         let projectContent = fs.readFileSync(projectPath, "utf8")
-//         const originalContent = projectContent
-
-//         // Marker comment to identify our script
-//         const scriptMarker = "Copy GoogleService-Info.plist to bundle"
-
-//         if (isEnabled) {
-//             // Check if script already exists
-//             if (projectContent.includes(scriptMarker)) {
-//                 progress.log("GoogleService-Info.plist copy script already configured", "info")
-//                 return
-//             }
-
-//             progress.log("Adding Run Script to copy GoogleService-Info.plist to bundle...", "info")
-
-//             // Generate UUIDs for the build phase (96 hex chars like Xcode)
-//             const generateUUID = () => {
-//                 return Array.from({ length: 24 }, () =>
-//                     Math.floor(Math.random() * 16)
-//                         .toString(16)
-//                         .toUpperCase()
-//                 ).join("")
-//             }
-
-//             const scriptPhaseUUID = generateUUID()
-
-//             // The shell script to copy GoogleService-Info.plist
-//             const shellScript = `# ${scriptMarker}
-// PLIST_PATH="$PROJECT_DIR/$PROJECT_NAME/GoogleService-Info.plist"
-// if [ -f "$PLIST_PATH" ]; then
-//   cp "$PLIST_PATH" "$\{BUILT_PRODUCTS_DIR\}/$\{PRODUCT_NAME\}.app/"
-//   echo "Copied GoogleService-Info.plist to app bundle"
-// else
-//   echo "Warning: GoogleService-Info.plist not found at $PLIST_PATH"
-// fi`
-
-//             // Create the PBXShellScriptBuildPhase section entry
-//             const scriptPhaseEntry = `\t\t${scriptPhaseUUID} /* ShellScript */ = {
-// \t\t\tisa = PBXShellScriptBuildPhase;
-// \t\t\tbuildActionMask = 2147483647;
-// \t\t\tfiles = (
-// \t\t\t);
-// \t\t\tinputFileListPaths = (
-// \t\t\t);
-// \t\t\tinputPaths = (
-// \t\t\t);
-// \t\t\tname = "Copy GoogleService-Info.plist";
-// \t\t\toutputFileListPaths = (
-// \t\t\t);
-// \t\t\toutputPaths = (
-// \t\t\t);
-// \t\t\trunOnlyForDeploymentPostprocessing = 0;
-// \t\t\tshellPath = /bin/sh;
-// \t\t\tshellScript = "${shellScript.replace(/\n/g, "\\n").replace(/"/g, '\\"')}";
-// \t\t};`
-
-//             // Find the main target's buildPhases array
-//             const targetBuildPhasesRegex =
-//                 /buildPhases = \(\n(\t\t\t\t[A-F0-9]+ \/\* Sources \*\/,\n)(\t\t\t\t[A-F0-9]+ \/\* Frameworks \*\/,\n)(\t\t\t\t[A-F0-9]+ \/\* Resources \*\/,\n)/
-
-//             const match = projectContent.match(targetBuildPhasesRegex)
-//             if (!match) {
-//                 throw new Error("Could not find main target buildPhases array in project.pbxproj")
-//             }
-
-//             // Insert the script phase UUID before Resources phase
-//             const updatedBuildPhases = `buildPhases = (\n${match[1]}${match[2]}\t\t\t\t${scriptPhaseUUID} /* ShellScript */,\n${match[3]}`
-//             projectContent = projectContent.replace(targetBuildPhasesRegex, updatedBuildPhases)
-
-//             // Add the script phase entry to the PBXShellScriptBuildPhase section
-//             // Find where to insert it - look for the end of PBXResourcesBuildPhase section
-//             const shellScriptSectionRegex = /\/\* End PBXShellScriptBuildPhase section \*\//
-//             if (shellScriptSectionRegex.test(projectContent)) {
-//                 // Section exists, add to it
-//                 projectContent = projectContent.replace(
-//                     shellScriptSectionRegex,
-//                     `${scriptPhaseEntry}\n/* End PBXShellScriptBuildPhase section */`
-//                 )
-//             } else {
-//                 // Section doesn't exist, create it
-//                 const resourcesSectionEnd = /\/\* End PBXResourcesBuildPhase section \*\//
-//                 projectContent = projectContent.replace(
-//                     resourcesSectionEnd,
-//                     `/* End PBXResourcesBuildPhase section */\n\n/* Begin PBXShellScriptBuildPhase section */\n${scriptPhaseEntry}\n/* End PBXShellScriptBuildPhase section */`
-//                 )
-//             }
-
-//             if (projectContent !== originalContent) {
-//                 fs.writeFileSync(projectPath, projectContent, "utf8")
-//                 progress.log(
-//                     "Successfully added Run Script phase to copy GoogleService-Info.plist",
-//                     "success"
-//                 )
-//             }
-//         } else {
-//             // Remove the script if it exists
-//             if (!projectContent.includes(scriptMarker)) {
-//                 progress.log(
-//                     "GoogleService-Info.plist copy script not found (already removed or never added)",
-//                     "info"
-//                 )
-//                 return
-//             }
-
-//             progress.log("Removing GoogleService-Info.plist copy script from project...", "info")
-
-//             // Find and remove the script phase UUID from buildPhases array
-//             const scriptUUIDRegex = /\t\t\t\t([A-F0-9]+) \/\* ShellScript \*\/,\n/g
-//             let scriptUUID = null
-//             let tempContent = projectContent
-
-//             // Find the UUID by looking for the script content
-//             const scriptSectionRegex =
-//                 /([A-F0-9]+) \/\* ShellScript \*\/ = \{[^}]*Copy GoogleService-Info\.plist[^}]*\};/
-//             const scriptMatch = projectContent.match(scriptSectionRegex)
-//             if (scriptMatch) {
-//                 scriptUUID = scriptMatch[1]
-
-//                 // Remove from buildPhases array
-//                 projectContent = projectContent.replace(
-//                     new RegExp(`\\t\\t\\t\\t${scriptUUID} /\\* ShellScript \\*/,\\n`),
-//                     ""
-//                 )
-
-//                 // Remove the script phase entry
-//                 projectContent = projectContent.replace(
-//                     new RegExp(`\\t\\t${scriptUUID} /\\* ShellScript \\*/ = \\{[^}]*\\};\\n`),
-//                     ""
-//                 )
-
-//                 // If PBXShellScriptBuildPhase section is now empty, remove it
-//                 const emptyShellScriptSection =
-//                     /\/\* Begin PBXShellScriptBuildPhase section \*\/\n\/\* End PBXShellScriptBuildPhase section \*\//
-//                 projectContent = projectContent.replace(emptyShellScriptSection, "")
-//                 // Also remove the extra newline
-//                 projectContent = projectContent.replace(/\n\n\n/g, "\n\n")
-//             }
-
-//             if (projectContent !== originalContent) {
-//                 fs.writeFileSync(projectPath, projectContent, "utf8")
-//                 progress.log("GoogleService-Info.plist copy script removed from project", "success")
-//             } else {
-//                 progress.log("No changes made to project", "info")
-//             }
-//         }
-//     } catch (error) {
-//         progress.log(
-//             `Warning: Could not manage GoogleService-Info.plist copy script: ${error.message}`,
-//             "warning"
-//         )
-//     }
-// }
-
-// Note: Firebase packages should be managed manually via Xcode
-// We don't automatically add/remove them to avoid project file corruption
-// The Swift code uses canImport(FirebaseCore) to handle optional Firebase
 
 async function processNotificationAssets(webviewConfig) {
     const hasNotificationConfig = !!webviewConfig.notifications?.enabled
@@ -697,19 +549,19 @@ async function processNotificationAssets(webviewConfig) {
         // Always clean up notification assets first
         await cleanupNotificationAssets()
 
-        // Manage GoogleService-Info.plist copy script
-        // await addGoogleServicesCopyScript(hasNotificationConfig)
-
         if (!hasNotificationConfig) {
             progress.log("Notifications disabled - skipped asset processing", "info")
             return
         }
 
         // Handle GoogleService-Info.plist file for Firebase
+        // NOTE: GoogleService-Info.plist is now managed directly in Xcode project
+        // Commenting out automatic copy logic - file should be added manually to Xcode
         // const hasGoogleServices = await handleGoogleServicesPlist()
         // if (!hasGoogleServices) {
         //     progress.log("Continuing without Firebase - only local notifications will work", "warning")
         // }
+        progress.log("GoogleService-Info.plist should be added to Xcode project manually", "info")
 
         // Process notification assets
         const iconsProcessed = await processNotificationIcons()

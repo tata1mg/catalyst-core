@@ -2,11 +2,8 @@ import Foundation
 import UserNotifications
 import UIKit
 import os
-
-#if canImport(Firebase) && canImport(FirebaseMessaging)
 import Firebase
 import FirebaseMessaging
-#endif
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NotificationManager")
 
@@ -22,19 +19,15 @@ class NotificationManager: ObservableObject {
         self.localHandler = LocalNotificationHandler(baseURL: ConfigConstants.url)
         self.pushHandler = PushNotificationHandler()
 
-        // initializeFirebase()
+        initializeFirebase()
         setupNotificationCenter()
         setupChannels()
     }
 
     private func initializeFirebase() {
-        #if canImport(Firebase) && canImport(FirebaseMessaging)
         FirebaseApp.configure()
         Messaging.messaging().delegate = pushHandler
         logger.info("Firebase initialized successfully")
-        #else
-        logger.warning("Firebase disabled - push notifications not available (Firebase packages not found)")
-        #endif
     }
 
     private func setupNotificationCenter() {
@@ -119,6 +112,27 @@ class NotificationManager: ObservableObject {
     // MARK: - Push Notifications
 
     func initializePush() async -> String? {
+        logger.info("🚀 initializePush called")
+
+        // Check if permissions are granted
+        let status = await checkPermissionStatus()
+        logger.info("📋 Permission status: \(status.rawValue)")
+
+        if status == .notDetermined {
+            // Request permission if not determined yet
+            logger.info("📝 Requesting notification permissions")
+            let granted = await requestPermission()
+            logger.info("✅ Permission granted: \(granted)")
+            if !granted {
+                logger.error("❌ Permission denied for push notifications")
+                return nil
+            }
+        } else if status != .authorized {
+            logger.error("❌ Push notifications not authorized. Status: \(status.rawValue)")
+            return nil
+        }
+
+        logger.info("🔄 Calling registerForPushNotifications")
         return await pushHandler.registerForPushNotifications()
     }
 
@@ -186,12 +200,11 @@ class NotificationManager: ObservableObject {
         let token = tokenParts.joined()
         logger.debug("APNS device token: \(token)")
 
-        handlePushToken(token)
-        #if canImport(FirebaseMessaging)
+        // Set APNS token to Firebase
         Messaging.messaging().apnsToken = deviceToken
-        #else
-        logger.warning("Firebase Messaging disabled - APNS token not registered")
-        #endif
+
+        // Notify waiting continuation
+        pushHandler.notifyAPNSTokenReceived()
     }
 
     func handleRegistrationFailure(_ error: Error) {

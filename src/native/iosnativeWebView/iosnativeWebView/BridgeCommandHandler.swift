@@ -16,6 +16,7 @@ private let commandLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "c
 // MARK: - Command Handler Delegate
 
 protocol BridgeCommandHandlerDelegate: AnyObject {
+    func sendStringCallback(eventName: String, data: String)
     func sendJSONCallback(eventName: String, data: [String: Any])
     func sendErrorCallback(eventName: String, error: String, code: String)
 }
@@ -28,6 +29,7 @@ class BridgeCommandHandler {
     private let imageHandler: ImageHandler
     private let filePickerHandler: FilePickerHandler
     private weak var delegate: BridgeCommandHandlerDelegate?
+    private let notificationManager = NotificationManager.shared
 
     init(viewController: UIViewController, imageHandler: ImageHandler, filePickerHandler: FilePickerHandler) {
         self.viewController = viewController
@@ -312,242 +314,240 @@ class BridgeCommandHandler {
 
     // TODO: replace json data parsing with file intent flow logic
     func requestNotificationPermission() {
-        iosnativeWebView.logger.debug("Notification permission requested")
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Notification permission requested but notifications are disabled in config")
+            delegate?.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: "DENIED")
+            return
+        }
+
+        commandLogger.debug("Notification permission requested")
 
         Task {
             let granted = await notificationManager.requestPermission()
             let status = granted ? "GRANTED" : "DENIED"
 
             DispatchQueue.main.async {
-                let json: [String: Any] = [
-                    "status": status,
-                    "granted": granted
-                ]
-
-                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                    self.sendCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: jsonString)
-                } else {
-                    let jsonString = "{\"status\": \"\(status)\", \"granted\": \(granted)}"
-                    self.sendCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: jsonString)
-                }
+                // Send plain string to match Android's BridgeUtils.notifyWeb format
+                self.delegate?.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: status)
+                commandLogger.debug("Notification permission granted: \(granted)")
             }
         }
     }
 
     func scheduleLocalNotification(_ configString: String?) {
-        guard let configString = configString,
-              let config = NotificationConfig.fromJSON(configString) else {
-            iosnativeWebView.logger.error("Invalid notification configuration")
-            let json: [String: Any] = [
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Local notification requested but notifications are disabled in config")
+            delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: [
                 "success": false,
-                "error": "Invalid configuration"
-            ]
-
-            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
-            } else {
-                let jsonString = "{\"success\": false, \"error\": \"Invalid configuration\"}"
-                sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
-            }
+                "error": "Notifications disabled in configuration"
+            ])
             return
         }
 
-        iosnativeWebView.logger.debug("Scheduling local notification")
+        // Log the raw input for debugging
+        if let configString = configString {
+            commandLogger.debug("Received notification config string: \(configString)")
+        } else {
+            commandLogger.error("Received nil config string")
+        }
+
+        guard let configString = configString,
+              let config = NotificationConfig.fromJSON(configString) else {
+            commandLogger.error("Invalid notification configuration - failed to parse JSON")
+            if let configString = configString {
+                commandLogger.error("Failed config string was: \(configString)")
+            }
+            delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: [
+                "success": false,
+                "error": "Invalid configuration"
+            ])
+            return
+        }
+
+        commandLogger.debug("Scheduling local notification")
         let notificationId = notificationManager.scheduleLocal(config)
 
-        iosnativeWebView.logger.debug("Local notification scheduled with ID: \(notificationId)")
+        commandLogger.debug("Local notification scheduled with ID: \(notificationId)")
 
         // Send back the notification ID like Android does
-        let json: [String: Any] = [
+        delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: [
             "notificationId": notificationId,
             "scheduled": true
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
-        } else {
-            let jsonString = "{\"notificationId\": \"\(notificationId)\", \"scheduled\": true}"
-            sendCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: jsonString)
-        }
+        ])
     }
 
     func cancelLocalNotification(_ notificationId: String?) {
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Cancel notification requested but notifications are disabled in config")
+            delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: [
+                "notificationId": notificationId ?? "",
+                "success": false,
+                "error": "Notifications disabled in configuration"
+            ])
+            return
+        }
+
         guard let notificationId = notificationId else {
-            iosnativeWebView.logger.error("Missing notification ID")
+            commandLogger.error("Missing notification ID")
             return
         }
 
         let success = notificationManager.cancelLocal(notificationId)
-        iosnativeWebView.logger.debug("Cancelled notification \(notificationId): \(success)")
+        commandLogger.debug("Cancelled notification \(notificationId): \(success)")
 
-        let json: [String: Any] = [
+        delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: [
             "notificationId": notificationId,
             "success": success
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            sendCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: jsonString)
-        } else {
-            let jsonString = "{\"notificationId\": \"\(notificationId)\", \"success\": \(success)}"
-            sendCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: jsonString)
-        }
+        ])
     }
 
     func registerForPushNotifications() {
-        iosnativeWebView.logger.debug("Registering for push notifications")
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Push notification registration requested but notifications are disabled in config")
+            delegate?.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
+                "success": false,
+                "error": "Notifications disabled in configuration"
+            ])
+            return
+        }
+
+        commandLogger.debug("Registering for push notifications")
 
         Task {
             let token = await notificationManager.initializePush()
 
             DispatchQueue.main.async {
                 if let token = token {
-                    let json: [String: Any] = [
+                    self.delegate?.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
                         "token": token,
                         "success": true
-                    ]
-
-                    if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
-                    } else {
-                        let jsonString = "{\"token\": \"\(token)\", \"success\": true}"
-                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
-                    }
+                    ])
                 } else {
-                    let json: [String: Any] = [
+                    self.delegate?.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
                         "success": false,
                         "error": "Failed to get push token"
-                    ]
-
-                    if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
-                    } else {
-                        let jsonString = "{\"success\": false, \"error\": \"Failed to get push token\"}"
-                        self.sendCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: jsonString)
-                    }
+                    ])
                 }
             }
         }
     }
 
     func subscribeToTopic(_ configString: String?) {
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Topic subscription requested but notifications are disabled in config")
+            delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
+                "success": false,
+                "error": "Notifications disabled in configuration",
+                "action": "subscribe"
+            ])
+            return
+        }
+
         guard let configString = configString,
               let data = configString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let topic = json["topic"] as? String else {
-            iosnativeWebView.logger.error("Invalid topic subscription configuration")
-            let json: [String: Any] = [
+            commandLogger.error("Invalid topic subscription configuration")
+            delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                 "success": false,
                 "error": "Invalid topic configuration"
-            ]
-
-            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-            } else {
-                let jsonString = "{\"success\": false, \"error\": \"Invalid topic configuration\"}"
-                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-            }
+            ])
             return
         }
 
-        iosnativeWebView.logger.debug("Subscribing to topic: \(topic)")
+        commandLogger.debug("Subscribing to topic: \(topic)")
 
         Task {
             let success = await notificationManager.subscribeToTopic(topic)
 
             DispatchQueue.main.async {
-                let json: [String: Any] = [
+                self.delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                     "topic": topic,
                     "success": success,
                     "action": "subscribe"
-                ]
-
-                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-                } else {
-                    let jsonString = "{\"topic\": \"\(topic)\", \"success\": \(success), \"action\": \"subscribe\"}"
-                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-                }
+                ])
             }
         }
     }
 
     func unsubscribeFromTopic(_ configString: String?) {
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Topic unsubscription requested but notifications are disabled in config")
+            delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
+                "success": false,
+                "error": "Notifications disabled in configuration",
+                "action": "unsubscribe"
+            ])
+            return
+        }
+
         guard let configString = configString,
               let data = configString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let topic = json["topic"] as? String else {
-            iosnativeWebView.logger.error("Invalid topic unsubscription configuration")
-            let json: [String: Any] = [
+            commandLogger.error("Invalid topic unsubscription configuration")
+            delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                 "success": false,
                 "error": "Invalid topic configuration"
-            ]
-
-            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-            } else {
-                let jsonString = "{\"success\": false, \"error\": \"Invalid topic configuration\"}"
-                sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-            }
+            ])
             return
         }
 
-        iosnativeWebView.logger.debug("Unsubscribing from topic: \(topic)")
+        commandLogger.debug("Unsubscribing from topic: \(topic)")
 
         Task {
             let success = await notificationManager.unsubscribeFromTopic(topic)
 
             DispatchQueue.main.async {
-                let json: [String: Any] = [
+                self.delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                     "topic": topic,
                     "success": success,
                     "action": "unsubscribe"
-                ]
-
-                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-                } else {
-                    let jsonString = "{\"topic\": \"\(topic)\", \"success\": \(success), \"action\": \"unsubscribe\"}"
-                    self.sendCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: jsonString)
-                }
+                ])
             }
         }
     }
 
     func getSubscribedTopics() {
-        iosnativeWebView.logger.debug("Getting subscribed topics")
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Get subscribed topics requested but notifications are disabled in config")
+            delegate?.sendJSONCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: [
+                "topics": [],
+                "success": false,
+                "error": "Notifications disabled in configuration"
+            ])
+            return
+        }
+
+        commandLogger.debug("Getting subscribed topics")
 
         Task {
             let topics = await notificationManager.getSubscribedTopics()
 
             DispatchQueue.main.async {
-                let json: [String: Any] = [
+                self.delegate?.sendJSONCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: [
                     "topics": topics,
                     "success": true
-                ]
-
-                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                    self.sendCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: jsonString)
-                } else {
-                    let jsonString = "{\"topics\": [], \"success\": true}"
-                    self.sendCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: jsonString)
-                }
+                ])
             }
         }
     }
 
     @objc func updateBadge(_ count: Int) {
-        iosnativeWebView.logger.debug("Updating badge count to: \(count)")
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Update badge requested but notifications are disabled in config")
+            return
+        }
+
+        commandLogger.debug("Updating badge count to: \(count)")
         notificationManager.updateBadge(count)
     }
 }

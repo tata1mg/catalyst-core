@@ -81,19 +81,19 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
 
     deinit {
         unregister()
-        iosnativeWebView.logger.debug("NativeBridge deallocated")
+        logger.debug("NativeBridge deallocated")
     }
 
     private func setupNotificationNavigationHandler() {
-        notificationManager.setNavigationHandler { [weak self] url in
+        notificationManager.setNavigationHandler { [weak self] (url: URL) in
             DispatchQueue.main.async {
                 guard let webView = self?.webView else {
-                    iosnativeWebView.logger.error("WebView not available for notification navigation")
+                    logger.error("WebView not available for notification navigation")
                     return
                 }
                 let request = URLRequest(url: url)
                 webView.load(request)
-                iosnativeWebView.logger.info("Navigating to notification URL: \(url.absoluteString)")
+                logger.info("Navigating to notification URL: \(url.absoluteString)")
             }
         }
     }
@@ -123,6 +123,10 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     }
 
     // MARK: - BridgeCommandHandlerDelegate
+
+    internal func sendStringCallback(eventName: String, data: String) {
+        jsInterface.sendStringCallback(eventName: eventName, data: data)
+    }
 
     internal func sendJSONCallback(eventName: String, data: [String: Any]) {
         jsInterface.sendJSONCallback(eventName: eventName, data: data)
@@ -159,7 +163,7 @@ extension NativeBridge: WKScriptMessageHandler {
         }
 
         let params = validationResult.params
-        iosnativeWebView.logger.debug("Received validated command: \(command)")
+        logger.debug("Received validated command: \(command)")
 
         // Execute commands with proper error handling
         executeCommand(command, params: params)
@@ -197,27 +201,27 @@ extension NativeBridge: WKScriptMessageHandler {
             case "requestNotificationPermission":
                 commandHandler.requestNotificationPermission()
             case "scheduleLocalNotification":
-                let config = body["config"] as? String
+                let config = delegateHandler.extractStringParam(from: params)
                 commandHandler.scheduleLocalNotification(config)
             case "cancelLocalNotification":
-                let notificationId = body["notificationId"] as? String
+                let notificationId = delegateHandler.extractStringParam(from: params)
                 commandHandler.cancelLocalNotification(notificationId)
             case "registerForPushNotifications":
                 commandHandler.registerForPushNotifications()
             case "subscribeToTopic":
-                let config = body["config"] as? String
+                let config = delegateHandler.extractStringParam(from: params)
                 commandHandler.subscribeToTopic(config)
             case "unsubscribeFromTopic":
-                let config = body["config"] as? String
+                let config = delegateHandler.extractStringParam(from: params)
                 commandHandler.unsubscribeFromTopic(config)
             case "getSubscribedTopics":
                 commandHandler.getSubscribedTopics()
             default:
                 // This should never happen due to validation, but keeping for safety
-                iosnativeWebView.logger.error("Unexpected command reached execution: \(command)")
+                logger.error("Unexpected command reached execution: \(command)")
             }
         } catch {
-            iosnativeWebView.logger.error("Error executing command \(command): \(error.localizedDescription)")
+            logger.error("Error executing command \(command): \(error.localizedDescription)")
         }
     }
 }
