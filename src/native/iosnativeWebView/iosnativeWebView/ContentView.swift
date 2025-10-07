@@ -19,8 +19,7 @@ struct ContentView: View {
             if webViewModel.isLoading {
                 if ConfigConstants.splashScreenEnabled {
                     // Show splash screen if enabled in configuration
-                    SplashView( webViewModel: webViewModel)
-                        .zIndex(1)
+                  SplashView(webViewModel: webViewModel).zIndex(1)
                 } else {
                     // Show old progress bar if splash screen is disabled
                     VStack {
@@ -43,6 +42,7 @@ struct ContentView: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.8), value: webViewModel.isLoading)
         .onAppear {
             logger.info("ContentView appeared")
         }
