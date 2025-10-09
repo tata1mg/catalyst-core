@@ -106,11 +106,11 @@ enum ConfigConstants {
         }
 
         // Add URL whitelisting configuration if it exists
-        if (iosConfig.accessControl) {
-            const accessControl = iosConfig.accessControl
+        if (WEBVIEW_CONFIG.accessControl) {
+            const accessControl = WEBVIEW_CONFIG.accessControl
 
             configContent += `
-    static let accessControlEnabled = ${accessControl.enabled || false}`
+    static let accessControlEnabled = ${accessControl.enable || false}`
 
             if (accessControl.allowedUrls && Array.isArray(accessControl.allowedUrls)) {
                 const allowedUrls = accessControl.allowedUrls.map((url) => `"${url}"`).join(", ")
