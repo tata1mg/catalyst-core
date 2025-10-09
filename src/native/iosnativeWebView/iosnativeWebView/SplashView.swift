@@ -2,30 +2,39 @@ import SwiftUI
 
 struct SplashView: View {
     @ObservedObject var webViewModel: WebViewModel
+    @StateObject private var splashViewModel = SplashViewModel()
     
     var body: some View {
-        Color(hex: ConfigConstants.splashScreenBackgroundColor)
-            .ignoresSafeArea(.all)
-            .overlay(
-                VStack(spacing: 20) {
-                    // Custom splash image from public folder or app icon fallback
-                    if let splashImage = loadSplashImage() {
-                        Image(uiImage: splashImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: ConfigConstants.splashScreenImageWidth, height: ConfigConstants.splashScreenImageHeight)
-                            .cornerRadius(ConfigConstants.splashScreenCornerRadius)
-                    } else {
-                        // Fallback to system icon
-                        Image(systemName: "app.fill")
-                            .font(.system(size: 80))
-                            .foregroundColor(.primary)
+        if splashViewModel.shouldShowSplash {
+            Color(hex: ConfigConstants.splashScreenBackgroundColor)
+                .ignoresSafeArea(.all)
+                .overlay(
+                    VStack(spacing: 20) {
+                        // Custom splash image from public folder or app icon fallback
+                        if let splashImage = loadSplashImage() {
+                            Image(uiImage: splashImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: ConfigConstants.splashScreenImageWidth, height: ConfigConstants.splashScreenImageHeight)
+                                .cornerRadius(ConfigConstants.splashScreenCornerRadius)
+                        } else {
+                            // Fallback to system icon
+                            Image(systemName: "app.fill")
+                                .font(.system(size: 80))
+                                .foregroundColor(.primary)
+                        }
                     }
-                    
-                  
+                )
+                .onReceive(webViewModel.$loadingProgress) { progress in
+                    splashViewModel.updateProgress(progress)
                 }
-            )
-         
+                .onReceive(webViewModel.$isLoading) { isLoading in
+                    // If WebView stops loading and no duration is set, dismiss splash
+                    if !isLoading && ConfigConstants.splashScreenDuration == nil {
+                        splashViewModel.forceDismiss()
+                    }
+                }
+        }
     }
     
     // Load custom splash screen image from Assets.xcassets (copied from public folder during build)

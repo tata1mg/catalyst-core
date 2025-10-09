@@ -21,6 +21,7 @@
 		E93412182D8AC90A0009FD6D /* NativeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93412172D8AC90A0009FD6D /* NativeBridge.swift */; };
 		E934121A2D926AE80009FD6D /* ImageHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93412192D926AE80009FD6D /* ImageHandler.swift */; };
 		E934121C2D926AE80009FD6D /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E934121B2D926AE80009FD6D /* SplashView.swift */; };
+		E934121E2D926AE90009FD6D /* SplashViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E934121D2D926AE90009FD6D /* SplashViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +61,7 @@
 		E93412172D8AC90A0009FD6D /* NativeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBridge.swift; sourceTree = "<group>"; };
 		E93412192D926AE80009FD6D /* ImageHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageHandler.swift; sourceTree = "<group>"; };
 		E934121B2D926AE80009FD6D /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
+		E934121D2D926AE90009FD6D /* SplashViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,6 +121,7 @@
 				47F3CABC2C63A0E9007CF14B /* URLWhitelistManager.swift */,
 				47F3CABD2C63A05C007CF14B /* ConfigConstants.swift */,
 				E934121B2D926AE80009FD6D /* SplashView.swift */,
+				E934121D2D926AE90009FD6D /* SplashViewModel.swift */,
 				4777D5482C61EC1500E85AC6 /* Info.plist */,
 				4777D51E2C60B87500E85AC6 /* iosnativeWebViewApp.swift */,
 				4777D5202C60B87500E85AC6 /* ContentView.swift */,
@@ -279,6 +282,7 @@
 				47A91A472CD0D39100419554 /* WebViewNavigationDelegate.swift in Sources */,
 				4777D51F2C60B87500E85AC6 /* iosnativeWebViewApp.swift in Sources */,
 				E934121C2D926AE80009FD6D /* SplashView.swift in Sources */,
+				E934121E2D926AE90009FD6D /* SplashViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
