@@ -706,7 +706,7 @@ async function launchIOSSimulator(simulatorName) {
 
 async function copySplashscreenAssets() {
     try {
-        const publicDir = `${process.env.PWD}/public`
+        const publicDir = `${process.env.PWD}/public/ios`
         const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
 
         // Check if splash screen is configured
@@ -767,7 +767,7 @@ async function copySplashscreenAssets() {
 
 async function copyAppIcon() {
     try {
-        const publicDir = `${process.env.PWD}/public/iosIcons`
+        const publicDir = `${process.env.PWD}/public/ios/appIcons`
         const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
         const iconSetDir = `${assetsDir}/AppIcon.appiconset`
 
@@ -803,9 +803,7 @@ async function copyAppIcon() {
                     const fullPath = path.join(dir, item)
                     const stat = fs.statSync(fullPath)
 
-                    if (stat.isDirectory()) {
-                        results = results.concat(findImagesRecursively(fullPath, extensions))
-                    } else if (stat.isFile()) {
+                    if (stat.isFile()) {
                         const ext = path.extname(item).toLowerCase().slice(1)
                         if (extensions.includes(ext)) {
                             results.push(fullPath)
