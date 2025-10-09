@@ -15,13 +15,23 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView,
                 decidePolicyFor navigationAction: WKNavigationAction,
                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        
+
         guard let url = navigationAction.request.url else {
             logger.info("⚠️ No URL in navigation action")
             decisionHandler(.allow)
             return
         }
-        logWithTimestamp("🌐 Navigation requested to: \(url.absoluteString)")
+
+        let httpMethod = navigationAction.request.httpMethod?.uppercased() ?? "GET"
+        let hasBody = navigationAction.request.httpBody != nil || navigationAction.request.httpBodyStream != nil
+        let bodySize = navigationAction.request.httpBody?.count ?? 0
+        let bodyPreview = navigationAction.request.httpBody != nil ? String(data: navigationAction.request.httpBody!, encoding: .utf8) ?? "<binary>" : "<none>"
+
+        logWithTimestamp("🌐 Navigation requested: \(httpMethod) \(url.absoluteString)")
+        logger.info("📦 Request details - Method: \(httpMethod), HasBody: \(hasBody), BodySize: \(bodySize) bytes")
+        if bodySize > 0 && bodySize < 1000 {
+            logger.info("📄 Body preview: \(bodyPreview)")
+        }
 
         if URLWhitelistManager.shared.isAccessControlEnabled {
 
@@ -49,7 +59,11 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
 
         Task {
-            if CacheManager.shared.shouldCacheURL(url) {
+            // Only cache GET requests - skip caching for POST/PUT/PATCH/DELETE
+            let isCacheableMethod = httpMethod == "GET"
+            logger.info("🔍 Cache check - Method: \(httpMethod), isCacheable: \(isCacheableMethod)")
+
+            if isCacheableMethod && CacheManager.shared.shouldCacheURL(url) {
                 logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
 
                 let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
@@ -80,7 +94,11 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     break
                 }
             } else {
-                logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
+                if !isCacheableMethod {
+                    logger.info("⏭️ Skipping cache for non-GET request (\(httpMethod)): \(url.absoluteString)")
+                } else {
+                    logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
+                }
             }
             
             await MainActor.run {

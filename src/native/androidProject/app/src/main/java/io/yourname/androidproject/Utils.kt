@@ -113,7 +113,7 @@ fun isExternalDomain(url: String, allowedUrls: List<String>): Boolean {
             val schemeMatches = urlScheme.equals(patternScheme, ignoreCase = true)
             val hostMatches = if (patternHost.startsWith("*.")) {
                 val domain = patternHost.substring(2)
-                urlHost.equals(domain, ignoreCase = true) || urlHost.endsWith(".*domain", ignoreCase = true)
+                urlHost.equals(domain, ignoreCase = true) || urlHost.endsWith(".$domain", ignoreCase = true)
             } else {
                 urlHost.equals(patternHost, ignoreCase = true)
             }
