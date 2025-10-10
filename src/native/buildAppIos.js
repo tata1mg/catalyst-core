@@ -115,82 +115,229 @@ async function getBootedSimulatorInfo() {
     }
 }
 
+async function generatePackageSwift() {
+    try {
+        const crypto = require("crypto")
+        const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
+
+        progress.log(`🔧 Generating Package.swift (notifications: ${isNotificationsEnabled})`, "info")
+
+        // Create hash of current config to detect changes
+        const configHash = crypto
+            .createHash("md5")
+            .update(JSON.stringify({ notifications: isNotificationsEnabled }))
+            .digest("hex")
+
+        const hashFilePath = path.join(PROJECT_DIR, ".package-config-hash")
+        const targetPath = path.join(PROJECT_DIR, "Package.swift")
+        let shouldUpdate = true
+
+        // Check if we need to update based on config change
+        if (fs.existsSync(hashFilePath)) {
+            const previousHash = fs.readFileSync(hashFilePath, "utf8")
+            if (previousHash === configHash) {
+                shouldUpdate = false
+                progress.log("Package.swift already up to date", "info")
+            }
+        }
+
+        // Ensure Package.swift exists even if hash matches
+        if (!fs.existsSync(targetPath)) {
+            shouldUpdate = true
+            progress.log("Package.swift missing, will generate it now", "info")
+        }
+
+        if (shouldUpdate) {
+            progress.log("Generating Package.swift dynamically", "info")
+
+            // Build the Package.swift content dynamically
+            let packageContent = `// swift-tools-version: 5.9
+// Auto-generated Package.swift - DO NOT EDIT MANUALLY
+// Generated based on config: notifications.enabled = ${isNotificationsEnabled}
+import PackageDescription
+
+let package = Package(
+    name: "iosnativeWebView",
+    platforms: [.iOS(.v17)],
+    products: [
+        .library(name: "CatalystCore", targets: ["CatalystCore"])`
+
+            // Add CatalystNotifications product only if enabled
+            if (isNotificationsEnabled) {
+                packageContent += `,
+        .library(name: "CatalystNotifications", targets: ["CatalystNotifications"])`
+            }
+
+            packageContent += `
+    ],
+    dependencies: [
+        .package(url: "https://github.com/kylef/JSONSchema.swift", from: "0.6.0")`
+
+            // Add Firebase dependency only if notifications enabled
+            if (isNotificationsEnabled) {
+                packageContent += `,
+        .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "12.3.0")`
+            }
+
+            packageContent += `
+    ],
+    targets: [
+        // Core functionality (WebView, bridge, utils, constants)
+        .target(
+            name: "CatalystCore",
+            dependencies: [
+                .product(name: "JSONSchema", package: "JSONSchema.swift")
+            ],
+            path: "Sources/Core",
+            exclude: ["App"]
+        )`
+
+            // Add CatalystNotifications target only if enabled
+            if (isNotificationsEnabled) {
+                packageContent += `,
+        // Notifications functionality (optional, includes Firebase)
+        .target(
+            name: "CatalystNotifications",
+            dependencies: [
+                "CatalystCore",
+                .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
+                .product(name: "FirebaseMessaging", package: "firebase-ios-sdk")
+            ],
+            path: "Sources/CatalystNotifications"
+        )`
+            }
+
+            packageContent += `
+    ]
+)
+`
+
+            // Write the generated Package.swift
+            fs.writeFileSync(targetPath, packageContent, "utf8")
+            progress.log(
+                `Generated Package.swift with ${isNotificationsEnabled ? "notifications enabled" : "notifications disabled"}`,
+                "success"
+            )
+
+            // Save hash for future comparison
+            fs.writeFileSync(hashFilePath, configHash)
+
+            // Force Xcode to re-resolve packages (clean caches to avoid stale pins)
+            progress.log("Resolving package dependencies...", "info")
+            try {
+                // Clear SPM build and resolution caches
+                execSync(`cd "${PROJECT_DIR}" && rm -rf .build`, { stdio: "ignore" })
+                try {
+                    fs.rmSync(path.join(PROJECT_DIR, "Package.resolved"), { force: true })
+                } catch {
+                    progress.log("")
+                }
+                execSync(`cd "${PROJECT_DIR}" && rm -rf .swiftpm`, { stdio: "ignore" })
+
+                // Resolve using -project flag to ensure correct project context
+                const projectPath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`)
+                execSync(
+                    `cd "${PROJECT_DIR}" && xcodebuild -resolvePackageDependencies -project "${projectPath}" -scheme "${SCHEME_NAME}"`,
+                    {
+                        stdio: "inherit",
+                    }
+                )
+                progress.log("Package dependencies resolved successfully", "success")
+            } catch (error) {
+                progress.log(`Warning: Package resolution may have failed: ${error.message}`, "warning")
+            }
+        }
+
+        progress.log("✅ Package.swift ready", "success")
+    } catch (error) {
+        progress.log(`❌ Failed to generate Package.swift: ${error.message}`, "error")
+        throw error
+    }
+}
+
 async function generateConfigConstants() {
     progress.start("config")
     try {
-        const configOutputPath = path.join(PROJECT_DIR, PROJECT_NAME, "ConfigConstants.swift")
+        // SPM structure: write to Sources/Core/Constants/
+        const configOutputPath = path.join(
+            PROJECT_DIR,
+            "Sources",
+            "Core",
+            "Constants",
+            "ConfigConstants.swift"
+        )
 
         const configDir = path.dirname(configOutputPath)
         if (!fs.existsSync(configDir)) {
             fs.mkdirSync(configDir, { recursive: true })
         }
 
-        // Initialize base config with required URL
+        // Initialize base config with required URL (with public access for SPM)
         let configContent = `// This file is auto-generated. Do not edit.
 import Foundation
 
-enum ConfigConstants {
-    static let url = "${url}"`
+public enum ConfigConstants {
+    public static let url = "${url}"`
 
         // Function to convert JSON value to Swift property
         // eslint-disable-next-line no-inner-declarations
         function generateSwiftProperty(key, value, indent = "    ") {
             if (value === null || value === undefined) {
-                return `${indent}static let ${key}: String? = nil`
+                return `${indent}public static let ${key}: String? = nil`
             }
 
             // Special handling for cachePattern - always convert to array
             if (key === "cachePattern") {
                 if (typeof value === "string") {
                     // Convert single string to array
-                    return `${indent}static let ${key}: [String] = ["${value}"]`
+                    return `${indent}public static let ${key}: [String] = ["${value}"]`
                 } else if (Array.isArray(value)) {
                     const arrayValues = value.map((v) => `"${v}"`).join(", ")
-                    return `${indent}static let ${key}: [String] = [${arrayValues}]`
+                    return `${indent}public static let ${key}: [String] = [${arrayValues}]`
                 }
             }
 
             if (typeof value === "string") {
-                return `${indent}static let ${key} = "${value}"`
+                return `${indent}public static let ${key} = "${value}"`
             }
 
             if (typeof value === "number") {
                 return Number.isInteger(value)
-                    ? `${indent}static let ${key} = ${value}`
-                    : `${indent}static let ${key} = ${value}`
+                    ? `${indent}public static let ${key} = ${value}`
+                    : `${indent}public static let ${key} = ${value}`
             }
 
             if (typeof value === "boolean") {
-                return `${indent}static let ${key} = ${value}`
+                return `${indent}public static let ${key} = ${value}`
             }
 
             if (Array.isArray(value)) {
                 if (value.length === 0) {
-                    return `${indent}static let ${key}: [String] = []`
+                    return `${indent}public static let ${key}: [String] = []`
                 }
 
                 // Determine array type from first element
                 const firstElement = value[0]
                 if (typeof firstElement === "string") {
                     const arrayValues = value.map((v) => `"${v}"`).join(", ")
-                    return `${indent}static let ${key}: [String] = [${arrayValues}]`
+                    return `${indent}public static let ${key}: [String] = [${arrayValues}]`
                 } else if (typeof firstElement === "number") {
                     const arrayType = Number.isInteger(firstElement) ? "Int" : "Double"
                     const arrayValues = value.join(", ")
-                    return `${indent}static let ${key}: [${arrayType}] = [${arrayValues}]`
+                    return `${indent}public static let ${key}: [${arrayType}] = [${arrayValues}]`
                 } else if (typeof firstElement === "boolean") {
                     const arrayValues = value.join(", ")
-                    return `${indent}static let ${key}: [Bool] = [${arrayValues}]`
+                    return `${indent}public static let ${key}: [Bool] = [${arrayValues}]`
                 } else {
                     // Mixed array - convert to strings
                     const arrayValues = value.map((v) => `"${v}"`).join(", ")
-                    return `${indent}static let ${key}: [String] = [${arrayValues}]`
+                    return `${indent}public static let ${key}: [String] = [${arrayValues}]`
                 }
             }
 
             if (typeof value === "object" && value !== null) {
-                // Generate nested enum for objects
-                let nestedContent = `${indent}enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`
+                // Generate nested enum for objects (public for SPM)
+                let nestedContent = `${indent}public enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`
 
                 for (const [nestedKey, nestedValue] of Object.entries(value)) {
                     nestedContent += generateSwiftProperty(nestedKey, nestedValue, indent + "    ") + "\n"
@@ -201,7 +348,7 @@ enum ConfigConstants {
             }
 
             // Fallback to string
-            return `${indent}static let ${key} = "${value}"`
+            return `${indent}public static let ${key} = "${value}"`
         }
 
         // Track keys already added to avoid duplicates
@@ -224,7 +371,8 @@ enum ConfigConstants {
         // Ensure Notifications.enabled always exists (default to false if not configured)
         if (!addedKeys.has("notifications")) {
             progress.log("Notifications not found in config, adding default (false)", "info")
-            configContent += "\n    enum Notifications {\n        static let enabled = false\n    }"
+            configContent +=
+                "\n    public enum Notifications {\n        public static let enabled = false\n    }"
             addedKeys.add("notifications")
         } else {
             progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
@@ -267,49 +415,50 @@ const NOTIFICATION_SOUNDS = [
     { sourceName: "notification-sound-urgent", resourceName: "notification_sound_urgent" },
 ]
 
-// async function handleGoogleServicesPlist() {
-//     try {
-//         const rootGoogleServicesPath = `${process.env.PWD}/GoogleService-Info.plist`
-//         const iosGoogleServicesPath = `${PROJECT_DIR}/${PROJECT_NAME}/GoogleService-Info.plist`
+async function handleGoogleServicesPlist() {
+    try {
+        const rootGoogleServicesPath = `${process.env.PWD}/GoogleService-Info.plist`
+        const iosGoogleServicesPath = `${PROJECT_DIR}/${PROJECT_NAME}/GoogleService-Info.plist`
 
-//         // Check if GoogleService-Info.plist exists in the root directory
-//         if (fs.existsSync(rootGoogleServicesPath)) {
-//             progress.log("Found GoogleService-Info.plist in root directory", "info")
+        // Check if GoogleService-Info.plist exists in the root directory
+        if (fs.existsSync(rootGoogleServicesPath)) {
+            progress.log("Found GoogleService-Info.plist in root directory", "info")
 
-//             // Create the directory if it doesn't exist
-//             const targetDir = path.dirname(iosGoogleServicesPath)
-//             if (!fs.existsSync(targetDir)) {
-//                 fs.mkdirSync(targetDir, { recursive: true })
-//             }
+            // Create the directory if it doesn't exist
+            const targetDir = path.dirname(iosGoogleServicesPath)
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true })
+            }
 
-//             // Copy the file to the iOS project
-//             fs.copyFileSync(rootGoogleServicesPath, iosGoogleServicesPath)
-//             progress.log("Copied GoogleService-Info.plist to iOS project", "success")
+            // Copy the file to the iOS project
+            fs.copyFileSync(rootGoogleServicesPath, iosGoogleServicesPath)
+            progress.log("Copied GoogleService-Info.plist to iOS project", "success")
 
-//             return true
-//         } else if (fs.existsSync(iosGoogleServicesPath)) {
-//             progress.log("GoogleService-Info.plist already exists in iOS project", "info")
-//             return true
-//         } else {
-//             progress.log(
-//                 "GoogleService-Info.plist not found - Firebase push notifications will not work",
-//                 "warning"
-//             )
-//             progress.log(
-//                 "Place GoogleService-Info.plist in project root or src/native/iosnativeWebView/iosnativeWebView/",
-//                 "info"
-//             )
-//             return false
-//         }
-//     } catch (error) {
-//         // Critical error if file exists but can't be copied
-//         if (error.code === "EACCES" && fs.existsSync(rootGoogleServicesPath)) {
-//             throw new Error(`Permission denied copying GoogleService-Info.plist: ${error.message}`)
-//         }
-//         progress.log(`Warning: Error handling GoogleService-Info.plist: ${error.message}`, "warning")
-//         return false
-//     }
-// }
+            return true
+        } else if (fs.existsSync(iosGoogleServicesPath)) {
+            progress.log("GoogleService-Info.plist already exists in iOS project", "info")
+            return true
+        } else {
+            progress.log(
+                "GoogleService-Info.plist not found - Firebase push notifications will not work",
+                "warning"
+            )
+            progress.log(
+                "Place GoogleService-Info.plist in project root or src/native/iosnativeWebView/iosnativeWebView/",
+                "info"
+            )
+            return false
+        }
+    } catch (error) {
+        // Critical error if file exists but can't be copied
+        const rootGoogleServicesPath = `${process.env.PWD}/GoogleService-Info.plist`
+        if (error.code === "EACCES" && fs.existsSync(rootGoogleServicesPath)) {
+            throw new Error(`Permission denied copying GoogleService-Info.plist: ${error.message}`)
+        }
+        progress.log(`Warning: Error handling GoogleService-Info.plist: ${error.message}`, "warning")
+        return false
+    }
+}
 
 async function validateNotificationAsset(filePath, assetType) {
     const stats = fs.statSync(filePath)
@@ -555,13 +704,10 @@ async function processNotificationAssets(webviewConfig) {
         }
 
         // Handle GoogleService-Info.plist file for Firebase
-        // NOTE: GoogleService-Info.plist is now managed directly in Xcode project
-        // Commenting out automatic copy logic - file should be added manually to Xcode
-        // const hasGoogleServices = await handleGoogleServicesPlist()
-        // if (!hasGoogleServices) {
-        //     progress.log("Continuing without Firebase - only local notifications will work", "warning")
-        // }
-        progress.log("GoogleService-Info.plist should be added to Xcode project manually", "info")
+        const hasGoogleServices = await handleGoogleServicesPlist()
+        if (!hasGoogleServices) {
+            progress.log("Continuing without Firebase - only local notifications will work", "warning")
+        }
 
         // Process notification assets
         const iconsProcessed = await processNotificationIcons()
@@ -1124,13 +1270,13 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
     const destinationWithUDID = `platform=iOS Simulator,id=${bootedInfo.udid}`
     console.log(`Building with destination: ${destinationWithUDID}`)
 
-    // Notifications are now controlled via canImport() - no need for compilation flags
+    // Notifications are controlled via Package.swift - canImport() detects availability
     const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
 
     if (isNotificationsEnabled) {
-        progress.log("Building with notifications enabled (using canImport(Firebase))", "info")
+        progress.log("Building with notifications enabled (CatalystNotifications module included)", "info")
     } else {
-        progress.log("Building with notifications disabled (Firebase packages removed)", "info")
+        progress.log("Building without notifications (Firebase excluded)", "info")
     }
 
     const buildCommand = `xcodebuild \
@@ -1166,6 +1312,15 @@ async function buildProjectForPhysicalDevice(scheme, bundleId, derivedDataPath, 
     const projectPath = `${process.cwd()}/${projectName}.xcodeproj`
     if (!require("fs").existsSync(projectPath)) {
         throw new Error(`Xcode project not found at: ${projectPath}. Current directory: ${process.cwd()}`)
+    }
+
+    // Notifications are controlled via Package.swift - canImport() detects availability
+    const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
+
+    if (isNotificationsEnabled) {
+        progress.log("Building with notifications enabled (CatalystNotifications module included)", "info")
+    } else {
+        progress.log("Building without notifications (Firebase excluded)", "info")
     }
 
     // Working build command based on successful test (without extra BUILD_DIR params that might cause issues)
@@ -1402,6 +1557,9 @@ async function buildForIOS() {
     const originalDir = process.cwd()
 
     try {
+        // Generate Package.swift first (before config, so package resolution happens early)
+        await generatePackageSwift()
+
         await generateConfigConstants()
 
         // Process notification assets
