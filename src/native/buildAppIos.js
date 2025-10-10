@@ -1225,7 +1225,7 @@ async function buildForIOS() {
 
 async function copySplashscreenAssets() {
     try {
-        const publicDir = `${process.env.PWD}/public`
+        const publicDir = `${process.env.PWD}/public/ios`
         const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
 
         // Check if splash screen is configured

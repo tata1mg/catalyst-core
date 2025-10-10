@@ -37,6 +37,7 @@
 		E997B6712E97918E008C7F55 /* DeviceInfoUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = E997B66F2E97918E008C7F55 /* DeviceInfoUtils.swift */; };
 		E997B6722E97918E008C7F55 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E997B6702E97918E008C7F55 /* SplashView.swift */; };
 		E997B6742E979212008C7F55 /* URLWhitelistManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E997B6732E979212008C7F55 /* URLWhitelistManager.swift */; };
+		E997B6762E990180008C7F55 /* SplashViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E997B6752E990180008C7F55 /* SplashViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,6 +91,7 @@
 		E997B66F2E97918E008C7F55 /* DeviceInfoUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfoUtils.swift; sourceTree = "<group>"; };
 		E997B6702E97918E008C7F55 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		E997B6732E979212008C7F55 /* URLWhitelistManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLWhitelistManager.swift; sourceTree = "<group>"; };
+		E997B6752E990180008C7F55 /* SplashViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +143,7 @@
 		4777D51D2C60B87500E85AC6 /* iosnativeWebView */ = {
 			isa = PBXGroup;
 			children = (
+				E997B6752E990180008C7F55 /* SplashViewModel.swift */,
 				E997B6732E979212008C7F55 /* URLWhitelistManager.swift */,
 				E997B66F2E97918E008C7F55 /* DeviceInfoUtils.swift */,
 				E997B6702E97918E008C7F55 /* SplashView.swift */,
@@ -338,6 +341,7 @@
 				E997B6712E97918E008C7F55 /* DeviceInfoUtils.swift in Sources */,
 				E997B6722E97918E008C7F55 /* SplashView.swift in Sources */,
 				47A91A472CD0D39100419554 /* WebViewNavigationDelegate.swift in Sources */,
+				E997B6762E990180008C7F55 /* SplashViewModel.swift in Sources */,
 				E90872AE2E8AB6010076627C /* BridgeFileHandler.swift in Sources */,
 				E90872B42E8D00D80076627C /* AppDelegate.swift in Sources */,
 				4777D51F2C60B87500E85AC6 /* iosnativeWebViewApp.swift in Sources */,
