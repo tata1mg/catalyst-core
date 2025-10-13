@@ -12,12 +12,35 @@ struct ContentView: View {
             // Normal remote URL - isolated from state changes
             WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
                 .edgesIgnoringSafeArea(.all)
-
-            // Loading overlay - separate from WebView
-            if webViewModel.isLoading {
-                LoadingOverlay(progress: webViewModel.loadingProgress, isFromCache: webViewModel.isLoadingFromCache)
+                .onAppear {
+                    logger.info("WebView appeared with URL: \(ConfigConstants.url)")
+                }
+            
+            // Show splash screen if enabled in configuration
+            if ConfigConstants.splashScreenEnabled {
+                SplashView(webViewModel: webViewModel).zIndex(1)
+            } else if webViewModel.isLoading {
+                // Show old progress bar if splash screen is disabled and still loading
+                VStack {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                    
+                    Text("\(Int(webViewModel.loadingProgress * 100))%")
+                        .foregroundColor(.blue)
+                        .padding(.top, 8)
+                    
+                    if webViewModel.isLoadingFromCache {
+                        Text("Loading from cache...")
+                            .foregroundColor(.blue)
+                            .padding(.top, 4)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black.opacity(0.1))
             }
         }
+        .animation(.easeInOut(duration: 0.8), value: webViewModel.isLoading)
         .onAppear {
             logWithTimestamp("📱 ContentView appeared")
         }
