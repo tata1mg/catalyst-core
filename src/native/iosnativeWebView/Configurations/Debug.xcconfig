@@ -1,0 +1,18 @@
+//
+//  Debug.xcconfig
+//  iosnativeWebView
+//
+//  Debug configuration settings
+//
+
+// Use standard Info.plist (allows HTTP for local development)
+INFOPLIST_FILE = iosnativeWebView/Info.plist
+
+// Debug specific settings
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) DEBUG=1
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DEBUG
+OTHER_SWIFT_FLAGS = $(inherited) -DDEBUG
+
+// Optimization settings for debugging
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+GCC_OPTIMIZATION_LEVEL = 0

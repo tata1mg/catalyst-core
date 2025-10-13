@@ -12,10 +12,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
+import java.util.Properties
 
-class NativeBridge(private val mainActivity: MainActivity, private val webView: WebView) : CoroutineScope {
+class NativeBridge(
+    private val mainActivity: MainActivity,
+    private val webView: WebView,
+    private val properties: Properties
+) : CoroutineScope {
     private var currentPhotoUri: Uri? = null
     private var shouldLaunchCameraAfterPermission = false
+    private var allowedUrls: List<String> = emptyList()
 
     // Coroutine scope for async operations
     private val supervisorJob = SupervisorJob()
@@ -27,14 +33,62 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
 
     companion object {
         private const val TAG = "NativeBridge"
+
+        /**
+         * Parse and validate bridge message
+         * @param messageJson JSON string containing bridge message
+         * @return BridgeValidationResult with validation status
+         */
+        fun parseAndValidateMessage(messageJson: String): BridgeValidationResult {
+            return try {
+                val jsonObject = org.json.JSONObject(messageJson)
+                BridgeMessageValidator.validate(jsonObject)
+            } catch (e: org.json.JSONException) {
+                BridgeUtils.logError(TAG, "Failed to parse message JSON", e)
+                BridgeValidationResult(
+                    isValid = false,
+                    command = null,
+                    params = null,
+                    body = null,
+                    error = BridgeValidationError(
+                        message = "Invalid JSON format: ${e.message}",
+                        code = "INVALID_JSON",
+                        eventName = "BRIDGE_ERROR"
+                    )
+                )
+            } catch (e: Exception) {
+                BridgeUtils.logError(TAG, "Unexpected error during validation", e)
+                BridgeValidationResult(
+                    isValid = false,
+                    command = null,
+                    params = null,
+                    body = null,
+                    error = BridgeValidationError(
+                        message = "Validation error: ${e.message}",
+                        code = "VALIDATION_ERROR",
+                        eventName = "BRIDGE_ERROR"
+                    )
+                )
+            }
+        }
     }
 
     init {
         try {
+            // Load allowed URLs from properties for whitelisting
+            allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+
+            if (allowedUrls.isNotEmpty()) {
+                BridgeUtils.logDebug(TAG, "Whitelisting enabled with ${allowedUrls.size} allowed URLs")
+            }
+
             initializeCameraLauncher()
             initializePermissionLauncher()
             initializeFilePickerLauncher()
-            
+
             // Initialize FrameworkServer for large file handling
             initializeFrameworkServer()
         } catch (e: Exception) {
@@ -333,6 +387,7 @@ class NativeBridge(private val mainActivity: MainActivity, private val webView: 
                 webView,
                 fileUrl,
                 mimeType,
+                allowedUrls,
                 onSuccess = { downloadedFile, detectedMimeType ->
                     IntentUtils.openFileWithSystemIntent(mainActivity, webView, downloadedFile, detectedMimeType)
                 }

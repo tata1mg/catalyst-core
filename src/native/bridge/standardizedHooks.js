@@ -1,9 +1,10 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps, no-case-declarations */
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useBaseHook } from "./useBaseHook"
 import nativeBridge from "./utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "./constants/NativeInterfaces"
 import { ERROR_CODES, createStandardError } from "./errors"
+import { base64ToFile, urlToFile, canCreateFileObject, getUnsupportedTransportMessage } from "./utils/FileObjectConverter.js"
 
 /**
  * Standardized Camera Superhook
@@ -265,6 +266,9 @@ export const useCamera = (options = {}) => {
 export const useFilePicker = (options = {}) => {
     const base = useBaseHook("useFilePicker", options)
 
+    // Cache for converted File objects to prevent redundant conversions
+    const fileObjectCache = useRef(null)
+
     // File picker specific progress phases
     const FILE_PICKER_PHASES = {
         OPENING: "opening",
@@ -302,6 +306,9 @@ export const useFilePicker = (options = {}) => {
                     transport: result.transport,
                     filePath: result.filePath,
                 }
+
+                // Clear file object cache when new file is picked
+                fileObjectCache.current = null
 
                 base.setDataAndComplete(fileData)
                 console.log("📁 File processed successfully via transport:", fileData.transport)
@@ -398,6 +405,65 @@ export const useFilePicker = (options = {}) => {
         }, "file selection")
     }
 
+    /**
+     * Get File object from current file data
+     * Lazy loading - only converts when called
+     * Caches result to prevent redundant conversions
+     * @returns {Promise<File>} JavaScript File object for FormData/POST API
+     * @throws {Error} If file data is unavailable or transport is unsupported
+     */
+    const getFileObject = useCallback(async () => {
+        // Validate file data exists
+        if (!base.data) {
+            throw new Error("No file data available. Please pick a file first.")
+        }
+
+        // Return cached File object if available
+        if (fileObjectCache.current) {
+            console.log("📁 Returning cached File object")
+            return fileObjectCache.current
+        }
+
+        const { fileSrc, fileName, mimeType, transport } = base.data
+
+        // Check if transport supports File object creation
+        if (!canCreateFileObject(transport)) {
+            const errorMessage = getUnsupportedTransportMessage(transport)
+            console.error("❌", errorMessage)
+            throw new Error(errorMessage)
+        }
+
+        console.log("📁 Converting to File object", { transport, fileName, mimeType })
+
+        try {
+            let fileObject
+
+            if (transport === "BRIDGE_BASE64") {
+                // Synchronous conversion for base64
+                fileObject = base64ToFile(fileSrc, fileName, mimeType)
+            } else if (transport === "FRAMEWORK_SERVER") {
+                // Asynchronous fetch and conversion for URL
+                fileObject = await urlToFile(fileSrc, fileName, mimeType)
+            }
+
+            // Cache the result
+            fileObjectCache.current = fileObject
+            console.log("✅ File object created successfully", {
+                name: fileObject.name,
+                size: fileObject.size,
+                type: fileObject.type,
+            })
+
+            return fileObject
+        } catch (error) {
+            console.error("❌ Failed to create File object:", error)
+            throw new Error(`Failed to create File object: ${error.message}`)
+        }
+    }, [base.data])
+
+    // Check if File object can be created from current file data
+    const canCreateFileObjectForCurrentFile = base.data ? canCreateFileObject(base.data.transport) : false
+
     // Return standardized interface
     return {
         // Standard interface
@@ -413,6 +479,10 @@ export const useFilePicker = (options = {}) => {
         pickFile, // Semantic alias
         clear: base.clear,
         clearError: base.clearError,
+
+        // File object conversion (NEW)
+        getFileObject, // Lazy loading File object converter
+        canCreateFileObject: canCreateFileObjectForCurrentFile, // Boolean flag
 
         // Legacy compatibility (for gradual migration)
         selectedFile: base.data, // Legacy alias

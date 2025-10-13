@@ -1,9 +1,10 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import nativeBridge from "./utils/NativeBridge.js"
 import { NATIVE_CALLBACKS, PERMISSION_STATUS, RESPONSE_STATUS } from "./constants/NativeInterfaces.js"
 import { useBaseHook } from "./useBaseHook.js"
 import { ERROR_CODES, createStandardError } from "./errors.js"
+import { base64ToFile, urlToFile, canCreateFileObject, getUnsupportedTransportMessage } from "./utils/FileObjectConverter.js"
 
 /**
  * React hook for camera functionality using standardized interface
@@ -255,6 +256,9 @@ export const useFilePicker = () => {
     // Use standardized base hook
     const base = useBaseHook("useFilePicker")
 
+    // Cache for converted File objects to prevent redundant conversions
+    const fileObjectCache = useRef(null)
+
     // Server-side rendering safety
     if (typeof window === "undefined") {
         return {
@@ -267,6 +271,10 @@ export const useFilePicker = () => {
             execute: () => {},
             clear: () => {},
             clearError: () => {},
+            getFileObject: async () => {
+                throw new Error("Not available in SSR environment")
+            },
+            canCreateFileObject: false,
             // Legacy aliases for backward compatibility
             selectedFile: null,
             pickFile: () => {},
@@ -286,6 +294,10 @@ export const useFilePicker = () => {
             try {
                 const fileData = typeof data === "string" ? JSON.parse(data) : data
                 console.log("📁 File picked:", fileData)
+
+                // Clear file object cache when new file is picked
+                fileObjectCache.current = null
+
                 base.setDataAndComplete(fileData)
 
                 // Update progress with transport info if available
@@ -368,6 +380,65 @@ export const useFilePicker = () => {
     // Standardized execute function (new interface)
     const execute = pickFile
 
+    /**
+     * Get File object from current file data
+     * Lazy loading - only converts when called
+     * Caches result to prevent redundant conversions
+     * @returns {Promise<File>} JavaScript File object for FormData/POST API
+     * @throws {Error} If file data is unavailable or transport is unsupported
+     */
+    const getFileObject = useCallback(async () => {
+        // Validate file data exists
+        if (!base.data) {
+            throw new Error("No file data available. Please pick a file first.")
+        }
+
+        // Return cached File object if available
+        if (fileObjectCache.current) {
+            console.log("📁 Returning cached File object")
+            return fileObjectCache.current
+        }
+
+        const { fileSrc, fileName, mimeType, transport } = base.data
+
+        // Check if transport supports File object creation
+        if (!canCreateFileObject(transport)) {
+            const errorMessage = getUnsupportedTransportMessage(transport)
+            console.error("❌", errorMessage)
+            throw new Error(errorMessage)
+        }
+
+        console.log("📁 Converting to File object", { transport, fileName, mimeType })
+
+        try {
+            let fileObject
+
+            if (transport === "BRIDGE_BASE64") {
+                // Synchronous conversion for base64
+                fileObject = base64ToFile(fileSrc, fileName, mimeType)
+            } else if (transport === "FRAMEWORK_SERVER") {
+                // Asynchronous fetch and conversion for URL
+                fileObject = await urlToFile(fileSrc, fileName, mimeType)
+            }
+
+            // Cache the result
+            fileObjectCache.current = fileObject
+            console.log("✅ File object created successfully", {
+                name: fileObject.name,
+                size: fileObject.size,
+                type: fileObject.type,
+            })
+
+            return fileObject
+        } catch (error) {
+            console.error("❌ Failed to create File object:", error)
+            throw new Error(`Failed to create File object: ${error.message}`)
+        }
+    }, [base.data])
+
+    // Check if File object can be created from current file data
+    const canCreateFileObjectForCurrentFile = base.data ? canCreateFileObject(base.data.transport) : false
+
     return {
         // Standardized interface
         data: base.data,
@@ -379,6 +450,10 @@ export const useFilePicker = () => {
         execute,
         clear: base.clear,
         clearError: base.clearError,
+
+        // File object conversion (NEW)
+        getFileObject, // Lazy loading File object converter
+        canCreateFileObject: canCreateFileObjectForCurrentFile, // Boolean flag
 
         // Legacy aliases for backward compatibility
         selectedFile: base.data,

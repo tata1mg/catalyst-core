@@ -8,6 +8,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URL
+import android.os.Handler
+import android.os.Looper
 
 /**
  * Download utilities for native bridge operations  
@@ -66,6 +68,7 @@ object DownloadUtils {
         webView: WebView,
         fileUrl: String,
         mimeType: String? = null,
+        allowedUrls: List<String> = emptyList(),
         onSuccess: (File, String) -> Unit,
         onError: ((String) -> Unit)? = null
     ) {
@@ -74,7 +77,16 @@ object DownloadUtils {
             if (!isValidUrl(fileUrl)) {
                 throw IllegalArgumentException("Invalid URL format: $fileUrl")
             }
-            
+
+            // Whitelist validation for remote URLs
+            if (allowedUrls.isNotEmpty() && !io.yourname.androidproject.isUrlAllowed(fileUrl, allowedUrls)) {
+                val errorMessage = "Unable to process request. URL violates whitelisting protocols"
+                BridgeUtils.logError(TAG, "File URL blocked by access control: $fileUrl")
+                throw SecurityException(errorMessage)
+            } else if (allowedUrls.isNotEmpty()) {
+                BridgeUtils.logDebug(TAG, "✅ File URL passed whitelist check: $fileUrl")
+            }
+
             // Download the file
             val downloadedFile = downloadFile(context, fileUrl)
             
@@ -89,24 +101,30 @@ object DownloadUtils {
         } catch (e: IOException) {
             val errorMessage = "Failed to download file: ${e.message}"
             BridgeUtils.logError(TAG, errorMessage, e)
-            
+
             onError?.invoke(errorMessage) ?: run {
-                BridgeUtils.notifyWebError(
-                    webView,
-                    BridgeUtils.WebEvents.ON_INTENT_ERROR,
-                    errorMessage
-                )
+                // WebView methods must be called on Main thread
+                Handler(Looper.getMainLooper()).post {
+                    BridgeUtils.notifyWebError(
+                        webView,
+                        BridgeUtils.WebEvents.ON_INTENT_ERROR,
+                        errorMessage
+                    )
+                }
             }
         } catch (e: Exception) {
             val errorMessage = "Error downloading file: ${e.message}"
             BridgeUtils.logError(TAG, errorMessage, e)
-            
+
             onError?.invoke(errorMessage) ?: run {
-                BridgeUtils.notifyWebError(
-                    webView,
-                    BridgeUtils.WebEvents.ON_INTENT_ERROR,
-                    errorMessage
-                )
+                // WebView methods must be called on Main thread
+                Handler(Looper.getMainLooper()).post {
+                    BridgeUtils.notifyWebError(
+                        webView,
+                        BridgeUtils.WebEvents.ON_INTENT_ERROR,
+                        errorMessage
+                    )
+                }
             }
         }
     }

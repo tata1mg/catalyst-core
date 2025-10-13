@@ -10,15 +10,9 @@ class ResourceURLProtocol: URLProtocol {
     
     // MARK: - Protocol Registration
     static func register() {
-        URLProtocol.registerClass(self)
-        
-        if let cls = NSClassFromString("WKBrowsingContextController") as AnyClass? {
-            let selector = NSSelectorFromString("registerSchemeForCustomProtocol:")
-            if cls.responds(to: selector) {
-                _ = cls.perform(selector, with: "http", afterDelay: 0)
-                _ = cls.perform(selector, with: "https", afterDelay: 0)
-            }
-        }
+        logger.warning("⚠️ ResourceURLProtocol registration is DISABLED to preserve POST bodies")
+        return
+
     }
     
     static func unregister() {
@@ -27,13 +21,33 @@ class ResourceURLProtocol: URLProtocol {
     
     // MARK: - URLProtocol
   override class func canInit(with request: URLRequest) -> Bool {
-    // Check if we've already handled this request
-    if URLProtocol.property(forKey: handledKey, in: request) != nil {
+    guard let url = request.url else {
+        logger.debug("🔍 ResourceURLProtocol.canInit: NO URL")
         return false
     }
-    
-    guard let url = request.url else { return false }
-    return CacheManager.shared.shouldCacheURL(url)
+
+    let httpMethod = request.httpMethod?.uppercased() ?? "GET"
+    let hasBody = request.httpBody != nil || request.httpBodyStream != nil
+    let bodySize = request.httpBody?.count ?? 0
+
+    logger.info("🔍 ResourceURLProtocol.canInit: \(httpMethod) \(url.absoluteString) [body: \(hasBody), size: \(bodySize) bytes]")
+
+    // Check if we've already handled this request
+    if URLProtocol.property(forKey: handledKey, in: request) != nil {
+        logger.debug("🔍 ResourceURLProtocol.canInit: Already handled, returning false")
+        return false
+    }
+
+    // Only intercept GET requests - POST/PUT/PATCH/DELETE should go directly
+    // to preserve request body and avoid caching side-effects
+    if httpMethod != "GET" {
+        logger.info("🔍 ResourceURLProtocol.canInit: Skipping \(httpMethod) request - NOT intercepting")
+        return false
+    }
+
+    let shouldCache = CacheManager.shared.shouldCacheURL(url)
+    logger.info("🔍 ResourceURLProtocol.canInit: GET request, shouldCache=\(shouldCache)")
+    return shouldCache
 }
     
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -45,9 +59,17 @@ class ResourceURLProtocol: URLProtocol {
             logger.error("❌ No URL in request")
             return
         }
-        
+
+        let httpMethod = request.httpMethod?.uppercased() ?? "GET"
+        let bodySize = request.httpBody?.count ?? 0
+        logger.error("🚨 startLoading CALLED - This should NEVER happen for POST! Method: \(httpMethod), URL: \(url.absoluteString), BodySize: \(bodySize)")
+
         // Mark this request as handled to prevent recursion
-        let mutableRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+        guard let mutableRequest = (request as NSURLRequest).mutableCopy() as? NSMutableURLRequest else {
+            logger.error("❌ Failed to create mutable copy of request")
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
         URLProtocol.setProperty(true, forKey: ResourceURLProtocol.handledKey, in: mutableRequest)
         
         Task {
@@ -65,12 +87,18 @@ class ResourceURLProtocol: URLProtocol {
                         headers["Content-Type"] = mimeType
                     }
                     
-                    let response = HTTPURLResponse(
+                    guard let response = HTTPURLResponse(
                         url: url,
                         statusCode: 200,
                         httpVersion: "HTTP/1.1",
                         headerFields: headers
-                    )!
+                    ) else {
+                        logger.error("❌ Failed to create HTTP response for cached content")
+                        await MainActor.run {
+                            self.client?.urlProtocol(self, didFailWithError: URLError(.cannotCreateFile))
+                        }
+                        return
+                    }
                     
                     // Send cached response
                     await MainActor.run {

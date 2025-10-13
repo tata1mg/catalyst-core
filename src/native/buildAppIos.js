@@ -23,6 +23,7 @@ const IPHONE_MODEL = iosConfig.simulatorName
 // Define build steps for progress tracking
 const steps = {
     config: "Generating Required Configuration for build",
+    deviceDetection: "Detecting Physical Device",
     launchSimulator: "Launch iOS Simulator",
     clean: "Clean Build Artifacts",
     build: "Build IOS Project",
@@ -43,6 +44,77 @@ const progressConfig = {
 
 const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
 
+// Utility function to run shell commands
+function runCommand(command, options = {}) {
+    return new Promise((resolve, reject) => {
+        // eslint-disable-next-line security/detect-child-process
+        exec(command, { maxBuffer: 1024 * 1024 * 10, ...options }, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Command failed: ${command}`)
+                console.error(`Error: ${error.message}`)
+                console.error(`stderr: ${stderr}`)
+                reject(error)
+                return
+            }
+            if (stderr) {
+                console.warn(`Warning: ${stderr}`)
+            }
+            resolve(stdout.trim())
+        })
+    })
+}
+
+async function getBootedSimulatorUUID(modelName) {
+    try {
+        // First try to find a booted simulator of the specified model
+        let command = `xcrun simctl list devices | grep "${modelName}" | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
+        let uuid = execSync(command).toString().trim()
+
+        if (uuid) {
+            console.log(`Found booted simulator of model ${modelName}`)
+            return uuid
+        }
+
+        // If no booted simulator of the specified model is found, check any booted simulator
+        console.log(`No booted simulator of model ${modelName} found, checking for any booted simulator...`)
+        command = `xcrun simctl list devices | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
+        uuid = execSync(command).toString().trim()
+
+        if (uuid) {
+            console.log("Found another booted simulator, will use it instead")
+            return uuid
+        }
+
+        return null
+    } catch (error) {
+        console.log("No booted simulators found")
+        return null
+    }
+}
+
+async function getBootedSimulatorInfo() {
+    try {
+        const listCommand = "xcrun simctl list devices --json"
+        const simulatorList = JSON.parse(execSync(listCommand).toString())
+
+        for (const runtime in simulatorList.devices) {
+            const devices = simulatorList.devices[runtime]
+            for (const device of devices) {
+                if (device.state === "Booted") {
+                    return {
+                        udid: device.udid,
+                        name: device.name,
+                        runtime: runtime
+                    }
+                }
+            }
+        }
+        return null
+    } catch (error) {
+        console.log("Failed to get booted simulator info:", error.message)
+        return null
+    }
+}
 async function updateInfoPlist() {
     try {
         const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
@@ -74,6 +146,77 @@ async function updateInfoPlist() {
     }
 }
 
+// Function to convert JSON value to Swift property
+function generateSwiftProperty(key, value, indent = '    ') {
+    if (value === null || value === undefined) {
+        return `${indent}static let ${key}: String? = nil`;
+    }
+
+    // Special handling for cachePattern - always convert to array
+    if (key === 'cachePattern') {
+        if (typeof value === 'string') {
+            // Convert single string to array
+            return `${indent}static let ${key}: [String] = ["${value}"]`;
+        } else if (Array.isArray(value)) {
+            const arrayValues = value.map(v => `"${v}"`).join(", ");
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`;
+        }
+    }
+
+    if (typeof value === 'string') {
+        return `${indent}static let ${key} = "${value}"`;
+    }
+
+    if (typeof value === 'number') {
+        return Number.isInteger(value) ?
+            `${indent}static let ${key} = ${value}` :
+            `${indent}static let ${key} = ${value}`;
+    }
+
+    if (typeof value === 'boolean') {
+        return `${indent}static let ${key} = ${value}`;
+    }
+
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            return `${indent}static let ${key}: [String] = []`;
+        }
+
+        // Determine array type from first element
+        const firstElement = value[0];
+        if (typeof firstElement === 'string') {
+            const arrayValues = value.map(v => `"${v}"`).join(", ");
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`;
+        } else if (typeof firstElement === 'number') {
+            const arrayType = Number.isInteger(firstElement) ? 'Int' : 'Double';
+            const arrayValues = value.join(", ");
+            return `${indent}static let ${key}: [${arrayType}] = [${arrayValues}]`;
+        } else if (typeof firstElement === 'boolean') {
+            const arrayValues = value.join(", ");
+            return `${indent}static let ${key}: [Bool] = [${arrayValues}]`;
+        } else {
+            // Mixed array - convert to strings
+            const arrayValues = value.map(v => `"${v}"`).join(", ");
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`;
+        }
+    }
+
+    if (typeof value === 'object' && value !== null) {
+        // Generate nested enum for objects
+        let nestedContent = `${indent}enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`;
+
+        for (const [nestedKey, nestedValue] of Object.entries(value)) {
+            nestedContent += generateSwiftProperty(nestedKey, nestedValue, indent + '    ') + '\n';
+        }
+
+        nestedContent += `${indent}}`;
+        return nestedContent;
+    }
+
+    // Fallback to string
+    return `${indent}static let ${key} = "${value}"`;
+}
+
 async function generateConfigConstants() {
     progress.start("config")
     try {
@@ -92,17 +235,29 @@ import Foundation
 enum ConfigConstants {
     static let url = "${url}"`
 
-        // Only add cachePattern if it exists and is not empty
-        if (iosConfig.cachePattern && iosConfig.cachePattern.trim()) {
-            // Convert comma-separated string to Swift array format
-            const patterns = iosConfig.cachePattern
-                .split(",")
-                .map((pattern) => pattern.trim())
-                .map((pattern) => `"${pattern}"`)
-                .join(", ")
+        // Track keys already added to avoid duplicates
+        const addedKeys = new Set();
 
-            configContent += `
-    static let cachePattern: [String] = [${patterns}]`
+        // Process all properties from WEBVIEW_CONFIG
+        if (WEBVIEW_CONFIG && typeof WEBVIEW_CONFIG === 'object') {
+            for (const [key, value] of Object.entries(WEBVIEW_CONFIG)) {
+                // Skip 'ios' and 'android' keys to avoid duplication
+                if (key === 'ios' || key === 'android') continue;
+
+                configContent += '\n' + generateSwiftProperty(key, value);
+                addedKeys.add(key);
+            }
+        }
+
+        // Process iOS-specific config
+        if (iosConfig && typeof iosConfig === 'object') {
+            configContent += '\n    \n    // iOS-specific configuration';
+            for (const [key, value] of Object.entries(iosConfig)) {
+                // Skip if key was already added from WEBVIEW_CONFIG
+                if (addedKeys.has(key)) continue;
+
+                configContent += '\n' + generateSwiftProperty(key, value);
+            }
         }
 
         // Add URL whitelisting configuration if it exists
@@ -408,119 +563,208 @@ async function focusSimulator() {
     await runCommand(`osascript -e 'tell application "Simulator" to activate'`)
 }
 
-// Utility functions (kept from original file)
-function getLocalIPAddress() {
+// Physical Device Detection Functions
+async function detectPhysicalDevices() {
+    progress.start('deviceDetection');
     try {
-        const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`
-        return execSync(command).toString().trim()
-    } catch (error) {
-        console.error("Error getting local IP:", error)
-        return "localhost"
-    }
-}
+        progress.log('Scanning for connected physical devices...', 'info');
 
-function runCommand(command, options = {}) {
-    return new Promise((resolve, reject) => {
-        // eslint-disable-next-line security/detect-child-process
-        exec(command, { maxBuffer: 1024 * 1024 * 10, ...options }, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Command failed: ${command}`)
-                console.error(`Error: ${error.message}`)
-                console.error(`stderr: ${stderr}`)
-                reject(error)
-                return
-            }
-            if (stderr) {
-                console.warn(`Warning: ${stderr}`)
-            }
-            resolve(stdout.trim())
-        })
-    })
-}
+        let physicalDevices = [];
 
-async function getBootedSimulatorUUID(modelName) {
-    try {
-        // First try to find a booted simulator of the specified model
-        let command = `xcrun simctl list devices | grep "${modelName}" | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
-        let uuid = execSync(command).toString().trim()
+        // Priority 1: Check if UDID is specified in config
+        const configuredUDID = iosConfig.deviceUDID;
 
-        if (uuid) {
-            console.log(`Found booted simulator of model ${modelName}`)
-            return uuid
-        }
+        if (configuredUDID) {
+            progress.log(`Using configured device UDID: ${configuredUDID}`, 'info');
 
-        // If no booted simulator of the specified model is found, check any booted simulator
-        console.log(`No booted simulator of model ${modelName} found, checking for any booted simulator...`)
-        command = `xcrun simctl list devices | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
-        uuid = execSync(command).toString().trim()
+            // Verify the configured device is actually connected
+            try {
+                const instrumentsOutput = execSync('instruments -s devices').toString();
 
-        if (uuid) {
-            console.log("Found another booted simulator, will use it instead")
-            return uuid
-        }
+                if (instrumentsOutput.includes(configuredUDID)) {
+                    // Extract device name from instruments output
+                    const deviceLine = instrumentsOutput.split('\n').find(line => line.includes(configuredUDID));
+                    if (deviceLine) {
+                        const nameMatch = deviceLine.match(/^(.+?)\s+\(/);
+                        const versionMatch = deviceLine.match(/\((\d+\.\d+(?:\.\d+)?)\)/);
+                        const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device";
+                        const deviceVersion = versionMatch ? versionMatch[1] : 'Unknown';
 
-        return null
-    } catch (error) {
-        console.log("No booted simulators found")
-        return null
-    }
-}
+                        progress.log(`✅ Found configured physical device: ${deviceName} (${deviceVersion})`, 'success');
+                        physicalDevices.push({
+                            name: deviceName,
+                            version: deviceVersion,
+                            udid: configuredUDID,
+                            type: 'physical'
+                        });
 
-async function getBootedSimulatorInfo() {
-    try {
-        // Get the list of all devices with their details
-        const listCommand = "xcrun simctl list devices --json"
-        const simulatorList = JSON.parse(execSync(listCommand).toString())
-
-        // Find booted device and its runtime
-        let bootedDevice = null
-        let runtime = null
-
-        // Look through all runtimes and their devices
-        Object.entries(simulatorList.devices).forEach(([runtimeId, devices]) => {
-            devices.forEach((device) => {
-                if (device.state === "Booted") {
-                    bootedDevice = device
-                    runtime = runtimeId
+                        progress.complete('deviceDetection');
+                        return physicalDevices[0];
+                    }
+                } else {
+                    progress.log(`⚠️  Configured device UDID not found in connected devices`, 'warning');
+                    progress.log('Falling back to auto-detection...', 'info');
                 }
-            })
-        })
+            } catch (error) {
+                progress.log(`Error verifying configured device: ${error.message}`, 'warning');
+                progress.log('Falling back to auto-detection...', 'info');
+            }
+        } else {
+            progress.log('No device UDID configured, using auto-detection', 'info');
+        }
 
-        if (bootedDevice && runtime) {
-            // Extract iOS version from runtime ID (e.g., "com.apple.CoreSimulator.SimRuntime.iOS-18-0")
-            const version = runtime.match(/iOS-(\d+)-(\d+)/)
-            if (version) {
-                const iosVersion = `${version[1]}.${version[2]}`
-                console.log(`Found booted device: ${bootedDevice.name} with iOS ${iosVersion}`)
-                return {
-                    udid: bootedDevice.udid,
-                    version: iosVersion,
+        // Priority 2: Auto-detect using multiple fallback methods
+        // Try instruments first
+        try {
+            const instrumentsOutput = execSync('instruments -s devices').toString();
+            const lines = instrumentsOutput.split('\n');
+
+            for (const line of lines) {
+                // Match physical devices (have UDID but not simulator indicators)
+                const deviceMatch = line.match(/^(.+?)\s+\((\d+\.\d+(?:\.\d+)?)\)\s+\[([A-F0-9-]{36})\](?:\s+\(Simulator\))?$/);
+
+                if (deviceMatch && !line.includes('(Simulator)')) {
+                    const [, name, version, udid] = deviceMatch;
+                    physicalDevices.push({
+                        name: name.trim(),
+                        version: version,
+                        udid: udid,
+                        type: 'physical'
+                    });
                 }
             }
+
+            if (physicalDevices.length > 0) {
+                progress.log(`Found ${physicalDevices.length} physical device(s) via instruments`, 'success');
+            }
+        } catch (error) {
+            progress.log('instruments command failed, trying xcodebuild...', 'warning');
         }
 
-        return null
+        // Fallback: Use xcodebuild to get available destinations
+        if (physicalDevices.length === 0) {
+            try {
+                const xcodebuildOutput = execSync(`xcodebuild -scheme "${SCHEME_NAME}" -showdestinations`).toString();
+                const lines = xcodebuildOutput.split('\n');
+
+                progress.log('Scanning xcodebuild destinations for physical devices...', 'info');
+
+                for (const line of lines) {
+                    // Look for physical iOS devices in xcodebuild output
+                    const physicalMatch = line.match(/\{\s*platform:iOS,\s*arch:(\w+),\s*id:([A-F0-9-]+),\s*name:(.+?)\s*\}/);
+
+                    if (physicalMatch) {
+                        const [, arch, udid, name] = physicalMatch;
+                        progress.log(`Found device candidate: ${name.trim()} - ${udid}`, 'info');
+
+                        // Filter out placeholder devices
+                        if (!udid.includes('placeholder') && udid.length > 20) {
+                            progress.log(`✅ Valid physical device: ${name.trim()}`, 'success');
+                            physicalDevices.push({
+                                name: name.trim(),
+                                version: 'Unknown',
+                                udid: udid,
+                                arch: arch,
+                                type: 'physical'
+                            });
+                        } else {
+                            progress.log(`❌ Skipping placeholder: ${name.trim()}`, 'warning');
+                        }
+                    }
+                }
+            } catch (error) {
+                progress.log('xcodebuild destinations failed, trying instruments...', 'warning');
+                progress.log(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Fallback: Try instruments if xcodebuild didn't work
+        if (physicalDevices.length === 0) {
+            try {
+                const instrumentsOutput = execSync('instruments -s devices').toString();
+                const lines = instrumentsOutput.split('\n');
+
+                for (const line of lines) {
+                    // Match physical devices (have UDID but not simulator indicators)
+                    const deviceMatch = line.match(/^(.+?)\s+\((\d+\.\d+(?:\.\d+)?)\)\s+\[([A-F0-9-]{36})\](?:\s+\(Simulator\))?$/);
+
+                    if (deviceMatch && !line.includes('(Simulator)')) {
+                        const [, name, version, udid] = deviceMatch;
+                        physicalDevices.push({
+                            name: name.trim(),
+                            version: version,
+                            udid: udid,
+                            type: 'physical'
+                        });
+                    }
+                }
+            } catch (error) {
+                progress.log('Instruments command also failed, trying devicectl...', 'warning');
+            }
+        }
+
+        // Last fallback: Try using xcrun devicectl (iOS 17+)
+        if (physicalDevices.length === 0) {
+            try {
+                const devicectlOutput = execSync('xcrun devicectl list devices').toString();
+                const lines = devicectlOutput.split('\n');
+
+                for (const line of lines) {
+                    // Parse devicectl output format
+                    if (line.includes('Connected') && !line.includes('Simulator')) {
+                        const udidMatch = line.match(/([A-F0-9-]{36})/);
+                        const nameMatch = line.match(/^(.+?)\s+\(/);
+
+                        if (udidMatch && nameMatch) {
+                            physicalDevices.push({
+                                name: nameMatch[1].trim(),
+                                version: 'Unknown',
+                                udid: udidMatch[1],
+                                type: 'physical'
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                progress.log('devicectl command not available or failed', 'warning');
+            }
+        }
+
+        if (physicalDevices.length > 0) {
+            progress.log(`Found ${physicalDevices.length} physical device(s):`, 'success');
+            physicalDevices.forEach(device => {
+                progress.log(`  📱 ${device.name} (${device.version || 'Unknown iOS'}) - ${device.udid}`, 'info');
+            });
+            progress.complete('deviceDetection');
+            return physicalDevices[0]; // Return first available device
+        } else {
+            progress.log('No physical devices detected', 'warning');
+            progress.complete('deviceDetection');
+            return null;
+        }
+
     } catch (error) {
-        console.error("Error getting simulator info:", error)
-        return null
+        progress.fail('deviceDetection', error.message);
+        return null;
     }
 }
 
 async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
-    // Get the booted device info first
-    const bootedInfo = await getBootedSimulatorInfo()
-    if (!bootedInfo) {
-        throw new Error("No booted simulator found")
-    }
-    // Add runtime version to destination
-    const destinationWithRuntime = `${destination},OS=${bootedInfo.version}`
-    console.log(`Building with destination: ${destinationWithRuntime}`)
+        // Get the booted device info first
+        const bootedInfo = await getBootedSimulatorInfo();
+        if (!bootedInfo) {
+            throw new Error('No booted simulator found');
+        }
+        // Use specific UDID to avoid multiple device conflicts
+        const destinationWithUDID = `platform=iOS Simulator,id=${bootedInfo.udid}`;
+        console.log(`Building with destination: ${destinationWithUDID}`);
 
-    const buildCommand = `xcodebuild \
+
+  const buildCommand = `xcodebuild \
         -scheme "${scheme}" \
         -sdk ${sdk} \
         -configuration Debug \
-        -destination "${destinationWithRuntime}" \
+        -destination "${destinationWithUDID}" \
         PRODUCT_BUNDLE_IDENTIFIER="${bundleId}" \
         DEVELOPMENT_TEAM="" \
         CODE_SIGN_IDENTITY="" \
@@ -531,10 +775,126 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
         CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
         OS_ACTIVITY_MODE=debug \
         SWIFT_DEBUG_LOG=1 \
-        build`
-    return runCommand(buildCommand, {
-        maxBuffer: 1024 * 1024 * 10,
-    })
+        build`;
+  return runCommand(buildCommand, {
+    maxBuffer: 1024 * 1024 * 10  });
+}
+
+// Physical Device Build Functions
+async function buildProjectForPhysicalDevice(scheme, bundleId, derivedDataPath, projectName, device) {
+    progress.log(`Building for physical device: ${device.name}`, 'info');
+    progress.log('Using Xcode project signing configuration', 'info');
+    progress.log(`Overriding bundle ID to: ${bundleId}`, 'info');
+    progress.log(`Current directory: ${process.cwd()}`, 'info');
+    progress.log(`Looking for .xcodeproj in: ${process.cwd()}`, 'info');
+
+    // Check if we're in the right directory
+    const projectPath = `${process.cwd()}/${projectName}.xcodeproj`;
+    if (!require('fs').existsSync(projectPath)) {
+        throw new Error(`Xcode project not found at: ${projectPath}. Current directory: ${process.cwd()}`);
+    }
+
+    // Working build command based on successful test (without extra BUILD_DIR params that might cause issues)
+    const buildCommand = `xcodebuild \
+        -scheme ${scheme} \
+        -sdk iphoneos \
+        -configuration Debug \
+        -destination platform=iOS,id=${device.udid} \
+        PRODUCT_BUNDLE_IDENTIFIER=${bundleId} \
+        ONLY_ACTIVE_ARCH=YES \
+        build`;
+
+    progress.log('Building with Xcode project signing settings...', 'info');
+    progress.log(`Executing command: ${buildCommand}`, 'info');
+    return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 });
+}
+
+async function findPhysicalDeviceAppPath() {
+    const DERIVED_DATA_DIR = path.join(
+        process.env.HOME,
+        "Library/Developer/Xcode/DerivedData"
+    );
+
+    let APP_PATH = "";
+
+    try {
+        // Search for app in proper Build/Products directory (not Index.noindex)
+        APP_PATH = execSync(
+            `find "${DERIVED_DATA_DIR}" -name "${PROJECT_NAME}.app" -path "*/Build/Products/Debug-iphoneos/*" -not -path "*/Index.noindex/*" -type d | head -n 1`
+        )
+            .toString()
+            .trim();
+    } catch (error) {
+        progress.log('Primary app path search failed for physical device, trying fallback...', 'warning');
+    }
+
+    if (!APP_PATH) {
+        try {
+            // Fallback: search in our custom build directory
+            APP_PATH = execSync(
+                `find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-Build/Build/Products/Debug-iphoneos/${PROJECT_NAME}.app" -type d | head -n 1`
+            )
+                .toString()
+                .trim();
+        } catch (error) {
+            progress.log('Fallback app path search also failed', 'warning');
+        }
+    }
+
+    if (!APP_PATH) {
+        throw new Error("No .app file found for physical device. Check if build completed successfully.");
+    }
+
+    progress.log(`Found app bundle: ${APP_PATH}`, 'success');
+    return APP_PATH;
+}
+
+async function installAndLaunchOnPhysicalDevice(APP_PATH, device) {
+    progress.start('install');
+    try {
+        progress.log(`Installing app on physical device: ${device.name}`, 'info');
+
+        // Use xcrun devicectl (working method)
+        try {
+            await runCommand(`xcrun devicectl device install app --device ${device.udid} "${APP_PATH}"`);
+            progress.log('App installed successfully using devicectl', 'success');
+        } catch (devicectlError) {
+            throw new Error(`devicectl installation failed: ${devicectlError.message}`);
+        }
+
+        progress.complete('install');
+
+        progress.start('launch');
+        try {
+            // Try to launch the app using devicectl
+            await runCommand(`xcrun devicectl device process launch --device ${device.udid} "${APP_BUNDLE_ID}"`);
+            progress.log('App launched successfully using devicectl', 'success');
+        } catch (launchError) {
+            progress.log('App installation completed, but launch failed. You can manually launch the app on your device.', 'warning');
+            progress.log(`To launch manually, look for the app with bundle ID: ${APP_BUNDLE_ID}`, 'info');
+        }
+
+        progress.complete('launch');
+
+    } catch (error) {
+        const currentStep = progress.currentStep.id;
+        progress.fail(currentStep, error.message);
+
+        progress.printTreeContent('Physical Device Installation Failed', [
+            'Installation failed. Common solutions:',
+            { text: 'Ensure device is connected and unlocked', indent: 1, prefix: '├─ ', color: 'yellow' },
+            { text: 'Trust the development certificate on your device', indent: 1, prefix: '├─ ', color: 'yellow' },
+            { text: 'Check that device is in developer mode', indent: 1, prefix: '├─ ', color: 'yellow' },
+            { text: 'Verify app bundle is valid', indent: 1, prefix: '└─ ', color: 'yellow' },
+            '',
+            'Device Details:',
+            { text: `Device: ${device.name}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `UDID: ${device.udid}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `App Bundle: ${APP_PATH}`, indent: 1, prefix: '└─ ', color: 'gray' }
+        ]);
+
+        throw error;
+    }
 }
 
 async function launchIOSSimulator(simulatorName) {
@@ -657,40 +1017,117 @@ async function launchIOSSimulator(simulatorName) {
     }
 }
 
+// Separate build function with proper device routing
+async function buildForIOS() {
+    const originalDir = process.cwd();
+
+    try {
+        await generateConfigConstants();
+
+        progress.log('Changing directory to: ' + PROJECT_DIR, 'info');
+        process.chdir(PROJECT_DIR);
+
+        // Force physical device detection (bypass shouldUsePhysicalDevice check)
+        const physicalDevice = await detectPhysicalDevices();
+
+        let APP_PATH;
+        let targetInfo;
+
+        if (physicalDevice) {
+            // Physical device workflow
+            progress.log('🔥 Building for physical device workflow', 'success');
+            targetInfo = {
+                type: 'physical',
+                name: physicalDevice.name,
+                udid: physicalDevice.udid
+            };
+
+            await cleanBuildArtifacts();
+
+            progress.start('build');
+            try {
+                await buildProjectForPhysicalDevice(
+                    SCHEME_NAME,
+                    APP_BUNDLE_ID,
+                    path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData"),
+                    PROJECT_NAME,
+                    physicalDevice
+                );
+                progress.complete('build');
+            } catch (error) {
+                progress.fail('build', error.message);
+                progress.printTreeContent('Physical Device Build Failed', [
+                    'Build failed. Please check:',
+                    { text: 'Code signing certificates are properly installed', indent: 1, prefix: '├─ ', color: 'yellow' },
+                    { text: 'Provisioning profile matches your bundle ID', indent: 1, prefix: '├─ ', color: 'yellow' },
+                    { text: 'Device is connected and trusted', indent: 1, prefix: '└─ ', color: 'yellow' }
+                ]);
+                throw error;
+            }
+
+            progress.start('findApp');
+            try {
+                APP_PATH = await findPhysicalDeviceAppPath();
+                progress.log('Found app at: ' + APP_PATH, 'success');
+                progress.complete('findApp');
+            } catch (error) {
+                progress.fail('findApp', error.message);
+                throw error;
+            }
+
+            await installAndLaunchOnPhysicalDevice(APP_PATH, physicalDevice);
+
+        } else {
+            // Simulator workflow (with moveAppToBuildOutput improvement)
+            progress.log('📱 Building for simulator workflow', 'info');
+            targetInfo = {
+                type: 'simulator',
+                name: IPHONE_MODEL
+            };
+
+            await launchIOSSimulator(IPHONE_MODEL);
+            await cleanBuildArtifacts();
+            await buildXcodeProject();
+
+            APP_PATH = await findAppPath();
+            progress.log('Found app at: ' + APP_PATH, 'success');
+            await installAndLaunchApp(APP_PATH);
+
+            // Move app to organized build output directory
+            const MOVED_APP_PATH = await moveAppToBuildOutput(APP_PATH);
+            APP_PATH = MOVED_APP_PATH;
+        }
+
+        progress.printTreeContent('Build Summary', [
+            'Build completed successfully:',
+            { text: `Target: ${targetInfo.type === 'physical' ? '📱 Physical Device' : '📱 Simulator'}`, indent: 1, prefix: '├─ ', color: 'green' },
+            { text: `Device: ${targetInfo.name}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `App Path: ${APP_PATH}`, indent: 1, prefix: '├─ ', color: 'gray' },
+            { text: `URL: ${url}`, indent: 1, prefix: '└─ ', color: 'gray' }
+        ]);
+
+        return { success: true, targetInfo, appPath: APP_PATH };
+
+    } catch (error) {
+        progress.log('Build failed: ' + error.message, 'error');
+        throw error;
+    } finally {
+        process.chdir(originalDir);
+    }
+}
+
 async function main() {
     try {
-        const originalDir = process.cwd()
-        progress.log("Starting build process from: " + originalDir, "info")
-
+        progress.log('Starting build process...', 'info');
         await generateConfigConstants()
         await updateInfoPlist()
+        await buildForIOS();
 
-        progress.log("Changing directory to: " + PROJECT_DIR, "info")
-        process.chdir(PROJECT_DIR)
-
-        await launchIOSSimulator(IPHONE_MODEL)
-
-        await cleanBuildArtifacts()
-        await buildXcodeProject()
-
-        const APP_PATH = await findAppPath()
-        await installAndLaunchApp(APP_PATH)
-
-        process.chdir(originalDir)
-
-        const MOVED_APP_PATH = await moveAppToBuildOutput(APP_PATH)
-
-        progress.printTreeContent("Build Summary", [
-            "Build completed successfully:",
-            { text: `App Path: ${MOVED_APP_PATH}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `Simulator: ${IPHONE_MODEL}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
-        ])
     } catch (error) {
         progress.log("Build failed: " + error.message, "error")
         process.exit(1)
     }
-    process.exit(1)
+    process.exit(0);
 }
 
 main()

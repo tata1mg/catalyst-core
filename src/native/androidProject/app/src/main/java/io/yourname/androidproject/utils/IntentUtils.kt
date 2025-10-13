@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.webkit.WebView
 import androidx.core.content.FileProvider
+import io.yourname.androidproject.CatalystConstants
 import java.io.File
 
 /**
@@ -12,8 +13,8 @@ import java.io.File
  * Handles system intents for opening files with external applications
  */
 object IntentUtils {
-    
-    private const val TAG = "IntentUtils"
+
+    private const val TAG = CatalystConstants.Logging.Categories.INTENT_UTILS
     
     /**
      * Open file with system intent (external app)
@@ -108,12 +109,36 @@ object IntentUtils {
     
     /**
      * Create a file picker intent
-     * 
-     * @param mimeType The MIME type filter (default: "star/star")
-     * @param allowMultiple Whether to allow multiple file selection
-     * @return Configured Intent for file picking
+     *
      */
     fun createFilePickerIntent(mimeType: String = "*/*", allowMultiple: Boolean = false): Intent {
+        // Handle comma-separated MIME types (e.g., "application/pdf,image/*")
+        if (mimeType.contains(",")) {
+            BridgeUtils.logDebug(TAG, "Processing comma-separated MIME types: $mimeType")
+            val mimeTypes = mimeType.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+            return Intent(Intent.ACTION_GET_CONTENT).apply {
+                // Set the primary type to */* to allow all types initially
+                type = "*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+
+                // Use EXTRA_MIME_TYPES to specify the allowed MIME types
+                if (mimeTypes.size > 1) {
+                    putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes.toTypedArray())
+                    BridgeUtils.logDebug(TAG, "Using EXTRA_MIME_TYPES with ${mimeTypes.size} types: ${mimeTypes.joinToString(", ")}")
+                } else if (mimeTypes.size == 1) {
+                    // If only one MIME type after parsing, use it directly
+                    type = mimeTypes[0]
+                    BridgeUtils.logDebug(TAG, "Using single MIME type: ${mimeTypes[0]}")
+                }
+
+                if (allowMultiple) {
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                }
+            }
+        }
+
+        // Single MIME type (original behavior)
         return Intent(Intent.ACTION_GET_CONTENT).apply {
             type = mimeType
             addCategory(Intent.CATEGORY_OPENABLE)
