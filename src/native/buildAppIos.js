@@ -1071,7 +1071,7 @@ async function buildForIOS() {
     try {
         await generateConfigConstants();
         await copySplashscreenAssets()
-
+        await copyAppIcon()
         progress.log('Changing directory to: ' + PROJECT_DIR, 'info');
         process.chdir(PROJECT_DIR);
 
@@ -1162,8 +1162,9 @@ async function buildForIOS() {
     } finally {
         process.chdir(originalDir);
     }
-
 }
+
+
 async function copySplashscreenAssets() {
     try {
         const publicDir = `${process.env.PWD}/public/ios`
@@ -1225,13 +1226,161 @@ async function copySplashscreenAssets() {
     }
 }
 
+async function copyAppIcon() {
+    try {
+        const publicDir = `${process.env.PWD}/public/iosIcons`
+        const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
+        const iconSetDir = `${assetsDir}/AppIcon.appiconset`
+
+        // Check if public directory exists
+        if (!fs.existsSync(publicDir)) {
+            progress.log("Public directory not found, skipping app icon copy", "info")
+            return
+        }
+
+        // Define iPhone icon sizes with their configurations
+        const iconSizes = [
+            { size: "20x20", idiom: "iphone", scale: "2x" },
+            { size: "20x20", idiom: "iphone", scale: "3x" },
+            { size: "29x29", idiom: "iphone", scale: "2x" },
+            { size: "29x29", idiom: "iphone", scale: "3x" },
+            { size: "40x40", idiom: "iphone", scale: "2x" },
+            { size: "40x40", idiom: "iphone", scale: "3x" },
+            { size: "60x60", idiom: "iphone", scale: "2x" },
+            { size: "60x60", idiom: "iphone", scale: "3x" },
+            { size: "1024x1024", idiom: "ios-marketing", scale: "1x" },
+        ]
+
+        const imageExtensions = ["png", "jpg", "jpeg"]
+
+        // Recursively find all image files in a directory
+        const findImagesRecursively = (dir, extensions) => {
+            let results = []
+
+            try {
+                const items = fs.readdirSync(dir)
+
+                for (const item of items) {
+                    const fullPath = path.join(dir, item)
+                    const stat = fs.statSync(fullPath)
+
+                    if (stat.isDirectory()) {
+                        results = results.concat(findImagesRecursively(fullPath, extensions))
+                    } else if (stat.isFile()) {
+                        const ext = path.extname(item).toLowerCase().slice(1)
+                        if (extensions.includes(ext)) {
+                            results.push(fullPath)
+                        }
+                    }
+                }
+            } catch (err) {
+                // Ignore directory read errors
+            }
+
+            return results
+        }
+
+        // Get all image files from public directory
+        const allImages = findImagesRecursively(publicDir, imageExtensions)
+        const foundIcons = []
+
+        // Create icon set directory
+        if (!fs.existsSync(iconSetDir)) {
+            fs.mkdirSync(iconSetDir, { recursive: true })
+        }
+
+        // Load existing Contents.json or create new
+        const contentsPath = `${iconSetDir}/Contents.json`
+        let contents
+        if (fs.existsSync(contentsPath)) {
+            try {
+                contents = JSON.parse(fs.readFileSync(contentsPath, "utf8"))
+            } catch {
+                contents = null
+            }
+        }
+
+        if (!contents || !Array.isArray(contents.images)) {
+            contents = { images: [], info: { author: "xcode", version: 1 } }
+        }
+
+        // Map to track which icons we've added
+        const addedIcons = new Set()
+
+        // Search for icons matching the expected sizes
+        for (const iconConfig of iconSizes) {
+            const { size, idiom, scale } = iconConfig
+
+            // Expected filename pattern: icon-{size}-{scale}
+            // Example: icon-20x20-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png
+            const expectedName = `icon-${size}-${scale}`
+            let foundImage = null
+
+            // Search for matching file with any supported extension
+            for (const ext of imageExtensions) {
+                const matchingImage = allImages.find((imgPath) => {
+                    const basename = path.basename(imgPath, `.${ext}`)
+                    return basename === expectedName
+                })
+
+                if (matchingImage) {
+                    foundImage = { path: matchingImage, ext }
+                    break
+                }
+            }
+
+            if (foundImage) {
+                const filename = `${expectedName}.${foundImage.ext}`
+                const destinationPath = `${iconSetDir}/${filename}`
+
+                // Copy the icon
+                fs.copyFileSync(foundImage.path, destinationPath)
+                foundIcons.push({ size, scale, filename, idiom })
+
+                // Create unique key for this icon entry
+                const iconKey = `${size}-${idiom}-${scale}`
+                addedIcons.add(iconKey)
+
+                // Remove existing entry with same size/idiom/scale
+                contents.images = contents.images.filter(
+                    (img) => `${img.size}-${img.idiom}-${img.scale}` !== iconKey
+                )
+
+                // Add new entry
+                contents.images.push({
+                    size,
+                    idiom,
+                    scale,
+                    filename,
+                })
+            }
+        }
+
+        if (foundIcons.length > 0) {
+            // Write updated Contents.json
+            fs.writeFileSync(contentsPath, JSON.stringify(contents, null, 2))
+
+            progress.log(`Updated AppIcon.appiconset with ${foundIcons.length} icon(s):`, "success")
+            foundIcons.forEach((icon) => {
+                progress.log(`  • ${icon.size} @${icon.scale} (${icon.idiom})`, "info")
+            })
+        } else {
+            progress.log("No app icon files found in public folder", "info")
+            progress.log("Expected naming pattern: icon-{size}-{scale}.{ext}", "info")
+            progress.log("Example: icon-20x20-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png", "info")
+        }
+    } catch (error) {
+        progress.log(`Warning: Error copying app icons: ${error.message}`, "warning")
+    }
+}
+
 async function main() {
     try {
         progress.log('Starting build process...', 'info');
         await generateConfigConstants()
         await updateInfoPlist()
-        await buildForIOS();
-
+        await buildForIOS()
+        
     } catch (error) {
         progress.log("Build failed: " + error.message, "error")
         process.exit(1)
