@@ -47,6 +47,7 @@ const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfi
 // Utility function to run shell commands
 function runCommand(command, options = {}) {
     return new Promise((resolve, reject) => {
+        // eslint-disable-next-line security/detect-child-process
         exec(command, { maxBuffer: 1024 * 1024 * 10, ...options }, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command failed: ${command}`)
@@ -145,6 +146,77 @@ async function updateInfoPlist() {
     }
 }
 
+// Function to convert JSON value to Swift property
+function generateSwiftProperty(key, value, indent = '    ') {
+    if (value === null || value === undefined) {
+        return `${indent}static let ${key}: String? = nil`;
+    }
+
+    // Special handling for cachePattern - always convert to array
+    if (key === 'cachePattern') {
+        if (typeof value === 'string') {
+            // Convert single string to array
+            return `${indent}static let ${key}: [String] = ["${value}"]`;
+        } else if (Array.isArray(value)) {
+            const arrayValues = value.map(v => `"${v}"`).join(", ");
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`;
+        }
+    }
+
+    if (typeof value === 'string') {
+        return `${indent}static let ${key} = "${value}"`;
+    }
+
+    if (typeof value === 'number') {
+        return Number.isInteger(value) ?
+            `${indent}static let ${key} = ${value}` :
+            `${indent}static let ${key} = ${value}`;
+    }
+
+    if (typeof value === 'boolean') {
+        return `${indent}static let ${key} = ${value}`;
+    }
+
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            return `${indent}static let ${key}: [String] = []`;
+        }
+
+        // Determine array type from first element
+        const firstElement = value[0];
+        if (typeof firstElement === 'string') {
+            const arrayValues = value.map(v => `"${v}"`).join(", ");
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`;
+        } else if (typeof firstElement === 'number') {
+            const arrayType = Number.isInteger(firstElement) ? 'Int' : 'Double';
+            const arrayValues = value.join(", ");
+            return `${indent}static let ${key}: [${arrayType}] = [${arrayValues}]`;
+        } else if (typeof firstElement === 'boolean') {
+            const arrayValues = value.join(", ");
+            return `${indent}static let ${key}: [Bool] = [${arrayValues}]`;
+        } else {
+            // Mixed array - convert to strings
+            const arrayValues = value.map(v => `"${v}"`).join(", ");
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`;
+        }
+    }
+
+    if (typeof value === 'object' && value !== null) {
+        // Generate nested enum for objects
+        let nestedContent = `${indent}enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`;
+
+        for (const [nestedKey, nestedValue] of Object.entries(value)) {
+            nestedContent += generateSwiftProperty(nestedKey, nestedValue, indent + '    ') + '\n';
+        }
+
+        nestedContent += `${indent}}`;
+        return nestedContent;
+    }
+
+    // Fallback to string
+    return `${indent}static let ${key} = "${value}"`;
+}
+
 async function generateConfigConstants() {
     progress.start("config")
     try {
@@ -162,77 +234,6 @@ import Foundation
 
 enum ConfigConstants {
     static let url = "${url}"`
-
-        // Function to convert JSON value to Swift property
-        function generateSwiftProperty(key, value, indent = '    ') {
-            if (value === null || value === undefined) {
-                return `${indent}static let ${key}: String? = nil`;
-            }
-
-            // Special handling for cachePattern - always convert to array
-            if (key === 'cachePattern') {
-                if (typeof value === 'string') {
-                    // Convert single string to array
-                    return `${indent}static let ${key}: [String] = ["${value}"]`;
-                } else if (Array.isArray(value)) {
-                    const arrayValues = value.map(v => `"${v}"`).join(", ");
-                    return `${indent}static let ${key}: [String] = [${arrayValues}]`;
-                }
-            }
-
-            if (typeof value === 'string') {
-                return `${indent}static let ${key} = "${value}"`;
-            }
-
-            if (typeof value === 'number') {
-                return Number.isInteger(value) ?
-                    `${indent}static let ${key} = ${value}` :
-                    `${indent}static let ${key} = ${value}`;
-            }
-
-            if (typeof value === 'boolean') {
-                return `${indent}static let ${key} = ${value}`;
-            }
-
-            if (Array.isArray(value)) {
-                if (value.length === 0) {
-                    return `${indent}static let ${key}: [String] = []`;
-                }
-
-                // Determine array type from first element
-                const firstElement = value[0];
-                if (typeof firstElement === 'string') {
-                    const arrayValues = value.map(v => `"${v}"`).join(", ");
-                    return `${indent}static let ${key}: [String] = [${arrayValues}]`;
-                } else if (typeof firstElement === 'number') {
-                    const arrayType = Number.isInteger(firstElement) ? 'Int' : 'Double';
-                    const arrayValues = value.join(", ");
-                    return `${indent}static let ${key}: [${arrayType}] = [${arrayValues}]`;
-                } else if (typeof firstElement === 'boolean') {
-                    const arrayValues = value.join(", ");
-                    return `${indent}static let ${key}: [Bool] = [${arrayValues}]`;
-                } else {
-                    // Mixed array - convert to strings
-                    const arrayValues = value.map(v => `"${v}"`).join(", ");
-                    return `${indent}static let ${key}: [String] = [${arrayValues}]`;
-                }
-            }
-
-            if (typeof value === 'object' && value !== null) {
-                // Generate nested enum for objects
-                let nestedContent = `${indent}enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`;
-
-                for (const [nestedKey, nestedValue] of Object.entries(value)) {
-                    nestedContent += generateSwiftProperty(nestedKey, nestedValue, indent + '    ') + '\n';
-                }
-
-                nestedContent += `${indent}}`;
-                return nestedContent;
-            }
-
-            // Fallback to string
-            return `${indent}static let ${key} = "${value}"`;
-        }
 
         // Track keys already added to avoid duplicates
         const addedKeys = new Set();
@@ -609,47 +610,6 @@ async function focusSimulator() {
     await runCommand(`osascript -e 'tell application "Simulator" to activate'`)
 }
 
-// Utility functions (kept from original file)
-function getLocalIPAddress() {
-    try {
-        // Get the list of all devices with their details
-        const listCommand = "xcrun simctl list devices --json";
-        const simulatorList = JSON.parse(execSync(listCommand).toString());
-
-        // Find booted device and its runtime
-        let bootedDevice = null;
-        let runtime = null;
-
-        // Look through all runtimes and their devices
-        Object.entries(simulatorList.devices).forEach(([runtimeId, devices]) => {
-            devices.forEach(device => {
-                if (device.state === "Booted") {
-                    bootedDevice = device;
-                    runtime = runtimeId;
-                }
-            });
-        });
-
-        if (bootedDevice && runtime) {
-            // Extract iOS version from runtime ID (e.g., "com.apple.CoreSimulator.SimRuntime.iOS-18-0")
-            const version = runtime.match(/iOS-(\d+)-(\d+)/);
-            if (version) {
-                const iosVersion = `${version[1]}.${version[2]}`;
-                console.log(`Found booted device: ${bootedDevice.name} with iOS ${iosVersion}`);
-                return {
-                    udid: bootedDevice.udid,
-                    version: iosVersion
-                };
-            }
-        }
-
-        return null;
-    } catch (error) {
-        console.error("Error getting local IP:", error)
-        return "localhost"
-    }
-}
-
 // Physical Device Detection Functions
 async function detectPhysicalDevices() {
     progress.start('deviceDetection');
@@ -658,29 +618,71 @@ async function detectPhysicalDevices() {
 
         let physicalDevices = [];
 
-        // Simple method: Look for your known device UDID directly
-        const KNOWN_DEVICE_UDID = "00008020-0012791A1E33002E";
+        // Priority 1: Check if UDID is specified in config
+        const configuredUDID = iosConfig.deviceUDID;
 
-        // First check if we can detect the known working device
+        if (configuredUDID) {
+            progress.log(`Using configured device UDID: ${configuredUDID}`, 'info');
+
+            // Verify the configured device is actually connected
+            try {
+                const instrumentsOutput = execSync('instruments -s devices').toString();
+
+                if (instrumentsOutput.includes(configuredUDID)) {
+                    // Extract device name from instruments output
+                    const deviceLine = instrumentsOutput.split('\n').find(line => line.includes(configuredUDID));
+                    if (deviceLine) {
+                        const nameMatch = deviceLine.match(/^(.+?)\s+\(/);
+                        const versionMatch = deviceLine.match(/\((\d+\.\d+(?:\.\d+)?)\)/);
+                        const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device";
+                        const deviceVersion = versionMatch ? versionMatch[1] : 'Unknown';
+
+                        progress.log(`✅ Found configured physical device: ${deviceName} (${deviceVersion})`, 'success');
+                        physicalDevices.push({
+                            name: deviceName,
+                            version: deviceVersion,
+                            udid: configuredUDID,
+                            type: 'physical'
+                        });
+
+                        progress.complete('deviceDetection');
+                        return physicalDevices[0];
+                    }
+                } else {
+                    progress.log(`⚠️  Configured device UDID not found in connected devices`, 'warning');
+                    progress.log('Falling back to auto-detection...', 'info');
+                }
+            } catch (error) {
+                progress.log(`Error verifying configured device: ${error.message}`, 'warning');
+                progress.log('Falling back to auto-detection...', 'info');
+            }
+        } else {
+            progress.log('No device UDID configured, using auto-detection', 'info');
+        }
+
+        // Priority 2: Auto-detect using multiple fallback methods
+        // Try instruments first
         try {
             const instrumentsOutput = execSync('instruments -s devices').toString();
-            progress.log('Checking instruments output for known device...', 'info');
+            const lines = instrumentsOutput.split('\n');
 
-            if (instrumentsOutput.includes(KNOWN_DEVICE_UDID)) {
-                // Extract device name from instruments output
-                const deviceLine = instrumentsOutput.split('\n').find(line => line.includes(KNOWN_DEVICE_UDID));
-                if (deviceLine) {
-                    const nameMatch = deviceLine.match(/^(.+?)\s+\(/);
-                    const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device";
+            for (const line of lines) {
+                // Match physical devices (have UDID but not simulator indicators)
+                const deviceMatch = line.match(/^(.+?)\s+\((\d+\.\d+(?:\.\d+)?)\)\s+\[([A-F0-9-]{36})\](?:\s+\(Simulator\))?$/);
 
-                    progress.log(`✅ Found known physical device: ${deviceName}`, 'success');
+                if (deviceMatch && !line.includes('(Simulator)')) {
+                    const [, name, version, udid] = deviceMatch;
                     physicalDevices.push({
-                        name: deviceName,
-                        version: 'Unknown',
-                        udid: KNOWN_DEVICE_UDID,
+                        name: name.trim(),
+                        version: version,
+                        udid: udid,
                         type: 'physical'
                     });
                 }
+            }
+
+            if (physicalDevices.length > 0) {
+                progress.log(`Found ${physicalDevices.length} physical device(s) via instruments`, 'success');
             }
         } catch (error) {
             progress.log('instruments command failed, trying xcodebuild...', 'warning');
@@ -794,66 +796,6 @@ async function detectPhysicalDevices() {
     }
 }
 
-async function checkCodeSigningSetup() {
-    try {
-        progress.log('Checking code signing setup...', 'info');
-
-        // Check for valid signing identities
-        const identities = execSync('security find-identity -v -p codesigning').toString();
-        const validIdentities = identities.split('\n').filter(line =>
-            line.includes('valid') && (line.includes('Apple Development') || line.includes('iPhone Developer'))
-        );
-
-        if (validIdentities.length === 0) {
-            progress.log('❌ No valid code signing identities found', 'error');
-            progress.printTreeContent('Code Signing Setup Required', [
-                'Physical device build requires code signing certificates:',
-                { text: 'Ensure certificates are installed in Keychain Access', indent: 1, prefix: '├─ ', color: 'yellow' },
-                { text: 'Verify provisioning profile is configured in Xcode project', indent: 1, prefix: '├─ ', color: 'yellow' },
-                { text: 'Check Signing & Capabilities in Xcode project settings', indent: 1, prefix: '└─ ', color: 'yellow' }
-            ]);
-            return false;
-        } else {
-            progress.log(`✅ Found ${validIdentities.length} valid signing identities`, 'success');
-            progress.log('Will use Xcode project signing configuration', 'info');
-            return true;
-        }
-    } catch (error) {
-        progress.log('Could not check code signing setup, proceeding with Xcode settings', 'warning');
-        return true; // Allow to proceed, let Xcode handle it
-    }
-}
-
-async function shouldUsePhysicalDevice() {
-    const preferPhysicalDevice = iosConfig.preferPhysicalDevice !== false; // Default to true
-
-    if (!preferPhysicalDevice) {
-        progress.log('Physical device preference disabled in config', 'info');
-        return null;
-    }
-
-    const physicalDevice = await detectPhysicalDevices();
-
-    if (physicalDevice) {
-        progress.log(`Physical device available: ${physicalDevice.name}`, 'success');
-
-        // Check code signing setup before proceeding
-        const hasCodeSigning = await checkCodeSigningSetup();
-
-        if (!hasCodeSigning) {
-            progress.log('Code signing not configured, falling back to simulator', 'warning');
-            return null;
-        }
-
-        progress.log('Physical device takes priority over simulator', 'info');
-        return physicalDevice;
-    }
-
-    progress.log('No physical device available, will use simulator', 'info');
-    return null;
-}
-
-
 async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
         // Get the booted device info first
         const bootedInfo = await getBootedSimulatorInfo();
@@ -880,7 +822,7 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
         CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
         OS_ACTIVITY_MODE=debug \
         SWIFT_DEBUG_LOG=1 \
-        build`;;
+        build`;
   return runCommand(buildCommand, {
     maxBuffer: 1024 * 1024 * 10  });
 }

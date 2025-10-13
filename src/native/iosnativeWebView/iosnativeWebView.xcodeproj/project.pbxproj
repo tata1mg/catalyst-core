@@ -336,6 +336,7 @@
 				4777D5212C60B87500E85AC6 /* ContentView.swift in Sources */,
 				E93412182D8AC90A0009FD6D /* NativeBridge.swift in Sources */,
 				E90872B02E8AB78B0076627C /* BridgeDelegateHandler.swift in Sources */,
+				E997B6782E9CECA3008C7F55 /* DeviceInfoUtils.swift in Sources */,
 				47E177D42CD0BF950033C825 /* WebView.swift in Sources */,
 				E90872AC2E8AB1CB0076627C /* BridgeCommandHandler.swift in Sources */,
 				E997B6712E97918E008C7F55 /* DeviceInfoUtils.swift in Sources */,

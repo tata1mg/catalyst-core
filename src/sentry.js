@@ -104,12 +104,15 @@ export class ErrorBoundary extends React.Component {
 
     render() {
         if (this.state.hasError) {
+            // eslint-disable-next-line react/prop-types
             if (this.props.fallback) {
+                // eslint-disable-next-line react/prop-types
                 return this.props.fallback
             }
             return <h1>Something went wrong.</h1>
         }
 
+        // eslint-disable-next-line react/prop-types
         return this.props.children
     }
 }
