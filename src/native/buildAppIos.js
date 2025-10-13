@@ -4,14 +4,17 @@ const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const publicPath = `${process.env.PWD}/public`
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, NODE_SERVER_HOSTNAME } = require(
-    `${process.env.PWD}/config/config.json`
-)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
-const url = `http://${NODE_SERVER_HOSTNAME}:${WEBVIEW_CONFIG.port}`
+
+const protocol = WEBVIEW_CONFIG.useHttps ? "https" : "http"
+const ip = WEBVIEW_CONFIG.LOCAL_IP ?? null
+const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 403 : WEBVIEW_CONFIG.port) : null
+let url = port ? `${protocol}://${ip}:${port}` : `${protocol}://${ip}`
+
+const PUBLIC_PATH = `${process.env.PWD}/public`
 const PROJECT_DIR = `${pwd}/iosnativeWebView`
 const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
@@ -114,7 +117,6 @@ async function getBootedSimulatorInfo() {
         return null
     }
 }
-
 async function generatePackageSwift() {
     try {
         const crypto = require("crypto")
@@ -244,7 +246,18 @@ let package = Package(
                 )
                 progress.log("Package dependencies resolved successfully", "success")
             } catch (error) {
-                progress.log(`Warning: Package resolution may have failed: ${error.message}`, "warning")
+                // Critical error for notifications-enabled builds
+                if (isNotificationsEnabled) {
+                    progress.log(
+                        `❌ CRITICAL: Package resolution failed. Firebase dependencies required for notifications could not be resolved.`,
+                        "error"
+                    )
+                    throw new Error(
+                        `Package resolution failed: ${error.message}. This is required when notifications are enabled.`
+                    )
+                } else {
+                    progress.log(`Warning: Package resolution may have failed: ${error.message}`, "warning")
+                }
             }
         }
 
@@ -255,101 +268,221 @@ let package = Package(
     }
 }
 
+async function updateXcodeProjectPackageDependencies() {
+    try {
+        const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
+        const projectFilePath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj")
+
+        progress.log(
+            `🔧 Updating Xcode package dependencies (notifications: ${isNotificationsEnabled})`,
+            "info"
+        )
+
+        if (!fs.existsSync(projectFilePath)) {
+            throw new Error(`Xcode project file not found at: ${projectFilePath}`)
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+
+        // Use deterministic IDs for CatalystNotifications entries
+        const NOTIF_BUILD_FILE_ID = "C99974352E97D56900C25611"
+        const NOTIF_PRODUCT_ID = "C99974362E97D56900C25611"
+
+        // Check if CatalystNotifications is already in the project
+        const hasNotifications = projectContent.includes("/* CatalystNotifications */")
+
+        if (isNotificationsEnabled && !hasNotifications) {
+            progress.log("Adding CatalystNotifications to Xcode project", "info")
+
+            // 1. Add to PBXBuildFile section (after CatalystCore)
+            projectContent = projectContent.replace(
+                /(C99974342E97D56900C25611 \/\* CatalystCore in Frameworks \*\/ = {isa = PBXBuildFile; productRef = C99974332E97D56900C25611 \/\* CatalystCore \*\/; };)/,
+                `$1\n\t\t${NOTIF_BUILD_FILE_ID} /* CatalystNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = ${NOTIF_PRODUCT_ID} /* CatalystNotifications */; };`
+            )
+
+            // 2. Add to PBXFrameworksBuildPhase files array
+            projectContent = projectContent.replace(
+                /(C99974342E97D56900C25611 \/\* CatalystCore in Frameworks \*\/,)/,
+                `$1\n\t\t\t\t${NOTIF_BUILD_FILE_ID} /* CatalystNotifications in Frameworks */,`
+            )
+
+            // 3. Add to packageProductDependencies array
+            projectContent = projectContent.replace(
+                /(packageProductDependencies = \(\s*C99974332E97D56900C25611 \/\* CatalystCore \*\/,)/,
+                `$1\n\t\t\t\t${NOTIF_PRODUCT_ID} /* CatalystNotifications */,`
+            )
+
+            // 4. Add to XCSwiftPackageProductDependency section
+            projectContent = projectContent.replace(
+                /(\/\* End XCSwiftPackageProductDependency section \*\/)/,
+                `\t\t${NOTIF_PRODUCT_ID} /* CatalystNotifications */ = {\n\t\t\tisa = XCSwiftPackageProductDependency;\n\t\t\tpackage = C99974322E97D56900C25611 /* XCLocalSwiftPackageReference "." */;\n\t\t\tproductName = CatalystNotifications;\n\t\t};\n$1`
+            )
+
+            fs.writeFileSync(projectFilePath, projectContent, "utf8")
+            progress.log("✅ CatalystNotifications added to Xcode project", "success")
+        } else if (!isNotificationsEnabled && hasNotifications) {
+            progress.log("Removing CatalystNotifications from Xcode project", "info")
+
+            // Remove all CatalystNotifications entries
+            projectContent = projectContent.replace(
+                /\t\t[A-F0-9]+ \/\* CatalystNotifications in Frameworks \*\/ = {isa = PBXBuildFile; productRef = [A-F0-9]+ \/\* CatalystNotifications \*\/; };\n/g,
+                ""
+            )
+            projectContent = projectContent.replace(
+                /\t\t\t\t[A-F0-9]+ \/\* CatalystNotifications in Frameworks \*\/,\n/g,
+                ""
+            )
+            projectContent = projectContent.replace(
+                /\t\t\t\t[A-F0-9]+ \/\* CatalystNotifications \*\/,\n/g,
+                ""
+            )
+            projectContent = projectContent.replace(
+                /\t\t[A-F0-9]+ \/\* CatalystNotifications \*\/ = {\n\t\t\tisa = XCSwiftPackageProductDependency;\n\t\t\tpackage = [A-F0-9]+ \/\* XCLocalSwiftPackageReference "." \*\/;\n\t\t\tproductName = CatalystNotifications;\n\t\t};\n/g,
+                ""
+            )
+
+            fs.writeFileSync(projectFilePath, projectContent, "utf8")
+            progress.log("✅ CatalystNotifications removed from Xcode project", "success")
+        } else {
+            progress.log("Package dependencies already correct", "info")
+        }
+    } catch (error) {
+        progress.log(`❌ Failed to update package dependencies: ${error.message}`, "error")
+        throw error
+    }
+}
+
+async function updateInfoPlist() {
+    try {
+        const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
+
+        if (fs.existsSync(infoPlistPath)) {
+            let plistContent = fs.readFileSync(infoPlistPath, "utf8")
+
+            // Add CFBundleDisplayName if it doesn't exist
+            if (!plistContent.includes("CFBundleDisplayName")) {
+                const insertPoint = plistContent.lastIndexOf("</dict>")
+                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "Catalyst Application"}</string>\n`
+                plistContent = plistContent.slice(0, insertPoint) + newEntry + plistContent.slice(insertPoint)
+                fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+            } else {
+                // Update existing CFBundleDisplayName with new appName
+                const displayNameRegex = /(<key>CFBundleDisplayName<\/key>\s*<string>)([^<]*)(<\/string>)/
+                if (displayNameRegex.test(plistContent)) {
+                    plistContent = plistContent.replace(
+                        displayNameRegex,
+                        `$1${iosConfig.appName || "Catalyst Application"}$3`
+                    )
+                    fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+                }
+            }
+        }
+    } catch (err) {
+        progress.fail("config", err)
+        process.exit(1)
+    }
+}
+
+// Function to convert JSON value to Swift property
+function generateSwiftProperty(key, value, indent = "    ") {
+    if (value === null || value === undefined) {
+        return `${indent}static let ${key}: String? = nil`
+    }
+
+    // Special handling for cachePattern - always convert to array
+    if (key === "cachePattern") {
+        if (typeof value === "string") {
+            // Convert single string to array
+            return `${indent}static let ${key}: [String] = ["${value}"]`
+        } else if (Array.isArray(value)) {
+            const arrayValues = value.map((v) => `"${v}"`).join(", ")
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`
+        }
+    }
+
+    if (typeof value === "string") {
+        return `${indent}static let ${key} = "${value}"`
+    }
+
+    if (typeof value === "number") {
+        return Number.isInteger(value)
+            ? `${indent}static let ${key} = ${value}`
+            : `${indent}static let ${key} = ${value}`
+    }
+
+    if (typeof value === "boolean") {
+        return `${indent}static let ${key} = ${value}`
+    }
+
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            return `${indent}static let ${key}: [String] = []`
+        }
+
+        // Determine array type from first element
+        const firstElement = value[0]
+        if (typeof firstElement === "string") {
+            const arrayValues = value.map((v) => `"${v}"`).join(", ")
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`
+        } else if (typeof firstElement === "number") {
+            const arrayType = Number.isInteger(firstElement) ? "Int" : "Double"
+            const arrayValues = value.join(", ")
+            return `${indent}static let ${key}: [${arrayType}] = [${arrayValues}]`
+        } else if (typeof firstElement === "boolean") {
+            const arrayValues = value.join(", ")
+            return `${indent}static let ${key}: [Bool] = [${arrayValues}]`
+        } else {
+            // Mixed array - convert to strings
+            const arrayValues = value.map((v) => `"${v}"`).join(", ")
+            return `${indent}static let ${key}: [String] = [${arrayValues}]`
+        }
+    }
+
+    if (typeof value === "object" && value !== null) {
+        // Generate nested enum for objects
+        let nestedContent = `${indent}public enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`
+
+        for (const [nestedKey, nestedValue] of Object.entries(value)) {
+            nestedContent +=
+                "    public " +
+                generateSwiftProperty(nestedKey, nestedValue, indent + "    ").trimStart() +
+                "\n"
+        }
+
+        nestedContent += `${indent}}`
+        return nestedContent
+    }
+
+    // Fallback to string
+    return `${indent}static let ${key} = "${value}"`
+}
+
 async function generateConfigConstants() {
     progress.start("config")
     try {
-        // SPM structure: write to Sources/Core/Constants/
-        const configOutputPath = path.join(
-            PROJECT_DIR,
-            "Sources",
-            "Core",
-            "Constants",
-            "ConfigConstants.swift"
-        )
+        // Write to both locations:
+        // 1. SPM module (for CatalystCore to use)
+        // 2. App directory (for Xcode project file reference)
+        const spmConfigPath = path.join(PROJECT_DIR, "Sources/Core/Constants", "ConfigConstants.swift")
+        const appConfigPath = path.join(PROJECT_DIR, PROJECT_NAME, "ConfigConstants.swift")
 
-        const configDir = path.dirname(configOutputPath)
-        if (!fs.existsSync(configDir)) {
-            fs.mkdirSync(configDir, { recursive: true })
+        // Ensure both directories exist
+        const spmConfigDir = path.dirname(spmConfigPath)
+        if (!fs.existsSync(spmConfigDir)) {
+            fs.mkdirSync(spmConfigDir, { recursive: true })
         }
 
-        // Initialize base config with required URL (with public access for SPM)
+        const appConfigDir = path.dirname(appConfigPath)
+        if (!fs.existsSync(appConfigDir)) {
+            fs.mkdirSync(appConfigDir, { recursive: true })
+        }
+
+        // Initialize base config with required URL
         let configContent = `// This file is auto-generated. Do not edit.
 import Foundation
 
 public enum ConfigConstants {
     public static let url = "${url}"`
-
-        // Function to convert JSON value to Swift property
-        // eslint-disable-next-line no-inner-declarations
-        function generateSwiftProperty(key, value, indent = "    ") {
-            if (value === null || value === undefined) {
-                return `${indent}public static let ${key}: String? = nil`
-            }
-
-            // Special handling for cachePattern - always convert to array
-            if (key === "cachePattern") {
-                if (typeof value === "string") {
-                    // Convert single string to array
-                    return `${indent}public static let ${key}: [String] = ["${value}"]`
-                } else if (Array.isArray(value)) {
-                    const arrayValues = value.map((v) => `"${v}"`).join(", ")
-                    return `${indent}public static let ${key}: [String] = [${arrayValues}]`
-                }
-            }
-
-            if (typeof value === "string") {
-                return `${indent}public static let ${key} = "${value}"`
-            }
-
-            if (typeof value === "number") {
-                return Number.isInteger(value)
-                    ? `${indent}public static let ${key} = ${value}`
-                    : `${indent}public static let ${key} = ${value}`
-            }
-
-            if (typeof value === "boolean") {
-                return `${indent}public static let ${key} = ${value}`
-            }
-
-            if (Array.isArray(value)) {
-                if (value.length === 0) {
-                    return `${indent}public static let ${key}: [String] = []`
-                }
-
-                // Determine array type from first element
-                const firstElement = value[0]
-                if (typeof firstElement === "string") {
-                    const arrayValues = value.map((v) => `"${v}"`).join(", ")
-                    return `${indent}public static let ${key}: [String] = [${arrayValues}]`
-                } else if (typeof firstElement === "number") {
-                    const arrayType = Number.isInteger(firstElement) ? "Int" : "Double"
-                    const arrayValues = value.join(", ")
-                    return `${indent}public static let ${key}: [${arrayType}] = [${arrayValues}]`
-                } else if (typeof firstElement === "boolean") {
-                    const arrayValues = value.join(", ")
-                    return `${indent}public static let ${key}: [Bool] = [${arrayValues}]`
-                } else {
-                    // Mixed array - convert to strings
-                    const arrayValues = value.map((v) => `"${v}"`).join(", ")
-                    return `${indent}public static let ${key}: [String] = [${arrayValues}]`
-                }
-            }
-
-            if (typeof value === "object" && value !== null) {
-                // Generate nested enum for objects (public for SPM)
-                let nestedContent = `${indent}public enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`
-
-                for (const [nestedKey, nestedValue] of Object.entries(value)) {
-                    nestedContent += generateSwiftProperty(nestedKey, nestedValue, indent + "    ") + "\n"
-                }
-
-                nestedContent += `${indent}}`
-                return nestedContent
-            }
-
-            // Fallback to string
-            return `${indent}public static let ${key} = "${value}"`
-        }
 
         // Track keys already added to avoid duplicates
         const addedKeys = new Set()
@@ -368,16 +501,6 @@ public enum ConfigConstants {
             }
         }
 
-        // Ensure Notifications.enabled always exists (default to false if not configured)
-        if (!addedKeys.has("notifications")) {
-            progress.log("Notifications not found in config, adding default (false)", "info")
-            configContent +=
-                "\n    public enum Notifications {\n        public static let enabled = false\n    }"
-            addedKeys.add("notifications")
-        } else {
-            progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
-        }
-
         // Process iOS-specific config
         if (iosConfig && typeof iosConfig === "object") {
             configContent += "\n    \n    // iOS-specific configuration"
@@ -389,19 +512,61 @@ public enum ConfigConstants {
             }
         }
 
+        // Add URL whitelisting configuration if it exists
+        if (iosConfig.accessControl) {
+            const accessControl = iosConfig.accessControl
+
+            configContent += `
+    static let accessControlEnabled = ${accessControl.enabled || false}`
+
+            if (accessControl.allowedUrls && Array.isArray(accessControl.allowedUrls)) {
+                const allowedUrls = accessControl.allowedUrls.map((url) => `"${url}"`).join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            } else if (accessControl.allowedUrls && typeof accessControl.allowedUrls === "string") {
+                // Handle comma-separated string format
+                const allowedUrls = accessControl.allowedUrls
+                    .split(",")
+                    .map((url) => url.trim())
+                    .filter((url) => url.length > 0)
+                    .map((url) => `"${url}"`)
+                    .join(", ")
+
+                configContent += `
+    static let allowedUrls: [String] = [${allowedUrls}]`
+            }
+        } else {
+            // Default values when no access control is configured
+            configContent += `
+    static let accessControlEnabled = false
+    static let allowedUrls: [String] = []`
+        }
+
+        // Ensure Notifications.enabled always exists (default to false if not configured)
+        if (!addedKeys.has("notifications")) {
+            progress.log("Notifications not found in config, adding default (false)", "info")
+            configContent +=
+                "\n    public enum Notifications {\n        public static let enabled = false\n    }"
+            addedKeys.add("notifications")
+        } else {
+            progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
+        }
+
         // Close the enum
         configContent += `
 }`
 
-        fs.writeFileSync(configOutputPath, configContent, "utf8")
-        progress.log("Configuration constants generated successfully", "success")
+        // Write to both locations
+        fs.writeFileSync(spmConfigPath, configContent, "utf8")
+        fs.writeFileSync(appConfigPath, configContent, "utf8")
+        progress.log("Configuration constants generated successfully (SPM + App)", "success")
         progress.complete("config")
     } catch (error) {
         progress.fail("config", error.message)
         process.exit(1)
     }
 }
-
 // MARK: - Notification Asset Processing
 
 // Notification asset definitions
@@ -491,8 +656,8 @@ async function processNotificationIcons() {
         let iconsProcessed = 0
 
         // Ensure public directory exists
-        if (!fs.existsSync(publicPath)) {
-            progress.log(`Public directory not found at ${publicPath}`, "info")
+        if (!fs.existsSync(PUBLIC_PATH)) {
+            progress.log(`Public directory not found at ${PUBLIC_PATH}`, "info")
             return 0
         }
 
@@ -513,7 +678,7 @@ async function processNotificationIcons() {
         // Process notification icons
         for (const icon of NOTIFICATION_ICONS) {
             for (const format of imageFormats) {
-                const iconImagePath = `${publicPath}/${icon.sourceName}.${format}`
+                const iconImagePath = `${PUBLIC_PATH}/${icon.sourceName}.${format}`
                 if (fs.existsSync(iconImagePath)) {
                     // Validate asset size
                     validateNotificationAsset(iconImagePath, "icon")
@@ -593,8 +758,8 @@ async function processNotificationSounds() {
         let soundsProcessed = 0
 
         // Ensure public directory exists
-        if (!fs.existsSync(publicPath)) {
-            progress.log(`Public directory not found at ${publicPath}`, "info")
+        if (!fs.existsSync(PUBLIC_PATH)) {
+            progress.log(`Public directory not found at ${PUBLIC_PATH}`, "info")
             return 0
         }
 
@@ -612,7 +777,7 @@ async function processNotificationSounds() {
         // Process notification sounds
         for (const sound of NOTIFICATION_SOUNDS) {
             for (const format of audioFormats) {
-                const soundPath = `${publicPath}/${sound.sourceName}.${format}`
+                const soundPath = `${PUBLIC_PATH}/${sound.sourceName}.${format}`
                 if (fs.existsSync(soundPath)) {
                     // Validate asset size
                     validateNotificationAsset(soundPath, "sound")
@@ -795,19 +960,19 @@ async function buildXcodeProject() {
             {
                 text: 'Run "npm run setupEmulator:ios" to reconfigure iOS settings',
                 indent: 1,
-                prefix: "├─ ",
+                prefix: "â”œâ”€ ",
                 color: "yellow",
             },
             {
                 text: "Check if Xcode is properly installed and updated",
                 indent: 1,
-                prefix: "├─ ",
+                prefix: "â”œâ”€ ",
                 color: "yellow",
             },
-            { text: "Verify selected simulator exists", indent: 1, prefix: "└─ ", color: "yellow" },
+            { text: "Verify selected simulator exists", indent: 1, prefix: "â””â”€ ", color: "yellow" },
             "\nVerify Configuration:",
-            { text: `Selected Simulator: ${IPHONE_MODEL}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `Server URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
+            { text: `Selected Simulator: ${IPHONE_MODEL}`, indent: 1, prefix: "â”œâ”€ ", color: "gray" },
+            { text: `Server URL: ${url}`, indent: 1, prefix: "â””â”€ ", color: "gray" },
         ])
         process.exit(1)
     }
@@ -987,47 +1152,6 @@ async function focusSimulator() {
     await runCommand(`osascript -e 'tell application "Simulator" to activate'`)
 }
 
-// Utility functions (kept from original file)
-// function getLocalIPAddress() {
-//     try {
-//         // Get the list of all devices with their details
-//         const listCommand = "xcrun simctl list devices --json"
-//         const simulatorList = JSON.parse(execSync(listCommand).toString())
-
-//         // Find booted device and its runtime
-//         let bootedDevice = null
-//         let runtime = null
-
-//         // Look through all runtimes and their devices
-//         Object.entries(simulatorList.devices).forEach(([runtimeId, devices]) => {
-//             devices.forEach((device) => {
-//                 if (device.state === "Booted") {
-//                     bootedDevice = device
-//                     runtime = runtimeId
-//                 }
-//             })
-//         })
-
-//         if (bootedDevice && runtime) {
-//             // Extract iOS version from runtime ID (e.g., "com.apple.CoreSimulator.SimRuntime.iOS-18-0")
-//             const version = runtime.match(/iOS-(\d+)-(\d+)/)
-//             if (version) {
-//                 const iosVersion = `${version[1]}.${version[2]}`
-//                 console.log(`Found booted device: ${bootedDevice.name} with iOS ${iosVersion}`)
-//                 return {
-//                     udid: bootedDevice.udid,
-//                     version: iosVersion,
-//                 }
-//             }
-//         }
-
-//         return null
-//     } catch (error) {
-//         console.error("Error getting local IP:", error)
-//         return "localhost"
-//     }
-// }
-
 // Physical Device Detection Functions
 async function detectPhysicalDevices() {
     progress.start("deviceDetection")
@@ -1053,7 +1177,7 @@ async function detectPhysicalDevices() {
                     const nameMatch = deviceLine.match(/^(.+?)\s+\(/)
                     const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device"
 
-                    progress.log(`✅ Found known physical device: ${deviceName}`, "success")
+                    progress.log(`âœ… Found known physical device: ${deviceName}`, "success")
                     physicalDevices.push({
                         name: deviceName,
                         version: "Unknown",
@@ -1088,7 +1212,7 @@ async function detectPhysicalDevices() {
 
                         // Filter out placeholder devices
                         if (!udid.includes("placeholder") && udid.length > 20) {
-                            progress.log(`✅ Valid physical device: ${name.trim()}`, "success")
+                            progress.log(`âœ… Valid physical device: ${name.trim()}`, "success")
                             physicalDevices.push({
                                 name: name.trim(),
                                 version: "Unknown",
@@ -1097,7 +1221,7 @@ async function detectPhysicalDevices() {
                                 type: "physical",
                             })
                         } else {
-                            progress.log(`❌ Skipping placeholder: ${name.trim()}`, "warning")
+                            progress.log(`âŒ Skipping placeholder: ${name.trim()}`, "warning")
                         }
                     }
                 }
@@ -1165,7 +1289,7 @@ async function detectPhysicalDevices() {
             progress.log(`Found ${physicalDevices.length} physical device(s):`, "success")
             physicalDevices.forEach((device) => {
                 progress.log(
-                    `  📱 ${device.name} (${device.version || "Unknown iOS"}) - ${device.udid}`,
+                    `  ðŸ“± ${device.name} (${device.version || "Unknown iOS"}) - ${device.udid}`,
                     "info"
                 )
             })
@@ -1181,84 +1305,6 @@ async function detectPhysicalDevices() {
         return null
     }
 }
-
-// async function checkCodeSigningSetup() {
-//     try {
-//         progress.log("Checking code signing setup...", "info")
-
-//         // Check for valid signing identities
-//         const identities = execSync("security find-identity -v -p codesigning").toString()
-//         const validIdentities = identities
-//             .split("\n")
-//             .filter(
-//                 (line) =>
-//                     line.includes("valid") &&
-//                     (line.includes("Apple Development") || line.includes("iPhone Developer"))
-//             )
-
-//         if (validIdentities.length === 0) {
-//             progress.log("❌ No valid code signing identities found", "error")
-//             progress.printTreeContent("Code Signing Setup Required", [
-//                 "Physical device build requires code signing certificates:",
-//                 {
-//                     text: "Ensure certificates are installed in Keychain Access",
-//                     indent: 1,
-//                     prefix: "├─ ",
-//                     color: "yellow",
-//                 },
-//                 {
-//                     text: "Verify provisioning profile is configured in Xcode project",
-//                     indent: 1,
-//                     prefix: "├─ ",
-//                     color: "yellow",
-//                 },
-//                 {
-//                     text: "Check Signing & Capabilities in Xcode project settings",
-//                     indent: 1,
-//                     prefix: "└─ ",
-//                     color: "yellow",
-//                 },
-//             ])
-//             return false
-//         } else {
-//             progress.log(`✅ Found ${validIdentities.length} valid signing identities`, "success")
-//             progress.log("Will use Xcode project signing configuration", "info")
-//             return true
-//         }
-//     } catch (error) {
-//         progress.log("Could not check code signing setup, proceeding with Xcode settings", "warning")
-//         return true // Allow to proceed, let Xcode handle it
-//     }
-// }
-
-// async function shouldUsePhysicalDevice() {
-//     const preferPhysicalDevice = iosConfig.preferPhysicalDevice !== false // Default to true
-
-//     if (!preferPhysicalDevice) {
-//         progress.log("Physical device preference disabled in config", "info")
-//         return null
-//     }
-
-//     const physicalDevice = await detectPhysicalDevices()
-
-//     if (physicalDevice) {
-//         progress.log(`Physical device available: ${physicalDevice.name}`, "success")
-
-//         // Check code signing setup before proceeding
-//         const hasCodeSigning = await checkCodeSigningSetup()
-
-//         if (!hasCodeSigning) {
-//             progress.log("Code signing not configured, falling back to simulator", "warning")
-//             return null
-//         }
-
-//         progress.log("Physical device takes priority over simulator", "info")
-//         return physicalDevice
-//     }
-
-//     progress.log("No physical device available, will use simulator", "info")
-//     return null
-// }
 
 async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
     // Get the booted device info first
@@ -1412,20 +1458,25 @@ async function installAndLaunchOnPhysicalDevice(APP_PATH, device) {
 
         progress.printTreeContent("Physical Device Installation Failed", [
             "Installation failed. Common solutions:",
-            { text: "Ensure device is connected and unlocked", indent: 1, prefix: "├─ ", color: "yellow" },
+            {
+                text: "Ensure device is connected and unlocked",
+                indent: 1,
+                prefix: "â”œâ”€ ",
+                color: "yellow",
+            },
             {
                 text: "Trust the development certificate on your device",
                 indent: 1,
-                prefix: "├─ ",
+                prefix: "â”œâ”€ ",
                 color: "yellow",
             },
-            { text: "Check that device is in developer mode", indent: 1, prefix: "├─ ", color: "yellow" },
-            { text: "Verify app bundle is valid", indent: 1, prefix: "└─ ", color: "yellow" },
+            { text: "Check that device is in developer mode", indent: 1, prefix: "â”œâ”€ ", color: "yellow" },
+            { text: "Verify app bundle is valid", indent: 1, prefix: "â””â”€ ", color: "yellow" },
             "",
             "Device Details:",
-            { text: `Device: ${device.name}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `UDID: ${device.udid}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `App Bundle: ${APP_PATH}`, indent: 1, prefix: "└─ ", color: "gray" },
+            { text: `Device: ${device.name}`, indent: 1, prefix: "â”œâ”€ ", color: "gray" },
+            { text: `UDID: ${device.udid}`, indent: 1, prefix: "â”œâ”€ ", color: "gray" },
+            { text: `App Bundle: ${APP_PATH}`, indent: 1, prefix: "â””â”€ ", color: "gray" },
         ])
 
         throw error
@@ -1527,24 +1578,29 @@ async function launchIOSSimulator(simulatorName) {
         // Show detailed troubleshooting info
         progress.printTreeContent("Simulator Troubleshooting", [
             "iOS Simulator failed to launch. Common solutions:",
-            { text: "Delete and recreate the simulator in Xcode", indent: 1, prefix: "├─ ", color: "yellow" },
+            {
+                text: "Delete and recreate the simulator in Xcode",
+                indent: 1,
+                prefix: "â”œâ”€ ",
+                color: "yellow",
+            },
             {
                 text: "Reset simulator content: Device > Erase All Content and Settings",
                 indent: 1,
-                prefix: "├─ ",
+                prefix: "â”œâ”€ ",
                 color: "yellow",
             },
             {
                 text: "Check available simulators: xcrun simctl list devices",
                 indent: 1,
-                prefix: "├─ ",
+                prefix: "â”œâ”€ ",
                 color: "yellow",
             },
-            { text: "Restart Xcode and Simulator app", indent: 1, prefix: "└─ ", color: "yellow" },
+            { text: "Restart Xcode and Simulator app", indent: 1, prefix: "â””â”€ ", color: "yellow" },
             "",
             "Error Details:",
-            { text: `Simulator: ${simulatorName}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `Error: ${error.message}`, indent: 1, prefix: "└─ ", color: "red" },
+            { text: `Simulator: ${simulatorName}`, indent: 1, prefix: "â”œâ”€ ", color: "gray" },
+            { text: `Error: ${error.message}`, indent: 1, prefix: "â””â”€ ", color: "red" },
         ])
 
         console.error("Failed to launch iOS Simulator. Error:", error.message)
@@ -1559,7 +1615,7 @@ async function buildForIOS() {
     try {
         // Generate Package.swift first (before config, so package resolution happens early)
         await generatePackageSwift()
-
+        await updateXcodeProjectPackageDependencies()
         await generateConfigConstants()
 
         // Process notification assets
@@ -1578,7 +1634,7 @@ async function buildForIOS() {
 
         if (physicalDevice) {
             // Physical device workflow
-            progress.log("🔥 Building for physical device workflow", "success")
+            progress.log("ðŸ”¥ Building for physical device workflow", "success")
             targetInfo = {
                 type: "physical",
                 name: physicalDevice.name,
@@ -1604,16 +1660,21 @@ async function buildForIOS() {
                     {
                         text: "Code signing certificates are properly installed",
                         indent: 1,
-                        prefix: "├─ ",
+                        prefix: "â”œâ”€ ",
                         color: "yellow",
                     },
                     {
                         text: "Provisioning profile matches your bundle ID",
                         indent: 1,
-                        prefix: "├─ ",
+                        prefix: "â”œâ”€ ",
                         color: "yellow",
                     },
-                    { text: "Device is connected and trusted", indent: 1, prefix: "└─ ", color: "yellow" },
+                    {
+                        text: "Device is connected and trusted",
+                        indent: 1,
+                        prefix: "â””â”€ ",
+                        color: "yellow",
+                    },
                 ])
                 throw error
             }
@@ -1631,7 +1692,7 @@ async function buildForIOS() {
             await installAndLaunchOnPhysicalDevice(APP_PATH, physicalDevice)
         } else {
             // Simulator workflow (with moveAppToBuildOutput improvement)
-            progress.log("📱 Building for simulator workflow", "info")
+            progress.log("ðŸ“± Building for simulator workflow", "info")
             targetInfo = {
                 type: "simulator",
                 name: IPHONE_MODEL,
@@ -1653,14 +1714,14 @@ async function buildForIOS() {
         progress.printTreeContent("Build Summary", [
             "Build completed successfully:",
             {
-                text: `Target: ${targetInfo.type === "physical" ? "📱 Physical Device" : "📱 Simulator"}`,
+                text: `Target: ${targetInfo.type === "physical" ? "ðŸ“± Physical Device" : "ðŸ“± Simulator"}`,
                 indent: 1,
-                prefix: "├─ ",
+                prefix: "â”œâ”€ ",
                 color: "green",
             },
-            { text: `Device: ${targetInfo.name}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `App Path: ${APP_PATH}`, indent: 1, prefix: "├─ ", color: "gray" },
-            { text: `URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
+            { text: `Device: ${targetInfo.name}`, indent: 1, prefix: "â”œâ”€ ", color: "gray" },
+            { text: `App Path: ${APP_PATH}`, indent: 1, prefix: "â”œâ”€ ", color: "gray" },
+            { text: `URL: ${url}`, indent: 1, prefix: "â””â”€ ", color: "gray" },
         ])
 
         return { success: true, targetInfo, appPath: APP_PATH }
@@ -1675,7 +1736,8 @@ async function buildForIOS() {
 async function main() {
     try {
         progress.log("Starting build process...", "info")
-
+        await generateConfigConstants()
+        await updateInfoPlist()
         await buildForIOS()
     } catch (error) {
         progress.log("Build failed: " + error.message, "error")

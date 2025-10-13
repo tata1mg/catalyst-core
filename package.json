@@ -38,7 +38,7 @@
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "prepare": "babel src --out-dir ./dist && mkdir -p dist/native && cp -r src/native/androidProject src/native/iosnativeWebView src/native/build.swift dist/native/",
+        "prepare": "babel src --out-dir ./dist && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift dist/native/ && rsync -a --exclude='.package-config-hash' src/native/iosnativeWebView/ dist/native/iosnativeWebView/",
         "prepublishOnly": "npm i && npm run prepare"
     },
     "license": "MIT",

@@ -16,7 +16,9 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDelegate, BridgeDelegateHandlerDelegate {
     private weak var webView: WKWebView?
     private weak var viewController: UIViewController?
-    private let notificationManager = NotificationManager.shared
+
+    // Protocol-based notification handler (injected at runtime)
+    private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
 
     // Lazy initialization for non-critical handlers
     private lazy var imageHandler: ImageHandler = {
@@ -41,6 +43,8 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
             filePickerHandler: filePickerHandler
         )
         handler.setDelegate(self)
+        // Pass the notification handler to command handler
+        handler.setNotificationHandler(notificationHandler)
         return handler
     }()
 
@@ -74,7 +78,7 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         super.init()
 
         setupNotificationNavigationHandler()
-        
+
         let initTime = (CFAbsoluteTimeGetCurrent() - initStart) * 1000
         logWithTimestamp("⚡️ NativeBridge initialized (took \(String(format: "%.2f", initTime))ms, handlers deferred)")
     }
@@ -84,8 +88,22 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         logger.debug("NativeBridge deallocated")
     }
 
+    /// Inject notification handler at runtime (called from WebView setup)
+    func setNotificationHandler(_ handler: NotificationHandlerProtocol) {
+        self.notificationHandler = handler
+        setupNotificationNavigationHandler()
+
+        // If commandHandler is already initialized, update it too
+        // (Using @_borrowed to check without triggering lazy initialization)
+        if case .some = Mirror(reflecting: self).children.first(where: { $0.label == "commandHandler" })?.value as? BridgeCommandHandler {
+            commandHandler.setNotificationHandler(handler)
+        }
+
+        logger.info("Notification handler injected")
+    }
+
     private func setupNotificationNavigationHandler() {
-        notificationManager.setNavigationHandler { [weak self] (url: URL) in
+        notificationHandler.setNavigationHandler { [weak self] (url: URL) in
             DispatchQueue.main.async {
                 guard let webView = self?.webView else {
                     logger.error("WebView not available for notification navigation")
@@ -196,8 +214,8 @@ extension NativeBridge: WKScriptMessageHandler {
             case "requestHapticFeedback":
                 let feedbackType = delegateHandler.extractFeedbackType(from: params)
                 commandHandler.requestHapticFeedback(feedbackType: feedbackType)
-            
-            // Notification commands
+
+            // Notification commands (handled via protocol)
             case "requestNotificationPermission":
                 commandHandler.requestNotificationPermission()
             case "scheduleLocalNotification":

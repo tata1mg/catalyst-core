@@ -3,8 +3,8 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "CacheManager")
 
-class CacheManager {
-    static let shared = CacheManager()
+public class CacheManager {
+    public static let shared = CacheManager()
     private let queue = DispatchQueue(label: "com.app.cachemanager", attributes: .concurrent)
     
     enum CacheState {

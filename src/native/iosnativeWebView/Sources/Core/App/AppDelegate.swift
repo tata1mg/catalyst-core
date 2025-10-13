@@ -17,6 +17,9 @@ public class AppDelegate: NSObject, UIApplicationDelegate {
     // Pre-warmed WebView to trigger process launch early
     public static var preWarmedWebView: WKWebView?
 
+    // Hold reference to NotificationFeature (will be nil if disabled)
+    private var notificationFeature: AnyObject?
+
     public func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -36,33 +39,51 @@ public class AppDelegate: NSObject, UIApplicationDelegate {
 
         logWithTimestamp("✅ AppDelegate initialization complete")
 
-        // Notifications are initialized from iosnativeWebViewApp and events are forwarded via NotificationCenter
+        // 3. Notifications (runtime check, no compile-time dependency)
+        if ConfigConstants.Notifications.enabled {
+            logWithTimestamp("📬 Notifications enabled in config - will inject handler when WebView initializes")
+            // NOTE: Actual notification initialization will happen in iosnativeWebViewApp.swift
+            // which can safely import CatalystNotifications (it's in the App target, not CatalystCore)
+        } else {
+            logWithTimestamp("📬 Notifications disabled in config")
+        }
+
         return true
     }
 
     public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         logger.info("📱 APNS device token received in AppDelegate")
-        NotificationCenter.default.post(
-            name: NSNotification.Name("APNSDeviceTokenReceived"),
-            object: nil,
-            userInfo: ["deviceToken": deviceToken]
-        )
+        // Notification feature will be injected via NotificationFeature if enabled
+        if ConfigConstants.Notifications.enabled {
+            // This will be handled in iosnativeWebViewApp where we can safely import CatalystNotifications
+            NotificationCenter.default.post(
+                name: NSNotification.Name("APNSDeviceTokenReceived"),
+                object: nil,
+                userInfo: ["deviceToken": deviceToken]
+            )
+        }
     }
 
     public func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         logger.error("❌ Failed to register for remote notifications in AppDelegate")
-        NotificationCenter.default.post(
-            name: NSNotification.Name("APNSRegistrationFailed"),
-            object: nil,
-            userInfo: ["error": error]
-        )
+        if ConfigConstants.Notifications.enabled {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("APNSRegistrationFailed"),
+                object: nil,
+                userInfo: ["error": error]
+            )
+        }
     }
 
     public func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        NotificationCenter.default.post(
-            name: NSNotification.Name("RemoteNotificationReceived"),
-            object: nil,
-            userInfo: ["notification": userInfo, "completion": completionHandler]
-        )
+        if ConfigConstants.Notifications.enabled {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("RemoteNotificationReceived"),
+                object: nil,
+                userInfo: ["notification": userInfo, "completion": completionHandler]
+            )
+        } else {
+            completionHandler(.noData)
+        }
     }
 }

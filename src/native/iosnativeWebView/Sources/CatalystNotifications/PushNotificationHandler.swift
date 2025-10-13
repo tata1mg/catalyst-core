@@ -1,8 +1,9 @@
 import Foundation
 import UIKit
 import os
+import CatalystCore
 import FirebaseMessaging
-import Firebase
+import FirebaseCore
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "PushNotificationHandler")
 

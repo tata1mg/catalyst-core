@@ -16,11 +16,11 @@ let APP_LAUNCH_TIME = CFAbsoluteTimeGetCurrent()
 private let timingLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "Timing")
 
 /// Log a message with milliseconds elapsed since app launch (DEBUG only)
-func logWithTimestamp(_ message: String) {
+public func logWithTimestamp(_ message: String) {
     let elapsed = String(format: "%.3f", (CFAbsoluteTimeGetCurrent() - APP_LAUNCH_TIME) * 1000)
     timingLogger.info("[\(elapsed)ms] \(message)")
 }
 #else
 // No-op in release builds
-func logWithTimestamp(_ message: String) {}
+public func logWithTimestamp(_ message: String) {}
 #endif

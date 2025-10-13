@@ -2,17 +2,22 @@ import Foundation
 import UserNotifications
 import UIKit
 import os
+import CatalystCore
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "LocalNotificationHandler")
 
 class LocalNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
     var onNotificationReceived: ((String, [String: Any]) -> Void)?
     var onDeepLinkRequested: ((URL) -> Void)?
-    private let baseURL: String
+    private var baseURL: String
 
     init(baseURL: String) {
         self.baseURL = baseURL
         super.init()
+    }
+
+    func updateBaseURL(_ baseURL: String) {
+        self.baseURL = baseURL
     }
 
     // MARK: - Notification Creation

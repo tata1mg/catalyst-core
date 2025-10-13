@@ -1,7 +1,6 @@
 import SwiftUI
 import os
 import WebKit
-import CatalystCore
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "ContentView")
 

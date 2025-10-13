@@ -2,22 +2,29 @@ import Foundation
 import UserNotifications
 import UIKit
 import os
-import Firebase
+import CatalystCore
+import FirebaseCore
 import FirebaseMessaging
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NotificationManager")
 
-class NotificationManager: ObservableObject {
-    static let shared = NotificationManager()
+public final class NotificationManager: ObservableObject, NotificationHandlerProtocol {
+    public static let shared = NotificationManager()
 
     private let localHandler: LocalNotificationHandler
     private let pushHandler: PushNotificationHandler
     private var navigationHandler: ((URL) -> Void)?
+    private var baseURL: String = ""
 
 
     private init() {
-        self.localHandler = LocalNotificationHandler(baseURL: ConfigConstants.url)
+        self.localHandler = LocalNotificationHandler(baseURL: "")
         self.pushHandler = PushNotificationHandler()
+    }
+
+    public func initialize(baseURL: String) {
+        self.baseURL = baseURL
+        self.localHandler.updateBaseURL(baseURL)
 
         initializeFirebase()
         setupNotificationCenter()
@@ -46,7 +53,7 @@ class NotificationManager: ObservableObject {
 
     // MARK: - Permission Management
 
-    func requestPermission() async -> Bool {
+    public func requestPermission() async -> Bool {
         let center = UNUserNotificationCenter.current()
 
         do {
@@ -64,7 +71,7 @@ class NotificationManager: ObservableObject {
         }
     }
 
-    func checkPermissionStatus() async -> UNAuthorizationStatus {
+    public func checkPermissionStatus() async -> UNAuthorizationStatus {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         return settings.authorizationStatus
     }
@@ -78,7 +85,7 @@ class NotificationManager: ObservableObject {
     // MARK: - Local Notifications
 
     @discardableResult
-    func scheduleLocal(_ config: NotificationConfig) -> String {
+    public func scheduleLocal(_ config: NotificationConfig) -> String {
         let notificationId = UUID().uuidString
 
         Task {
@@ -95,7 +102,7 @@ class NotificationManager: ObservableObject {
         return notificationId
     }
 
-    func cancelLocal(_ notificationId: String) -> Bool {
+    public func cancelLocal(_ notificationId: String) -> Bool {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationId])
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationId])
 
@@ -103,7 +110,7 @@ class NotificationManager: ObservableObject {
         return true
     }
 
-    func cancelAllLocal() {
+    public func cancelAllLocal() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         logger.info("Cancelled all local notifications")
@@ -111,7 +118,7 @@ class NotificationManager: ObservableObject {
 
     // MARK: - Push Notifications
 
-    func initializePush() async -> String? {
+    public func initializePush() async -> String? {
         logger.info("🚀 initializePush called")
 
         // Check if permissions are granted
@@ -136,32 +143,32 @@ class NotificationManager: ObservableObject {
         return await pushHandler.registerForPushNotifications()
     }
 
-    func subscribeToTopic(_ topic: String) async -> Bool {
+    public func subscribeToTopic(_ topic: String) async -> Bool {
         return await pushHandler.subscribeToTopic(topic)
     }
 
-    func unsubscribeFromTopic(_ topic: String) async -> Bool {
+    public func unsubscribeFromTopic(_ topic: String) async -> Bool {
         return await pushHandler.unsubscribeFromTopic(topic)
     }
 
-    func getSubscribedTopics() async -> [String] {
+    public func getSubscribedTopics() async -> [String] {
         return await pushHandler.getSubscribedTopics()
     }
 
-    func handlePushNotification(_ userInfo: [AnyHashable: Any]) {
+    public func handlePushNotification(_ userInfo: [AnyHashable: Any]) {
         if let messageID = userInfo["gcm.message_id"] as? String {
             logger.debug("Firebase Message ID: \(messageID)")
         }
         pushHandler.handleIncomingPush(userInfo)
     }
 
-    func handlePushToken(_ token: String) {
+    public func handlePushToken(_ token: String) {
         pushHandler.handleTokenRefresh(token)
     }
 
     // MARK: - Badge Management
 
-    func updateBadge(_ count: Int) {
+    public func updateBadge(_ count: Int) {
         Task { @MainActor in
             if #available(iOS 16.0, *) {
                 UNUserNotificationCenter.current().setBadgeCount(count) { error in
@@ -180,13 +187,13 @@ class NotificationManager: ObservableObject {
 
     // MARK: - Navigation
 
-    func setNavigationHandler(_ handler: @escaping (URL) -> Void) {
+    public func setNavigationHandler(_ handler: @escaping (URL) -> Void) {
         self.navigationHandler = handler
     }
 
     // MARK: - AppDelegate Integration
 
-    func handleAppLaunch(with launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
+    public func handleAppLaunch(with launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
         if let notificationUserInfo = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
             logger.info("App launched from push notification")
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -195,7 +202,7 @@ class NotificationManager: ObservableObject {
         }
     }
 
-    func handleDeviceTokenRegistration(_ deviceToken: Data) {
+    public func handleDeviceTokenRegistration(_ deviceToken: Data) {
         let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
         let token = tokenParts.joined()
         logger.debug("APNS device token: \(token)")
@@ -207,7 +214,7 @@ class NotificationManager: ObservableObject {
         pushHandler.notifyAPNSTokenReceived()
     }
 
-    func handleRegistrationFailure(_ error: Error) {
+    public func handleRegistrationFailure(_ error: Error) {
         logger.error("Failed to register for remote notifications: \(error.localizedDescription)")
     }
 }

@@ -10,6 +10,7 @@ import Foundation
 import UIKit
 import AVFoundation
 import os
+import UserNotifications
 
 private let commandLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.commandHandler)
 
@@ -29,13 +30,23 @@ class BridgeCommandHandler {
     private let imageHandler: ImageHandler
     private let filePickerHandler: FilePickerHandler
     private weak var delegate: BridgeCommandHandlerDelegate?
-    private let notificationManager = NotificationManager.shared
+
+    // Notification handler - injected, defaults to null implementation
+    private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
 
     init(viewController: UIViewController, imageHandler: ImageHandler, filePickerHandler: FilePickerHandler) {
         self.viewController = viewController
         self.imageHandler = imageHandler
         self.filePickerHandler = filePickerHandler
+
         commandLogger.debug("BridgeCommandHandler initialized")
+        commandLogger.debug("Notifications enabled: \(ConfigConstants.Notifications.enabled)")
+    }
+
+    // Inject notification handler (called from AppDelegate when notifications enabled)
+    func setNotificationHandler(_ handler: NotificationHandlerProtocol) {
+        self.notificationHandler = handler
+        commandLogger.debug("Notification handler injected: \(type(of: handler))")
     }
 
     deinit {
@@ -324,7 +335,7 @@ class BridgeCommandHandler {
         commandLogger.debug("Notification permission requested")
 
         Task {
-            let granted = await notificationManager.requestPermission()
+            let granted = await notificationHandler.requestPermission()
             let status = granted ? "GRANTED" : "DENIED"
 
             DispatchQueue.main.async {
@@ -354,7 +365,10 @@ class BridgeCommandHandler {
         }
 
         guard let configString = configString,
-              let config = NotificationConfig.fromJSON(configString) else {
+              let data = configString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let title = json["title"] as? String,
+              let body = json["body"] as? String else {
             commandLogger.error("Invalid notification configuration - failed to parse JSON")
             if let configString = configString {
                 commandLogger.error("Failed config string was: \(configString)")
@@ -366,8 +380,41 @@ class BridgeCommandHandler {
             return
         }
 
+        // Parse notification config and map to NotificationConfig model
+        let channel = (json["channel"] as? String)
+            ?? ((json["sound"] as? String) == "urgent" ? "urgent" : "default")
+        let style = (json["style"] as? String) ?? "BASIC"
+        let largeImage = json["largeImage"] as? String
+        let priority = json["priority"] as? Int ?? 0
+        let vibrate = json["vibrate"] as? Bool ?? true
+        let autoCancel = json["autoCancel"] as? Bool ?? true
+        let dataDict = json["data"] as? [String: Any]
+
+        var actionsConfig: [NotificationAction]? = nil
+        if let actionsArray = json["actions"] as? [[String: Any]] {
+            actionsConfig = actionsArray.compactMap { item in
+                let title = item["title"] as? String ?? ""
+                let action = item["action"] as? String ?? ""
+                return (title.isEmpty || action.isEmpty) ? nil : NotificationAction(title: title, action: action)
+            }
+        }
+
+        let config = NotificationConfig(
+            title: title,
+            body: body,
+            channel: channel,
+            badge: json["badge"] as? Int,
+            largeImage: largeImage,
+            style: style,
+            priority: priority,
+            vibrate: vibrate,
+            autoCancel: autoCancel,
+            data: dataDict,
+            actions: actionsConfig
+        )
+
         commandLogger.debug("Scheduling local notification")
-        let notificationId = notificationManager.scheduleLocal(config)
+        let notificationId = notificationHandler.scheduleLocal(config)
 
         commandLogger.debug("Local notification scheduled with ID: \(notificationId)")
 
@@ -395,7 +442,7 @@ class BridgeCommandHandler {
             return
         }
 
-        let success = notificationManager.cancelLocal(notificationId)
+        let success = notificationHandler.cancelLocal(notificationId)
         commandLogger.debug("Cancelled notification \(notificationId): \(success)")
 
         delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: [
@@ -418,7 +465,7 @@ class BridgeCommandHandler {
         commandLogger.debug("Registering for push notifications")
 
         Task {
-            let token = await notificationManager.initializePush()
+            let token = await notificationHandler.initializePush()
 
             DispatchQueue.main.async {
                 if let token = token {
@@ -463,7 +510,7 @@ class BridgeCommandHandler {
         commandLogger.debug("Subscribing to topic: \(topic)")
 
         Task {
-            let success = await notificationManager.subscribeToTopic(topic)
+            let success = await notificationHandler.subscribeToTopic(topic)
 
             DispatchQueue.main.async {
                 self.delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
@@ -502,7 +549,7 @@ class BridgeCommandHandler {
         commandLogger.debug("Unsubscribing from topic: \(topic)")
 
         Task {
-            let success = await notificationManager.unsubscribeFromTopic(topic)
+            let success = await notificationHandler.unsubscribeFromTopic(topic)
 
             DispatchQueue.main.async {
                 self.delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
@@ -529,7 +576,7 @@ class BridgeCommandHandler {
         commandLogger.debug("Getting subscribed topics")
 
         Task {
-            let topics = await notificationManager.getSubscribedTopics()
+            let topics = await notificationHandler.getSubscribedTopics()
 
             DispatchQueue.main.async {
                 self.delegate?.sendJSONCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: [
@@ -548,6 +595,6 @@ class BridgeCommandHandler {
         }
 
         commandLogger.debug("Updating badge count to: \(count)")
-        notificationManager.updateBadge(count)
+        notificationHandler.updateBadge(count)
     }
 }
