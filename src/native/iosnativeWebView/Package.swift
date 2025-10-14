@@ -14,13 +14,13 @@ let package = Package(
     ],
     targets: [
         // Core functionality (WebView, bridge, utils, constants)
+        // App-level files (AppDelegate, ContentView, etc.) are in iosnativeWebView/ directory
         .target(
             name: "CatalystCore",
             dependencies: [
                 .product(name: "JSONSchema", package: "JSONSchema.swift")
             ],
-            path: "Sources/Core",
-            exclude: ["App"]
+            path: "Sources/Core"
         )
     ]
 )

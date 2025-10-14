@@ -185,13 +185,13 @@ let package = Package(
     ],
     targets: [
         // Core functionality (WebView, bridge, utils, constants)
+        // App-level files (AppDelegate, ContentView) are in iosnativeWebView/ directory
         .target(
             name: "CatalystCore",
             dependencies: [
                 .product(name: "JSONSchema", package: "JSONSchema.swift")
             ],
-            path: "Sources/Core",
-            exclude: ["App"]
+            path: "Sources/Core"
         )`
 
             // Add CatalystNotifications target only if enabled
@@ -460,9 +460,9 @@ function generateSwiftProperty(key, value, indent = "    ") {
 async function generateConfigConstants() {
     progress.start("config")
     try {
-        // Write to both locations:
-        // 1. SPM module (for CatalystCore to use)
-        // 2. App directory (for Xcode project file reference)
+        // Write ConfigConstants to both locations:
+        // 1. Sources/Core/Constants - For CatalystCore module to use at compile time
+        // 2. iosnativeWebView/ - For app target (both will have identical content)
         const spmConfigPath = path.join(PROJECT_DIR, "Sources/Core/Constants", "ConfigConstants.swift")
         const appConfigPath = path.join(PROJECT_DIR, PROJECT_NAME, "ConfigConstants.swift")
 
@@ -557,10 +557,10 @@ public enum ConfigConstants {
         configContent += `
 }`
 
-        // Write to both locations
+        // Write to both locations (keeps them in sync)
         fs.writeFileSync(spmConfigPath, configContent, "utf8")
         fs.writeFileSync(appConfigPath, configContent, "utf8")
-        progress.log("Configuration constants generated successfully (SPM + App)", "success")
+        progress.log("Configuration constants generated successfully (CatalystCore + App)", "success")
         progress.complete("config")
     } catch (error) {
         progress.fail("config", error.message)
