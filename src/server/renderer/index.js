@@ -2,7 +2,7 @@ import express from "express"
 
 const router = express.Router()
 
-router.use((req, res, next) => {
+router.use(function rendererMiddleware(req, res, next) {
     let handler = ""
 
     if (process.env.NODE_ENV === "production") {

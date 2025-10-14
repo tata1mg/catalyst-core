@@ -224,7 +224,7 @@ const renderMarkUp = async (
  * @param {object} req - request object
  * @param {object} res - response object
  */
-export default async function (req, res) {
+export default async function handler(req, res) {
     try {
         let context = {}
         let fetcherData = {}
