@@ -1,4 +1,4 @@
-Catalyst Context
+sCatalyst Context
 
 -   Catalyst is a framework over react to build UIs
 
@@ -976,12 +976,16 @@ The whitelisting system is configured through the `WEBVIEW_CONFIG.accessControl`
 
 ```json
 {
-    "WEBVIEW_CONFIG": {
-        "accessControl": {
-            "enabled": true,
-            "allowedUrls": ["https://api.example.com/users", "*.example.com", "subdomain.*.example.com"]
-        }
+  "WEBVIEW_CONFIG": {
+    "accessControl": {
+      "enabled": true,
+      "allowedUrls": [
+        "https://api.example.com/users",
+        "*.example.com",
+        "subdomain.*.example.com"
+      ]
     }
+  }
 }
 ```
 
@@ -992,20 +996,18 @@ Control URL access restrictions through the `accessControl.enabled` setting.
 ### Properties
 
 #### enabled
-
--   **Type**: Boolean
--   **Default**: `false`
--   **Description**: Enables or disables access control whitelisting
--   **Behavior**:
-    -   `true`: Only URLs in `allowedUrls` array can be accessed (default deny)
-    -   `false`: All URLs are accessible (no restrictions)
+- **Type**: Boolean
+- **Default**: `false`
+- **Description**: Enables or disables access control whitelisting
+- **Behavior**: 
+  - `true`: Only URLs in `allowedUrls` array can be accessed (default deny)
+  - `false`: All URLs are accessible (no restrictions)
 
 #### allowedUrls
-
--   **Type**: Array of strings
--   **Default**: `[]`
--   **Description**: List of URLs that are permitted when access control is enabled
--   **Format**: Supports exact URLs, wildcard patterns, and subdomain matching
+- **Type**: Array of strings
+- **Default**: `[]`
+- **Description**: List of URLs that are permitted when access control is enabled
+- **Format**: Supports exact URLs, wildcard patterns, and subdomain matching
 
 ## Whitelisting Behavior
 
@@ -1521,11 +1523,11 @@ The app name is configured through the `WEBVIEW_CONFIG` object in your app confi
 
 ```json
 {
-    "WEBVIEW_CONFIG": {
-        "android": {
-            "appName": "My Awesome App"
-        }
+  "WEBVIEW_CONFIG": {
+    "android": {
+      "appName": "My Awesome App"
     }
+  }
 }
 ```
 
@@ -1544,17 +1546,15 @@ Access basic device details in your universal app using the Device Information A
 ## API Usage
 
 ### Initialization Method
-
 ```javascript
 const { getDeviceInfo } = WebBridge.init()
-const deviceInfo = await getDeviceInfo()
+const deviceInfo = await getDeviceInfo();
 ```
 
 ### Direct Access Method
-
 ```javascript
-const { getDeviceInfo } = window.WebBridge
-const deviceInfo = await getDeviceInfo()
+const { getDeviceInfo } = window.WebBridge;
+const deviceInfo = await getDeviceInfo();
 ```
 
 ## Response Format
@@ -1592,15 +1592,15 @@ The protocol setting is configured through the `WEBVIEW_CONFIG.useHttps` propert
 
 ```json
 {
-    "WEBVIEW_CONFIG": {
-        "useHttps": true
-    }
+  "WEBVIEW_CONFIG": {
+    "useHttps": true
+  }
 }
 ```
 
--   **Type**: Boolean
--   **Default**: `false`
--   **Description**: Controls the protocol used for webview URLs
--   **Behavior**:
-    -   `true`: Uses HTTPS protocol
-    -   `false`: Uses HTTP protocol
+- **Type**: Boolean
+- **Default**: `false`
+- **Description**: Controls the protocol used for webview URLs
+- **Behavior**:
+  - `true`: Uses HTTPS protocol
+  - `false`: Uses HTTP protocol

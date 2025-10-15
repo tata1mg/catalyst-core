@@ -174,18 +174,18 @@ class BridgeCommandHandler {
     func getDeviceInfo() {
         commandLogger.debug("getDeviceInfo called")
 
-        let device = UIDevice.current
-        let screen = UIScreen.main
+        let deviceInfo = DeviceInfoUtils.getDeviceInfo()
 
-        let deviceInfo: [String: Any] = [
-            "model": device.model,
-            "manufacturer": "Apple",
-            "platform": "iOS",
-            "systemVersion": device.systemVersion,
-            "screenWidth": Int(screen.bounds.width * screen.scale),
-            "screenHeight": Int(screen.bounds.height * screen.scale),
-            "screenDensity": screen.scale
-        ]
+        // Check if there was an error
+        if let error = deviceInfo["error"] as? String {
+            commandLogger.error("Failed to get device info: \(error)")
+            delegate?.sendErrorCallback(
+                eventName: "ON_DEVICE_INFO_ERROR",
+                error: error,
+                code: "DEVICE_INFO_ERROR"
+            )
+            return
+        }
 
         delegate?.sendJSONCallback(eventName: "ON_DEVICE_INFO_SUCCESS", data: deviceInfo)
     }

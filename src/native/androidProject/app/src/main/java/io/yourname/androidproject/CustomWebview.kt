@@ -17,6 +17,7 @@ import androidx.webkit.WebViewAssetLoader
 import io.yourname.androidproject.WebCacheManager
 import io.yourname.androidproject.isUrlAllowed
 import io.yourname.androidproject.isExternalDomain
+import io.yourname.androidproject.matchesCachePattern
 import io.yourname.androidproject.utils.CameraUtils
 import kotlinx.coroutines.*
 import java.io.FileNotFoundException
@@ -49,6 +50,9 @@ class CustomWebView(
     private var assetLoadAttempts = 0
     private var assetLoadFailures = 0
 
+    // Track ongoing cache fetches to prevent duplicates
+    private val ongoingCacheFetches = mutableSetOf<String>()
+
     init {
         setupFromProperties()
         cacheManager = WebCacheManager(context, properties)
@@ -67,14 +71,12 @@ class CustomWebView(
             .split(",")
             .map { it.trim() }
             .filter { it.isNotEmpty() }
-        
+
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📦 Cache patterns loaded: $cachePatterns (count: ${cachePatterns.size})")
             Log.d(TAG, "📦 Raw cachePattern property: '${properties.getProperty("cachePattern", "")}'")
             Log.d(TAG, "📦 Raw android.cachePattern property: '${properties.getProperty("android.cachePattern", "")}'")
             Log.d(TAG, "📦 Selected cache pattern property: '$cachePatternProperty'")
-
-
         }
 
         // Parse buildOptimisation property
@@ -156,7 +158,11 @@ class CustomWebView(
         }
 
         // Security: Verify that the object has at least one method annotated with @JavascriptInterface
-        val hasAnnotatedMethods = obj.javaClass.declaredMethods.any {
+        // Check both declared methods and inherited methods, excluding Object class methods
+        val allMethods = obj.javaClass.methods.filter {
+            it.declaringClass != Object::class.java
+        }
+        val hasAnnotatedMethods = allMethods.any {
             it.isAnnotationPresent(android.webkit.JavascriptInterface::class.java)
         }
 
@@ -172,6 +178,7 @@ class CustomWebView(
             return
         }
 
+        @Suppress("JavascriptInterface")
         webView.addJavascriptInterface(obj, name)
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🔗 Added JavaScript interface: $name")
@@ -227,48 +234,16 @@ class CustomWebView(
     private fun shouldCacheUrl(url: String): Boolean {
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🔍 CACHE_CHECK: Checking if URL should be cached: $url")
-            Log.d(TAG, "🔍 CACHE_CHECK: Available cache patterns: $cachePatterns (count: ${cachePatterns.size})")
+            Log.d(TAG, "🔍 CACHE_CHECK: Cache patterns: $cachePatterns")
         }
 
-        if (cachePatterns.isEmpty()) {
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "❌ CACHE_CHECK: No cache patterns configured - URL will NOT be cached: $url")
-            }
-            return false
-        }
-
-        fun String.wildcardToRegex(): String {
-            return this.replace(".", "\\.")
-                .replace("*", ".*")
-                .let { "^$it$" }
-        }
-
-        val shouldCache = cachePatterns.any { pattern ->
-            val regex = pattern.wildcardToRegex().toRegex(RegexOption.IGNORE_CASE)
-            val regexMatches = regex.matches(url)
-            val endsWithPattern = url.endsWith(pattern.removePrefix("*"))
-            val patternMatches = regexMatches || endsWithPattern
-
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "🔍 CACHE_CHECK: Testing pattern '$pattern' against URL")
-                Log.d(TAG, "🔍 CACHE_CHECK: Pattern '$pattern' -> Regex: '${pattern.wildcardToRegex()}'")
-                Log.d(TAG, "🔍 CACHE_CHECK: URL: $url")
-                Log.d(TAG, "🔍 CACHE_CHECK: URL file extension: ${url.substringAfterLast('.', "none")}")
-                Log.d(TAG, "🔍 CACHE_CHECK: Pattern without *: '${pattern.removePrefix("*")}'")
-                Log.d(TAG, "🔍 CACHE_CHECK: Regex matches: $regexMatches")
-                Log.d(TAG, "🔍 CACHE_CHECK: Ends with pattern: $endsWithPattern")
-                Log.d(TAG, "🔍 CACHE_CHECK: Overall match: $patternMatches")
-                Log.d(TAG, "🔍 CACHE_CHECK: ───────────────────────────────")
-            }
-
-            patternMatches
-        }
+        val shouldCache = matchesCachePattern(url, cachePatterns)
 
         if (BuildConfig.DEBUG) {
             if (shouldCache) {
                 Log.d(TAG, "✅ CACHE_CHECK: URL WILL be cached: $url")
             } else {
-                Log.d(TAG, "❌ CACHE_CHECK: URL will NOT be cached: $url")
+                Log.d(TAG, "❌ CACHE_CHECK: URL will NOT be cached (no pattern match): $url")
             }
         }
 
@@ -373,6 +348,14 @@ class CustomWebView(
                         return WebResourceResponse("text/plain", "utf-8", null)
                     }
 
+                    // Let API calls go through normally (skip caching)
+                    if (isApiCall(url)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "🌐 SERVICE_WORKER: API call detected, skipping cache: $url")
+                        }
+                        return null
+                    }
+
                     // Check if this should be cached
                     if (request.method == "GET" && shouldCacheUrl(url)) {
                         if (BuildConfig.DEBUG) {
@@ -398,6 +381,39 @@ class CustomWebView(
                                 if (BuildConfig.DEBUG) {
                                     Log.d(TAG, "❌ SERVICE_WORKER: Cache miss: $url")
                                 }
+
+                                // Trigger async cache population for next request (with deduplication)
+                                val shouldFetch = synchronized(ongoingCacheFetches) {
+                                    ongoingCacheFetches.add(url)
+                                }
+
+                                if (shouldFetch) {
+                                    if (BuildConfig.DEBUG) {
+                                        Log.d(TAG, "🔄 SERVICE_WORKER: Triggering async cache fetch for: $url")
+                                    }
+                                    launch(Dispatchers.IO) {
+                                        try {
+                                            cacheManager.getCachedResponse(url, headers)
+                                            if (BuildConfig.DEBUG) {
+                                                Log.d(TAG, "✅ SERVICE_WORKER: Async cache fetch completed: $url")
+                                            }
+                                        } catch (e: Exception) {
+                                            if (BuildConfig.DEBUG) {
+                                                Log.e(TAG, "❌ SERVICE_WORKER: Async cache fetch failed: $url - ${e.message}")
+                                            }
+                                        } finally {
+                                            synchronized(ongoingCacheFetches) {
+                                                ongoingCacheFetches.remove(url)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    if (BuildConfig.DEBUG) {
+                                        Log.d(TAG, "⏭️ SERVICE_WORKER: Cache fetch already in progress for: $url")
+                                    }
+                                }
+
+                                // Let this request fall back to network
                                 null
                             }
                         } catch (e: Exception) {
@@ -491,6 +507,10 @@ class CustomWebView(
                 request: WebResourceRequest
             ): WebResourceResponse? {
                 val url = request.url.toString()
+
+                // Track all network requests
+                metricsMonitor.recordNetworkRequest(url)
+
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "🔄 INTERCEPT: URL: $url")
                     Log.d(TAG, "🔄 INTERCEPT: Method: ${request.method}")
@@ -532,20 +552,32 @@ class CustomWebView(
                     }
                 }
 
+                // Let API calls go through normally (before any other checks)
+                if (isApiCall(url)) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "🌐 STEP_3_API: API call detected, letting it go through network: $url")
+                        Log.d(TAG, "🌐 STEP_3_API: This request will NOT go through cache or asset system")
+                    }
+                    return null
+                }
+
                 if(!isInitialPageLoaded) {
                     if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "🔍 STEP_3_CHECK: Initial page not loaded yet, checking for static resources")
-                        Log.d(TAG, "🔍 STEP_3_CHECK: isStaticResourceRequest($url) = ${isStaticResourceRequest(url)}")
+                        Log.d(TAG, "🔍 STEP_4_CHECK: Initial page not loaded yet, checking for static resources")
+                        Log.d(TAG, "🔍 STEP_4_CHECK: isStaticResourceRequest($url) = ${isStaticResourceRequest(url)}")
+                        Log.d(TAG, "🔍 STEP_4_CHECK: shouldCacheUrl($url) = ${shouldCacheUrl(url)}")
                     }
-                    // Check if this is a static resource that should be loaded from assets
-                    if (request.method == "GET" && isStaticResourceRequest(url)) {
+
+                    // IMPORTANT: Skip asset loading if the URL matches a cache pattern
+                    // This allows cached resources to be served from the cache system instead
+                    if (request.method == "GET" && isStaticResourceRequest(url) && !shouldCacheUrl(url)) {
                         val assetPath = extractAssetPath(url)
                         assetLoadAttempts++
 
                         try {
                             val mimeType = getMimeType(assetPath)
                             if (BuildConfig.DEBUG) {
-                                Log.d(TAG, "📦 Attempting to serve from assets: $assetPath")
+                                Log.d(TAG, "📦 Attempting to serve from assets: $assetPath (not in cache patterns)")
                             }
                             val inputStream = context.assets.open(assetPath)
                             if (BuildConfig.DEBUG) {
@@ -555,10 +587,9 @@ class CustomWebView(
                         } catch (e: FileNotFoundException) {
                             assetLoadFailures++
                             if (BuildConfig.DEBUG) {
-                                Log.w(TAG, "📁 Asset not found: $assetPath - falling back to network")
+                                Log.w(TAG, "📁 Asset not found: $assetPath - falling through to cache check")
                             }
-                            // Asset not found - fall back to network loading
-                            return null
+                            // Asset not found - fall through to cache check below
                         } catch (e: SecurityException) {
                             assetLoadFailures++
                             Log.e(TAG, "🚫 Security error loading asset: $assetPath", e)
@@ -573,23 +604,13 @@ class CustomWebView(
                             assetLoadFailures++
                             if (BuildConfig.DEBUG) {
                                 Log.e(TAG, "❌ Unexpected error loading asset: $assetPath", e)
-                                Log.d(TAG, "⚠️ Falling back to network for: $url")
+                                Log.d(TAG, "⚠️ Falling through to cache check for: $url")
                             }
-                            // Unexpected error - fall back to network loading
-                            return null
+                            // Unexpected error - fall through to cache check below
                         }
-                    }
-
-                    // Let API calls go through normally
-                    if (isApiCall(url)) {
+                    } else if (shouldCacheUrl(url)) {
                         if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "🌐 STEP_4_API: API call detected, letting it go through network: $url")
-                            Log.d(TAG, "🌐 STEP_4_API: This request will NOT go through cache system")
-                        }
-                        return null
-                    } else {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "✅ STEP_4_PASS: Not an API call, continuing to cache check: $url")
+                            Log.d(TAG, "⏭️ STEP_4_SKIP: Skipping asset loading for cached URL: $url")
                         }
                     }
                 } else {
@@ -606,63 +627,89 @@ class CustomWebView(
                 }
 
                 if (request.method == "GET" && shouldCacheUrl(url)) {
+                    // Track that this request was evaluated for caching
+                    metricsMonitor.recordCacheEvaluation(url)
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "🎯 STEP_5_SUCCESS: Using cache system for URL: $url")
                         Log.d(TAG, "🎯 STEP_5_SUCCESS: Request method: ${request.method}")
                         Log.d(TAG, "🎯 STEP_5_SUCCESS: isInitialPageLoaded: $isInitialPageLoaded")
                     }
-                    return runBlocking {
-                    if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "⚙️ Processing cacheable request in coroutine on thread: ${Thread.currentThread().name}")
-                    }
+
                     val startTime = System.currentTimeMillis()
                     disableHardwareAcceleration()
+
                     try {
-                    val headers = request.requestHeaders.toMutableMap().apply {
-                    if (!containsKey("Cache-Control")) {
-                    put("Cache-Control", "max-age=86400")
-                    }
-                    if (!containsKey("Pragma")) {
-                    put("Pragma", "cache")
-                    }
-                    }
+                        val headers = request.requestHeaders.toMutableMap().apply {
+                            if (!containsKey("Cache-Control")) {
+                                put("Cache-Control", "max-age=86400")
+                            }
+                            if (!containsKey("Pragma")) {
+                                put("Pragma", "cache")
+                            }
+                        }
 
-                    var response = cacheManager.getCachedResponse(url, headers)
+                        // Use synchronous cache check to avoid blocking
+                        val response = cacheManager.getCachedResponseSync(url, headers)
 
-                    if (response != null) {
-                    if (BuildConfig.DEBUG) {
-                    val duration = System.currentTimeMillis() - startTime
-                    Log.d(TAG, "✅ Served from cache in ${duration}ms: $url")
-                    }
-                    metricsMonitor.recordCacheHit(url)
-                        response
-                    } else {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "❌ Cache miss for: $url")
-                    }
-                        metricsMonitor.recordCacheMiss(url)
-                            null
-                    }
-                    } catch (e: OutOfMemoryError) {
-                    Log.e(TAG, "📢 Out of memory processing cache request: $url", e)
-                    metricsMonitor.recordCacheMiss(url)
-                    System.gc()
-                        null
-                    } catch (e: SecurityException) {
-                        Log.e(TAG, "🚫 Security error in cache processing: $url", e)
+                        if (response != null) {
+                            if (BuildConfig.DEBUG) {
+                                val duration = System.currentTimeMillis() - startTime
+                                Log.d(TAG, "✅ WEBVIEW_CLIENT: Served from cache in ${duration}ms: $url")
+                            }
+                            metricsMonitor.recordCacheHit(url)
+                            return response
+                        } else {
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "❌ WEBVIEW_CLIENT: Cache miss, triggering async fetch: $url")
+                            }
                             metricsMonitor.recordCacheMiss(url)
-                                    null
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "❌ Unexpected error processing cache request: $url: ${e.message}")
-                                    if (BuildConfig.DEBUG) {
-                                        e.printStackTrace()
+
+                            // Trigger async cache population for next time
+                            val shouldFetch = synchronized(ongoingCacheFetches) {
+                                ongoingCacheFetches.add(url)
+                            }
+
+                            if (shouldFetch) {
+                                launch(Dispatchers.IO) {
+                                    try {
+                                        cacheManager.getCachedResponse(url, headers)
+                                        if (BuildConfig.DEBUG) {
+                                            Log.d(TAG, "✅ WEBVIEW_CLIENT: Async cache fetch completed: $url")
+                                        }
+                                    } catch (e: Exception) {
+                                        if (BuildConfig.DEBUG) {
+                                            Log.e(TAG, "❌ WEBVIEW_CLIENT: Async cache fetch failed: $url - ${e.message}")
+                                        }
+                                    } finally {
+                                        synchronized(ongoingCacheFetches) {
+                                            ongoingCacheFetches.remove(url)
+                                        }
                                     }
-                                    metricsMonitor.recordCacheMiss(url)
-                                    null
-                                } finally {
-                                    enableHardwareAcceleration()
                                 }
                             }
+
+                            // Return null to let network handle this request
+                            return null
+                        }
+                    } catch (e: OutOfMemoryError) {
+                        Log.e(TAG, "📢 Out of memory processing cache request: $url", e)
+                        metricsMonitor.recordCacheMiss(url)
+                        System.gc()
+                        return null
+                    } catch (e: SecurityException) {
+                        Log.e(TAG, "🚫 Security error in cache processing: $url", e)
+                        metricsMonitor.recordCacheMiss(url)
+                        return null
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Unexpected error processing cache request: $url: ${e.message}")
+                        if (BuildConfig.DEBUG) {
+                            e.printStackTrace()
+                        }
+                        metricsMonitor.recordCacheMiss(url)
+                        return null
+                    } finally {
+                        enableHardwareAcceleration()
+                    }
                 } else {
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "❌ STEP_5_FAIL: URL doesn't match cache criteria, skipping cache")

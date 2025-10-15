@@ -16,4 +16,7 @@ public enum ConfigConstants {
     // Access control configuration
     public static let accessControlEnabled = false
     public static let allowedUrls: [String] = []
+
+    // Splash screen configuration
+    public static let splashScreenEnabled = false
 }

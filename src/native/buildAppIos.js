@@ -10,8 +10,8 @@ const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config
 const iosConfig = WEBVIEW_CONFIG.ios
 
 const protocol = WEBVIEW_CONFIG.useHttps ? "https" : "http"
-const ip = WEBVIEW_CONFIG.LOCAL_IP ?? null
-const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 403 : WEBVIEW_CONFIG.port) : null
+const ip = WEBVIEW_CONFIG.LOCAL_IP || "localhost"
+const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 443 : WEBVIEW_CONFIG.port) : null
 let url = port ? `${protocol}://${ip}:${port}` : `${protocol}://${ip}`
 
 const PUBLIC_PATH = `${process.env.PWD}/public`
@@ -117,6 +117,7 @@ async function getBootedSimulatorInfo() {
         return null
     }
 }
+
 async function generatePackageSwift() {
     try {
         const crypto = require("crypto")
@@ -386,55 +387,55 @@ async function updateInfoPlist() {
 // Function to convert JSON value to Swift property
 function generateSwiftProperty(key, value, indent = "    ") {
     if (value === null || value === undefined) {
-        return `${indent}static let ${key}: String? = nil`
+        return `${indent}public static let ${key}: String? = nil`
     }
 
     // Special handling for cachePattern - always convert to array
     if (key === "cachePattern") {
         if (typeof value === "string") {
             // Convert single string to array
-            return `${indent}static let ${key}: [String] = ["${value}"]`
+            return `${indent}public static let ${key}: [String] = ["${value}"]`
         } else if (Array.isArray(value)) {
             const arrayValues = value.map((v) => `"${v}"`).join(", ")
-            return `${indent}static let ${key}: [String] = [${arrayValues}]`
+            return `${indent}public static let ${key}: [String] = [${arrayValues}]`
         }
     }
 
     if (typeof value === "string") {
-        return `${indent}static let ${key} = "${value}"`
+        return `${indent}public static let ${key} = "${value}"`
     }
 
     if (typeof value === "number") {
         return Number.isInteger(value)
-            ? `${indent}static let ${key} = ${value}`
-            : `${indent}static let ${key} = ${value}`
+            ? `${indent}public static let ${key} = ${value}`
+            : `${indent}public static let ${key} = ${value}`
     }
 
     if (typeof value === "boolean") {
-        return `${indent}static let ${key} = ${value}`
+        return `${indent}public static let ${key} = ${value}`
     }
 
     if (Array.isArray(value)) {
         if (value.length === 0) {
-            return `${indent}static let ${key}: [String] = []`
+            return `${indent}public static let ${key}: [String] = []`
         }
 
         // Determine array type from first element
         const firstElement = value[0]
         if (typeof firstElement === "string") {
             const arrayValues = value.map((v) => `"${v}"`).join(", ")
-            return `${indent}static let ${key}: [String] = [${arrayValues}]`
+            return `${indent}public static let ${key}: [String] = [${arrayValues}]`
         } else if (typeof firstElement === "number") {
             const arrayType = Number.isInteger(firstElement) ? "Int" : "Double"
             const arrayValues = value.join(", ")
-            return `${indent}static let ${key}: [${arrayType}] = [${arrayValues}]`
+            return `${indent}public static let ${key}: [${arrayType}] = [${arrayValues}]`
         } else if (typeof firstElement === "boolean") {
             const arrayValues = value.join(", ")
-            return `${indent}static let ${key}: [Bool] = [${arrayValues}]`
+            return `${indent}public static let ${key}: [Bool] = [${arrayValues}]`
         } else {
             // Mixed array - convert to strings
             const arrayValues = value.map((v) => `"${v}"`).join(", ")
-            return `${indent}static let ${key}: [String] = [${arrayValues}]`
+            return `${indent}public static let ${key}: [String] = [${arrayValues}]`
         }
     }
 
@@ -443,10 +444,7 @@ function generateSwiftProperty(key, value, indent = "    ") {
         let nestedContent = `${indent}public enum ${key.charAt(0).toUpperCase() + key.slice(1)} {\n`
 
         for (const [nestedKey, nestedValue] of Object.entries(value)) {
-            nestedContent +=
-                "    public " +
-                generateSwiftProperty(nestedKey, nestedValue, indent + "    ").trimStart() +
-                "\n"
+            nestedContent += generateSwiftProperty(nestedKey, nestedValue, indent + "    ") + "\n"
         }
 
         nestedContent += `${indent}}`
@@ -454,23 +452,13 @@ function generateSwiftProperty(key, value, indent = "    ") {
     }
 
     // Fallback to string
-    return `${indent}static let ${key} = "${value}"`
+    return `${indent}public static let ${key} = "${value}"`
 }
 
 async function generateConfigConstants() {
     progress.start("config")
     try {
-        // Write ConfigConstants to both locations:
-        // 1. Sources/Core/Constants - For CatalystCore module to use at compile time
-        // 2. iosnativeWebView/ - For app target (both will have identical content)
-        const spmConfigPath = path.join(PROJECT_DIR, "Sources/Core/Constants", "ConfigConstants.swift")
-        const appConfigPath = path.join(PROJECT_DIR, PROJECT_NAME, "ConfigConstants.swift")
-
-        // Ensure both directories exist
-        const spmConfigDir = path.dirname(spmConfigPath)
-        if (!fs.existsSync(spmConfigDir)) {
-            fs.mkdirSync(spmConfigDir, { recursive: true })
-        }
+        const appConfigPath = path.join(PROJECT_DIR, "Sources", "Core", "Constants", "ConfigConstants.swift")
 
         const appConfigDir = path.dirname(appConfigPath)
         if (!fs.existsSync(appConfigDir)) {
@@ -517,13 +505,13 @@ public enum ConfigConstants {
             const accessControl = iosConfig.accessControl
 
             configContent += `
-    static let accessControlEnabled = ${accessControl.enabled || false}`
+    public static let accessControlEnabled = ${accessControl.enabled || false}`
 
             if (accessControl.allowedUrls && Array.isArray(accessControl.allowedUrls)) {
                 const allowedUrls = accessControl.allowedUrls.map((url) => `"${url}"`).join(", ")
 
                 configContent += `
-    static let allowedUrls: [String] = [${allowedUrls}]`
+    public static let allowedUrls: [String] = [${allowedUrls}]`
             } else if (accessControl.allowedUrls && typeof accessControl.allowedUrls === "string") {
                 // Handle comma-separated string format
                 const allowedUrls = accessControl.allowedUrls
@@ -534,13 +522,59 @@ public enum ConfigConstants {
                     .join(", ")
 
                 configContent += `
-    static let allowedUrls: [String] = [${allowedUrls}]`
+    public static let allowedUrls: [String] = [${allowedUrls}]`
             }
         } else {
             // Default values when no access control is configured
             configContent += `
-    static let accessControlEnabled = false
-    static let allowedUrls: [String] = []`
+    public static let accessControlEnabled = false
+    public static let allowedUrls: [String] = []`
+        }
+        // Add splash screen configuration from WEBVIEW_CONFIG.splashScreen
+        const splashConfig = WEBVIEW_CONFIG.splashScreen
+        if (splashConfig) {
+            configContent += `
+
+    // Splash Screen Configuration
+    public static let splashScreenEnabled = true`
+
+            if (splashConfig.duration) {
+                // Convert milliseconds to seconds for iOS TimeInterval
+                const durationInSeconds = splashConfig.duration / 1000.0
+                configContent += `
+    public static let splashScreenDuration: TimeInterval? = ${durationInSeconds}`
+            } else {
+                configContent += `
+    public static let splashScreenDuration: TimeInterval? = nil`
+            }
+
+            if (splashConfig.backgroundColor) {
+                configContent += `
+    public static let splashScreenBackgroundColor = "${splashConfig.backgroundColor}"`
+            } else {
+                configContent += `
+    public static let splashScreenBackgroundColor = "#ffffff"`
+            }
+
+            // Add splash screen image styling configuration
+            const imageWidth = splashConfig.imageWidth || 120
+            const imageHeight = splashConfig.imageHeight || 120
+            const cornerRadius = splashConfig.cornerRadius || 20
+
+            configContent += `
+    public static let splashScreenImageWidth: CGFloat = ${imageWidth}
+    public static let splashScreenImageHeight: CGFloat = ${imageHeight}
+    public static let splashScreenCornerRadius: CGFloat = ${cornerRadius}`
+        } else {
+            configContent += `
+
+    // Splash Screen Configuration
+    public static let splashScreenEnabled = false
+    public static let splashScreenDuration: TimeInterval? = nil
+    public static let splashScreenBackgroundColor = "#ffffff"
+    public static let splashScreenImageWidth: CGFloat = 120
+    public static let splashScreenImageHeight: CGFloat = 120
+    public static let splashScreenCornerRadius: CGFloat = 20`
         }
 
         // Ensure Notifications.enabled always exists (default to false if not configured)
@@ -551,16 +585,14 @@ public enum ConfigConstants {
             addedKeys.add("notifications")
         } else {
             progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
+
+            // Close the enum
+            configContent += `
+}`
         }
 
-        // Close the enum
-        configContent += `
-}`
-
-        // Write to both locations (keeps them in sync)
-        fs.writeFileSync(spmConfigPath, configContent, "utf8")
         fs.writeFileSync(appConfigPath, configContent, "utf8")
-        progress.log("Configuration constants generated successfully (CatalystCore + App)", "success")
+        progress.log("Configuration constants generated successfully (SPM Package)", "success")
         progress.complete("config")
     } catch (error) {
         progress.fail("config", error.message)
@@ -1160,31 +1192,78 @@ async function detectPhysicalDevices() {
 
         let physicalDevices = []
 
-        // Simple method: Look for your known device UDID directly
-        const KNOWN_DEVICE_UDID = "00008020-0012791A1E33002E"
+        // Priority 1: Check if UDID is specified in config
+        const configuredUDID = iosConfig.deviceUDID
 
-        // First check if we can detect the known working device
+        if (configuredUDID) {
+            progress.log(`Using configured device UDID: ${configuredUDID}`, "info")
+
+            // Verify the configured device is actually connected
+            try {
+                const instrumentsOutput = execSync("instruments -s devices").toString()
+
+                if (instrumentsOutput.includes(configuredUDID)) {
+                    // Extract device name from instruments output
+                    const deviceLine = instrumentsOutput
+                        .split("\n")
+                        .find((line) => line.includes(configuredUDID))
+                    if (deviceLine) {
+                        const nameMatch = deviceLine.match(/^(.+?)\s+\(/)
+                        const versionMatch = deviceLine.match(/\((\d+\.\d+(?:\.\d+)?)\)/)
+                        const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device"
+                        const deviceVersion = versionMatch ? versionMatch[1] : "Unknown"
+
+                        progress.log(
+                            `✅ Found configured physical device: ${deviceName} (${deviceVersion})`,
+                            "success"
+                        )
+                        physicalDevices.push({
+                            name: deviceName,
+                            version: deviceVersion,
+                            udid: configuredUDID,
+                            type: "physical",
+                        })
+
+                        progress.complete("deviceDetection")
+                        return physicalDevices[0]
+                    }
+                } else {
+                    progress.log(`⚠️  Configured device UDID not found in connected devices`, "warning")
+                    progress.log("Falling back to auto-detection...", "info")
+                }
+            } catch (error) {
+                progress.log(`Error verifying configured device: ${error.message}`, "warning")
+                progress.log("Falling back to auto-detection...", "info")
+            }
+        } else {
+            progress.log("No device UDID configured, using auto-detection", "info")
+        }
+
+        // Priority 2: Auto-detect using multiple fallback methods
+        // Try instruments first
         try {
             const instrumentsOutput = execSync("instruments -s devices").toString()
-            progress.log("Checking instruments output for known device...", "info")
+            const lines = instrumentsOutput.split("\n")
 
-            if (instrumentsOutput.includes(KNOWN_DEVICE_UDID)) {
-                // Extract device name from instruments output
-                const deviceLine = instrumentsOutput
-                    .split("\n")
-                    .find((line) => line.includes(KNOWN_DEVICE_UDID))
-                if (deviceLine) {
-                    const nameMatch = deviceLine.match(/^(.+?)\s+\(/)
-                    const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device"
+            for (const line of lines) {
+                // Match physical devices (have UDID but not simulator indicators)
+                const deviceMatch = line.match(
+                    /^(.+?)\s+\((\d+\.\d+(?:\.\d+)?)\)\s+\[([A-F0-9-]{36})\](?:\s+\(Simulator\))?$/
+                )
 
-                    progress.log(`âœ… Found known physical device: ${deviceName}`, "success")
+                if (deviceMatch && !line.includes("(Simulator)")) {
+                    const [, name, version, udid] = deviceMatch
                     physicalDevices.push({
-                        name: deviceName,
-                        version: "Unknown",
-                        udid: KNOWN_DEVICE_UDID,
+                        name: name.trim(),
+                        version: version,
+                        udid: udid,
                         type: "physical",
                     })
                 }
+            }
+
+            if (physicalDevices.length > 0) {
+                progress.log(`Found ${physicalDevices.length} physical device(s) via instruments`, "success")
             }
         } catch (error) {
             progress.log("instruments command failed, trying xcodebuild...", "warning")
@@ -1613,16 +1692,17 @@ async function buildForIOS() {
     const originalDir = process.cwd()
 
     try {
-        // Generate Package.swift first (before config, so package resolution happens early)
         await generatePackageSwift()
         await updateXcodeProjectPackageDependencies()
-        await generateConfigConstants()
 
         // Process notification assets
         progress.start("assets")
         await processNotificationAssets(WEBVIEW_CONFIG)
         progress.complete("assets")
 
+        await generateConfigConstants()
+        await copySplashscreenAssets()
+        await copyAppIcon()
         progress.log("Changing directory to: " + PROJECT_DIR, "info")
         process.chdir(PROJECT_DIR)
 
@@ -1730,6 +1810,215 @@ async function buildForIOS() {
         throw error
     } finally {
         process.chdir(originalDir)
+    }
+}
+
+async function copySplashscreenAssets() {
+    try {
+        const publicDir = `${process.env.PWD}/public/ios`
+        const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
+
+        // Check if splash screen is configured
+        if (!WEBVIEW_CONFIG.splashScreen) {
+            progress.log("No splash screen configuration found, skipping asset copy", "info")
+            return
+        }
+
+        // Look for splash screen image in public folder (similar to Android)
+        const imageExtensions = ["png", "jpg", "jpeg"]
+        let splashImageFound = false
+
+        for (const ext of imageExtensions) {
+            const sourcePath = `${publicDir}/splashscreen.${ext}`
+
+            if (fs.existsSync(sourcePath)) {
+                // Create launchscreen.imageset directory in Assets.xcassets
+                const imagesetDir = `${assetsDir}/launchscreen.imageset`
+                if (!fs.existsSync(imagesetDir)) {
+                    fs.mkdirSync(imagesetDir, { recursive: true })
+                }
+
+                // Copy the image to the imageset with a standard name
+                const destinationPath = `${imagesetDir}/launchscreen.${ext}`
+                fs.copyFileSync(sourcePath, destinationPath)
+
+                // Create Contents.json for the imageset
+                const contentsJson = {
+                    images: [
+                        {
+                            filename: `launchscreen.${ext}`,
+                            idiom: "universal",
+                            scale: "1x",
+                        },
+                    ],
+                    info: {
+                        author: "xcode",
+                        version: 1,
+                    },
+                }
+
+                fs.writeFileSync(`${imagesetDir}/Contents.json`, JSON.stringify(contentsJson, null, 2))
+
+                progress.log(`Created launch screen imageset: launchscreen.${ext}`, "success")
+                splashImageFound = true
+                break
+            }
+        }
+
+        if (!splashImageFound) {
+            progress.log("No custom splash screen image found in public folder", "info")
+            progress.log("Supported formats: splashscreen.png, splashscreen.jpg, splashscreen.jpeg", "info")
+        }
+    } catch (error) {
+        progress.log(`Warning: Error copying splash screen assets: ${error.message}`, "warning")
+    }
+}
+
+async function copyAppIcon() {
+    try {
+        const publicDir = `${process.env.PWD}/public/iosIcons`
+        const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
+        const iconSetDir = `${assetsDir}/AppIcon.appiconset`
+
+        // Check if public directory exists
+        if (!fs.existsSync(publicDir)) {
+            progress.log("Public directory not found, skipping app icon copy", "info")
+            return
+        }
+
+        // Define iPhone icon sizes with their configurations
+        const iconSizes = [
+            { size: "20x20", idiom: "iphone", scale: "2x" },
+            { size: "20x20", idiom: "iphone", scale: "3x" },
+            { size: "29x29", idiom: "iphone", scale: "2x" },
+            { size: "29x29", idiom: "iphone", scale: "3x" },
+            { size: "40x40", idiom: "iphone", scale: "2x" },
+            { size: "40x40", idiom: "iphone", scale: "3x" },
+            { size: "60x60", idiom: "iphone", scale: "2x" },
+            { size: "60x60", idiom: "iphone", scale: "3x" },
+            { size: "1024x1024", idiom: "ios-marketing", scale: "1x" },
+        ]
+
+        const imageExtensions = ["png", "jpg", "jpeg"]
+
+        // Recursively find all image files in a directory
+        const findImagesRecursively = (dir, extensions) => {
+            let results = []
+
+            try {
+                const items = fs.readdirSync(dir)
+
+                for (const item of items) {
+                    const fullPath = path.join(dir, item)
+                    const stat = fs.statSync(fullPath)
+
+                    if (stat.isDirectory()) {
+                        results = results.concat(findImagesRecursively(fullPath, extensions))
+                    } else if (stat.isFile()) {
+                        const ext = path.extname(item).toLowerCase().slice(1)
+                        if (extensions.includes(ext)) {
+                            results.push(fullPath)
+                        }
+                    }
+                }
+            } catch (err) {
+                // Ignore directory read errors
+            }
+
+            return results
+        }
+
+        // Get all image files from public directory
+        const allImages = findImagesRecursively(publicDir, imageExtensions)
+        const foundIcons = []
+
+        // Create icon set directory
+        if (!fs.existsSync(iconSetDir)) {
+            fs.mkdirSync(iconSetDir, { recursive: true })
+        }
+
+        // Load existing Contents.json or create new
+        const contentsPath = `${iconSetDir}/Contents.json`
+        let contents
+        if (fs.existsSync(contentsPath)) {
+            try {
+                contents = JSON.parse(fs.readFileSync(contentsPath, "utf8"))
+            } catch {
+                contents = null
+            }
+        }
+
+        if (!contents || !Array.isArray(contents.images)) {
+            contents = { images: [], info: { author: "xcode", version: 1 } }
+        }
+
+        // Map to track which icons we've added
+        const addedIcons = new Set()
+
+        // Search for icons matching the expected sizes
+        for (const iconConfig of iconSizes) {
+            const { size, idiom, scale } = iconConfig
+
+            // Expected filename pattern: icon-{size}-{scale}
+            // Example: icon-20x20-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png
+            const expectedName = `icon-${size}-${scale}`
+            let foundImage = null
+
+            // Search for matching file with any supported extension
+            for (const ext of imageExtensions) {
+                const matchingImage = allImages.find((imgPath) => {
+                    const basename = path.basename(imgPath, `.${ext}`)
+                    return basename === expectedName
+                })
+
+                if (matchingImage) {
+                    foundImage = { path: matchingImage, ext }
+                    break
+                }
+            }
+
+            if (foundImage) {
+                const filename = `${expectedName}.${foundImage.ext}`
+                const destinationPath = `${iconSetDir}/${filename}`
+
+                // Copy the icon
+                fs.copyFileSync(foundImage.path, destinationPath)
+                foundIcons.push({ size, scale, filename, idiom })
+
+                // Create unique key for this icon entry
+                const iconKey = `${size}-${idiom}-${scale}`
+                addedIcons.add(iconKey)
+
+                // Remove existing entry with same size/idiom/scale
+                contents.images = contents.images.filter(
+                    (img) => `${img.size}-${img.idiom}-${img.scale}` !== iconKey
+                )
+
+                // Add new entry
+                contents.images.push({
+                    size,
+                    idiom,
+                    scale,
+                    filename,
+                })
+            }
+        }
+
+        if (foundIcons.length > 0) {
+            // Write updated Contents.json
+            fs.writeFileSync(contentsPath, JSON.stringify(contents, null, 2))
+
+            progress.log(`Updated AppIcon.appiconset with ${foundIcons.length} icon(s):`, "success")
+            foundIcons.forEach((icon) => {
+                progress.log(`  • ${icon.size} @${icon.scale} (${icon.idiom})`, "info")
+            })
+        } else {
+            progress.log("No app icon files found in public folder", "info")
+            progress.log("Expected naming pattern: icon-{size}-{scale}.{ext}", "info")
+            progress.log("Example: icon-20x20-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png", "info")
+        }
+    } catch (error) {
+        progress.log(`Warning: Error copying app icons: ${error.message}`, "warning")
     }
 }
 

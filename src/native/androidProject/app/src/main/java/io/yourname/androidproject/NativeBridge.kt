@@ -13,13 +13,16 @@ import androidx.core.app.NotificationCompat
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
+import java.util.Properties
 
 class NativeBridge(
     private val mainActivity: MainActivity,
-    private val webView: WebView
+    private val webView: WebView,
+    private val properties: Properties
 ) : CoroutineScope {
     private var currentPhotoUri: Uri? = null
     private var shouldLaunchCameraAfterPermission = false
+    private var allowedUrls: List<String> = emptyList()
 
     // Coroutine scope for async operations
     private val supervisorJob = SupervisorJob()
@@ -76,6 +79,16 @@ class NativeBridge(
 
     init {
         try {
+            // Load allowed URLs from properties for whitelisting
+            allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+
+            if (allowedUrls.isNotEmpty()) {
+                BridgeUtils.logDebug(TAG, "Whitelisting enabled with ${allowedUrls.size} allowed URLs")
+            }
+
             initializeCameraLauncher()
             initializePermissionLauncher()
             initializeFilePickerLauncher()
@@ -584,6 +597,7 @@ class NativeBridge(
                 webView,
                 fileUrl,
                 mimeType,
+                allowedUrls,
                 onSuccess = { downloadedFile, detectedMimeType ->
                     IntentUtils.openFileWithSystemIntent(mainActivity, webView, downloadedFile, detectedMimeType)
                 }

@@ -298,7 +298,7 @@ class WebBridge {
         }
 
         const parseDeviceInfo = (data) => {
-            const rawDeviceInfo = JSON.parse(data)
+            const rawDeviceInfo = typeof data === "string" ? JSON.parse(data) : data
             const platformMapping = DEVICE_INFO_KEY_MAP[platform] || {}
 
             return Object.fromEntries(
