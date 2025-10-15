@@ -848,6 +848,72 @@ async function processNotificationSounds() {
     }
 }
 
+async function removeSoundFilesFromXcodeProject() {
+    try {
+        const projectFilePath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj")
+
+        if (!fs.existsSync(projectFilePath)) {
+            return
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+        let modified = false
+
+        // Remove all notification sound file references
+        for (const sound of NOTIFICATION_SOUNDS) {
+            // Use the resourceName from each sound object
+            const pattern = sound.resourceName
+
+            // Remove PBXFileReference entries
+            const fileRefRegex = new RegExp(
+                `\\t\\t[A-F0-9]+ \\/\\* ${pattern}\\.[a-z0-9]+ \\*\\/ = \\{isa = PBXFileReference;[^}]*\\};\\n`,
+                "g"
+            )
+            if (fileRefRegex.test(projectContent)) {
+                projectContent = projectContent.replace(fileRefRegex, "")
+                modified = true
+            }
+
+            // Remove PBXBuildFile entries
+            const buildFileRegex = new RegExp(
+                `\\t\\t[A-F0-9]+ \\/\\* ${pattern}\\.[a-z0-9]+ in Resources \\*\\/ = \\{isa = PBXBuildFile;[^}]*\\};\\n`,
+                "g"
+            )
+            if (buildFileRegex.test(projectContent)) {
+                projectContent = projectContent.replace(buildFileRegex, "")
+                modified = true
+            }
+
+            // Remove from PBXGroup
+            const groupRefRegex = new RegExp(
+                `\\t\\t\\t\\t[A-F0-9]+ \\/\\* ${pattern}\\.[a-z0-9]+ \\*\\/,\\n`,
+                "g"
+            )
+            if (groupRefRegex.test(projectContent)) {
+                projectContent = projectContent.replace(groupRefRegex, "")
+                modified = true
+            }
+
+            // Remove from PBXResourcesBuildPhase
+            const resourceRefRegex = new RegExp(
+                `\\t\\t\\t\\t[A-F0-9]+ \\/\\* ${pattern}\\.[a-z0-9]+ in Resources \\*\\/,\\n`,
+                "g"
+            )
+            if (resourceRefRegex.test(projectContent)) {
+                projectContent = projectContent.replace(resourceRefRegex, "")
+                modified = true
+            }
+        }
+
+        if (modified) {
+            fs.writeFileSync(projectFilePath, projectContent, "utf8")
+            progress.log("Removed notification sounds from Xcode project", "success")
+        }
+    } catch (error) {
+        progress.log(`Warning: Could not remove sound files from Xcode project: ${error.message}`, "warning")
+    }
+}
+
 async function cleanupNotificationAssets() {
     try {
         const assetsPath = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
@@ -863,7 +929,7 @@ async function cleanupNotificationAssets() {
             }
         }
 
-        // Remove existing notification sounds
+        // Remove existing notification sounds from filesystem
         for (const sound of NOTIFICATION_SOUNDS) {
             for (const format of audioFormats) {
                 const soundPath = `${bundlePath}/${sound.resourceName}.${format}`
@@ -873,6 +939,9 @@ async function cleanupNotificationAssets() {
                 }
             }
         }
+
+        // Remove sound files from Xcode project
+        await removeSoundFilesFromXcodeProject()
 
         // Remove GoogleService-Info.plist when notifications are disabled
         // NOTE: Commented out - GoogleService-Info.plist is managed in Xcode project
@@ -885,6 +954,107 @@ async function cleanupNotificationAssets() {
         progress.log("Cleaned up notification assets", "success")
     } catch (error) {
         progress.log(`Warning: Error cleaning notification assets: ${error.message}`, "warning")
+    }
+}
+
+async function addSoundFilesToXcodeProject() {
+    try {
+        const projectFilePath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj")
+        const bundlePath = `${PROJECT_DIR}/${PROJECT_NAME}`
+        const audioFormats = ["mp3", "wav", "m4a", "caf"]
+
+        if (!fs.existsSync(projectFilePath)) {
+            throw new Error(`Xcode project file not found at: ${projectFilePath}`)
+        }
+
+        // Find all sound files that were copied
+        const soundFiles = []
+        for (const sound of NOTIFICATION_SOUNDS) {
+            for (const format of audioFormats) {
+                const soundPath = `${bundlePath}/${sound.resourceName}.${format}`
+                if (fs.existsSync(soundPath)) {
+                    soundFiles.push({
+                        filename: `${sound.resourceName}.${format}`,
+                        resourceName: sound.resourceName,
+                        format: format,
+                    })
+                    break
+                }
+            }
+        }
+
+        if (soundFiles.length === 0) {
+            progress.log("No sound files to add to Xcode project", "info")
+            return
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+
+        // Generate deterministic IDs for sound files (based on hash of filename)
+        const crypto = require("crypto")
+        const generateId = (filename, suffix = "") => {
+            const hash = crypto
+                .createHash("md5")
+                .update(filename + suffix)
+                .digest("hex")
+            return hash.substring(0, 24).toUpperCase()
+        }
+
+        for (const soundFile of soundFiles) {
+            const fileRefId = generateId(soundFile.filename, "_ref")
+            const buildFileId = generateId(soundFile.filename, "_build")
+
+            // Check if this sound file is already in the project
+            if (projectContent.includes(`/* ${soundFile.filename} */`)) {
+                progress.log(`Sound ${soundFile.filename} already in Xcode project`, "info")
+                continue
+            }
+
+            progress.log(`Adding ${soundFile.filename} to Xcode project`, "info")
+
+            // 1. Add PBXFileReference entry
+            const fileRefEntry = `\t\t${fileRefId} /* ${soundFile.filename} */ = {isa = PBXFileReference; lastKnownFileType = audio.${soundFile.format === "mp3" ? "mp3" : "wav"}; path = ${soundFile.filename}; sourceTree = "<group>"; };`
+
+            projectContent = projectContent.replace(
+                /(\/\* End PBXFileReference section \*\/)/,
+                `${fileRefEntry}\n$1`
+            )
+
+            // 2. Add PBXBuildFile entry
+            const buildFileEntry = `\t\t${buildFileId} /* ${soundFile.filename} in Resources */ = {isa = PBXBuildFile; fileRef = ${fileRefId} /* ${soundFile.filename} */; };`
+
+            projectContent = projectContent.replace(
+                /(\/\* End PBXBuildFile section \*\/)/,
+                `${buildFileEntry}\n$1`
+            )
+
+            // 3. Add to PBXGroup (find the iosnativeWebView group)
+            const groupPattern = /(\/\* iosnativeWebView \*\/ = \{[^}]*children = \([^)]*)/
+            if (groupPattern.test(projectContent)) {
+                projectContent = projectContent.replace(
+                    groupPattern,
+                    `$1\n\t\t\t\t${fileRefId} /* ${soundFile.filename} */,`
+                )
+            }
+
+            // 4. Add to PBXResourcesBuildPhase
+            const resourcesPattern = /(\/\* Resources \*\/ = \{[^}]*files = \([^)]*)/
+            if (resourcesPattern.test(projectContent)) {
+                projectContent = projectContent.replace(
+                    resourcesPattern,
+                    `$1\n\t\t\t\t${buildFileId} /* ${soundFile.filename} in Resources */,`
+                )
+            }
+
+            progress.log(`✅ Added ${soundFile.filename} to Xcode project`, "success")
+        }
+
+        // Write back the modified project file
+        fs.writeFileSync(projectFilePath, projectContent, "utf8")
+        progress.log(`Registered ${soundFiles.length} sound file(s) in Xcode project`, "success")
+    } catch (error) {
+        progress.log(`Warning: Could not add sound files to Xcode project: ${error.message}`, "warning")
+        throw error
     }
 }
 
@@ -909,6 +1079,11 @@ async function processNotificationAssets(webviewConfig) {
         // Process notification assets
         const iconsProcessed = await processNotificationIcons()
         const soundsProcessed = await processNotificationSounds()
+
+        // Add sound files to Xcode project so they're included in the bundle
+        if (soundsProcessed > 0) {
+            await addSoundFilesToXcodeProject()
+        }
 
         const totalAssets = iconsProcessed + soundsProcessed
         if (totalAssets > 0) {
