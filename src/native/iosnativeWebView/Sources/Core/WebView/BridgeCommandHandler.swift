@@ -587,14 +587,4 @@ class BridgeCommandHandler {
         }
     }
 
-    @objc func updateBadge(_ count: Int) {
-        // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
-            commandLogger.warning("Update badge requested but notifications are disabled in config")
-            return
-        }
-
-        commandLogger.debug("Updating badge count to: \(count)")
-        notificationHandler.updateBadge(count)
-    }
 }

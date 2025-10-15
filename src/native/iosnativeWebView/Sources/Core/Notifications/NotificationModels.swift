@@ -86,12 +86,24 @@ public enum NotificationChannel: String, CaseIterable {
     }
 
     private func getCustomSound(_ fileName: String) -> UNNotificationSound? {
-        guard let soundPath = Bundle.main.path(
-            forResource: fileName.replacingOccurrences(of: ".mp3", with: ""),
-            ofType: "mp3"
-        ) else { return nil }
-        let soundURL = URL(fileURLWithPath: soundPath)
-        return UNNotificationSound(named: UNNotificationSoundName(rawValue: soundURL.lastPathComponent))
+        // Support all formats that build script processes: caf, mp3, m4a, wav
+        let supportedFormats = ["caf", "mp3", "m4a", "wav"]
+
+        // Extract base filename without extension
+        var baseName = fileName
+        for format in supportedFormats {
+            baseName = baseName.replacingOccurrences(of: ".\(format)", with: "")
+        }
+
+        // Try each format until we find one
+        for format in supportedFormats {
+            if let soundPath = Bundle.main.path(forResource: baseName, ofType: format) {
+                let soundURL = URL(fileURLWithPath: soundPath)
+                return UNNotificationSound(named: UNNotificationSoundName(rawValue: soundURL.lastPathComponent))
+            }
+        }
+
+        return nil
     }
 }
 

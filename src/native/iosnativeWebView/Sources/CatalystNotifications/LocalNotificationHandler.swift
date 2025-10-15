@@ -99,8 +99,7 @@ class LocalNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
 
     private func applyActionButtonsStyle(_ content: UNMutableNotificationContent, config: NotificationConfig) async {
         if let actions = config.actions, !actions.isEmpty {
-            // Create dynamic category for these specific actions
-            let categoryId = "ACTIONS_\(UUID().uuidString.prefix(8))"
+            let categoryId = "ACTION_BUTTONS"
             content.categoryIdentifier = categoryId
 
             let notificationActions = actions.map { actionConfig in
@@ -118,10 +117,12 @@ class LocalNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
                 options: [.customDismissAction]
             )
 
-            // Add this category to the notification center
+            // Replace existing ACTION_BUTTONS category
             let center = UNUserNotificationCenter.current()
             let existingCategories = await center.notificationCategories()
-            var updatedCategories = existingCategories
+
+            // Remove old ACTION_BUTTONS category and add new one
+            var updatedCategories = existingCategories.filter { $0.identifier != categoryId }
             updatedCategories.insert(category)
             center.setNotificationCategories(updatedCategories)
 
