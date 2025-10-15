@@ -44,6 +44,9 @@ class MetricsMonitor(private val context: Context) {
     private var cacheMisses = 0
     private val cachedFiles = mutableSetOf<String>()
     private val filesServedFromCache = mutableListOf<String>()
+    private val cacheMissedUrls = mutableListOf<String>()
+    private val allNetworkRequests = mutableListOf<String>()
+    private val cacheEvaluatedRequests = mutableListOf<String>()
 
     // Thread metrics
     private var uiBlockingEvents = 0
@@ -110,8 +113,11 @@ class MetricsMonitor(private val context: Context) {
 
     fun recordCacheMiss(url: String = "") {
         cacheMisses++
-        if (BuildConfig.DEBUG && url.isNotEmpty()) {
-            Log.d(TAG, "❌ CACHE_MISS: $url (Total misses: $cacheMisses)")
+        if (url.isNotEmpty()) {
+            cacheMissedUrls.add(url)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "❌ CACHE_MISS: $url (Total misses: $cacheMisses)")
+            }
         }
     }
 
@@ -119,6 +125,18 @@ class MetricsMonitor(private val context: Context) {
         cachedFiles.add(url)
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "💾 FILE_CACHED: $url (Total cached files: ${cachedFiles.size})")
+        }
+    }
+
+    fun recordNetworkRequest(url: String) {
+        if (url.isNotEmpty()) {
+            allNetworkRequests.add(url)
+        }
+    }
+
+    fun recordCacheEvaluation(url: String) {
+        if (url.isNotEmpty()) {
+            cacheEvaluatedRequests.add(url)
         }
     }
 
@@ -239,6 +257,9 @@ class MetricsMonitor(private val context: Context) {
         sb.appendLine("- Cache Hits: $cacheHits")
         sb.appendLine("- Cache Misses: $cacheMisses")
         sb.appendLine("- Cache Hit Rate: $cacheRate%")
+        sb.appendLine("- Total Network Requests: ${allNetworkRequests.size}")
+        sb.appendLine("- Cache Evaluated Requests: ${cacheEvaluatedRequests.size}")
+        sb.appendLine("- Not Evaluated for Cache: ${allNetworkRequests.size - cacheEvaluatedRequests.size}")
         sb.appendLine("- Total Files Cached: ${cachedFiles.size}")
         sb.appendLine("- Files Served from Cache: ${filesServedFromCache.size}")
         sb.appendLine("")
@@ -249,6 +270,44 @@ class MetricsMonitor(private val context: Context) {
             }
             if (filesServedFromCache.size > 10) {
                 sb.appendLine("  ... and ${filesServedFromCache.size - 10} more files")
+            }
+            sb.appendLine("")
+        }
+
+        if (cacheMissedUrls.isNotEmpty()) {
+            sb.appendLine("CACHE MISSES (URLs that should have been cached):")
+            // Group by file extension to make it easier to analyze
+            val missedByExtension = cacheMissedUrls.groupBy { url ->
+                url.substringAfterLast('.').substringBefore('?').substringBefore('#').lowercase()
+            }
+            missedByExtension.forEach { (ext, urls) ->
+                sb.appendLine("  Extension .$ext: ${urls.size} files")
+                urls.take(3).forEach { url ->
+                    sb.appendLine("    ❌ ${url.substringAfterLast("/")}")
+                }
+                if (urls.size > 3) {
+                    sb.appendLine("    ... and ${urls.size - 3} more")
+                }
+            }
+            sb.appendLine("")
+        }
+
+        // Show requests that were not evaluated for caching
+        val notEvaluated = allNetworkRequests.filter { it !in cacheEvaluatedRequests }
+        if (notEvaluated.isNotEmpty()) {
+            sb.appendLine("REQUESTS NOT EVALUATED FOR CACHE (${notEvaluated.size} total):")
+            val groupedNotEvaluated = notEvaluated.groupBy { url ->
+                val ext = url.substringAfterLast('.').substringBefore('?').substringBefore('#').lowercase()
+                if (ext.length > 10 || !ext.matches(Regex("[a-z0-9]+"))) "other" else ext
+            }
+            groupedNotEvaluated.forEach { (ext, urls) ->
+                sb.appendLine("  .$ext: ${urls.size} files")
+                urls.take(2).forEach { url ->
+                    sb.appendLine("    • ${url.substringAfterLast("/").take(50)}")
+                }
+                if (urls.size > 2) {
+                    sb.appendLine("    ... and ${urls.size - 2} more")
+                }
             }
             sb.appendLine("")
         }

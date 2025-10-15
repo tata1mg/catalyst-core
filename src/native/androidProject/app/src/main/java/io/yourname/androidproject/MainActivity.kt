@@ -118,7 +118,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Setup NativeBridge
         try {
-            nativeBridge = NativeBridge(this, customWebView.getWebView())
+            nativeBridge = NativeBridge(this, customWebView.getWebView(), properties)
             customWebView.addJavascriptInterface(nativeBridge, "NativeBridge")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")

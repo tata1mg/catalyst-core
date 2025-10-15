@@ -259,7 +259,7 @@ class BridgeMessageValidator {
 
     private static func validateCommandParameters(command: String, params: Any) -> BridgeValidationError? {
         // Commands that support flexible parameter formats (string or object)
-        let flexibleCommands = ["openCamera", "requestCameraPermission", "pickFile", "requestHapticFeedback", "openFileWithIntent"]
+        let flexibleCommands = ["openCamera", "requestCameraPermission", "pickFile", "requestHapticFeedback", "openFileWithIntent", "getDeviceInfo", "logger"]
 
         if flexibleCommands.contains(command) {
             // For these commands, allow string, object, or nil parameters

@@ -99,6 +99,21 @@ class BridgeFileHandler: NSObject {
 
         // Handle remote URLs by downloading first
         if fileUrl.hasPrefix("http://") || fileUrl.hasPrefix("https://") {
+            // Whitelist validation for remote URLs
+            if URLWhitelistManager.shared.isAccessControlEnabled {
+                guard let url = URL(string: fileUrl),
+                      URLWhitelistManager.shared.isUrlAllowed(url) else {
+                    fileLogger.error("File URL blocked by access control: \(fileUrl)")
+                    delegate?.sendErrorCallback(
+                        eventName: "ON_INTENT_ERROR",
+                        error: "Unable to process request. URL violates whitelisting protocols",
+                        code: "WHITELIST_VIOLATION"
+                    )
+                    return
+                }
+                fileLogger.info("✅ File URL passed whitelist check: \(fileUrl)")
+            }
+
             downloadFile(urlString: fileUrl, mimeType: mimeType)
         } else if fileUrl.hasPrefix("file://") {
             // Handle local file URLs (for future implementation)
