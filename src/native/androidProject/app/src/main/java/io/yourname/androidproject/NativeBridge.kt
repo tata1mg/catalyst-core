@@ -79,19 +79,11 @@ private data class FilePickerOptions(
     }
 }
 
-private data class ProcessedFilePayload(
-    val json: JSONObject,
-    val size: Long,
-    val transport: String
-)
+private fun JSONObject.optIntNullable(key: String): Int? =
+    if (has(key) && !isNull(key)) getInt(key) else null
 
-private fun JSONObject.optIntNullable(key: String): Int? {
-    return if (has(key) && !isNull(key)) getInt(key) else null
-}
-
-private fun JSONObject.optLongNullable(key: String): Long? {
-    return if (has(key) && !isNull(key)) getLong(key) else null
-}
+private fun JSONObject.optLongNullable(key: String): Long? =
+    if (has(key) && !isNull(key)) getLong(key) else null
 
 class NativeBridge(
     private val mainActivity: MainActivity,
@@ -372,33 +364,39 @@ class NativeBridge(
     private fun processSelectedFiles(uris: List<Uri>, options: FilePickerOptions) {
         launch {
             try {
-                val processedFiles = mutableListOf<ProcessedFilePayload>()
-                val transportSummary = mutableMapOf<String, Int>()
+                val filesArray = JSONArray()
                 var totalSize = 0L
+                var firstFile: JSONObject? = null
 
-                for ((index, uri) in uris.withIndex()) {
-                    val processed = processSingleFile(index, uri, options) ?: return@launch
-                    processedFiles.add(processed)
-                    totalSize += processed.size
-                    transportSummary[processed.transport] = (transportSummary[processed.transport] ?: 0) + 1
+                uris.forEachIndexed { index, uri ->
+                    val processed = processFile(index, uri, options) ?: return@launch
+                    filesArray.put(processed)
+                    totalSize += processed.optLong("size")
+                    if (firstFile == null) {
+                        firstFile = processed
+                    }
                 }
 
-                if (processedFiles.isEmpty()) {
+                if (filesArray.length() == 0) {
                     notifyFilePickError("No files processed")
                     return@launch
                 }
 
-                val payload = buildFilePickerPayload(
-                    processedFiles,
-                    options,
-                    totalSize,
-                    transportSummary
-                )
-
-                BridgeUtils.logInfo(
-                    TAG,
-                    "Processed ${processedFiles.size} file(s) successfully via tri-transport pipeline"
-                )
+                val payload = JSONObject().apply {
+                    put("multiple", filesArray.length() > 1)
+                    put("count", filesArray.length())
+                    put("totalSize", totalSize)
+                    put("files", filesArray)
+                    put("options", options.toJson())
+                    firstFile?.let { first ->
+                        put("fileName", first.optString("fileName", null))
+                        put("fileSrc", first.optString("fileSrc", null))
+                        put("filePath", first.optString("filePath", null))
+                        put("size", first.optLong("size"))
+                        put("mimeType", first.optString("mimeType", null))
+                        put("transport", first.optString("transport", null))
+                    }
+                }
 
                 BridgeUtils.notifyWeb(
                     webView,
@@ -406,20 +404,19 @@ class NativeBridge(
                     payload.toString()
                 )
             } catch (e: Exception) {
-                BridgeUtils.logError(TAG, "Error in tri-transport file processing", e)
+                BridgeUtils.logError(TAG, "Error processing selected files", e)
                 notifyFilePickError("File processing error: ${e.message}")
             }
         }
     }
 
-    private fun processSingleFile(index: Int, uri: Uri, options: FilePickerOptions): ProcessedFilePayload? {
+    private fun processFile(index: Int, uri: Uri, options: FilePickerOptions): JSONObject? {
         val declaredSize = FileUtils.getFileSize(mainActivity, uri)
-        if (!validateFileSizeConstraints(index, declaredSize, options)) {
+        if (!passesSizeBounds(index, declaredSize, options)) {
             return null
         }
 
-        val file = FileUtils.uriToFile(mainActivity, uri)
-        if (file == null) {
+        val file = FileUtils.uriToFile(mainActivity, uri) ?: run {
             val message = "Unable to access selected file at index ${index + 1}"
             BridgeUtils.logError(TAG, message)
             notifyFilePickError(message)
@@ -427,7 +424,7 @@ class NativeBridge(
         }
 
         val actualSize = if (file.length() > 0) file.length() else declaredSize
-        if (!validateFileSizeConstraints(index, actualSize, options)) {
+        if (!passesSizeBounds(index, actualSize, options)) {
             return null
         }
 
@@ -437,15 +434,9 @@ class NativeBridge(
         )
 
         val routingDecision = FileSizeRouterUtils.determineTransport(file)
-        BridgeUtils.logInfo(
-            TAG,
-            "Transport decision: ${routingDecision.transportType} - ${routingDecision.reason}"
-        )
-
         FileUtils.sendFilePickStateUpdate(webView, "routing")
 
         val processingResult = FileSizeRouterUtils.processFile(mainActivity, webView, routingDecision)
-
         if (!processingResult.success || processingResult.fileSrc == null) {
             val errorMsg = processingResult.error ?: "Unknown error processing file"
             BridgeUtils.logError(TAG, "File processing failed: $errorMsg")
@@ -453,7 +444,7 @@ class NativeBridge(
             return null
         }
 
-        val fileJson = JSONObject().apply {
+        return JSONObject().apply {
             put("index", index)
             put("uri", uri.toString())
             put("fileName", processingResult.fileName)
@@ -463,59 +454,10 @@ class NativeBridge(
             put("mimeType", processingResult.mimeType)
             put("transport", processingResult.transportUsed.name)
         }
-
-        return ProcessedFilePayload(
-            json = fileJson,
-            size = processingResult.fileSize,
-            transport = processingResult.transportUsed.name
-        )
     }
 
-    private fun buildFilePickerPayload(
-        files: List<ProcessedFilePayload>,
-        options: FilePickerOptions,
-        totalSize: Long,
-        transportSummary: Map<String, Int>
-    ): JSONObject {
-        val filesArray = JSONArray()
-        files.forEach { filesArray.put(it.json) }
-
-        val payload = JSONObject().apply {
-            put("multiple", files.size > 1)
-            put("count", files.size)
-            put("totalSize", totalSize)
-            put("files", filesArray)
-            put("options", options.toJson())
-        }
-
-        files.firstOrNull()?.json?.let { first ->
-            payload.put("fileName", first.getString("fileName"))
-            payload.put("fileSrc", first.getString("fileSrc"))
-            payload.put("filePath", first.getString("filePath"))
-            payload.put("size", first.getLong("size"))
-            payload.put("mimeType", first.getString("mimeType"))
-            payload.put("transport", first.getString("transport"))
-        }
-
-        if (transportSummary.isNotEmpty()) {
-            val transportJson = JSONObject()
-            transportSummary.forEach { (key, count) ->
-                transportJson.put(key, count)
-            }
-            payload.put("transportSummary", transportJson)
-        }
-
-        return payload
-    }
-
-    private fun validateFileSizeConstraints(
-        index: Int,
-        size: Long,
-        options: FilePickerOptions
-    ): Boolean {
-        if (size <= 0) {
-            return true
-        }
+    private fun passesSizeBounds(index: Int, size: Long, options: FilePickerOptions): Boolean {
+        if (size <= 0) return true
 
         options.minFileSize?.let { minSize ->
             if (size < minSize) {

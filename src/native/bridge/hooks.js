@@ -38,68 +38,61 @@ const SSR_FILE_PICKER_STUB = {
     clearFile: noop,
 }
 
-const parseNativePayload = (payload) => (typeof payload === "string" ? JSON.parse(payload) : payload)
-
-const filesFromPayload = (payload) => {
-    if (!payload) return []
-    if (Array.isArray(payload)) return payload.filter(Boolean)
-
-    if (Array.isArray(payload.files)) {
-        return payload.files.filter(Boolean)
-    }
-
-    if (payload.files) {
-        return [payload.files].filter(Boolean)
-    }
-
-    return [payload].filter(Boolean)
+const parseNativePayload = (payload) => {
+    if (payload == null) return null
+    if (typeof payload !== "string") return payload
+    return JSON.parse(payload)
 }
 
-const defaultFileMeta = (file) => ({
-    fileName: file?.fileName ?? file?.name ?? null,
-    fileSrc: file?.fileSrc ?? null,
-    filePath: file?.filePath ?? null,
-    size: file?.size ?? null,
-    mimeType: file?.mimeType ?? null,
-    transport: file?.transport ?? null,
-})
+const extractFiles = (value) => {
+    if (!value) return []
+    if (Array.isArray(value)) return value.filter(Boolean)
+    if (Array.isArray(value.files)) return value.files.filter(Boolean)
+    if (value.files) return [value.files]
+    return [value].filter(Boolean)
+}
 
-const normalizeFilePayload = (payload) => {
-    if (!payload) return null
+const normalizeFilePickResult = (payload) => {
+    const parsed = parseNativePayload(payload)
+    if (!parsed) return null
 
-    const files = filesFromPayload(payload)
+    const files = extractFiles(parsed)
     if (!files.length) return null
 
-    const firstFileMeta = defaultFileMeta(files[0])
-    const totalSize = files.reduce((sum, file) => sum + (file?.size || 0), 0)
-    const override = Array.isArray(payload) ? {} : payload
-    const count = override.count ?? files.length
+    const first = files[0]
+    const totalSize =
+        parsed.totalSize ??
+        files.reduce((sum, file) => {
+            const size = typeof file?.size === "number" ? file.size : 0
+            return sum + size
+        }, 0)
 
     return {
-        ...override,
+        ...(Array.isArray(parsed) ? {} : parsed),
         files,
-        multiple: override.multiple ?? files.length > 1,
-        count,
-        totalSize: override.totalSize ?? totalSize,
-        fileName: override.fileName ?? firstFileMeta.fileName,
-        fileSrc: override.fileSrc ?? firstFileMeta.fileSrc,
-        filePath: override.filePath ?? firstFileMeta.filePath,
-        size: override.size ?? firstFileMeta.size,
-        mimeType: override.mimeType ?? firstFileMeta.mimeType,
-        transport: override.transport ?? firstFileMeta.transport,
+        multiple: parsed.multiple ?? files.length > 1,
+        count: parsed.count ?? files.length,
+        totalSize,
+        fileName: parsed.fileName ?? first?.fileName ?? first?.name ?? null,
+        fileSrc: parsed.fileSrc ?? first?.fileSrc ?? first?.src ?? null,
+        filePath: parsed.filePath ?? first?.filePath ?? null,
+        size: parsed.size ?? first?.size ?? null,
+        mimeType: parsed.mimeType ?? first?.mimeType ?? first?.type ?? null,
+        transport: parsed.transport ?? first?.transport ?? null,
     }
 }
 
-const updateProgressFromNormalizedData = (updateProgress, normalizedData) => {
-    if (!normalizedData) return
+const updateProgressFromResult = (updateProgress, result) => {
+    if (!result) return
 
-    const transport = normalizedData.transport ?? normalizedData.files?.[0]?.transport ?? null
+    const first = result.files?.[0]
+    const transport = result.transport ?? first?.transport ?? null
     const bytesTotal =
-        normalizedData.totalSize ?? normalizedData.size ?? normalizedData.files?.[0]?.size ?? null
+        result.totalSize ?? result.size ?? (typeof first?.size === "number" ? first.size : null)
 
-    if (transport) {
+    if (transport || bytesTotal != null) {
         updateProgress({
-            transport,
+            transport: transport ?? null,
             bytesTotal,
         })
     }
@@ -126,33 +119,15 @@ const mapStateToProgress = (state) => {
     }
 }
 
-const resolvePickRequest = (input) => {
-    if (input == null) {
-        return {
-            payload: "*/*",
-            mimeType: "*/*",
-        }
-    }
+const resolvePickPayload = (input) => {
+    if (input == null) return "*/*"
+    if (typeof input === "string") return input || "*/*"
 
-    if (typeof input === "string") {
-        return {
-            payload: input || "*/*",
-            mimeType: input || "*/*",
-        }
-    }
+    const payload = { ...input }
+    const hasMimeType = typeof payload.mimeType === "string" && payload.mimeType.trim().length > 0
 
-    const normalized = { ...input }
-    const mimeType =
-        typeof normalized.mimeType === "string" && normalized.mimeType.trim().length > 0
-            ? normalized.mimeType
-            : "*/*"
-
-    normalized.mimeType = mimeType
-
-    return {
-        payload: normalized,
-        mimeType,
-    }
+    payload.mimeType = hasMimeType ? payload.mimeType.trim() : "*/*"
+    return payload
 }
 
 const registerNativeHandlers = (handlers) => {
@@ -442,22 +417,21 @@ export const useFilePicker = () => {
     } = base
 
     useEffect(() => {
-        const handleFilePicked = (data) => {
+        const handleFilePicked = (payload) => {
             try {
-                const fileData = parseNativePayload(data)
-                console.log("📁 File picked:", fileData)
-
                 fileObjectCache.current.clear()
 
-                const normalizedData = normalizeFilePayload(fileData)
+                const normalizedData = normalizeFilePickResult(payload)
+                console.log("📁 File picked:", normalizedData)
+
                 if (!normalizedData) {
                     throw new Error("No file data received from native file picker")
                 }
 
                 setDataAndComplete(normalizedData)
-                updateProgressFromNormalizedData(updateProgress, normalizedData)
-            } catch (parseError) {
-                console.error("📁 Error parsing file data:", parseError)
+                updateProgressFromResult(updateProgress, normalizedData)
+            } catch (error) {
+                console.error("📁 Error processing file data:", error)
                 handleNativeError("Error processing selected file")
             }
         }
@@ -499,9 +473,10 @@ export const useFilePicker = () => {
 
     const pickFile = useCallback(
         (input = null) => {
-            const { payload, mimeType } = resolvePickRequest(input)
+            const payload = resolvePickPayload(input)
+
             if (typeof payload === "string") {
-                console.log("📁 Picking file with MIME type:", mimeType)
+                console.log("📁 Picking file with MIME type:", payload)
             } else {
                 console.log("📁 Picking file with options:", payload)
             }
@@ -516,6 +491,8 @@ export const useFilePicker = () => {
     // Standardized execute function (new interface)
     const execute = pickFile
 
+    const files = useMemo(() => extractFiles(data), [data])
+
     /**
      * Get File object from current file data
      * Supports accessing specific file by index when multiple files are selected
@@ -525,12 +502,12 @@ export const useFilePicker = () => {
      */
     const getFileObject = useCallback(
         async (index = 0) => {
-            if (!data || !data.files || !data.files.length) {
+            if (!files.length) {
                 throw new Error("No file data available. Please pick a file first.")
             }
 
             const targetIndex = Number(index)
-            const fileEntry = data.files[targetIndex]
+            const fileEntry = files[targetIndex]
 
             if (!fileEntry) {
                 throw new Error(`No file data available at index ${targetIndex}.`)
@@ -583,19 +560,18 @@ export const useFilePicker = () => {
                 throw new Error(`Failed to create File object: ${error.message}`)
             }
         },
-        [data]
+        [files]
     )
 
     const getAllFileObjects = useCallback(async () => {
-        if (!data || !data.files || !data.files.length) {
+        if (!files.length) {
             throw new Error("No file data available. Please pick a file first.")
         }
 
-        const indices = data.files.map((_, index) => index)
+        const indices = files.map((_, index) => index)
         return Promise.all(indices.map((index) => getFileObject(index)))
-    }, [data, getFileObject])
+    }, [files, getFileObject])
 
-    const files = useMemo(() => (data?.files ? data.files : data ? [data] : []), [data])
     const canCreateFileObjectForCurrentFile = useMemo(
         () => (files.length > 0 ? canCreateFileObject(files[0].transport) : false),
         [files]
