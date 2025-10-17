@@ -113,9 +113,21 @@ object BridgeMessageValidator {
             properties = mapOf(
                 "mimeType" to PropertySchema(type = "string"),
                 "multiple" to PropertySchema(type = "boolean"),
+                "minFileSize" to PropertySchema(
+                    type = "number",
+                    minimum = 0
+                ),
                 "maxFileSize" to PropertySchema(
                     type = "number",
                     minimum = 0
+                ),
+                "minFiles" to PropertySchema(
+                    type = "number",
+                    minimum = 1
+                ),
+                "maxFiles" to PropertySchema(
+                    type = "number",
+                    minimum = 1
                 )
             ),
             additionalProperties = false

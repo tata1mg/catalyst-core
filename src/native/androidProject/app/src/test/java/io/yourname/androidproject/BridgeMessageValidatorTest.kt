@@ -135,7 +135,10 @@ class BridgeMessageValidatorTest {
             put("command", "pickFile")
             put("data", JSONObject().apply {
                 put("mimeType", "image/*")
-                put("multiple", false)
+                put("multiple", true)
+                put("minFiles", 1)
+                put("maxFiles", 3)
+                put("minFileSize", 1024)
                 put("maxFileSize", 10485760)
             })
         }
