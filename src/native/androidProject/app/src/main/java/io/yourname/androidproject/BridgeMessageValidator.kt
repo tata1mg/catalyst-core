@@ -420,6 +420,30 @@ object BridgeMessageValidator {
             }
         }
 
+        if (commandName == "pickFile") {
+            val minFiles = if (obj.has("minFiles") && !obj.isNull("minFiles")) obj.optInt("minFiles") else null
+            val maxFiles = if (obj.has("maxFiles") && !obj.isNull("maxFiles")) obj.optInt("maxFiles") else null
+            if (minFiles != null && maxFiles != null && minFiles > maxFiles) {
+                BridgeUtils.logError(TAG, "minFiles cannot be greater than maxFiles for pickFile command")
+                return BridgeValidationError(
+                    message = "minFiles cannot be greater than maxFiles",
+                    code = "INVALID_FILE_PICKER_OPTIONS",
+                    eventName = "ON_FILE_PICK_ERROR"
+                )
+            }
+
+            val minFileSize = if (obj.has("minFileSize") && !obj.isNull("minFileSize")) obj.optLong("minFileSize") else null
+            val maxFileSize = if (obj.has("maxFileSize") && !obj.isNull("maxFileSize")) obj.optLong("maxFileSize") else null
+            if (minFileSize != null && maxFileSize != null && minFileSize > maxFileSize) {
+                BridgeUtils.logError(TAG, "minFileSize cannot be greater than maxFileSize for pickFile command")
+                return BridgeValidationError(
+                    message = "minFileSize cannot be greater than maxFileSize",
+                    code = "INVALID_FILE_PICKER_OPTIONS",
+                    eventName = "ON_FILE_PICK_ERROR"
+                )
+            }
+        }
+
         return null
     }
 

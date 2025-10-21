@@ -60,6 +60,18 @@ const normalizeFilePickResult = (payload) => {
     if (!files.length) return null
 
     const first = files[0]
+    const rawOptions =
+        !Array.isArray(parsed) && parsed && typeof parsed.options === "object" ? parsed.options : null
+    let normalizedOptions = rawOptions || null
+
+    if (rawOptions) {
+        try {
+            normalizedOptions = sanitizeFilePickerOptions(rawOptions)
+        } catch (_error) {
+            normalizedOptions = rawOptions
+        }
+    }
+
     const totalSize =
         parsed.totalSize ??
         files.reduce((sum, file) => {
@@ -67,8 +79,10 @@ const normalizeFilePickResult = (payload) => {
             return sum + size
         }, 0)
 
+    const base = Array.isArray(parsed) ? {} : parsed
+
     return {
-        ...(Array.isArray(parsed) ? {} : parsed),
+        ...base,
         files,
         multiple: parsed.multiple ?? files.length > 1,
         count: parsed.count ?? files.length,
@@ -79,6 +93,7 @@ const normalizeFilePickResult = (payload) => {
         size: parsed.size ?? first?.size ?? null,
         mimeType: parsed.mimeType ?? first?.mimeType ?? first?.type ?? null,
         transport: parsed.transport ?? first?.transport ?? null,
+        options: normalizedOptions,
     }
 }
 
@@ -119,15 +134,55 @@ const mapStateToProgress = (state) => {
     }
 }
 
+const sanitizeFilePickerOptions = (input) => {
+    const options = { ...input }
+    const mime = typeof options.mimeType === "string" ? options.mimeType.trim() : ""
+    options.mimeType = mime.length > 0 ? mime : "*/*"
+
+    const coerceInteger = (value, min) => {
+        if (value == null) return undefined
+        const numeric = typeof value === "string" ? Number(value.trim()) : Number(value)
+        if (!Number.isFinite(numeric)) {
+            throw new Error("File picker numeric options must be valid numbers")
+        }
+        if (!Number.isInteger(numeric)) {
+            throw new Error("File picker numeric options must be integers")
+        }
+        if (numeric < min) {
+            throw new Error(`File picker numeric options must be ≥ ${min}`)
+        }
+        return numeric
+    }
+
+    const minFiles = coerceInteger(options.minFiles, 1)
+    const maxFiles = coerceInteger(options.maxFiles, 1)
+    const minFileSize = coerceInteger(options.minFileSize, 0)
+    const maxFileSize = coerceInteger(options.maxFileSize, 0)
+
+    if (minFiles !== undefined) options.minFiles = minFiles
+    if (maxFiles !== undefined) options.maxFiles = maxFiles
+    if (minFileSize !== undefined) options.minFileSize = minFileSize
+    if (maxFileSize !== undefined) options.maxFileSize = maxFileSize
+
+    if (minFiles !== undefined && maxFiles !== undefined && minFiles > maxFiles) {
+        throw new Error("minFiles cannot be greater than maxFiles")
+    }
+
+    if (minFileSize !== undefined && maxFileSize !== undefined && minFileSize > maxFileSize) {
+        throw new Error("minFileSize cannot be greater than maxFileSize")
+    }
+
+    const multiple = typeof options.multiple === "boolean" ? options.multiple : Boolean(options.multiple)
+    options.multiple = multiple || (minFiles && minFiles > 1) || (maxFiles && maxFiles > 1)
+
+    return options
+}
+
 const resolvePickPayload = (input) => {
     if (input == null) return "*/*"
-    if (typeof input === "string") return input || "*/*"
+    if (typeof input === "string") return input.trim() || "*/*"
 
-    const payload = { ...input }
-    const hasMimeType = typeof payload.mimeType === "string" && payload.mimeType.trim().length > 0
-
-    payload.mimeType = hasMimeType ? payload.mimeType.trim() : "*/*"
-    return payload
+    return sanitizeFilePickerOptions(input)
 }
 
 const registerNativeHandlers = (handlers) => {
@@ -473,7 +528,14 @@ export const useFilePicker = () => {
 
     const pickFile = useCallback(
         (input = null) => {
-            const payload = resolvePickPayload(input)
+            let payload
+            try {
+                payload = resolvePickPayload(input)
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Invalid file picker options"
+                handleNativeError(message)
+                return
+            }
 
             if (typeof payload === "string") {
                 console.log("📁 Picking file with MIME type:", payload)
@@ -485,7 +547,7 @@ export const useFilePicker = () => {
                 nativeBridge.file.pick(payload)
             }, "file pick")
         },
-        [executeOperation]
+        [executeOperation, handleNativeError]
     )
 
     // Standardized execute function (new interface)

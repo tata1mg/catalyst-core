@@ -148,6 +148,36 @@ class BridgeMessageValidatorTest {
     }
 
     @Test
+    fun `test invalid pickFile with minFiles greater than maxFiles`() {
+        val message = JSONObject().apply {
+            put("command", "pickFile")
+            put("data", JSONObject().apply {
+                put("minFiles", 3)
+                put("maxFiles", 2)
+            })
+        }
+
+        val result = BridgeMessageValidator.validate(message)
+        assertFalse(result.isValid)
+        assertEquals("INVALID_FILE_PICKER_OPTIONS", result.error?.code)
+    }
+
+    @Test
+    fun `test invalid pickFile with minFileSize greater than maxFileSize`() {
+        val message = JSONObject().apply {
+            put("command", "pickFile")
+            put("data", JSONObject().apply {
+                put("minFileSize", 2048)
+                put("maxFileSize", 1024)
+            })
+        }
+
+        val result = BridgeMessageValidator.validate(message)
+        assertFalse(result.isValid)
+        assertEquals("INVALID_FILE_PICKER_OPTIONS", result.error?.code)
+    }
+
+    @Test
     fun `test valid getDeviceInfo with empty params`() {
         val message = JSONObject().apply {
             put("command", "getDeviceInfo")
