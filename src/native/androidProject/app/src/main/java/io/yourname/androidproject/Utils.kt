@@ -3,8 +3,6 @@ package io.yourname.androidproject
 import android.net.Uri
 
 fun isUrlAllowed(url: String, allowedUrls: List<String>): Boolean {
-    // TODO: temp, remove this
-    return true
     // Always allow framework server URLs (localhost with /framework- pattern)
     // These are internal infrastructure URLs used for large file handling
     // Use strict regex to prevent bypass attacks
