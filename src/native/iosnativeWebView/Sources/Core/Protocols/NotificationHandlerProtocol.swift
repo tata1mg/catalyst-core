@@ -21,7 +21,7 @@ public protocol NotificationHandlerProtocol {
     func cancelAllLocal()
 
     // MARK: - Push Notifications
-    func initializePush() async -> String?
+    func initializePush() async -> (token: String?, error: String?)
     func subscribeToTopic(_ topic: String) async -> Bool
     func unsubscribeFromTopic(_ topic: String) async -> Bool
     func getSubscribedTopics() async -> [String]

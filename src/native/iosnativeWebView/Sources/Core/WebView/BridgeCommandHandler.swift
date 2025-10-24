@@ -465,7 +465,7 @@ class BridgeCommandHandler {
         commandLogger.debug("Registering for push notifications")
 
         Task {
-            let token = await notificationHandler.initializePush()
+            let (token, error) = await notificationHandler.initializePush()
 
             DispatchQueue.main.async {
                 if let token = token {
@@ -474,9 +474,11 @@ class BridgeCommandHandler {
                         "success": true
                     ])
                 } else {
+                    let errorMessage = error ?? "Failed to get push token"
+                    commandLogger.error("Push notification registration failed: \(errorMessage)")
                     self.delegate?.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
                         "success": false,
-                        "error": "Failed to get push token"
+                        "error": errorMessage
                     ])
                 }
             }

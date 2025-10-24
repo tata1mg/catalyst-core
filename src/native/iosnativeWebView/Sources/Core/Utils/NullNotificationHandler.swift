@@ -46,9 +46,9 @@ public class NullNotificationHandler: NotificationHandlerProtocol {
 
     // MARK: - Push Notifications
 
-    public func initializePush() async -> String? {
+    public func initializePush() async -> (token: String?, error: String?) {
         logger.info("Push notification initialization ignored (notifications disabled)")
-        return nil
+        return (nil, "Notifications are disabled in configuration")
     }
 
     public func subscribeToTopic(_ topic: String) async -> Bool {

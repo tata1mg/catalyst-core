@@ -118,7 +118,7 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
 
     // MARK: - Push Notifications
 
-    public func initializePush() async -> String? {
+    public func initializePush() async -> (token: String?, error: String?) {
         logger.info("🚀 initializePush called")
 
         // Check if permissions are granted
@@ -132,11 +132,11 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
             logger.info("✅ Permission granted: \(granted)")
             if !granted {
                 logger.error("❌ Permission denied for push notifications")
-                return nil
+                return (nil, "Notification permission denied")
             }
         } else if status != .authorized {
             logger.error("❌ Push notifications not authorized. Status: \(status.rawValue)")
-            return nil
+            return (nil, "Notification permission not authorized")
         }
 
         logger.info("🔄 Calling registerForPushNotifications")

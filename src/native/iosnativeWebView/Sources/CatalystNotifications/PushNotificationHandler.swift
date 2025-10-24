@@ -25,12 +25,12 @@ class PushNotificationHandler: NSObject {
 
     // MARK: - Push Notification Registration
 
-    func registerForPushNotifications() async -> String? {
+    func registerForPushNotifications() async -> (token: String?, error: String?) {
         logger.info("Registering for push notifications")
 
         #if targetEnvironment(simulator)
         logger.warning("⚠️ Running on simulator - APNS not supported. Push notifications require a physical device.")
-        return nil
+        return (nil, "Simulator not supported. Push notifications require a physical device.")
         #else
 
         // Wait for APNS token to be set
@@ -46,20 +46,40 @@ class PushNotificationHandler: NSObject {
 
         logger.info("✅ APNS token received, now getting FCM token")
 
-        // Now get FCM token - APNS token is guaranteed to be set
-        return await withCheckedContinuation { continuation in
-            Messaging.messaging().token { token, error in
-                if let error = error {
-                    logger.error("Failed to retrieve FCM token: \(error.localizedDescription)")
-                    continuation.resume(returning: nil)
-                } else if let token = token {
-                    self.fcmToken = token
-                    logger.info("FCM token retrieved: \(token)")
-                    continuation.resume(returning: token)
-                } else {
-                    continuation.resume(returning: nil)
+        // Now get FCM token with timeout - APNS token is guaranteed to be set
+        return await withTaskGroup(of: (String?, String?).self) { group in
+            // Task 1: Get FCM token
+            group.addTask {
+                await withCheckedContinuation { continuation in
+                    Messaging.messaging().token { token, error in
+                        if let error = error {
+                            let errorMsg = "FCM token error: \(error.localizedDescription)"
+                            logger.error("\(errorMsg)")
+                            continuation.resume(returning: (nil, errorMsg))
+                        } else if let token = token {
+                            self.fcmToken = token
+                            logger.info("FCM token retrieved: \(token)")
+                            continuation.resume(returning: (token, nil))
+                        } else {
+                            continuation.resume(returning: (nil, "FCM token retrieval returned nil"))
+                        }
+                    }
                 }
             }
+            
+            // Task 2: Timeout after 30 seconds
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+                return (nil, "FCM token request timed out after 30 seconds. Check network connectivity and Firebase configuration.")
+            }
+            
+            // Return the first result (either token or timeout)
+            if let result = await group.next() {
+                group.cancelAll()
+                return result
+            }
+            
+            return (nil, "Unknown error getting FCM token")
         }
         #endif
     }
