@@ -23,7 +23,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
-    private lateinit var properties: Properties
+    lateinit var properties: Properties
     private lateinit var metricsMonitor: MetricsMonitor
     private lateinit var keyboardUtil: KeyboardUtil
     private var isHardwareAccelerationEnabled = false
