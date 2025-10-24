@@ -33,8 +33,13 @@ class LocalNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
         }
 
         // Set channel-based sound and priority
-        let channel = NotificationChannelManager.getChannelConfig(config.channel)
-        content.sound = channel.sound
+        // On iOS, vibration is tied to sound - no sound means no vibration
+        if config.vibrate {
+            let channel = NotificationChannelManager.getChannelConfig(config.channel)
+            content.sound = channel.sound
+        } else {
+            content.sound = nil
+        }
 
         // Store notification data for deep linking
         if let data = config.data {
@@ -192,7 +197,12 @@ class LocalNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
 
         // Show notification even when app is in foreground
-        let options: UNNotificationPresentationOptions = [.banner, .sound, .badge]
+        // Check if notification has sound (vibrate enabled)
+        let hasSound = notification.request.content.sound != nil
+        var options: UNNotificationPresentationOptions = [.banner, .badge]
+        if hasSound {
+            options.insert(.sound)
+        }
         completionHandler(options)
 
         // Notify JavaScript about received notification
