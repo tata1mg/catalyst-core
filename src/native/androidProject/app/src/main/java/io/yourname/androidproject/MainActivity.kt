@@ -12,7 +12,6 @@ import io.yourname.androidproject.utils.KeyboardUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
@@ -25,7 +24,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var keyboardUtil: KeyboardUtil
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
-    private var splashStartTime: Long = 0
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -51,7 +49,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
@@ -72,10 +69,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Initialize MetricsMonitor
         metricsMonitor = MetricsMonitor.getInstance(this)
-
-        // Configure splash screen
-        splashStartTime = System.currentTimeMillis()
-        configureSplashScreen(splashScreen)
 
         // Setup UI
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -203,22 +196,5 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()
-    }
-
-    private fun configureSplashScreen(splashScreen: androidx.core.splashscreen.SplashScreen) {
-        val durationProperty = properties.getProperty("splashScreen.duration")
-        
-        splashScreen.setKeepOnScreenCondition {
-            val webViewLoaded = ::customWebView.isInitialized && 
-                               customWebView.getWebView().progress >= 100
-            
-            if (durationProperty != null) {
-                val duration = durationProperty.toLong()
-                val timeElapsed = System.currentTimeMillis() - splashStartTime >= duration
-                !timeElapsed
-            } else {
-                !webViewLoaded
-            }
-        }
     }
 }
