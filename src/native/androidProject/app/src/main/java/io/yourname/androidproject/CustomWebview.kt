@@ -250,7 +250,69 @@ class CustomWebView(
         return shouldCache
     }
 
+    /**
+     * Handle special URL schemes (tel:, mailto:, sms:)
+     */
+    private fun handleSpecialScheme(url: String): Boolean {
+        val uri = Uri.parse(url)
+        val scheme = uri.scheme?.lowercase() ?: return false
 
+        // Only handle tel, mailto, sms
+        if (scheme !in listOf("tel", "mailto", "sms")) {
+            return false
+        }
+
+        try {
+            val intent = when (scheme) {
+                "tel" -> Intent(Intent.ACTION_DIAL, uri)
+                "mailto" -> Intent(Intent.ACTION_SENDTO, uri)
+                "sms" -> Intent(Intent.ACTION_VIEW, uri)
+                else -> return false
+            }
+
+            // For mailto, check if any apps can handle it before showing chooser
+            if (scheme == "mailto") {
+                val packageManager = context.packageManager
+                val activities = packageManager.queryIntentActivities(intent, 0)
+                
+                if (activities.isNotEmpty()) {
+                    // Apps available - show chooser
+                    val chooser = Intent.createChooser(intent, "Send email")
+                    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(chooser)
+                } else {
+                    // No email apps - try Gmail app, then browser
+                    try {
+                        val gmailIntent = Intent(Intent.ACTION_SENDTO, uri).apply {
+                            setPackage("com.google.android.gm")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(gmailIntent)
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "Opened Gmail app")
+                        }
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        // Gmail app not available, open in browser
+                        openInInAppBrowser("https://mail.google.com")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "Opened Gmail in browser")
+                        }
+                    }
+                }
+            } else {
+                context.startActivity(intent)
+            }
+            return true
+        } catch (e: android.content.ActivityNotFoundException) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "No app to handle $scheme")
+            }
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling $scheme: ${e.message}")
+            return true
+        }
+    }
 
     private fun openInInAppBrowser(url: String) {
         try {
@@ -476,6 +538,14 @@ class CustomWebView(
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 request?.url?.let { url ->
                     val urlString = url.toString()
+
+                    // Handle special URL schemes (tel:, mailto:, sms:) HERE to prevent page loading
+                    if (handleSpecialScheme(urlString)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "📞 Special scheme handled in shouldOverrideUrlLoading: $urlString")
+                        }
+                        return true // Prevent WebView from trying to load the URL
+                    }
 
                     // Check if URL is an external domain
                     if (url.scheme in listOf("http", "https") && isExternalDomain(urlString, allowedUrls)) {

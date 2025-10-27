@@ -1228,7 +1228,7 @@ async function copySplashscreenAssets() {
 
 async function copyAppIcon() {
     try {
-        const publicDir = `${process.env.PWD}/public/iosIcons`
+        const publicDir = `${process.env.PWD}/public/ios/appIcons`
         const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
         const iconSetDir = `${assetsDir}/AppIcon.appiconset`
 

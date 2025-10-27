@@ -33,6 +33,12 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             logger.info("📄 Body preview: \(bodyPreview)")
         }
 
+        // Handle special URL schemes (tel:, mailto:, sms:)
+        if handleSpecialScheme(url) {
+            decisionHandler(.cancel)
+            return
+        }
+
         if URLWhitelistManager.shared.isAccessControlEnabled {
 
             // Check if URL is an external domain
@@ -203,5 +209,29 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 logger.error("Cannot open URL in system browser: \(url.absoluteString)")
             }
         }
+    }
+    
+    /// Handle special URL schemes (tel:, mailto:, sms:)
+    private func handleSpecialScheme(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        
+        // Only handle tel, mailto, sms
+        guard ["tel", "mailto", "sms"].contains(scheme) else { return false }
+        
+        Task { @MainActor in
+            if UIApplication.shared.canOpenURL(url) {
+                // App available to handle the scheme (opens default mail app for mailto)
+                UIApplication.shared.open(url, options: [:])
+            } else {
+                // Fallback for mailto: open Gmail web in browser
+                if scheme == "mailto" {
+                    if let gmailWebURL = URL(string: "https://mail.google.com") {
+                        openInSystemBrowser(gmailWebURL)
+                    }
+                }
+            }
+        }
+        
+        return true
     }
 }
