@@ -22,6 +22,7 @@ class NativeBridge(
     private var currentPhotoUri: Uri? = null
     private var shouldLaunchCameraAfterPermission = false
     private var allowedUrls: List<String> = emptyList()
+    private var accessControlEnabled: Boolean = false
 
     // Coroutine scope for async operations
     private val supervisorJob = SupervisorJob()
@@ -81,8 +82,14 @@ class NativeBridge(
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
 
-            if (allowedUrls.isNotEmpty()) {
+            accessControlEnabled = properties
+                .getProperty("accessControl.enabled", "true")
+                .equals("true", ignoreCase = true)
+
+            if (accessControlEnabled && allowedUrls.isNotEmpty()) {
                 BridgeUtils.logDebug(TAG, "Whitelisting enabled with ${allowedUrls.size} allowed URLs")
+            } else if (!accessControlEnabled) {
+                BridgeUtils.logDebug(TAG, "Access control disabled; whitelist checks will be skipped")
             }
 
             initializeCameraLauncher()
@@ -388,6 +395,7 @@ class NativeBridge(
                 fileUrl,
                 mimeType,
                 allowedUrls,
+                accessControlEnabled,
                 onSuccess = { downloadedFile, detectedMimeType ->
                     IntentUtils.openFileWithSystemIntent(mainActivity, webView, downloadedFile, detectedMimeType)
                 }
