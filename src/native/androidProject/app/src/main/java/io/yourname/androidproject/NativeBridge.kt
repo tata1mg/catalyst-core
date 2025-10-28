@@ -12,7 +12,78 @@ import androidx.activity.result.contract.ActivityResultContracts
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.Properties
+
+private data class FilePickerOptions(
+    val mimeType: String = "*/*",
+    val multiple: Boolean = false,
+    val minFiles: Int? = null,
+    val maxFiles: Int? = null,
+    val minFileSize: Long? = null,
+    val maxFileSize: Long? = null
+) {
+    companion object {
+        fun fromRaw(optionsRaw: String?): FilePickerOptions {
+            if (optionsRaw.isNullOrBlank()) {
+                return FilePickerOptions()
+            }
+
+            val trimmed = optionsRaw.trim()
+
+            // Backward compatibility: plain MIME type strings
+            if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+                return FilePickerOptions(mimeType = trimmed.ifBlank { "*/*" })
+            }
+
+            return try {
+                val json = JSONObject(trimmed)
+
+                val mimeType = json.optString("mimeType").ifBlank { "*/*" }
+                val explicitMultiple = json.optBoolean("multiple", false)
+                val minFiles = json.optIntNullable("minFiles")
+                val maxFiles = json.optIntNullable("maxFiles")
+                val minFileSize = json.optLongNullable("minFileSize")
+                val maxFileSize = json.optLongNullable("maxFileSize")
+
+                // Auto-enable multiple select when constraints demand more than one file
+                val shouldAllowMultiple = explicitMultiple ||
+                    (minFiles != null && minFiles > 1) ||
+                    (maxFiles != null && maxFiles > 1)
+
+                FilePickerOptions(
+                    mimeType = mimeType,
+                    multiple = shouldAllowMultiple,
+                    minFiles = minFiles,
+                    maxFiles = maxFiles,
+                    minFileSize = minFileSize,
+                    maxFileSize = maxFileSize
+                )
+            } catch (e: Exception) {
+                Log.e("FilePickerOptions", "Failed to parse options JSON", e)
+                FilePickerOptions(mimeType = trimmed.ifBlank { "*/*" })
+            }
+        }
+    }
+
+    fun toJson(): JSONObject {
+        val json = JSONObject()
+        json.put("mimeType", mimeType)
+        json.put("multiple", multiple)
+        minFiles?.let { json.put("minFiles", it) }
+        maxFiles?.let { json.put("maxFiles", it) }
+        minFileSize?.let { json.put("minFileSize", it) }
+        maxFileSize?.let { json.put("maxFileSize", it) }
+        return json
+    }
+}
+
+private fun JSONObject.optIntNullable(key: String): Int? =
+    if (has(key) && !isNull(key)) getInt(key) else null
+
+private fun JSONObject.optLongNullable(key: String): Long? =
+    if (has(key) && !isNull(key)) getLong(key) else null
 
 class NativeBridge(
     private val mainActivity: MainActivity,
@@ -31,6 +102,7 @@ class NativeBridge(
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
+    private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
 
     companion object {
         private const val TAG = "NativeBridge"
@@ -175,20 +247,19 @@ class NativeBridge(
     }
 
     @JavascriptInterface
-    fun pickFile(mimeType: String?) {
+    fun pickFile(optionsJson: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "pick file") {
             mainActivity.runOnUiThread {
-                BridgeUtils.logDebug(TAG, "pickFile called from JavaScript")
-                BridgeUtils.logDebug(TAG, "MIME Type filter: ${mimeType ?: "*/*"}")
+                currentFilePickerOptions = FilePickerOptions.fromRaw(optionsJson)
 
-                // Send initial state
+                BridgeUtils.logDebug(TAG, "pickFile called from JavaScript")
+                BridgeUtils.logDebug(TAG, "Options: $currentFilePickerOptions")
+
+                // Send initial state to web layer
                 FileUtils.sendFilePickStateUpdate(webView, "opening")
 
-                val effectiveMimeType = mimeType?.takeIf { it.isNotBlank() } ?: "*/*"
-                BridgeUtils.logDebug(TAG, "Effective MIME Type: $effectiveMimeType")
-
-                // Launch file picker
-                launchFilePicker(effectiveMimeType)
+                // Launch file picker with resolved configuration
+                launchFilePicker(currentFilePickerOptions)
             }
         }
     }
@@ -228,16 +299,43 @@ class NativeBridge(
         ) { result ->
             when (result.resultCode) {
                 Activity.RESULT_OK -> {
-                    result.data?.data?.let { uri ->
-                        BridgeUtils.logDebug(TAG, "File selected: $uri")
-                        FileUtils.sendFilePickStateUpdate(webView, "processing")
-                        
-                        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "process selected file") {
-                            // Use new tri-transport processing
-                            processSelectedFileWithTriTransport(uri)
+                    val data = result.data
+                    val options = currentFilePickerOptions
+                    val selectedUris = mutableListOf<Uri>()
+
+                    val clipData = data?.clipData
+                    if (clipData != null) {
+                        for (index in 0 until clipData.itemCount) {
+                            clipData.getItemAt(index)?.uri?.let { selectedUris.add(it) }
                         }
-                    } ?: run {
-                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "No file selected")
+                    } else {
+                        data?.data?.let { selectedUris.add(it) }
+                    }
+
+                    if (selectedUris.isEmpty()) {
+                        notifyFilePickError("No file selected")
+                        return@registerForActivityResult
+                    }
+
+                    BridgeUtils.logDebug(
+                        TAG,
+                        "Files selected (${selectedUris.size}): ${selectedUris.joinToString { it.toString() }}"
+                    )
+
+                    if (!validateFileSelectionCount(selectedUris.size, options)) {
+                        return@registerForActivityResult
+                    }
+
+                    val urisToProcess = sanitizeSelectionForSingleSelect(selectedUris, options)
+
+                    FileUtils.sendFilePickStateUpdate(webView, "processing")
+
+                    BridgeUtils.safeExecute(
+                        webView,
+                        BridgeUtils.WebEvents.ON_FILE_PICK_ERROR,
+                        "process selected files"
+                    ) {
+                        processSelectedFiles(urisToProcess, options)
                     }
                 }
                 Activity.RESULT_CANCELED -> {
@@ -270,65 +368,182 @@ class NativeBridge(
         }
     }
     
-    /**
-     * Process selected file using tri-transport architecture based on file size
-     */
-    private fun processSelectedFileWithTriTransport(uri: Uri) {
+    private fun processSelectedFiles(uris: List<Uri>, options: FilePickerOptions) {
         launch {
             try {
-                // Convert URI to File
-                val file = FileUtils.uriToFile(mainActivity, uri)
-                if (file == null) {
-                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "Unable to access selected file")
+                val filesArray = JSONArray()
+                var totalSize = 0L
+                var firstFile: JSONObject? = null
+
+                uris.forEachIndexed { index, uri ->
+                    val processed = processFile(index, uri, options) ?: return@launch
+                    filesArray.put(processed)
+                    totalSize += processed.optLong("size")
+                    if (firstFile == null) {
+                        firstFile = processed
+                    }
+                }
+
+                if (filesArray.length() == 0) {
+                    notifyFilePickError("No files processed")
                     return@launch
                 }
-                
-                BridgeUtils.logDebug(TAG, "Processing file with tri-transport: ${file.name} (${FileSizeRouterUtils.formatFileSize(file.length())})")
-                
-                // Determine transport method based on file size
-                val routingDecision = FileSizeRouterUtils.determineTransport(file)
-                BridgeUtils.logInfo(TAG, "Transport decision: ${routingDecision.transportType} - ${routingDecision.reason}")
-                
-                // Update WebView with transport information
-                FileUtils.sendFilePickStateUpdate(webView, "routing")
-                
-                // Process file using determined transport
-                val processingResult = FileSizeRouterUtils.processFile(mainActivity, webView, routingDecision)
-                
-                if (processingResult.success && processingResult.fileSrc != null) {
-                    // Notify WebView with successful result
-                    val resultData = mapOf(
-                        "fileName" to processingResult.fileName,
-                        "fileSrc" to processingResult.fileSrc,
-                        "filePath" to processingResult.filePath,
-                        "size" to processingResult.fileSize,
-                        "mimeType" to processingResult.mimeType,
-                        "transport" to processingResult.transportUsed.name
-                    )
-                    
-                    BridgeUtils.logInfo(TAG, "File processed successfully via ${processingResult.transportUsed}: ${processingResult.fileName}")
-                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_FILE_PICKED, 
-                        org.json.JSONObject(resultData).toString())
-                    
-                } else {
-                    // Processing failed
-                    val errorMsg = processingResult.error ?: "Unknown error processing file"
-                    BridgeUtils.logError(TAG, "File processing failed: $errorMsg")
-                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, errorMsg)
+
+                val payload = JSONObject().apply {
+                    put("multiple", filesArray.length() > 1)
+                    put("count", filesArray.length())
+                    put("totalSize", totalSize)
+                    put("files", filesArray)
+                    put("options", options.toJson())
+                    firstFile?.let { first ->
+                        put("fileName", first.optString("fileName", null))
+                        put("fileSrc", first.optString("fileSrc", null))
+                        put("filePath", first.optString("filePath", null))
+                        put("size", first.optLong("size"))
+                        put("mimeType", first.optString("mimeType", null))
+                        put("transport", first.optString("transport", null))
+                    }
                 }
-                
+
+                BridgeUtils.notifyWeb(
+                    webView,
+                    BridgeUtils.WebEvents.ON_FILE_PICKED,
+                    payload.toString()
+                )
             } catch (e: Exception) {
-                BridgeUtils.logError(TAG, "Error in tri-transport file processing", e)
-                BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, 
-                    "File processing error: ${e.message}")
+                BridgeUtils.logError(TAG, "Error processing selected files", e)
+                notifyFilePickError("File processing error: ${e.message}")
             }
         }
     }
 
-    private fun launchFilePicker(mimeType: String) {
+    private fun processFile(index: Int, uri: Uri, options: FilePickerOptions): JSONObject? {
+        val declaredSize = FileUtils.getFileSize(mainActivity, uri)
+        if (!passesSizeBounds(index, declaredSize, options)) {
+            return null
+        }
+
+        val file = FileUtils.uriToFile(mainActivity, uri) ?: run {
+            val message = "Unable to access selected file at index ${index + 1}"
+            BridgeUtils.logError(TAG, message)
+            notifyFilePickError(message)
+            return null
+        }
+
+        val actualSize = if (file.length() > 0) file.length() else declaredSize
+        if (!passesSizeBounds(index, actualSize, options)) {
+            return null
+        }
+
+        BridgeUtils.logDebug(
+            TAG,
+            "Processing file with tri-transport: ${file.name} (${FileSizeRouterUtils.formatFileSize(actualSize)})"
+        )
+
+        val routingDecision = FileSizeRouterUtils.determineTransport(file)
+        FileUtils.sendFilePickStateUpdate(webView, "routing")
+
+        val processingResult = FileSizeRouterUtils.processFile(mainActivity, webView, routingDecision)
+        if (!processingResult.success || processingResult.fileSrc == null) {
+            val errorMsg = processingResult.error ?: "Unknown error processing file"
+            BridgeUtils.logError(TAG, "File processing failed: $errorMsg")
+            notifyFilePickError(errorMsg)
+            return null
+        }
+
+        return JSONObject().apply {
+            put("index", index)
+            put("uri", uri.toString())
+            put("fileName", processingResult.fileName)
+            put("fileSrc", processingResult.fileSrc)
+            put("filePath", processingResult.filePath)
+            put("size", processingResult.fileSize)
+            put("mimeType", processingResult.mimeType)
+            put("transport", processingResult.transportUsed.name)
+        }
+    }
+
+    private fun passesSizeBounds(index: Int, size: Long, options: FilePickerOptions): Boolean {
+        if (size <= 0) return true
+
+        options.minFileSize?.let { minSize ->
+            if (size < minSize) {
+                val formattedSize = FileSizeRouterUtils.formatFileSize(size)
+                val minFormatted = FileSizeRouterUtils.formatFileSize(minSize)
+                val message = "File ${index + 1} is too small ($formattedSize). Minimum size is $minFormatted."
+                BridgeUtils.logWarning(TAG, message)
+                notifyFilePickError(message)
+                return false
+            }
+        }
+
+        options.maxFileSize?.let { maxSize ->
+            if (size > maxSize) {
+                val formattedSize = FileSizeRouterUtils.formatFileSize(size)
+                val maxFormatted = FileSizeRouterUtils.formatFileSize(maxSize)
+                val message = "File ${index + 1} exceeds maximum size ($formattedSize > $maxFormatted)."
+                BridgeUtils.logWarning(TAG, message)
+                notifyFilePickError(message)
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private fun validateFileSelectionCount(count: Int, options: FilePickerOptions): Boolean {
+        options.minFiles?.let { min ->
+            if (count < min) {
+                val errorMessage = "Select at least $min file(s). You selected $count."
+                BridgeUtils.logWarning(TAG, errorMessage)
+                notifyFilePickError(errorMessage)
+                return false
+            }
+        }
+
+        options.maxFiles?.let { max ->
+            if (count > max) {
+                val errorMessage = "You can select up to $max file(s). You selected $count."
+                BridgeUtils.logWarning(TAG, errorMessage)
+                notifyFilePickError(errorMessage)
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private fun sanitizeSelectionForSingleSelect(
+        uris: List<Uri>,
+        options: FilePickerOptions
+    ): List<Uri> {
+        if (options.multiple || uris.size <= 1) {
+            return uris
+        }
+
+        BridgeUtils.logWarning(
+            TAG,
+            "Multiple files selected but picker configured for single selection. Only the first file will be processed."
+        )
+        return listOf(uris.first())
+    }
+
+    private fun notifyFilePickError(message: String) {
+        BridgeUtils.notifyWebError(
+            webView,
+            BridgeUtils.WebEvents.ON_FILE_PICK_ERROR,
+            message
+        )
+    }
+
+    private fun launchFilePicker(options: FilePickerOptions) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_FILE_PICK_ERROR, "launch file picker") {
-            val intent = IntentUtils.createFilePickerIntent(mimeType, false)
-            BridgeUtils.logDebug(TAG, "Launching file picker with MIME type: $mimeType")
+            val allowMultiple = options.multiple
+            val intent = IntentUtils.createFilePickerIntent(options.mimeType, allowMultiple)
+            BridgeUtils.logDebug(
+                TAG,
+                "Launching file picker with MIME type: ${options.mimeType}, allowMultiple: $allowMultiple"
+            )
             filePickerLauncher.launch(intent)
         }
     }

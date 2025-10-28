@@ -113,9 +113,21 @@ object BridgeMessageValidator {
             properties = mapOf(
                 "mimeType" to PropertySchema(type = "string"),
                 "multiple" to PropertySchema(type = "boolean"),
+                "minFileSize" to PropertySchema(
+                    type = "number",
+                    minimum = 0
+                ),
                 "maxFileSize" to PropertySchema(
                     type = "number",
                     minimum = 0
+                ),
+                "minFiles" to PropertySchema(
+                    type = "number",
+                    minimum = 1
+                ),
+                "maxFiles" to PropertySchema(
+                    type = "number",
+                    minimum = 1
                 )
             ),
             additionalProperties = false
@@ -404,6 +416,30 @@ object BridgeMessageValidator {
                     message = "Additional property '$key' not allowed",
                     code = "ADDITIONAL_PROPERTY_NOT_ALLOWED",
                     eventName = "BRIDGE_ERROR"
+                )
+            }
+        }
+
+        if (commandName == "pickFile") {
+            val minFiles = if (obj.has("minFiles") && !obj.isNull("minFiles")) obj.optInt("minFiles") else null
+            val maxFiles = if (obj.has("maxFiles") && !obj.isNull("maxFiles")) obj.optInt("maxFiles") else null
+            if (minFiles != null && maxFiles != null && minFiles > maxFiles) {
+                BridgeUtils.logError(TAG, "minFiles cannot be greater than maxFiles for pickFile command")
+                return BridgeValidationError(
+                    message = "minFiles cannot be greater than maxFiles",
+                    code = "INVALID_FILE_PICKER_OPTIONS",
+                    eventName = "ON_FILE_PICK_ERROR"
+                )
+            }
+
+            val minFileSize = if (obj.has("minFileSize") && !obj.isNull("minFileSize")) obj.optLong("minFileSize") else null
+            val maxFileSize = if (obj.has("maxFileSize") && !obj.isNull("maxFileSize")) obj.optLong("maxFileSize") else null
+            if (minFileSize != null && maxFileSize != null && minFileSize > maxFileSize) {
+                BridgeUtils.logError(TAG, "minFileSize cannot be greater than maxFileSize for pickFile command")
+                return BridgeValidationError(
+                    message = "minFileSize cannot be greater than maxFileSize",
+                    code = "INVALID_FILE_PICKER_OPTIONS",
+                    eventName = "ON_FILE_PICK_ERROR"
                 )
             }
         }
