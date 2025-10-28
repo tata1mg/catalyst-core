@@ -10,5 +10,6 @@ tsconfig.json
 .catalyst-dev/
 **/androidProject/**/build/*
 /template
-test.sh
+*.sh
 context.md
+.claude

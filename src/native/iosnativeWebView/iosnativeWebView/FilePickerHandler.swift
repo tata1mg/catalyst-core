@@ -13,8 +13,112 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "FilePickerHandler")
 
+struct FilePickerOptions: CustomStringConvertible {
+    let mimeType: String
+    let multiple: Bool
+    let minFiles: Int?
+    let maxFiles: Int?
+    let minFileSize: Int64?
+    let maxFileSize: Int64?
+
+    static let `default` = FilePickerOptions(
+        mimeType: "*/*",
+        multiple: false,
+        minFiles: nil,
+        maxFiles: nil,
+        minFileSize: nil,
+        maxFileSize: nil
+    )
+
+    static func from(raw: String?) -> FilePickerOptions {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return .default
+        }
+
+        guard raw.hasPrefix("{"), raw.hasSuffix("}"),
+              let data = raw.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return FilePickerOptions(
+                mimeType: raw,
+                multiple: false,
+                minFiles: nil,
+                maxFiles: nil,
+                minFileSize: nil,
+                maxFileSize: nil
+            )
+        }
+
+        let mimeType = (json["mimeType"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "*/*"
+        let explicitMultiple = json["multiple"] as? Bool ?? false
+        let minFiles = parseInt(json["minFiles"])
+        let maxFiles = parseInt(json["maxFiles"])
+        let minFileSize = parseInt64(json["minFileSize"])
+        let maxFileSize = parseInt64(json["maxFileSize"])
+
+        let inferredMultiple = explicitMultiple || (minFiles ?? 0) > 1 || (maxFiles ?? 0) > 1
+
+        return FilePickerOptions(
+            mimeType: mimeType.isEmpty ? "*/*" : mimeType,
+            multiple: inferredMultiple,
+            minFiles: minFiles,
+            maxFiles: maxFiles,
+            minFileSize: minFileSize,
+            maxFileSize: maxFileSize
+        )
+    }
+
+    var selectionLimit: Int {
+        guard multiple else { return 1 }
+        if let maxFiles, maxFiles > 0 { return maxFiles }
+        return 0 // Unlimited
+    }
+
+    func toDictionary() -> [String: Any] {
+        var dict: [String: Any] = [
+            "mimeType": mimeType,
+            "multiple": multiple
+        ]
+        if let minFiles { dict["minFiles"] = minFiles }
+        if let maxFiles { dict["maxFiles"] = maxFiles }
+        if let minFileSize { dict["minFileSize"] = minFileSize }
+        if let maxFileSize { dict["maxFileSize"] = maxFileSize }
+        return dict
+    }
+
+    var description: String {
+        return toDictionary().map { "\($0.key)=\($0.value)" }.sorted().joined(separator: ", ")
+    }
+
+    private static func parseInt(_ value: Any?) -> Int? {
+        switch value {
+        case let intValue as Int: return intValue
+        case let number as NSNumber: return number.intValue
+        case let doubleValue as Double: return Int(doubleValue)
+        case let stringValue as String: return Int(stringValue)
+        default: return nil
+        }
+    }
+
+    private static func parseInt64(_ value: Any?) -> Int64? {
+        switch value {
+        case let intValue as Int: return Int64(intValue)
+        case let int64Value as Int64: return int64Value
+        case let number as NSNumber: return number.int64Value
+        case let doubleValue as Double: return Int64(doubleValue)
+        case let stringValue as String: return Int64(stringValue)
+        default: return nil
+        }
+    }
+}
+
+private struct PickedFile {
+    let index: Int
+    let url: URL
+    let metadata: FileMetadata
+}
+
 protocol FilePickerHandlerDelegate: AnyObject {
-    func filePickerHandler(_ handler: FilePickerHandler, didPickFileAt url: URL, withMetadata metadata: FileMetadata)
+    func filePickerHandler(_ handler: FilePickerHandler, didFinishWith payload: [String: Any])
     func filePickerHandlerDidCancel(_ handler: FilePickerHandler)
     func filePickerHandler(_ handler: FilePickerHandler, didFailWithError error: Error)
     func filePickerHandler(_ handler: FilePickerHandler, stateDidChange state: String)
@@ -54,6 +158,8 @@ class FilePickerHandler: NSObject {
     weak var delegate: FilePickerHandlerDelegate?
     private var documentPicker: UIDocumentPickerViewController?
     private var photoPicker: PHPickerViewController?
+    private var currentOptions: FilePickerOptions = .default
+    private var temporaryFiles: [URL] = []
 
     // File size constants from unified configuration
     private let BASE64_SIZE_LIMIT: Int64 = CatalystConstants.FileTransport.base64SizeLimit
@@ -66,33 +172,36 @@ class FilePickerHandler: NSObject {
 
     // MARK: - Public Methods
 
-    func presentFilePicker(from viewController: UIViewController, mimeType: String = "*/*") {
-        logger.debug("Presenting file picker with MIME type: \(mimeType)")
+    func presentFilePicker(from viewController: UIViewController, options: FilePickerOptions = .default) {
+        currentOptions = options
+        cleanupTemporaryFiles()
+        logger.debug("Presenting file picker with options: \(options)")
 
         delegate?.filePickerHandler(self, stateDidChange: "opening")
 
         // For image selection, use PHPickerViewController for better photo library access
         // Only use photo picker for image-specific requests or when explicitly asking for media
-        if (mimeType.lowercased() == "image/*" || mimeType.lowercased() == "*/*") {
+        let normalizedMimeType = options.mimeType.lowercased()
+        if normalizedMimeType == "image/*" {
             if #available(iOS 14.0, *) {
-                presentPhotoPicker(from: viewController, mimeType: mimeType)
+                presentPhotoPicker(from: viewController, options: options)
                 return
             }
         }
 
         // Use document picker for other file types
-        presentDocumentPicker(from: viewController, mimeType: mimeType)
+        presentDocumentPicker(from: viewController, options: options)
     }
 
     @available(iOS 14.0, *)
-    private func presentPhotoPicker(from viewController: UIViewController, mimeType: String) {
+    private func presentPhotoPicker(from viewController: UIViewController, options: FilePickerOptions) {
         logger.debug("Using PHPickerViewController for image selection")
 
         var config = PHPickerConfiguration()
-        config.selectionLimit = 1
+        config.selectionLimit = options.selectionLimit
 
         // Configure for images only if specifically requested
-        if mimeType.lowercased() == "image/*" {
+        if options.mimeType.lowercased() == "image/*" {
             config.filter = .images
         } else {
             // For *.* allow images and videos
@@ -111,23 +220,23 @@ class FilePickerHandler: NSObject {
         }
     }
 
-    private func presentDocumentPicker(from viewController: UIViewController, mimeType: String) {
+    private func presentDocumentPicker(from viewController: UIViewController, options: FilePickerOptions) {
         logger.debug("Using UIDocumentPickerViewController for file selection")
 
         // Convert MIME type to UTType
-        let allowedTypes = convertMimeTypeToUTTypes(mimeType)
+        let allowedTypes = convertMimeTypeToUTTypes(options.mimeType)
         logger.debug("Converted to UTTypes: \(allowedTypes.map { $0.identifier })")
 
         // Check if we have valid UTTypes
         if allowedTypes.isEmpty {
-            let error = NSError(domain: "FilePickerError", code: -5, userInfo: [NSLocalizedDescriptionKey: "Unsupported MIME type: \(mimeType)"])
+            let error = NSError(domain: "FilePickerError", code: -5, userInfo: [NSLocalizedDescriptionKey: "Unsupported MIME type: \(options.mimeType)"])
             delegate?.filePickerHandler(self, didFailWithError: error)
             return
         }
 
         documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: allowedTypes)
         documentPicker?.delegate = self
-        documentPicker?.allowsMultipleSelection = false
+        documentPicker?.allowsMultipleSelection = options.multiple
         documentPicker?.modalPresentationStyle = .formSheet
 
         // Enable access to all locations including Photos
@@ -136,7 +245,7 @@ class FilePickerHandler: NSObject {
         }
 
         // Log the actual UTTypes being used for debugging
-        logger.debug("Document picker created with \(allowedTypes.count) UTTypes for MIME: \(mimeType)")
+        logger.debug("Document picker created with \(allowedTypes.count) UTTypes for MIME: \(options.mimeType)")
         for (index, utType) in allowedTypes.enumerated() {
             logger.debug("UTType \(index): \(utType.identifier) - \(utType.description)")
             if let preferredMimeType = utType.preferredMIMEType {
@@ -448,6 +557,135 @@ class FilePickerHandler: NSObject {
         formatter.countStyle = .file
         return formatter.string(fromByteCount: bytes)
     }
+
+    private func cleanupTemporaryFiles() {
+        guard !temporaryFiles.isEmpty else { return }
+        let fileManager = FileManager.default
+        for url in temporaryFiles {
+            do {
+                try fileManager.removeItem(at: url)
+                logger.debug("Removed temporary file: \(url.lastPathComponent)")
+            } catch {
+                logger.warning("Failed to remove temporary file \(url.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        temporaryFiles.removeAll()
+    }
+
+    private func sanitizeSelectionForSingleSelect<T>(_ items: [T]) -> [T] {
+        guard !currentOptions.multiple, items.count > 1 else {
+            return items
+        }
+
+        logger.warning("Multiple selections received but picker configured for single file. Processing only the first item.")
+        return Array(items.prefix(1))
+    }
+
+    private func selectionCountValidationMessage(_ count: Int) -> String? {
+        if let minFiles = currentOptions.minFiles, count < minFiles {
+            return "Select at least \(minFiles) file(s). You selected \(count)."
+        }
+
+        if let maxFiles = currentOptions.maxFiles, maxFiles > 0, count > maxFiles {
+            return "You can select up to \(maxFiles) file(s). You selected \(count)."
+        }
+
+        return nil
+    }
+
+    private func sizeValidationMessage(for index: Int, size: Int64) -> String? {
+        if let minSize = currentOptions.minFileSize, size < minSize {
+            let actual = formatFileSize(size)
+            let minimum = formatFileSize(minSize)
+            return "File \(index + 1) is too small (\(actual)). Minimum size is \(minimum)."
+        }
+
+        if let maxSize = currentOptions.maxFileSize, size > maxSize {
+            let actual = formatFileSize(size)
+            let maximum = formatFileSize(maxSize)
+            return "File \(index + 1) exceeds maximum size (\(actual) > \(maximum))."
+        }
+
+        return nil
+    }
+
+    private func makeError(code: Int, message: String) -> NSError {
+        return NSError(domain: "FilePickerError", code: code, userInfo: [NSLocalizedDescriptionKey: message])
+    }
+
+    private func finalizeSelection(_ files: [PickedFile]) {
+        defer { cleanupTemporaryFiles() }
+
+        guard !files.isEmpty else {
+            delegate?.filePickerHandler(self, didFailWithError: makeError(code: -2, message: "No file selected"))
+            return
+        }
+
+        let orderedFiles = files.sorted { $0.index < $1.index }
+
+        if let message = selectionCountValidationMessage(orderedFiles.count) {
+            delegate?.filePickerHandler(self, didFailWithError: makeError(code: -10, message: message))
+            return
+        }
+
+        delegate?.filePickerHandler(self, stateDidChange: "processing")
+
+        for file in orderedFiles {
+            if let message = sizeValidationMessage(for: file.index, size: file.metadata.fileSize) {
+                delegate?.filePickerHandler(self, didFailWithError: makeError(code: -11, message: message))
+                return
+            }
+        }
+
+        delegate?.filePickerHandler(self, stateDidChange: "routing")
+
+        var payloadFiles: [[String: Any]] = []
+        var totalSize: Int64 = 0
+
+        for file in orderedFiles {
+            let result = processFile(at: file.url, metadata: file.metadata)
+            guard result.success, let fileSrc = result.fileSrc else {
+                let message = result.error ?? "Failed to process selected file."
+                delegate?.filePickerHandler(self, didFailWithError: makeError(code: -12, message: message))
+                return
+            }
+
+            let payload: [String: Any] = [
+                "index": file.index,
+                "fileName": result.fileName,
+                "fileSrc": fileSrc,
+                "size": result.fileSize,
+                "mimeType": result.mimeType,
+                "transport": result.transport.name,
+                "source": "file_picker",
+                "platform": "ios"
+            ]
+
+            payloadFiles.append(payload)
+            totalSize += result.fileSize
+        }
+
+        var response: [String: Any] = [
+            "multiple": payloadFiles.count > 1,
+            "count": payloadFiles.count,
+            "totalSize": totalSize,
+            "files": payloadFiles,
+            "options": currentOptions.toDictionary(),
+            "source": "file_picker",
+            "platform": "ios"
+        ]
+
+        if let first = payloadFiles.first {
+            response["fileName"] = first["fileName"]
+            response["fileSrc"] = first["fileSrc"]
+            response["size"] = first["size"]
+            response["mimeType"] = first["mimeType"]
+            response["transport"] = first["transport"]
+        }
+
+        delegate?.filePickerHandler(self, stateDidChange: "complete")
+        delegate?.filePickerHandler(self, didFinishWith: response)
+    }
 }
 
 // MARK: - PHPickerViewControllerDelegate
@@ -457,97 +695,158 @@ extension FilePickerHandler: PHPickerViewControllerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
 
-        guard let result = results.first else {
+        guard !results.isEmpty else {
+            cleanupTemporaryFiles()
             logger.debug("Photo picker was cancelled or no selection made")
             delegate?.filePickerHandlerDidCancel(self)
             return
         }
 
-        delegate?.filePickerHandler(self, stateDidChange: "processing")
+        let sanitizedResults = sanitizeSelectionForSingleSelect(results)
 
-        // Get the item provider
-        let itemProvider = result.itemProvider
-
-        // Handle different content types
-        if itemProvider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-            // Handle images
-            logger.debug("Processing selected image")
-            loadItemData(itemProvider: itemProvider, typeIdentifier: UTType.image.identifier, result: result)
-        } else if itemProvider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
-            // Handle videos
-            logger.debug("Processing selected video")
-            loadItemData(itemProvider: itemProvider, typeIdentifier: UTType.movie.identifier, result: result)
-        } else if itemProvider.hasItemConformingToTypeIdentifier(UTType.data.identifier) {
-            // Handle other data types
-            logger.debug("Processing selected data file")
-            loadItemData(itemProvider: itemProvider, typeIdentifier: UTType.data.identifier, result: result)
-        } else {
-            // Try to get any available type
-            if let availableType = itemProvider.registeredTypeIdentifiers.first {
-                logger.debug("Processing selected file with type: \(availableType)")
-                loadItemData(itemProvider: itemProvider, typeIdentifier: availableType, result: result)
-            } else {
-                logger.error("Selected item has no supported type identifiers")
-                let nsError = NSError(domain: "FilePickerError", code: -8, userInfo: [NSLocalizedDescriptionKey: "Selected item type not supported"])
-                self.delegate?.filePickerHandler(self, didFailWithError: nsError)
-            }
+        if let message = selectionCountValidationMessage(sanitizedResults.count) {
+            cleanupTemporaryFiles()
+            delegate?.filePickerHandler(self, didFailWithError: makeError(code: -10, message: message))
+            return
         }
+
+        processPhotoResults(sanitizedResults)
     }
 
-    private func loadItemData(itemProvider: NSItemProvider, typeIdentifier: String, result: PHPickerResult) {
-        itemProvider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] (data, error) in
+    private func processPhotoResults(_ results: [PHPickerResult]) {
+        var collected: [PickedFile] = []
+
+        func handleResult(at index: Int) {
+            if index >= results.count {
+                finalizeSelection(collected)
+                return
+            }
+
+            processPhotoResult(result: results[index], index: index) { outcome in
+                switch outcome {
+                case .success(let file):
+                    collected.append(file)
+                    handleResult(at: index + 1)
+                case .failure(let error):
+                    self.cleanupTemporaryFiles()
+                    self.delegate?.filePickerHandler(self, didFailWithError: error)
+                }
+            }
+        }
+
+        handleResult(at: 0)
+    }
+
+    private func processPhotoResult(
+        result: PHPickerResult,
+        index: Int,
+        completion: @escaping (Result<PickedFile, NSError>) -> Void
+    ) {
+        let itemProvider = result.itemProvider
+
+        guard let typeIdentifier = preferredTypeIdentifier(for: itemProvider) else {
+            logger.error("Selected item has no supported type identifiers")
+            completion(.failure(makeError(code: -8, message: "Selected item type not supported")))
+            return
+        }
+
+        logger.debug("Processing selected file with type: \(typeIdentifier)")
+
+        loadItemData(
+            itemProvider: itemProvider,
+            typeIdentifier: typeIdentifier,
+            result: result,
+            index: index,
+            completion: completion
+        )
+    }
+
+    private func preferredTypeIdentifier(for itemProvider: NSItemProvider) -> String? {
+        if itemProvider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            return UTType.image.identifier
+        }
+
+        if itemProvider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+            return UTType.movie.identifier
+        }
+
+        if itemProvider.hasItemConformingToTypeIdentifier(UTType.data.identifier) {
+            return UTType.data.identifier
+        }
+
+        return itemProvider.registeredTypeIdentifiers.first
+    }
+
+    private func loadItemData(
+        itemProvider: NSItemProvider,
+        typeIdentifier: String,
+        result: PHPickerResult,
+        index: Int,
+        completion: @escaping (Result<PickedFile, NSError>) -> Void
+    ) {
+        itemProvider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] data, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
 
                 if let error = error {
                     logger.error("Failed to load item data: \(error.localizedDescription)")
-                    let nsError = NSError(domain: "FilePickerError", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to load file: \(error.localizedDescription)"])
-                    self.delegate?.filePickerHandler(self, didFailWithError: nsError)
+                    completion(.failure(self.makeError(code: -6, message: "Failed to load file: \(error.localizedDescription)")))
                     return
                 }
 
-                guard let itemData = data else {
-                    let nsError = NSError(domain: "FilePickerError", code: -7, userInfo: [NSLocalizedDescriptionKey: "No file data received"])
-                    self.delegate?.filePickerHandler(self, didFailWithError: nsError)
+                guard let data = data else {
+                    completion(.failure(self.makeError(code: -7, message: "No file data received")))
                     return
                 }
 
-                // Create a temporary file
-                self.savePhotoPickerResult(data: itemData, result: result, typeIdentifier: typeIdentifier)
+                do {
+                    let pickedFile = try self.savePhotoPickerResult(
+                        data: data,
+                        result: result,
+                        typeIdentifier: typeIdentifier,
+                        index: index
+                    )
+                    completion(.success(pickedFile))
+                } catch let nsError as NSError {
+                    completion(.failure(nsError))
+                } catch {
+                    completion(.failure(self.makeError(code: -9, message: "Failed to save file: \(error.localizedDescription)")))
+                }
             }
         }
     }
 
-    private func savePhotoPickerResult(data: Data, result: PHPickerResult, typeIdentifier: String) {
+    private func savePhotoPickerResult(
+        data: Data,
+        result: PHPickerResult,
+        typeIdentifier: String,
+        index: Int
+    ) throws -> PickedFile {
+        let fileExtension = getFileExtension(from: result, typeIdentifier: typeIdentifier)
+        let fileName = "\(UUID().uuidString).\(fileExtension)"
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsPath.appendingPathComponent(fileName)
+
         do {
-            // Create a temporary file name
-            let fileExtension = getFileExtension(from: result, typeIdentifier: typeIdentifier)
-            let fileName = "\(UUID().uuidString).\(fileExtension)"
-
-            // Save to documents directory
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let fileURL = documentsPath.appendingPathComponent(fileName)
-
             try data.write(to: fileURL)
-
-            // Create metadata
-            let metadata = FileMetadata(
-                fileName: fileName,
-                fileSize: Int64(data.count),
-                mimeType: getMimeTypeFromTypeIdentifier(typeIdentifier) ?? getMimeType(for: fileURL),
-                fileExtension: fileExtension,
-                lastModified: Date()
-            )
-
-            logger.debug("Photo picker result saved: \(fileName), type: \(typeIdentifier), size: \(self.formatFileSize(metadata.fileSize))")
-
-            delegate?.filePickerHandler(self, didPickFileAt: fileURL, withMetadata: metadata)
-
         } catch {
             logger.error("Failed to save photo picker result: \(error.localizedDescription)")
-            let nsError = NSError(domain: "FilePickerError", code: -9, userInfo: [NSLocalizedDescriptionKey: "Failed to save file: \(error.localizedDescription)"])
-            delegate?.filePickerHandler(self, didFailWithError: nsError)
+            throw makeError(code: -9, message: "Failed to save file: \(error.localizedDescription)")
         }
+
+        temporaryFiles.append(fileURL)
+
+        let metadata = FileMetadata(
+            fileName: fileName,
+            fileSize: Int64(data.count),
+            mimeType: getMimeTypeFromTypeIdentifier(typeIdentifier) ?? getMimeType(for: fileURL),
+            fileExtension: fileExtension,
+            lastModified: Date()
+        )
+
+        logger.debug("Photo picker result saved: \(fileName), type: \(typeIdentifier), size: \(self.formatFileSize(metadata.fileSize))")
+
+        return PickedFile(index: index, url: fileURL, metadata: metadata)
     }
 
     private func getFileExtension(from result: PHPickerResult, typeIdentifier: String) -> String {
@@ -597,56 +896,39 @@ extension FilePickerHandler: UIDocumentPickerDelegate {
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         logger.debug("Document picker did pick documents: \(urls.count)")
 
-        guard let url = urls.first else {
-            let error = NSError(domain: "FilePickerError", code: -2, userInfo: [NSLocalizedDescriptionKey: "No file selected"])
-            delegate?.filePickerHandler(self, didFailWithError: error)
+        if let message = selectionCountValidationMessage(urls.count) {
+            delegate?.filePickerHandler(self, didFailWithError: makeError(code: -10, message: message))
             return
         }
 
-        delegate?.filePickerHandler(self, stateDidChange: "processing")
+        let sanitizedURLs = sanitizeSelectionForSingleSelect(urls)
 
-        // Start accessing security-scoped resource
-        let accessing = url.startAccessingSecurityScopedResource()
+        guard !sanitizedURLs.isEmpty else {
+            delegate?.filePickerHandler(self, didFailWithError: makeError(code: -2, message: "No file selected"))
+            return
+        }
+
+        var scopedURLs: [URL] = []
+        var pickedFiles: [PickedFile] = []
+
+        for (index, url) in sanitizedURLs.enumerated() {
+            if url.startAccessingSecurityScopedResource() {
+                scopedURLs.append(url)
+            }
+
+            let metadata = extractFileMetadata(from: url)
+            logger.debug("File metadata: \(metadata.fileName), \(self.formatFileSize(metadata.fileSize)), \(metadata.mimeType)")
+
+            pickedFiles.append(PickedFile(index: index, url: url, metadata: metadata))
+        }
+
         defer {
-            if accessing {
+            for url in scopedURLs {
                 url.stopAccessingSecurityScopedResource()
             }
         }
 
-        // Extract metadata
-        let metadata = extractFileMetadata(from: url)
-        logger.debug("File metadata: \(metadata.fileName), \(self.formatFileSize(metadata.fileSize)), \(metadata.mimeType)")
-
-        // Additional debugging for PDF issue
-        logger.debug("File extension: \(metadata.fileExtension)")
-        logger.debug("File path: \(url.path)")
-        logger.debug("Is PDF file being processed despite image/* filter!")
-
-        // Process the file
-        let result = processFile(at: url, metadata: metadata)
-
-        if result.success {
-            // Create a temporary URL for the delegate
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let tempFileName = "\(UUID().uuidString)_\(metadata.fileName)"
-            let tempURL = documentsPath.appendingPathComponent(tempFileName)
-
-            // Copy file for delegate access
-            do {
-                if FileManager.default.fileExists(atPath: tempURL.path) {
-                    try FileManager.default.removeItem(at: tempURL)
-                }
-                try FileManager.default.copyItem(at: url, to: tempURL)
-
-                delegate?.filePickerHandler(self, didPickFileAt: tempURL, withMetadata: metadata)
-            } catch {
-                let nsError = NSError(domain: "FilePickerError", code: -3, userInfo: [NSLocalizedDescriptionKey: "Failed to process file: \(error.localizedDescription)"])
-                delegate?.filePickerHandler(self, didFailWithError: nsError)
-            }
-        } else {
-            let nsError = NSError(domain: "FilePickerError", code: -4, userInfo: [NSLocalizedDescriptionKey: result.error ?? "Unknown processing error"])
-            delegate?.filePickerHandler(self, didFailWithError: nsError)
-        }
+        finalizeSelection(pickedFiles)
     }
 
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {

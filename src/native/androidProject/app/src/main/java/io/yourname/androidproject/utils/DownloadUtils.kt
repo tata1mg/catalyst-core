@@ -69,6 +69,7 @@ object DownloadUtils {
         fileUrl: String,
         mimeType: String? = null,
         allowedUrls: List<String> = emptyList(),
+        accessControlEnabled: Boolean = true,
         onSuccess: (File, String) -> Unit,
         onError: ((String) -> Unit)? = null
     ) {
@@ -79,12 +80,14 @@ object DownloadUtils {
             }
 
             // Whitelist validation for remote URLs
-            if (allowedUrls.isNotEmpty() && !io.yourname.androidproject.isUrlAllowed(fileUrl, allowedUrls)) {
+            if (accessControlEnabled && allowedUrls.isNotEmpty() && !io.yourname.androidproject.isUrlAllowed(fileUrl, allowedUrls)) {
                 val errorMessage = "Unable to process request. URL violates whitelisting protocols"
                 BridgeUtils.logError(TAG, "File URL blocked by access control: $fileUrl")
                 throw SecurityException(errorMessage)
-            } else if (allowedUrls.isNotEmpty()) {
+            } else if (accessControlEnabled && allowedUrls.isNotEmpty()) {
                 BridgeUtils.logDebug(TAG, "✅ File URL passed whitelist check: $fileUrl")
+            } else if (!accessControlEnabled) {
+                BridgeUtils.logDebug(TAG, "⚙️ Access control disabled; skipping whitelist checks for download")
             }
 
             // Download the file

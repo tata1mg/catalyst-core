@@ -45,6 +45,7 @@ class CustomWebView(
     private var buildOptimisation: Boolean = false // Added property for build optimization
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
+    private var accessControlEnabled: Boolean = false
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -88,6 +89,11 @@ class CustomWebView(
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 
+        // Access control toggle
+        accessControlEnabled = properties
+            .getProperty("accessControl.enabled", "true")
+            .equals("true", ignoreCase = true)
+
         // Set initial flags based on buildOptimisation
         if (buildOptimisation) {
             isInitialApiCalled = false
@@ -103,6 +109,7 @@ class CustomWebView(
             Log.d(TAG, "Cache Pattern: $cachePatterns")
             Log.d(TAG, "API Base URL: $apiBaseUrl")
             Log.d(TAG, "Build Optimisation: $buildOptimisation")
+            Log.d(TAG, "Access Control Enabled: $accessControlEnabled")
             Log.d(TAG, "Allowed URLs: $allowedUrls")
             Log.d(TAG, "Initial API Called: $isInitialApiCalled")
             Log.d(TAG, "Initial Page Loaded: $isInitialPageLoaded")
@@ -403,7 +410,7 @@ class CustomWebView(
                     }
 
                     // Check if URL is allowed
-                    if (!isUrlAllowed(url, allowedUrls)) {
+                    if (accessControlEnabled && !isUrlAllowed(url, allowedUrls)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🙫 SERVICE_WORKER: Request blocked by access control: $url")
                         }
@@ -557,7 +564,7 @@ class CustomWebView(
                     }
 
                     // Check if URL is allowed for internal navigation
-                    if (!isUrlAllowed(urlString, allowedUrls)) {
+                    if (accessControlEnabled && !isUrlAllowed(urlString, allowedUrls)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🚫 URL blocked by access control: $urlString")
                         }
@@ -589,17 +596,21 @@ class CustomWebView(
                     Log.d(TAG, "🔄 INTERCEPT: isInitialPageLoaded: $isInitialPageLoaded")
                 }
 
-                if (!isUrlAllowed(url, allowedUrls)) {
-                    if (BuildConfig.DEBUG) {
-                        Log.w(TAG, "🚫 STEP_1_FAIL: Network request blocked by access control: $url")
-                        Log.w(TAG, "🚫 STEP_1_FAIL: Allowed URLs: $allowedUrls")
+                if (accessControlEnabled) {
+                    if (!isUrlAllowed(url, allowedUrls)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.w(TAG, "🚫 STEP_1_FAIL: Network request blocked by access control: $url")
+                            Log.w(TAG, "🚫 STEP_1_FAIL: Allowed URLs: $allowedUrls")
+                        }
+                        // Return an empty response to block the request
+                        return WebResourceResponse("text/plain", "utf-8", null)
+                    } else {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "✅ STEP_1_PASS: URL allowed by access control: $url")
+                        }
                     }
-                    // Return an empty response to block the request
-                    return WebResourceResponse("text/plain", "utf-8", null)
-                } else {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "✅ STEP_1_PASS: URL allowed by access control: $url")
-                    }
+                } else if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "⚙️ STEP_1_SKIP: Access control disabled, allowing URL: $url")
                 }
 
                 // Handle the initial route request - intercept first request regardless of host
