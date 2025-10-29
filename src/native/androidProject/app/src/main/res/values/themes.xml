@@ -12,4 +12,15 @@
         <!-- Status bar color. -->
         <!-- Customize your theme here. -->
     </style>
+
+    <!-- Splash screen theme with no action bar -->
+    <style name="Theme.AndroidProject.Splash" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- Disable Android 12+ default splash screen -->
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@android:color/transparent</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@android:color/transparent</item>
+        <item name="android:windowSplashScreenAnimationDuration" tools:targetApi="31">0</item>
+    </style>
 </resources>

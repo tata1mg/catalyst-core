@@ -141,7 +141,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
-    implementation("androidx.core:core-splashscreen:1.0.1")
     
     // Ktor Server dependencies for FrameworkServer (~200KB total)
     implementation("io.ktor:ktor-server-core:2.3.7")
@@ -257,6 +256,49 @@ tasks.register("generateWebViewConfig") {
         }
 
         extractProperties(webviewConfig)
+
+        // Extract splash screen configuration with defaults
+        if (webviewConfig.has("splashScreen")) {
+            val splashConfig = webviewConfig.getJSONObject("splashScreen")
+            properties.setProperty("splashScreen.enabled", "true")
+            
+            // Duration in milliseconds
+            if (splashConfig.has("duration")) {
+                properties.setProperty("splashScreen.duration", splashConfig.get("duration").toString())
+            } else {
+                properties.setProperty("splashScreen.duration", "1000")
+            }
+            
+            // Background color
+            if (splashConfig.has("backgroundColor")) {
+                properties.setProperty("splashScreen.backgroundColor", splashConfig.getString("backgroundColor"))
+            } else {
+                properties.setProperty("splashScreen.backgroundColor", "#ffffff")
+            }
+            
+            // Image dimensions
+            if (splashConfig.has("imageWidth")) {
+                properties.setProperty("splashScreen.imageWidth", splashConfig.get("imageWidth").toString())
+            } else {
+                properties.setProperty("splashScreen.imageWidth", "120")
+            }
+            
+            if (splashConfig.has("imageHeight")) {
+                properties.setProperty("splashScreen.imageHeight", splashConfig.get("imageHeight").toString())
+            } else {
+                properties.setProperty("splashScreen.imageHeight", "120")
+            }
+            
+            // Corner radius
+            if (splashConfig.has("cornerRadius")) {
+                properties.setProperty("splashScreen.cornerRadius", splashConfig.get("cornerRadius").toString())
+            } else {
+                properties.setProperty("splashScreen.cornerRadius", "20")
+            }
+        } else {
+            // No splash screen configuration, disable it
+            properties.setProperty("splashScreen.enabled", "false")
+        }
 
         // Set production-specific properties for release builds
         if (gradle.startParameter.taskNames.any { it.contains("Release") || it.contains("release") }) {

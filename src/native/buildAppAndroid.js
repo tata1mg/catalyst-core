@@ -373,147 +373,63 @@ async function launchApp(ADB_PATH, buildType = "debug", targetDevice = null) {
 async function copySplashscreenAssets() {
     try {
         const destPath = `${pwd}/androidProject/app/src/main/res`
-
         const configFile = _fs.default.readFileSync(configPath, "utf8")
         const config = JSON.parse(configFile)
         const { WEBVIEW_CONFIG = {} } = config
 
-        const themesFile = `${destPath}/values/themes.xml`
-        const themesNightFile = `${destPath}/values-night/themes.xml`
-        let themesContent = _fs.default.readFileSync(themesFile, "utf8")
-        let themesNightContent = _fs.default.readFileSync(themesNightFile, "utf8")
+        if (!WEBVIEW_CONFIG.splashScreen) return
 
-        const colorsFile = `${destPath}/values/colors.xml`
-        let colorsContent = _fs.default.readFileSync(colorsFile, "utf8")
+        const androidPublicPath = `${process.env.PWD}/public/android`
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "webp"]
 
-        const splashscreenProperties = {
-            icon: '<item name="android:windowSplashScreenAnimatedIcon">@drawable/splashscreen</item>',
-            backgroundColor:
-                '<item name="android:windowSplashScreenBackground">@color/splashscreen_background</item>',
-        }
+        // Copy splash screen image if exists
+        if (_fs.default.existsSync(androidPublicPath)) {
+            const drawableDir = `${destPath}/drawable`
+            if (!_fs.default.existsSync(drawableDir)) {
+                _fs.default.mkdirSync(drawableDir, { recursive: true })
+            }
 
-        const hasSplashscreenConfig = !!WEBVIEW_CONFIG.splashScreen
+            for (const format of imageFormats) {
+                const existingPath = `${destPath}/drawable/splashscreen.${format}`
+                if (_fs.default.existsSync(existingPath)) {
+                    _fs.default.unlinkSync(existingPath)
+                }
+            }
 
-        // Always remove splashscreen properties and colors first (regardless of config)
-        themesContent = themesContent.replace(splashscreenProperties.backgroundColor, "")
-        themesContent = themesContent.replace(splashscreenProperties.icon, "")
-        themesNightContent = themesNightContent.replace(splashscreenProperties.backgroundColor, "")
-        themesNightContent = themesNightContent.replace(splashscreenProperties.icon, "")
-
-        // Also remove splashscreen color from colors.xml
-        const existingColorLine = colorsContent
-            .split("\n")
-            .find((line) => line.includes('name="splashscreen_background"'))
-
-        if (existingColorLine) {
-            colorsContent = colorsContent.replace(existingColorLine, "")
-        }
-
-        if (!hasSplashscreenConfig) {
-            progress.log("Removed splashscreen properties from themes.xml and colors.xml", "info")
-            _fs.default.writeFileSync(colorsFile, colorsContent)
-            _fs.default.writeFileSync(themesFile, themesContent)
-            _fs.default.writeFileSync(themesNightFile, themesNightContent)
-            return
-        }
-
-        const styleEndTag = "</style>"
-        const insertPosition = themesContent.lastIndexOf(styleEndTag)
-        if (insertPosition !== -1) {
-            const beforeStyle = themesContent.substring(0, insertPosition).trimEnd()
-            const afterStyle = themesContent.substring(insertPosition)
-
-            const splashscreenProps = Object.values(splashscreenProperties)
-                .map((prop) => `\t\t${prop}`)
-                .join("\n")
-
-            // Insert properties with proper spacing
-            themesContent = beforeStyle + "\n" + splashscreenProps + "\n\t" + afterStyle
-            progress.log("Added splashscreen properties to themes.xml", "info")
-        }
-
-        const nightInsertPosition = themesNightContent.lastIndexOf(styleEndTag)
-        if (nightInsertPosition !== -1) {
-            const beforeNightStyle = themesNightContent.substring(0, nightInsertPosition).trimEnd()
-            const afterNightStyle = themesNightContent.substring(nightInsertPosition)
-
-            const splashscreenProps = Object.values(splashscreenProperties)
-                .map((prop) => `\t\t${prop}`)
-                .join("\n")
-
-            // Insert properties with proper spacing
-            themesNightContent = beforeNightStyle + "\n" + splashscreenProps + "\n\t" + afterNightStyle
-            progress.log("Added splashscreen properties to themes-night.xml", "info")
-        }
-
-        _fs.default.writeFileSync(themesFile, themesContent)
-        _fs.default.writeFileSync(themesNightFile, themesNightContent)
-
-        // Check for splashscreen image file in public directory
-        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]
-        let splashscreenImageFound = false
-
-        // Ensure public directory exists
-        if (!_fs.default.existsSync(publicPath)) {
-            progress.log(`Warning: Public directory not found at ${publicPath}`, "warning")
-            return
-        }
-
-        // Create drawable directory if it doesn't exist
-        const drawableDir = `${destPath}/drawable`
-        if (!_fs.default.existsSync(drawableDir)) {
-            _fs.default.mkdirSync(drawableDir, { recursive: true })
-        }
-
-        // Remove existing splashscreen assets to avoid conflicts
-        for (const format of imageFormats) {
-            const existingSplashscreenPath = `${destPath}/drawable/splashscreen.${format}`
-            if (_fs.default.existsSync(existingSplashscreenPath)) {
-                _fs.default.unlinkSync(existingSplashscreenPath)
-                progress.log(`Removed existing splashscreen.${format}`, "info")
+            for (const format of imageFormats) {
+                const sourcePath = `${androidPublicPath}/splashscreen.${format}`
+                if (_fs.default.existsSync(sourcePath)) {
+                    _fs.default.copyFileSync(sourcePath, `${destPath}/drawable/splashscreen.${format}`)
+                    break
+                }
             }
         }
 
-        for (const format of imageFormats) {
-            const splashscreenImagePath = `${publicPath}/splashscreen.${format}`
-            if (_fs.default.existsSync(splashscreenImagePath)) {
-                // Copy splashscreen image to drawable directory
-                const destImagePath = `${destPath}/drawable/splashscreen.${format}`
-                _fs.default.copyFileSync(splashscreenImagePath, destImagePath)
-                progress.log(`Splashscreen image copied: splashscreen.${format}`, "success")
-                splashscreenImageFound = true
-                break
+        // Update theme background color
+        const backgroundColor = WEBVIEW_CONFIG.splashScreen.backgroundColor || "#ffffff"
+        const themeFiles = [`${destPath}/values/themes.xml`, `${destPath}/values-night/themes.xml`]
+
+        for (const themesFile of themeFiles) {
+            if (_fs.default.existsSync(themesFile)) {
+                let content = _fs.default.readFileSync(themesFile, "utf8")
+
+                // Replace windowBackground - matches any color value
+                content = content.replace(
+                    /<item name="android:windowBackground">.*?<\/item>/,
+                    `<item name="android:windowBackground">${backgroundColor}</item>`
+                )
+
+                // Replace splash screen background - matches any color value
+                content = content.replace(
+                    /<item name="android:windowSplashScreenBackground" tools:targetApi="31">.*?<\/item>/,
+                    `<item name="android:windowSplashScreenBackground" tools:targetApi="31">${backgroundColor}</item>`
+                )
+
+                _fs.default.writeFileSync(themesFile, content)
             }
         }
-
-        if (!splashscreenImageFound) {
-            // Use the default Android launcher icon
-            const launcherIconPath = `${destPath}/drawable/splashscreen_fallback.png`
-            const destinationPath = `${destPath}/drawable/splashscreen.png`
-
-            if (_fs.default.existsSync(launcherIconPath)) {
-                _fs.default.copyFileSync(launcherIconPath, destinationPath)
-                progress.log("Using default Android launcher icon as splashscreen", "info")
-            }
-        }
-
-        const backgroundColor = WEBVIEW_CONFIG.splashScreen?.backgroundColor || "#FFFFFF"
-        // Ensure color starts with # and convert to Android format
-        const androidColor = backgroundColor.startsWith("#")
-            ? `#FF${backgroundColor.slice(1).toUpperCase()}`
-            : `#FF${backgroundColor.toUpperCase()}`
-
-        const newColorEntry = `\t<color name="splashscreen_background">${androidColor}</color>`
-        colorsContent = colorsContent.replace("</resources>", `${newColorEntry}\n</resources>`)
-        _fs.default.writeFileSync(colorsFile, colorsContent)
-
-        if (!WEBVIEW_CONFIG.splashScreen?.backgroundColor) {
-            progress.log("Using fallback background color: #FFFFFF", "info")
-        }
-
-        progress.log("Splashscreen assets copied successfully!", "success")
     } catch (error) {
-        progress.log(`Warning: Error copying splashscreen assets: ${error.message}`, "warning")
+        progress.log(`Error processing splash screen: ${error.message}`, "warning")
     }
 }
 
