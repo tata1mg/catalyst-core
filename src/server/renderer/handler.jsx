@@ -12,7 +12,7 @@ import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream, renderToString } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
-import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
+import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
     generateScriptTags,
@@ -22,6 +22,15 @@ import {
 } from "./extract.js"
 
 import CustomDocument from "@catalyst/template/server/document.jsx"
+import {
+    onRouteMatch,
+    onFetcherSuccess,
+    onFetcherError,
+    onRenderError,
+    onRequestError,
+    onAppServerSideSuccess,
+    onAppServerSideError,
+} from "@catalyst/template/server/index.js"
 
 import App from "@catalyst/template/src/js/containers/App/index.jsx"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
@@ -205,6 +214,7 @@ const renderMarkUp = async (
         })
     } catch (error) {
         console.error("Error in rendering document on server:" + error)
+        safeCall(onRenderError, { req, res, matches, error })
     }
 }
 
@@ -228,14 +238,24 @@ export default async function (req, res) {
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
 
+        safeCall(onRouteMatch, { req, res, matches })
+
         // Executing app server side function
         App.serverSideFunction({ store, req, res })
             // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
             .then(() => {
+                safeCall(onAppServerSideSuccess, { req, res, matches })
                 serverDataFetcher({ routes: routes, req, res, url: req.originalUrl }, { store })
                     .then((res) => {
                         fetcherData = res
                         allTags = getMetaData(allMatches, fetcherData)
+
+                        const fetcherError = fetcherData?.[req.originalUrl]?.error
+                        if (fetcherError) {
+                            safeCall(onFetcherError, { req, res, matches, error: fetcherError })
+                        } else {
+                            safeCall(onFetcherSuccess, { req, res, matches })
+                        }
 
                         // Perform two-pass rendering to discover required assets
                         const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
@@ -262,6 +282,7 @@ export default async function (req, res) {
                     )
                     .catch(async (error) => {
                         console.error("Error in executing serverFetcher functions: " + error)
+                        safeCall(onFetcherError, { req, res, matches, error })
                         await renderMarkUp(
                             404,
                             req,
@@ -278,6 +299,7 @@ export default async function (req, res) {
             })
             .catch((error) => {
                 console.error("Error in executing serverSideFunction inside App: " + error)
+                safeCall(onAppServerSideError, { req, res, matches, error })
                 renderMarkUp(
                     error.status_code,
                     req,
@@ -293,5 +315,6 @@ export default async function (req, res) {
             })
     } catch (error) {
         console.error("Error in handling document request: " + error.toString())
+        safeCall(onRequestError, { req, res, error })
     }
 }

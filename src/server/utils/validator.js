@@ -136,7 +136,21 @@ const validateCustomDocument = (fn) => {
     }
 }
 
+const safeCall = (fn, ...args) => {
+    try {
+        if (!fn) return
+        if (typeof fn !== "function") {
+            console.log(pc.red("Invalid lifecycle method defined in server/index.js"))
+            return
+        }
+        fn(...args)
+    } catch (e) {
+        console.log(pc.red(`Failed to execute ${fn.name}: `), e)
+    }
+}
+
 export {
+    safeCall,
     validateConfigFile,
     validateConfigureStore,
     validateCustomDocument,
