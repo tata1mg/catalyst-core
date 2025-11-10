@@ -1,5 +1,4 @@
 import React from "react"
-import PropTypes from "prop-types"
 
 /**
  * Head component which will be used in page rendering
@@ -10,9 +9,7 @@ import PropTypes from "prop-types"
  * @param {string} publicAssetPath - public asset path for assets
  * @param {object} children - contains any child elements defined within the component
  */
-export function Head(props) {
-    const { pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath, children } = props
-
+export function Head({ pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath, children }) {
     if (children) {
         return (
             <head>
@@ -37,13 +34,4 @@ export function Head(props) {
             {!isBot && preloadJSLinks}
         </head>
     )
-}
-
-Head.propTypes = {
-    isBot: PropTypes.bool,
-    preloadJSLinks: PropTypes.array,
-    pageCss: PropTypes.string,
-    metaTags: PropTypes.array,
-    publicAssetPath: PropTypes.string,
-    children: PropTypes.node,
 }
