@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.1-beta.16",
+    "version": "0.1.0-beta.0",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -55,7 +55,7 @@
         "@loadable/webpack-plugin": "^5.15.2",
         "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
         "@svgr/webpack": "^8.1.0",
-        "@tata1mg/router": "0.1.0-beta",
+        "@tata1mg/router": "^0.1.0-beta",
         "app-root-path": "^3.1.0",
         "babel-loader": "^9.1.3",
         "babel-plugin-react-compiler": "^19.0.0-beta-decd7b8-20250118",
@@ -120,6 +120,10 @@
         },
         "@loadable/server": {
             "react": "^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+        },
+        "react-helmet-async": {
+            "react": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+            "react-dom": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
         }
     },
     "lint-staged": {
@@ -127,5 +131,8 @@
             "eslint .",
             "prettier . --write"
         ]
+    },
+    "engines": {
+        "node": "22.x"
     }
 }
