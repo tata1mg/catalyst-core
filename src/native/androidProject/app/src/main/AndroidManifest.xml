@@ -24,14 +24,20 @@
         android:usesCleartextTraffic="${allowCleartextTraffic}"
         tools:targetApi="31">
         <activity
-            android:name="io.yourname.androidproject.MainActivity"
+            android:name="io.yourname.androidproject.SplashActivity"
             android:exported="true"
+            android:theme="@style/Theme.AndroidProject.Splash"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity
+            android:name="io.yourname.androidproject.MainActivity"
+            android:exported="false"
+            android:screenOrientation="portrait">
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"

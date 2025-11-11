@@ -1,5 +1,5 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import nativeBridge from "./utils/NativeBridge.js"
 import { NATIVE_CALLBACKS, PERMISSION_STATUS, RESPONSE_STATUS } from "./constants/NativeInterfaces.js"
 import { useBaseHook } from "./useBaseHook.js"
@@ -10,6 +10,187 @@ import {
     canCreateFileObject,
     getUnsupportedTransportMessage,
 } from "./utils/FileObjectConverter.js"
+
+const noop = () => {}
+const createSSRUnavailable = (methodName) => async () => {
+    throw new Error(`${methodName} is not available in SSR environment`)
+}
+
+const SSR_FILE_PICKER_STUB = {
+    data: null,
+    loading: false,
+    progress: null,
+    error: null,
+    isWeb: true,
+    isNative: false,
+    execute: noop,
+    clear: noop,
+    clearError: noop,
+    getFileObject: createSSRUnavailable("getFileObject"),
+    getAllFileObjects: createSSRUnavailable("getAllFileObjects"),
+    canCreateFileObject: false,
+    canCreateFileObjects: [],
+    selectedFile: null,
+    selectedFiles: [],
+    pickFile: noop,
+    isLoading: false,
+    processingState: null,
+    clearFile: noop,
+}
+
+const parseNativePayload = (payload) => {
+    if (payload == null) return null
+    if (typeof payload !== "string") return payload
+    return JSON.parse(payload)
+}
+
+const extractFiles = (value) => {
+    if (!value) return []
+    if (Array.isArray(value)) return value.filter(Boolean)
+    if (Array.isArray(value.files)) return value.files.filter(Boolean)
+    if (value.files) return [value.files]
+    return [value].filter(Boolean)
+}
+
+const normalizeFilePickResult = (payload) => {
+    const parsed = parseNativePayload(payload)
+    if (!parsed) return null
+
+    const files = extractFiles(parsed)
+    if (!files.length) return null
+
+    const first = files[0]
+    const rawOptions =
+        !Array.isArray(parsed) && parsed && typeof parsed.options === "object" ? parsed.options : null
+    let normalizedOptions = rawOptions || null
+
+    if (rawOptions) {
+        try {
+            normalizedOptions = sanitizeFilePickerOptions(rawOptions)
+        } catch (_error) {
+            normalizedOptions = rawOptions
+        }
+    }
+
+    const totalSize =
+        parsed.totalSize ??
+        files.reduce((sum, file) => {
+            const size = typeof file?.size === "number" ? file.size : 0
+            return sum + size
+        }, 0)
+
+    const base = Array.isArray(parsed) ? {} : parsed
+
+    return {
+        ...base,
+        files,
+        multiple: parsed.multiple ?? files.length > 1,
+        count: parsed.count ?? files.length,
+        totalSize,
+        fileName: parsed.fileName ?? first?.fileName ?? first?.name ?? null,
+        fileSrc: parsed.fileSrc ?? first?.fileSrc ?? first?.src ?? null,
+        filePath: parsed.filePath ?? first?.filePath ?? null,
+        size: parsed.size ?? first?.size ?? null,
+        mimeType: parsed.mimeType ?? first?.mimeType ?? first?.type ?? null,
+        transport: parsed.transport ?? first?.transport ?? null,
+        options: normalizedOptions,
+    }
+}
+
+const updateProgressFromResult = (updateProgress, result) => {
+    if (!result) return
+
+    const first = result.files?.[0]
+    const transport = result.transport ?? first?.transport ?? null
+    const bytesTotal =
+        result.totalSize ?? result.size ?? (typeof first?.size === "number" ? first.size : null)
+
+    if (transport || bytesTotal != null) {
+        updateProgress({
+            transport: transport ?? null,
+            bytesTotal,
+        })
+    }
+}
+
+const mapStateToProgress = (state) => {
+    if (state == null) {
+        return {
+            state: "starting",
+            phase: null,
+            message: "File picker: starting...",
+        }
+    }
+
+    const rawState = String(state)
+    const normalized = rawState.toLowerCase()
+    const allowedStates = new Set(["opening", "processing", "routing"])
+    const progressState = allowedStates.has(normalized) ? normalized : "starting"
+
+    return {
+        state: progressState,
+        phase: rawState,
+        message: `File picker: ${rawState}...`,
+    }
+}
+
+const sanitizeFilePickerOptions = (input) => {
+    const options = { ...input }
+    const mime = typeof options.mimeType === "string" ? options.mimeType.trim() : ""
+    options.mimeType = mime.length > 0 ? mime : "*/*"
+
+    const coerceInteger = (value, min) => {
+        if (value == null) return undefined
+        const numeric = typeof value === "string" ? Number(value.trim()) : Number(value)
+        if (!Number.isFinite(numeric)) {
+            throw new Error("File picker numeric options must be valid numbers")
+        }
+        if (!Number.isInteger(numeric)) {
+            throw new Error("File picker numeric options must be integers")
+        }
+        if (numeric < min) {
+            throw new Error(`File picker numeric options must be ≥ ${min}`)
+        }
+        return numeric
+    }
+
+    const minFiles = coerceInteger(options.minFiles, 1)
+    const maxFiles = coerceInteger(options.maxFiles, 1)
+    const minFileSize = coerceInteger(options.minFileSize, 0)
+    const maxFileSize = coerceInteger(options.maxFileSize, 0)
+
+    if (minFiles !== undefined) options.minFiles = minFiles
+    if (maxFiles !== undefined) options.maxFiles = maxFiles
+    if (minFileSize !== undefined) options.minFileSize = minFileSize
+    if (maxFileSize !== undefined) options.maxFileSize = maxFileSize
+
+    if (minFiles !== undefined && maxFiles !== undefined && minFiles > maxFiles) {
+        throw new Error("minFiles cannot be greater than maxFiles")
+    }
+
+    if (minFileSize !== undefined && maxFileSize !== undefined && minFileSize > maxFileSize) {
+        throw new Error("minFileSize cannot be greater than maxFileSize")
+    }
+
+    const multiple = typeof options.multiple === "boolean" ? options.multiple : Boolean(options.multiple)
+    options.multiple = multiple || (minFiles && minFiles > 1) || (maxFiles && maxFiles > 1)
+
+    return options
+}
+
+const resolvePickPayload = (input) => {
+    if (input == null) return "*/*"
+    if (typeof input === "string") return input.trim() || "*/*"
+
+    return sanitizeFilePickerOptions(input)
+}
+
+const registerNativeHandlers = (handlers) => {
+    handlers.forEach(([event, handler]) => window.WebBridge.register(event, handler))
+    return () => {
+        handlers.forEach(([event]) => window.WebBridge.unregister(event))
+    }
+}
 
 /**
  * React hook for camera functionality using standardized interface
@@ -262,210 +443,236 @@ export const useFilePicker = () => {
     const base = useBaseHook("useFilePicker")
 
     // Cache for converted File objects to prevent redundant conversions
-    const fileObjectCache = useRef(null)
+    const fileObjectCache = useRef(new Map())
 
     // Server-side rendering safety
     if (typeof window === "undefined") {
-        return {
-            data: null,
-            loading: false,
-            progress: null,
-            error: null,
-            isWeb: true,
-            isNative: false,
-            execute: () => {},
-            clear: () => {},
-            clearError: () => {},
-            getFileObject: async () => {
-                throw new Error("Not available in SSR environment")
-            },
-            canCreateFileObject: false,
-            // Legacy aliases for backward compatibility
-            selectedFile: null,
-            pickFile: () => {},
-            isLoading: false,
-            processingState: null,
-            clearFile: () => {},
-        }
+        return SSR_FILE_PICKER_STUB
     }
 
     if (!window.WebBridge) {
         throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
     }
 
+    const {
+        data,
+        loading,
+        progress,
+        error,
+        isWeb,
+        isNative,
+        clear: baseClear,
+        clearError,
+        updateProgress,
+        resetProgress,
+        setDataAndComplete,
+        handleNativeError,
+        executeOperation,
+        setLoading,
+    } = base
+
     useEffect(() => {
-        // Register callback handlers
-        window.WebBridge.register(NATIVE_CALLBACKS.ON_FILE_PICKED, (data) => {
+        const handleFilePicked = (payload) => {
             try {
-                const fileData = typeof data === "string" ? JSON.parse(data) : data
-                console.log("📁 File picked:", fileData)
+                fileObjectCache.current.clear()
 
-                // Clear file object cache when new file is picked
-                fileObjectCache.current = null
+                const normalizedData = normalizeFilePickResult(payload)
+                console.log("📁 File picked:", normalizedData)
 
-                base.setDataAndComplete(fileData)
-
-                // Update progress with transport info if available
-                if (fileData.transport) {
-                    base.updateProgress({
-                        transport: fileData.transport,
-                        bytesTotal: fileData.size || null,
-                    })
+                if (!normalizedData) {
+                    throw new Error("No file data received from native file picker")
                 }
-            } catch (parseError) {
-                console.error("📁 Error parsing file data:", parseError)
-                base.handleNativeError("Error processing selected file")
+
+                setDataAndComplete(normalizedData)
+                updateProgressFromResult(updateProgress, normalizedData)
+            } catch (error) {
+                console.error("📁 Error processing file data:", error)
+                handleNativeError("Error processing selected file")
             }
-        })
+        }
 
-        window.WebBridge.register(NATIVE_CALLBACKS.ON_FILE_PICK_ERROR, (data) => {
-            console.error("📁 File pick error:", data)
-            base.handleNativeError(data)
-        })
+        const handleFilePickError = (nativeError) => {
+            console.error("📁 File pick error:", nativeError)
+            handleNativeError(nativeError)
+        }
 
-        window.WebBridge.register(NATIVE_CALLBACKS.ON_FILE_PICK_CANCELLED, (data) => {
+        const handleFilePickCancelled = (data) => {
             console.log("📁 File pick cancelled:", data)
-            base.setLoading(false)
-            base.resetProgress()
-            // Keep data as is when cancelled
-        })
+            setLoading(false)
+            resetProgress()
+        }
 
-        // File picker state updates
-        window.WebBridge.register(NATIVE_CALLBACKS.ON_FILE_PICK_STATE_UPDATE, (data) => {
+        const handleFilePickStateUpdate = (stateData) => {
             try {
-                const stateData = typeof data === "string" ? JSON.parse(data) : data
-                console.log("📁 File picker state:", stateData.state)
+                const parsedState = parseNativePayload(stateData)
+                console.log("📁 File picker state:", parsedState?.state)
 
-                // Map file picker states to standardized progress states
-                const progressState =
-                    stateData.state === "opening"
-                        ? "opening"
-                        : stateData.state === "processing"
-                          ? "processing"
-                          : "starting"
+                const progressUpdate = mapStateToProgress(parsedState?.state)
+                updateProgress(progressUpdate)
 
-                base.updateProgress({
-                    state: progressState,
-                    phase: stateData.state,
-                    message: `File picker: ${stateData.state}...`,
-                })
-
-                if (stateData.state) {
-                    base.setLoading(true)
+                if (parsedState?.state) {
+                    setLoading(true)
                 }
             } catch (parseError) {
                 console.error("📁 Error parsing state data:", parseError)
             }
-        })
-
-        return () => {
-            // Cleanup: unregister all handlers
-            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_FILE_PICKED)
-            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_FILE_PICK_ERROR)
-            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_FILE_PICK_CANCELLED)
-            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_FILE_PICK_STATE_UPDATE)
         }
-    }, [
-        base.setDataAndComplete,
-        base.handleNativeError,
-        base.setLoading,
-        base.resetProgress,
-        base.updateProgress,
-    ])
 
-    const pickFile = (mimeType = null) => {
-        const finalMimeType = mimeType || "*/*"
-        console.log("📁 Picking file with MIME type:", finalMimeType)
+        return registerNativeHandlers([
+            [NATIVE_CALLBACKS.ON_FILE_PICKED, handleFilePicked],
+            [NATIVE_CALLBACKS.ON_FILE_PICK_ERROR, handleFilePickError],
+            [NATIVE_CALLBACKS.ON_FILE_PICK_CANCELLED, handleFilePickCancelled],
+            [NATIVE_CALLBACKS.ON_FILE_PICK_STATE_UPDATE, handleFilePickStateUpdate],
+        ])
+    }, [handleNativeError, resetProgress, setDataAndComplete, setLoading, updateProgress])
 
-        base.executeOperation(() => {
-            nativeBridge.file.pick(finalMimeType)
-        }, "file pick")
-    }
+    const pickFile = useCallback(
+        (input = null) => {
+            let payload
+            try {
+                payload = resolvePickPayload(input)
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Invalid file picker options"
+                handleNativeError(message)
+                return
+            }
+
+            if (typeof payload === "string") {
+                console.log("📁 Picking file with MIME type:", payload)
+            } else {
+                console.log("📁 Picking file with options:", payload)
+            }
+
+            executeOperation(() => {
+                nativeBridge.file.pick(payload)
+            }, "file pick")
+        },
+        [executeOperation, handleNativeError]
+    )
 
     // Standardized execute function (new interface)
     const execute = pickFile
 
+    const files = useMemo(() => extractFiles(data), [data])
+
     /**
      * Get File object from current file data
-     * Lazy loading - only converts when called
-     * Caches result to prevent redundant conversions
+     * Supports accessing specific file by index when multiple files are selected
+     * @param {number} index - Index of the file (default: 0)
      * @returns {Promise<File>} JavaScript File object for FormData/POST API
      * @throws {Error} If file data is unavailable or transport is unsupported
      */
-    const getFileObject = useCallback(async () => {
-        // Validate file data exists
-        if (!base.data) {
+    const getFileObject = useCallback(
+        async (index = 0) => {
+            if (!files.length) {
+                throw new Error("No file data available. Please pick a file first.")
+            }
+
+            const targetIndex = Number(index)
+            const fileEntry = files[targetIndex]
+
+            if (!fileEntry) {
+                throw new Error(`No file data available at index ${targetIndex}.`)
+            }
+
+            if (fileObjectCache.current.has(targetIndex)) {
+                console.log("📁 Returning cached File object", { index: targetIndex })
+                return fileObjectCache.current.get(targetIndex)
+            }
+
+            const { fileSrc, fileName, mimeType, transport } = fileEntry
+
+            // Check if transport supports File object creation
+            if (!canCreateFileObject(transport)) {
+                const errorMessage = getUnsupportedTransportMessage(transport)
+                console.error("❌", errorMessage)
+                throw new Error(errorMessage)
+            }
+
+            console.log("📁 Converting to File object", {
+                index: targetIndex,
+                transport,
+                fileName,
+                mimeType,
+            })
+
+            try {
+                let fileObject
+
+                if (transport === "BRIDGE_BASE64") {
+                    // Synchronous conversion for base64
+                    fileObject = base64ToFile(fileSrc, fileName, mimeType)
+                } else if (transport === "FRAMEWORK_SERVER") {
+                    // Asynchronous fetch and conversion for URL
+                    fileObject = await urlToFile(fileSrc, fileName, mimeType)
+                }
+
+                // Cache the result per index
+                fileObjectCache.current.set(targetIndex, fileObject)
+                console.log("✅ File object created successfully", {
+                    index: targetIndex,
+                    name: fileObject.name,
+                    size: fileObject.size,
+                    type: fileObject.type,
+                })
+
+                return fileObject
+            } catch (error) {
+                console.error("❌ Failed to create File object:", error)
+                throw new Error(`Failed to create File object: ${error.message}`)
+            }
+        },
+        [files]
+    )
+
+    const getAllFileObjects = useCallback(async () => {
+        if (!files.length) {
             throw new Error("No file data available. Please pick a file first.")
         }
 
-        // Return cached File object if available
-        if (fileObjectCache.current) {
-            console.log("📁 Returning cached File object")
-            return fileObjectCache.current
-        }
+        const indices = files.map((_, index) => index)
+        return Promise.all(indices.map((index) => getFileObject(index)))
+    }, [files, getFileObject])
 
-        const { fileSrc, fileName, mimeType, transport } = base.data
+    const canCreateFileObjectForCurrentFile = useMemo(
+        () => (files.length > 0 ? canCreateFileObject(files[0].transport) : false),
+        [files]
+    )
+    const canCreateFileObjectsList = useMemo(
+        () => files.map((file) => canCreateFileObject(file.transport)),
+        [files]
+    )
 
-        // Check if transport supports File object creation
-        if (!canCreateFileObject(transport)) {
-            const errorMessage = getUnsupportedTransportMessage(transport)
-            console.error("❌", errorMessage)
-            throw new Error(errorMessage)
-        }
-
-        console.log("📁 Converting to File object", { transport, fileName, mimeType })
-
-        try {
-            let fileObject
-
-            if (transport === "BRIDGE_BASE64") {
-                // Synchronous conversion for base64
-                fileObject = base64ToFile(fileSrc, fileName, mimeType)
-            } else if (transport === "FRAMEWORK_SERVER") {
-                // Asynchronous fetch and conversion for URL
-                fileObject = await urlToFile(fileSrc, fileName, mimeType)
-            }
-
-            // Cache the result
-            fileObjectCache.current = fileObject
-            console.log("✅ File object created successfully", {
-                name: fileObject.name,
-                size: fileObject.size,
-                type: fileObject.type,
-            })
-
-            return fileObject
-        } catch (error) {
-            console.error("❌ Failed to create File object:", error)
-            throw new Error(`Failed to create File object: ${error.message}`)
-        }
-    }, [base.data])
-
-    // Check if File object can be created from current file data
-    const canCreateFileObjectForCurrentFile = base.data ? canCreateFileObject(base.data.transport) : false
+    const clear = useCallback(() => {
+        fileObjectCache.current.clear()
+        baseClear()
+    }, [baseClear])
 
     return {
         // Standardized interface
-        data: base.data,
-        loading: base.loading,
-        progress: base.progress,
-        error: base.error,
-        isWeb: base.isWeb,
-        isNative: base.isNative,
+        data,
+        loading,
+        progress,
+        error,
+        isWeb,
+        isNative,
         execute,
-        clear: base.clear,
-        clearError: base.clearError,
+        clear,
+        clearError,
 
-        // File object conversion (NEW)
-        getFileObject, // Lazy loading File object converter
-        canCreateFileObject: canCreateFileObjectForCurrentFile, // Boolean flag
+        // File object conversion helpers
+        getFileObject,
+        getAllFileObjects,
+        canCreateFileObject: canCreateFileObjectForCurrentFile,
+        canCreateFileObjects: canCreateFileObjectsList,
 
         // Legacy aliases for backward compatibility
-        selectedFile: base.data,
+        selectedFile: files[0] || null,
+        selectedFiles: files,
         pickFile,
-        isLoading: base.loading,
-        processingState: base.progress?.phase || null,
-        clearFile: base.clear,
+        isLoading: loading,
+        processingState: progress?.phase || null,
+        clearFile: clear,
     }
 }
 

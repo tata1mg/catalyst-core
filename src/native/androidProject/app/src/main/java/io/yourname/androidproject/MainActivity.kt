@@ -14,8 +14,6 @@ import io.yourname.androidproject.utils.NotificationConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import org.json.JSONObject
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
@@ -28,7 +26,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var keyboardUtil: KeyboardUtil
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
-    private var splashStartTime: Long = 0
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -54,7 +51,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 
         if (BuildConfig.DEBUG) {
@@ -76,10 +72,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Initialize MetricsMonitor
         metricsMonitor = MetricsMonitor.getInstance(this)
-
-        // Configure splash screen
-        splashStartTime = System.currentTimeMillis()
-        configureSplashScreen(splashScreen)
 
         // Setup UI
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -229,92 +221,5 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        // Handle notification permission request result
-        if (::nativeBridge.isInitialized) {
-            nativeBridge.handlePermissionResult(requestCode, permissions, grantResults)
-        }
-    }
-
-    private fun configureSplashScreen(splashScreen: androidx.core.splashscreen.SplashScreen) {
-        val durationProperty = properties.getProperty("splashScreen.duration")
-        
-        splashScreen.setKeepOnScreenCondition {
-            val webViewLoaded = ::customWebView.isInitialized && 
-                               customWebView.getWebView().progress >= 100
-            
-            if (durationProperty != null) {
-                val duration = durationProperty.toLong()
-                val timeElapsed = System.currentTimeMillis() - splashStartTime >= duration
-                !timeElapsed
-            } else {
-                !webViewLoaded
-            }
-        }
-    }
-
-    /**
-     * Handle notification click by navigating to /notification route
-     * Ultra-simple approach: always go to /notification with minimal params
-     */
-    private fun handleNotificationClick(baseUrl: String, intent: Intent) {
-        try {
-            val action = intent.getStringExtra(NotificationConstants.EXTRA_ACTION)
-            val notificationData = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA)
-
-            Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
-
-            // Dismiss the notification
-            val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            notificationManager.cancelAll() // This dismisses all notifications from this app
-
-            // Build simple /notification URL
-            val url = buildNotificationUrl(baseUrl, action, notificationData)
-            Log.d(TAG, "🔔 Navigating to: $url")
-
-            customWebView.loadUrl(url)
-
-        } catch (e: Exception) {
-            Log.e(TAG, "🔔 Error handling notification click: ${e.message}", e)
-            customWebView.loadUrl(baseUrl)
-        }
-    }
-
-    /**
-     * Build ultra-simple /notification URL
-     */
-    private fun buildNotificationUrl(baseUrl: String, action: String?, notificationData: String?): String {
-        return try {
-            val url = StringBuilder("$baseUrl/notification")
-            val params = mutableListOf<String>()
-
-            // Add action if present
-            if (!action.isNullOrEmpty()) {
-                params.add("action=${java.net.URLEncoder.encode(action, "UTF-8")}")
-            }
-
-            // Add data if present
-            if (!notificationData.isNullOrEmpty()) {
-                params.add("data=${java.net.URLEncoder.encode(notificationData, "UTF-8")}")
-            }
-
-            if (params.isNotEmpty()) {
-                url.append("?").append(params.joinToString("&"))
-            }
-
-            url.toString()
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error building notification URL: ${e.message}", e)
-            "$baseUrl/notification"
-        }
     }
 }

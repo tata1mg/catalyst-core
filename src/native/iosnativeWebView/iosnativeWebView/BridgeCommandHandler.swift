@@ -184,8 +184,10 @@ class BridgeCommandHandler {
     }
 
     // Pick file from device storage
-    func pickFile(mimeType: String = "*/*") {
-        commandLogger.debug("pickFile called with mimeType: \(mimeType)")
+    func pickFile(options optionsString: String? = nil) {
+        commandLogger.debug("pickFile called with options: \(optionsString ?? "nil")")
+        let options = FilePickerOptions.from(raw: optionsString)
+        commandLogger.debug("Parsed file picker options: \(options)")
 
         // Try to find a valid UIViewController from the window hierarchy
         var presentingViewController: UIViewController?
@@ -205,7 +207,7 @@ class BridgeCommandHandler {
             return
         }
 
-        filePickerHandler.presentFilePicker(from: presentingVC, mimeType: mimeType)
+        filePickerHandler.presentFilePicker(from: presentingVC, options: options)
     }
 
     // MARK: - Helper Methods

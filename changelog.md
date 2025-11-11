@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.0.3-canary.14] - 2025-09-29
+
+-   Android custom splashscreen
+
+## [0.0.3-canary.13] - 2025-09-28
+
+-   Multi file support in useFilePicker hook
+-   Android multiple app icon support
+-   Android whitelisting toggle support
+
+## [0.0.3-canary.12] - 2025-09-26
+
+-   Universal App Context: Added comprehensive context support for building universal mobile applications
+-   OpenTelemetry SDK Integration: Built-in support for observability and performance monitoring with Otel SDK
+
+## [0.0.3-canary.11] - 2025-09-26
+
+-   Build organization: Store APKs and iOS builds organized by generation date and time for better tracking and management
+-   Enhanced Android native support: Add support for native keyboard and webview resizing in Android
+-   Device info API web support: Web support in device info API
+
 ## [0.0.3-canary.10] - 2025-09-11
 
 -   **Sentry import bug fix**

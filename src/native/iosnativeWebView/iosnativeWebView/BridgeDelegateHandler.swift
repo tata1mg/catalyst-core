@@ -62,36 +62,6 @@ class BridgeDelegateHandler: NSObject {
         return nil
     }
 
-    // Helper method to extract MIME type from various parameter formats
-    func extractMimeType(from params: Any?) -> String {
-        // Default fallback
-        let defaultMimeType = "*/*"
-
-        // Handle direct string parameter
-        if let directString = params as? String {
-            delegateLogger.debug("Extracted MIME type from direct string: \(directString)")
-            return directString.isEmpty ? defaultMimeType : directString
-        }
-
-        // Handle nested dictionary parameter
-        if let paramsDict = params as? [String: Any] {
-            if let dataString = paramsDict["data"] as? String {
-                delegateLogger.debug("Extracted MIME type from nested data: \(dataString)")
-                return dataString.isEmpty ? defaultMimeType : dataString
-            }
-
-            // Check for other possible keys
-            if let mimeTypeString = paramsDict["mimeType"] as? String {
-                delegateLogger.debug("Extracted MIME type from mimeType key: \(mimeTypeString)")
-                return mimeTypeString.isEmpty ? defaultMimeType : mimeTypeString
-            }
-        }
-
-        // Fallback for unsupported parameter formats
-        delegateLogger.warning("Unable to extract MIME type from params: \(String(describing: params)), using default: \(defaultMimeType)")
-        return defaultMimeType
-    }
-
     // Helper method to extract feedback type from various parameter formats
     func extractFeedbackType(from params: Any?) -> String {
         // Default fallback matching Android implementation
@@ -122,11 +92,6 @@ class BridgeDelegateHandler: NSObject {
         return defaultFeedbackType
     }
 
-    // Helper method to process file for WebView using FilePickerHandler's logic
-    private func processFileForWebView(url: URL, metadata: FileMetadata) -> FileProcessingResult {
-        // Use FilePickerHandler's existing file processing logic to avoid duplication
-        return filePickerHandler.processFile(at: url, metadata: metadata)
-    }
 }
 
 // MARK: - ImageHandlerDelegate
@@ -178,30 +143,10 @@ extension BridgeDelegateHandler: ImageHandlerDelegate {
 // MARK: - FilePickerHandlerDelegate
 
 extension BridgeDelegateHandler: FilePickerHandlerDelegate {
-    func filePickerHandler(_ handler: FilePickerHandler, didPickFileAt url: URL, withMetadata metadata: FileMetadata) {
-        delegateLogger.debug("File picked: \(metadata.fileName)")
-
-        // Process the file using the same tri-transport logic as Android
-        let result = processFileForWebView(url: url, metadata: metadata)
-
-        if result.success {
-            // Create JSON response matching Android format
-            let json: [String: Any] = [
-                "fileName": result.fileName,
-                "fileSrc": result.fileSrc ?? "",
-                "size": result.fileSize,
-                "mimeType": result.mimeType,
-                "transport": result.transport.name,
-                "source": "file_picker"
-            ]
-
-            delegateLogger.debug("File processed successfully via \(result.transport.name): \(result.fileName)")
-            delegate?.sendJSONCallback(eventName: "ON_FILE_PICKED", data: json)
-        } else {
-            let errorMessage = result.error ?? "Unknown error processing file"
-            delegateLogger.error("File processing failed: \(errorMessage)")
-            delegate?.sendCallback(eventName: "ON_FILE_PICK_ERROR", data: errorMessage)
-        }
+    func filePickerHandler(_ handler: FilePickerHandler, didFinishWith payload: [String: Any]) {
+        let fileCount = (payload["count"] as? Int) ?? ((payload["files"] as? [Any])?.count ?? 1)
+        delegateLogger.debug("File picker completed with \(fileCount) file(s)")
+        delegate?.sendJSONCallback(eventName: "ON_FILE_PICKED", data: payload)
     }
 
     func filePickerHandlerDidCancel(_ handler: FilePickerHandler) {
