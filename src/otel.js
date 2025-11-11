@@ -24,6 +24,7 @@ function init(config = {}) {
         metricHeaders = {},
         exportIntervalMillis = 10000,
         exportTimeoutMillis = 10000,
+        instrumentations = [],
     } = config
 
     try {
@@ -53,7 +54,7 @@ function init(config = {}) {
                 exporter: otlpMetricExporter,
                 exportIntervalMillis,
             }),
-            instrumentations: [getNodeAutoInstrumentations()],
+            instrumentations: instrumentations ?? [getNodeAutoInstrumentations()],
         })
 
         sdk.start()
