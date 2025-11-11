@@ -3,10 +3,11 @@ import { spawnSync } from "child_process"
 import { arrayToObject } from "./scriptUtils.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
-import { readFileSync } from "fs"
+import { readFileSync, existsSync } from "fs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
 
 /**
  * @description - builds the application for production
@@ -28,6 +29,7 @@ function build() {
         NODE_ENV: "production",
         VITE_BUILD_MODE: "true",
         APPLICATION: name || "catalyst_app",
+        NODE_OPTIONS: `--loader ${loaderPath}`,
         ...argumentsObject,
         filterKeys: JSON.stringify([
             "src_path",

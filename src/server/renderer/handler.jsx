@@ -25,27 +25,27 @@ import CustomDocument from "@catalyst/template/server/document.jsx"
 
 import App from "@catalyst/template/src/js/containers/App/index.jsx"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
+import createStore from "@catalyst/template/src/js/store/index.js"
+// const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
-const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
+// let createStore
 
-let createStore
-
-if (fs.existsSync(storePath)) {
-    try {
-        const { default: configureStore } = await import(`${process.env.src_path}/src/js/store/index.js`)
-        createStore = configureStore
-    } catch (error) {
-        createStore = () => {
-            return {
-                getState: () => {},
-            }
-        }
-    }
-} else {
-    createStore = () => {
-        return { getState: () => {} }
-    }
-}
+// if (fs.existsSync(storePath)) {
+//     try {
+//         const { default: configureStore } = await import(`${process.env.src_path}/src/js/store/index.js`)
+//         createStore = configureStore
+//     } catch (error) {
+//         createStore = () => {
+//             return {
+//                 getState: () => {},
+//             }
+//         }
+//     }
+// } else {
+//     createStore = () => {
+//         return { getState: () => {} }
+//     }
+// }
 
 // matches request route with routes defined in the application.
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {

@@ -8,6 +8,7 @@ import { dirname } from "path"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
+import customViteConfig from "@catalyst/template/buildConfig.js"
 
 export default defineConfig({
     ...baseConfig,
@@ -17,7 +18,7 @@ export default defineConfig({
         ...baseConfig.resolve,
     },
     // Add cache key injection plugin first to transform split calls
-    plugins: [injectCacheKeyPlugin(), ...(baseConfig.plugins || [])],
+    plugins: [injectCacheKeyPlugin(), ...(baseConfig.plugins || []), ...(customViteConfig?.ssrPlugins || [])],
 
     build: {
         ...baseConfig.build,

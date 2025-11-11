@@ -13,4 +13,6 @@ logger.js
 /logs
 /loadable-stats.json
 /index.js
+/docs
+run.sh
 

@@ -3,6 +3,8 @@ import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 
+import customViteConfig from "@catalyst/template/buildConfig.js"
+
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
 
@@ -22,6 +24,7 @@ const clientConfig = defineConfig({
             outputFile: "asset-categories.json",
             publicPath: "/client/assets/",
         }),
+        ...(customViteConfig?.clientPlugins || []),
     ],
 
     build: {
