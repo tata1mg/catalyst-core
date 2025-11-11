@@ -23,7 +23,7 @@ function devBuild() {
         `cross-env APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`,
     ]
 
-    const command = commands.join(isWindows ? " && " : " ; ")
+    const command = commands.join(" && ")
 
     console.log("Creating an optimized local build...")
 
