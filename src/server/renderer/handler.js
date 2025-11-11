@@ -301,6 +301,13 @@ export default async function (req, res) {
                     // TODO: this seems very dependent on developers error handling, we are assuming they attach status_code key in their errors (same in App.serverSideFunction error)
                     const statusCode = err.status_code || 404
 
+                    logger.error({
+                        message: "Server fetcher returned an error",
+                        statusCode,
+                        error: err,
+                        url: req.originalUrl,
+                    })
+
                     return new Promise((resolve, reject) => {
                         renderMarkUp(
                             statusCode,
