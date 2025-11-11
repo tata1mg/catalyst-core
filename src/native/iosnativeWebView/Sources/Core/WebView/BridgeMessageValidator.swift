@@ -74,9 +74,21 @@ class BridgeMessageValidator {
             "properties": [
                 "mimeType": ["type": "string"],
                 "multiple": ["type": "boolean"],
+                "minFileSize": [
+                    "type": "number",
+                    "minimum": 0
+                ],
                 "maxFileSize": [
                     "type": "number",
                     "minimum": 0
+                ],
+                "minFiles": [
+                    "type": "number",
+                    "minimum": 1
+                ],
+                "maxFiles": [
+                    "type": "number",
+                    "minimum": 1
                 ]
             ],
             "additionalProperties": false
@@ -383,6 +395,11 @@ class BridgeMessageValidator {
 
             if result.valid {
                 logger.debug("Parameter validation successful for command: \(commandName)")
+                if commandName == "pickFile" {
+                    if let error = validatePickFileConstraints(object) {
+                        return error
+                    }
+                }
                 return nil
             } else {
                 let errorMessages = result.errors?.map { $0.description }.joined(separator: "; ") ?? "Unknown validation error"
@@ -514,6 +531,36 @@ class BridgeMessageValidator {
         return nil
     }
 
+    private static func validatePickFileConstraints(_ object: [String: Any]) -> BridgeValidationError? {
+        if
+            let minFilesValue = object["minFiles"] as? NSNumber,
+            let maxFilesValue = object["maxFiles"] as? NSNumber,
+            minFilesValue.intValue > maxFilesValue.intValue
+        {
+            logger.error("minFiles cannot be greater than maxFiles for pickFile command")
+            return BridgeValidationError(
+                message: "minFiles cannot be greater than maxFiles",
+                code: "INVALID_FILE_PICKER_OPTIONS",
+                eventName: "ON_FILE_PICK_ERROR"
+            )
+        }
+
+        if
+            let minSizeValue = object["minFileSize"] as? NSNumber,
+            let maxSizeValue = object["maxFileSize"] as? NSNumber,
+            minSizeValue.int64Value > maxSizeValue.int64Value
+        {
+            logger.error("minFileSize cannot be greater than maxFileSize for pickFile command")
+            return BridgeValidationError(
+                message: "minFileSize cannot be greater than maxFileSize",
+                code: "INVALID_FILE_PICKER_OPTIONS",
+                eventName: "ON_FILE_PICK_ERROR"
+            )
+        }
+
+        return nil
+    }
+
     // MARK: - Schema Management
 
     static func addCustomSchema(for command: String, schema: [String: Any]) {
@@ -530,4 +577,3 @@ class BridgeMessageValidator {
         return schemas[command] != nil
     }
 }
-

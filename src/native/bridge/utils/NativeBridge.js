@@ -163,9 +163,26 @@ class NativeBridgeUtil {
     file = {
         /**
          * Open file picker
-         * @param {string} mimeType - MIME type filter (e.g., 'image/*', 'application/pdf')
+         * @param {string|Object|null} options - MIME type string or options object with advanced config
          */
-        pick: (mimeType = "*/*") => this.call(NATIVE_COMMANDS.PICK_FILE, mimeType),
+        pick: (options = "*/*") => {
+            if (options == null) {
+                return this.call(NATIVE_COMMANDS.PICK_FILE, "*/*")
+            }
+
+            if (typeof options === "string") {
+                const mimeType = options.trim() || "*/*"
+                return this.call(NATIVE_COMMANDS.PICK_FILE, mimeType)
+            }
+
+            const payload = { ...options }
+
+            if (!payload.mimeType || typeof payload.mimeType !== "string") {
+                payload.mimeType = "*/*"
+            }
+
+            return this.call(NATIVE_COMMANDS.PICK_FILE, JSON.stringify(payload))
+        },
 
         /**
          * Open file with external app

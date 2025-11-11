@@ -207,8 +207,8 @@ extension NativeBridge: WKScriptMessageHandler {
             case "logger":
                 commandHandler.logger()
             case "pickFile":
-                let mimeType = delegateHandler.extractMimeType(from: params)
-                commandHandler.pickFile(mimeType: mimeType)
+                let optionsString = delegateHandler.extractStringParam(from: params)
+                commandHandler.pickFile(options: optionsString)
             case "openFileWithIntent":
                 fileHandler.openFileWithIntent(params: params)
             case "requestHapticFeedback":

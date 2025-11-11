@@ -45,6 +45,7 @@ class CustomWebView(
     private var buildOptimisation: Boolean = false // Added property for build optimization
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
+    private var accessControlEnabled: Boolean = false
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -88,6 +89,11 @@ class CustomWebView(
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 
+        // Access control toggle
+        accessControlEnabled = properties
+            .getProperty("accessControl.enabled", "true")
+            .equals("true", ignoreCase = true)
+
         // Set initial flags based on buildOptimisation
         if (buildOptimisation) {
             isInitialApiCalled = false
@@ -103,6 +109,7 @@ class CustomWebView(
             Log.d(TAG, "Cache Pattern: $cachePatterns")
             Log.d(TAG, "API Base URL: $apiBaseUrl")
             Log.d(TAG, "Build Optimisation: $buildOptimisation")
+            Log.d(TAG, "Access Control Enabled: $accessControlEnabled")
             Log.d(TAG, "Allowed URLs: $allowedUrls")
             Log.d(TAG, "Initial API Called: $isInitialApiCalled")
             Log.d(TAG, "Initial Page Loaded: $isInitialPageLoaded")
@@ -250,7 +257,69 @@ class CustomWebView(
         return shouldCache
     }
 
+    /**
+     * Handle special URL schemes (tel:, mailto:, sms:)
+     */
+    private fun handleSpecialScheme(url: String): Boolean {
+        val uri = Uri.parse(url)
+        val scheme = uri.scheme?.lowercase() ?: return false
 
+        // Only handle tel, mailto, sms
+        if (scheme !in listOf("tel", "mailto", "sms")) {
+            return false
+        }
+
+        try {
+            val intent = when (scheme) {
+                "tel" -> Intent(Intent.ACTION_DIAL, uri)
+                "mailto" -> Intent(Intent.ACTION_SENDTO, uri)
+                "sms" -> Intent(Intent.ACTION_VIEW, uri)
+                else -> return false
+            }
+
+            // For mailto, check if any apps can handle it before showing chooser
+            if (scheme == "mailto") {
+                val packageManager = context.packageManager
+                val activities = packageManager.queryIntentActivities(intent, 0)
+                
+                if (activities.isNotEmpty()) {
+                    // Apps available - show chooser
+                    val chooser = Intent.createChooser(intent, "Send email")
+                    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(chooser)
+                } else {
+                    // No email apps - try Gmail app, then browser
+                    try {
+                        val gmailIntent = Intent(Intent.ACTION_SENDTO, uri).apply {
+                            setPackage("com.google.android.gm")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(gmailIntent)
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "Opened Gmail app")
+                        }
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        // Gmail app not available, open in browser
+                        openInInAppBrowser("https://mail.google.com")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "Opened Gmail in browser")
+                        }
+                    }
+                }
+            } else {
+                context.startActivity(intent)
+            }
+            return true
+        } catch (e: android.content.ActivityNotFoundException) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "No app to handle $scheme")
+            }
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling $scheme: ${e.message}")
+            return true
+        }
+    }
 
     private fun openInInAppBrowser(url: String) {
         try {
@@ -341,7 +410,7 @@ class CustomWebView(
                     }
 
                     // Check if URL is allowed
-                    if (!isUrlAllowed(url, allowedUrls)) {
+                    if (accessControlEnabled && !isUrlAllowed(url, allowedUrls)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🙫 SERVICE_WORKER: Request blocked by access control: $url")
                         }
@@ -477,6 +546,14 @@ class CustomWebView(
                 request?.url?.let { url ->
                     val urlString = url.toString()
 
+                    // Handle special URL schemes (tel:, mailto:, sms:) HERE to prevent page loading
+                    if (handleSpecialScheme(urlString)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "📞 Special scheme handled in shouldOverrideUrlLoading: $urlString")
+                        }
+                        return true // Prevent WebView from trying to load the URL
+                    }
+
                     // Check if URL is an external domain
                     if (url.scheme in listOf("http", "https") && isExternalDomain(urlString, allowedUrls)) {
                         if (BuildConfig.DEBUG) {
@@ -487,7 +564,7 @@ class CustomWebView(
                     }
 
                     // Check if URL is allowed for internal navigation
-                    if (!isUrlAllowed(urlString, allowedUrls)) {
+                    if (accessControlEnabled && !isUrlAllowed(urlString, allowedUrls)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🚫 URL blocked by access control: $urlString")
                         }
@@ -519,17 +596,21 @@ class CustomWebView(
                     Log.d(TAG, "🔄 INTERCEPT: isInitialPageLoaded: $isInitialPageLoaded")
                 }
 
-                if (!isUrlAllowed(url, allowedUrls)) {
-                    if (BuildConfig.DEBUG) {
-                        Log.w(TAG, "🚫 STEP_1_FAIL: Network request blocked by access control: $url")
-                        Log.w(TAG, "🚫 STEP_1_FAIL: Allowed URLs: $allowedUrls")
+                if (accessControlEnabled) {
+                    if (!isUrlAllowed(url, allowedUrls)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.w(TAG, "🚫 STEP_1_FAIL: Network request blocked by access control: $url")
+                            Log.w(TAG, "🚫 STEP_1_FAIL: Allowed URLs: $allowedUrls")
+                        }
+                        // Return an empty response to block the request
+                        return WebResourceResponse("text/plain", "utf-8", null)
+                    } else {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "✅ STEP_1_PASS: URL allowed by access control: $url")
+                        }
                     }
-                    // Return an empty response to block the request
-                    return WebResourceResponse("text/plain", "utf-8", null)
-                } else {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "✅ STEP_1_PASS: URL allowed by access control: $url")
-                    }
+                } else if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "⚙️ STEP_1_SKIP: Access control disabled, allowing URL: $url")
                 }
 
                 // Handle the initial route request - intercept first request regardless of host

@@ -373,147 +373,63 @@ async function launchApp(ADB_PATH, buildType = "debug", targetDevice = null) {
 async function copySplashscreenAssets() {
     try {
         const destPath = `${pwd}/androidProject/app/src/main/res`
-
         const configFile = _fs.default.readFileSync(configPath, "utf8")
         const config = JSON.parse(configFile)
         const { WEBVIEW_CONFIG = {} } = config
 
-        const themesFile = `${destPath}/values/themes.xml`
-        const themesNightFile = `${destPath}/values-night/themes.xml`
-        let themesContent = _fs.default.readFileSync(themesFile, "utf8")
-        let themesNightContent = _fs.default.readFileSync(themesNightFile, "utf8")
+        if (!WEBVIEW_CONFIG.splashScreen) return
 
-        const colorsFile = `${destPath}/values/colors.xml`
-        let colorsContent = _fs.default.readFileSync(colorsFile, "utf8")
+        const androidPublicPath = `${process.env.PWD}/public/android`
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "webp"]
 
-        const splashscreenProperties = {
-            icon: '<item name="android:windowSplashScreenAnimatedIcon">@drawable/splashscreen</item>',
-            backgroundColor:
-                '<item name="android:windowSplashScreenBackground">@color/splashscreen_background</item>',
-        }
+        // Copy splash screen image if exists
+        if (_fs.default.existsSync(androidPublicPath)) {
+            const drawableDir = `${destPath}/drawable`
+            if (!_fs.default.existsSync(drawableDir)) {
+                _fs.default.mkdirSync(drawableDir, { recursive: true })
+            }
 
-        const hasSplashscreenConfig = !!WEBVIEW_CONFIG.splashScreen
+            for (const format of imageFormats) {
+                const existingPath = `${destPath}/drawable/splashscreen.${format}`
+                if (_fs.default.existsSync(existingPath)) {
+                    _fs.default.unlinkSync(existingPath)
+                }
+            }
 
-        // Always remove splashscreen properties and colors first (regardless of config)
-        themesContent = themesContent.replace(splashscreenProperties.backgroundColor, "")
-        themesContent = themesContent.replace(splashscreenProperties.icon, "")
-        themesNightContent = themesNightContent.replace(splashscreenProperties.backgroundColor, "")
-        themesNightContent = themesNightContent.replace(splashscreenProperties.icon, "")
-
-        // Also remove splashscreen color from colors.xml
-        const existingColorLine = colorsContent
-            .split("\n")
-            .find((line) => line.includes('name="splashscreen_background"'))
-
-        if (existingColorLine) {
-            colorsContent = colorsContent.replace(existingColorLine, "")
-        }
-
-        if (!hasSplashscreenConfig) {
-            progress.log("Removed splashscreen properties from themes.xml and colors.xml", "info")
-            _fs.default.writeFileSync(colorsFile, colorsContent)
-            _fs.default.writeFileSync(themesFile, themesContent)
-            _fs.default.writeFileSync(themesNightFile, themesNightContent)
-            return
-        }
-
-        const styleEndTag = "</style>"
-        const insertPosition = themesContent.lastIndexOf(styleEndTag)
-        if (insertPosition !== -1) {
-            const beforeStyle = themesContent.substring(0, insertPosition).trimEnd()
-            const afterStyle = themesContent.substring(insertPosition)
-
-            const splashscreenProps = Object.values(splashscreenProperties)
-                .map((prop) => `\t\t${prop}`)
-                .join("\n")
-
-            // Insert properties with proper spacing
-            themesContent = beforeStyle + "\n" + splashscreenProps + "\n\t" + afterStyle
-            progress.log("Added splashscreen properties to themes.xml", "info")
-        }
-
-        const nightInsertPosition = themesNightContent.lastIndexOf(styleEndTag)
-        if (nightInsertPosition !== -1) {
-            const beforeNightStyle = themesNightContent.substring(0, nightInsertPosition).trimEnd()
-            const afterNightStyle = themesNightContent.substring(nightInsertPosition)
-
-            const splashscreenProps = Object.values(splashscreenProperties)
-                .map((prop) => `\t\t${prop}`)
-                .join("\n")
-
-            // Insert properties with proper spacing
-            themesNightContent = beforeNightStyle + "\n" + splashscreenProps + "\n\t" + afterNightStyle
-            progress.log("Added splashscreen properties to themes-night.xml", "info")
-        }
-
-        _fs.default.writeFileSync(themesFile, themesContent)
-        _fs.default.writeFileSync(themesNightFile, themesNightContent)
-
-        // Check for splashscreen image file in public directory
-        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]
-        let splashscreenImageFound = false
-
-        // Ensure public directory exists
-        if (!_fs.default.existsSync(publicPath)) {
-            progress.log(`Warning: Public directory not found at ${publicPath}`, "warning")
-            return
-        }
-
-        // Create drawable directory if it doesn't exist
-        const drawableDir = `${destPath}/drawable`
-        if (!_fs.default.existsSync(drawableDir)) {
-            _fs.default.mkdirSync(drawableDir, { recursive: true })
-        }
-
-        // Remove existing splashscreen assets to avoid conflicts
-        for (const format of imageFormats) {
-            const existingSplashscreenPath = `${destPath}/drawable/splashscreen.${format}`
-            if (_fs.default.existsSync(existingSplashscreenPath)) {
-                _fs.default.unlinkSync(existingSplashscreenPath)
-                progress.log(`Removed existing splashscreen.${format}`, "info")
+            for (const format of imageFormats) {
+                const sourcePath = `${androidPublicPath}/splashscreen.${format}`
+                if (_fs.default.existsSync(sourcePath)) {
+                    _fs.default.copyFileSync(sourcePath, `${destPath}/drawable/splashscreen.${format}`)
+                    break
+                }
             }
         }
 
-        for (const format of imageFormats) {
-            const splashscreenImagePath = `${publicPath}/splashscreen.${format}`
-            if (_fs.default.existsSync(splashscreenImagePath)) {
-                // Copy splashscreen image to drawable directory
-                const destImagePath = `${destPath}/drawable/splashscreen.${format}`
-                _fs.default.copyFileSync(splashscreenImagePath, destImagePath)
-                progress.log(`Splashscreen image copied: splashscreen.${format}`, "success")
-                splashscreenImageFound = true
-                break
+        // Update theme background color
+        const backgroundColor = WEBVIEW_CONFIG.splashScreen.backgroundColor || "#ffffff"
+        const themeFiles = [`${destPath}/values/themes.xml`, `${destPath}/values-night/themes.xml`]
+
+        for (const themesFile of themeFiles) {
+            if (_fs.default.existsSync(themesFile)) {
+                let content = _fs.default.readFileSync(themesFile, "utf8")
+
+                // Replace windowBackground - matches any color value
+                content = content.replace(
+                    /<item name="android:windowBackground">.*?<\/item>/,
+                    `<item name="android:windowBackground">${backgroundColor}</item>`
+                )
+
+                // Replace splash screen background - matches any color value
+                content = content.replace(
+                    /<item name="android:windowSplashScreenBackground" tools:targetApi="31">.*?<\/item>/,
+                    `<item name="android:windowSplashScreenBackground" tools:targetApi="31">${backgroundColor}</item>`
+                )
+
+                _fs.default.writeFileSync(themesFile, content)
             }
         }
-
-        if (!splashscreenImageFound) {
-            // Use the default Android launcher icon
-            const launcherIconPath = `${destPath}/drawable/splashscreen_fallback.png`
-            const destinationPath = `${destPath}/drawable/splashscreen.png`
-
-            if (_fs.default.existsSync(launcherIconPath)) {
-                _fs.default.copyFileSync(launcherIconPath, destinationPath)
-                progress.log("Using default Android launcher icon as splashscreen", "info")
-            }
-        }
-
-        const backgroundColor = WEBVIEW_CONFIG.splashScreen?.backgroundColor || "#FFFFFF"
-        // Ensure color starts with # and convert to Android format
-        const androidColor = backgroundColor.startsWith("#")
-            ? `#FF${backgroundColor.slice(1).toUpperCase()}`
-            : `#FF${backgroundColor.toUpperCase()}`
-
-        const newColorEntry = `\t<color name="splashscreen_background">${androidColor}</color>`
-        colorsContent = colorsContent.replace("</resources>", `${newColorEntry}\n</resources>`)
-        _fs.default.writeFileSync(colorsFile, colorsContent)
-
-        if (!WEBVIEW_CONFIG.splashScreen?.backgroundColor) {
-            progress.log("Using fallback background color: #FFFFFF", "info")
-        }
-
-        progress.log("Splashscreen assets copied successfully!", "success")
     } catch (error) {
-        progress.log(`Warning: Error copying splashscreen assets: ${error.message}`, "warning")
+        progress.log(`Error processing splash screen: ${error.message}`, "warning")
     }
 }
 
@@ -521,93 +437,109 @@ async function copyIconAssets() {
     try {
         const destPath = `${pwd}/androidProject/app/src/main/res`
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+        const androidIconDir = _path.default.join(publicPath, "android", "appIcons")
+        const fallbackIconPath = _path.default.join(__dirname, "assets", "catalyst.png")
+        const fallbackExists = _fs.default.existsSync(fallbackIconPath)
+        const extensions = ["png", "jpg", "jpeg"]
 
-        // Check for icon image file in public directory
-        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]
-        let iconImageFound = false
-
-        // Ensure public directory exists
         if (!_fs.default.existsSync(publicPath)) {
             progress.log(`Warning: Public directory not found at ${publicPath}`, "warning")
             return
         }
 
-        // Create drawable directory if it doesn't exist
-        const drawableDir = `${destPath}/drawable`
-        if (!_fs.default.existsSync(drawableDir)) {
-            _fs.default.mkdirSync(drawableDir, { recursive: true })
-        }
+        const densities = [
+            { key: "mdpi", dir: "mipmap-mdpi" },
+            { key: "hdpi", dir: "mipmap-hdpi" },
+            { key: "xhdpi", dir: "mipmap-xhdpi" },
+            { key: "xxhdpi", dir: "mipmap-xxhdpi" },
+            { key: "xxxhdpi", dir: "mipmap-xxxhdpi" },
+        ]
 
-        // Remove existing custom icon assets to avoid conflicts
-        for (const format of imageFormats) {
-            const existingIconPath = `${destPath}/drawable/icon.${format}`
-            if (_fs.default.existsSync(existingIconPath)) {
-                _fs.default.unlinkSync(existingIconPath)
-                progress.log(`Removed existing icon.${format}`, "info")
+        const hasIconDirectory =
+            _fs.default.existsSync(androidIconDir) && _fs.default.lstatSync(androidIconDir).isDirectory()
+
+        const cleanDensityDir = (dir) => {
+            if (!_fs.default.existsSync(dir)) {
+                return
             }
-        }
-
-        // Look for icon in public directory
-        for (const format of imageFormats) {
-            const iconImagePath = `${publicPath}/icon.${format}`
-            if (_fs.default.existsSync(iconImagePath)) {
-                // Copy icon image to drawable directory
-                const destImagePath = `${destPath}/drawable/icon.${format}`
-                _fs.default.copyFileSync(iconImagePath, destImagePath)
-                progress.log(`App icon copied: icon.${format} -> icon.${format}`, "success")
-                iconImageFound = true
-                break
-            }
-        }
-
-        // If no custom icon found, just log and return (keep default icon)
-        if (!iconImageFound) {
-            progress.log("No custom app icon found (icon.png/jpg/jpeg), using default", "info")
-
-            if (_fs.default.existsSync(manifestPath)) {
-                let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
-
-                // Only revert if manifest currently references custom icon
-                if (manifestContent.includes('android:icon="@drawable/icon"')) {
-                    manifestContent = manifestContent.replace(
-                        /android:icon="@drawable\/icon"/,
-                        'android:icon="@mipmap/ic_launcher"'
-                    )
-                    manifestContent = manifestContent.replace(
-                        /android:roundIcon="@drawable\/icon"/,
-                        'android:roundIcon="@mipmap/ic_launcher_round"'
-                    )
-
-                    _fs.default.writeFileSync(manifestPath, manifestContent)
-                    progress.log("Reverted AndroidManifest.xml to use default launcher icon", "info")
+            for (const file of _fs.default.readdirSync(dir)) {
+                if (file.startsWith("icon.")) {
+                    _fs.default.unlinkSync(_path.default.join(dir, file))
                 }
             }
+        }
+
+        const findIconForDensity = (densityKey) => {
+            if (!hasIconDirectory) {
+                return null
+            }
+
+            for (const ext of extensions) {
+                const candidate = _path.default.join(androidIconDir, `icon-${densityKey}.${ext}`)
+                if (_fs.default.existsSync(candidate)) {
+                    return { path: candidate, ext }
+                }
+            }
+
+            return null
+        }
+
+        let hasCustomIcons = false
+        let usedFallback = false
+
+        for (const density of densities) {
+            const targetDir = _path.default.join(destPath, density.dir)
+            const source = findIconForDensity(density.key)
+
+            cleanDensityDir(targetDir)
+
+            if (source) {
+                _fs.default.mkdirSync(targetDir, { recursive: true })
+                const destination = _path.default.join(targetDir, `icon.${source.ext}`)
+                _fs.default.copyFileSync(source.path, destination)
+                hasCustomIcons = true
+            }
+        }
+
+        if (!hasCustomIcons && fallbackExists) {
+            const targetDir = _path.default.join(destPath, "mipmap-xxxhdpi")
+            _fs.default.mkdirSync(targetDir, { recursive: true })
+            cleanDensityDir(targetDir)
+            const destination = _path.default.join(targetDir, "icon.png")
+            _fs.default.copyFileSync(fallbackIconPath, destination)
+            usedFallback = true
+        }
+
+        const setManifestIcons = (iconValue, roundIconValue) => {
+            if (!_fs.default.existsSync(manifestPath)) return
+
+            const current = _fs.default.readFileSync(manifestPath, "utf8")
+            const updated = current
+                .replace(/android:icon="[^"]*"/g, `android:icon="${iconValue}"`)
+                .replace(/android:roundIcon="[^"]*"/g, `android:roundIcon="${roundIconValue}"`)
+
+            if (updated !== current) {
+                _fs.default.writeFileSync(manifestPath, updated)
+            }
+        }
+
+        if (!hasCustomIcons && !usedFallback) {
+            progress.log("No custom Android icons found; using default template icons.", "info")
+
+            setManifestIcons("@mipmap/ic_launcher", "@mipmap/ic_launcher_round")
 
             return
         }
 
-        // Update AndroidManifest.xml if it exists
-        if (_fs.default.existsSync(manifestPath)) {
-            let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+        setManifestIcons("@mipmap/icon", "@mipmap/icon")
 
-            // Look for the application tag and update the icon reference
-            const applicationTagRegex = /<application([^>]*android:icon="[^"]*"[^>]*>)/
-            const iconAttributeRegex = /android:icon="[^"]*"/
-            const roundIconAttributeRegex = /android:roundIcon="[^"]*"/
-
-            if (applicationTagRegex.test(manifestContent)) {
-                // Replace existing icon attribute
-                manifestContent = manifestContent.replace(iconAttributeRegex, 'android:icon="@drawable/icon"')
-                manifestContent = manifestContent.replace(
-                    roundIconAttributeRegex,
-                    'android:roundIcon="@drawable/icon"'
-                )
-                progress.log("Updated app icon reference in AndroidManifest.xml", "success")
-            }
-
-            _fs.default.writeFileSync(manifestPath, manifestContent)
+        if (hasCustomIcons) {
+            progress.log("Applied Android launcher icons from public/android/appIcons.", "success")
         }
-        progress.log("App icon assets processed successfully!", "success")
+
+        if (usedFallback) {
+            progress.log("Used bundled Catalyst fallback icon for launcher.", "info")
+        }
     } catch (error) {
         progress.log(`Warning: Error copying app icon assets: ${error.message}`, "warning")
     }
