@@ -22,7 +22,7 @@ const clientConfig = defineConfig({
         ...(baseConfig.plugins || []),
         manifestCategorizationPlugin({
             outputFile: "asset-categories.json",
-            publicPath: "/client/assets/",
+            publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/`,
         }),
         ...(customViteConfig?.clientPlugins || []),
     ],
