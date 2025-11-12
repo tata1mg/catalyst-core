@@ -29,6 +29,20 @@
 -keepclassmembers class io.ktor.** { volatile <fields>; }
 -dontwarn io.ktor.**
 
+# Keep Netty (used by Ktor server)
+-keep class io.netty.** { *; }
+-keepclassmembers class io.netty.** { *; }
+-dontwarn io.netty.**
+
+# Suppress warnings for optional Netty dependencies (not needed on Android)
+-dontwarn io.netty.internal.tcnative.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.eclipse.jetty.npn.**
+-dontwarn reactor.blockhound.integration.**
+-dontwarn org.apache.log4j.**
+-dontwarn org.apache.logging.log4j.**
+
 # Keep WebViewClient overrides
 -keepclassmembers class * extends android.webkit.WebViewClient {
     public void *(android.webkit.WebView, java.lang.String);
