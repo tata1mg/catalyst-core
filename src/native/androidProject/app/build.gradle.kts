@@ -334,7 +334,7 @@ tasks.register("generateKeystore") {
             val keyPass = project.properties["keyPassword"] as? String ?: System.getenv("KEY_PASSWORD") ?: "android"
             val alias = project.properties["keyAlias"] as? String ?: System.getenv("KEY_ALIAS") ?: "release"
 
-            exec {
+            project.exec {
                 commandLine = listOf(
                     "keytool",
                     "-genkey",
@@ -363,7 +363,7 @@ tasks.register("createAppBundle") {
             =======================================================
             App Bundle created successfully!
             
-            Location: ${project.buildDir}/outputs/bundle/release/app-release.aab
+            Location: ${layout.buildDirectory.get().asFile}/outputs/bundle/release/app-release.aab
             
             Next steps:
             1. Test your bundle with: 
