@@ -8,7 +8,7 @@ espressoCore = "3.6.1"
 appcompat = "1.7.0"
 material = "1.12.0"
 constraintlayout = "2.1.4"
-webkit = "1.11.0"
+webkit = "1.13.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

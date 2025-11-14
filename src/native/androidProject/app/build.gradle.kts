@@ -139,7 +139,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    implementation("androidx.webkit:webkit:1.12.1")
+    implementation(libs.androidx.webkit)
     implementation("org.json:json:20231013")
     
     // Ktor Server dependencies for FrameworkServer (~200KB total)

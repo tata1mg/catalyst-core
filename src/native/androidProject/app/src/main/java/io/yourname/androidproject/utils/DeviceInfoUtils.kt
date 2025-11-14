@@ -6,7 +6,6 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import org.json.JSONObject
 import io.yourname.androidproject.BuildConfig
-import android.hardware.display.DisplayManager
 
 object DeviceInfoUtils {
     private const val TAG = "DeviceInfoUtils"
@@ -42,19 +41,28 @@ object DeviceInfoUtils {
     
     private fun getDisplayMetrics(context: Context): DisplayMetrics {
         val displayMetrics = DisplayMetrics()
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Use modern Display API for Android 11+
-            val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-            displayManager.getDisplay(0)?.getMetrics(displayMetrics)
+            // Use WindowMetrics API for Android 11+ (provides accurate app window bounds)
+            val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val windowMetrics = windowManager.currentWindowMetrics
+            val bounds = windowMetrics.bounds
+
+            // Populate DisplayMetrics with window bounds
+            displayMetrics.widthPixels = bounds.width()
+            displayMetrics.heightPixels = bounds.height()
+
+            // Get density from resources (still accurate)
+            displayMetrics.density = context.resources.displayMetrics.density
+            displayMetrics.densityDpi = context.resources.displayMetrics.densityDpi
         } else {
-            // Fallback to deprecated API for older versions
+            // Fallback to deprecated API for Android 10 and below
             @Suppress("DEPRECATION")
             val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             @Suppress("DEPRECATION")
             windowManager.defaultDisplay.getMetrics(displayMetrics)
         }
-        
+
         return displayMetrics
     }
 }
