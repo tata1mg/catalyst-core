@@ -51,7 +51,11 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         webView.navigationDelegate = navigationDelegate
         webView.allowsBackForwardNavigationGestures = true
-        webView.isInspectable = true
+
+        // Enable Safari Web Inspector (only available in iOS 16.4+)
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
 
         webView.addObserver(context.coordinator,
                            forKeyPath: #keyPath(WKWebView.estimatedProgress),

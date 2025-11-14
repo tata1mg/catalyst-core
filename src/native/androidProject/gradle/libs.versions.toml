@@ -10,6 +10,8 @@ material = "1.12.0"
 constraintlayout = "2.1.4"
 webkit = "1.11.0"
 googleServices = "4.4.0"
+ktlint = "12.1.2"
+detekt = "1.23.7"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -25,4 +27,6 @@ androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "w
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 
