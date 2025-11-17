@@ -3,9 +3,9 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "CacheManager")
 
-public class CacheManager {
+public final class CacheManager {
     public static let shared = CacheManager()
-    private let queue = DispatchQueue(label: "com.app.cachemanager", attributes: .concurrent)
+    private let queue = DispatchQueue(label: "com.app.cachemanager")
     
     enum CacheState {
         case fresh      // Content is within fresh window
@@ -154,15 +154,16 @@ public class CacheManager {
     }
     
     func getCachedResource(for request: URLRequest) async -> (Data?, CacheState, String?) {
+        let manager = self
         return await withCheckedContinuation { continuation in
-            queue.async {
+            manager.queue.async {
                 guard let urlString = request.url?.absoluteString else {
                     continuation.resume(returning: (nil, .expired, nil))
                     return
                 }
                 
-                if let cachedResource = self.resourceCache[urlString] {
-                    let state = self.getCacheState(for: cachedResource.timestamp)
+                if let cachedResource = manager.resourceCache[urlString] {
+                    let state = manager.getCacheState(for: cachedResource.timestamp)
                     
                     switch state {
                     case .fresh:
@@ -172,7 +173,7 @@ public class CacheManager {
                     case .stale:
                         logger.info("🟡 Stale cache hit for: \(urlString)")
                         Task {
-                            await self.revalidateResource(request: request)
+                            await manager.revalidateResource(request: request)
                         }
                         continuation.resume(returning: (cachedResource.data, .stale, cachedResource.mimeType))
                         
@@ -205,7 +206,7 @@ public class CacheManager {
     }
     
     func storeCachedResponse(_ response: HTTPURLResponse, data: Data, for request: URLRequest) {
-        queue.async(flags: .barrier) {
+        queue.async {
             guard let url = request.url else { return }
             
             let resource = CachedResource(
@@ -237,7 +238,7 @@ public class CacheManager {
     }
     
     func clearCache() {
-        queue.async(flags: .barrier) {
+        queue.async {
             self.resourceCache.removeAll()
             self.session.configuration.urlCache?.removeAllCachedResponses()
             
@@ -270,3 +271,7 @@ public class CacheManager {
         return (memoryUsed, diskUsed)
     }
 }
+
+// Serialized access via a private queue keeps mutations thread-safe even when
+// CacheManager is shared across actors.
+extension CacheManager: @unchecked Sendable {}

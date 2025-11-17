@@ -192,54 +192,50 @@ extension NativeBridge: WKScriptMessageHandler {
     // Secure command execution with comprehensive error handling
     // All native functionality is accessed through this controlled entry point
     private func executeCommand(_ command: String, params: Any?) {
-        do {
-            switch command {
-            case "openCamera":
-                // Pass raw params - command handler will extract options
-                let optionsString = delegateHandler.extractStringParam(from: params)
-                commandHandler.openCamera(options: optionsString)
-            case "requestCameraPermission":
-                // Pass raw params - command handler will extract config
-                let configString = delegateHandler.extractStringParam(from: params)
-                commandHandler.requestCameraPermission(config: configString)
-            case "getDeviceInfo":
-                commandHandler.getDeviceInfo()
-            case "logger":
-                commandHandler.logger()
-            case "pickFile":
-                let optionsString = delegateHandler.extractStringParam(from: params)
-                commandHandler.pickFile(options: optionsString)
-            case "openFileWithIntent":
-                fileHandler.openFileWithIntent(params: params)
-            case "requestHapticFeedback":
-                let feedbackType = delegateHandler.extractFeedbackType(from: params)
-                commandHandler.requestHapticFeedback(feedbackType: feedbackType)
+        switch command {
+        case "openCamera":
+            // Pass raw params - command handler will extract options
+            let optionsString = delegateHandler.extractStringParam(from: params)
+            commandHandler.openCamera(options: optionsString)
+        case "requestCameraPermission":
+            // Pass raw params - command handler will extract config
+            let configString = delegateHandler.extractStringParam(from: params)
+            commandHandler.requestCameraPermission(config: configString)
+        case "getDeviceInfo":
+            commandHandler.getDeviceInfo()
+        case "logger":
+            commandHandler.logger()
+        case "pickFile":
+            let optionsString = delegateHandler.extractStringParam(from: params)
+            commandHandler.pickFile(options: optionsString)
+        case "openFileWithIntent":
+            fileHandler.openFileWithIntent(params: params)
+        case "requestHapticFeedback":
+            let feedbackType = delegateHandler.extractFeedbackType(from: params)
+            commandHandler.requestHapticFeedback(feedbackType: feedbackType)
 
-            // Notification commands (handled via protocol)
-            case "requestNotificationPermission":
-                commandHandler.requestNotificationPermission()
-            case "scheduleLocalNotification":
-                let config = delegateHandler.extractStringParam(from: params)
-                commandHandler.scheduleLocalNotification(config)
-            case "cancelLocalNotification":
-                let notificationId = delegateHandler.extractStringParam(from: params)
-                commandHandler.cancelLocalNotification(notificationId)
-            case "registerForPushNotifications":
-                commandHandler.registerForPushNotifications()
-            case "subscribeToTopic":
-                let config = delegateHandler.extractStringParam(from: params)
-                commandHandler.subscribeToTopic(config)
-            case "unsubscribeFromTopic":
-                let config = delegateHandler.extractStringParam(from: params)
-                commandHandler.unsubscribeFromTopic(config)
-            case "getSubscribedTopics":
-                commandHandler.getSubscribedTopics()
-            default:
-                // This should never happen due to validation, but keeping for safety
-                logger.error("Unexpected command reached execution: \(command)")
-            }
-        } catch {
-            logger.error("Error executing command \(command): \(error.localizedDescription)")
+        // Notification commands (handled via protocol)
+        case "requestNotificationPermission":
+            commandHandler.requestNotificationPermission()
+        case "scheduleLocalNotification":
+            let config = delegateHandler.extractStringParam(from: params)
+            commandHandler.scheduleLocalNotification(config)
+        case "cancelLocalNotification":
+            let notificationId = delegateHandler.extractStringParam(from: params)
+            commandHandler.cancelLocalNotification(notificationId)
+        case "registerForPushNotifications":
+            commandHandler.registerForPushNotifications()
+        case "subscribeToTopic":
+            let config = delegateHandler.extractStringParam(from: params)
+            commandHandler.subscribeToTopic(config)
+        case "unsubscribeFromTopic":
+            let config = delegateHandler.extractStringParam(from: params)
+            commandHandler.unsubscribeFromTopic(config)
+        case "getSubscribedTopics":
+            commandHandler.getSubscribedTopics()
+        default:
+            // This should never happen due to validation, but keeping for safety
+            logger.error("Unexpected command reached execution: \(command)")
         }
     }
 }

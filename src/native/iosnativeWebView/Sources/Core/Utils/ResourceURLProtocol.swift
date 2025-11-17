@@ -4,7 +4,7 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "ResourceProtocol")
 
-class ResourceURLProtocol: URLProtocol {
+final class ResourceURLProtocol: URLProtocol {
     private var dataTask: URLSessionDataTask?
     private static let handledKey = "ResourceURLProtocolHandled"
     
@@ -49,7 +49,7 @@ class ResourceURLProtocol: URLProtocol {
     logger.info("🔍 ResourceURLProtocol.canInit: GET request, shouldCache=\(shouldCache)")
     return shouldCache
 }
-    
+
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
         return request
     }
@@ -72,10 +72,11 @@ class ResourceURLProtocol: URLProtocol {
         }
         URLProtocol.setProperty(true, forKey: ResourceURLProtocol.handledKey, in: mutableRequest)
         
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             do {
                 // Try to load from cache first
-                let cacheableRequest = await CacheManager.shared.createCacheableRequest(from: url)
+                let cacheableRequest = CacheManager.shared.createCacheableRequest(from: url)
                 let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(for: cacheableRequest)
                 
                 if let cachedData = cachedData, cacheState != .expired {
@@ -94,14 +95,16 @@ class ResourceURLProtocol: URLProtocol {
                         headerFields: headers
                     ) else {
                         logger.error("❌ Failed to create HTTP response for cached content")
-                        await MainActor.run {
+                        await MainActor.run { [weak self] in
+                            guard let self else { return }
                             self.client?.urlProtocol(self, didFailWithError: URLError(.cannotCreateFile))
                         }
                         return
                     }
                     
                     // Send cached response
-                    await MainActor.run {
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
                         self.client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .allowed)
                         self.client?.urlProtocol(self, didLoad: cachedData)
                         self.client?.urlProtocolDidFinishLoading(self)
@@ -120,12 +123,13 @@ class ResourceURLProtocol: URLProtocol {
                 
                 if let httpResponse = response as? HTTPURLResponse {
                     // Cache the response if it's valid
-                    if await CacheManager.shared.isCacheableResponse(httpResponse) {
-                        await CacheManager.shared.storeCachedResponse(httpResponse, data: data, for: request)
+                    if CacheManager.shared.isCacheableResponse(httpResponse) {
+                        CacheManager.shared.storeCachedResponse(httpResponse, data: data, for: request)
                     }
                     
                     // Send response to client
-                    await MainActor.run {
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
                         self.client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .allowed)
                         self.client?.urlProtocol(self, didLoad: data)
                         self.client?.urlProtocolDidFinishLoading(self)
@@ -133,7 +137,8 @@ class ResourceURLProtocol: URLProtocol {
                 }
             } catch {
                 logger.error("❌ Failed to load resource: \(error.localizedDescription)")
-                await MainActor.run {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
                     self.client?.urlProtocol(self, didFailWithError: error)
                 }
             }
@@ -144,3 +149,5 @@ class ResourceURLProtocol: URLProtocol {
         dataTask?.cancel()
     }
 }
+
+extension ResourceURLProtocol: @unchecked Sendable {}

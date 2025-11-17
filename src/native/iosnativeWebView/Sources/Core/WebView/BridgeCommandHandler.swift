@@ -336,13 +336,19 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Notification permission requested")
 
-        Task {
-            let granted = await notificationHandler.requestPermission()
+        let handler = notificationHandler
+        let delegateRef = delegate
+        Task { [handler, delegateRef] in
+            let granted = await handler.requestPermission()
             let status = granted ? "GRANTED" : "DENIED"
 
-            DispatchQueue.main.async {
+            await MainActor.run {
+                guard let delegate = delegateRef else {
+                    commandLogger.debug("Delegate released before NOTIFICATION_PERMISSION_STATUS callback")
+                    return
+                }
                 // Send plain string to match Android's BridgeUtils.notifyWeb format
-                self.delegate?.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: status)
+                delegate.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: status)
                 commandLogger.debug("Notification permission granted: \(granted)")
             }
         }
@@ -466,19 +472,25 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Registering for push notifications")
 
-        Task {
-            let (token, error) = await notificationHandler.initializePush()
+        let handler = notificationHandler
+        let delegateRef = delegate
+        Task { [handler, delegateRef] in
+            let (token, error) = await handler.initializePush()
 
-            DispatchQueue.main.async {
+            await MainActor.run {
+                guard let delegate = delegateRef else {
+                    commandLogger.debug("Delegate released before PUSH_NOTIFICATION_TOKEN callback")
+                    return
+                }
                 if let token = token {
-                    self.delegate?.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
+                    delegate.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
                         "token": token,
                         "success": true
                     ])
                 } else {
                     let errorMessage = error ?? "Failed to get push token"
                     commandLogger.error("Push notification registration failed: \(errorMessage)")
-                    self.delegate?.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
+                    delegate.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
                         "success": false,
                         "error": errorMessage
                     ])
@@ -513,11 +525,17 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Subscribing to topic: \(topic)")
 
-        Task {
-            let success = await notificationHandler.subscribeToTopic(topic)
+        let handler = notificationHandler
+        let delegateRef = delegate
+        Task { [handler, topic, delegateRef] in
+            let success = await handler.subscribeToTopic(topic)
 
-            DispatchQueue.main.async {
-                self.delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
+            await MainActor.run {
+                guard let delegate = delegateRef else {
+                    commandLogger.debug("Delegate released before TOPIC_SUBSCRIPTION_RESULT (subscribe) callback")
+                    return
+                }
+                delegate.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                     "topic": topic,
                     "success": success,
                     "action": "subscribe"
@@ -552,11 +570,17 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Unsubscribing from topic: \(topic)")
 
-        Task {
-            let success = await notificationHandler.unsubscribeFromTopic(topic)
+        let handler = notificationHandler
+        let delegateRef = delegate
+        Task { [handler, topic, delegateRef] in
+            let success = await handler.unsubscribeFromTopic(topic)
 
-            DispatchQueue.main.async {
-                self.delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
+            await MainActor.run {
+                guard let delegate = delegateRef else {
+                    commandLogger.debug("Delegate released before TOPIC_SUBSCRIPTION_RESULT (unsubscribe) callback")
+                    return
+                }
+                delegate.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                     "topic": topic,
                     "success": success,
                     "action": "unsubscribe"
@@ -579,11 +603,17 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Getting subscribed topics")
 
-        Task {
-            let topics = await notificationHandler.getSubscribedTopics()
+        let handler = notificationHandler
+        let delegateRef = delegate
+        Task { [handler, delegateRef] in
+            let topics = await handler.getSubscribedTopics()
 
-            DispatchQueue.main.async {
-                self.delegate?.sendJSONCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: [
+            await MainActor.run {
+                guard let delegate = delegateRef else {
+                    commandLogger.debug("Delegate released before SUBSCRIBED_TOPICS_RESULT callback")
+                    return
+                }
+                delegate.sendJSONCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: [
                     "topics": topics,
                     "success": true
                 ])

@@ -36,8 +36,8 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         let configuration = WKWebViewConfiguration()
 
-        // Use shared process pool for better performance
-        configuration.processPool = WebKitConfig.sharedProcessPool
+        // Hook kept for legacy behavior; currently a no-op on iOS 15+.
+        WebKitConfig.applySharedProcessPoolIfNeeded(to: configuration)
 
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
         let preferences = WKWebpagePreferences()
@@ -97,13 +97,9 @@ public struct WebView: UIViewRepresentable, Equatable {
     public static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         // Safely remove observer with error handling
         if coordinator.isObserverAdded {
-            do {
-                webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-                coordinator.isObserverAdded = false
-                logger.debug("Successfully removed WebView progress observer")
-            } catch {
-                logger.warning("Failed to remove WebView observer - may have already been removed: \(error.localizedDescription)")
-            }
+            webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+            coordinator.isObserverAdded = false
+            logger.debug("Successfully removed WebView progress observer")
         } else {
             logger.debug("Observer was not added or already removed, skipping removal")
         }

@@ -443,8 +443,9 @@ class FrameworkServerUtils {
         // Bind to localhost only for security
         let host = NWEndpoint.Host("127.0.0.1")
         let port = NWEndpoint.Port(integerLiteral: serverPort)
+        parameters.requiredLocalEndpoint = .hostPort(host: host, port: port)
 
-        listener = try NWListener(using: parameters, on: port)
+        listener = try NWListener(using: parameters)
 
         listener?.newConnectionHandler = { [weak self] connection in
             self?.handleNewConnection(connection)

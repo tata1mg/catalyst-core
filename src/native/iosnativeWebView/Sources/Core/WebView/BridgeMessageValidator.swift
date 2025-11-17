@@ -324,7 +324,7 @@ class BridgeMessageValidator {
         return (command: command, params: params)
     }
 
-    private static func validateCommandParameters(command: String, params: Any) -> BridgeValidationError? {
+    private static func validateCommandParameters(command: String, params: Any?) -> BridgeValidationError? {
         // Commands that support flexible parameter formats (string or object)
         let flexibleCommands = [
             "openCamera",
@@ -360,7 +360,9 @@ class BridgeMessageValidator {
                 return validateObjectAgainstJSONSchema(paramsDict, schema: nil, commandName: command)
             }
 
-            logger.warning("Command '\(command)' received unexpected parameter type: \(type(of: params))")
+            if let params {
+                logger.warning("Command '\(command)' received unexpected parameter type: \(type(of: params))")
+            }
             return nil // Allow for backward compatibility
         }
 
