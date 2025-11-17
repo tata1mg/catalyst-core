@@ -324,11 +324,11 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
     }
 }
 
-async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice = null) {
+async function buildApp(ADB_PATH, androidConfig, buildOptimisation, buildVersion, targetDevice = null) {
     progress.log("Building and installing app...", "info")
     try {
         // Build command without monkey launch
-        let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug --quiet --console=rich`
+        let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} -PbuildVersion=${buildVersion} && ./gradlew clean installDebug --quiet --console=rich`
 
         // Add device-specific install target if physical device
         if (targetDevice && targetDevice.type === "physical") {
@@ -726,15 +726,17 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
     }
 }
 
-async function buildSignedAAB(androidConfig) {
+async function buildSignedAAB(androidConfig, buildVersion) {
     progress.log("Building signed AAB for release...", "info")
 
     try {
         // Generate webview config BEFORE creating AAB
         progress.log("Generating webview configuration for release...", "info")
         try {
-            const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
-            await (0, _utils.runInteractiveCommand)("sh", ["-c", generateConfigCommand], { "BUILD SUCCESSFUL": "" })
+            const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildVersion=${buildVersion}`
+            await (0, _utils.runInteractiveCommand)("sh", ["-c", generateConfigCommand], {
+                "BUILD SUCCESSFUL": "",
+            })
             progress.log("Webview config generated successfully", "success")
         } catch (configError) {
             progress.log(`Warning: Webview config generation failed: ${configError.message}`, "warning")
@@ -759,6 +761,9 @@ async function buildAndroidApp() {
     let targetDevice = null
 
     try {
+        // Prompt for build version first
+        const buildVersion = await (0, _utils.promptBuildVersion)(progress)
+
         // Initialize configuration
         progress.start("config")
         const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = await initializeConfig()
@@ -829,14 +834,14 @@ async function buildAndroidApp() {
         if (buildType === "release") {
             // Build signed AAB for release
             progress.start("aab")
-            await buildSignedAAB(androidConfig)
+            await buildSignedAAB(androidConfig, buildVersion)
             progress.complete("aab")
             // Move APK to output directory
             movedApkPath = await moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, androidConfig.appName)
         } else {
             // Install debug app for development
             progress.start("build")
-            await buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice)
+            await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildVersion, targetDevice)
             await launchApp(ADB_PATH, buildType, targetDevice)
             progress.complete("build")
             // Move APK to output directory

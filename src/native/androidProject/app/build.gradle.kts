@@ -14,6 +14,7 @@ val configPath: String? by project.properties
 val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
 val keyAlias: String? by project.properties
 val keyPassword: String? by project.properties
+val buildVersion: String? by project.properties
 
 fun getLocalIpAddress(): String {
     return NetworkInterface.getNetworkInterfaces().toList()
@@ -225,6 +226,10 @@ tasks.register("generateWebViewConfig") {
             properties.setProperty("buildType", "debug")
             properties.setProperty("buildOptimisation", "false")
         }
+
+        // Add build version (mandatory)
+        val version = buildVersion ?: throw GradleException("Build version is required. Please provide -PbuildVersion=X.Y.Z")
+        properties.setProperty("buildVersion", version)
 
         fun extractProperties(jsonObj: org.json.JSONObject, prefix: String = "") {
             try {

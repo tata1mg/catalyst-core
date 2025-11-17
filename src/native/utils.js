@@ -186,6 +186,15 @@ async function validateAndCompleteConfig(platform, configPath) {
     }
 }
 
+// Build version prompt
+async function promptBuildVersion(logger = console) {
+    const version = await promptUser("\nEnter build version (default: 0.0.1): ")
+    const finalVersion = version || "0.0.1"
+
+    logger.log(`Build version: ${finalVersion}`)
+    return finalVersion
+}
+
 export {
     runCommand,
     commandExists,
@@ -193,4 +202,5 @@ export {
     runSdkManagerCommand,
     runInteractiveCommand,
     validateAndCompleteConfig,
+    promptBuildVersion,
 }

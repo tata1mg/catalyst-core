@@ -6,11 +6,12 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import org.json.JSONObject
 import io.yourname.androidproject.BuildConfig
+import java.util.Properties
 
 object DeviceInfoUtils {
     private const val TAG = "DeviceInfoUtils"
     
-    fun getDeviceInfo(context: Context): JSONObject {
+    fun getDeviceInfo(context: Context, properties: Properties? = null): JSONObject {
         val deviceInfo = JSONObject()
         
         try {
@@ -27,6 +28,12 @@ object DeviceInfoUtils {
                 put("screenWidth", displayMetrics.widthPixels)
                 put("screenHeight", displayMetrics.heightPixels)
                 put("screenDensity", displayMetrics.density.toDouble())
+            }
+            
+            // Add build version from properties
+            properties?.let {
+                val buildVersion = it.getProperty("buildVersion", "unknown")
+                deviceInfo.put("buildVersion", buildVersion)
             }
             
         } catch (e: Exception) {
