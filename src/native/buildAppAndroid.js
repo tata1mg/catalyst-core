@@ -18,7 +18,6 @@ const configPath = `${process.env.PWD}/config/config.json`
 const publicPath = `${process.env.PWD}/public`
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
 const ANDROID_PACKAGE = "io.yourname.androidproject"
-const BUILD_VERSIONS_FILE = `${pwd}/build-versions.json`
 
 // Default values for AAB building
 const DEFAULT_PROJECT_PATH = `${pwd}/androidProject`
@@ -763,7 +762,7 @@ async function buildAndroidApp() {
 
     try {
         // Prompt for build version first
-        const buildVersion = await (0, _utils.promptBuildVersion)(BUILD_VERSIONS_FILE)
+        const buildVersion = await (0, _utils.promptBuildVersion)(progress)
 
         // Initialize configuration
         progress.start("config")

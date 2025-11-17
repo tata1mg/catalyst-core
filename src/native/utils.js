@@ -186,79 +186,13 @@ async function validateAndCompleteConfig(platform, configPath) {
     }
 }
 
-// Version history management functions
-function loadBuildVersionHistory(buildVersionsFile) {
-    try {
-        if (fs.existsSync(buildVersionsFile)) {
-            const content = fs.readFileSync(buildVersionsFile, "utf8")
-            return JSON.parse(content)
-        }
-    } catch (error) {
-        console.warn(`Warning: Could not load version history: ${error.message}`)
-    }
-    // Return default structure
-    return {
-        android: {
-            versions: [],
-            lastUsed: null,
-        },
-    }
-}
+// Build version prompt
+async function promptBuildVersion(logger = console) {
+    const version = await promptUser("\nEnter build version (default: 0.0.1): ")
+    const finalVersion = version || "0.0.1"
 
-function saveBuildVersionHistory(buildVersionsFile, history) {
-    try {
-        fs.writeFileSync(buildVersionsFile, JSON.stringify(history, null, 4), "utf8")
-    } catch (error) {
-        throw new Error(`Failed to save version history: ${error.message}`)
-    }
-}
-
-function isVersionUsed(version, history) {
-    return history.android.versions.includes(version)
-}
-
-function addVersionToHistory(buildVersionsFile, version, history) {
-    if (!history.android.versions.includes(version)) {
-        history.android.versions.push(version)
-        history.android.lastUsed = version
-    }
-    saveBuildVersionHistory(buildVersionsFile, history)
-}
-
-async function promptBuildVersion(buildVersionsFile, logger = console) {
-    const versionRegex = /^\d+\.\d+\.\d+$/
-    const history = loadBuildVersionHistory(buildVersionsFile)
-
-    let isValid = false
-    let version = ""
-
-    while (!isValid) {
-        version = await promptUser("\nEnter build version (format: X.Y.Z, e.g., 1.0.0): ")
-
-        // Validate format
-        if (!versionRegex.test(version)) {
-            logger.log(`Invalid format: "${version}". Please use format X.Y.Z (e.g., 1.0.0)`)
-            continue
-        }
-
-        // Check if version already used
-        if (isVersionUsed(version, history)) {
-            logger.log(`Version ${version} has already been used. Please enter a new version.`)
-            if (history.android.versions.length > 0) {
-                logger.log(
-                    `Previously used versions: ${history.android.versions.slice(-5).join(", ")}${history.android.versions.length > 5 ? "..." : ""}`
-                )
-            }
-            continue
-        }
-
-        // Valid and unique version
-        isValid = true
-    }
-
-    addVersionToHistory(buildVersionsFile, version, history)
-    logger.log(`Build version ${version} validated and saved`)
-    return version
+    logger.log(`Build version: ${finalVersion}`)
+    return finalVersion
 }
 
 export {
@@ -268,9 +202,5 @@ export {
     runSdkManagerCommand,
     runInteractiveCommand,
     validateAndCompleteConfig,
-    loadBuildVersionHistory,
-    saveBuildVersionHistory,
-    isVersionUsed,
-    addVersionToHistory,
     promptBuildVersion,
 }
