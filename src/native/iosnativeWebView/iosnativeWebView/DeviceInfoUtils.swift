@@ -25,7 +25,7 @@ class DeviceInfoUtils {
             let screen = UIScreen.main
 
             // Basic device information
-            let deviceInfo: [String: Any] = [
+            var deviceInfo: [String: Any] = [
                 "model": device.model,
                 "manufacturer": "Apple",
                 "platform": "ios",
@@ -35,6 +35,13 @@ class DeviceInfoUtils {
                 "screenHeight": Int(screen.bounds.height * screen.scale),
                 "screenDensity": screen.scale
             ]
+
+            // Add appInfo from ConfigConstants if available
+            if let appInfo = ConfigConstants.appInfo {
+                deviceInfo["appInfo"] = appInfo
+            } else {
+                deviceInfo["appInfo"] = NSNull()
+            }
 
             logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
             return deviceInfo
