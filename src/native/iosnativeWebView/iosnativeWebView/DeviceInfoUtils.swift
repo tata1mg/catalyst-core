@@ -36,12 +36,8 @@ class DeviceInfoUtils {
                 "screenDensity": screen.scale
             ]
 
-            // Add appInfo from ConfigConstants if available
-            if let appInfo = ConfigConstants.appInfo {
-                deviceInfo["appInfo"] = appInfo
-            } else {
-                deviceInfo["appInfo"] = NSNull()
-            }
+            deviceInfo["appInfo"] = ConfigConstants.appInfo
+        
 
             logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
             return deviceInfo
