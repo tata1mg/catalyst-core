@@ -14,7 +14,7 @@ import UserNotifications
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NativeBridge")
 
 class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDelegate, BridgeDelegateHandlerDelegate {
-    private weak var webView: WKWebView?
+    weak var webView: WKWebView?
     private weak var viewController: UIViewController?
 
     // Protocol-based notification handler (injected at runtime)

@@ -39,7 +39,9 @@ public struct WebView: UIViewRepresentable, Equatable {
         // Hook kept for legacy behavior; currently a no-op on iOS 15+.
         WebKitConfig.applySharedProcessPoolIfNeeded(to: configuration)
 
+        #if DEBUG
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        #endif
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
@@ -52,10 +54,12 @@ public struct WebView: UIViewRepresentable, Equatable {
         webView.navigationDelegate = navigationDelegate
         webView.allowsBackForwardNavigationGestures = true
 
+        #if DEBUG
         // Enable Safari Web Inspector (only available in iOS 16.4+)
         if #available(iOS 16.4, *) {
             webView.isInspectable = true
         }
+        #endif
 
         webView.addObserver(context.coordinator,
                            forKeyPath: #keyPath(WKWebView.estimatedProgress),
@@ -149,6 +153,13 @@ public struct WebView: UIViewRepresentable, Equatable {
                 Task { @MainActor in
                     parent.viewModel.setProgress(webView.estimatedProgress)
                 }
+            }
+        }
+
+        deinit {
+            // Ensure observer is removed even if dismantleUIView is skipped.
+            if isObserverAdded, let webView = nativeBridge?.webView {
+                webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
             }
         }
     }
