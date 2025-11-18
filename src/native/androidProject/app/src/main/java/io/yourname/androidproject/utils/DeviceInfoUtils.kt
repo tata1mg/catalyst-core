@@ -6,13 +6,14 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import org.json.JSONObject
 import io.yourname.androidproject.BuildConfig
+import java.util.Properties
 
 object DeviceInfoUtils {
     private const val TAG = "DeviceInfoUtils"
-    
-    fun getDeviceInfo(context: Context): JSONObject {
+
+    fun getDeviceInfo(context: Context, properties: Properties? = null): JSONObject {
         val deviceInfo = JSONObject()
-        
+
         try {
             // Basic device information
             deviceInfo.apply {
@@ -20,7 +21,7 @@ object DeviceInfoUtils {
                 put("manufacturer", Build.MANUFACTURER)
                 put("platform", "android")
             }
-            
+
             // Screen dimensions only
             val displayMetrics = getDisplayMetrics(context)
             deviceInfo.apply {
@@ -28,14 +29,18 @@ object DeviceInfoUtils {
                 put("screenHeight", displayMetrics.heightPixels)
                 put("screenDensity", displayMetrics.density.toDouble())
             }
-            
+
+            // Add appInfo from properties if available
+            val appInfo = properties?.getProperty("appInfo")
+            deviceInfo.put("appInfo", appInfo ?: JSONObject.NULL)
+
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error getting device info", e)
             return JSONObject().apply {
                 put("error", "Failed to get device info: ${e.message}")
             }
         }
-        
+
         return deviceInfo
     }
     
