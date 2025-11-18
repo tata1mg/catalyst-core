@@ -767,6 +767,95 @@ export const useCameraPermission = () => {
 }
 
 /**
+ * Promise-based notification permission request
+ * @returns {Promise<string>} Promise that resolves with permission status
+ */
+export const requestNotificationPermission = () => {
+    if (typeof window === "undefined") {
+        return Promise.resolve(null)
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            if (!nativeBridge.isAvailable()) {
+                reject(new Error("Native bridge not available"))
+                return
+            }
+
+            const handlePermissionStatus = (data) => {
+                window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+
+                if (data === PERMISSION_STATUS.GRANTED) {
+                    resolve(data)
+                } else {
+                    reject(new Error(`Notification permission ${data.toLowerCase()}`))
+                }
+            }
+
+            window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, handlePermissionStatus)
+            nativeBridge.notification.requestPermission()
+
+            console.log("🔔 Notification permission requested")
+        } catch (error) {
+            reject(error)
+        }
+    })
+}
+
+/**
+ * React hook for notification permission status
+ * Automatically requests permission on mount
+ */
+export const useNotificationPermission = () => {
+    if (typeof window === "undefined") {
+        return { permission: null, isLoading: false }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    const [permission, setPermission] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        const requestPermission = async () => {
+            try {
+                if (!nativeBridge.isAvailable()) {
+                    setPermission(PERMISSION_STATUS.NOT_DETERMINED)
+                    setIsLoading(false)
+                    return
+                }
+
+                window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+                    setPermission(data)
+                    setIsLoading(false)
+                    console.log("🔔 Notification permission status updated:", data)
+                })
+
+                nativeBridge.notification.requestPermission()
+            } catch (error) {
+                console.error("🔔 Error requesting notification permission:", error)
+                setPermission(PERMISSION_STATUS.DENIED)
+                setIsLoading(false)
+            }
+        }
+
+        requestPermission()
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+        }
+    }, [])
+
+    return { permission, isLoading }
+}
+
+/**
  * Promise-based haptic feedback request
  * @param {string} feedbackType - Type of haptic feedback (from HAPTIC_FEEDBACK_TYPES)
  * @returns {Promise<string>} Promise that resolves with success status
@@ -1063,11 +1152,6 @@ export const useNotification = () => {
 
     // Local notification scheduling with all supported styles
     const scheduleLocal = (config) => {
-        if (permissionStatus !== PERMISSION_STATUS.GRANTED) {
-            nativeBridge.notification.requestPermission()
-            return
-        }
-
         base.executeOperation(() => {
             nativeBridge.notification.scheduleLocal(config)
         }, "schedule local notification")
