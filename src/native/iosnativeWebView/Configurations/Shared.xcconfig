@@ -19,7 +19,7 @@ DEVELOPMENT_TEAM =
 SWIFT_VERSION = 5.9
 
 // iOS Deployment Target (minimum iOS version)
-IPHONEOS_DEPLOYMENT_TARGET = 15.0
+IPHONEOS_DEPLOYMENT_TARGET = 17.5
 
 // Common build settings
 TARGETED_DEVICE_FAMILY = 1,2

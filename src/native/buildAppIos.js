@@ -1114,7 +1114,7 @@ async function generateXCConfig() {
         const appName = iosConfig.appName || "Catalyst App"
         const teamId = iosConfig.developmentTeam || ""
         const swiftVersion = iosConfig.deployment?.swiftVersion || "5.9"
-        const deploymentTarget = iosConfig.deployment?.target || "15.0"
+        const deploymentTarget = iosConfig.deployment?.target || "17.0"
         const marketingVersion = iosConfig.version
             ? `${iosConfig.version.major || 1}.${iosConfig.version.minor || 0}.${iosConfig.version.patch || 0}`
             : "1.0.0"
