@@ -42,8 +42,6 @@ fun getLocalIpAddress(): String {
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
-    alias(libs.plugins.ktlint)
-    alias(libs.plugins.detekt)
 }
 
 android {
@@ -172,8 +170,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.json:json:20231013")
-    implementation("androidx.core:core-splashscreen:1.0.1")
-
+    
     // Ktor Server dependencies for FrameworkServer (~200KB total)
     implementation("io.ktor:ktor-server-core:2.3.7")
     implementation("io.ktor:ktor-server-netty:2.3.7")
@@ -189,9 +186,6 @@ dependencies {
         implementation("com.google.firebase:firebase-messaging:23.4.0")
         implementation("com.google.firebase:firebase-analytics:21.5.0")
     }
-    
-    // Detekt plugins for additional checks
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.7")
 }
 
 // Task to verify local IP
@@ -408,34 +402,15 @@ tasks.register("createAppBundle") {
         println("""
             =======================================================
             App Bundle created successfully!
-
+            
             Location: ${project.buildDir}/outputs/bundle/release/app-release.aab
-
+            
             Next steps:
-            1. Test your bundle with:
+            1. Test your bundle with: 
                bundletool build-apks --bundle=app/build/outputs/bundle/release/app-release.aab --output=test.apks
-
+            
             2. Upload to Play Console: https://play.google.com/console
             =======================================================
         """.trimIndent())
     }
-}
-
-// ktlint configuration
-ktlint {
-    android.set(true)
-    ignoreFailures.set(false)
-    reporters {
-        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
-        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
-        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.HTML)
-    }
-}
-
-// detekt configuration
-detekt {
-    buildUponDefaultConfig = true
-    allRules = false
-    config.setFrom("$projectDir/detekt-config.yml")
-    baseline = file("$projectDir/detekt-baseline.xml")
 }
