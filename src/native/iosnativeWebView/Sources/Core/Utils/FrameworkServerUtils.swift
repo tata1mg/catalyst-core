@@ -445,7 +445,7 @@ class FrameworkServerUtils {
         let port = NWEndpoint.Port(integerLiteral: serverPort)
         parameters.requiredLocalEndpoint = .hostPort(host: host, port: port)
 
-        listener = try NWListener(using: parameters)
+        listener = try NWListener(using: parameters, on: port)
 
         listener?.newConnectionHandler = { [weak self] connection in
             self?.handleNewConnection(connection)

@@ -336,14 +336,13 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Notification permission requested")
 
-        let handler = notificationHandler
-        let delegateRef = delegate
-        Task { [handler, delegateRef] in
-            let granted = await handler.requestPermission()
+        Task { [weak self] in
+            guard let self else { return }
+            let granted = await self.notificationHandler.requestPermission()
             let status = granted ? "GRANTED" : "DENIED"
 
             await MainActor.run {
-                guard let delegate = delegateRef else {
+                guard let delegate = self.delegate else {
                     commandLogger.debug("Delegate released before NOTIFICATION_PERMISSION_STATUS callback")
                     return
                 }
@@ -472,13 +471,12 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Registering for push notifications")
 
-        let handler = notificationHandler
-        let delegateRef = delegate
-        Task { [handler, delegateRef] in
-            let (token, error) = await handler.initializePush()
+        Task { [weak self] in
+            guard let self else { return }
+            let (token, error) = await self.notificationHandler.initializePush()
 
             await MainActor.run {
-                guard let delegate = delegateRef else {
+                guard let delegate = self.delegate else {
                     commandLogger.debug("Delegate released before PUSH_NOTIFICATION_TOKEN callback")
                     return
                 }
@@ -525,13 +523,12 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Subscribing to topic: \(topic)")
 
-        let handler = notificationHandler
-        let delegateRef = delegate
-        Task { [handler, topic, delegateRef] in
-            let success = await handler.subscribeToTopic(topic)
+        Task { [weak self, topic] in
+            guard let self else { return }
+            let success = await self.notificationHandler.subscribeToTopic(topic)
 
             await MainActor.run {
-                guard let delegate = delegateRef else {
+                guard let delegate = self.delegate else {
                     commandLogger.debug("Delegate released before TOPIC_SUBSCRIPTION_RESULT (subscribe) callback")
                     return
                 }
@@ -570,13 +567,12 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Unsubscribing from topic: \(topic)")
 
-        let handler = notificationHandler
-        let delegateRef = delegate
-        Task { [handler, topic, delegateRef] in
-            let success = await handler.unsubscribeFromTopic(topic)
+        Task { [weak self, topic] in
+            guard let self else { return }
+            let success = await self.notificationHandler.unsubscribeFromTopic(topic)
 
             await MainActor.run {
-                guard let delegate = delegateRef else {
+                guard let delegate = self.delegate else {
                     commandLogger.debug("Delegate released before TOPIC_SUBSCRIPTION_RESULT (unsubscribe) callback")
                     return
                 }
@@ -603,13 +599,12 @@ class BridgeCommandHandler {
 
         commandLogger.debug("Getting subscribed topics")
 
-        let handler = notificationHandler
-        let delegateRef = delegate
-        Task { [handler, delegateRef] in
-            let topics = await handler.getSubscribedTopics()
+        Task { [weak self] in
+            guard let self else { return }
+            let topics = await self.notificationHandler.getSubscribedTopics()
 
             await MainActor.run {
-                guard let delegate = delegateRef else {
+                guard let delegate = self.delegate else {
                     commandLogger.debug("Delegate released before SUBSCRIBED_TOPICS_RESULT callback")
                     return
                 }

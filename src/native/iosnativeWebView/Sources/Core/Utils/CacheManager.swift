@@ -5,7 +5,7 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 
 public final class CacheManager {
     public static let shared = CacheManager()
-    private let queue = DispatchQueue(label: "com.app.cachemanager")
+    private let queue = DispatchQueue(label: "com.app.cachemanager", attributes: .concurrent)
     
     enum CacheState {
         case fresh      // Content is within fresh window
@@ -206,7 +206,7 @@ public final class CacheManager {
     }
     
     func storeCachedResponse(_ response: HTTPURLResponse, data: Data, for request: URLRequest) {
-        queue.async {
+        queue.async(flags: .barrier) {
             guard let url = request.url else { return }
             
             let resource = CachedResource(
@@ -238,7 +238,7 @@ public final class CacheManager {
     }
     
     func clearCache() {
-        queue.async {
+        queue.async(flags: .barrier) {
             self.resourceCache.removeAll()
             self.session.configuration.urlCache?.removeAllCachedResponses()
             
