@@ -32,6 +32,18 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
     }
 
     private func initializeFirebase() {
+        // Check if Firebase is already configured
+        if FirebaseApp.app() != nil {
+            logger.warning("Firebase is already configured. Skipping initialization.")
+            return
+        }
+
+        // Check for GoogleService-Info.plist
+        guard Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else {
+            logger.error("❌ GoogleService-Info.plist not found. Firebase initialization skipped to prevent crash.")
+            return
+        }
+
         FirebaseApp.configure()
         Messaging.messaging().delegate = pushHandler
         logger.info("Firebase initialized successfully")
