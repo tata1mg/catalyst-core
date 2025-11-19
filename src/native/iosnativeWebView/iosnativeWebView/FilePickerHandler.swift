@@ -179,34 +179,28 @@ class FilePickerHandler: NSObject {
 
         delegate?.filePickerHandler(self, stateDidChange: "opening")
 
-        // For image selection, use PHPickerViewController for better photo library access
-        // Only use photo picker for image-specific requests or when explicitly asking for media
-        let normalizedMimeType = options.mimeType.lowercased()
-        if normalizedMimeType == "image/*" {
-            if #available(iOS 14.0, *) {
-                presentPhotoPicker(from: viewController, options: options)
-                return
-            }
+        // Use photo picker if all MIME types are images/videos, else use document picker
+        let mimeTypes = options.mimeType.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        let allMedia = mimeTypes.allSatisfy { $0.hasPrefix("image/") || $0.hasPrefix("video/") }
+        
+        if allMedia, #available(iOS 14.0, *) {
+            presentPhotoPicker(from: viewController, options: options)
+        } else {
+            presentDocumentPicker(from: viewController, options: options)
         }
-
-        // Use document picker for other file types
-        presentDocumentPicker(from: viewController, options: options)
     }
 
     @available(iOS 14.0, *)
     private func presentPhotoPicker(from viewController: UIViewController, options: FilePickerOptions) {
-        logger.debug("Using PHPickerViewController for image selection")
+        logger.debug("Using PHPickerViewController for image/video selection")
 
+        let mimeTypes = options.mimeType.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        let hasImages = mimeTypes.contains { $0.hasPrefix("image/") }
+        let hasVideos = mimeTypes.contains { $0.hasPrefix("video/") }
+        
         var config = PHPickerConfiguration()
         config.selectionLimit = options.selectionLimit
-
-        // Configure for images only if specifically requested
-        if options.mimeType.lowercased() == "image/*" {
-            config.filter = .images
-        } else {
-            // For *.* allow images and videos
-            config.filter = .any(of: [.images, .videos])
-        }
+        config.filter = (hasImages && hasVideos) ? .any(of: [.images, .videos]) : hasVideos ? .videos : .images
 
         photoPicker = PHPickerViewController(configuration: config)
         photoPicker?.delegate = self
