@@ -1,7 +1,9 @@
 package io.yourname.androidproject
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -87,7 +89,19 @@ class SplashActivity : AppCompatActivity() {
         isFinishing = true
         startActivity(Intent(this, MainActivity::class.java))
         finish()
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+
+        // Use modern API for Android 14+ (API 34+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(
+                Activity.OVERRIDE_TRANSITION_CLOSE,
+                android.R.anim.fade_in,
+                android.R.anim.fade_out
+            )
+        } else {
+            // Fallback to deprecated API for Android 13 and below
+            @Suppress("DEPRECATION")
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
     }
 
     private fun startMainActivity() {

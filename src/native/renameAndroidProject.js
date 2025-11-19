@@ -623,12 +623,23 @@ async function createBackup(projectPaths, androidConfig) {
 
 async function createTempDeploymentProject(projectPaths, androidConfig) {
     const { oldProjectPath } = projectPaths
-    const { oldProjectName, newProjectName } = androidConfig
+    const { oldProjectName, newProjectName, packageName } = androidConfig
 
     progress.log("Creating temporary deployment project...", "info")
 
-    // Create a unique temporary directory
-    const tempDir = _path.default.join(_path.default.dirname(oldProjectPath), `temp_build_${Date.now()}`)
+    // Create a temporary directory based on package name (if available) or timestamp
+    const tempDirSuffix = packageName ? packageName.replace(/\./g, "_") : Date.now().toString()
+    const tempDir = _path.default.join(_path.default.dirname(oldProjectPath), `temp_build_${tempDirSuffix}`)
+
+    // Remove existing temp directory with same name if it exists
+    if (_fs.default.existsSync(tempDir)) {
+        progress.log(`Removing existing temp directory: ${tempDir}`, "info")
+        try {
+            ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
+        } catch (cleanupError) {
+            progress.log(`Warning: Could not remove existing temp directory: ${cleanupError.message}`, "warning")
+        }
+    }
 
     try {
         // First, let's check what's actually in the source directory
@@ -790,12 +801,98 @@ async function cleanupTempDeployment(tempDeploymentPath) {
 
 async function updateFileContents(projectPaths, androidConfig) {
     const { newProjectPath } = projectPaths
-    const { oldProjectName, newProjectName } = androidConfig
+    const { oldProjectName, newProjectName, packageName } = androidConfig
 
     progress.log("Updating file contents and names...", "info")
 
     try {
-        // Find and rename files that contain the old project name
+        // STEP 1: Update packageName in build.gradle.kts and source files
+        if (packageName) {
+            const OLD_PACKAGE = "io.yourname.androidproject"
+            progress.log(`Replacing package name: ${OLD_PACKAGE} → ${packageName}`, "info")
+
+            // Update build.gradle.kts
+            const buildGradlePath = _path.default.join(newProjectPath, "app", "build.gradle.kts")
+            if (_fs.default.existsSync(buildGradlePath)) {
+                let content = _fs.default.readFileSync(buildGradlePath, "utf8")
+                content = content.replace(/namespace = "io\.yourname\.androidproject"/g, `namespace = "${packageName}"`)
+                content = content.replace(/applicationId = "io\.yourname\.androidproject"/g, `applicationId = "${packageName}"`)
+                _fs.default.writeFileSync(buildGradlePath, content, "utf8")
+                progress.log(`✅ Updated build.gradle.kts with package: ${packageName}`, "success")
+            }
+
+            // Update source directory structure for all source sets
+            const sourceSets = ["main", "test", "noFcm", "withFcm"]
+            const newPackageParts = packageName.split(".")
+            let totalUpdatedFiles = 0
+
+            for (const sourceSet of sourceSets) {
+                const oldPackagePath = _path.default.join(newProjectPath, "app", "src", sourceSet, "java", "io", "yourname", "androidproject")
+
+                if (_fs.default.existsSync(oldPackagePath)) {
+                    const newPackagePath = _path.default.join(newProjectPath, "app", "src", sourceSet, "java", ...newPackageParts)
+
+                    // Create new package directory
+                    const newPackageDir = _path.default.dirname(newPackagePath)
+                    _fs.default.mkdirSync(newPackageDir, { recursive: true })
+
+                    // Move source files
+                    ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
+                    progress.log(`✅ Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
+
+                    // Update package declarations in source files
+                    const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`
+                    const sourceFiles = (0, _utils.runCommand)(findCommand).trim().split("\n").filter(f => f.trim())
+
+                    let updatedCount = 0
+                    for (const file of sourceFiles) {
+                        let content = _fs.default.readFileSync(file, "utf8")
+                        if (content.includes(OLD_PACKAGE)) {
+                            content = content.replace(new RegExp(OLD_PACKAGE, "g"), packageName)
+                            _fs.default.writeFileSync(file, content, "utf8")
+                            updatedCount++
+                        }
+                    }
+                    totalUpdatedFiles += updatedCount
+                    progress.log(`✅ Updated package declarations in ${updatedCount} ${sourceSet} files`, "success")
+
+                    // Clean up old empty directories
+                    try {
+                        ;(0, _utils.runCommand)(`find "${_path.default.join(newProjectPath, "app", "src", sourceSet, "java")}" -type d -empty -delete`)
+                    } catch (err) {
+                        // Ignore cleanup errors
+                    }
+                }
+            }
+
+            if (totalUpdatedFiles > 0) {
+                progress.log(`✅ Total package declarations updated: ${totalUpdatedFiles} files`, "success")
+            }
+
+            // Update AndroidManifest.xml
+            const manifestPath = _path.default.join(newProjectPath, "app", "src", "main", "AndroidManifest.xml")
+            if (_fs.default.existsSync(manifestPath)) {
+                let content = _fs.default.readFileSync(manifestPath, "utf8")
+                if (content.includes(OLD_PACKAGE)) {
+                    content = content.replace(new RegExp(OLD_PACKAGE, "g"), packageName)
+                    _fs.default.writeFileSync(manifestPath, content, "utf8")
+                    progress.log(`✅ Updated AndroidManifest.xml with package: ${packageName}`, "success")
+                }
+            }
+
+            // Update proguard-rules.pro
+            const proguardPath = _path.default.join(newProjectPath, "app", "proguard-rules.pro")
+            if (_fs.default.existsSync(proguardPath)) {
+                let content = _fs.default.readFileSync(proguardPath, "utf8")
+                if (content.includes(OLD_PACKAGE)) {
+                    content = content.replace(new RegExp(OLD_PACKAGE.replace(/\./g, "\\."), "g"), packageName)
+                    _fs.default.writeFileSync(proguardPath, content, "utf8")
+                    progress.log(`✅ Updated proguard-rules.pro with package: ${packageName}`, "success")
+                }
+            }
+        }
+
+        // STEP 2: Find and rename files that contain the old project name
         const findFilesCommand = `find "${newProjectPath}" -type f -name "*${oldProjectName}*"`
         const fileResult = (0, _utils.runCommand)(findFilesCommand)
 
@@ -817,17 +914,16 @@ async function updateFileContents(projectPaths, androidConfig) {
             }
         }
 
-        // Update file contents that reference the old project name
-        // Include .kts files for Kotlin DSL support
+        // STEP 3: Update file contents that reference the old project name
         const fileTypes = [
             "*.gradle",
-            "*.gradle.kts", // Added Kotlin DSL gradle files
+            "*.gradle.kts",
             "*.xml",
             "*.json",
             "*.properties",
             "*.java",
             "*.kt",
-            "*.kts", // Added general Kotlin script files
+            "*.kts",
             "*.js",
             "*.ts",
             "*.md",
@@ -967,12 +1063,14 @@ async function buildAndroidAAB(configPathOrConfig) {
             }
         } else if (!androidConfig.createSignedAAB) {
             progress.log("Signed AAB creation skipped (not enabled in config)", "info")
-            // Clean up temp deployment since we're not building AAB
-            await cleanupTempDeployment(tempDeploymentPath)
+            // DON'T Clean up temp deployment - keep it for verification
+            progress.log(`Temp renamed project kept at: ${tempDeploymentPath}`, "info")
+            // await cleanupTempDeployment(tempDeploymentPath)
         } else if (!keystorePath) {
             progress.log("Signed AAB creation skipped (no keystore available)", "warning")
-            // Clean up temp deployment since we're not building AAB
-            await cleanupTempDeployment(tempDeploymentPath)
+            // DON'T Clean up temp deployment - keep it for verification
+            progress.log(`Temp renamed project kept at: ${tempDeploymentPath}`, "info")
+            // await cleanupTempDeployment(tempDeploymentPath)
         }
 
         // Print completion summary

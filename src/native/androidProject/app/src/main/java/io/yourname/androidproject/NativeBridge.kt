@@ -268,7 +268,7 @@ class NativeBridge(
     fun getDeviceInfo(options: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_ERROR, "get device info") {
             mainActivity.runOnUiThread {
-                val deviceInfo = DeviceInfoUtils.getDeviceInfo(mainActivity)
+                val deviceInfo = DeviceInfoUtils.getDeviceInfo(mainActivity, properties)
                 BridgeUtils.logDebug(TAG, "Device info retrieved: $deviceInfo")
                 BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, deviceInfo.toString())
             }
