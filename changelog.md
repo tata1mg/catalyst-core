@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.0.3-canary.15] - 2025-11-19
+
+-   Adding Android release support and appInfo key
+
 ## [0.0.3-canary.14] - 2025-09-29
 
 -   Android custom splashscreen

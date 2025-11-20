@@ -23,20 +23,30 @@ class DeviceInfoUtils {
         let device = UIDevice.current
         let screen = UIScreen.main
 
-        // Basic device information
-        let deviceInfo: [String: Any] = [
-            "model": device.model,
-            "manufacturer": "Apple",
-            "platform": "ios",
-            "systemVersion": device.systemVersion,
-            // Screen dimensions in actual pixels
-            "screenWidth": Int(screen.bounds.width * screen.scale),
-            "screenHeight": Int(screen.bounds.height * screen.scale),
-            "screenDensity": screen.scale
-        ]
+            // Basic device information
+            var deviceInfo: [String: Any] = [
+                "model": device.model,
+                "manufacturer": "Apple",
+                "platform": "ios",
+                "systemVersion": device.systemVersion,
+                // Screen dimensions in actual pixels
+                "screenWidth": Int(screen.bounds.width * screen.scale),
+                "screenHeight": Int(screen.bounds.height * screen.scale),
+                "screenDensity": screen.scale
+            ]
 
-        logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
-        return deviceInfo
+            deviceInfo["appInfo"] = ConfigConstants.appInfo
+        
+
+            logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
+            return deviceInfo
+
+        } catch {
+            logger.error("Error getting device info: \(error.localizedDescription)")
+            return [
+                "error": "Failed to get device info: \(error.localizedDescription)"
+            ]
+        }
     }
 
     /// Get device model name

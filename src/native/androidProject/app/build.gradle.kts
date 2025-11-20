@@ -168,13 +168,13 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    implementation("androidx.webkit:webkit:1.12.1")
+    implementation(libs.androidx.webkit)
     implementation("org.json:json:20231013")
     
     // Ktor Server dependencies for FrameworkServer (~200KB total)
-    implementation("io.ktor:ktor-server-core:2.3.7")
-    implementation("io.ktor:ktor-server-netty:2.3.7")
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.7")
+    implementation("io.ktor:ktor-server-core:3.0.3")
+    implementation("io.ktor:ktor-server-netty:3.0.3")
+    implementation("io.ktor:ktor-server-content-negotiation:3.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
@@ -374,7 +374,7 @@ tasks.register("generateKeystore") {
             val keyPass = project.properties["keyPassword"] as? String ?: System.getenv("KEY_PASSWORD") ?: "android"
             val alias = project.properties["keyAlias"] as? String ?: System.getenv("KEY_ALIAS") ?: "release"
 
-            exec {
+            project.exec {
                 commandLine = listOf(
                     "keytool",
                     "-genkey",
@@ -403,7 +403,7 @@ tasks.register("createAppBundle") {
             =======================================================
             App Bundle created successfully!
             
-            Location: ${project.buildDir}/outputs/bundle/release/app-release.aab
+            Location: ${layout.buildDirectory.get().asFile}/outputs/bundle/release/app-release.aab
             
             Next steps:
             1. Test your bundle with: 

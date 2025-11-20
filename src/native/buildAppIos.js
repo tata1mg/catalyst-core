@@ -2,6 +2,7 @@ const { exec, execSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
+const crypto = require("crypto")
 
 const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
 const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
@@ -20,6 +21,20 @@ const SCHEME_NAME = "iosnativeWebView"
 const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
 const PROJECT_NAME = path.basename(PROJECT_DIR)
 const IPHONE_MODEL = iosConfig.simulatorName
+const GOOGLE_SERVICES_FILENAME = "GoogleService-Info.plist"
+
+function generateProjectObjectId(identifier, suffix = "") {
+    return crypto
+        .createHash("md5")
+        .update(`${identifier}:${suffix}`)
+        .digest("hex")
+        .substring(0, 24)
+        .toUpperCase()
+}
+
+function getXcodeProjectFilePath() {
+    return path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj")
+}
 
 // Define build steps for progress tracking
 const steps = {
@@ -120,7 +135,6 @@ async function getBootedSimulatorInfo() {
 
 async function generatePackageSwift() {
     try {
-        const crypto = require("crypto")
         const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
 
         progress.log(`🔧 Generating Package.swift (notifications: ${isNotificationsEnabled})`, "info")
@@ -585,11 +599,11 @@ public enum ConfigConstants {
             addedKeys.add("notifications")
         } else {
             progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
-
-            // Close the enum
-            configContent += `
-}`
         }
+
+        // Close the enum
+        configContent += `
+}`
 
         fs.writeFileSync(appConfigPath, configContent, "utf8")
         progress.log("Configuration constants generated successfully (SPM Package)", "success")
@@ -612,6 +626,108 @@ const NOTIFICATION_SOUNDS = [
     { sourceName: "notification-sound-urgent", resourceName: "notification_sound_urgent" },
 ]
 
+async function addGoogleServicesPlistToXcodeProject() {
+    try {
+        const projectFilePath = getXcodeProjectFilePath()
+        if (!fs.existsSync(projectFilePath)) {
+            progress.log("Xcode project file not found while adding GoogleService-Info.plist", "warning")
+            return
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+        if (projectContent.includes(`/* ${GOOGLE_SERVICES_FILENAME} */`)) {
+            progress.log("GoogleService-Info.plist already registered in Xcode project", "info")
+            return
+        }
+
+        const fileRefId = generateProjectObjectId(GOOGLE_SERVICES_FILENAME, "_ref")
+        const buildFileId = generateProjectObjectId(GOOGLE_SERVICES_FILENAME, "_build")
+
+        const fileRefEntry = `\t\t${fileRefId} /* ${GOOGLE_SERVICES_FILENAME} */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ${GOOGLE_SERVICES_FILENAME}; sourceTree = "<group>"; };`
+        projectContent = projectContent.replace(
+            /(\/\* End PBXFileReference section \*\/)/,
+            `${fileRefEntry}\n$1`
+        )
+
+        const buildFileEntry = `\t\t${buildFileId} /* ${GOOGLE_SERVICES_FILENAME} in Resources */ = {isa = PBXBuildFile; fileRef = ${fileRefId} /* ${GOOGLE_SERVICES_FILENAME} */; };`
+        projectContent = projectContent.replace(
+            /(\/\* End PBXBuildFile section \*\/)/,
+            `${buildFileEntry}\n$1`
+        )
+
+        const groupPattern = /(\/\* iosnativeWebView \*\/ = \{[^}]*children = \([^)]*)/
+        if (groupPattern.test(projectContent)) {
+            projectContent = projectContent.replace(
+                groupPattern,
+                `$1\n\t\t\t\t${fileRefId} /* ${GOOGLE_SERVICES_FILENAME} */,`
+            )
+        }
+
+        const resourcesPattern = /(\/\* Resources \*\/ = \{[^}]*files = \([^)]*)/
+        if (resourcesPattern.test(projectContent)) {
+            projectContent = projectContent.replace(
+                resourcesPattern,
+                `$1\n\t\t\t\t${buildFileId} /* ${GOOGLE_SERVICES_FILENAME} in Resources */,`
+            )
+        }
+
+        fs.writeFileSync(projectFilePath, projectContent, "utf8")
+        progress.log("Registered GoogleService-Info.plist with Xcode project", "success")
+    } catch (error) {
+        progress.log(
+            `Warning: Failed to register GoogleService-Info.plist in Xcode project: ${error.message}`,
+            "warning"
+        )
+    }
+}
+
+async function removeGoogleServicesPlistFromXcodeProject() {
+    try {
+        const projectFilePath = getXcodeProjectFilePath()
+        if (!fs.existsSync(projectFilePath)) {
+            return
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+        const fileRefRegex = new RegExp(
+            `\\t\\t[A-F0-9]+ \\/\\* ${GOOGLE_SERVICES_FILENAME} \\*\\/ = \\{isa = PBXFileReference;[^}]*\\};\\n`,
+            "g"
+        )
+        const buildFileRegex = new RegExp(
+            `\\t\\t[A-F0-9]+ \\/\\* ${GOOGLE_SERVICES_FILENAME} in Resources \\*\\/ = \\{isa = PBXBuildFile;[^}]*\\};\\n`,
+            "g"
+        )
+        const groupRefRegex = new RegExp(
+            `\\t\\t\\t\\t[A-F0-9]+ \\/\\* ${GOOGLE_SERVICES_FILENAME} \\*\\/,\\n`,
+            "g"
+        )
+        const resourceRefRegex = new RegExp(
+            `\\t\\t\\t\\t[A-F0-9]+ \\/\\* ${GOOGLE_SERVICES_FILENAME} in Resources \\*\\/,\\n`,
+            "g"
+        )
+
+        const replacements = [fileRefRegex, buildFileRegex, groupRefRegex, resourceRefRegex]
+
+        let modified = false
+        for (const regex of replacements) {
+            if (regex.test(projectContent)) {
+                projectContent = projectContent.replace(regex, "")
+                modified = true
+            }
+        }
+
+        if (modified) {
+            fs.writeFileSync(projectFilePath, projectContent, "utf8")
+            progress.log("Removed GoogleService-Info.plist references from Xcode project", "info")
+        }
+    } catch (error) {
+        progress.log(
+            `Warning: Failed to clean GoogleService-Info.plist from Xcode project: ${error.message}`,
+            "warning"
+        )
+    }
+}
+
 async function handleGoogleServicesPlist() {
     try {
         const rootGoogleServicesPath = `${process.env.PWD}/GoogleService-Info.plist`
@@ -631,19 +747,19 @@ async function handleGoogleServicesPlist() {
             fs.copyFileSync(rootGoogleServicesPath, iosGoogleServicesPath)
             progress.log("Copied GoogleService-Info.plist to iOS project", "success")
 
+            await addGoogleServicesPlistToXcodeProject()
             return true
         } else if (fs.existsSync(iosGoogleServicesPath)) {
             progress.log("GoogleService-Info.plist already exists in iOS project", "info")
+            await addGoogleServicesPlistToXcodeProject()
             return true
         } else {
+            await removeGoogleServicesPlistFromXcodeProject()
             progress.log(
                 "GoogleService-Info.plist not found - Firebase push notifications will not work",
                 "warning"
             )
-            progress.log(
-                "Place GoogleService-Info.plist in project root or src/native/iosnativeWebView/iosnativeWebView/",
-                "info"
-            )
+            progress.log("Place GoogleService-Info.plist in project root", "info")
             return false
         }
     } catch (error) {
@@ -652,6 +768,7 @@ async function handleGoogleServicesPlist() {
         if (error.code === "EACCES" && fs.existsSync(rootGoogleServicesPath)) {
             throw new Error(`Permission denied copying GoogleService-Info.plist: ${error.message}`)
         }
+        await removeGoogleServicesPlistFromXcodeProject()
         progress.log(`Warning: Error handling GoogleService-Info.plist: ${error.message}`, "warning")
         return false
     }
@@ -914,7 +1031,7 @@ async function removeSoundFilesFromXcodeProject() {
     }
 }
 
-async function cleanupNotificationAssets() {
+async function cleanupNotificationAssets(removeFirebaseConfig = false) {
     try {
         const assetsPath = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
         const bundlePath = `${PROJECT_DIR}/${PROJECT_NAME}`
@@ -943,13 +1060,15 @@ async function cleanupNotificationAssets() {
         // Remove sound files from Xcode project
         await removeSoundFilesFromXcodeProject()
 
-        // Remove GoogleService-Info.plist when notifications are disabled
-        // NOTE: Commented out - GoogleService-Info.plist is managed in Xcode project
-        // const iosGoogleServicesPath = `${bundlePath}/GoogleService-Info.plist`
-        // if (fs.existsSync(iosGoogleServicesPath)) {
-        //     fs.unlinkSync(iosGoogleServicesPath)
-        //     progress.log("Removed GoogleService-Info.plist from iOS project", "info")
-        // }
+        if (removeFirebaseConfig) {
+            const iosGoogleServicesPath = `${bundlePath}/${GOOGLE_SERVICES_FILENAME}`
+            if (fs.existsSync(iosGoogleServicesPath)) {
+                fs.unlinkSync(iosGoogleServicesPath)
+                progress.log("Removed GoogleService-Info.plist from iOS project directory", "info")
+            }
+
+            await removeGoogleServicesPlistFromXcodeProject()
+        }
 
         progress.log("Cleaned up notification assets", "success")
     } catch (error) {
@@ -990,19 +1109,9 @@ async function addSoundFilesToXcodeProject() {
 
         let projectContent = fs.readFileSync(projectFilePath, "utf8")
 
-        // Generate deterministic IDs for sound files (based on hash of filename)
-        const crypto = require("crypto")
-        const generateId = (filename, suffix = "") => {
-            const hash = crypto
-                .createHash("md5")
-                .update(filename + suffix)
-                .digest("hex")
-            return hash.substring(0, 24).toUpperCase()
-        }
-
         for (const soundFile of soundFiles) {
-            const fileRefId = generateId(soundFile.filename, "_ref")
-            const buildFileId = generateId(soundFile.filename, "_build")
+            const fileRefId = generateProjectObjectId(soundFile.filename, "_ref")
+            const buildFileId = generateProjectObjectId(soundFile.filename, "_build")
 
             // Check if this sound file is already in the project
             if (projectContent.includes(`/* ${soundFile.filename} */`)) {
@@ -1063,7 +1172,7 @@ async function processNotificationAssets(webviewConfig) {
 
     try {
         // Always clean up notification assets first
-        await cleanupNotificationAssets()
+        await cleanupNotificationAssets(!hasNotificationConfig)
 
         if (!hasNotificationConfig) {
             progress.log("Notifications disabled - skipped asset processing", "info")
