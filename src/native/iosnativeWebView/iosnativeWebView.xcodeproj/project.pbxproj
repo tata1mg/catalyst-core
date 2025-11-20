@@ -38,6 +38,7 @@
 		E997B6722E97918E008C7F55 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E997B6702E97918E008C7F55 /* SplashView.swift */; };
 		E997B6742E979212008C7F55 /* URLWhitelistManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E997B6732E979212008C7F55 /* URLWhitelistManager.swift */; };
 		E997B6762E990180008C7F55 /* SplashViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E997B6752E990180008C7F55 /* SplashViewModel.swift */; };
+		F1234AC22E990180008C7F58 /* localhost.p12 in Resources */ = {isa = PBXBuildFile; fileRef = F1234AC32E990180008C7F58 /* localhost.p12 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,6 +93,7 @@
 		E997B6702E97918E008C7F55 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		E997B6732E979212008C7F55 /* URLWhitelistManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLWhitelistManager.swift; sourceTree = "<group>"; };
 		E997B6752E990180008C7F55 /* SplashViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashViewModel.swift; sourceTree = "<group>"; };
+		F1234AC32E990180008C7F58 /* localhost.p12 */ = {isa = PBXFileReference; lastKnownFileType = file; path = localhost.p12; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,6 +175,7 @@
 				4777D5202C60B87500E85AC6 /* ContentView.swift */,
 				4777D5222C60B87700E85AC6 /* Assets.xcassets */,
 				4777D5242C60B87700E85AC6 /* Preview Content */,
+				F1234AC32E990180008C7F58 /* localhost.p12 */,
 			);
 			path = iosnativeWebView;
 			sourceTree = "<group>";
@@ -296,6 +299,7 @@
 				4777D5262C60B87700E85AC6 /* Preview Assets.xcassets in Resources */,
 				4777D5232C60B87700E85AC6 /* Assets.xcassets in Resources */,
 				E90872AA2E8AB01A0076627C /* Info-Release.plist in Resources */,
+				F1234AC22E990180008C7F58 /* localhost.p12 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
