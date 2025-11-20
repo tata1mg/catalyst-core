@@ -37,7 +37,7 @@ object FrameworkServerUtils {
     private const val SESSION_TIMEOUT_MS = 30 * 60 * 1000L // 30 minutes
     
     // Server state
-    private var server: NettyApplicationEngine? = null
+    private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
     private var serverPort: Int = 0
     private var sessionId: String = ""
     private var isServerRunning: Boolean = false
