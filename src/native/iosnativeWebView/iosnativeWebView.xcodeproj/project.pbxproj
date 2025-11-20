@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
         C99974342E97D56900C25611 /* CatalystCore in Frameworks */ = {isa = PBXBuildFile; productRef = C99974332E97D56900C25611 /* CatalystCore */; };
 		C999743A2E97D69E00C25611 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99974382E97D69E00C25611 /* ContentView.swift */; };
-		C9DAB6432E950A2500A02A44 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C9DAB6422E950A2500A02A44 /* GoogleService-Info.plist */; };
 		4777D51F2C60B87500E85AC6 /* iosnativeWebViewApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4777D51E2C60B87500E85AC6 /* iosnativeWebViewApp.swift */; };
 		4777D5232C60B87700E85AC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4777D5222C60B87700E85AC6 /* Assets.xcassets */; };
 		4777D5262C60B87700E85AC6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4777D5252C60B87700E85AC6 /* Preview Assets.xcassets */; };
@@ -43,7 +42,6 @@
 		4777D5482C61EC1500E85AC6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		47F3CABC2C639BF5007CF14B /* build.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = build.swift; sourceTree = "<group>"; };
 		C99974382E97D69E00C25611 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		C9DAB6422E950A2500A02A44 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		C9DAB6492E950DDC00A02A44 /* iosnativeWebView.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iosnativeWebView.entitlements; sourceTree = "<group>"; };
 		E90872B32E8D00D80076627C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -100,7 +98,6 @@
 				E90872B32E8D00D80076627C /* AppDelegate.swift */,
 				4777D51E2C60B87500E85AC6 /* iosnativeWebViewApp.swift */,
 				C9DAB6492E950DDC00A02A44 /* iosnativeWebView.entitlements */,
-				C9DAB6422E950A2500A02A44 /* GoogleService-Info.plist */,
 				4777D5482C61EC1500E85AC6 /* Info.plist */,
 				4777D5222C60B87700E85AC6 /* Assets.xcassets */,
 				4777D5242C60B87700E85AC6 /* Preview Content */,
@@ -228,7 +225,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4777D5262C60B87700E85AC6 /* Preview Assets.xcassets in Resources */,
-				C9DAB6432E950A2500A02A44 /* GoogleService-Info.plist in Resources */,
 				4777D5232C60B87700E85AC6 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
