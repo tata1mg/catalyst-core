@@ -525,17 +525,16 @@ class CustomWebView(
                 WebSettings.MIXED_CONTENT_NEVER_ALLOW
             }
 
-            setRenderPriority(WebSettings.RenderPriority.HIGH)
             cacheMode = WebSettings.LOAD_DEFAULT
             databaseEnabled = true
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
-            setEnableSmoothTransition(true)
 
-            // Allow access to file URLs and JavaScript interfaces - restrict in production if possible
-            allowFileAccessFromFileURLs = BuildConfig.DEBUG
-            allowUniversalAccessFromFileURLs = BuildConfig.DEBUG
+            // TODO: Enable these when build optimization feature is implemented
+            // These are deprecated but may be needed for local file access in development
+            // allowFileAccessFromFileURLs = BuildConfig.DEBUG
+            // allowUniversalAccessFromFileURLs = BuildConfig.DEBUG
         }
 
         // Setup ServiceWorker to intercept requests that bypass normal WebView intercept

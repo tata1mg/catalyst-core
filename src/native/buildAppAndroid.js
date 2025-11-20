@@ -1006,6 +1006,9 @@ async function createAABConfig(androidConfig) {
             androidConfig.packageName?.split(".").pop() ||
             "catalystapp",
 
+        // IMPORTANT: Pass packageName for renaming
+        packageName: androidConfig.packageName || null,
+
         // AAB specific settings
         createSignedAAB: true,
         outputPath: androidConfig.outputPath || `${process.env.PWD}/build-output`,
@@ -1132,6 +1135,19 @@ async function buildSignedAAB(androidConfig) {
     progress.log("Building signed AAB for release...", "info")
 
     try {
+        // Generate webview config BEFORE creating AAB
+        progress.log("Generating webview configuration for release...", "info")
+        try {
+            const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
+            await (0, _utils.runInteractiveCommand)("sh", ["-c", generateConfigCommand], {
+                "BUILD SUCCESSFUL": "",
+            })
+            progress.log("Webview config generated successfully", "success")
+        } catch (configError) {
+            progress.log(`Warning: Webview config generation failed: ${configError.message}`, "warning")
+            throw new Error("Webview config generation is required for release builds")
+        }
+
         // Create AAB configuration directly without temporary file
         const aabConfig = await createAABConfig(androidConfig)
 

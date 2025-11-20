@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
 import java.util.Properties
@@ -115,6 +116,19 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")
         }
+
+        // Setup back press handler (modern API)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (customWebView.canGoBack()) {
+                    customWebView.goBack()
+                } else {
+                    // Disable this callback and let the system handle back press
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
         
         // Load URL based on environment and deep link data
         try {
@@ -171,14 +185,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             customWebView.saveState(outState)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save WebView state: ${e.message}")
-        }
-    }
-
-    override fun onBackPressed() {
-        if (customWebView.canGoBack()) {
-            customWebView.goBack()
-        } else {
-            super.onBackPressed()
         }
     }
 

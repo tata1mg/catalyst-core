@@ -286,6 +286,7 @@ class WebBridge {
                 screenWidth: "screenWidth",
                 screenHeight: "screenHeight",
                 screenDensity: "screenDensity",
+                appInfo: "appInfo",
             },
             ios: {
                 model: "model",
@@ -294,6 +295,7 @@ class WebBridge {
                 screenWidth: "screenWidth",
                 screenHeight: "screenHeight",
                 screenDensity: "screenDensity",
+                appInfo: "appInfo",
             },
         }
 
