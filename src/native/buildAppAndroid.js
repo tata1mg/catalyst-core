@@ -328,7 +328,7 @@ async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice
     progress.log("Building and installing app...", "info")
     try {
         // Build command without monkey launch
-        let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug --quiet --console=rich`
+        let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --quiet --console=rich`
 
         // Add device-specific install target if physical device
         if (targetDevice && targetDevice.type === "physical") {
@@ -576,6 +576,411 @@ async function configureAppName(androidConfig) {
     }
 }
 
+async function handleGoogleServicesJson() {
+    try {
+        const rootGoogleServicesPath = `${process.env.PWD}/google-services.json`
+        const androidGoogleServicesPath = `${pwd}/androidProject/app/google-services.json`
+
+        // Check if google-services.json exists in the root directory
+        if (_fs.default.existsSync(rootGoogleServicesPath)) {
+            progress.log("Found google-services.json in root directory", "info")
+
+            // Create the app directory if it doesn't exist
+            const appDir = `${pwd}/androidProject/app`
+            if (!_fs.default.existsSync(appDir)) {
+                _fs.default.mkdirSync(appDir, { recursive: true })
+            }
+
+            // Copy the file to the Android project
+            _fs.default.copyFileSync(rootGoogleServicesPath, androidGoogleServicesPath)
+            progress.log("Copied google-services.json to androidProject/app/", "success")
+
+            return true
+        } else if (_fs.default.existsSync(androidGoogleServicesPath)) {
+            progress.log("google-services.json already exists in androidProject/app/", "info")
+            return true
+        } else {
+            progress.log(
+                "google-services.json not found - Firebase push notifications will not work",
+                "warning"
+            )
+            progress.log(
+                "Place google-services.json in project root or src/native/androidProject/app/",
+                "info"
+            )
+            return false
+        }
+    } catch (error) {
+        progress.log(`Warning: Error handling google-services.json: ${error.message}`, "warning")
+        return false
+    }
+}
+
+async function processNotifications(WEBVIEW_CONFIG) {
+    const hasNotificationConfig = !!WEBVIEW_CONFIG.notifications?.enabled
+
+    try {
+        // Always clean up notification configurations first (regardless of config)
+        await cleanupNotificationPermissions()
+        await cleanupNotificationResources()
+        await cleanupNotificationMetadata()
+        await cleanupNotificationAssets()
+
+        if (!hasNotificationConfig) {
+            progress.log("Notifications disabled - cleaned up notification configurations", "info")
+            return
+        }
+
+        // Handle google-services.json file for Firebase
+        const hasGoogleServices = await handleGoogleServicesJson()
+        if (!hasGoogleServices) {
+            progress.log("Continuing without Firebase - only local notifications will work", "warning")
+        }
+
+        // Only add configurations if notifications are enabled
+        await addNotificationPermissions()
+        await generateNotificationResources(WEBVIEW_CONFIG.notifications)
+        await addNotificationMetadata()
+        await processNotificationAssets()
+        progress.log("Notification configuration completed successfully!", "success")
+    } catch (error) {
+        progress.log(`Warning: Error processing notifications: ${error.message}`, "warning")
+    }
+}
+
+async function addNotificationPermissions() {
+    try {
+        const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+        const permissionsXml = `    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />`
+
+        manifestContent = manifestContent.replace(
+            /(<uses-permission[^>]*>[\s\S]*?)(\s*<uses-feature)/,
+            `$1\n${permissionsXml}$2`
+        )
+
+        _fs.default.writeFileSync(manifestPath, manifestContent)
+        progress.log("Added notification permissions to AndroidManifest.xml", "success")
+    } catch (error) {
+        throw new Error(`Failed to add notification permissions: ${error.message}`)
+    }
+}
+
+async function generateNotificationResources(notificationConfig) {
+    try {
+        const colorsPath = `${pwd}/androidProject/app/src/main/res/values/colors.xml`
+        let colorsContent = _fs.default.readFileSync(colorsPath, "utf8")
+
+        const notificationColorXml = `    <color name="notification_color">${notificationConfig.color || "#007AFF"}</color>`
+
+        if (!colorsContent.includes('name="notification_color"')) {
+            colorsContent = colorsContent.replace(/(<\/resources>)/, `${notificationColorXml}\n$1`)
+            _fs.default.writeFileSync(colorsPath, colorsContent)
+            progress.log("Added notification color to colors.xml", "success")
+        }
+    } catch (error) {
+        throw new Error(`Failed to generate notification resources: ${error.message}`)
+    }
+}
+
+async function addNotificationMetadata() {
+    try {
+        const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+        const metadataXml = `
+        <!-- Default notification configuration -->
+        <meta-data
+            android:name="default_notification_channel_id"
+            android:value="default_notifications" />
+        <meta-data
+            android:name="default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="default_notification_color"
+            android:resource="@color/notification_color" />
+
+        <!-- Firebase default notification configuration -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="fcm_default_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+
+        <!-- Push Notification Service -->
+        <service
+            android:name="io.yourname.androidproject.utils.PushNotificationUtils"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>`
+
+        manifestContent = manifestContent.replace(/(\s*<\/application>)/, `${metadataXml}\n$1`)
+        _fs.default.writeFileSync(manifestPath, manifestContent)
+        progress.log(
+            "Added notification metadata and push notification service to AndroidManifest.xml",
+            "success"
+        )
+    } catch (error) {
+        throw new Error(`Failed to add notification metadata: ${error.message}`)
+    }
+}
+
+async function processNotificationAssets() {
+    try {
+        const destPath = `${pwd}/androidProject/app/src/main/res`
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]
+        const audioFormats = ["mp3", "wav", "ogg"]
+
+        let assetsProcessed = 0
+
+        // Define notification icons to process
+        const notificationIcons = [
+            { sourceName: "notification-icon", resourceName: "ic_notification" },
+            { sourceName: "notification-large", resourceName: "ic_notification_large" },
+        ]
+
+        // Define notification sounds to process
+        const notificationSounds = [
+            { sourceName: "notification-sound-default", resourceName: "notification_sound_default" },
+            { sourceName: "notification-sound-urgent", resourceName: "notification_sound_urgent" },
+        ]
+
+        // Remove existing notification icons to avoid conflicts
+        for (const icon of notificationIcons) {
+            for (const format of imageFormats) {
+                const existingIconPath = `${destPath}/drawable/${icon.resourceName}.${format}`
+                if (_fs.default.existsSync(existingIconPath)) {
+                    _fs.default.unlinkSync(existingIconPath)
+                    progress.log(`Removed existing ${icon.resourceName}.${format}`, "info")
+                }
+            }
+        }
+
+        // Remove existing notification sounds to avoid conflicts
+        for (const sound of notificationSounds) {
+            for (const format of audioFormats) {
+                const existingSoundPath = `${destPath}/raw/${sound.resourceName}.${format}`
+                if (_fs.default.existsSync(existingSoundPath)) {
+                    _fs.default.unlinkSync(existingSoundPath)
+                    progress.log(`Removed existing ${sound.resourceName}.${format}`, "info")
+                }
+            }
+        }
+
+        // Process notification icons
+        let iconFound = false
+        for (const icon of notificationIcons) {
+            for (const format of imageFormats) {
+                const iconImagePath = `${publicPath}/${icon.sourceName}.${format}`
+                if (_fs.default.existsSync(iconImagePath)) {
+                    const destImagePath = `${destPath}/drawable/${icon.resourceName}.${format}`
+                    _fs.default.copyFileSync(iconImagePath, destImagePath)
+                    progress.log(
+                        `Notification icon copied: ${icon.sourceName}.${format} -> ${icon.resourceName}.${format}`,
+                        "success"
+                    )
+                    assetsProcessed++
+
+                    // Track if we found the main notification icon
+                    if (icon.sourceName === "notification-icon") {
+                        iconFound = true
+                    }
+                    break
+                }
+            }
+        }
+
+        // Generate default notification icon if not found
+        if (!iconFound) {
+            generateNotificationIconDrawable("ic_notification", destPath)
+            progress.log("Generated default notification icon", "info")
+        }
+
+        // Create raw directory if it doesn't exist
+        const rawDir = `${destPath}/raw`
+        if (!_fs.default.existsSync(rawDir)) {
+            _fs.default.mkdirSync(rawDir, { recursive: true })
+        }
+
+        // Process notification sounds
+        for (const sound of notificationSounds) {
+            for (const format of audioFormats) {
+                const soundImagePath = `${publicPath}/${sound.sourceName}.${format}`
+                if (_fs.default.existsSync(soundImagePath)) {
+                    const destSoundPath = `${destPath}/raw/${sound.resourceName}.${format}`
+                    _fs.default.copyFileSync(soundImagePath, destSoundPath)
+                    progress.log(
+                        `Notification sound copied: ${sound.sourceName}.${format} -> ${sound.resourceName}.${format}`,
+                        "success"
+                    )
+                    assetsProcessed++
+                    break
+                }
+            }
+        }
+
+        if (assetsProcessed > 0) {
+            progress.log(`Processed ${assetsProcessed} notification assets from public/`, "success")
+        } else {
+            progress.log("No notification assets found in public/ - using defaults", "info")
+        }
+    } catch (error) {
+        throw new Error(`Failed to process notification assets: ${error.message}`)
+    }
+}
+
+function generateNotificationIconDrawable(iconName, destPath) {
+    // Create vector drawable for notification icon as fallback
+    const iconXml = `<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorOnPrimary">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2zM18,16v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"/>
+</vector>`
+
+    _fs.default.writeFileSync(`${destPath}/drawable/${iconName}.xml`, iconXml)
+}
+
+// Cleanup functions to remove notification configurations
+async function cleanupNotificationPermissions() {
+    try {
+        const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+        // Remove notification permissions
+        const notificationPermissions = [
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.VIBRATE",
+            "android.permission.WAKE_LOCK",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+        ]
+
+        notificationPermissions.forEach((permission) => {
+            const permissionRegex = new RegExp(
+                `\\s*<uses-permission android:name="${permission}"[^>]*/>`,
+                "g"
+            )
+            manifestContent = manifestContent.replace(permissionRegex, "")
+        })
+
+        _fs.default.writeFileSync(manifestPath, manifestContent)
+    } catch (error) {
+        // Don't throw error for cleanup operations, just log
+        progress.log(`Warning: Error cleaning notification permissions: ${error.message}`, "warning")
+    }
+}
+
+async function cleanupNotificationResources() {
+    try {
+        const colorsPath = `${pwd}/androidProject/app/src/main/res/values/colors.xml`
+        let colorsContent = _fs.default.readFileSync(colorsPath, "utf8")
+
+        // Remove notification color
+        const existingColorLine = colorsContent
+            .split("\n")
+            .find((line) => line.includes('name="notification_color"'))
+
+        if (existingColorLine) {
+            colorsContent = colorsContent.replace(existingColorLine, "")
+            _fs.default.writeFileSync(colorsPath, colorsContent)
+        }
+    } catch (error) {
+        progress.log(`Warning: Error cleaning notification resources: ${error.message}`, "warning")
+    }
+}
+
+async function cleanupNotificationMetadata() {
+    try {
+        const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
+        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+
+        // Remove notification metadata entries
+        const metadataNames = [
+            "default_notification_channel_id",
+            "default_notification_icon",
+            "default_notification_color",
+            "com.google.firebase.messaging.default_notification_channel_id",
+            "com.google.firebase.messaging.default_notification_icon",
+        ]
+
+        metadataNames.forEach((metadataName) => {
+            // Remove the meta-data block including comments
+            const metadataRegex = new RegExp(
+                `\\s*<!--[^>]*notification[^>]*-->\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>|\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>`,
+                "gi"
+            )
+            manifestContent = manifestContent.replace(metadataRegex, "")
+        })
+
+        // Remove Push Notification Service
+        const serviceRegex =
+            /\s*<!--\s*Push Notification Service\s*-->\s*<service[^>]*android:name="[^"]*PushNotificationUtils"[\s\S]*?<\/service>/gi
+        manifestContent = manifestContent.replace(serviceRegex, "")
+
+        // Clean up any standalone notification comments
+        manifestContent = manifestContent.replace(/\s*<!--\s*Default notification configuration\s*-->/gi, "")
+        manifestContent = manifestContent.replace(
+            /\s*<!--\s*Firebase default notification configuration\s*-->/gi,
+            ""
+        )
+        manifestContent = manifestContent.replace(/\s*<!--\s*Push Notification Service\s*-->/gi, "")
+
+        _fs.default.writeFileSync(manifestPath, manifestContent)
+    } catch (error) {
+        progress.log(`Warning: Error cleaning notification metadata: ${error.message}`, "warning")
+    }
+}
+
+async function cleanupNotificationAssets() {
+    try {
+        const destPath = `${pwd}/androidProject/app/src/main/res`
+        const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp", "xml"]
+        const audioFormats = ["mp3", "wav", "ogg"]
+
+        // Define notification icons to clean up
+        const notificationIcons = ["ic_notification", "ic_notification_large"]
+
+        // Define notification sounds to clean up
+        const notificationSounds = ["notification_sound_default", "notification_sound_urgent"]
+
+        // Remove existing notification icons
+        for (const icon of notificationIcons) {
+            for (const format of imageFormats) {
+                const iconPath = `${destPath}/drawable/${icon}.${format}`
+                if (_fs.default.existsSync(iconPath)) {
+                    _fs.default.unlinkSync(iconPath)
+                }
+            }
+        }
+
+        // Remove existing notification sounds
+        const rawDir = `${destPath}/raw`
+        if (_fs.default.existsSync(rawDir)) {
+            for (const sound of notificationSounds) {
+                for (const format of audioFormats) {
+                    const soundPath = `${rawDir}/${sound}.${format}`
+                    if (_fs.default.existsSync(soundPath)) {
+                        _fs.default.unlinkSync(soundPath)
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        progress.log(`Warning: Error cleaning notification assets: ${error.message}`, "warning")
+    }
+}
+
 // Legacy function for backward compatibility
 // async function installApp(ADB_PATH, androidConfig, buildOptimisation, buildType = "debug") {
 //     await buildApp(ADB_PATH, androidConfig, buildOptimisation, buildType)
@@ -734,7 +1139,9 @@ async function buildSignedAAB(androidConfig) {
         progress.log("Generating webview configuration for release...", "info")
         try {
             const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
-            await (0, _utils.runInteractiveCommand)("sh", ["-c", generateConfigCommand], { "BUILD SUCCESSFUL": "" })
+            await (0, _utils.runInteractiveCommand)("sh", ["-c", generateConfigCommand], {
+                "BUILD SUCCESSFUL": "",
+            })
             progress.log("Webview config generated successfully", "success")
         } catch (configError) {
             progress.log(`Warning: Webview config generation failed: ${configError.message}`, "warning")
@@ -821,6 +1228,7 @@ async function buildAndroidApp() {
         await copySplashscreenAssets()
         await copyIconAssets()
         await configureAppName(androidConfig)
+        await processNotifications(WEBVIEW_CONFIG)
         progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
         progress.complete("copyAssets")
 

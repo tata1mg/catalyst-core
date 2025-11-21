@@ -13,5 +13,16 @@
     <string>This app requires camera access to capture images</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>This app requires photo library access to select images from your gallery</string>
+    <key>NSUserNotificationUsageDescription</key>
+    <string>This app needs notification permission to send you important updates</string>
+    <key>NSLocalNotificationUsageDescription</key>
+    <string>This app uses notifications to alert you about important events</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+        <string>background-fetch</string>
+    </array>
+    <key>FirebaseAppDelegateProxyEnabled</key>
+    <false/>
 </dict>
 </plist>

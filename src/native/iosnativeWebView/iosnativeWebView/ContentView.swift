@@ -1,13 +1,16 @@
 import SwiftUI
 import os
 import WebKit
+import CatalystCore
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "ContentView")
 
-struct ContentView: View {
+public struct ContentView: View {
     @StateObject private var webViewModel = WebViewModel()
+    
+    public init() {}
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             // Normal remote URL - isolated from state changes
             WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)

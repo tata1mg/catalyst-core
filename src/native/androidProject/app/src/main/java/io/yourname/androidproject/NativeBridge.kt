@@ -9,6 +9,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationCompat
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
@@ -104,6 +105,9 @@ class NativeBridge(
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
 
+    // Unified notification manager
+    private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
+
     companion object {
         private const val TAG = "NativeBridge"
 
@@ -170,6 +174,10 @@ class NativeBridge(
 
             // Initialize FrameworkServer for large file handling
             initializeFrameworkServer()
+
+            // Initialize NotificationManager and set WebView reference
+            notificationManager.initialize()
+            notificationManager.setWebViewReference(webView)
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error initializing NativeBridge", e)
         }
@@ -271,6 +279,195 @@ class NativeBridge(
                 val deviceInfo = DeviceInfoUtils.getDeviceInfo(mainActivity, properties)
                 BridgeUtils.logDebug(TAG, "Device info retrieved: $deviceInfo")
                 BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, deviceInfo.toString())
+            }
+        }
+    }
+    
+    @JavascriptInterface
+    fun scheduleLocalNotification(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED, "schedule local notification") {
+            mainActivity.runOnUiThread {
+                // Parse config with full NotificationConfig support
+                val notificationConfig = if (config.isNullOrBlank()) {
+                    NotificationConfig(title = NotificationConstants.DEFAULT_NOTIFICATION_TITLE, body = NotificationConstants.DEFAULT_NOTIFICATION_BODY)
+                } else {
+                    try {
+                        val json = org.json.JSONObject(config)
+
+                        // Parse actions array with title and actionId
+                        val actions = if (json.has("actions")) {
+                            val actionsArray = json.getJSONArray("actions")
+                            val actionsList = mutableListOf<NotificationAction>()
+                            for (i in 0 until actionsArray.length()) {
+                                val actionObj = actionsArray.getJSONObject(i)
+                                actionsList.add(
+                                    NotificationAction(
+                                        title = actionObj.getString("title"),
+                                        actionId = actionObj.getString("action")
+                                    )
+                                )
+                            }
+                            actionsList
+                        } else null
+
+                        // Parse data map if present - support Any type
+                        val data = if (json.has("data")) {
+                            val dataObj = json.getJSONObject("data")
+                            val dataMap = mutableMapOf<String, Any>()
+                            dataObj.keys().forEach { key ->
+                                dataMap[key] = dataObj.get(key)
+                            }
+                            dataMap
+                        } else null
+
+                        // Parse style enum if present
+                        val style = if (json.has("style")) {
+                            try {
+                                NotificationStyle.valueOf(json.getString("style"))
+                            } catch (e: IllegalArgumentException) {
+                                NotificationStyle.BASIC
+                            }
+                        } else NotificationStyle.BASIC
+
+                        NotificationConfig(
+                            title = json.optString("title", NotificationConstants.DEFAULT_NOTIFICATION_TITLE),
+                            body = json.optString("body", NotificationConstants.DEFAULT_NOTIFICATION_BODY),
+                            channel = json.optString("channel", NotificationConstants.DEFAULT_CHANNEL_ID),
+                            badge = if (json.has("badge")) json.getInt("badge") else null,
+                            actions = actions,
+                            largeImage = json.optString("largeImage", null),
+                            style = style,
+                            priority = json.optInt("priority", NotificationCompat.PRIORITY_DEFAULT),
+                            vibrate = json.optBoolean("vibrate", true),
+                            autoCancel = json.optBoolean("autoCancel", true),
+                            ongoing = json.optBoolean("ongoing", false),
+                            data = data
+                        )
+                    } catch (e: Exception) {
+                        BridgeUtils.logError(TAG, "Error parsing notification config", e)
+                        NotificationConfig(title = NotificationConstants.DEFAULT_NOTIFICATION_TITLE, body = NotificationConstants.DEFAULT_NOTIFICATION_BODY)
+                    }
+                }
+                
+                val notificationId = notificationManager.scheduleLocal(notificationConfig)
+                BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED,
+                    """{"notificationId": "$notificationId", "scheduled": true}""")
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun cancelLocalNotification(notificationId: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED, "cancel local notification") {
+            mainActivity.runOnUiThread {
+                val success = notificationManager.cancelLocal(notificationId)
+                BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED,
+                    """{"notificationId": "$notificationId", "cancelled": $success}""")
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun requestNotificationPermission(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "request notification permission") {
+            mainActivity.runOnUiThread {
+                notificationManager.requestPermission(mainActivity) { granted ->
+                    val status = if (granted) "GRANTED" else "DENIED"
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, status)
+                }
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun registerForPushNotifications(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN, "register for push notifications") {
+            mainActivity.runOnUiThread {
+                launch {
+                    try {
+                        val token = notificationManager.initializePush()
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN,
+                            """{"token": "$token", "registered": true}""")
+                    } catch (e: Exception) {
+                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN,
+                            "Push registration failed: ${e.message}")
+                    }
+                }
+            }
+        }
+    }
+
+
+    @JavascriptInterface
+    fun subscribeToTopic(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, "subscribe to topic") {
+            mainActivity.runOnUiThread {
+                launch {
+                    try {
+                        val json = org.json.JSONObject(config ?: "{}")
+                        val topic = json.optString("topic", "")
+
+                        if (topic.isBlank()) {
+                            BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                                "Topic name cannot be empty")
+                            return@launch
+                        }
+
+                        val success = notificationManager.subscribeToTopic(topic)
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                            """{"topic": "$topic", "subscribed": $success}""")
+
+                    } catch (e: Exception) {
+                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                            "Topic subscription failed: ${e.message}")
+                    }
+                }
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun unsubscribeFromTopic(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, "unsubscribe from topic") {
+            mainActivity.runOnUiThread {
+                launch {
+                    try {
+                        val json = org.json.JSONObject(config ?: "{}")
+                        val topic = json.optString("topic", "")
+
+                        if (topic.isBlank()) {
+                            BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                                "Topic name cannot be empty")
+                            return@launch
+                        }
+
+                        val success = notificationManager.unsubscribeFromTopic(topic)
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                            """{"topic": "$topic", "unsubscribed": $success}""")
+
+                    } catch (e: Exception) {
+                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                            "Topic unsubscription failed: ${e.message}")
+                    }
+                }
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun getSubscribedTopics(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, "get subscribed topics") {
+            mainActivity.runOnUiThread {
+                try {
+                    val topics = notificationManager.getSubscribedTopics()
+                    val topicsArray = org.json.JSONArray(topics.toList())
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                        """{"topics": $topicsArray}""")
+
+                } catch (e: Exception) {
+                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
+                        "Failed to get subscribed topics: ${e.message}")
+                }
             }
         }
     }
@@ -557,18 +754,31 @@ class NativeBridge(
     // Removed getFileSize - now handled by FileUtils.getFileSize
     
     /**
+     * Handle permission request results
+     */
+    fun handlePermissionResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "handle permission result") {
+            // Delegate to notification manager which handles notification permissions
+            notificationManager.getNotificationUtils().handlePermissionResult(requestCode, permissions, grantResults)
+        }
+    }
+
+    /**
      * Cleanup method to be called when the bridge is being destroyed
      */
     fun cleanup() {
         BridgeUtils.logDebug(TAG, "Cleaning up NativeBridge resources")
-        
+
         try {
+            // Cleanup NotificationManager
+            notificationManager.cleanup()
+
             // Stop FrameworkServer
             FrameworkServerUtils.stopServer()
-            
+
             // Cancel any pending coroutines
             supervisorJob.cancel()
-            
+
             BridgeUtils.logInfo(TAG, "NativeBridge cleanup completed")
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error during NativeBridge cleanup", e)

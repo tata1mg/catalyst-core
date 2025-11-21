@@ -12,4 +12,9 @@ tsconfig.json
 /template
 *.sh
 context.md
-.claude
+.claude/
+n8n*
+openai_response.json
+simple_response.json
+.vscode
+loadable-stats.json

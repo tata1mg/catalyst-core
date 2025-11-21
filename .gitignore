@@ -37,6 +37,10 @@ build/
 **/iosnativeWebView/*.DS_Store
 **/iosnativeWebView/ConfigConstants.swift
 
+# SPM - Generated files (Package.swift is committed as default, but regenerated at build time)
+**/iosnativeWebView/.package-config-hash
+**/iosnativeWebView/.build/
+
 # Built application files
 **.apk
 **.ap_
@@ -90,9 +94,3 @@ build/
 **/androidProject/**/webview_config.properties
 **/androidProject/**/cpp/*
 **/androidProject/**/build/*
-.claude/
-n8n*
-*.sh
-openai_response.json
-simple_response.json
-src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift

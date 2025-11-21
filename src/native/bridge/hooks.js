@@ -767,6 +767,95 @@ export const useCameraPermission = () => {
 }
 
 /**
+ * Promise-based notification permission request
+ * @returns {Promise<string>} Promise that resolves with permission status
+ */
+export const requestNotificationPermission = () => {
+    if (typeof window === "undefined") {
+        return Promise.resolve(null)
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            if (!nativeBridge.isAvailable()) {
+                reject(new Error("Native bridge not available"))
+                return
+            }
+
+            const handlePermissionStatus = (data) => {
+                window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+
+                if (data === PERMISSION_STATUS.GRANTED) {
+                    resolve(data)
+                } else {
+                    reject(new Error(`Notification permission ${data.toLowerCase()}`))
+                }
+            }
+
+            window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, handlePermissionStatus)
+            nativeBridge.notification.requestPermission()
+
+            console.log("🔔 Notification permission requested")
+        } catch (error) {
+            reject(error)
+        }
+    })
+}
+
+/**
+ * React hook for notification permission status
+ * Automatically requests permission on mount
+ */
+export const useNotificationPermission = () => {
+    if (typeof window === "undefined") {
+        return { permission: null, isLoading: false }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    const [permission, setPermission] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        const requestPermission = async () => {
+            try {
+                if (!nativeBridge.isAvailable()) {
+                    setPermission(PERMISSION_STATUS.NOT_DETERMINED)
+                    setIsLoading(false)
+                    return
+                }
+
+                window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+                    setPermission(data)
+                    setIsLoading(false)
+                    console.log("🔔 Notification permission status updated:", data)
+                })
+
+                nativeBridge.notification.requestPermission()
+            } catch (error) {
+                console.error("🔔 Error requesting notification permission:", error)
+                setPermission(PERMISSION_STATUS.DENIED)
+                setIsLoading(false)
+            }
+        }
+
+        requestPermission()
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+        }
+    }, [])
+
+    return { permission, isLoading }
+}
+
+/**
  * Promise-based haptic feedback request
  * @param {string} feedbackType - Type of haptic feedback (from HAPTIC_FEEDBACK_TYPES)
  * @returns {Promise<string>} Promise that resolves with success status
@@ -971,5 +1060,160 @@ export const useHapticFeedback = () => {
 
         // Haptic types constant
         HAPTIC_TYPES,
+    }
+}
+
+/**
+ * React hook for notification functionality
+ * Handles local notifications, push notifications, and badge management
+ */
+export const useNotification = () => {
+    const base = useBaseHook("useNotification")
+    const [permissionStatus, setPermissionStatus] = useState(null)
+    const [pushToken, setPushToken] = useState(null)
+    const [badges, setBadges] = useState(0)
+    const [lastNotification, setLastNotification] = useState(null)
+    const [subscribedTopics, setSubscribedTopics] = useState([])
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return {
+            data: null,
+            loading: false,
+            error: null,
+            execute: () => {},
+            scheduleLocal: () => {},
+            cancelLocal: () => {},
+            registerForPush: () => {},
+            updateBadge: () => {},
+            subscribeToTopic: () => {},
+            unsubscribeFromTopic: () => {},
+            getSubscribedTopics: () => {},
+            permissionStatus: null,
+            pushToken: null,
+            badges: 0,
+            subscribedTopics: [],
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        // Register callbacks for all notification events
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+            setPermissionStatus(data)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            base.setDataAndComplete(result)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            setPushToken(result.token)
+            base.setDataAndComplete(result)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED, (data) => {
+            const notification = typeof data === "string" ? JSON.parse(data) : data
+            setLastNotification(notification)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED, (data) => {
+            const action = typeof data === "string" ? JSON.parse(data) : data
+            base.setDataAndComplete(action)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            base.setDataAndComplete(result)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT, (data) => {
+            const result = typeof data === "string" ? JSON.parse(data) : data
+            setSubscribedTopics(result.topics || [])
+            base.setDataAndComplete(result)
+        })
+
+        return () => {
+            // Cleanup
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT)
+        }
+    }, [])
+
+    // Local notification scheduling with all supported styles
+    const scheduleLocal = (config) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.scheduleLocal(config)
+        }, "schedule local notification")
+    }
+
+    const cancelLocal = (notificationId) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.cancelLocal(notificationId)
+        }, "cancel notification")
+    }
+
+    const registerForPush = () => {
+        base.executeOperation(() => {
+            nativeBridge.notification.registerForPush()
+        }, "register for push")
+    }
+
+    const updateBadge = (count) => {
+        nativeBridge.notification.updateBadge(count)
+        setBadges(count)
+    }
+
+    const subscribeToTopic = (topic) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.subscribeToTopic(topic)
+        }, "subscribe to topic")
+    }
+
+    const unsubscribeFromTopic = (topic) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.unsubscribeFromTopic(topic)
+        }, "unsubscribe from topic")
+    }
+
+    const getSubscribedTopics = () => {
+        base.executeOperation(() => {
+            nativeBridge.notification.getSubscribedTopics()
+        }, "get subscribed topics")
+    }
+
+    return {
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        execute: scheduleLocal,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Notification-specific
+        permissionStatus,
+        pushToken,
+        badges,
+        lastNotification,
+        subscribedTopics,
+        scheduleLocal,
+        cancelLocal,
+        registerForPush,
+        updateBadge,
+        subscribeToTopic,
+        unsubscribeFromTopic,
+        getSubscribedTopics,
     }
 }

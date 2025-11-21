@@ -5,14 +5,14 @@ import os
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "SplashViewModel")
 
 @MainActor
-class SplashViewModel: ObservableObject {
-    @Published var shouldShowSplash: Bool = true
-    
+public class SplashViewModel: ObservableObject {
+    @Published public var shouldShowSplash: Bool = true
+
     private var startTime = Date()
     private var durationTimer: Timer?
     private var hasWebViewLoaded = false
-    
-    init() {
+
+    public init() {
         logger.info("SplashViewModel initialized")
         startDurationTimer()
     }

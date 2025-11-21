@@ -12,7 +12,6 @@ import nativeBridge from "./NativeBridge.js"
  * Provides Promise-based camera operations with proper option validation
  */
 class CameraUtils {
-
     /**
      * Open camera and capture image
      * @param {Object} options - Camera options
@@ -38,7 +37,7 @@ class CameraUtils {
             registerCallback(NATIVE_CALLBACKS.ON_CAMERA_CAPTURE, (data) => {
                 cleanup()
                 try {
-                    const result = typeof data === 'string' ? JSON.parse(data) : data
+                    const result = typeof data === "string" ? JSON.parse(data) : data
                     if (result.error) {
                         reject(new Error(result.error))
                     } else {
@@ -51,7 +50,8 @@ class CameraUtils {
 
             registerCallback(NATIVE_CALLBACKS.ON_CAMERA_ERROR, (error) => {
                 cleanup()
-                const errorMessage = typeof error === 'string' ? error : (error.error || error.message || 'Unknown camera error')
+                const errorMessage =
+                    typeof error === "string" ? error : error.error || error.message || "Unknown camera error"
                 reject(new Error(errorMessage))
             })
 
@@ -81,13 +81,13 @@ class CameraUtils {
             // Validate and set defaults for config
             const permissionConfig = {
                 includeDetails: config.includeDetails || false,
-                ...config
+                ...config,
             }
 
             registerCallback(NATIVE_CALLBACKS.CAMERA_PERMISSION_STATUS, (data) => {
                 cleanup()
                 try {
-                    const result = typeof data === 'string' ? JSON.parse(data) : data
+                    const result = typeof data === "string" ? JSON.parse(data) : data
                     if (result.error) {
                         reject(new Error(result.error))
                     } else {
@@ -130,7 +130,10 @@ class CameraUtils {
         }
 
         // Camera device validation
-        if (options.cameraDevice && Object.values(CAMERA_DEVICE).includes(options.cameraDevice.toLowerCase())) {
+        if (
+            options.cameraDevice &&
+            Object.values(CAMERA_DEVICE).includes(options.cameraDevice.toLowerCase())
+        ) {
             validated.cameraDevice = options.cameraDevice.toLowerCase()
         }
 
@@ -140,7 +143,7 @@ class CameraUtils {
         }
 
         // Allow editing validation
-        if (typeof options.allowEditing === 'boolean') {
+        if (typeof options.allowEditing === "boolean") {
             validated.allowEditing = options.allowEditing
         } else {
             validated.allowEditing = false // Default
@@ -157,7 +160,7 @@ class CameraUtils {
         return {
             quality: CAMERA_QUALITY.MEDIUM,
             format: CAMERA_FORMAT.JPEG,
-            allowEditing: false
+            allowEditing: false,
         }
     }
 
@@ -167,7 +170,7 @@ class CameraUtils {
      */
     static getDefaultPermissionConfig() {
         return {
-            includeDetails: false
+            includeDetails: false,
         }
     }
 

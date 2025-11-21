@@ -1,10 +1,14 @@
 import SwiftUI
 
-struct SplashView: View {
+public struct SplashView: View {
     @ObservedObject var webViewModel: WebViewModel
     @StateObject private var splashViewModel = SplashViewModel()
-    
-    var body: some View {
+
+    public init(webViewModel: WebViewModel) {
+        self.webViewModel = webViewModel
+    }
+
+    public var body: some View {
         if splashViewModel.shouldShowSplash {
             Color(hex: ConfigConstants.splashScreenBackgroundColor)
                 .ignoresSafeArea(.all)

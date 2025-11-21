@@ -205,8 +205,8 @@ class ImageHandler: NSObject {
                 logger.debug("Detected AVFoundation error -11800, generating mock image")
                 
                 // Dismiss any presented view controllers if needed
-                if let viewController = UIApplication.shared.windows.first?.rootViewController,
-                   let presented = viewController.presentedViewController as? UIImagePickerController {
+                if let rootViewController = topMostRootViewController(),
+                   let presented = rootViewController.presentedViewController as? UIImagePickerController {
                     presented.dismiss(animated: true) { [weak self] in
                         self?.saveMockImage()
                     }
@@ -216,6 +216,19 @@ class ImageHandler: NSObject {
                 }
             }
         }
+    }
+    
+    private func topMostRootViewController() -> UIViewController? {
+        let windowScenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+        
+        if let keyWindow = windowScenes
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) {
+            return keyWindow.rootViewController
+        }
+        
+        return windowScenes.first?.windows.first?.rootViewController
     }
     
     // Present photo library

@@ -4,7 +4,12 @@ import { useBaseHook } from "./useBaseHook"
 import nativeBridge from "./utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "./constants/NativeInterfaces"
 import { ERROR_CODES, createStandardError } from "./errors"
-import { base64ToFile, urlToFile, canCreateFileObject, getUnsupportedTransportMessage } from "./utils/FileObjectConverter.js"
+import {
+    base64ToFile,
+    urlToFile,
+    canCreateFileObject,
+    getUnsupportedTransportMessage,
+} from "./utils/FileObjectConverter.js"
 
 /**
  * Standardized Camera Superhook

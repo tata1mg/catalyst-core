@@ -217,7 +217,7 @@ class WebBridge {
             this.register(NATIVE_CALLBACKS.HAPTIC_FEEDBACK, (data) => {
                 cleanup()
                 try {
-                    const result = typeof data === 'string' ? JSON.parse(data) : data
+                    const result = typeof data === "string" ? JSON.parse(data) : data
                     if (result.error) {
                         reject(new Error(result.error))
                     } else {
@@ -300,7 +300,7 @@ class WebBridge {
         }
 
         const parseDeviceInfo = (data) => {
-            const rawDeviceInfo = typeof data === 'string' ? JSON.parse(data) : data
+            const rawDeviceInfo = typeof data === "string" ? JSON.parse(data) : data
             const platformMapping = DEVICE_INFO_KEY_MAP[platform] || {}
 
             return Object.fromEntries(

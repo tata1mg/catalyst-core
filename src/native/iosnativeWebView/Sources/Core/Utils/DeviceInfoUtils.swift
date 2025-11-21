@@ -18,36 +18,28 @@ class DeviceInfoUtils {
     /// Get comprehensive device information
     /// - Returns: Dictionary containing device information or error details
     static func getDeviceInfo() -> [String: Any] {
-        do {
-            logger.debug("Fetching device information")
+        logger.debug("Fetching device information")
 
-            let device = UIDevice.current
-            let screen = UIScreen.main
+        let device = UIDevice.current
+        let screen = UIScreen.main
 
-            // Basic device information
-            var deviceInfo: [String: Any] = [
-                "model": device.model,
-                "manufacturer": "Apple",
-                "platform": "ios",
-                "systemVersion": device.systemVersion,
-                // Screen dimensions in actual pixels
-                "screenWidth": Int(screen.bounds.width * screen.scale),
-                "screenHeight": Int(screen.bounds.height * screen.scale),
-                "screenDensity": screen.scale
-            ]
+        // Basic device information
+        var deviceInfo: [String: Any] = [
+            "model": device.model,
+            "manufacturer": "Apple",
+            "platform": "ios",
+            "systemVersion": device.systemVersion,
+            // Screen dimensions in actual pixels
+            "screenWidth": Int(screen.bounds.width * screen.scale),
+            "screenHeight": Int(screen.bounds.height * screen.scale),
+            "screenDensity": screen.scale
+        ]
 
-            deviceInfo["appInfo"] = ConfigConstants.appInfo
+        deviceInfo["appInfo"] = ConfigConstants.appInfo
         
 
-            logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
-            return deviceInfo
-
-        } catch {
-            logger.error("Error getting device info: \(error.localizedDescription)")
-            return [
-                "error": "Failed to get device info: \(error.localizedDescription)"
-            ]
-        }
+        logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
+        return deviceInfo
     }
 
     /// Get device model name

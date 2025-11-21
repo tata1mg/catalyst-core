@@ -128,6 +128,59 @@ class BridgeMessageValidator {
             "type": "object",
             "properties": [:],
             "additionalProperties": false
+        ],
+        // Notification commands
+        "requestNotificationPermission": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
+        "scheduleLocalNotification": [
+            "type": "object",
+            "properties": [
+                "title": ["type": "string"],
+                "body": ["type": "string"],
+                "badge": ["type": "number"],
+                "sound": ["type": "string"],
+                "data": ["type": "object"],
+                "triggerTime": ["type": "number"],
+                "notificationId": ["type": "string"]
+            ],
+            "additionalProperties": false
+        ],
+        "cancelLocalNotification": [
+            "type": "object",
+            "properties": [
+                "notificationId": ["type": "string"]
+            ],
+            "required": ["notificationId"],
+            "additionalProperties": false
+        ],
+        "registerForPushNotifications": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
+        "subscribeToTopic": [
+            "type": "object",
+            "properties": [
+                "topic": ["type": "string"]
+            ],
+            "required": ["topic"],
+            "additionalProperties": false
+        ],
+        "unsubscribeFromTopic": [
+            "type": "object",
+            "properties": [
+                "topic": ["type": "string"]
+            ],
+            "required": ["topic"],
+            "additionalProperties": false
+        ],
+        "getSubscribedTopics": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
         ]
     ]
 
@@ -207,6 +260,8 @@ class BridgeMessageValidator {
         // Step 5: Validate command is supported
         guard CatalystConstants.Bridge.validCommands.contains(command) else {
             logger.error("Unsupported command: \(command)")
+            print("❌ DEBUG [BridgeMessageValidator]: Command '\(command)' is NOT in valid commands")
+            print("❌ DEBUG [BridgeMessageValidator]: Available commands: \(CatalystConstants.Bridge.validCommands.sorted().joined(separator: ", "))")
             return BridgeValidationResult(
                 isValid: false,
                 command: command,
@@ -269,9 +324,24 @@ class BridgeMessageValidator {
         return (command: command, params: params)
     }
 
-    private static func validateCommandParameters(command: String, params: Any) -> BridgeValidationError? {
+    private static func validateCommandParameters(command: String, params: Any?) -> BridgeValidationError? {
         // Commands that support flexible parameter formats (string or object)
-        let flexibleCommands = ["openCamera", "requestCameraPermission", "pickFile", "requestHapticFeedback", "openFileWithIntent", "getDeviceInfo", "logger"]
+        let flexibleCommands = [
+            "openCamera",
+            "requestCameraPermission",
+            "pickFile",
+            "requestHapticFeedback",
+            "openFileWithIntent",
+            "getDeviceInfo",
+            "logger",
+            "getSubscribedTopics",
+            "requestNotificationPermission",
+            "registerForPushNotifications",
+            "scheduleLocalNotification",
+            "cancelLocalNotification",
+            "subscribeToTopic",
+            "unsubscribeFromTopic"
+        ]
 
         if flexibleCommands.contains(command) {
             // For these commands, allow string, object, or nil parameters
@@ -290,7 +360,9 @@ class BridgeMessageValidator {
                 return validateObjectAgainstJSONSchema(paramsDict, schema: nil, commandName: command)
             }
 
-            logger.warning("Command '\(command)' received unexpected parameter type: \(type(of: params))")
+            if let params {
+                logger.warning("Command '\(command)' received unexpected parameter type: \(type(of: params))")
+            }
             return nil // Allow for backward compatibility
         }
 

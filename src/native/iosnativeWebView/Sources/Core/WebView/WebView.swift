@@ -4,17 +4,17 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebView")
 
-struct WebView: UIViewRepresentable, Equatable {
+public struct WebView: UIViewRepresentable, Equatable {
     let urlString: String
     @ObservedObject var viewModel: WebViewModel
     private let navigationDelegate: WebViewNavigationDelegate
 
     // Equatable conformance - only recreate if URL changes
-    static func == (lhs: WebView, rhs: WebView) -> Bool {
+    public static func == (lhs: WebView, rhs: WebView) -> Bool {
         return lhs.urlString == rhs.urlString
     }
 
-    init(urlString: String, viewModel: WebViewModel) {
+    public init(urlString: String, viewModel: WebViewModel) {
         let start = CFAbsoluteTimeGetCurrent()
         self.urlString = urlString
         self.viewModel = viewModel
@@ -30,16 +30,18 @@ struct WebView: UIViewRepresentable, Equatable {
         logWithTimestamp("🏗️ WebView init completed (total: \(String(format: "%.2f", totalTime))ms, protocol: \(String(format: "%.2f", protocolTime))ms)")
     }
     
-    func makeUIView(context: Context) -> WKWebView {
+    public func makeUIView(context: Context) -> WKWebView {
         let makeUIViewStart = CFAbsoluteTimeGetCurrent()
         logWithTimestamp("🔨 makeUIView() started")
 
         let configuration = WKWebViewConfiguration()
 
-        // Use shared process pool from AppDelegate for better performance
-        configuration.processPool = AppDelegate.sharedProcessPool
+        // Hook kept for legacy behavior; currently a no-op on iOS 15+.
+        WebKitConfig.applySharedProcessPoolIfNeeded(to: configuration)
 
+        #if DEBUG
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        #endif
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
@@ -51,7 +53,13 @@ struct WebView: UIViewRepresentable, Equatable {
 
         webView.navigationDelegate = navigationDelegate
         webView.allowsBackForwardNavigationGestures = true
-        webView.isInspectable = true
+
+        #if DEBUG
+        // Enable Safari Web Inspector (only available in iOS 16.4+)
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
+        #endif
 
         webView.addObserver(context.coordinator,
                            forKeyPath: #keyPath(WKWebView.estimatedProgress),
@@ -82,24 +90,20 @@ struct WebView: UIViewRepresentable, Equatable {
         return webView
     }
     
-    func updateUIView(_ webView: WKWebView, context: Context) {
+    public func updateUIView(_ webView: WKWebView, context: Context) {
         // Intentionally empty to prevent reloading
     }
     
-    func makeCoordinator() -> Coordinator {
+    public func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
     
-    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
+    public static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         // Safely remove observer with error handling
         if coordinator.isObserverAdded {
-            do {
-                webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-                coordinator.isObserverAdded = false
-                logger.debug("Successfully removed WebView progress observer")
-            } catch {
-                logger.warning("Failed to remove WebView observer - may have already been removed: \(error.localizedDescription)")
-            }
+            webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+            coordinator.isObserverAdded = false
+            logger.debug("Successfully removed WebView progress observer")
         } else {
             logger.debug("Observer was not added or already removed, skipping removal")
         }
@@ -115,13 +119,13 @@ struct WebView: UIViewRepresentable, Equatable {
         logger.debug("WebView cleanup completed")
     }
     
-    class Coordinator: NSObject {
+    public class Coordinator: NSObject {
         var parent: WebView
         var nativeBridge: NativeBridge?
         var hostingController: UIViewController?
         var isObserverAdded = false
 
-        init(_ parent: WebView) {
+        public init(_ parent: WebView) {
             self.parent = parent
         }
         
@@ -129,14 +133,18 @@ struct WebView: UIViewRepresentable, Equatable {
             // Create a UIViewController to use for presenting any UI
             let hostingController = UIViewController()
             self.hostingController = hostingController
-            
+
             // Create and register the native bridge
             let bridge = NativeBridge(webView: webView, viewController: hostingController)
+
+            // Inject notification handler from global provider
+            bridge.setNotificationHandler(NotificationHandlerProvider.shared)
+
             bridge.register()
             self.nativeBridge = bridge
         }
         
-        override func observeValue(forKeyPath keyPath: String?,
+        override public func observeValue(forKeyPath keyPath: String?,
                                  of object: Any?,
                                  change: [NSKeyValueChangeKey : Any]?,
                                  context: UnsafeMutableRawPointer?) {
@@ -145,6 +153,13 @@ struct WebView: UIViewRepresentable, Equatable {
                 Task { @MainActor in
                     parent.viewModel.setProgress(webView.estimatedProgress)
                 }
+            }
+        }
+
+        deinit {
+            // Ensure observer is removed even if dismantleUIView is skipped.
+            if isObserverAdded, let webView = nativeBridge?.webView {
+                webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
             }
         }
     }

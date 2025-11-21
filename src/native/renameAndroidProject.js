@@ -637,7 +637,10 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         try {
             ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
         } catch (cleanupError) {
-            progress.log(`Warning: Could not remove existing temp directory: ${cleanupError.message}`, "warning")
+            progress.log(
+                `Warning: Could not remove existing temp directory: ${cleanupError.message}`,
+                "warning"
+            )
         }
     }
 
@@ -815,8 +818,14 @@ async function updateFileContents(projectPaths, androidConfig) {
             const buildGradlePath = _path.default.join(newProjectPath, "app", "build.gradle.kts")
             if (_fs.default.existsSync(buildGradlePath)) {
                 let content = _fs.default.readFileSync(buildGradlePath, "utf8")
-                content = content.replace(/namespace = "io\.yourname\.androidproject"/g, `namespace = "${packageName}"`)
-                content = content.replace(/applicationId = "io\.yourname\.androidproject"/g, `applicationId = "${packageName}"`)
+                content = content.replace(
+                    /namespace = "io\.yourname\.androidproject"/g,
+                    `namespace = "${packageName}"`
+                )
+                content = content.replace(
+                    /applicationId = "io\.yourname\.androidproject"/g,
+                    `applicationId = "${packageName}"`
+                )
                 _fs.default.writeFileSync(buildGradlePath, content, "utf8")
                 progress.log(`✅ Updated build.gradle.kts with package: ${packageName}`, "success")
             }
@@ -827,10 +836,26 @@ async function updateFileContents(projectPaths, androidConfig) {
             let totalUpdatedFiles = 0
 
             for (const sourceSet of sourceSets) {
-                const oldPackagePath = _path.default.join(newProjectPath, "app", "src", sourceSet, "java", "io", "yourname", "androidproject")
+                const oldPackagePath = _path.default.join(
+                    newProjectPath,
+                    "app",
+                    "src",
+                    sourceSet,
+                    "java",
+                    "io",
+                    "yourname",
+                    "androidproject"
+                )
 
                 if (_fs.default.existsSync(oldPackagePath)) {
-                    const newPackagePath = _path.default.join(newProjectPath, "app", "src", sourceSet, "java", ...newPackageParts)
+                    const newPackagePath = _path.default.join(
+                        newProjectPath,
+                        "app",
+                        "src",
+                        sourceSet,
+                        "java",
+                        ...newPackageParts
+                    )
 
                     // Create new package directory
                     const newPackageDir = _path.default.dirname(newPackagePath)
@@ -842,7 +867,10 @@ async function updateFileContents(projectPaths, androidConfig) {
 
                     // Update package declarations in source files
                     const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`
-                    const sourceFiles = (0, _utils.runCommand)(findCommand).trim().split("\n").filter(f => f.trim())
+                    const sourceFiles = (0, _utils.runCommand)(findCommand)
+                        .trim()
+                        .split("\n")
+                        .filter((f) => f.trim())
 
                     let updatedCount = 0
                     for (const file of sourceFiles) {
@@ -854,11 +882,16 @@ async function updateFileContents(projectPaths, androidConfig) {
                         }
                     }
                     totalUpdatedFiles += updatedCount
-                    progress.log(`✅ Updated package declarations in ${updatedCount} ${sourceSet} files`, "success")
+                    progress.log(
+                        `✅ Updated package declarations in ${updatedCount} ${sourceSet} files`,
+                        "success"
+                    )
 
                     // Clean up old empty directories
                     try {
-                        ;(0, _utils.runCommand)(`find "${_path.default.join(newProjectPath, "app", "src", sourceSet, "java")}" -type d -empty -delete`)
+                        ;(0, _utils.runCommand)(
+                            `find "${_path.default.join(newProjectPath, "app", "src", sourceSet, "java")}" -type d -empty -delete`
+                        )
                     } catch (err) {
                         // Ignore cleanup errors
                     }
@@ -870,7 +903,13 @@ async function updateFileContents(projectPaths, androidConfig) {
             }
 
             // Update AndroidManifest.xml
-            const manifestPath = _path.default.join(newProjectPath, "app", "src", "main", "AndroidManifest.xml")
+            const manifestPath = _path.default.join(
+                newProjectPath,
+                "app",
+                "src",
+                "main",
+                "AndroidManifest.xml"
+            )
             if (_fs.default.existsSync(manifestPath)) {
                 let content = _fs.default.readFileSync(manifestPath, "utf8")
                 if (content.includes(OLD_PACKAGE)) {

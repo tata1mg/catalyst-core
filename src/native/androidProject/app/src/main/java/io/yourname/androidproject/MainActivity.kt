@@ -1,5 +1,6 @@
 package io.yourname.androidproject
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -10,6 +11,7 @@ import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
 import io.yourname.androidproject.utils.KeyboardUtil
+import io.yourname.androidproject.utils.NotificationConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
@@ -20,7 +22,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
-    private lateinit var properties: Properties
+    lateinit var properties: Properties
     private lateinit var metricsMonitor: MetricsMonitor
     private lateinit var keyboardUtil: KeyboardUtil
     private var isHardwareAccelerationEnabled = false
@@ -51,6 +53,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
         }
@@ -105,7 +108,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Clean the cache
         customWebView.cleanupCache()
-        
+
         // Setup NativeBridge
         try {
             nativeBridge = NativeBridge(this, customWebView.getWebView(), properties)
@@ -127,7 +130,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             }
         })
         
-        // Load URL based on environment
+        // Load URL based on environment and deep link data
         try {
             if (BuildConfig.DEBUG) {
                 // Use the local development server in debug mode
@@ -145,14 +148,34 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     currentUrl = "file:///android_asset/build/public/index.html"
                 }
             }
-            
-            // Load URL
-            customWebView.loadUrl(currentUrl)
+
+            // Check for notification and handle via /notification endpoint
+            if (intent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
+                handleNotificationClick(currentUrl, intent)
+            } else {
+                Log.d(TAG, "🔗 Loading base URL: $currentUrl")
+                customWebView.loadUrl(currentUrl)
+            }
+
             metricsMonitor.markAppStartComplete()
+
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
             // Fallback to local asset as a last resort
             customWebView.loadUrl("file:///android_asset/build/public/error.html")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        // Handle notification click when app is already running
+        intent?.let { newIntent ->
+            if (newIntent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
+                handleNotificationClick(currentUrl, newIntent)
+            } else {
+                Log.d(TAG, "🔗 onNewIntent - Loading base URL: $currentUrl")
+                customWebView.loadUrl(currentUrl)
+            }
         }
     }
 
@@ -198,9 +221,68 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         if (::keyboardUtil.isInitialized) {
             keyboardUtil.cleanup()
         }
-
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.cleanup()
+        }
         coroutineContext.cancelChildren()
         customWebView.destroy()
         super.onDestroy()
+    }
+
+    /**
+     * Handle notification click by navigating to /notification route
+     * Ultra-simple approach: always go to /notification with minimal params
+     */
+    private fun handleNotificationClick(baseUrl: String, intent: Intent) {
+        try {
+            val action = intent.getStringExtra(NotificationConstants.EXTRA_ACTION)
+            val notificationData = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA)
+
+            Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
+
+            // Dismiss the notification
+            val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            notificationManager.cancelAll() // This dismisses all notifications from this app
+
+            // Build simple /notification URL
+            val url = buildNotificationUrl(baseUrl, action, notificationData)
+            Log.d(TAG, "🔔 Navigating to: $url")
+
+            customWebView.loadUrl(url)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "🔔 Error handling notification click: ${e.message}", e)
+            customWebView.loadUrl(baseUrl)
+        }
+    }
+
+    /**
+     * Build ultra-simple /notification URL
+     */
+    private fun buildNotificationUrl(baseUrl: String, action: String?, notificationData: String?): String {
+        return try {
+            val url = StringBuilder("$baseUrl/notification")
+            val params = mutableListOf<String>()
+
+            // Add action if present
+            if (!action.isNullOrEmpty()) {
+                params.add("action=${java.net.URLEncoder.encode(action, "UTF-8")}")
+            }
+
+            // Add data if present
+            if (!notificationData.isNullOrEmpty()) {
+                params.add("data=${java.net.URLEncoder.encode(notificationData, "UTF-8")}")
+            }
+
+            if (params.isNotEmpty()) {
+                url.append("?").append(params.joinToString("&"))
+            }
+
+            url.toString()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error building notification URL: ${e.message}", e)
+            "$baseUrl/notification"
+        }
     }
 }

@@ -208,6 +208,58 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Notification methods for local and push notifications
+     */
+    notification = {
+        /**
+         * Schedule a local notification
+         * @param {Object} config - Notification configuration object
+         */
+        scheduleLocal: (config) =>
+            this.call(NATIVE_COMMANDS.SCHEDULE_LOCAL_NOTIFICATION, JSON.stringify(config)),
+
+        /**
+         * Cancel a local notification
+         * @param {string} notificationId - ID of the notification to cancel
+         */
+        cancelLocal: (notificationId) => this.call(NATIVE_COMMANDS.CANCEL_LOCAL_NOTIFICATION, notificationId),
+
+        /**
+         * Request notification permission
+         */
+        requestPermission: () => this.call(NATIVE_COMMANDS.REQUEST_NOTIFICATION_PERMISSION),
+
+        /**
+         * Register for push notifications
+         */
+        registerForPush: () => this.call(NATIVE_COMMANDS.REGISTER_FOR_PUSH_NOTIFICATIONS),
+
+        /**
+         * Update badge count
+         * @param {number} count - Badge count number
+         */
+        updateBadge: (count) => this.call(NATIVE_COMMANDS.UPDATE_BADGE_COUNT, count?.toString()),
+
+        /**
+         * Subscribe to push notification topic
+         * @param {string} topic - Topic name to subscribe to
+         */
+        subscribeToTopic: (topic) => this.call(NATIVE_COMMANDS.SUBSCRIBE_TO_TOPIC, JSON.stringify({ topic })),
+
+        /**
+         * Unsubscribe from push notification topic
+         * @param {string} topic - Topic name to unsubscribe from
+         */
+        unsubscribeFromTopic: (topic) =>
+            this.call(NATIVE_COMMANDS.UNSUBSCRIBE_FROM_TOPIC, JSON.stringify({ topic })),
+
+        /**
+         * Get list of subscribed topics
+         */
+        getSubscribedTopics: () => this.call(NATIVE_COMMANDS.GET_SUBSCRIBED_TOPICS),
+    }
+
+    /**
      * Device info methods
      */
     device = {
