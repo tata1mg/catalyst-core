@@ -194,6 +194,35 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
     }
     
+    /// Handle SSL certificate challenges
+    /// For localhost connections, trust our self-signed certificate
+    /// For all other domains, use default validation
+    func webView(_ webView: WKWebView,
+                didReceive challenge: URLAuthenticationChallenge,
+                completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        
+        let protectionSpace = challenge.protectionSpace
+        let host = protectionSpace.host
+        
+        // Only bypass certificate validation for localhost
+        if (host == "localhost" || host == "127.0.0.1") &&
+            protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
+            
+            logger.debug("🔐 SSL challenge for localhost - trusting self-signed certificate")
+            
+            if let serverTrust = protectionSpace.serverTrust {
+                let credential = URLCredential(trust: serverTrust)
+                completionHandler(.useCredential, credential)
+                logger.info("✅ Trusted self-signed certificate for localhost")
+                return
+            }
+        }
+        
+        // For all other domains, use default certificate validation
+        logger.debug("🔐 SSL challenge for \(host) - using default validation")
+        completionHandler(.performDefaultHandling, nil)
+    }
+    
     /// Open URL in system browser
     private func openInSystemBrowser(_ url: URL) {
         Task { @MainActor in

@@ -13,6 +13,7 @@
 		4777D5232C60B87700E85AC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4777D5222C60B87700E85AC6 /* Assets.xcassets */; };
 		4777D5262C60B87700E85AC6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4777D5252C60B87700E85AC6 /* Preview Assets.xcassets */; };
 		E90872B42E8D00D80076627C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90872B32E8D00D80076627C /* AppDelegate.swift */; };
+        F1234AC22E990180008C7F58 /* localhost.p12 in Resources */ = {isa = PBXBuildFile; fileRef = F1234AC32E990180008C7F58 /* localhost.p12 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,6 +45,7 @@
 		C99974382E97D69E00C25611 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C9DAB6492E950DDC00A02A44 /* iosnativeWebView.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iosnativeWebView.entitlements; sourceTree = "<group>"; };
 		E90872B32E8D00D80076627C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+        F1234AC32E990180008C7F58 /* localhost.p12 */ = {isa = PBXFileReference; lastKnownFileType = file; path = localhost.p12; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -101,6 +103,7 @@
 				4777D5482C61EC1500E85AC6 /* Info.plist */,
 				4777D5222C60B87700E85AC6 /* Assets.xcassets */,
 				4777D5242C60B87700E85AC6 /* Preview Content */,
+				F1234AC32E990180008C7F58 /* localhost.p12 */,
 			);
 			path = iosnativeWebView;
 			sourceTree = "<group>";
@@ -226,6 +229,8 @@
 			files = (
 				4777D5262C60B87700E85AC6 /* Preview Assets.xcassets in Resources */,
 				4777D5232C60B87700E85AC6 /* Assets.xcassets in Resources */,
+				E90872AA2E8AB01A0076627C /* Info-Release.plist in Resources */,
+				F1234AC22E990180008C7F58 /* localhost.p12 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
