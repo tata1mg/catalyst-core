@@ -5,6 +5,9 @@
 //  Debug configuration settings
 //
 
+// Include shared configuration
+#include "Shared.xcconfig"
+
 // Use standard Info.plist (allows HTTP for local development)
 INFOPLIST_FILE = iosnativeWebView/Info.plist
 

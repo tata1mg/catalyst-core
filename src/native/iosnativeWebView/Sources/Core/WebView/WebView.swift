@@ -36,10 +36,12 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         let configuration = WKWebViewConfiguration()
 
-        // Use shared process pool for better performance
-        configuration.processPool = WebKitConfig.sharedProcessPool
+        // Hook kept for legacy behavior; currently a no-op on iOS 15+.
+        WebKitConfig.applySharedProcessPoolIfNeeded(to: configuration)
 
+        #if DEBUG
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        #endif
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
@@ -51,7 +53,13 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         webView.navigationDelegate = navigationDelegate
         webView.allowsBackForwardNavigationGestures = true
-        webView.isInspectable = true
+
+        #if DEBUG
+        // Enable Safari Web Inspector (only available in iOS 16.4+)
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
+        #endif
 
         webView.addObserver(context.coordinator,
                            forKeyPath: #keyPath(WKWebView.estimatedProgress),
@@ -93,13 +101,9 @@ public struct WebView: UIViewRepresentable, Equatable {
     public static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         // Safely remove observer with error handling
         if coordinator.isObserverAdded {
-            do {
-                webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-                coordinator.isObserverAdded = false
-                logger.debug("Successfully removed WebView progress observer")
-            } catch {
-                logger.warning("Failed to remove WebView observer - may have already been removed: \(error.localizedDescription)")
-            }
+            webView.removeObserver(coordinator, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+            coordinator.isObserverAdded = false
+            logger.debug("Successfully removed WebView progress observer")
         } else {
             logger.debug("Observer was not added or already removed, skipping removal")
         }
@@ -149,6 +153,13 @@ public struct WebView: UIViewRepresentable, Equatable {
                 Task { @MainActor in
                     parent.viewModel.setProgress(webView.estimatedProgress)
                 }
+            }
+        }
+
+        deinit {
+            // Ensure observer is removed even if dismantleUIView is skipped.
+            if isObserverAdded, let webView = nativeBridge?.webView {
+                webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
             }
         }
     }

@@ -5,6 +5,9 @@
 //  Release configuration settings
 //
 
+// Include shared configuration
+#include "Shared.xcconfig"
+
 // Use Release-specific Info.plist (HTTPS only for production)
 INFOPLIST_FILE = iosnativeWebView/Info-Release.plist
 
