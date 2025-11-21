@@ -8,6 +8,7 @@
 
 import Foundation
 import Network
+import Security
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "FrameworkServer")
@@ -104,6 +105,7 @@ class FrameworkServerUtils {
     private var serverPort: UInt16 = 0
     private var sessionId: String = ""
     private var isServerRunning: Bool = false
+    private var isHTTPS: Bool = false
 
     // Connection management
     private var activeConnections: Set<ConnectionWrapper> = []
@@ -267,7 +269,8 @@ class FrameworkServerUtils {
             self.servedFiles[fileId] = servedFile
         }
 
-        let fileUrl = "http://localhost:\(self.serverPort)/framework-\(self.sessionId)/file-\(fileId)"
+        let urlScheme = self.isHTTPS ? "https" : "http"
+        let fileUrl = "\(urlScheme)://localhost:\(self.serverPort)/framework-\(self.sessionId)/file-\(fileId)"
         logger.debug("Added file to serve: \(fileName) -> \(fileUrl)")
 
         return fileUrl
@@ -436,9 +439,85 @@ class FrameworkServerUtils {
         return result == 0
     }
 
+    /**
+     * Load identity from PKCS#12 file
+     * @return SecIdentity or nil if loading fails
+     */
+    private func loadIdentityFromP12() -> SecIdentity? {
+        guard let p12Path = Bundle.main.path(forResource: "localhost", ofType: "p12") else {
+            logger.error("Failed to locate localhost.p12 in app bundle")
+            return nil
+        }
+
+        guard let p12Data = try? Data(contentsOf: URL(fileURLWithPath: p12Path)) else {
+            logger.error("Failed to load P12 data from: \(p12Path)")
+            return nil
+        }
+
+        // Import options with empty password
+        let options: [String: Any] = [
+            kSecImportExportPassphrase as String: ""
+        ]
+
+        var rawItems: CFArray?
+        let status = SecPKCS12Import(p12Data as CFData, options as CFDictionary, &rawItems)
+
+        guard status == errSecSuccess else {
+            let errorMsg: String
+            switch status {
+            case errSecAuthFailed:
+                errorMsg = "Authentication failed (wrong password)"
+            case errSecDecode:
+                errorMsg = "Decode error (corrupted file)"
+            case errSecUnknownFormat:
+                errorMsg = "Unknown format"
+            default:
+                errorMsg = "Unknown error"
+            }
+            logger.error("Failed to import PKCS#12 file: \(status) - \(errorMsg)")
+            logger.error("P12 file size: \(p12Data.count) bytes, path: \(p12Path)")
+            return nil
+        }
+
+        guard let items = rawItems as? [[String: Any]], let firstItem = items.first else {
+            logger.error("No items found in PKCS#12 file")
+            return nil
+        }
+
+        guard let identity = firstItem[kSecImportItemIdentity as String] as! SecIdentity? else {
+            logger.error("No identity found in PKCS#12 import")
+            return nil
+        }
+
+        logger.info("✅ Successfully loaded identity from PKCS#12 file")
+        return identity
+    }
+
     private func startNWServer() throws {
         let parameters = NWParameters.tcp
         parameters.allowLocalEndpointReuse = true
+
+        // Try to configure TLS with our self-signed certificate from PKCS#12
+        // If it fails, fall back to HTTP
+        if let identity = loadIdentityFromP12(),
+           let secIdentity = sec_identity_create(identity) {
+            let tlsOptions = NWProtocolTLS.Options()
+            
+            // Set the identity
+            sec_protocol_options_set_local_identity(tlsOptions.securityProtocolOptions, secIdentity)
+            
+            // Set minimum TLS version
+            sec_protocol_options_set_min_tls_protocol_version(tlsOptions.securityProtocolOptions, .TLSv12)
+            
+            // Add TLS to the protocol stack
+            parameters.defaultProtocolStack.applicationProtocols.insert(tlsOptions, at: 0)
+
+            self.isHTTPS = true
+            logger.info("✅ TLS configured - server will use HTTPS")
+        } else {
+            self.isHTTPS = false
+            logger.warning("⚠️ Failed to load TLS identity - falling back to HTTP server")
+        }
 
         // Bind to localhost only for security
         let host = NWEndpoint.Host("127.0.0.1")

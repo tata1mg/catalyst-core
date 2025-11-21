@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.3-canary.16] - 2025-11-19
+- FeaturesGallery Support for File Picker: Enhanced file picker to open native gallery for selecting images and videos
+- HTTPS Framework Server: Enabled HTTPS support for the framework server with self-signed SSL certificate
+- MIME Type Handling: Fixed and improved MIME type detection and handling in the file picker
+
 ## [0.0.3-canary.15] - 2025-11-19
 
 -   Adding Android release support and appInfo key
