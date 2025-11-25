@@ -132,7 +132,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         
         // Load URL based on environment and deep link data
         try {
-            if (BuildConfig.DEBUG) {
                 // Use the local development server in debug mode
                 val local_ip = properties.getProperty("LOCAL_IP", "localhost")
                 val initial_url = properties.getProperty("initial_url", "")
@@ -140,14 +139,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 val useHttps = properties.getProperty("useHttps", "false").toBoolean()
                 val protocol = if (useHttps) "https" else "http"
                 currentUrl = "$protocol://$local_ip:$port/$initial_url"
-            } else {
-                // In production, use the configured production URL or fallback to a file:// URL
-                currentUrl = properties.getProperty("PRODUCTION_URL", "")
-                if (currentUrl.isEmpty()) {
-                    // If no production URL is configured, load the local index.html
-                    currentUrl = "file:///android_asset/build/public/index.html"
-                }
-            }
+            
 
             // Check for notification and handle via /notification endpoint
             if (intent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
@@ -161,8 +153,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
+            // TODO: Add HTML file workflow - error.html not available yet
             // Fallback to local asset as a last resort
-            customWebView.loadUrl("file:///android_asset/build/public/error.html")
+            // customWebView.loadUrl("file:///android_asset/build/public/error.html")
         }
     }
 

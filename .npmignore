@@ -18,3 +18,9 @@ openai_response.json
 simple_response.json
 .vscode
 loadable-stats.json
+.claude
+n8n*
+*.sh
+openai_response.json
+simple_response.json
+src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift

@@ -360,10 +360,11 @@ class CustomWebView(
         // Remove leading slash if present
         var cleanPath = if (path.startsWith("/")) path.substring(1) else path
 
+        // TODO: Add HTML file workflow - index.html not available yet
         // If path is empty or just "/", return index.html
-        if (cleanPath.isEmpty()) {
-            return "build/public/index.html"
-        }
+        // if (cleanPath.isEmpty()) {
+        //     return "build/public/index.html"
+        // }
 
         // Special case for favicon.ico which might be in root
         if (cleanPath == "favicon.ico") {
@@ -612,25 +613,26 @@ class CustomWebView(
                     Log.d(TAG, "⚙️ STEP_1_SKIP: Access control disabled, allowing URL: $url")
                 }
 
+                // TODO: Add HTML file workflow - index.html not available yet
                 // Handle the initial route request - intercept first request regardless of host
-                if (!isInitialApiCalled && request.method == "GET") {
-                    isInitialApiCalled = true
-                    if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "📄 STEP_2_INITIAL: Serving initial index.html from assets for route: $url")
-                        Log.d(TAG, "📄 STEP_2_INITIAL: This request will NOT go through cache system")
-                    }
-
-                    try {
-                        val indexHtml = context.assets.open("build/public/index.html")
-                        return WebResourceResponse(
-                            "text/html",
-                            "utf-8",
-                            indexHtml
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "❌ Error loading index.html from assets", e)
-                    }
-                }
+                // if (!isInitialApiCalled && request.method == "GET") {
+                //     isInitialApiCalled = true
+                //     if (BuildConfig.DEBUG) {
+                //         Log.d(TAG, "📄 STEP_2_INITIAL: Serving initial index.html from assets for route: $url")
+                //         Log.d(TAG, "📄 STEP_2_INITIAL: This request will NOT go through cache system")
+                //     }
+                //
+                //     try {
+                //         val indexHtml = context.assets.open("build/public/index.html")
+                //         return WebResourceResponse(
+                //             "text/html",
+                //             "utf-8",
+                //             indexHtml
+                //         )
+                //     } catch (e: Exception) {
+                //         Log.e(TAG, "❌ Error loading index.html from assets", e)
+                //     }
+                // }
 
                 // Let API calls go through normally (before any other checks)
                 if (isApiCall(url)) {
@@ -846,15 +848,6 @@ class CustomWebView(
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (error != null) {
                     Log.e(TAG, "❌ Error loading ${request?.url}: ${error.errorCode} ${error.description}")
-
-                    // Only show a fallback page for main frame errors in production
-                    if (request?.isForMainFrame == true && !BuildConfig.DEBUG) {
-                        try {
-                            view?.loadUrl("file:///android_asset/build/public/error.html")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to load error page: ${e.message}")
-                        }
-                    }
                 }
                 super.onReceivedError(view, request, error)
             }
@@ -882,12 +875,13 @@ class CustomWebView(
                         // Cancel the request in production
                         handler?.cancel()
 
+                        // TODO: Add HTML file workflow - error.html not available yet
                         // Show error page for main frame SSL errors
-                        try {
-                            view?.loadUrl("file:///android_asset/build/public/error.html")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to load SSL error page: ${e.message}")
-                        }
+                        // try {
+                        //     view?.loadUrl("file:///android_asset/build/public/error.html")
+                        // } catch (e: Exception) {
+                        //     Log.e(TAG, "Failed to load SSL error page: ${e.message}")
+                        // }
                     }
                 } else {
                     handler?.cancel()
