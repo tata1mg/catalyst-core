@@ -94,3 +94,16 @@ build/
 **/androidProject/**/webview_config.properties
 **/androidProject/**/cpp/*
 **/androidProject/**/build/*
+.claude/
+n8n*
+openai_response.json
+simple_response.json
+.vscode
+loadable-stats.json
+.claude
+n8n*
+*.sh
+openai_response.json
+simple_response.json
+src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
+*.xcshareddata
