@@ -3,9 +3,13 @@ import { NodeSDK } from "@opentelemetry/sdk-node"
 import { resourceFromAttributes } from "@opentelemetry/resources"
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node"
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
-import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc"
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc"
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
+import { TraceIdRatioBasedSampler, ParentBasedSampler } from "@opentelemetry/sdk-trace-node"
+import { OTLPTraceExporter as OTLPTraceExporterHTTP } from "@opentelemetry/exporter-trace-otlp-http"
+import { OTLPMetricExporter as OTLPMetricExporterHTTP } from "@opentelemetry/exporter-metrics-otlp-http"
+import { trace } from "@opentelemetry/api"
 
 import {
     ATTR_SERVICE_NAME,
@@ -18,49 +22,63 @@ function init(config = {}) {
         serviceName = "catalyst-server",
         serviceVersion = "1.0.0",
         environment = "development",
-        traceUrl = "http://localhost:4318/v1/traces",
-        metricUrl = "http://localhost:4318/v1/metrics",
+        traceUrl = "http://localhost:4317",
+        metricUrl = "http://localhost:4317",
+        traceProtocol = "grpc", // "grpc" or "http"
+        metricProtocol, // "grpc" or "http" - if not provided, metrics will be disabled
         traceHeaders = {},
         metricHeaders = {},
+        batchProcessorConfig = {},
         exportIntervalMillis = 10000,
-        exportTimeoutMillis = 10000,
         instrumentations = [],
+        samplingRate = 1.0,
+        grpcCredentials,
     } = config
 
     try {
-        const otlpTraceExporter = new OTLPTraceExporter({
-            url: traceUrl,
-            headers: traceHeaders,
+        const otlpTraceExporter = createTraceExporter(traceProtocol, traceUrl, traceHeaders, grpcCredentials)
+
+        // Create metric exporter only if metricProtocol is specified
+        let otlpMetricExporter = null
+        let metricReader = null
+        if (metricProtocol) {
+            otlpMetricExporter = createMetricExporter(metricProtocol, metricUrl, metricHeaders, grpcCredentials)
+            metricReader = new PeriodicExportingMetricReader({
+                exporter: otlpMetricExporter,
+                exportIntervalMillis,
+            })
+        }
+
+        const sampler = new ParentBasedSampler({
+            root: new TraceIdRatioBasedSampler(samplingRate),
         })
 
-        const otlpMetricExporter = new OTLPMetricExporter({
-            url: metricUrl,
-            headers: metricHeaders,
-        })
-
-        const sdk = new NodeSDK({
+        const sdkConfig = {
             resource: resourceFromAttributes({
                 [ATTR_SERVICE_NAME]: serviceName,
                 [ATTR_SERVICE_VERSION]: serviceVersion,
                 [ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
             }),
-            spanProcessor: new BatchSpanProcessor(otlpTraceExporter, {
-                exportTimeoutMillis,
-                scheduledDelayMillis: exportIntervalMillis,
-                maxQueueSize: 100,
-                maxExportBatchSize: 10,
-            }),
-            metricReader: new PeriodicExportingMetricReader({
-                exporter: otlpMetricExporter,
-                exportIntervalMillis,
-            }),
+            spanProcessor: new BatchSpanProcessor(otlpTraceExporter, batchProcessorConfig),
             instrumentations: instrumentations ?? [getNodeAutoInstrumentations()],
-        })
+            sampler,
+        }
+
+        // Add metric reader only if metrics are enabled
+        if (metricReader) {
+            sdkConfig.metricReader = metricReader
+        }
+
+        const sdk = new NodeSDK(sdkConfig)
 
         sdk.start()
         logger.info("✅ OpenTelemetry started successfully")
 
-        const meter = initializeCustomMetrics(serviceName, serviceVersion)
+        // Initialize custom metrics only if metrics are enabled
+        let meter = null
+        if (metricProtocol) {
+            meter = initializeCustomMetrics(serviceName, serviceVersion)
+        }
 
         const gracefulShutdown = (signal) => {
             logger.info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
@@ -79,6 +97,64 @@ function init(config = {}) {
     } catch (error) {
         logger.error("❌ Failed to initialize OpenTelemetry:", error)
         throw error
+    }
+}
+
+/**
+ * Creates a trace exporter based on the specified protocol
+ * @param {string} protocol - "grpc" or "http"
+ * @param {string} url - Exporter endpoint URL
+ * @param {object} headers - Headers to include in requests
+ * @param {Function} [grpcCredentials] - gRPC Credentials (optional)
+ * @returns {OTLPTraceExporter|OTLPTraceExporterHTTP} Configured trace exporter
+ */
+function createTraceExporter(protocol, url, headers = {}, grpcCredentials) {
+    if (protocol.toLowerCase() === "http") {
+        logger.info(`📡 Creating HTTP trace exporter for URL: ${url}`)
+        return new OTLPTraceExporterHTTP({
+            url: url,
+            headers: headers,
+        })
+    } else if (protocol.toLowerCase() === "grpc") {
+        logger.info(`📡 Creating gRPC trace exporter for URL: ${url}`)
+        return new OTLPTraceExporter({
+            url: url,
+            headers: headers,
+            credentials: grpcCredentials,
+        })
+    } else {
+        throw new Error(
+            `❌ Unsupported trace protocol: ${protocol}. Supported protocols are "grpc" and "http"`
+        )
+    }
+}
+
+/**
+ * Creates a metric exporter based on the specified protocol
+ * @param {string} protocol - "grpc" or "http"
+ * @param {string} url - Exporter endpoint URL
+ * @param {object} headers - Headers to include in requests
+ * @param {Function} [grpcCredentials] - gRPC Credentials (optional)
+ * @returns {OTLPMetricExporter|OTLPMetricExporterHTTP} Configured metric exporter
+ */
+function createMetricExporter(protocol, url, headers = {}, grpcCredentials) {
+    if (protocol.toLowerCase() === "http") {
+        logger.info(`📊 Creating HTTP metric exporter for URL: ${url}`)
+        return new OTLPMetricExporterHTTP({
+            url: url,
+            headers: headers,
+        })
+    } else if (protocol.toLowerCase() === "grpc") {
+        logger.info(`📊 Creating gRPC metric exporter for URL: ${url}`)
+        return new OTLPMetricExporter({
+            url: url,
+            headers: headers,
+            credentials: grpcCredentials,
+        })
+    } else {
+        throw new Error(
+            `❌ Unsupported metric protocol: ${protocol}. Supported protocols are "grpc" and "http"`
+        )
     }
 }
 
@@ -143,4 +219,33 @@ function initializeCustomMetrics(serviceName, serviceVersion) {
     return meter
 }
 
-export default { init }
+/**
+ * Wraps a function (sync or async) and measures total execution time.
+ * Creates a single OpenTelemetry span per function call.
+ *
+ * @param {string} serviceName - The name of the service
+ * @param {Function} fn - The function to wrap
+ * @param {string} name - Span name (optional)
+ * @returns {Function} Wrapped function
+ */
+export function withObservability(serviceName, fn, name) {
+    const tracer = trace.getTracer(serviceName)
+    const spanName = name || fn.name || "anonymousFunction"
+
+    return async function (...args) {
+        return tracer.startActiveSpan(spanName, async (span) => {
+            try {
+                const result = await fn(...args)
+                return result
+            } catch (err) {
+                span.recordException(err)
+                span.setStatus({ code: 2, message: err.message })
+                throw err
+            } finally {
+                span.end()
+            }
+        })
+    }
+}
+
+export default { init, withObservability }
