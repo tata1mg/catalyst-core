@@ -24,3 +24,6 @@ n8n*
 openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
+**/.idea/*
+*swiftlint.yml 
+**/xcuserdata/*
