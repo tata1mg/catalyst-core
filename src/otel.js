@@ -30,7 +30,7 @@ function init(config = {}) {
         metricHeaders = {},
         batchProcessorConfig = {},
         exportIntervalMillis = 10000,
-        instrumentations = [],
+        instrumentations,
         samplingRate = 1.0,
         grpcCredentials,
     } = config
