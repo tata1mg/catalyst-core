@@ -95,7 +95,7 @@ function fetchPreloadJSLinkCache(key) {
  * @param {object} res - response object
  * @param {string} route - route path
  */
-export default function (res, route) {
+export default function extract(res, route) {
     try {
         const requestPath = route.path
         const cachedCss = fetchCachedCSS(requestPath)

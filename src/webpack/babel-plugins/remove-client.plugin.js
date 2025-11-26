@@ -2,7 +2,7 @@
  * @description babel plugin used to remove unwanted code from the build.
  * @return babel plugin object
  */
-export default function () {
+export default function removeClientCodePlugin() {
     return {
         name: "ast-transform", // not required
         visitor: {
