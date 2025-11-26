@@ -515,8 +515,8 @@ public enum ConfigConstants {
         }
 
         // Add URL whitelisting configuration if it exists
-        if (iosConfig.accessControl) {
-            const accessControl = iosConfig.accessControl
+        if (WEBVIEW_CONFIG.accessControl) {
+            const accessControl = WEBVIEW_CONFIG.accessControl
 
             configContent += `
     public static let accessControlEnabled = ${accessControl.enabled || false}`
