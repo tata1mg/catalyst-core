@@ -6,9 +6,16 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 
 class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     private var viewModel: WebViewModel
+    private let offlineFileName = "offline.html"
+    private let offlineSubdirectory = "offline"
+    private var offlinePageVisible = false
+    private var lastTargetURL: URL?
+    private let initialURL: URL?
     
-    init(viewModel: WebViewModel) {
+    init(viewModel: WebViewModel, initialURL: URL?) {
         self.viewModel = viewModel
+        self.initialURL = initialURL
+        self.lastTargetURL = initialURL
         super.init()
     }
     
@@ -31,6 +38,13 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         logger.info("📦 Request details - Method: \(httpMethod), HasBody: \(hasBody), BodySize: \(bodySize) bytes")
         if bodySize > 0 && bodySize < 1000 {
             logger.info("📄 Body preview: \(bodyPreview)")
+        }
+
+        // Handle offline retry scheme before any other processing
+        if isRetryURL(url) {
+            handleRetry(in: webView)
+            decisionHandler(.cancel)
+            return
         }
 
         // Handle special URL schemes (tel:, mailto:, sms:)
@@ -62,6 +76,10 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             logger.info("✅ URL passed whitelist checks, allowing navigation: \(url.absoluteString)")
         } else {
             logger.info("⚠️ Access control disabled, allowing all navigation: \(url.absoluteString)")
+        }
+
+        if ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+            lastTargetURL = url
         }
 
         Task {
@@ -151,6 +169,9 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         logWithTimestamp("📡 didStartProvisionalNavigation - loading started")
         Task { @MainActor in
+            if !isOfflinePageURL(webView.url) {
+                offlinePageVisible = false
+            }
             viewModel.setLoading(true, fromCache: false)
         }
     }
@@ -159,7 +180,12 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         logWithTimestamp("✅ didCommit - content started arriving")
         Task { @MainActor in
             if let url = webView.url {
-                viewModel.lastLoadedURL = url
+                if !isOfflinePageURL(url) {
+                    viewModel.lastLoadedURL = url
+                    lastTargetURL = url
+                } else {
+                    offlinePageVisible = true
+                }
             }
         }
     }
@@ -168,9 +194,14 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         logWithTimestamp("🎉 didFinish - page fully loaded")
         Task { @MainActor in
             if let url = webView.url {
-                viewModel.lastLoadedURL = url
+                if !isOfflinePageURL(url) {
+                    viewModel.lastLoadedURL = url
+                    lastTargetURL = url
+                    viewModel.addToHistory(url.absoluteString)
+                } else {
+                    offlinePageVisible = true
+                }
                 viewModel.canGoBack = webView.canGoBack
-                viewModel.addToHistory(url.absoluteString)
                 viewModel.setLoading(false, fromCache: false)
             }
         }
@@ -178,19 +209,26 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         logWithTimestamp("❌ didFail - navigation failed")
-        handleNavigationError(error)
+        handleNavigationError(error, webView: webView)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         logWithTimestamp("❌ didFailProvisionalNavigation - provisional load failed")
-        handleNavigationError(error)
+        handleNavigationError(error, webView: webView)
     }
 
-    private func handleNavigationError(_ error: Error) {
+    private func handleNavigationError(_ error: Error, webView: WKWebView?) {
         Task { @MainActor in
             viewModel.reset()
             logWithTimestamp("🔴 Navigation error: \(error.localizedDescription)")
             logger.error("Navigation failed: \(error.localizedDescription)")
+
+            guard shouldShowOfflinePage(for: error), let webView else { return }
+            if showOfflinePage(in: webView) {
+                logger.info("📴 Showing offline fallback page")
+            } else {
+                logger.error("❌ Unable to show offline page - file missing in bundle")
+            }
         }
     }
     
@@ -221,6 +259,66 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         // For all other domains, use default certificate validation
         logger.debug("🔐 SSL challenge for \(host) - using default validation")
         completionHandler(.performDefaultHandling, nil)
+    }
+
+    private func isRetryURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        if scheme != "catalyst" { return false }
+
+        let host = url.host?.lowercased()
+        let pathComponent = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
+        return host == "retry" || pathComponent == "retry" || url.absoluteString.lowercased() == "catalyst://retry"
+    }
+
+    private func handleRetry(in webView: WKWebView) {
+        let status = NetworkMonitor.shared.currentStatus
+
+        guard status.isOnline else {
+            logger.info("🔄 Retry requested but still offline; staying on offline page")
+            return
+        }
+
+        let targetURL = lastTargetURL ?? initialURL
+        guard let targetURL else {
+            logger.error("🔄 Retry requested but no target URL is known")
+            return
+        }
+
+        offlinePageVisible = false
+        logWithTimestamp("🔄 Retry requested, online. Reloading: \(targetURL.absoluteString)")
+        webView.load(URLRequest(url: targetURL))
+    }
+
+    private func isOfflinePageURL(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        return url.lastPathComponent.lowercased() == offlineFileName.lowercased()
+    }
+
+    private func shouldShowOfflinePage(for error: Error) -> Bool {
+        // Only show offline fallback when we truly have no connectivity
+        if !NetworkMonitor.shared.currentStatus.isOnline {
+            return true
+        }
+
+        // Treat explicit no-internet errors as offline; allow other errors to surface in the WebView
+        guard let urlError = error as? URLError else { return false }
+        return urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost
+    }
+
+    func showOfflinePage(in webView: WKWebView) -> Bool {
+        // Try offline/offline.html first to match Android packaging, then fall back to root
+        let bundle = Bundle.main
+        let offlineURL = bundle.url(forResource: "offline", withExtension: "html", subdirectory: offlineSubdirectory)
+            ?? bundle.url(forResource: "offline", withExtension: "html")
+
+        guard let offlineURL else {
+            return false
+        }
+
+        offlinePageVisible = true
+        let readAccessURL = offlineURL.deletingLastPathComponent()
+        webView.loadFileURL(offlineURL, allowingReadAccessTo: readAccessURL)
+        return true
     }
     
     /// Open URL in system browser
