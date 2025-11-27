@@ -196,6 +196,16 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Network helpers
+     */
+    network = {
+        /**
+         * Request current network status from native side
+         */
+        getStatus: () => this.call(NATIVE_COMMANDS.GET_NETWORK_STATUS),
+    }
+
+    /**
      * Haptic feedback methods
      */
     haptic = {

@@ -1217,3 +1217,54 @@ export const useNotification = () => {
         getSubscribedTopics,
     }
 }
+
+/**
+ * Network status hook
+ * Listens to native network changes and exposes online/offline state
+ */
+export const useNetworkStatus = () => {
+    const initialOnline = typeof navigator !== "undefined" ? navigator.onLine : true
+    const [status, setStatus] = useState({
+        online: initialOnline,
+        type: null,
+    })
+    const [error, setError] = useState(null)
+    const isNative = nativeBridge.isNativeEnvironment
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (!window.WebBridge) return
+        if (!isNative) return
+
+        const handleStatus = (payload) => {
+            try {
+                const parsed = parseNativePayload(payload) || {}
+                setStatus({
+                    online: Boolean(parsed.online),
+                    type: parsed.type || null,
+                })
+                setError(null)
+            } catch (e) {
+                console.error("🌐 Error parsing network status:", e)
+                setError(e.message)
+            }
+        }
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED, handleStatus)
+
+        try {
+            nativeBridge.network.getStatus()
+        } catch (e) {
+            setError(e.message || "Network status unavailable")
+        }
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED)
+        }
+    }, [isNative])
+
+    return {
+        ...status,
+        error,
+    }
+}

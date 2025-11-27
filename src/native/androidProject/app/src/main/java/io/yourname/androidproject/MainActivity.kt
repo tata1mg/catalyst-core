@@ -11,6 +11,7 @@ import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
 import io.yourname.androidproject.utils.KeyboardUtil
+import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.NotificationConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -139,14 +140,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 val useHttps = properties.getProperty("useHttps", "false").toBoolean()
                 val protocol = if (useHttps) "https" else "http"
                 currentUrl = "$protocol://$local_ip:$port/$initial_url"
+                customWebView.updateLastTargetUrl(currentUrl)
             
 
             // Check for notification and handle via /notification endpoint
             if (intent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
                 handleNotificationClick(currentUrl, intent)
             } else {
-                Log.d(TAG, "🔗 Loading base URL: $currentUrl")
-                customWebView.loadUrl(currentUrl)
+                val isOnline = NetworkUtils.getCurrentStatus(this).isOnline
+                if (isOnline) {
+                    Log.d(TAG, "🔗 Loading base URL: $currentUrl")
+                    customWebView.loadUrl(currentUrl)
+                } else {
+                    Log.w(TAG, "📴 Device offline on launch, showing offline page")
+                    customWebView.showOfflinePage()
+                }
             }
 
             metricsMonitor.markAppStartComplete()
@@ -167,6 +175,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 handleNotificationClick(currentUrl, newIntent)
             } else {
                 Log.d(TAG, "🔗 onNewIntent - Loading base URL: $currentUrl")
+                customWebView.updateLastTargetUrl(currentUrl)
                 customWebView.loadUrl(currentUrl)
             }
         }
@@ -241,7 +250,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             val url = buildNotificationUrl(baseUrl, action, notificationData)
             Log.d(TAG, "🔔 Navigating to: $url")
 
-            customWebView.loadUrl(url)
+            customWebView.updateLastTargetUrl(url)
+            val isOnline = NetworkUtils.getCurrentStatus(this).isOnline
+            if (isOnline) {
+                customWebView.loadUrl(url)
+            } else {
+                Log.w(TAG, "📴 Offline during notification click, showing offline page")
+                customWebView.showOfflinePage()
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "🔔 Error handling notification click: ${e.message}", e)

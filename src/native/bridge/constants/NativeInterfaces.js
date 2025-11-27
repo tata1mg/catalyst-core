@@ -26,6 +26,7 @@ export const NATIVE_COMMANDS = {
 
     // Device info commands
     GET_DEVICE_INFO: "getDeviceInfo",
+    GET_NETWORK_STATUS: "getNetworkStatus",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -61,6 +62,9 @@ export const NATIVE_CALLBACKS = {
     // Device info callbacks
     ON_DEVICE_INFO_SUCCESS: "ON_DEVICE_INFO_SUCCESS",
     ON_DEVICE_INFO_ERROR: "ON_DEVICE_INFO_ERROR",
+
+    // Network callbacks
+    NETWORK_STATUS_CHANGED: "NETWORK_STATUS_CHANGED",
 }
 
 // Interface Categories for easier management
@@ -118,6 +122,10 @@ export const INTERFACE_CATEGORIES = {
     DEVICE_INFO: {
         commands: [NATIVE_COMMANDS.GET_DEVICE_INFO],
         callbacks: [NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR],
+    },
+    NETWORK: {
+        commands: [NATIVE_COMMANDS.GET_NETWORK_STATUS],
+        callbacks: [NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED],
     },
 }
 

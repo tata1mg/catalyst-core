@@ -19,6 +19,7 @@ import io.yourname.androidproject.isUrlAllowed
 import io.yourname.androidproject.isExternalDomain
 import io.yourname.androidproject.matchesCachePattern
 import io.yourname.androidproject.utils.CameraUtils
+import io.yourname.androidproject.utils.NetworkUtils
 import kotlinx.coroutines.*
 import java.io.FileNotFoundException
 import java.util.Properties
@@ -46,6 +47,10 @@ class CustomWebView(
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
     private var accessControlEnabled: Boolean = false
+    private val offlineAssetPath = "offline/offline.html"
+    private val offlineAssetUrl = "file:///android_asset/$offlineAssetPath"
+    private var offlinePageVisible = false
+    private var lastTargetUrl: String? = null
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -123,8 +128,33 @@ class CustomWebView(
     }
 
     fun loadUrl(url: String) {
+        lastTargetUrl = url
+        offlinePageVisible = false
         webView.loadUrl(url)
     }
+
+    fun updateLastTargetUrl(url: String) {
+        lastTargetUrl = url
+    }
+
+    fun showOfflinePage() {
+        if (offlinePageVisible) {
+            return
+        }
+
+        // Verify offline asset exists to avoid crash
+        try {
+            context.assets.open(offlineAssetPath).close()
+            offlinePageVisible = true
+            webView.loadUrl(offlineAssetUrl)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "📴 Showing offline page from assets: $offlineAssetPath")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ offline.html not found in assets, cannot show offline page", e)
+        }
+    }
+
 
     fun saveState(outState: Bundle) {
         webView.saveState(outState)
@@ -263,6 +293,27 @@ class CustomWebView(
     private fun handleSpecialScheme(url: String): Boolean {
         val uri = Uri.parse(url)
         val scheme = uri.scheme?.lowercase() ?: return false
+
+        // Handle offline retry scheme
+        if (scheme == "catalyst" && (uri.host?.lowercase() == "retry" || uri.schemeSpecificPart?.lowercase() == "retry")) {
+            val status = NetworkUtils.getCurrentStatus(context)
+            if (status.isOnline) {
+                val target = lastTargetUrl
+                if (target != null) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "🔄 Retry requested, online. Reloading: $target")
+                    }
+                    offlinePageVisible = false
+                    lastTargetUrl = target
+                    webView.loadUrl(target)
+                } else if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "🔄 Retry requested but no target URL is known")
+                }
+            } else if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🔄 Retry requested but still offline; staying on offline page")
+            }
+            return true
+        }
 
         // Only handle tel, mailto, sms
         if (scheme !in listOf("tel", "mailto", "sms")) {
@@ -573,6 +624,7 @@ class CustomWebView(
 
                     // Let WebView handle loading non-API HTTP/HTTPS URLs
                     if (url.scheme in listOf("http", "https")) {
+                        lastTargetUrl = urlString
                         return false
                     }
                 }
@@ -807,6 +859,9 @@ class CustomWebView(
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                if (url != null && url != offlineAssetUrl) {
+                    offlinePageVisible = false
+                }
                 progressBar.visibility = View.VISIBLE
                 val startTime = System.currentTimeMillis()
                 view?.tag = startTime // Store start time for performance tracking

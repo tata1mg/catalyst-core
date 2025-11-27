@@ -104,6 +104,7 @@ class NativeBridge(
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
+    private var networkMonitor: NetworkMonitor? = null
 
     // Unified notification manager
     private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
@@ -268,6 +269,37 @@ class NativeBridge(
 
                 // Launch file picker with resolved configuration
                 launchFilePicker(currentFilePickerOptions)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun getNetworkStatus(param: String? = null) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, "get network status") {
+            // Lazily start monitor on first request
+            if (networkMonitor == null) {
+                networkMonitor = NetworkMonitor(mainActivity) { status ->
+                    mainActivity.runOnUiThread {
+                        try {
+                            val payload = JSONObject().apply {
+                                put("online", status.isOnline)
+                                status.transport?.let { put("type", it) }
+                            }
+                            BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, payload)
+                        } catch (e: Exception) {
+                            BridgeUtils.logError(TAG, "Failed to send network status to web: ${e.message}")
+                        }
+                    }
+                }.also { it.start() }
+            }
+
+            val status = NetworkUtils.getCurrentStatus(mainActivity)
+            val payload = JSONObject().apply {
+                put("online", status.isOnline)
+                status.transport?.let { put("type", it) }
+            }
+            mainActivity.runOnUiThread {
+                BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, payload)
             }
         }
     }
@@ -772,6 +804,10 @@ class NativeBridge(
         try {
             // Cleanup NotificationManager
             notificationManager.cleanup()
+
+            // Stop network monitoring
+            networkMonitor?.stop()
+            networkMonitor = null
 
             // Stop FrameworkServer
             FrameworkServerUtils.stopServer()
