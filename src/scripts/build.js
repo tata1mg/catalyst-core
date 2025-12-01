@@ -16,14 +16,14 @@ function build() {
 
     const commands = [
         "node ./dist/scripts/checkVersion",
-        `${isWindows ? "rd -r -fo" : "rm -rf"} ${process.cwd()}/${BUILD_OUTPUT_PATH} & node ./dist/scripts/loadScriptsBeforeServerStarts.js`,
+        `${isWindows ? "rd -r -fo" : "rm -rf"} ${process.cwd()}/${BUILD_OUTPUT_PATH} && node ./dist/scripts/loadScriptsBeforeServerStarts.js`,
         `cross-env APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress`,
         `cross-env APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js`,
         `cross-env APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet`,
         `cross-env APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`,
     ]
 
-    const command = commands.join(isWindows ? " && " : " ; ")
+    const command = commands.join(" && ")
 
     console.log("Creating an optimized production build...")
 
@@ -41,8 +41,10 @@ function build() {
         },
     })
 
-    if (result.error) {
-        console.error("Error occurred:", result.error)
+    if (result.error || result.status != 0) {
+        console.error("Error:", result.error)
+        throw new Error("Build Failed with status code: " + result.status)
+        
     } else {
         console.log(green("Compiled successfully."))
         console.log("\nFile sizes after gzip:\n")
