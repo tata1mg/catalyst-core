@@ -42,9 +42,15 @@ function build() {
     })
 
     if (result.error || result.status != 0) {
-        console.error("Error:", result.error)
-        throw new Error("Build Failed with status code: " + result.status)
-        
+        console.error("\nBuild Failed!");
+        if (result.error) {
+            console.error(`Error: ${result.error.message}\n`);
+        }
+         if (result.status !== null) {
+            console.error(`Exit code: ${result.status}\n`);
+        }
+        process.exit(result.status || 1);
+
     } else {
         console.log(green("Compiled successfully."))
         console.log("\nFile sizes after gzip:\n")
