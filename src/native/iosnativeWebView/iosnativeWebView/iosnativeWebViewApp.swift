@@ -9,6 +9,9 @@ import SwiftUI
 import UIKit
 import os
 import CatalystCore
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 // IMPORTANT: This is the App target, so it CAN import CatalystNotifications safely
 // This does not create a compile-time dependency in CatalystCore
@@ -81,6 +84,13 @@ struct iosnativeWebViewApp: App {
             ContentView()
                 .onAppear {
                     logWithTimestamp("🎨 WindowGroup ContentView appeared")
+                }
+                .onOpenURL { url in
+                    #if canImport(GoogleSignIn)
+                    if GIDSignIn.sharedInstance.handle(url) {
+                        logWithTimestamp("🔐 Google Sign-In handled via onOpenURL")
+                    }
+                    #endif
                 }
         }
     }

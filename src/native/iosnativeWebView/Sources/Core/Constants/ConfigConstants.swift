@@ -12,6 +12,12 @@ public enum ConfigConstants {
     public enum Notifications {
         public static let enabled = false
     }
+    
+    // Google Sign-In configuration (defaults to disabled, populated during build)
+    public enum GoogleSignIn {
+        public static let enabled = false
+        public static let clientId = ""
+    }
 
     // Access control configuration
     public static let accessControlEnabled = false

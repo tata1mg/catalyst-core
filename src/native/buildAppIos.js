@@ -9,6 +9,7 @@ const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
+const isGoogleSignInEnabled = WEBVIEW_CONFIG.googleSignIn?.enabled ?? false
 
 const protocol = WEBVIEW_CONFIG.useHttps ? "https" : "http"
 const ip = WEBVIEW_CONFIG.LOCAL_IP || "localhost"
@@ -142,7 +143,9 @@ async function generatePackageSwift() {
         // Create hash of current config to detect changes
         const configHash = crypto
             .createHash("md5")
-            .update(JSON.stringify({ notifications: isNotificationsEnabled }))
+            .update(
+                JSON.stringify({ notifications: isNotificationsEnabled, googleSignIn: isGoogleSignInEnabled })
+            )
             .digest("hex")
 
         const hashFilePath = path.join(PROJECT_DIR, ".package-config-hash")
@@ -188,7 +191,8 @@ let package = Package(
             packageContent += `
     ],
     dependencies: [
-        .package(url: "https://github.com/kylef/JSONSchema.swift", from: "0.6.0")`
+        .package(url: "https://github.com/kylef/JSONSchema.swift", from: "0.6.0"),
+        .package(url: "https://github.com/google/GoogleSignIn-iOS", from: "7.0.0")`
 
             // Add Firebase dependency only if notifications enabled
             if (isNotificationsEnabled) {
@@ -204,7 +208,8 @@ let package = Package(
         .target(
             name: "CatalystCore",
             dependencies: [
-                .product(name: "JSONSchema", package: "JSONSchema.swift")
+                .product(name: "JSONSchema", package: "JSONSchema.swift"),
+                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
             ],
             path: "Sources/Core"
         )`
@@ -370,16 +375,132 @@ async function updateXcodeProjectPackageDependencies() {
 async function updateInfoPlist() {
     try {
         const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
+        const infoReleasePlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info-Release.plist")
+        const googleServicesPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, GOOGLE_SERVICES_FILENAME)
+        const googleClientId =
+            WEBVIEW_CONFIG.googleSignIn?.clientId || WEBVIEW_CONFIG.googleSignIn?.webClientId || ""
 
-        if (fs.existsSync(infoPlistPath)) {
-            let plistContent = fs.readFileSync(infoPlistPath, "utf8")
+        const googleServicesContent = fs.existsSync(googleServicesPlistPath)
+            ? fs.readFileSync(googleServicesPlistPath, "utf8")
+            : null
+
+        const reversedClientIdFromServices = googleServicesContent
+            ? (googleServicesContent.match(/<key>REVERSED_CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) ||
+                  [])[1]
+            : null
+
+        const clientIdFromServices = googleServicesContent
+            ? (googleServicesContent.match(/<key>CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1]
+            : null
+
+        const computeReversed = (value) => {
+            if (!value) return ""
+            return value.split(".").reverse().join(".")
+        }
+
+        const resolvedClientIdForScheme = googleClientId || clientIdFromServices || ""
+        const resolvedReversedClientId =
+            reversedClientIdFromServices || computeReversed(resolvedClientIdForScheme)
+
+        const plistTargets = [infoPlistPath, infoReleasePlistPath]
+
+        const ensureGoogleUrlScheme = (plistPath) => {
+            if (!isGoogleSignInEnabled || !resolvedReversedClientId) {
+                return
+            }
+
+            if (!fs.existsSync(plistPath)) {
+                return
+            }
+
+            let plistContent = fs.readFileSync(plistPath, "utf8")
+
+            if (plistContent.includes(resolvedReversedClientId)) {
+                return
+            }
+
+            const urlTypeEntry = `\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>googleSignIn</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${resolvedReversedClientId}</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`
+
+            if (plistContent.includes("<key>CFBundleURLTypes</key>")) {
+                plistContent = plistContent.replace(
+                    /(<key>CFBundleURLTypes<\/key>\s*<array>)([\s\S]*?)(<\/array>)/,
+                    `$1$2\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>googleSignIn</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${resolvedReversedClientId}</string>\n\t\t\t</array>\n\t\t</dict>\n\t$3`
+                )
+            } else {
+                const insertPoint = plistContent.lastIndexOf("</dict>")
+                plistContent =
+                    plistContent.slice(0, insertPoint) + urlTypeEntry + plistContent.slice(insertPoint)
+            }
+
+            fs.writeFileSync(plistPath, plistContent, "utf8")
+            progress.log(`Added Google Sign-In URL scheme to ${path.basename(plistPath)}`, "info")
+        }
+
+        const ensureLSApplicationQueriesSchemes = (plistPath) => {
+            if (!isGoogleSignInEnabled || !resolvedReversedClientId) {
+                return
+            }
+
+            if (!fs.existsSync(plistPath)) {
+                return
+            }
+
+            let plistContent = fs.readFileSync(plistPath, "utf8")
+            const matches = plistContent.match(
+                /<key>LSApplicationQueriesSchemes<\/key>\s*<array>([\s\S]*?)<\/array>/
+            )
+            const existingSchemes = new Set()
+
+            if (matches && matches[1]) {
+                const schemeRegex = /<string>([^<]+)<\/string>/g
+                let match
+                while ((match = schemeRegex.exec(matches[1])) !== null) {
+                    existingSchemes.add(match[1])
+                }
+            }
+
+            const targetSchemes = ["google", resolvedReversedClientId]
+            targetSchemes.forEach((scheme) => {
+                if (scheme && !existingSchemes.has(scheme)) {
+                    existingSchemes.add(scheme)
+                }
+            })
+
+            const schemesArrayContent = Array.from(existingSchemes)
+                .map((s) => `\n\t\t<string>${s}</string>`)
+                .join("")
+
+            const newLSBlock = `\n\t<key>LSApplicationQueriesSchemes</key>\n\t<array>${schemesArrayContent}\n\t</array>\n`
+
+            if (matches) {
+                plistContent = plistContent.replace(
+                    /<key>LSApplicationQueriesSchemes<\/key>\s*<array>[\s\S]*?<\/array>/,
+                    newLSBlock.trimEnd()
+                )
+            } else {
+                const insertPoint = plistContent.lastIndexOf("</dict>")
+                plistContent =
+                    plistContent.slice(0, insertPoint) + newLSBlock + plistContent.slice(insertPoint)
+            }
+
+            fs.writeFileSync(plistPath, plistContent, "utf8")
+            progress.log(
+                `Ensured LSApplicationQueriesSchemes for Google in ${path.basename(plistPath)}`,
+                "info"
+            )
+        }
+
+        const ensureDisplayName = (plistPath) => {
+            if (!fs.existsSync(plistPath)) return
+
+            let plistContent = fs.readFileSync(plistPath, "utf8")
 
             // Add CFBundleDisplayName if it doesn't exist
             if (!plistContent.includes("CFBundleDisplayName")) {
                 const insertPoint = plistContent.lastIndexOf("</dict>")
                 const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "Catalyst Application"}</string>\n`
                 plistContent = plistContent.slice(0, insertPoint) + newEntry + plistContent.slice(insertPoint)
-                fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+                fs.writeFileSync(plistPath, plistContent, "utf8")
             } else {
                 // Update existing CFBundleDisplayName with new appName
                 const displayNameRegex = /(<key>CFBundleDisplayName<\/key>\s*<string>)([^<]*)(<\/string>)/
@@ -388,10 +509,16 @@ async function updateInfoPlist() {
                         displayNameRegex,
                         `$1${iosConfig.appName || "Catalyst Application"}$3`
                     )
-                    fs.writeFileSync(infoPlistPath, plistContent, "utf8")
+                    fs.writeFileSync(plistPath, plistContent, "utf8")
                 }
             }
         }
+
+        plistTargets.forEach((plistPath) => {
+            ensureDisplayName(plistPath)
+            ensureGoogleUrlScheme(plistPath)
+            ensureLSApplicationQueriesSchemes(plistPath)
+        })
     } catch (err) {
         progress.fail("config", err)
         process.exit(1)
@@ -599,6 +726,14 @@ public enum ConfigConstants {
             addedKeys.add("notifications")
         } else {
             progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
+        }
+
+        // Ensure Google Sign-In defaults exist to keep compile-time references stable
+        if (!addedKeys.has("googleSignIn")) {
+            progress.log("Google Sign-In not found in config, adding defaults (disabled)", "info")
+            configContent +=
+                '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n    }'
+            addedKeys.add("googleSignIn")
         }
 
         // Close the enum
