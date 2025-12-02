@@ -31,6 +31,24 @@ fun isNotificationsEnabled(): Boolean {
     }
 }
 
+fun isGoogleSignInEnabled(): Boolean {
+    return try {
+        if (configPath == null) return false
+        val configFile = File(configPath!!)
+        if (!configFile.exists()) return false
+
+        val json = JSONObject(configFile.readText())
+        if (!json.has("WEBVIEW_CONFIG")) return false
+
+        val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
+        val googleConfig = webviewConfig.optJSONObject("googleSignIn") ?: return false
+
+        googleConfig.optBoolean("enabled", false)
+    } catch (e: Exception) {
+        false
+    }
+}
+
 fun getLocalIpAddress(): String {
     return NetworkInterface.getNetworkInterfaces().toList()
         .flatMap { it.inetAddresses.toList() }
@@ -179,6 +197,18 @@ dependencies {
 
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
+
+    // Google Sign-In via Credential Manager (packaged only when enabled)
+    if (isGoogleSignInEnabled()) {
+        implementation("androidx.credentials:credentials:1.3.0")
+        implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+        implementation("com.google.android.libraries.identity.googleid:googleid:1.1.0")
+    } else {
+        // Keep compile classpath without bundling when disabled
+        compileOnly("androidx.credentials:credentials:1.3.0")
+        compileOnly("androidx.credentials:credentials-play-services-auth:1.3.0")
+        compileOnly("com.google.android.libraries.identity.googleid:googleid:1.1.0")
+    }
 
     // Notification dependencies - conditional based on config
     if (isNotificationsEnabled()) {
