@@ -44,7 +44,7 @@ function build() {
     if (result.error || result.status != 0) {
         console.error("\nBuild Failed!");
         if (result.error) {
-            console.error(`Error: ${result.error.message}\n`);
+            console.error(`Error: ${result.error?.message || result.error}\n`);
         }
          if (result.status !== null) {
             console.error(`Exit code: ${result.status}\n`);
