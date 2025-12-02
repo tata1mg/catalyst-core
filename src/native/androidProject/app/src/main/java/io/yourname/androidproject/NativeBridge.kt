@@ -291,15 +291,15 @@ class NativeBridge(
                         }
                     }
                 }.also { it.start() }
-            }
-
-            val status = NetworkUtils.getCurrentStatus(mainActivity)
-            val payload = JSONObject().apply {
-                put("online", status.isOnline)
-                status.transport?.let { put("type", it) }
-            }
-            mainActivity.runOnUiThread {
-                BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, payload)
+            } else {
+                val status = NetworkUtils.getCurrentStatus(mainActivity)
+                val payload = JSONObject().apply {
+                    put("online", status.isOnline)
+                    status.transport?.let { put("type", it) }
+                }
+                mainActivity.runOnUiThread {
+                    BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, payload)
+                }
             }
         }
     }

@@ -13,15 +13,17 @@ data class NetworkStatus(
 )
 
 object NetworkUtils {
+    private val transportLabels = mapOf(
+        NetworkCapabilities.TRANSPORT_WIFI to "wifi",
+        NetworkCapabilities.TRANSPORT_CELLULAR to "cellular",
+        NetworkCapabilities.TRANSPORT_ETHERNET to "ethernet",
+        NetworkCapabilities.TRANSPORT_BLUETOOTH to "bluetooth"
+    )
+
     private fun resolveTransport(capabilities: NetworkCapabilities?): String? {
         if (capabilities == null) return null
-        return when {
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "bluetooth"
-            else -> "unknown"
-        }
+        val transport = transportLabels.keys.firstOrNull { capabilities.hasTransport(it) }
+        return transport?.let { transportLabels[it] } ?: "unknown"
     }
 
     fun getCurrentStatus(context: Context): NetworkStatus {

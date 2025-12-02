@@ -175,7 +175,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 handleNotificationClick(currentUrl, newIntent)
             } else {
                 Log.d(TAG, "🔗 onNewIntent - Loading base URL: $currentUrl")
-                customWebView.updateLastTargetUrl(currentUrl)
                 customWebView.loadUrl(currentUrl)
             }
         }
