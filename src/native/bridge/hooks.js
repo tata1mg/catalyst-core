@@ -1172,7 +1172,7 @@ export const useNotification = () => {
                     base.handleNativeError(result.error)
                     return
                 }
-                const success = result?.success ?? result?.subscribed ?? result?.unsubscribed
+                const success = result?.success
                 if (success === false) {
                     base.handleNativeError(result)
                     return
