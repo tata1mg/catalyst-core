@@ -6,6 +6,8 @@ import { renderStart, renderEnd } from "./render.js"
 import { Provider } from "react-redux"
 import { Body } from "./document/Body.jsx"
 import { Head } from "./document/Head.jsx"
+import { prerenderToNodeStream } from "react-dom/static"
+import { resumeToPipeableStream } from "react-dom/server"
 
 import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "../../router/ServerRouter.js"
@@ -176,36 +178,35 @@ const renderMarkUp = async (
             )
         }
     }
+    const controller = new AbortController()
+    setTimeout(() => {
+        controller.abort()
+    }, 50)
 
-    try {
-        let status = matches.length && matches[0].match.path === "*" ? 404 : 200
-        res.set({ "content-type": "text/html; charset=utf-8" })
-        res.status(status)
-        const { pipe } = renderToPipeableStream(<CompleteDocument />, {
-            onShellReady() {
-                res.setHeader("content-type", "text/html")
-                res.write(`<!DOCTYPE html>`)
-                pipe(res)
-                // res.end()
-            },
-            onAllReady() {
-                const discoveredAssets = chunkExtractor.getNonEssentialAssets()
-                const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
-                const stylesheetLinks = generateStylesheetLinksAsStrings(
-                    discoveredAssets.css,
-                    req,
-                    chunkExtractor
-                )
-                res.write(stylesheetLinks)
-                res.write(scriptElements)
-            },
-            // onError(error) {
-            //     console.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
-            // },
-        })
-    } catch (error) {
-        console.error("Error in rendering document on server:" + error)
-    }
+    let status = matches.length && matches[0].match.path === "*" ? 404 : 200
+    res.set({ "content-type": "text/html; charset=utf-8" })
+    res.status(status)
+    const { prelude, postponed } = await prerenderToNodeStream(<CompleteDocument />, {
+        signal: controller.signal,
+    })
+    console.log(">>>>>>>>", postponed)
+    res.setHeader("Content-Type", "text/plain")
+    const { pipe } = resumeToPipeableStream(<CompleteDocument />, postponed, {
+        onShellReady: () => {
+            pipe(res)
+        },
+        onAllReady: () => {
+            const discoveredAssets = chunkExtractor.getNonEssentialAssets()
+            const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
+            const stylesheetLinks = generateStylesheetLinksAsStrings(
+                discoveredAssets.css,
+                req,
+                chunkExtractor
+            )
+            res.write(stylesheetLinks)
+            res.write(scriptElements)
+        },
+    })
 }
 
 /**
