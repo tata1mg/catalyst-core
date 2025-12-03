@@ -11,6 +11,7 @@ import org.json.JSONObject
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
+import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.KeyboardUtil
 import io.yourname.androidproject.utils.NotificationConstants
 import kotlinx.coroutines.CoroutineScope
@@ -259,10 +260,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                         put("notificationId", notificationId)
                     }
                 }
+                val webView = customWebView.getWebView()
                 if (action.isNullOrBlank()) {
-                    BridgeUtils.notifyWeb(customWebView, BridgeUtils.WebEvents.NOTIFICATION_TAPPED, payload.toString())
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_TAPPED, payload.toString())
                 } else {
-                    BridgeUtils.notifyWeb(customWebView, BridgeUtils.WebEvents.NOTIFICATION_ACTION_PERFORMED, payload.toString())
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_ACTION_PERFORMED, payload.toString())
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to notify web of notification action", e)
