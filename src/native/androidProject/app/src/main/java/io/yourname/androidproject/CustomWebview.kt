@@ -15,8 +15,7 @@ import androidx.webkit.WebResourceRequestCompat
 import android.widget.ProgressBar
 import androidx.webkit.WebViewAssetLoader
 import io.yourname.androidproject.WebCacheManager
-import io.yourname.androidproject.isUrlAllowed
-import io.yourname.androidproject.isExternalDomain
+import io.yourname.androidproject.URLWhitelistManager
 import io.yourname.androidproject.matchesCachePattern
 import io.yourname.androidproject.utils.CameraUtils
 import kotlinx.coroutines.*
@@ -93,6 +92,9 @@ class CustomWebView(
         accessControlEnabled = properties
             .getProperty("accessControl.enabled", "true")
             .equals("true", ignoreCase = true)
+
+        // Initialize URLWhitelistManager with access control configuration
+        URLWhitelistManager.initialize(accessControlEnabled, allowedUrls)
 
         // Set initial flags based on buildOptimisation
         if (buildOptimisation) {
@@ -411,7 +413,7 @@ class CustomWebView(
                     }
 
                     // Check if URL is allowed
-                    if (accessControlEnabled && !isUrlAllowed(url, allowedUrls)) {
+                    if (!URLWhitelistManager.isUrlAllowed(url)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🙫 SERVICE_WORKER: Request blocked by access control: $url")
                         }
@@ -555,7 +557,7 @@ class CustomWebView(
                     }
 
                     // Check if URL is an external domain
-                    if (url.scheme in listOf("http", "https") && isExternalDomain(urlString, allowedUrls)) {
+                    if (url.scheme in listOf("http", "https") && URLWhitelistManager.isExternalDomain(urlString)) {
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "🌍 External domain detected, opening in in-app browser: $urlString")
                         }
@@ -564,7 +566,7 @@ class CustomWebView(
                     }
 
                     // Check if URL is allowed for internal navigation
-                    if (accessControlEnabled && !isUrlAllowed(urlString, allowedUrls)) {
+                    if (!URLWhitelistManager.isUrlAllowed(urlString)) {
                         if (BuildConfig.DEBUG) {
                             Log.w(TAG, "🚫 URL blocked by access control: $urlString")
                         }
@@ -596,21 +598,18 @@ class CustomWebView(
                     Log.d(TAG, "🔄 INTERCEPT: isInitialPageLoaded: $isInitialPageLoaded")
                 }
 
-                if (accessControlEnabled) {
-                    if (!isUrlAllowed(url, allowedUrls)) {
-                        if (BuildConfig.DEBUG) {
-                            Log.w(TAG, "🚫 STEP_1_FAIL: Network request blocked by access control: $url")
-                            Log.w(TAG, "🚫 STEP_1_FAIL: Allowed URLs: $allowedUrls")
-                        }
-                        // Return an empty response to block the request
-                        return WebResourceResponse("text/plain", "utf-8", null)
-                    } else {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "✅ STEP_1_PASS: URL allowed by access control: $url")
-                        }
+                if (!URLWhitelistManager.isUrlAllowed(url)) {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "🚫 STEP_1_FAIL: Network request blocked by access control: $url")
                     }
+                    // Return an empty response to block the request
+                    return WebResourceResponse("text/plain", "utf-8", null)
                 } else if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "⚙️ STEP_1_SKIP: Access control disabled, allowing URL: $url")
+                    if (URLWhitelistManager.isAccessControlEnabled()) {
+                        Log.d(TAG, "✅ STEP_1_PASS: URL allowed by access control: $url")
+                    } else {
+                        Log.d(TAG, "⚙️ STEP_1_SKIP: Access control disabled, allowing URL: $url")
+                    }
                 }
 
                 // TODO: Add HTML file workflow - index.html not available yet
