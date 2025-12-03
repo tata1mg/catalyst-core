@@ -14,6 +14,15 @@
 		C999743A2E97D69E00C25611 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99974382E97D69E00C25611 /* ContentView.swift */; };
 		E90872B42E8D00D80076627C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90872B32E8D00D80076627C /* AppDelegate.swift */; };
 		E9F699D22EDEFEF2005E972E /* URLWhitelistManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699D02EDEFEF2005E972E /* URLWhitelistManagerTests.swift */; };
+		E9F699D42EE05984005E972E /* ConfigMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699D32EE05984005E972E /* ConfigMappingTests.swift */; };
+		E9F699D62EE05D74005E972E /* BridgeMessageValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699D52EE05D74005E972E /* BridgeMessageValidatorTests.swift */; };
+		E9F699D82EE06068005E972E /* NativeBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699D72EE06068005E972E /* NativeBridgeTests.swift */; };
+		E9F699DA2EE063D5005E972E /* WebViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699D92EE063D5005E972E /* WebViewTests.swift */; };
+		E9F699DC2EE06483005E972E /* CacheManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699DB2EE06482005E972E /* CacheManagerTests.swift */; };
+		E9F699DE2EE06506005E972E /* FilePickerHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699DD2EE06506005E972E /* FilePickerHandlerTests.swift */; };
+		E9F699E02EE065B0005E972E /* NotificationHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699DF2EE065B0005E972E /* NotificationHandlerTests.swift */; };
+		E9F699E22EE06650005E972E /* FrameworkServerUtilsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699E12EE06650005E972E /* FrameworkServerUtilsTests.swift */; };
+		E9F699E42EE0696A005E972E /* BootTimingUtilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699E32EE0696A005E972E /* BootTimingUtilityTests.swift */; };
 		F1234AC22E990180008C7F58 /* localhost.p12 in Resources */ = {isa = PBXBuildFile; fileRef = F1234AC32E990180008C7F58 /* localhost.p12 */; };
 /* End PBXBuildFile section */
 
@@ -48,6 +57,15 @@
 		E90872B32E8D00D80076627C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E9F699CF2EDEFCF3005E972E /* iosnativeWebView.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = file; path = iosnativeWebView.xctestplan; sourceTree = "<group>"; };
 		E9F699D02EDEFEF2005E972E /* URLWhitelistManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLWhitelistManagerTests.swift; sourceTree = "<group>"; };
+		E9F699D32EE05984005E972E /* ConfigMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigMappingTests.swift; sourceTree = "<group>"; };
+		E9F699D52EE05D74005E972E /* BridgeMessageValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeMessageValidatorTests.swift; sourceTree = "<group>"; };
+		E9F699D72EE06068005E972E /* NativeBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBridgeTests.swift; sourceTree = "<group>"; };
+		E9F699D92EE063D5005E972E /* WebViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewTests.swift; sourceTree = "<group>"; };
+		E9F699DB2EE06482005E972E /* CacheManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheManagerTests.swift; sourceTree = "<group>"; };
+		E9F699DD2EE06506005E972E /* FilePickerHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickerHandlerTests.swift; sourceTree = "<group>"; };
+		E9F699DF2EE065B0005E972E /* NotificationHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationHandlerTests.swift; sourceTree = "<group>"; };
+		E9F699E12EE06650005E972E /* FrameworkServerUtilsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameworkServerUtilsTests.swift; sourceTree = "<group>"; };
+		E9F699E32EE0696A005E972E /* BootTimingUtilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootTimingUtilityTests.swift; sourceTree = "<group>"; };
 		F1234AC32E990180008C7F58 /* localhost.p12 */ = {isa = PBXFileReference; lastKnownFileType = file; path = localhost.p12; sourceTree = "<group>"; };
 		XCCONFIG001000000001 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		XCCONFIG001000000002 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
@@ -127,6 +145,15 @@
 		E9F699D12EDEFEF2005E972E /* iosnativeWebViewTests */ = {
 			isa = PBXGroup;
 			children = (
+				E9F699E32EE0696A005E972E /* BootTimingUtilityTests.swift */,
+				E9F699E12EE06650005E972E /* FrameworkServerUtilsTests.swift */,
+				E9F699DF2EE065B0005E972E /* NotificationHandlerTests.swift */,
+				E9F699DD2EE06506005E972E /* FilePickerHandlerTests.swift */,
+				E9F699DB2EE06482005E972E /* CacheManagerTests.swift */,
+				E9F699D92EE063D5005E972E /* WebViewTests.swift */,
+				E9F699D72EE06068005E972E /* NativeBridgeTests.swift */,
+				E9F699D52EE05D74005E972E /* BridgeMessageValidatorTests.swift */,
+				E9F699D32EE05984005E972E /* ConfigMappingTests.swift */,
 				E9F699D02EDEFEF2005E972E /* URLWhitelistManagerTests.swift */,
 			);
 			path = iosnativeWebViewTests;
@@ -289,6 +316,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E9F699DE2EE06506005E972E /* FilePickerHandlerTests.swift in Sources */,
+				E9F699E02EE065B0005E972E /* NotificationHandlerTests.swift in Sources */,
+				E9F699DC2EE06483005E972E /* CacheManagerTests.swift in Sources */,
+				E9F699D42EE05984005E972E /* ConfigMappingTests.swift in Sources */,
+				E9F699D82EE06068005E972E /* NativeBridgeTests.swift in Sources */,
+				E9F699DA2EE063D5005E972E /* WebViewTests.swift in Sources */,
+				E9F699E42EE0696A005E972E /* BootTimingUtilityTests.swift in Sources */,
+				E9F699E22EE06650005E972E /* FrameworkServerUtilsTests.swift in Sources */,
+				E9F699D62EE05D74005E972E /* BridgeMessageValidatorTests.swift in Sources */,
 				E9F699D22EDEFEF2005E972E /* URLWhitelistManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

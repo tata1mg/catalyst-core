@@ -348,7 +348,7 @@ final class URLWhitelistManagerTests: XCTestCase {
         expectation.expectedFulfillmentCount = 10
 
         // Launch multiple threads accessing the manager
-        for i in 1...10 {
+        for _ in 1...10 {
             DispatchQueue.global().async {
                 for j in 0..<100 {
                     _ = URLWhitelistManager.shared.isUrlAllowed("https://www.example.com/page\(j)")
