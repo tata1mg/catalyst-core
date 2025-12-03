@@ -7,6 +7,7 @@ import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
+import org.json.JSONObject
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
@@ -230,16 +231,42 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         try {
             val action = intent.getStringExtra(NotificationConstants.EXTRA_ACTION)
             val notificationData = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA)
+            val notificationId = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_ID)
 
             Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
 
             // Dismiss the notification
             val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            notificationManager.cancelAll() // This dismisses all notifications from this app
+            if (!notificationId.isNullOrBlank()) {
+                notificationManager.cancel(notificationId.hashCode())
+            } else {
+                notificationManager.cancelAll() // Fallback if we didn't get an ID
+            }
 
             // Build simple /notification URL
             val url = buildNotificationUrl(baseUrl, action, notificationData)
             Log.d(TAG, "🔔 Navigating to: $url")
+
+            // Notify web layer about the action/tap
+            try {
+                val payload = org.json.JSONObject().apply {
+                    put("action", action ?: "tap")
+                    put("deepLinkURL", url)
+                    if (!notificationData.isNullOrBlank()) {
+                        put("data", org.json.JSONObject(notificationData))
+                    }
+                    if (!notificationId.isNullOrBlank()) {
+                        put("notificationId", notificationId)
+                    }
+                }
+                if (action.isNullOrBlank()) {
+                    BridgeUtils.notifyWeb(customWebView, BridgeUtils.WebEvents.NOTIFICATION_TAPPED, payload.toString())
+                } else {
+                    BridgeUtils.notifyWeb(customWebView, BridgeUtils.WebEvents.NOTIFICATION_ACTION_PERFORMED, payload.toString())
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to notify web of notification action", e)
+            }
 
             customWebView.loadUrl(url)
 
