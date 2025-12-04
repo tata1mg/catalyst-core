@@ -1,6 +1,58 @@
 import { cacheCSS, cacheJS } from "./extract"
 
 /**
+ * PPR Configuration utilities
+ */
+export const PPRConfig = {
+    /**
+     * Check if PPR is enabled
+     * @returns {boolean}
+     */
+    isEnabled: () => process.env.ENABLE_PPR === "true",
+
+    /**
+     * Get PPR timeout in milliseconds
+     * @returns {number}
+     */
+    getTimeout: () => parseInt(process.env.PPR_TIMEOUT_MS || "5000", 10),
+
+    /**
+     * Get PPR configuration object
+     * @returns {object}
+     */
+    getConfig: () => ({
+        enabled: process.env.ENABLE_PPR === "true",
+        timeoutMs: parseInt(process.env.PPR_TIMEOUT_MS || "5000", 10),
+    }),
+}
+
+/**
+ * Serialize postponed state for client-side hydration
+ * @param {object} postponed - The postponed state from prerender
+ * @returns {string} - Serialized postponed state
+ */
+export const serializePostponedState = (postponed) => {
+    if (!postponed) return null
+    try {
+        return JSON.stringify(postponed)
+    } catch (error) {
+        console.error("Error serializing postponed state:", error)
+        return null
+    }
+}
+
+/**
+ * Generate script tag for postponed state injection
+ * @param {object} postponed - The postponed state from prerender
+ * @returns {string} - Script tag HTML string
+ */
+export const generatePostponedStateScript = (postponed) => {
+    const serialized = serializePostponedState(postponed)
+    if (!serialized) return ""
+    return `<script>window.__PPR_POSTPONED__=${serialized}</script>`
+}
+
+/**
  * returns data which will be used in Head component for page rendering
  * @param {string} pageCss - cached styles for page
  * @param {string} pageJS - cached javscript elements for page

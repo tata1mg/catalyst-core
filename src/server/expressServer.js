@@ -36,8 +36,21 @@ async function createServer() {
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
 
-    // The middleware will attempt to compress response bodies for all request that traverse through the middleware
-    app.use(compression())
+    // Response compression - gzip/brotli for bandwidth savings
+    app.use(
+        compression({
+            level: 6, // Balance between speed and compression (1-9)
+            threshold: 1024, // Only compress responses > 1KB
+            filter: (req, res) => {
+                // Don't compress if client doesn't accept it
+                if (req.headers["x-no-compression"]) {
+                    return false
+                }
+                // Use default filter (checks Accept-Encoding)
+                return compression.filter(req, res)
+            },
+        })
+    )
 
     let vite
     let manifest
