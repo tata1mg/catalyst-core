@@ -1,9 +1,8 @@
 const path = require("path")
-const { spawnSync } = require("child_process")
 const { green, cyan, yellow } = require("picocolors")
 const { name } = require(`${process.cwd()}/package.json`)
 const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
-const { arrayToObject, printBundleInformation } = require("./scriptUtils.js")
+const { arrayToObject, printBundleInformation, runBuildCommands } = require("./scriptUtils.js")
 
 /**
  * @description - creates a production build of the application.
@@ -18,19 +17,16 @@ function devBuild() {
         "node ./dist/scripts/checkVersion",
         `${isWindows ? "rd -r -fo" : "rm -rf"} ${process.cwd()}/${BUILD_OUTPUT_PATH} && node ./dist/scripts/loadScriptsBeforeServerStarts.js`,
         `cross-env APPLICATION=${name || "catalyst_app"} webpack --config ./dist/webpack/production.client.babel.js --progress`,
-        ` cross-env APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js`,
+        `cross-env APPLICATION=${name || "catalyst_app"} SSR=true webpack --config ./dist/webpack/production.ssr.babel.js`,
         `cross-env APPLICATION=${name || "catalyst_app"} npx babel ./dist/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --ignore '**/*.test.js,./dist/server/renderer/handler.js' --quiet`,
         `cross-env APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`,
     ]
 
-    const command = commands.join(" && ")
-
     console.log("Creating an optimized local build...")
 
-    const result = spawnSync(command, [], {
+    runBuildCommands({
+        commands,
         cwd: dirname,
-        stdio: "inherit",
-        shell: true,
         env: {
             ...process.env,
             src_path: process.cwd(),
@@ -41,30 +37,18 @@ function devBuild() {
         },
     })
 
-    if (result.error || result.status != 0) {
-        console.error("\nBuild Failed!");
-        if (result.error) {
-            console.error(`Error: ${result.error?.message || result.error}\n`);
-        }
-         if (result.status !== null) {
-            console.error(`Exit code: ${result.status}\n`);
-        }
-        process.exit(result.status || 1);
-
-    } else {
-        console.log(green("Compiled successfully."))
-        console.log("\nFile sizes after gzip:\n")
-        printBundleInformation()
-        console.log(`\nThe ${cyan(BUILD_OUTPUT_PATH)} folder is ready to be deployed.`)
-        console.log("You may serve it with a serve command:")
-        console.log(cyan("\n npm run devServe"))
-        console.log("\nFind out more about deployment here:")
-        console.log(
-            yellow(
-                "\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n"
-            )
+    console.log(green("Compiled successfully."))
+    console.log("\nFile sizes after gzip:\n")
+    printBundleInformation()
+    console.log(`\nThe ${cyan(BUILD_OUTPUT_PATH)} folder is ready to be deployed.`)
+    console.log("You may serve it with a serve command:")
+    console.log(cyan("\n npm run devServe"))
+    console.log("\nFind out more about deployment here:")
+    console.log(
+        yellow(
+            "\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n"
         )
-    }
+    )
 }
 
 devBuild()

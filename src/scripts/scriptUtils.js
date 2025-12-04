@@ -1,6 +1,7 @@
 const fs = require("fs")
 const path = require("path")
 const util = require("node:util")
+const { spawnSync } = require("child_process")
 const { gray, cyan } = require("picocolors")
 const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
 
@@ -51,4 +52,48 @@ export function arrayToObject(array) {
         if (value) obj[key] = value
     })
     return obj
+}
+
+const BUILD_FAILURE_MESSAGE = "\nBuild Failed!"
+
+function shouldFailBuild(result) {
+    return (
+        result.error ||
+        result.signal ||
+        (result.status !== null && result.status !== 0)
+    )
+}
+
+function logBuildFailure(result, failureMessage = BUILD_FAILURE_MESSAGE) {
+    console.error(failureMessage)
+
+    if (result.error) {
+        console.error(`Error: ${result.error?.message || result.error}\n`)
+    }
+
+    if (result.signal) {
+        console.error(`Signal: ${result.signal}\n`)
+    }
+
+    if (result.status !== null) {
+        console.error(`Exit code: ${result.status}\n`)
+    }
+}
+
+export const runBuildCommands = ({ commands, cwd, env, failureMessage = BUILD_FAILURE_MESSAGE }) => {
+    const command = commands.join(" && ")
+
+    const result = spawnSync(command, [], {
+        cwd,
+        stdio: "inherit",
+        shell: true,
+        env,
+    })
+
+    if (shouldFailBuild(result)) {
+        logBuildFailure(result, failureMessage)
+        process.exit(result.status || 1)
+    }
+
+    return result
 }
