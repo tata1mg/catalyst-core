@@ -229,7 +229,6 @@ export default async function handler(req, res) {
         // Factory to create document JSX
         // const createDocument = () => {
         const AppContent = ({ phase }) => {
-            console.log(`[PPR]   Phase: ${phase}`, req.originalUrl)
             return (
                 <div id="app">
                     <PPRDataProvider phase={phase}>
@@ -306,12 +305,6 @@ export default async function handler(req, res) {
             const cached = prerenderCache.get(cacheKey)
 
             // Write cached prelude immediately
-            if (cached.preludeBuffer) {
-                res.write(cached.preludeBuffer)
-                // Flush to send data immediately (compression middleware buffers otherwise)
-                if (typeof res.flush === "function") res.flush()
-            }
-            // console.log(`[PPR]   ⚡ Cache Hit - Sent cached prelude`, req.originalUrl)
 
             // For cache hit, we need a FRESH prerender to get matching postponed state
             // (postponed state is tied to the specific React element tree)
@@ -324,13 +317,19 @@ export default async function handler(req, res) {
                     <AppContent phase={"resume"} />,
                     JSON.parse(cached.postponeBuffer),
                     {
-                        onShellReady() {},
+                        onShellReady() {
+                            res.setHeader("x-rendering-mode", "resumeToPipeableStream")
+                            if (cached.preludeBuffer) {
+                                res.write(cached.preludeBuffer)
+                                // Flush to send data immediately (compression middleware buffers otherwise)
+                                if (typeof res.flush === "function") res.flush()
+                            }
+                        },
                         onShellError(error) {
                             console.error(`[Stream] ✗ Shell error for ${url}:`, error)
                         },
                         onAllReady() {
                             pipe(res)
-                            res.write("resumeToPipeableStream ready")
                             clearPPRCache()
                             // if (chunkExtractor) {
                             //     try {
@@ -353,8 +352,8 @@ export default async function handler(req, res) {
                     }
                 )
             } catch (error) {
-                console.warn(`[PPR]   Fresh prerender failed: ${error.message}`)
                 // Fallback: end the response with what we have
+                console.warn(`[PPR]   ✗ Prerender failed: ${error.message}`)
                 res.end()
             }
         } else {
@@ -362,7 +361,6 @@ export default async function handler(req, res) {
             const controller = new AbortController()
             setTimeout(() => controller.abort(), 50)
 
-            // console.log(`[PPR]   ⚡ Cache MISS - Creating new prerendered shell`, req.originalUrl)
             const prerenderStart = Date.now()
 
             try {
@@ -377,12 +375,43 @@ export default async function handler(req, res) {
                 prerenderCache.set(cacheKey, { preludeBuffer, postponeBuffer })
 
                 // Write the prelude to response
-                res.write(preludeBuffer)
+                // res.write(preludeBuffer)
 
-                // await streamToResponse(doc, req, res, chunkExtractor, result.postponed, true)
+                try {
+                    // )
+                    const { pipe, abort } = renderToPipeableStream(<AppContent phase={"dynamic"} />, {
+                        onShellError(error) {
+                            console.error(`[Stream] ✗ Shell error for ${url}:`, error)
+                        },
+                        onAllReady() {
+                            res.setHeader("x-rendering-mode", "renderToPipeableStream")
+                            pipe(res)
+                            clearPPRCache()
+                            // if (chunkExtractor) {
+                            //     try {
+                            //         const assets = chunkExtractor.getNonEssentialAssets()
+                            //         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
+                            //         res.write(generateScriptTagsAsStrings(assets.js, req))
+                            //         console.log(
+                            //             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
+                            //         )
+                            //     } catch (err) {
+                            //         console.warn("[Stream] Error injecting assets:", err)
+                            //     }
+                            // }
+                            res.end()
+                        },
+                        onError(error) {
+                            clearPPRCache()
+                            console.error(`[Stream] Streaming error for ${url}:`, error)
+                        },
+                    })
+                } catch (error) {
+                    // Fallback: end the response with what we have
+                    res.end()
+                }
             } catch (error) {
                 console.warn(`[PPR]   ✗ Prerender failed: ${error.message}`)
-                console.log(`[PPR]   Falling back to renderToPipeableStream`)
             }
         }
     } catch (error) {

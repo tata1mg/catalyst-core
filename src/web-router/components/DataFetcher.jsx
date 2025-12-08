@@ -64,7 +64,6 @@ function createSuspensePromise(promiseFn, cacheKey) {
     // Check cache first
     if (promiseCache.has(cacheKey)) {
         const promise = promiseCache.get(cacheKey)
-        console.log(`[PPR]   ⚡ Cache Hit - Sent cached promise`, cacheKey)
         return promise
     }
 
@@ -89,7 +88,6 @@ function createSuspensePromise(promiseFn, cacheKey) {
     promise._result = () => result
 
     promiseCache.set(cacheKey, promise)
-    console.log(`[PPR]   ⚡ Cache MISS - Created new promise`, cacheKey)
     return promise
 }
 
@@ -99,7 +97,6 @@ export function PPRDataProvider({ phase, children }) {
 
 export function usePPRRouteData(promise, cacheKey) {
     const phase = useContext(PPRDataContext)
-    console.log(`[PPR]   ⚡ Phase: ${phase}`)
 
     const dataPromise = createSuspensePromise(promise, cacheKey)
 
