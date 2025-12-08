@@ -149,10 +149,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             } else {
                 val isOnline = NetworkUtils.getCurrentStatus(this).isOnline
                 if (isOnline) {
-                    Log.d(TAG, "🔗 Loading base URL: $currentUrl")
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "🔗 Loading base URL: $currentUrl")
+                    }
                     customWebView.loadUrl(currentUrl)
                 } else {
-                    Log.w(TAG, "📴 Device offline on launch, showing offline page")
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "📴 Device offline on launch, showing offline page")
+                    }
                     customWebView.showOfflinePage()
                 }
             }
