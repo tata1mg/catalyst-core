@@ -1107,19 +1107,57 @@ export const useNotification = () => {
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.success === false || result?.error) {
+                    base.handleNativeError(result.error || result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.success === false || result?.error) {
+                    base.handleNativeError(result.error || result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            setPushToken(result.token)
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                setPushToken(result.token)
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED, (data) => {
             const notification = typeof data === "string" ? JSON.parse(data) : data
             setLastNotification(notification)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_TAPPED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED, (data) => {
@@ -1128,22 +1166,49 @@ export const useNotification = () => {
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                const success = result?.success
+                if (success === false) {
+                    base.handleNativeError(result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            setSubscribedTopics(result.topics || [])
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                if (result?.success === false) {
+                    base.handleNativeError(result)
+                    return
+                }
+                setSubscribedTopics(result.topics || [])
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         return () => {
             // Cleanup
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
             window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_TAPPED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT)
             window.WebBridge.unregister(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT)

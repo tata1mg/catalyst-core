@@ -132,12 +132,7 @@ class AppNotificationManager(
      * @return Push token for the device (empty string if not available)
      */
     suspend fun initializePush(): String {
-        return try {
-            pushNotificationUtils.initializeAndGetToken(context)
-        } catch (e: Exception) {
-            BridgeUtils.logWarning(TAG, "Push notifications not available: ${e.message}")
-            ""
-        }
+        return pushNotificationUtils.initializeAndGetToken(context)
     }
     
     /**
