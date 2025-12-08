@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "../index.jsx"
+import { createBrowserRouter } from "react-router-dom"
 import { preparedRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
 
 /**
@@ -9,4 +9,4 @@ const clientRouter = ({ routerInitialState }) => {
     return browserRouter
 }
 
-export default clientRouter
+export { clientRouter }

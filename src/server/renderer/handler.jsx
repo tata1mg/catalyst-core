@@ -3,12 +3,12 @@ import { renderStart, renderEnd } from "./render.js"
 import { Provider } from "react-redux"
 import { Body } from "./document/Body.jsx"
 import { Head } from "./document/Head.jsx"
-
 import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "../../router/ServerRouter.js"
-import { renderToPipeableStream } from "react-dom/server"
+import { renderToPipeableStream, resumeToPipeableStream } from "react-dom/server"
+import { prerenderToNodeStream } from "react-dom/static"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
-import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
+import { matchPath, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
@@ -17,20 +17,33 @@ import {
     generateScriptTagsAsStrings,
     generateStylesheetLinksAsStrings,
 } from "./extract.js"
-import {
-    PPRDataProvider,
-    createPPRDataPromises,
-    clearPPRCache,
-} from "../../web-router/components/PPRDataProvider.jsx"
-
+import { clearPPRCache, PPRDataProvider } from "../../web-router/components/DataFetcher.jsx"
 import CustomDocument from "@catalyst/template/server/document.jsx"
-
 import App from "@catalyst/template/src/js/containers/App/index.jsx"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
 import createStore from "@catalyst/template/src/js/store/index.js"
 
-// matches request route with routes defined in the application.
-const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
+// Cache for prerendered shells (keyed by pathname)
+const prerenderCache = new Map()
+
+export const clearPrerenderCache = () => prerenderCache.clear()
+
+/**
+ * Collects a readable stream into a buffer
+ */
+function collectStream(stream) {
+    return new Promise((resolve, reject) => {
+        const chunks = []
+        stream.on("data", (chunk) => chunks.push(chunk))
+        stream.on("end", () => resolve(Buffer.concat(chunks)))
+        stream.on("error", reject)
+    })
+}
+
+/**
+ * Matches request route with routes defined in the application
+ */
+function getMatchRoutes(routes, req, basePath = "") {
     return routes.reduce((matches, route) => {
         const { path } = route
         const match = matchPath(
@@ -39,516 +52,343 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (!match && route.children) {
-            // recursively try to match nested routes
-            const nested = getMatchRoutes(
-                route.children,
-                req,
-                res,
-                store,
-                context,
-                fetcherData,
-                `${basePath}/${path}`
-            )
-            if (nested.length) {
-                matches = matches.concat(nested)
-            }
+            const nested = getMatchRoutes(route.children, req, `${basePath}/${path}`)
+            if (nested.length) matches = matches.concat(nested)
         }
 
         return matches
     }, [])
 }
 
-// Collects essential assets for the current route
-const collectEssentialAssets = (ssrManifest, manifest, assetManifest) => {
-    let discoveredAssets = { js: [], css: [] }
-    let chunkExtractor = null
+/**
+ * Streams React JSX to response with optional prerendered state
+ */
+// function streamToResponse(jsx, req, res, chunkExtractor, postponed = null, preludeSent = false) {
+//     const url = req.originalUrl
+//     const renderMode = postponed ? "resumeToPipeableStream" : "renderToPipeableStream"
+//     const startTime = Date.now()
+
+//     console.log(`[Stream] ▶ Starting ${renderMode} for: ${url}`)
+//     console.log(`[Stream]   postponed: ${postponed ? "present" : "null"}, preludeSent: ${preludeSent}`)
+
+//     return new Promise((resolve, reject) => {
+//         let isAborted = false
+
+//         const options = {
+//             onShellReady() {
+//                 if (isAborted) return
+//                 const shellTime = Date.now() - startTime
+//                 console.log(`[Stream] ✓ Shell ready (${shellTime}ms) - TTFB sent for: ${url}`)
+
+//                 // Only set headers and DOCTYPE if we haven't already sent the prelude
+//                 if (!preludeSent) {
+//                     res.setHeader("content-type", "text/html; charset=utf-8")
+//                     res.write("<!DOCTYPE html>")
+//                 }
+//                 pipe(process.stdout)
+//             },
+//             onShellError(error) {
+//                 console.error(`[Stream] ✗ Shell error for ${url}:`, error)
+//                 reject(error)
+//             },
+//             onAllReady() {
+//                 if (isAborted) return
+//                 const totalTime = Date.now() - startTime
+//                 console.log(`[Stream] ✓ All ready (${totalTime}ms) - Streaming complete for: ${url}`)
+//                 if (chunkExtractor) {
+//                     try {
+//                         const assets = chunkExtractor.getNonEssentialAssets()
+//                         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
+//                         res.write(generateScriptTagsAsStrings(assets.js, req))
+//                         console.log(
+//                             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
+//                         )
+//                     } catch (err) {
+//                         console.warn("[Stream] Error injecting assets:", err)
+//                     }
+//                 }
+//                 res.end()
+//                 resolve()
+//             },
+//             onError(error) {
+//                 console.error(`[Stream] Streaming error for ${url}:`, error)
+//                 reject(error)
+//             },
+//         }
+//         console.log(">>>>>>postponed", postponed, jsx)
+//         const { pipe, abort } = resumeToPipeableStream(jsx, postponed, {
+//             onShellReady() {
+//                 if (isAborted) return
+//                 const shellTime = Date.now() - startTime
+//                 console.log(`[Stream] ✓ Shell ready (${shellTime}ms) - TTFB sent for: ${url}`)
+
+//                 // Only set headers and DOCTYPE if we haven't already sent the prelude
+//                 if (!preludeSent) {
+//                     res.setHeader("content-type", "text/html; charset=utf-8")
+//                     res.write("<!DOCTYPE html>")
+//                 }
+//                 pipe(res)
+//             },
+//             onShellError(error) {
+//                 console.error(`[Stream] ✗ Shell error for ${url}:`, error)
+//                 cleanup()
+//                 reject(error)
+//             },
+//             onAllReady() {
+//                 if (isAborted) return
+//                 const totalTime = Date.now() - startTime
+//                 console.log(`[Stream] ✓ All ready (${totalTime}ms) - Streaming complete for: ${url}`)
+//                 if (chunkExtractor) {
+//                     try {
+//                         const assets = chunkExtractor.getNonEssentialAssets()
+//                         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
+//                         res.write(generateScriptTagsAsStrings(assets.js, req))
+//                         console.log(
+//                             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
+//                         )
+//                     } catch (err) {
+//                         console.warn("[Stream] Error injecting assets:", err)
+//                     }
+//                 }
+//                 res.end()
+//                 cleanup()
+//                 resolve()
+//             },
+//             onError(error) {
+//                 console.error(`[Stream] Streaming error for ${url}:`, error)
+//                 cleanup()
+//                 reject(error)
+//             },
+//         })
+
+//         const cleanup = () => {
+//             req.off("close", handleAbort)
+//             res.off("close", handleAbort)
+//         }
+
+//         const handleAbort = () => {
+//             if (isAborted) return
+//             isAborted = true
+//             console.log(`[Stream] ⚠ Client disconnected, aborting: ${url}`)
+//             abort()
+//             cleanup()
+//             resolve()
+//         }
+
+//         req.on("close", handleAbort)
+//         res.on("close", handleAbort)
+//     })
+// }
+
+/**
+ * Main request handler using PPR (Partial Prerendering)
+ */
+export default async function handler(req, res) {
+    const url = req.originalUrl
+    const requestStart = Date.now()
 
     try {
-        // Create ChunkExtractor for this render
-        chunkExtractor = new ChunkExtractor({
-            manifest: manifest || {},
-            ssrManifest: ssrManifest || {},
-            assetManifest: assetManifest || {},
-        })
+        // Step 1: Setup
+        const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
+        const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
+        const matches = getMatchRoutes(routes, req)
+        const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
+        const cacheKey = new URL(url, `http://${req.headers.host}`).pathname
 
-        // Get extracted assets from ChunkExtractor
-        discoveredAssets = chunkExtractor.getEssentialAssets()
-    } catch (error) {
-        console.warn("Error while collecting essential assets:", error)
-    }
+        // Step 2: Server-side data setup
 
-    return { discoveredAssets, chunkExtractor }
-}
+        // Step 3: Collect assets
+        // let chunkExtractor = null
+        // let discoveredAssets = { js: [], css: [] }
+        // try {
+        //     chunkExtractor = new ChunkExtractor({
+        //         manifest: req.manifest || {},
+        //         ssrManifest: req.ssrManifest || {},
+        //         assetManifest: req.assetManifest || {},
+        //     })
+        //     discoveredAssets = chunkExtractor.getEssentialAssets()
+        // } catch (error) {
+        //     console.warn(`[PPR]   Error collecting assets:`, error.message)
+        // }
 
-// Preloads chunks required for rendering document
-const getComponent = (store, context, req, fetcherData, pprDataPromises = null) => {
-    const content = (
-        <div id="app">
-            <Provider store={store}>
-                <StaticRouter context={context} location={req.originalUrl}>
-                    <ServerRouter store={store} intialData={fetcherData} />
-                </StaticRouter>
-            </Provider>
-        </div>
-    )
+        // Step 4: Prepare document
+        // const isBot = getUserAgentDetails(req.headers["user-agent"] || "").googleBot || false
+        // const scriptElements = generateScriptTags(discoveredAssets.js, req)
+        // const stylesheetLinks = generateStylesheetLinks(discoveredAssets.css, req, chunkExtractor)
+        // res.locals.pageJS = scriptElements
+        // res.locals.pageCss = stylesheetLinks
 
-    // Wrap with PPR data provider for streaming
-    if (isPPREnabled()) {
-        return <PPRDataProvider dataPromises={pprDataPromises}>{content}</PPRDataProvider>
-    }
+        // const shellStart = await renderStart(
+        //     stylesheetLinks,
+        //     scriptElements,
+        //     getMetaData(allMatches, {}),
+        //     isBot,
+        //     {}
+        // )
 
-    return content
-}
-
-// Check if PPR is enabled via environment variable
-const isPPREnabled = () => {
-    return true
-}
-
-/**
- * PPR Streaming Metrics
- * Tracks performance of progressive streaming rendering
- */
-class PPRStreamingMetrics {
-    constructor(url) {
-        this.url = url
-        this.startTime = Date.now()
-        this.timestamps = {}
-        this.mode = "streaming-ppr"
-    }
-
-    mark(label) {
-        this.timestamps[label] = Date.now()
-    }
-
-    getDuration(from, to) {
-        if (!this.timestamps[from] || !this.timestamps[to]) return null
-        return this.timestamps[to] - this.timestamps[from]
-    }
-
-    getFromStart(label) {
-        if (!this.timestamps[label]) return null
-        return this.timestamps[label] - this.startTime
-    }
-
-    log() {
-        const ttfb = this.getFromStart("shellReady")
-        const totalTime = this.getFromStart("allReady")
-        const streamingTime = this.getDuration("shellReady", "allReady")
-
-        console.log("\n" + "═".repeat(50))
-        console.log(`📊 PPR Streaming Metrics - ${this.url}`)
-        console.log("═".repeat(50))
-        console.log(`  🚀 TTFB (Shell Ready):    ${ttfb}ms`)
-        console.log(`  📡 Streaming Duration:    ${streamingTime}ms`)
-        console.log(`  ⏱️  Total Time:           ${totalTime}ms`)
-        console.log("═".repeat(50) + "\n")
-
-        return {
-            url: this.url,
-            mode: this.mode,
-            ttfb,
-            streamingTime,
-            totalTime,
-            timestamps: this.timestamps,
-        }
-    }
-}
-
-/**
- * Renders with Progressive Streaming PPR
- *
- * Flow:
- * 1. Send cached shell immediately (or render shell if not cached)
- * 2. Stream dynamic content progressively as Suspense boundaries resolve
- * 3. React's built-in streaming handles the DOM updates
- *
- * This gives immediate TTFB with the shell, then content appears progressively.
- */
-const renderWithPPR = async (createJsx, res, chunkExtractor, req) => {
-    const metrics = new PPRStreamingMetrics(req.originalUrl || req.url)
-
-    return new Promise((resolve, reject) => {
-        // Create the JSX for streaming
-        const streamJsx = createJsx()
-        let isAborted = false
-
-        // Use streaming SSR - content flows as Suspense boundaries resolve
-        const { pipe, abort } = renderToPipeableStream(streamJsx, {
-            onShellReady() {
-                // Shell is ready - send it immediately!
-                if (isAborted) return
-
-                metrics.mark("shellReady")
-                res.setHeader("content-type", "text/html; charset=utf-8")
-                res.write("<!DOCTYPE html>")
-
-                // Start piping - React streams content as Suspense resolves
-                pipe(res)
-            },
-            onShellError(error) {
-                console.error("PPR shell error:", error)
-                cleanup()
-                reject(error)
-            },
-            onAllReady() {
-                if (isAborted) return
-
-                // All Suspense boundaries have resolved
-                metrics.mark("allReady")
-
-                if (chunkExtractor) {
-                    import("./extract.js")
-                        .then(({ generateScriptTagsAsStrings, generateStylesheetLinksAsStrings }) => {
-                            if (isAborted) return resolve()
-
-                            const discoveredAssets = chunkExtractor.getNonEssentialAssets()
-                            const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
-                            const stylesheetLinks = generateStylesheetLinksAsStrings(
-                                discoveredAssets.css,
-                                req,
-                                chunkExtractor
-                            )
-                            res.write(stylesheetLinks)
-                            res.write(scriptElements)
-                            metrics.log()
-                            cleanup()
-                            resolve()
-                        })
-                        .catch((err) => {
-                            cleanup()
-                            reject(err)
-                        })
-                } else {
-                    metrics.log()
-                    cleanup()
-                    resolve()
-                }
-            },
-            onError(error) {
-                console.error("PPR streaming error:", error)
-                // Don't reject - React will handle showing error boundaries
-            },
-        })
-
-        // Cleanup function to remove listeners
-        const cleanup = () => {
-            req.off("close", handleAbort)
-            res.off("close", handleAbort)
-        }
-
-        // Handle client disconnect - abort React rendering to free resources
-        const handleAbort = () => {
-            if (isAborted) return
-            isAborted = true
-            abort()
-            cleanup()
-            resolve() // Resolve to prevent hanging promises
-        }
-
-        req.on("close", handleAbort)
-        res.on("close", handleAbort)
-    })
-}
-
-// sends document after rendering
-const renderMarkUp = async (
-    errorCode,
-    req,
-    res,
-    metaTags,
-    fetcherData,
-    store,
-    matches,
-    context,
-    discoveredAssets = { js: [], css: [] },
-    chunkExtractor = null,
-    pprDataPromises = null
-) => {
-    const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    const isBot = deviceDetails.googleBot ? true : false
-
-    // Process ChunkExtractor discovered assets
-    const scriptElements = generateScriptTags(discoveredAssets.js, req)
-    const stylesheetLinks = generateStylesheetLinks(discoveredAssets.css, req, chunkExtractor)
-
-    // Use stylesheet links instead of inlined CSS
-    res.locals.pageJS = scriptElements
-    res.locals.pageCss = stylesheetLinks
-
-    // Transforms Head Props with discovered assets
-    const shellStart = await renderStart(res.locals.pageCss, res.locals.pageJS, metaTags, isBot, fetcherData)
-
-    let state = store.getState()
-
-    /**
-     * Factory function to create document JSX
-     */
-    const createCompleteDocument = () => {
-        // Create component tree
-        const jsx = getComponent(store, context, req, fetcherData, pprDataPromises)
-
-        // Transforms Body Props
-        const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
-
-        const finalProps = {
-            ...shellStart,
-            ...shellEnd,
-            jsx: jsx,
-            req,
-            res,
-        }
-
-        if (CustomDocument) {
-            return CustomDocument(finalProps)
-        } else {
+        // Factory to create document JSX
+        // const createDocument = () => {
+        const AppContent = ({ phase }) => {
+            console.log(`[PPR]   Phase: ${phase}`, req.originalUrl)
             return (
-                <html lang={finalProps.lang}>
-                    <Head
-                        isBot={finalProps.isBot}
-                        pageJS={finalProps.pageJS}
-                        pageCss={finalProps.pageCss}
-                        fetcherData={finalProps.fetcherData}
-                        metaTags={finalProps.metaTags}
-                        publicAssetPath={finalProps.publicAssetPath}
-                    />
-                    <Body
-                        initialState={finalProps.initialState}
-                        jsx={finalProps.jsx}
-                        statusCode={finalProps.statusCode}
-                        fetcherData={finalProps.fetcherData}
-                    />
-                </html>
+                <div id="app">
+                    <PPRDataProvider phase={phase}>
+                        <Provider store={store}>
+                            <StaticRouter context={{}} location={url}>
+                                <ServerRouter store={store} intialData={{}} />
+                            </StaticRouter>
+                        </Provider>
+                    </PPRDataProvider>
+                </div>
             )
         }
-    }
 
-    try {
-        let status = matches.length && matches[0].match.path === "*" ? 404 : 200
-        res.set({ "content-type": "text/html; charset=utf-8" })
+        // const jsx = <PPRDataProvider dataPromises={pprDataPromises}>{appContent}</PPRDataProvider>
+        //     const shellEnd = renderEnd(store.getState(), res, jsx, null, {})
+        //     const props = { ...shellStart, ...shellEnd, jsx, req, res }
+
+        //     if (CustomDocument) {
+        //         return CustomDocument(props)
+        //     }
+
+        //     return (
+        //         <html lang={props.lang}>
+        //             <Head
+        //                 isBot={props.isBot}
+        //                 pageJS={props.pageJS}
+        //                 pageCss={props.pageCss}
+        //                 fetcherData={props.fetcherData}
+        //                 metaTags={props.metaTags}
+        //                 publicAssetPath={props.publicAssetPath}
+        //             />
+        //             <Body
+        //                 initialState={props.initialState}
+        //                 jsx={props.jsx}
+        //                 statusCode={props.statusCode}
+        //                 fetcherData={props.fetcherData}
+        //             />
+        //         </html>
+        //     )
+        // }
+
+        // const doc = CustomDocument ? (
+        //     CustomDocument(props)
+        // ) : (
+        //     <html lang={props.lang}>
+        //         <Head
+        //             isBot={props.isBot}
+        //             pageJS={props.pageJS}
+        //             pageCss={props.pageCss}
+        //             fetcherData={props.fetcherData}
+        //             metaTags={props.metaTags}
+        //             publicAssetPath={props.publicAssetPath}
+        //         />
+        //         <Body
+        //             initialState={props.initialState}
+        //             jsx={props.jsx}
+        //             statusCode={props.statusCode}
+        //             fetcherData={props.fetcherData}
+        //         />
+        //     </html>
+        // )
+
+        // Set status
+        const status = matches.length && matches[0].match?.path === "*" ? 404 : 200
         res.status(status)
 
-        // Use PPR if enabled, otherwise fallback to streaming SSR
-        if (isPPREnabled()) {
+        // Step 5: Prerender (cache check)
+        const cacheHit = prerenderCache.has(cacheKey)
+
+        // Set headers before any content
+        res.setHeader("content-type", "text/html; charset=utf-8")
+
+        if (cacheHit) {
+            const cached = prerenderCache.get(cacheKey)
+
+            // Write cached prelude immediately
+            if (cached.preludeBuffer) {
+                res.write(cached.preludeBuffer)
+                // Flush to send data immediately (compression middleware buffers otherwise)
+                if (typeof res.flush === "function") res.flush()
+            }
+            // console.log(`[PPR]   ⚡ Cache Hit - Sent cached prelude`, req.originalUrl)
+
+            // For cache hit, we need a FRESH prerender to get matching postponed state
+            // (postponed state is tied to the specific React element tree)
+            // const controller = new AbortController()
+            // setTimeout(() => controller.abort(), 50)
+
             try {
-                await renderWithPPR(createCompleteDocument, res, chunkExtractor, req)
-                return
-            } catch (pprError) {
-                // PPR failed, fallback to streaming SSR
-                console.warn("PPR failed, falling back to streaming SSR:", pprError.message)
+                // )
+                const { pipe, abort } = resumeToPipeableStream(
+                    <AppContent phase={"resume"} />,
+                    JSON.parse(cached.postponeBuffer),
+                    {
+                        onShellReady() {},
+                        onShellError(error) {
+                            console.error(`[Stream] ✗ Shell error for ${url}:`, error)
+                        },
+                        onAllReady() {
+                            pipe(res)
+                            res.write("resumeToPipeableStream ready")
+                            clearPPRCache()
+                            // if (chunkExtractor) {
+                            //     try {
+                            //         const assets = chunkExtractor.getNonEssentialAssets()
+                            //         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
+                            //         res.write(generateScriptTagsAsStrings(assets.js, req))
+                            //         console.log(
+                            //             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
+                            //         )
+                            //     } catch (err) {
+                            //         console.warn("[Stream] Error injecting assets:", err)
+                            //     }
+                            // }
+                            res.end()
+                        },
+                        onError(error) {
+                            clearPPRCache()
+                            console.error(`[Stream] Streaming error for ${url}:`, error)
+                        },
+                    }
+                )
+            } catch (error) {
+                console.warn(`[PPR]   Fresh prerender failed: ${error.message}`)
+                // Fallback: end the response with what we have
+                res.end()
+            }
+        } else {
+            // Cache miss - full prerender flow
+            const controller = new AbortController()
+            setTimeout(() => controller.abort(), 50)
+
+            // console.log(`[PPR]   ⚡ Cache MISS - Creating new prerendered shell`, req.originalUrl)
+            const prerenderStart = Date.now()
+
+            try {
+                const result = await prerenderToNodeStream(<AppContent phase={"prerender"} />, {
+                    signal: controller.signal,
+                })
+
+                // Collect prelude stream into buffer before caching
+                const preludeBuffer = result.prelude ? await collectStream(result.prelude) : null
+                const postponeBuffer = result.postponed ? JSON.stringify(result.postponed) : null
+                // Cache ONLY the prelude buffer (not postponed - it's tied to this specific render)
+                prerenderCache.set(cacheKey, { preludeBuffer, postponeBuffer })
+
+                // Write the prelude to response
+                res.write(preludeBuffer)
+
+                // await streamToResponse(doc, req, res, chunkExtractor, result.postponed, true)
+            } catch (error) {
+                console.warn(`[PPR]   ✗ Prerender failed: ${error.message}`)
+                console.log(`[PPR]   Falling back to renderToPipeableStream`)
             }
         }
-
-        // For streaming SSR, create document with default phase
-        const CompleteDocument = () => createCompleteDocument()
-
-        const { pipe } = renderToPipeableStream(<CompleteDocument />, {
-            onShellReady() {
-                res.setHeader("content-type", "text/html")
-                res.write(`<!DOCTYPE html>`)
-                pipe(res)
-            },
-            onAllReady() {
-                const discoveredAssets = chunkExtractor.getNonEssentialAssets()
-                const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
-                const stylesheetLinks = generateStylesheetLinksAsStrings(
-                    discoveredAssets.css,
-                    req,
-                    chunkExtractor
-                )
-                res.write(stylesheetLinks)
-                res.write(scriptElements)
-            },
-            onError(error) {
-                console.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
-            },
-        })
     } catch (error) {
-        console.error("Error in rendering document on server:" + error)
-    }
-}
-
-/**
- * PPR Mode Handler - Starts render immediately with data promises
- * Data fetching happens lazily via React's use() hook and Suspense
- */
-async function handlePPRRequest(req, res, store, routes, matches, allMatches) {
-    let context = {}
-
-    try {
-        // Clear PPR cache for fresh request
-        clearPPRCache()
-
-        // Execute app server side function (non-blocking for static parts)
-        await App.serverSideFunction({ store, req, res })
-
-        // Create data promises but DON'T await them
-        // These will be consumed lazily via use() hook in components
-        const pprDataPromises = createPPRDataPromises({ routes, req, res, url: req.originalUrl }, { store })
-
-        // Get meta tags (can work with empty data for static tags)
-        const allTags = getMetaData(allMatches, {})
-
-        // Collect assets immediately
-        const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
-            req.ssrManifest,
-            req.manifest,
-            req.assetManifest
-        )
-
-        // Start rendering immediately with data promises (not resolved data)
-        // Components will suspend when they try to read unresolved promises
-        await renderMarkUp(
-            null,
-            req,
-            res,
-            allTags,
-            {}, // Empty fetcherData - data comes from promises
-            store,
-            matches,
-            context,
-            discoveredAssets,
-            chunkExtractor,
-            pprDataPromises // Pass promises for lazy consumption
-        )
-    } catch (error) {
-        console.error("PPR request handling failed:", error)
-        throw error
-    }
-}
-
-/**
- * SSR Metrics for traditional server-side rendering
- */
-class SSRMetrics {
-    constructor(url) {
-        this.url = url
-        this.startTime = Date.now()
-        this.timestamps = {}
-        this.mode = "traditional-ssr"
-    }
-
-    mark(label) {
-        this.timestamps[label] = Date.now()
-    }
-
-    getFromStart(label) {
-        if (!this.timestamps[label]) return null
-        return this.timestamps[label] - this.startTime
-    }
-
-    log() {
-        const dataFetchTime = this.getFromStart("dataFetched")
-        const renderStartTime = this.getFromStart("renderStart")
-        const totalTime = this.getFromStart("complete")
-
-        console.log("\n" + "═".repeat(50))
-        console.log(`📊 SSR Metrics - ${this.url}`)
-        console.log("═".repeat(50))
-        console.log(`  📦 Data Fetch Time:       ${dataFetchTime}ms`)
-        console.log(`  🎨 Render Start:          ${renderStartTime}ms`)
-        console.log(`  ⏱️  Total Time (TTFB):     ${totalTime}ms`)
-        console.log("═".repeat(50) + "\n")
-
-        return {
-            url: this.url,
-            mode: this.mode,
-            dataFetchTime,
-            renderStartTime,
-            totalTime,
+        console.error(`[PPR] ❌ Request failed: ${url}`, error)
+        if (!res.headersSent) {
+            res.status(500).send("Internal Server Error")
         }
-    }
-}
-
-/**
- * Traditional SSR Mode Handler - Waits for data before rendering
- */
-async function handleSSRRequest(req, res, store, routes, matches, allMatches) {
-    const metrics = new SSRMetrics(req.originalUrl || req.url)
-    let context = {}
-    let fetcherData = {}
-
-    try {
-        // Execute app server side function
-        await App.serverSideFunction({ store, req, res })
-
-        // Fetch all data and WAIT for it
-        fetcherData = await serverDataFetcher({ routes, req, res, url: req.originalUrl }, { store })
-        metrics.mark("dataFetched")
-
-        // Get meta tags with fetched data
-        const allTags = getMetaData(allMatches, fetcherData)
-
-        // Collect assets
-        const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
-            req.ssrManifest,
-            req.manifest,
-            req.assetManifest
-        )
-        metrics.mark("renderStart")
-
-        // Render with all data already resolved
-        await renderMarkUp(
-            null,
-            req,
-            res,
-            allTags,
-            fetcherData,
-            store,
-            matches,
-            context,
-            discoveredAssets,
-            chunkExtractor,
-            null // No PPR promises
-        )
-        metrics.mark("complete")
-        metrics.log()
-    } catch (error) {
-        console.error("SSR request handling failed:", error)
-
-        // Fallback render
-        await renderMarkUp(
-            error.status_code || 500,
-            req,
-            res,
-            [],
-            fetcherData,
-            store,
-            matches,
-            context,
-            { js: [], css: [] },
-            null,
-            null
-        )
-    }
-}
-
-/**
- * middleware for document handling
- * @param {object} req - request object
- * @param {object} res - response object
- */
-export default async function (req, res) {
-    try {
-        // creates store
-        const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
-
-        // user defined routes
-        const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
-
-        // Matches req url with routes
-        const matches = getMatchRoutes(routes, req, res, store, {}, {}, undefined)
-        const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
-
-        // Choose handler based on PPR mode
-        if (isPPREnabled()) {
-            console.log(`[Render] PPR mode - ${req.originalUrl}`)
-            await handlePPRRequest(req, res, store, routes, matches, allMatches)
-        } else {
-            console.log(`[Render] Streaming SSR mode - ${req.originalUrl}`)
-            await handleSSRRequest(req, res, store, routes, matches, allMatches)
-        }
-    } catch (error) {
-        console.error("Error in handling document request: " + error.toString())
     }
 }

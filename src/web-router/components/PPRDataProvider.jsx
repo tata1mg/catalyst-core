@@ -1,4 +1,4 @@
-import React, { createContext, useContext, use } from "react"
+import React, { createContext, useContext, use, Suspense } from "react"
 import { useLocation, UNSAFE_RouteContext, matchRoutes } from "react-router-dom"
 
 /**
@@ -264,6 +264,20 @@ export function useUnifiedRouteData() {
         isFetched: false,
         mode: "ssr",
     }
+}
+
+/**
+ * PPR Boundary Component
+ * Wraps dynamic content in a Suspense boundary for PPR streaming.
+ * During prerender, content inside will be "postponed" and streamed later.
+ *
+ * @param {object} props
+ * @param {React.ReactNode} props.children - Dynamic content that may suspend
+ * @param {React.ReactNode} props.fallback - Loading fallback shown during suspension
+ * @param {string} props.id - Optional identifier for debugging
+ */
+export function PPRBoundary({ children, fallback = null, id }) {
+    return <Suspense fallback={fallback}>{children}</Suspense>
 }
 
 export default PPRDataProvider
