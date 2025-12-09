@@ -1,4 +1,4 @@
-import React, { createContext, useContext, use, Suspense } from "react"
+import React, { createContext, useContext, use, Suspense, useMemo } from "react"
 import { useLocation, UNSAFE_RouteContext, matchRoutes } from "react-router-dom"
 
 /**
@@ -72,6 +72,30 @@ function createSuspensePromise(promiseFn, cacheKey) {
         return promise
     }
 
+    // Check window.cachedData for server-sent data (client-side only)
+    if (typeof window !== "undefined" && window.cachedData) {
+        const cachedData = window.cachedData[cacheKey]
+        if (cachedData !== undefined) {
+            // Create a resolved promise with the cached data
+            const resolvedPromise = Promise.resolve(cachedData)
+
+            // Cache it in dataCache for future use
+            dataCache.set(cacheKey, cachedData)
+
+            // Attach status for synchronous checking
+            resolvedPromise._status = () => "fulfilled"
+            resolvedPromise._result = () => cachedData
+
+            // Cache the promise
+            promiseCache.set(cacheKey, resolvedPromise)
+
+            // Clean up: remove from window.cachedData to prevent memory leaks
+            // delete window.cachedData[cacheKey]
+
+            return resolvedPromise
+        }
+    }
+
     let status = "pending"
     let result
 
@@ -101,14 +125,18 @@ function createSuspensePromise(promiseFn, cacheKey) {
     return promise
 }
 
-export function PPRDataProvider({ phase, controller, children }) {
-    return <PPRDataContext.Provider value={{ phase, controller }}>{children}</PPRDataContext.Provider>
+export function PPRDataProvider({ phase, controller, cacheKey, children }) {
+    return (
+        <PPRDataContext.Provider value={{ phase, controller, cacheKey }}>{children}</PPRDataContext.Provider>
+    )
 }
 
-export function usePPRRouteData(promise, cacheKey) {
-    const phase = useContext(PPRDataContext)
+export function usePPRRouteData(promise) {
+    const context = useContext(PPRDataContext)
+    const phase = context?.phase
+    const cacheKey = context?.cacheKey ?? (typeof window !== "undefined" ? window.location.pathname : "/")
 
-    const dataPromise = createSuspensePromise(promise, cacheKey)
+    const dataPromise = useMemo(() => createSuspensePromise(promise, cacheKey), [promise, cacheKey])
 
     // use() reads the promise - suspends if pending, returns data if resolved
     const result = use(dataPromise)
@@ -125,8 +153,8 @@ export function DynamicDataProvider({ children }) {
     return children
 }
 
-export function getCachedData() {
-    return dataCache.get("/home")
+export function getCachedData(cacheKey) {
+    return dataCache.get(cacheKey)
 }
 /**
  * Clear the promise cache (useful for testing or manual invalidation)

@@ -185,8 +185,6 @@ function getMatchRoutes(routes, req, basePath = "") {
  */
 export default async function handler(req, res) {
     const url = req.originalUrl
-    const requestStart = Date.now()
-    catalyst_variable.insets=req.headers
 
     try {
         // Step 1: Setup
@@ -199,7 +197,7 @@ export default async function handler(req, res) {
         const AppContent = ({ phase, controller }) => {
             var jsx = (
                 <div id="app">
-                    <PPRDataProvider phase={phase} controller={controller}>
+                    <PPRDataProvider phase={phase} controller={controller} cacheKey={cacheKey}>
                         <Provider store={store}>
                             <StaticRouter context={{}} location={url}>
                                 <ServerRouter store={store} intialData={{}} />
@@ -276,10 +274,13 @@ export default async function handler(req, res) {
                             console.error(`[Stream] ✗ Shell error for ${url}:`, error)
                         },
                         onAllReady() {
-                            const cachedData = getCachedData()
+                            const cachedData = getCachedData(cacheKey)
                             if (cachedData && Object.keys(cachedData).length > 0) {
                                 console.log("cachedData", cachedData)
-                                res.write(`<script>window.cachedData=${JSON.stringify(cachedData)}</script>`)
+                                const dataObject = {
+                                    [cacheKey]: cachedData,
+                                }
+                                res.write(`<script>window.cachedData=${JSON.stringify(dataObject)}</script>`)
                             }
                             pipe(res)
                             clearPPRCache()
