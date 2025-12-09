@@ -1,27 +1,35 @@
 # Changelog
 
+## [0.0.3-canary.19] - 2025-12-09
+
+-   Offline fallback support: packages `public/offline.html` into Android/iOS bundles and shows it automatically when connectivity drops (with retry handling)
+-   Notification refactor: streamlined config toggle for local vs push, centralized permission/asset handling, and simpler routing into the web app
+-   Access control: combined access control config for ios
+
 ## [0.0.3-canary.18] - 2025-11-19
 
-  - Configuration Files
-  - Android Native WebView - MainActivity.kt
-  - Android Native WebView - CustomWebview.kt
+-   Configuration Files
+-   Android Native WebView - MainActivity.kt
+-   Android Native WebView - CustomWebview.kt
 
-## [0.0.3-canary.17] - 2025-11-19 
-  - ✨ Added complete notification system (local & push)
-  - 🔔 New useNotification() React hook
-  - 📱 Firebase Cloud Messaging conditional build support
-  - 🤖 Android notification handling in MainActivity
-  - 🔧 5 new notification commands + 5 callbacks in NativeBridge
-  - 📦 Auto-processing of notification icons & sounds
-  - ⚙️ Conditional dependencies based on notification config
-  - 🧹 Updated .gitignore & .npmignore
-  - 📋 Enhanced build process with automatic permission injection
-  - 🔗 Deep link integration with notifications
+## [0.0.3-canary.17] - 2025-11-19
+
+-   ✨ Added complete notification system (local & push)
+-   🔔 New useNotification() React hook
+-   📱 Firebase Cloud Messaging conditional build support
+-   🤖 Android notification handling in MainActivity
+-   🔧 5 new notification commands + 5 callbacks in NativeBridge
+-   📦 Auto-processing of notification icons & sounds
+-   ⚙️ Conditional dependencies based on notification config
+-   🧹 Updated .gitignore & .npmignore
+-   📋 Enhanced build process with automatic permission injection
+-   🔗 Deep link integration with notifications
 
 ## [0.0.3-canary.16] - 2025-11-19
-- FeaturesGallery Support for File Picker: Enhanced file picker to open native gallery for selecting images and videos
-- HTTPS Framework Server: Enabled HTTPS support for the framework server with self-signed SSL certificate
-- MIME Type Handling: Fixed and improved MIME type detection and handling in the file picker
+
+-   FeaturesGallery Support for File Picker: Enhanced file picker to open native gallery for selecting images and videos
+-   HTTPS Framework Server: Enabled HTTPS support for the framework server with self-signed SSL certificate
+-   MIME Type Handling: Fixed and improved MIME type detection and handling in the file picker
 
 ## [0.0.3-canary.15] - 2025-11-19
 
