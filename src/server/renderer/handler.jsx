@@ -17,7 +17,7 @@ import {
     generateScriptTagsAsStrings,
     generateStylesheetLinksAsStrings,
 } from "./extract.js"
-import { clearPPRCache, PPRDataProvider } from "../../web-router/components/DataFetcher.jsx"
+import { clearPPRCache, PPRDataProvider, getCachedData } from "../../web-router/components/DataFetcher.jsx"
 import CustomDocument from "@catalyst/template/server/document.jsx"
 import App from "@catalyst/template/src/js/containers/App/index.jsx"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
@@ -186,6 +186,7 @@ function getMatchRoutes(routes, req, basePath = "") {
 export default async function handler(req, res) {
     const url = req.originalUrl
     const requestStart = Date.now()
+    catalyst_variable.insets=req.headers
 
     try {
         // Step 1: Setup
@@ -195,43 +196,10 @@ export default async function handler(req, res) {
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         const cacheKey = new URL(url, `http://${req.headers.host}`).pathname
 
-        // Step 2: Server-side data setup
-
-        // Step 3: Collect assets
-        // let chunkExtractor = null
-        // let discoveredAssets = { js: [], css: [] }
-        // try {
-        //     chunkExtractor = new ChunkExtractor({
-        //         manifest: req.manifest || {},
-        //         ssrManifest: req.ssrManifest || {},
-        //         assetManifest: req.assetManifest || {},
-        //     })
-        //     discoveredAssets = chunkExtractor.getEssentialAssets()
-        // } catch (error) {
-        //     console.warn(`[PPR]   Error collecting assets:`, error.message)
-        // }
-
-        // Step 4: Prepare document
-        // const isBot = getUserAgentDetails(req.headers["user-agent"] || "").googleBot || false
-        // const scriptElements = generateScriptTags(discoveredAssets.js, req)
-        // const stylesheetLinks = generateStylesheetLinks(discoveredAssets.css, req, chunkExtractor)
-        // res.locals.pageJS = scriptElements
-        // res.locals.pageCss = stylesheetLinks
-
-        // const shellStart = await renderStart(
-        //     stylesheetLinks,
-        //     scriptElements,
-        //     getMetaData(allMatches, {}),
-        //     isBot,
-        //     {}
-        // )
-
-        // Factory to create document JSX
-        // const createDocument = () => {
-        const AppContent = ({ phase }) => {
-            return (
+        const AppContent = ({ phase, controller }) => {
+            var jsx = (
                 <div id="app">
-                    <PPRDataProvider phase={phase}>
+                    <PPRDataProvider phase={phase} controller={controller}>
                         <Provider store={store}>
                             <StaticRouter context={{}} location={url}>
                                 <ServerRouter store={store} intialData={{}} />
@@ -240,58 +208,38 @@ export default async function handler(req, res) {
                     </PPRDataProvider>
                 </div>
             )
+
+            const finalProps = {
+                jsx: jsx,
+                req,
+                res,
+            }
+
+            if (CustomDocument) {
+                return CustomDocument(finalProps)
+            } else {
+                return (
+                    <html lang={finalProps.lang}>
+                        <Head />
+                        <Body jsx={finalProps.jsx} />
+                    </html>
+                )
+            }
         }
 
-        // const jsx = <PPRDataProvider dataPromises={pprDataPromises}>{appContent}</PPRDataProvider>
-        //     const shellEnd = renderEnd(store.getState(), res, jsx, null, {})
-        //     const props = { ...shellStart, ...shellEnd, jsx, req, res }
+        let chunkExtractor = null
+        let discoveredAssets = { js: [], css: [] }
+        try {
+            chunkExtractor = new ChunkExtractor({
+                manifest: req.manifest || {},
+                ssrManifest: req.ssrManifest || {},
+                assetManifest: req.assetManifest || {},
+            })
+            discoveredAssets = chunkExtractor.getEssentialAssets()
+        } catch (error) {
+            console.warn(`[PPR]   Error collecting assets:`, error.message)
+        }
 
-        //     if (CustomDocument) {
-        //         return CustomDocument(props)
-        //     }
-
-        //     return (
-        //         <html lang={props.lang}>
-        //             <Head
-        //                 isBot={props.isBot}
-        //                 pageJS={props.pageJS}
-        //                 pageCss={props.pageCss}
-        //                 fetcherData={props.fetcherData}
-        //                 metaTags={props.metaTags}
-        //                 publicAssetPath={props.publicAssetPath}
-        //             />
-        //             <Body
-        //                 initialState={props.initialState}
-        //                 jsx={props.jsx}
-        //                 statusCode={props.statusCode}
-        //                 fetcherData={props.fetcherData}
-        //             />
-        //         </html>
-        //     )
-        // }
-
-        // const doc = CustomDocument ? (
-        //     CustomDocument(props)
-        // ) : (
-        //     <html lang={props.lang}>
-        //         <Head
-        //             isBot={props.isBot}
-        //             pageJS={props.pageJS}
-        //             pageCss={props.pageCss}
-        //             fetcherData={props.fetcherData}
-        //             metaTags={props.metaTags}
-        //             publicAssetPath={props.publicAssetPath}
-        //         />
-        //         <Body
-        //             initialState={props.initialState}
-        //             jsx={props.jsx}
-        //             statusCode={props.statusCode}
-        //             fetcherData={props.fetcherData}
-        //         />
-        //     </html>
-        // )
-
-        // Set status
         const status = matches.length && matches[0].match?.path === "*" ? 404 : 200
         res.status(status)
 
@@ -310,7 +258,6 @@ export default async function handler(req, res) {
             // (postponed state is tied to the specific React element tree)
             // const controller = new AbortController()
             // setTimeout(() => controller.abort(), 50)
-
             try {
                 // )
                 const { pipe, abort } = resumeToPipeableStream(
@@ -329,12 +276,20 @@ export default async function handler(req, res) {
                             console.error(`[Stream] ✗ Shell error for ${url}:`, error)
                         },
                         onAllReady() {
+                            const cachedData = getCachedData()
+                            if (cachedData && Object.keys(cachedData).length > 0) {
+                                console.log("cachedData", cachedData)
+                                res.write(`<script>window.cachedData=${JSON.stringify(cachedData)}</script>`)
+                            }
                             pipe(res)
                             clearPPRCache()
+
                             // if (chunkExtractor) {
                             //     try {
-                            //         const assets = chunkExtractor.getNonEssentialAssets()
-                            //         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
+                            //         const assets = chunkExtractor.getDynamicAssets()
+                            //         res.write(
+                            //             generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor)
+                            //         )
                             //         res.write(generateScriptTagsAsStrings(assets.js, req))
                             //         console.log(
                             //             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
@@ -353,20 +308,21 @@ export default async function handler(req, res) {
                 )
             } catch (error) {
                 // Fallback: end the response with what we have
-                console.warn(`[PPR]   ✗ Prerender failed: ${error.message}`)
+                console.warn(`[PPR]   ✗ Resume failed for req: ${req.originalUrl} Error: ${error.message} `)
                 res.end()
             }
         } else {
             // Cache miss - full prerender flow
-            const controller = new AbortController()
-            setTimeout(() => controller.abort(), 50)
-
-            const prerenderStart = Date.now()
 
             try {
-                const result = await prerenderToNodeStream(<AppContent phase={"prerender"} />, {
-                    signal: controller.signal,
-                })
+                const controller = new AbortController()
+
+                const result = await prerenderToNodeStream(
+                    <AppContent controller={controller} phase={"prerender"} />,
+                    {
+                        signal: controller.signal,
+                    }
+                )
 
                 // Collect prelude stream into buffer before caching
                 const preludeBuffer = result.prelude ? await collectStream(result.prelude) : null
@@ -379,39 +335,54 @@ export default async function handler(req, res) {
 
                 try {
                     // )
-                    const { pipe, abort } = renderToPipeableStream(<AppContent phase={"dynamic"} />, {
-                        onShellError(error) {
-                            console.error(`[Stream] ✗ Shell error for ${url}:`, error)
-                        },
-                        onAllReady() {
-                            res.setHeader("x-rendering-mode", "renderToPipeableStream")
-                            pipe(res)
-                            clearPPRCache()
-                            // if (chunkExtractor) {
-                            //     try {
-                            //         const assets = chunkExtractor.getNonEssentialAssets()
-                            //         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
-                            //         res.write(generateScriptTagsAsStrings(assets.js, req))
-                            //         console.log(
-                            //             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
-                            //         )
-                            //     } catch (err) {
-                            //         console.warn("[Stream] Error injecting assets:", err)
-                            //     }
-                            // }
-                            res.end()
-                        },
-                        onError(error) {
-                            clearPPRCache()
-                            console.error(`[Stream] Streaming error for ${url}:`, error)
-                        },
-                    })
+                    const { pipe, abort } = resumeToPipeableStream(
+                        <AppContent phase={"1st Req"} />,
+                        JSON.parse(postponeBuffer),
+                        {
+                            onShellReady() {
+                                res.setHeader("x-rendering-mode", "1st Req")
+                                if (preludeBuffer) {
+                                    res.write(preludeBuffer)
+                                    // Flush to send data immediately (compression middleware buffers otherwise)
+                                    if (typeof res.flush === "function") res.flush()
+                                }
+                            },
+                            onShellError(error) {
+                                console.error(`[Stream] ✗ Shell error for ${url}:`, error)
+                            },
+                            onAllReady() {
+                                pipe(res)
+                                clearPPRCache()
+                                if (chunkExtractor) {
+                                    try {
+                                        const assets = chunkExtractor.getDynamicAssets()
+                                        res.write(
+                                            generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor)
+                                        )
+                                        res.write(generateScriptTagsAsStrings(assets.js, req))
+                                        console.log(
+                                            `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
+                                        )
+                                    } catch (err) {
+                                        console.warn("[Stream] Error injecting assets:", err)
+                                    }
+                                }
+                                res.end()
+                            },
+                            onError(error) {
+                                clearPPRCache()
+                                console.error(`[Stream] Streaming error for ${url}:`, error)
+                            },
+                        }
+                    )
                 } catch (error) {
                     // Fallback: end the response with what we have
                     res.end()
                 }
             } catch (error) {
-                console.warn(`[PPR]   ✗ Prerender failed: ${error.message}`)
+                console.warn(
+                    `[PPR]   ✗ Prerender failed for req: ${req.originalUrl} Error: ${error.message} `
+                )
             }
         }
     } catch (error) {

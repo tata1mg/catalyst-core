@@ -11,7 +11,7 @@ export const PPRDataContext = createContext(null)
  * LRU Cache for data promises
  * Prevents unbounded memory growth by evicting oldest entries
  */
-class LRUPromiseCache {
+class LRUCache {
     constructor(maxSize = 100) {
         this.cache = new Map()
         this.maxSize = maxSize
@@ -44,6 +44,10 @@ class LRUPromiseCache {
         this.cache.set(key, value)
     }
 
+    getData() {
+        return this.cache
+    }
+
     clear() {
         this.cache.clear()
     }
@@ -54,7 +58,8 @@ class LRUPromiseCache {
 }
 
 // Global LRU cache with max 100 entries
-const promiseCache = new LRUPromiseCache(100)
+const promiseCache = new LRUCache(100)
+const dataCache = new LRUCache(100)
 
 /**
  * Creates a suspense-compatible promise wrapper
@@ -72,11 +77,15 @@ function createSuspensePromise(promiseFn, cacheKey) {
 
     const promise = promiseFn().then(
         (data) => {
+            dataCache.set(cacheKey, data)
+
             status = "fulfilled"
             result = data
             return data
         },
         (error) => {
+            dataCache.set(cacheKey, error)
+
             status = "rejected"
             result = error
             throw error
@@ -88,11 +97,12 @@ function createSuspensePromise(promiseFn, cacheKey) {
     promise._result = () => result
 
     promiseCache.set(cacheKey, promise)
+
     return promise
 }
 
-export function PPRDataProvider({ phase, children }) {
-    return <PPRDataContext.Provider value={phase}>{children}</PPRDataContext.Provider>
+export function PPRDataProvider({ phase, controller, children }) {
+    return <PPRDataContext.Provider value={{ phase, controller }}>{children}</PPRDataContext.Provider>
 }
 
 export function usePPRRouteData(promise, cacheKey) {
@@ -105,6 +115,19 @@ export function usePPRRouteData(promise, cacheKey) {
     return result
 }
 
+export function DynamicDataProvider({ children }) {
+    const context = useContext(PPRDataContext)
+    const controller = context?.controller
+    const phase = context?.phase
+    if (phase === "prerender" && controller) {
+        setTimeout(() => controller.abort())
+    }
+    return children
+}
+
+export function getCachedData() {
+    return dataCache.get("/home")
+}
 /**
  * Clear the promise cache (useful for testing or manual invalidation)
  */
