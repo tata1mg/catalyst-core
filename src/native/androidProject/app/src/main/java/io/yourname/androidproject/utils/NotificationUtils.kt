@@ -109,7 +109,7 @@ class NotificationUtils(private val context: Context) {
      * Show notification with optional pre-loaded bitmap
      */
     private suspend fun showNotification(context: Context, config: NotificationConfig, notificationId: String, preloadedBitmap: Bitmap?) {
-        val notification = buildNotification(context, config, preloadedBitmap)
+        val notification = buildNotification(context, config, notificationId, preloadedBitmap)
         val notificationManager = NotificationManagerCompat.from(context)
 
         try {
@@ -224,10 +224,11 @@ class NotificationUtils(private val context: Context) {
     /**
      * Build notification based on style
      */
-    suspend fun buildNotification(context: Context, config: NotificationConfig, preloadedBitmap: Bitmap? = null): NotificationCompat.Builder {
+    suspend fun buildNotification(context: Context, config: NotificationConfig, notificationId: String, preloadedBitmap: Bitmap? = null): NotificationCompat.Builder {
         val intent = Intent(context, MainActivity::class.java).apply {
             // Ultra-simple approach: just pass notification data
             putExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, true)
+            putExtra(NotificationConstants.EXTRA_NOTIFICATION_ID, notificationId)
             config.data?.let { data ->
                 putExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA, org.json.JSONObject(data).toString())
             }
@@ -282,7 +283,7 @@ class NotificationUtils(private val context: Context) {
         // Add action buttons only for non-BASIC styles
         if (config.style != NotificationStyle.BASIC) {
             config.actions?.forEach { action ->
-                addActionButton(builder, context, action, config)
+                addActionButton(builder, context, action, config, notificationId)
             }
         } else if (!config.actions.isNullOrEmpty()) {
             BridgeUtils.logWarning(TAG, "BASIC style ignoring ${config.actions.size} action buttons. Use ACTION_BUTTONS style if you need actions.")
@@ -328,10 +329,11 @@ class NotificationUtils(private val context: Context) {
     /**
      * Add action button to notification
      */
-    private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction, config: NotificationConfig) {
+    private fun addActionButton(builder: NotificationCompat.Builder, context: Context, action: NotificationAction, config: NotificationConfig, notificationId: String) {
         val intent = Intent(context, MainActivity::class.java).apply {
             putExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, true)
             putExtra(NotificationConstants.EXTRA_ACTION, action.actionId)
+            putExtra(NotificationConstants.EXTRA_NOTIFICATION_ID, notificationId)
             config.data?.let { data ->
                 putExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA, org.json.JSONObject(data).toString())
             }

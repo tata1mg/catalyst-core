@@ -104,6 +104,7 @@ class NativeBridge(
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
+    private var networkMonitor: NetworkMonitor? = null
 
     // Unified notification manager
     private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
@@ -273,6 +274,37 @@ class NativeBridge(
     }
 
     @JavascriptInterface
+    fun getNetworkStatus(param: String? = null) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, "get network status") {
+            // Lazily start monitor on first request
+            if (networkMonitor == null) {
+                networkMonitor = NetworkMonitor(mainActivity) { status ->
+                    mainActivity.runOnUiThread {
+                        try {
+                            val payload = JSONObject().apply {
+                                put("online", status.isOnline)
+                                status.transport?.let { put("type", it) }
+                            }
+                            BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, payload)
+                        } catch (e: Exception) {
+                            BridgeUtils.logError(TAG, "Failed to send network status to web: ${e.message}")
+                        }
+                    }
+                }.also { it.start() }
+            } else {
+                val status = NetworkUtils.getCurrentStatus(mainActivity)
+                val payload = JSONObject().apply {
+                    put("online", status.isOnline)
+                    status.transport?.let { put("type", it) }
+                }
+                mainActivity.runOnUiThread {
+                    BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.NETWORK_STATUS_CHANGED, payload)
+                }
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun getDeviceInfo(options: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_ERROR, "get device info") {
             mainActivity.runOnUiThread {
@@ -287,11 +319,11 @@ class NativeBridge(
     fun scheduleLocalNotification(config: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED, "schedule local notification") {
             mainActivity.runOnUiThread {
-                // Parse config with full NotificationConfig support
-                val notificationConfig = if (config.isNullOrBlank()) {
-                    NotificationConfig(title = NotificationConstants.DEFAULT_NOTIFICATION_TITLE, body = NotificationConstants.DEFAULT_NOTIFICATION_BODY)
-                } else {
-                    try {
+                try {
+                    // Parse config with full NotificationConfig support
+                    val notificationConfig = if (config.isNullOrBlank()) {
+                        NotificationConfig(title = NotificationConstants.DEFAULT_NOTIFICATION_TITLE, body = NotificationConstants.DEFAULT_NOTIFICATION_BODY)
+                    } else {
                         val json = org.json.JSONObject(config)
 
                         // Parse actions array with title and actionId
@@ -343,26 +375,43 @@ class NativeBridge(
                             ongoing = json.optBoolean("ongoing", false),
                             data = data
                         )
-                    } catch (e: Exception) {
-                        BridgeUtils.logError(TAG, "Error parsing notification config", e)
-                        NotificationConfig(title = NotificationConstants.DEFAULT_NOTIFICATION_TITLE, body = NotificationConstants.DEFAULT_NOTIFICATION_BODY)
                     }
+
+                    val notificationId = notificationManager.scheduleLocal(notificationConfig)
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED,
+                        """{"notificationId": "$notificationId", "scheduled": true, "success": true}""")
+
+                    // Emit received event
+                    val payload = org.json.JSONObject().apply {
+                        put("title", notificationConfig.title)
+                        put("body", notificationConfig.body)
+                        notificationConfig.data?.let { dataMap ->
+                            put("data", org.json.JSONObject(dataMap))
+                        }
+                        put("foreground", false)
+                        put("notificationId", notificationId)
+                    }
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, payload.toString())
+                } catch (e: Exception) {
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED,
+                        """{"notificationId": "", "scheduled": false, "success": false, "error": "Failed to schedule notification: ${e.message}"}""")
                 }
-                
-                val notificationId = notificationManager.scheduleLocal(notificationConfig)
-                BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED,
-                    """{"notificationId": "$notificationId", "scheduled": true}""")
             }
         }
     }
 
     @JavascriptInterface
     fun cancelLocalNotification(notificationId: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED, "cancel local notification") {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_CANCELLED, "cancel local notification") {
             mainActivity.runOnUiThread {
-                val success = notificationManager.cancelLocal(notificationId)
-                BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_SCHEDULED,
-                    """{"notificationId": "$notificationId", "cancelled": $success}""")
+                try {
+                    val success = notificationManager.cancelLocal(notificationId)
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_CANCELLED,
+                        """{"notificationId": "${notificationId ?: ""}", "success": $success}""")
+                } catch (e: Exception) {
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.LOCAL_NOTIFICATION_CANCELLED,
+                        """{"notificationId": "${notificationId ?: ""}", "success": false, "error": "Failed to cancel notification: ${e.message}"}""")
+                }
             }
         }
     }
@@ -386,11 +435,16 @@ class NativeBridge(
                 launch {
                     try {
                         val token = notificationManager.initializePush()
-                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN,
-                            """{"token": "$token", "registered": true}""")
+                        if (token.isBlank()) {
+                            BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN,
+                                """{"success": false, "error": "Push registration returned empty token"}""")
+                        } else {
+                            BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN,
+                                """{"token": "$token", "success": true}""")
+                        }
                     } catch (e: Exception) {
-                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN,
-                            "Push registration failed: ${e.message}")
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN,
+                            """{"success": false, "error": "Push registration failed: ${e.message}"}""")
                     }
                 }
             }
@@ -400,7 +454,7 @@ class NativeBridge(
 
     @JavascriptInterface
     fun subscribeToTopic(config: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, "subscribe to topic") {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT, "subscribe to topic") {
             mainActivity.runOnUiThread {
                 launch {
                     try {
@@ -408,18 +462,18 @@ class NativeBridge(
                         val topic = json.optString("topic", "")
 
                         if (topic.isBlank()) {
-                            BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                                "Topic name cannot be empty")
+                            BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT,
+                                """{"topic": "$topic", "success": false, "error": "Topic name cannot be empty", "action": "subscribe"}""")
                             return@launch
                         }
 
                         val success = notificationManager.subscribeToTopic(topic)
-                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                            """{"topic": "$topic", "subscribed": $success}""")
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT,
+                            """{"topic": "$topic", "success": $success, "action": "subscribe"}""")
 
                     } catch (e: Exception) {
-                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                            "Topic subscription failed: ${e.message}")
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT,
+                            """{"topic": "", "success": false, "error": "Topic subscription failed: ${e.message}", "action": "subscribe"}""")
                     }
                 }
             }
@@ -428,7 +482,7 @@ class NativeBridge(
 
     @JavascriptInterface
     fun unsubscribeFromTopic(config: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, "unsubscribe from topic") {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT, "unsubscribe from topic") {
             mainActivity.runOnUiThread {
                 launch {
                     try {
@@ -436,18 +490,18 @@ class NativeBridge(
                         val topic = json.optString("topic", "")
 
                         if (topic.isBlank()) {
-                            BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                                "Topic name cannot be empty")
+                            BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT,
+                                """{"topic": "$topic", "success": false, "error": "Topic name cannot be empty", "action": "unsubscribe"}""")
                             return@launch
                         }
 
                         val success = notificationManager.unsubscribeFromTopic(topic)
-                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                            """{"topic": "$topic", "unsubscribed": $success}""")
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT,
+                            """{"topic": "$topic", "success": $success, "action": "unsubscribe"}""")
 
                     } catch (e: Exception) {
-                        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                            "Topic unsubscription failed: ${e.message}")
+                        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.TOPIC_SUBSCRIPTION_RESULT,
+                            """{"topic": "", "success": false, "error": "Topic unsubscription failed: ${e.message}", "action": "unsubscribe"}""")
                     }
                 }
             }
@@ -456,17 +510,17 @@ class NativeBridge(
 
     @JavascriptInterface
     fun getSubscribedTopics(config: String?) {
-        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED, "get subscribed topics") {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.SUBSCRIBED_TOPICS_RESULT, "get subscribed topics") {
             mainActivity.runOnUiThread {
                 try {
                     val topics = notificationManager.getSubscribedTopics()
                     val topicsArray = org.json.JSONArray(topics.toList())
-                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                        """{"topics": $topicsArray}""")
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.SUBSCRIBED_TOPICS_RESULT,
+                        """{"topics": $topicsArray, "success": true}""")
 
                 } catch (e: Exception) {
-                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.NOTIFICATION_RECEIVED,
-                        "Failed to get subscribed topics: ${e.message}")
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.SUBSCRIBED_TOPICS_RESULT,
+                        """{"topics": [], "success": false, "error": "Failed to get subscribed topics: ${e.message}"}""")
                 }
             }
         }
@@ -772,6 +826,10 @@ class NativeBridge(
         try {
             // Cleanup NotificationManager
             notificationManager.cleanup()
+
+            // Stop network monitoring
+            networkMonitor?.stop()
+            networkMonitor = null
 
             // Stop FrameworkServer
             FrameworkServerUtils.stopServer()

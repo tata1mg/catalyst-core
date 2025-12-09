@@ -60,6 +60,7 @@ public enum CatalystConstants {
                 "openCamera",
                 "requestCameraPermission",
                 "getDeviceInfo",
+                "getNetworkStatus",
                 "logger",
                 "pickFile",
                 "openFileWithIntent",

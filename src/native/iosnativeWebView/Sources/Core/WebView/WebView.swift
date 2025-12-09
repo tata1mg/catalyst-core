@@ -18,7 +18,8 @@ public struct WebView: UIViewRepresentable, Equatable {
         let start = CFAbsoluteTimeGetCurrent()
         self.urlString = urlString
         self.viewModel = viewModel
-        self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel)
+        let initialURL = URL(string: urlString)
+        self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel, initialURL: initialURL)
 
         // Register our custom URL protocol for caching
         let protocolStart = CFAbsoluteTimeGetCurrent()
@@ -76,12 +77,18 @@ public struct WebView: UIViewRepresentable, Equatable {
         // Initial load
         logWithTimestamp("🎯 About to request navigation to: \(urlString)")
         if let url = URL(string: urlString) {
-            let request = URLRequest(url: url)
-            logWithTimestamp("🚀 Calling webView.load()")
-            let loadStart = CFAbsoluteTimeGetCurrent()
-            webView.load(request)
-            let loadTime = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
-            logWithTimestamp("✅ webView.load() returned (took \(String(format: "%.2f", loadTime))ms)")
+            let status = NetworkMonitor.shared.currentStatus
+            if status.isOnline {
+                let request = URLRequest(url: url)
+                logWithTimestamp("🚀 Calling webView.load()")
+                let loadStart = CFAbsoluteTimeGetCurrent()
+                webView.load(request)
+                let loadTime = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
+                logWithTimestamp("✅ webView.load() returned (took \(String(format: "%.2f", loadTime))ms)")
+            } else {
+                logWithTimestamp("📴 Device offline on launch, showing offline page")
+                _ = navigationDelegate.showOfflinePage(in: webView)
+            }
         }
 
         let makeUIViewTime = (CFAbsoluteTimeGetCurrent() - makeUIViewStart) * 1000

@@ -14,6 +14,11 @@ import com.google.firebase.messaging.RemoteMessage
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Firebase Cloud Messaging Service and Utility
@@ -83,29 +88,45 @@ class PushNotificationUtils(private val properties: Properties = Properties()) :
     /**
      * Initialize and get FCM token
      */
-    fun initializeAndGetToken(context: Context): String {
+    suspend fun initializeAndGetToken(context: Context): String {
+        val enabled = properties.getProperty("notifications.enabled", "true").toBoolean()
+        if (!enabled) {
+            BridgeUtils.logInfo(TAG, "Push notifications disabled")
+            return ""
+        }
+
         return try {
-            val enabled = properties.getProperty("notifications.enabled", "true").toBoolean()
-            if (!enabled) {
-                BridgeUtils.logInfo(TAG, "Push notifications disabled")
-                return ""
+            val token = withTimeout(30_000) {
+                suspendCancellableCoroutine<String> { continuation ->
+                    FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+                        if (continuation.isCompleted) return@OnCompleteListener
+
+                        if (!task.isSuccessful) {
+                            val message = task.exception?.message ?: "Fetching FCM registration token failed"
+                            continuation.resumeWithException(IllegalStateException(message))
+                            return@OnCompleteListener
+                        }
+
+                        val result = task.result
+                        if (result.isNullOrBlank()) {
+                            continuation.resumeWithException(IllegalStateException("FCM token retrieval returned empty result"))
+                        } else {
+                            continuation.resume(result)
+                        }
+                    })
+                }
             }
 
-            FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
-                if (!task.isSuccessful) {
-                    BridgeUtils.logError(TAG, "Fetching FCM registration token failed", task.exception)
-                    return@OnCompleteListener
-                }
-
-                val token = task.result
-                storePushToken(context, token)
-                BridgeUtils.logInfo(TAG, "FCM token retrieved: ${token.take(20)}...")
-            })
-
-            getPushToken(context) ?: ""
+            storePushToken(context, token)
+            BridgeUtils.logInfo(TAG, "FCM token retrieved: ${token.take(20)}...")
+            token
+        } catch (e: TimeoutCancellationException) {
+            val timeoutError = "FCM token request timed out after 30 seconds. Check network connectivity and Firebase configuration."
+            BridgeUtils.logError(TAG, timeoutError, e)
+            throw Exception(timeoutError, e)
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Failed to get FCM token", e)
-            ""
+            throw e
         }
     }
 

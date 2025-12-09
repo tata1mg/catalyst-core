@@ -24,4 +24,5 @@ object NotificationConstants {
     const val EXTRA_IS_NOTIFICATION = "is_notification"
     const val EXTRA_ACTION = "action"
     const val EXTRA_NOTIFICATION_DATA = "notification_data"
+    const val EXTRA_NOTIFICATION_ID = "notification_id"
 }

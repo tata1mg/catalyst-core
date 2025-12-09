@@ -433,6 +433,27 @@ async function copySplashscreenAssets() {
     }
 }
 
+async function copyOfflinePage() {
+    try {
+        const sourcePath = `${process.env.PWD}/public/offline.html`
+        const destDir = `${pwd}/androidProject/app/src/main/assets/offline`
+        const destPath = `${destDir}/offline.html`
+
+        if (!_fs.default.existsSync(sourcePath)) {
+            progress.log("offline.html not found in public/; skipping offline asset copy", "warning")
+            return
+        }
+
+        // Ensure destination directory exists
+        ;(0, _utils.runCommand)(`mkdir -p ${destDir}`)
+
+        _fs.default.copyFileSync(sourcePath, destPath)
+        progress.log("offline.html copied to Android assets", "success")
+    } catch (error) {
+        progress.log(`Warning: Error copying offline.html: ${error.message}`, "warning")
+    }
+}
+
 async function copyIconAssets() {
     try {
         const destPath = `${pwd}/androidProject/app/src/main/res`
@@ -1226,6 +1247,7 @@ async function buildAndroidApp() {
         progress.start("copyAssets")
         await copyBuildAssets(androidConfig, buildOptimisation)
         await copySplashscreenAssets()
+        await copyOfflinePage()
         await copyIconAssets()
         await configureAppName(androidConfig)
         await processNotifications(WEBVIEW_CONFIG)
