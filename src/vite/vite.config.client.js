@@ -73,7 +73,7 @@ export default async () => {
             ...(baseConfig.plugins || []),
             manifestCategorizationPlugin({
                 outputFile: "asset-categories.json",
-                publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/`,
+                publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/assets/`,
             }),
             ...(customViteConfig?.clientPlugins || []),
         ],

@@ -77,6 +77,13 @@ export const getClientEnvVariables = () => {
         }
     })
     envVarDefinitions[`process.env.src_path`] = JSON.stringify(process.env["src_path"])
+    envVarDefinitions[`process.env.PUBLIC_STATIC_ASSET_PATH`] = JSON.stringify(
+        process.env["PUBLIC_STATIC_ASSET_PATH"]
+    )
+    envVarDefinitions[`process.env.PUBLIC_STATIC_ASSET_URL`] = JSON.stringify(
+        process.env["PUBLIC_STATIC_ASSET_URL"]
+    )
+
     return envVarDefinitions
 }
 
@@ -95,9 +102,7 @@ export default defineConfig({
                 "prop-types",
                 "redux-thunk",
                 "redux-logger",
-                "@tata1mg/slowboi-react",
-                "@tata1mg/prefetch-core",
-                "@tata1mg/prefetch-core/react",
+
                 "react-dom",
                 "react-dom/server.node",
             ],

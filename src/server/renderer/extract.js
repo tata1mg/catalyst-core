@@ -10,212 +10,23 @@ export const PPR_ASSET_TYPE = {
 }
 
 /**
- * Helper to get the correct base URL for assets
- * @param {string} asset - Asset path
- * @param {object} req - Express request object
- * @returns {string} - Full asset URL
- */
-const getAssetUrl = (asset, req) => {
-    if (asset.startsWith("http")) {
-        return asset
-    }
-
-    // Construct proper URL with host and port
-    const protocol = (req && req.protocol) || "http"
-    const host = (req && req.get && req.get("host")) || "localhost:3005"
-
-    // Ensure asset path starts with /
-    const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-    // For client assets, ensure /client/ prefix
-    if (!assetPath.startsWith("/client/")) {
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
-    }
-
-    return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${assetPath}`
-}
-
-/**
- * Helper to get CSS asset URL
- * @param {string} asset - Asset path
- * @param {object} req - Express request object
- * @returns {string} - Full asset URL
- */
-const getCssAssetUrl = (asset, req) => {
-    if (asset.startsWith("http")) {
-        return asset
-    }
-
-    const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-    if (!assetPath.startsWith("/client/")) {
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
-    }
-
-    return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
-}
-
-/**
- * Split assets into static shell (critical) and dynamic (deferred) categories
- * Used by PPR to determine which assets to load in prelude vs resume
- * @param {object} assets - Object containing js and css arrays
+ * Extract non-essential chunk IDs from ChunkExtractor assets
+ * Returns arrays of chunk filenames (unique IDs) for JS and CSS
  * @param {object} chunkExtractor - ChunkExtractor instance
- * @returns {object} - { staticShell: { js, css }, dynamic: { js, css } }
+ * @returns {object} - { js: [id1, id2], css: [id3, id4] }
  */
-export const splitAssetsForPPR = (assets, chunkExtractor) => {
-    const result = {
-        staticShell: { js: [], css: [] },
-        dynamic: { js: [], css: [] },
+export const getNonEssentialChunkIds = (chunkExtractor) => {
+    if (!chunkExtractor) {
+        return { js: [], css: [] }
     }
 
-    if (!assets) return result
+    const nonEssentialAssets = chunkExtractor.getNonEssentialAssets()
 
-    // Get essential assets for static shell
-    const essentialAssets = chunkExtractor?.getEssentialAssets() || { js: [], css: [] }
-    const essentialJsSet = new Set(essentialAssets.js)
-    const essentialCssSet = new Set(essentialAssets.css)
-
-    // Categorize JS assets
-    if (assets.js) {
-        assets.js.forEach((asset) => {
-            if (essentialJsSet.has(asset)) {
-                result.staticShell.js.push(asset)
-            } else {
-                result.dynamic.js.push(asset)
-            }
-        })
-    }
-
-    // Categorize CSS assets
-    if (assets.css) {
-        assets.css.forEach((asset) => {
-            if (essentialCssSet.has(asset)) {
-                result.staticShell.css.push(asset)
-            } else {
-                result.dynamic.css.push(asset)
-            }
-        })
-    }
-
-    return result
-}
-
-/**
- * Generate static shell assets (critical path for PPR prelude)
- * These assets are included in the initial HTML response
- * @param {object} assets - Object containing js and css arrays
- * @param {object} req - Express request object
- * @param {object} chunkExtractor - ChunkExtractor instance
- * @returns {object} - { scripts: React elements, stylesheets: React elements }
- */
-export const generateStaticShellAssets = (assets, req, chunkExtractor) => {
-    const { staticShell } = splitAssetsForPPR(assets, chunkExtractor)
-
+    // Deduplicate and return chunk filenames as IDs
     return {
-        scripts: generateScriptTags(staticShell.js, req),
-        stylesheets: generateStylesheetLinks(staticShell.css, req),
-        scriptsAsStrings: generateScriptTagsAsStrings(staticShell.js, req),
-        stylesheetsAsStrings: generateStylesheetLinksAsStrings(staticShell.css, req),
+        js: [...new Set(nonEssentialAssets.js || [])],
+        css: [...new Set(nonEssentialAssets.css || [])],
     }
-}
-
-/**
- * Generate dynamic assets (deferred for PPR resume phase)
- * These assets are streamed after the static shell
- * @param {object} assets - Object containing js and css arrays
- * @param {object} req - Express request object
- * @param {object} chunkExtractor - ChunkExtractor instance
- * @returns {object} - { scripts: string, stylesheets: string }
- */
-export const generateDynamicAssets = (assets, req, chunkExtractor) => {
-    const { dynamic } = splitAssetsForPPR(assets, chunkExtractor)
-
-    return {
-        scripts: generateScriptTagsAsStrings(dynamic.js, req),
-        stylesheets: generateStylesheetLinksAsStrings(dynamic.css, req),
-    }
-}
-
-// Generate script tags as HTML strings
-export const generateScriptTagsAsStrings = (jsAssets, req) => {
-    const scriptStrings = []
-
-    // Get the correct base URL for assets
-    const getAssetUrl = (asset) => {
-        if (asset.startsWith("http")) {
-            return asset
-        }
-
-        // Construct proper URL with host and port
-        const protocol = (req && req.protocol) || "http"
-        const host = (req && req.get && req.get("host")) || "localhost:3005"
-
-        // Ensure asset path starts with /
-        const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-        // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
-        }
-
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${assetPath}`
-    }
-
-    // Deduplicate assets by URL to prevent duplicates
-    const uniqueAssets = [...new Set(jsAssets)]
-
-    uniqueAssets.forEach((asset) => {
-        const assetUrl = getAssetUrl(asset)
-
-        // All Vite-generated JS files should be ES modules
-        const isModule = asset.endsWith(".js")
-
-        // if (isModule) {
-        //     scriptStrings.push(`<script type="module" src="${assetUrl}"></script>`)
-        // } else {
-        // Generate preload hint for non-JS assets
-        scriptStrings.push(`<link rel="modulepreload" href="${assetUrl}" as="script">`)
-        // }
-    })
-
-    return scriptStrings.join("")
-}
-
-// Generate link elements for CSS stylesheets as HTML strings
-export const generateStylesheetLinksAsStrings = (cssAssets, req) => {
-    const linkStrings = []
-
-    // Get the correct base URL for assets
-    const getAssetUrl = (asset) => {
-        if (asset.startsWith("http")) {
-            return asset
-        }
-
-        // Construct proper URL with host and port
-        const protocol = (req && req.protocol) || "http"
-        const host = (req && req.get && req.get("host")) || "localhost:3005"
-
-        // Ensure asset path starts with /
-        const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-        // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
-        }
-
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
-    }
-
-    // Deduplicate assets by URL to prevent duplicates
-    const uniqueAssets = [...new Set(cssAssets)]
-
-    uniqueAssets.forEach((asset) => {
-        const assetUrl = getAssetUrl(asset)
-
-        linkStrings.push(`<link rel="preload" as="style" crossorigin="" href="${assetUrl}">`)
-    })
-
-    return linkStrings.join("")
 }
 
 export const generateScriptTags = (jsAssets, req) => {
@@ -235,11 +46,11 @@ export const generateScriptTags = (jsAssets, req) => {
         const assetPath = asset.startsWith("/") ? asset : `/${asset}`
 
         // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/${asset}`
+        if (!assetPath.startsWith(process.env.PUBLIC_STATIC_ASSET_PATH)) {
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}/assets/${asset}`
         }
 
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}/${asset}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
@@ -292,11 +103,11 @@ export const generateStylesheetLinks = (cssAssets, req) => {
         const assetPath = asset.startsWith("/") ? asset : `/${asset}`
 
         // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
+        if (!assetPath.startsWith(process.env.PUBLIC_STATIC_ASSET_PATH)) {
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/assets/css/${path.basename(asset)}`
         }
 
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}/${asset}`
     }
 
     // Deduplicate assets by URL to prevent duplicates

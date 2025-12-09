@@ -102,7 +102,8 @@ export function injectCacheKeyPlugin() {
             // Regex to match split calls with import path
             // Matches: split(() => import("path"), {options})
             // Also handles cases without options: split(() => import("path"))
-            const splitRegex = /split\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g
+            // Handles various whitespace/newline combinations
+            const splitRegex = /split\s*\(\s*\(\s*\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g
 
             let match
             const matches = []
@@ -163,14 +164,18 @@ export function injectCacheKeyPlugin() {
                     }
 
                     if (callEnd !== -1) {
-                        // Check if cacheKey is already present (check for third parameter pattern)
-                        const callContent = code.slice(index, callEnd + 1)
-                        // Check if there are already 2+ commas after the import (meaning options + cacheKey exist)
-                        const importEnd = index + fullMatch.length
-                        const afterImport = code.slice(importEnd, callEnd)
-                        const commaCount = (afterImport.match(/,/g) || []).length
+                        // Check if cacheKey is already present
+                        // Count top-level commas after the options object (not inside it)
+                        const afterOptions =
+                            optionsEnd !== -1
+                                ? code.slice(optionsEnd + 1, callEnd).trim()
+                                : code.slice(index + fullMatch.length, callEnd).trim()
 
-                        if (commaCount >= 2 || callContent.includes("cacheKey")) {
+                        // If there's content after the options (besides whitespace and closing paren),
+                        // it means there's already a third parameter (cacheKey)
+                        const hasThirdParam = afterOptions.replace(/^,/, "").trim().length > 0
+
+                        if (hasThirdParam) {
                             // Already has cacheKey, skip
                             continue
                         }

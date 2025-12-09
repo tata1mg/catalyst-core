@@ -14,8 +14,7 @@ import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
     generateScriptTags,
     generateStylesheetLinks,
-    generateScriptTagsAsStrings,
-    generateStylesheetLinksAsStrings,
+    getNonEssentialChunkIds,
 } from "./extract.js"
 import { clearPPRCache, PPRDataProvider, getCachedData } from "../../web-router/components/DataFetcher.jsx"
 import CustomDocument from "@catalyst/template/server/document.jsx"
@@ -61,126 +60,6 @@ function getMatchRoutes(routes, req, basePath = "") {
 }
 
 /**
- * Streams React JSX to response with optional prerendered state
- */
-// function streamToResponse(jsx, req, res, chunkExtractor, postponed = null, preludeSent = false) {
-//     const url = req.originalUrl
-//     const renderMode = postponed ? "resumeToPipeableStream" : "renderToPipeableStream"
-//     const startTime = Date.now()
-
-//     console.log(`[Stream] ▶ Starting ${renderMode} for: ${url}`)
-//     console.log(`[Stream]   postponed: ${postponed ? "present" : "null"}, preludeSent: ${preludeSent}`)
-
-//     return new Promise((resolve, reject) => {
-//         let isAborted = false
-
-//         const options = {
-//             onShellReady() {
-//                 if (isAborted) return
-//                 const shellTime = Date.now() - startTime
-//                 console.log(`[Stream] ✓ Shell ready (${shellTime}ms) - TTFB sent for: ${url}`)
-
-//                 // Only set headers and DOCTYPE if we haven't already sent the prelude
-//                 if (!preludeSent) {
-//                     res.setHeader("content-type", "text/html; charset=utf-8")
-//                     res.write("<!DOCTYPE html>")
-//                 }
-//                 pipe(process.stdout)
-//             },
-//             onShellError(error) {
-//                 console.error(`[Stream] ✗ Shell error for ${url}:`, error)
-//                 reject(error)
-//             },
-//             onAllReady() {
-//                 if (isAborted) return
-//                 const totalTime = Date.now() - startTime
-//                 console.log(`[Stream] ✓ All ready (${totalTime}ms) - Streaming complete for: ${url}`)
-//                 if (chunkExtractor) {
-//                     try {
-//                         const assets = chunkExtractor.getNonEssentialAssets()
-//                         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
-//                         res.write(generateScriptTagsAsStrings(assets.js, req))
-//                         console.log(
-//                             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
-//                         )
-//                     } catch (err) {
-//                         console.warn("[Stream] Error injecting assets:", err)
-//                     }
-//                 }
-//                 res.end()
-//                 resolve()
-//             },
-//             onError(error) {
-//                 console.error(`[Stream] Streaming error for ${url}:`, error)
-//                 reject(error)
-//             },
-//         }
-//         console.log(">>>>>>postponed", postponed, jsx)
-//         const { pipe, abort } = resumeToPipeableStream(jsx, postponed, {
-//             onShellReady() {
-//                 if (isAborted) return
-//                 const shellTime = Date.now() - startTime
-//                 console.log(`[Stream] ✓ Shell ready (${shellTime}ms) - TTFB sent for: ${url}`)
-
-//                 // Only set headers and DOCTYPE if we haven't already sent the prelude
-//                 if (!preludeSent) {
-//                     res.setHeader("content-type", "text/html; charset=utf-8")
-//                     res.write("<!DOCTYPE html>")
-//                 }
-//                 pipe(res)
-//             },
-//             onShellError(error) {
-//                 console.error(`[Stream] ✗ Shell error for ${url}:`, error)
-//                 cleanup()
-//                 reject(error)
-//             },
-//             onAllReady() {
-//                 if (isAborted) return
-//                 const totalTime = Date.now() - startTime
-//                 console.log(`[Stream] ✓ All ready (${totalTime}ms) - Streaming complete for: ${url}`)
-//                 if (chunkExtractor) {
-//                     try {
-//                         const assets = chunkExtractor.getNonEssentialAssets()
-//                         res.write(generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor))
-//                         res.write(generateScriptTagsAsStrings(assets.js, req))
-//                         console.log(
-//                             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
-//                         )
-//                     } catch (err) {
-//                         console.warn("[Stream] Error injecting assets:", err)
-//                     }
-//                 }
-//                 res.end()
-//                 cleanup()
-//                 resolve()
-//             },
-//             onError(error) {
-//                 console.error(`[Stream] Streaming error for ${url}:`, error)
-//                 cleanup()
-//                 reject(error)
-//             },
-//         })
-
-//         const cleanup = () => {
-//             req.off("close", handleAbort)
-//             res.off("close", handleAbort)
-//         }
-
-//         const handleAbort = () => {
-//             if (isAborted) return
-//             isAborted = true
-//             console.log(`[Stream] ⚠ Client disconnected, aborting: ${url}`)
-//             abort()
-//             cleanup()
-//             resolve()
-//         }
-
-//         req.on("close", handleAbort)
-//         res.on("close", handleAbort)
-//     })
-// }
-
-/**
  * Main request handler using PPR (Partial Prerendering)
  */
 export default async function handler(req, res) {
@@ -211,6 +90,7 @@ export default async function handler(req, res) {
                 jsx: jsx,
                 req,
                 res,
+                essentialAssets,
             }
 
             if (CustomDocument) {
@@ -218,7 +98,7 @@ export default async function handler(req, res) {
             } else {
                 return (
                     <html lang={finalProps.lang}>
-                        <Head />
+                        <Head essentialAssets={essentialAssets} />
                         <Body jsx={finalProps.jsx} />
                     </html>
                 )
@@ -227,6 +107,7 @@ export default async function handler(req, res) {
 
         let chunkExtractor = null
         let discoveredAssets = { js: [], css: [] }
+        let essentialAssets = { scripts: [], stylesheets: [] }
         try {
             chunkExtractor = new ChunkExtractor({
                 manifest: req.manifest || {},
@@ -234,6 +115,14 @@ export default async function handler(req, res) {
                 assetManifest: req.assetManifest || {},
             })
             discoveredAssets = chunkExtractor.getEssentialAssets()
+
+            // Generate React elements for essential assets to inject in head
+            const essentialJsAssets = chunkExtractor.getEssentialAssets().js || []
+            const essentialCssAssets = chunkExtractor.getEssentialAssets().css || []
+            essentialAssets = {
+                scripts: generateScriptTags(essentialJsAssets, req),
+                stylesheets: generateStylesheetLinks(essentialCssAssets, req),
+            }
         } catch (error) {
             console.warn(`[PPR]   Error collecting assets:`, error.message)
         }
@@ -282,23 +171,15 @@ export default async function handler(req, res) {
                                 }
                                 res.write(`<script>window.cachedData=${JSON.stringify(dataObject)}</script>`)
                             }
+
+                            const nonEssentialChunks = getNonEssentialChunkIds(chunkExtractor)
+                            res.write(
+                                `<script>window.__NON_ESSENTIAL_CHUNKS__=${JSON.stringify(nonEssentialChunks)}</script>`
+                            )
+
                             pipe(res)
                             clearPPRCache()
 
-                            // if (chunkExtractor) {
-                            //     try {
-                            //         const assets = chunkExtractor.getDynamicAssets()
-                            //         res.write(
-                            //             generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor)
-                            //         )
-                            //         res.write(generateScriptTagsAsStrings(assets.js, req))
-                            //         console.log(
-                            //             `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
-                            //         )
-                            //     } catch (err) {
-                            //         console.warn("[Stream] Error injecting assets:", err)
-                            //     }
-                            // }
                             res.end()
                         },
                         onError(error) {
@@ -352,22 +233,25 @@ export default async function handler(req, res) {
                                 console.error(`[Stream] ✗ Shell error for ${url}:`, error)
                             },
                             onAllReady() {
+                                const cachedData = getCachedData(cacheKey)
+                                if (cachedData && Object.keys(cachedData).length > 0) {
+                                    console.log("cachedData", cachedData)
+                                    const dataObject = {
+                                        [cacheKey]: cachedData,
+                                    }
+                                    res.write(
+                                        `<script>window.cachedData=${JSON.stringify(dataObject)}</script>`
+                                    )
+                                }
+
+                                const nonEssentialChunks = getNonEssentialChunkIds(chunkExtractor)
+                                res.write(
+                                    `<script>window.__NON_ESSENTIAL_CHUNKS__=${JSON.stringify(nonEssentialChunks)}</script>`
+                                )
+
                                 pipe(res)
                                 clearPPRCache()
-                                if (chunkExtractor) {
-                                    try {
-                                        const assets = chunkExtractor.getDynamicAssets()
-                                        res.write(
-                                            generateStylesheetLinksAsStrings(assets.css, req, chunkExtractor)
-                                        )
-                                        res.write(generateScriptTagsAsStrings(assets.js, req))
-                                        console.log(
-                                            `[Stream]   Injected ${assets.js.length} JS, ${assets.css.length} CSS assets`
-                                        )
-                                    } catch (err) {
-                                        console.warn("[Stream] Error injecting assets:", err)
-                                    }
-                                }
+
                                 res.end()
                             },
                             onError(error) {

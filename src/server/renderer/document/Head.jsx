@@ -9,10 +9,11 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
  * @param {object} pageJS - async scripts for loading chunks
  * @param {array} metaTags - user defined function which returns meta tags in array
  * @param {string} publicAssetPath - public asset path for assets
+ * @param {object} essentialAssets - essential assets to inject { scripts: [], stylesheets: [] }
  * @param {object} children - contains any child elements defined within the component
  */
 export function Head(props) {
-    const { pageCss, pageJS, metaTags, isBot, publicAssetPath, children } = props
+    const { pageCss, pageJS, metaTags, isBot, publicAssetPath, essentialAssets, children } = props
 
     return (
         <head>
@@ -23,7 +24,20 @@ export function Head(props) {
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {metaTags && metaTags}
-            {/* Render stylesheet link elements */}
+
+            {/* Render essential stylesheets */}
+            {!isBot &&
+                essentialAssets?.stylesheets &&
+                Array.isArray(essentialAssets.stylesheets) &&
+                essentialAssets.stylesheets}
+
+            {/* Render essential scripts */}
+            {!isBot &&
+                essentialAssets?.scripts &&
+                Array.isArray(essentialAssets.scripts) &&
+                essentialAssets.scripts}
+
+            {/* Render stylesheet link elements (backward compatibility) */}
             {!isBot && pageCss && Array.isArray(pageCss) && pageCss}
 
             {!isBot && pageJS}
@@ -39,5 +53,6 @@ Head.propTypes = {
     pageCss: PropTypes.array, // Changed from string to array for stylesheet links
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
+    essentialAssets: PropTypes.object,
     children: PropTypes.node,
 }
