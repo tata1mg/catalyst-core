@@ -95,7 +95,7 @@ function fetchPreloadJSLinkCache(key) {
  * @param {object} res - response object
  * @param {string} route - route path
  */
-export default function (res, route) {
+export default function extract(res, route) {
     try {
         const requestPath = route.path
         const cachedCss = fetchCachedCSS(requestPath)
@@ -138,7 +138,7 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
             firstFoldCss = webExtractor.getStyleTags()
         }
         // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
-        firstFoldJS = webExtractor.getScriptTags()
+        firstFoldJS = !isBot ? webExtractor.getScriptTags() : ""
     }
 
     // This block will run for the first time and cache preloaded JS Links for second render

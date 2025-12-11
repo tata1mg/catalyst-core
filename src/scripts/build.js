@@ -23,7 +23,7 @@ function build() {
         `cross-env APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --quiet`,
     ]
 
-    const command = commands.join(isWindows ? " && " : " ; ")
+    const command = commands.join("&&")
 
     console.log("Creating an optimized production build...")
 
@@ -41,8 +41,11 @@ function build() {
         },
     })
 
-    if (result.error) {
-        console.error("Error occurred:", result.error)
+    if (result.error || result.status != 0) {
+        console.error("Build failed!")
+        console.error("Status code:", result.status)
+        console.error("Error:", result.error)
+        throw new Error("Build Failed!")
     } else {
         console.log(green("Compiled successfully."))
         console.log("\nFile sizes after gzip:\n")
