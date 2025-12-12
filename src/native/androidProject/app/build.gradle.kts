@@ -85,7 +85,7 @@ android {
             buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
         }
         release {
-            manifestPlaceholders += mapOf("allowCleartextTraffic" to false)
+            manifestPlaceholders += mapOf("allowCleartextTraffic" to true)
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
