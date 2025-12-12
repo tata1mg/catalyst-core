@@ -166,6 +166,7 @@ export default defineConfig({
         preprocessorOptions: {
             scss: {
                 additionalData: `@import "@css/resources/index.scss" ; $font_url: "${fontUrl()}";  $url_for: "${imageUrl()}"; `,
+                silenceDeprecations: ["import", "global-builtin", "color-functions"],
             },
         },
     },
