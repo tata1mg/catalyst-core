@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.0.3-canary.20] - 2025-12-12
+
+-   Patch: Allow localhost traffic to be served from http
+
 ## [0.0.3-canary.19] - 2025-12-09
 
 -   Offline fallback support: packages `public/offline.html` into Android/iOS bundles and shows it automatically when connectivity drops (with retry handling)

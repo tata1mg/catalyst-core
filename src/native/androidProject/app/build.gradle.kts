@@ -77,7 +77,6 @@ android {
 
     buildTypes {
         debug {
-            manifestPlaceholders += mapOf("allowCleartextTraffic" to true)
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             isMinifyEnabled = false
@@ -85,7 +84,6 @@ android {
             buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
         }
         release {
-            manifestPlaceholders += mapOf("allowCleartextTraffic" to false)
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
