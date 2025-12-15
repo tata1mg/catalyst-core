@@ -20,10 +20,10 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
 
         // For client assets, ensure /client/ prefix
         if (!assetPath.startsWith("/client/")) {
-            return `${protocol}://${host}/client/assets/${asset}`
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
         }
 
-        return `${protocol}://${host}${assetPath}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${assetPath}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
@@ -65,10 +65,10 @@ export const generateStylesheetLinksAsStrings = (cssAssets, req) => {
 
         // For client assets, ensure /client/ prefix
         if (!assetPath.startsWith("/client/")) {
-            return `${protocol}://${host}/client/assets/css/${path.basename(asset)}`
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
         }
 
-        return `${protocol}://${host}${assetPath}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
@@ -101,10 +101,10 @@ export const generateScriptTags = (jsAssets, req) => {
 
         // For client assets, ensure /client/ prefix
         if (!assetPath.startsWith("/client/")) {
-            return `${protocol}://${host}/client/assets/${asset}`
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/${asset}`
         }
 
-        return `${protocol}://${host}${assetPath}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
@@ -158,10 +158,10 @@ export const generateStylesheetLinks = (cssAssets, req) => {
 
         // For client assets, ensure /client/ prefix
         if (!assetPath.startsWith("/client/")) {
-            return `${protocol}://${host}/client/assets/css/${path.basename(asset)}`
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
         }
 
-        return `${protocol}://${host}${assetPath}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
