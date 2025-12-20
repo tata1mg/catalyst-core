@@ -64,11 +64,14 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (match) {
-            if (!res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
+            if (!res.locals.assetsExtracted && !res.locals.routePath) {
                 res.locals.routePath = path
                 extractAssets(res, route)
             }
-            if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
+            // Only run expensive renderToString if cache was MISSED
+            // If assetsExtracted is true AND (pageCss OR preloadJSLinks exists), cache was hit - skip renderToString
+            const cacheHit = res.locals.assetsExtracted && (res.locals.pageCss || res.locals.preloadJSLinks)
+            if (!cacheHit) {
                 //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
                 renderToString(
                     <ChunkExtractorManager extractor={webExtractor}>
@@ -194,8 +197,8 @@ const renderMarkUp = async (
                     res.setHeader("content-type", "text/html")
                     pipe(res)
                 },
-                onAllReady() {
-                    const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
+                async onAllReady() {
+                    const { firstFoldCss, firstFoldJS } = await cacheAndFetchAssets({ webExtractor, res, isBot })
                     res.write(firstFoldCss)
                     res.write(firstFoldJS)
                     res.end()
