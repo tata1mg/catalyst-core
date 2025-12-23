@@ -1,51 +1,129 @@
 # Changelog
 
-## [0.0.1-beta.16] - 28-08-2025
+## [0.0.3-canary.20] - 2025-12-12
 
--   Adds SDK for Open Telemetry
+-   Patch: Allow localhost traffic to be served from http
 
-## [0.0.1-beta.15] - 1-07-2025
+## [0.0.3-canary.19] - 2025-12-09
 
--   Adds SDK for Sentry
+-   Offline fallback support: packages `public/offline.html` into Android/iOS bundles and shows it automatically when connectivity drops (with retry handling)
+-   Notification refactor: streamlined config toggle for local vs push, centralized permission/asset handling, and simpler routing into the web app
+-   Access control: combined access control config for ios
 
-## [0.0.1-beta.14] - 19-05-2025
+## [0.0.3-canary.18] - 2025-11-19
 
--   Fixes header sent bug
--   Returns promise from handler
+-   Configuration Files
+-   Android Native WebView - MainActivity.kt
+-   Android Native WebView - CustomWebview.kt
 
-## [0.0.1-beta.13] - 04-04-2025
+## [0.0.3-canary.17] - 2025-11-19
 
--   Fixes a bug for client fetcher when importing components through loadable
+-   ✨ Added complete notification system (local & push)
+-   🔔 New useNotification() React hook
+-   📱 Firebase Cloud Messaging conditional build support
+-   🤖 Android notification handling in MainActivity
+-   🔧 5 new notification commands + 5 callbacks in NativeBridge
+-   📦 Auto-processing of notification icons & sounds
+-   ⚙️ Conditional dependencies based on notification config
+-   🧹 Updated .gitignore & .npmignore
+-   📋 Enhanced build process with automatic permission injection
+-   🔗 Deep link integration with notifications
 
-## [0.0.1-beta.12] - 06-03-2025
+## [0.0.3-canary.16] - 2025-11-19
 
--   Add support for ESM only packages
+-   FeaturesGallery Support for File Picker: Enhanced file picker to open native gallery for selecting images and videos
+-   HTTPS Framework Server: Enabled HTTPS support for the framework server with self-signed SSL certificate
+-   MIME Type Handling: Fixed and improved MIME type detection and handling in the file picker
 
-## [0.0.1-beta.11] - 21-02-2025
+## [0.0.3-canary.15] - 2025-11-19
 
--   Add support for custom react compiler config
--   Add support for typescript
--   Fix json import issue
--   Fix common name module conflict issue
+-   Adding Android release support and appInfo key
 
-## [0.0.1-beta.10] - 06-02-2024
+## [0.0.3-canary.14] - 2025-09-29
 
-### Changes
+-   Android custom splashscreen
 
--   New lifecycle methods
--   Support for windows - Adds native support for powershell
--   Add support for react compiler
--   Add document CSS in response for bot agents
+## [0.0.3-canary.13] - 2025-09-28
 
-## [0.0.1-beta.9] - 13-12-2024
+-   Multi file support in useFilePicker hook
+-   Android multiple app icon support
+-   Android whitelisting toggle support
 
-### Changes
+## [0.0.3-canary.12] - 2025-09-26
 
--   Update @tata1mg/router's version to 0.0.1-beta.6.
+-   Universal App Context: Added comprehensive context support for building universal mobile applications
+-   OpenTelemetry SDK Integration: Built-in support for observability and performance monitoring with Otel SDK
 
-## [0.0.1-beta.8] - 09-12-2024
+## [0.0.3-canary.11] - 2025-09-26
 
-### Changes
+-   Build organization: Store APKs and iOS builds organized by generation date and time for better tracking and management
+-   Enhanced Android native support: Add support for native keyboard and webview resizing in Android
+-   Device info API web support: Web support in device info API
 
--   Filter out host machine's environment variable from client environment variables
--   Update @tata1mg/router's version to 0.0.1-beta.5.
+## [0.0.3-canary.10] - 2025-09-11
+
+-   **Sentry import bug fix**
+-   **Open telemetry SDK**
+
+## [0.0.3-canary.9] - 2025-09-11
+
+-   **App name configuration**
+-   **Device Info API**
+-   **Access control configuration**
+
+## [0.0.3-canary.8] - 2025-01-06
+
+-   **App icon configuration**
+-   **Splash screen integration**
+-   **Url Whitelisting**
+
+## [0.0.3-canary.7] - 2025-01-06
+
+### 🚀 Features
+
+-   **Native API Integration**: Enhanced native module integration for better performance
+-   **Automated IP Resolution**: Intelligent network detection eliminates manual IP configuration
+-   **Universal Build System**: Streamlined one-command builds for both Android and iOS platforms
+-   **Enhanced CLI Interface**: Improved command-line tools for better developer experience
+
+### 🐛 Bug Fixes
+
+-   Fixed IP address detection issues on development environments
+-   Resolved build configuration conflicts between platforms
+-   Improved error handling and recovery mechanisms
+
+### 🔧 Improvements
+
+-   **Performance**: Optimized native module loading and execution
+-   **Developer Experience**: Enhanced CLI with better error messages and debugging info
+-   **Configuration**: Dynamic config updates without requiring restarts
+-   **Build Process**: Faster and more reliable build pipeline
+
+### 🧪 Testing & Validation
+
+-   ✅ **Android Build**: Verified APK generation, installation, and runtime behavior
+-   ✅ **iOS Build**: Tested build process and device compatibility
+-   ✅ **IP Detection**: Validated automatic network resolution across platforms
+-   ✅ **Native Modules**: Confirmed API integration and performance benchmarks
+-   ✅ **CLI Operations**: Tested enhanced command-line workflows and error handling
+
+### 🔄 Breaking Changes
+
+**None** - All changes maintain backward compatibility while enhancing existing functionality
+
+### 📝 Technical Details
+
+-   Improved native API bridge for better cross-platform communication
+-   Enhanced error reporting with detailed stack traces and suggestions
+-   Optimized build configuration for faster development cycles
+-   Added comprehensive logging for debugging and monitoring
+
+### 🔗 Migration Notes
+
+-   No migration steps required
+-   Existing projects will automatically benefit from improvements
+-   Optional: Update CLI usage to leverage new enhanced features
+
+## Version
+
+-   Target version: 0.0.3-canary.7
