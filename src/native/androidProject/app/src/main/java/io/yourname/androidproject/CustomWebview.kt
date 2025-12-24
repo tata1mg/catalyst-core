@@ -51,6 +51,7 @@ class CustomWebView(
     private val offlineAssetUrl = "file:///android_asset/$offlineAssetPath"
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
+    private var defaultRequestHeaders: Map<String, String> = emptyMap()
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -127,10 +128,27 @@ class CustomWebView(
             .build()
     }
 
+    fun setDefaultRequestHeaders(headers: Map<String, String>) {
+        defaultRequestHeaders = headers.toMap()
+    }
+
+    private fun loadUrlInternal(url: String) {
+        val isNetworkUrl = url.startsWith("http://") || url.startsWith("https://")
+
+        if (isNetworkUrl && defaultRequestHeaders.isNotEmpty()) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🌐 Loading with headers: $url, headers=$defaultRequestHeaders")
+            }
+            webView.loadUrl(url, defaultRequestHeaders)
+        } else {
+            webView.loadUrl(url)
+        }
+    }
+
     fun loadUrl(url: String) {
         lastTargetUrl = url
         offlinePageVisible = false
-        webView.loadUrl(url)
+        loadUrlInternal(url)
     }
 
     fun updateLastTargetUrl(url: String) {
@@ -146,7 +164,7 @@ class CustomWebView(
         try {
             context.assets.open(offlineAssetPath).close()
             offlinePageVisible = true
-            webView.loadUrl(offlineAssetUrl)
+            loadUrlInternal(offlineAssetUrl)
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "📴 Showing offline page from assets: $offlineAssetPath")
             }
@@ -305,7 +323,7 @@ class CustomWebView(
                     }
                     offlinePageVisible = false
                     lastTargetUrl = target
-                    webView.loadUrl(target)
+                    loadUrlInternal(target)
                 } else if (BuildConfig.DEBUG) {
                     Log.w(TAG, "🔄 Retry requested but no target URL is known")
                 }

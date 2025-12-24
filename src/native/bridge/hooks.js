@@ -10,6 +10,7 @@ import {
     canCreateFileObject,
     getUnsupportedTransportMessage,
 } from "./utils/FileObjectConverter.js"
+import { DEFAULT_INSETS, getSafeAreaFromGlobal, setSafeAreaGlobal } from "./safeArea.js"
 
 const noop = () => {}
 const createSSRUnavailable = (methodName) => async () => {
@@ -1332,4 +1333,44 @@ export const useNetworkStatus = () => {
         ...status,
         error,
     }
+}
+
+export const useSafeArea = () => {
+    const fromGlobal = getSafeAreaFromGlobal()
+    const initialValue = fromGlobal || { ...DEFAULT_INSETS }
+
+    const [insets, setInsets] = useState(() => initialValue)
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (!window.WebBridge) return
+        if (!nativeBridge.isAvailable()) return
+
+        const handleInsetsUpdate = (data) => {
+            try {
+                const parsed = typeof data === "string" ? JSON.parse(data) : data
+                const normalized = {
+                    top: Number(parsed.top) || 0,
+                    right: Number(parsed.right) || 0,
+                    bottom: Number(parsed.bottom) || 0,
+                    left: Number(parsed.left) || 0,
+                }
+
+                setInsets(normalized)
+                setSafeAreaGlobal(normalized)
+            } catch (error) {
+                console.error("Error parsing safe area insets:", error)
+                setInsets({ ...DEFAULT_INSETS })
+            }
+        }
+
+        window.WebBridge.register("ON_SAFE_AREA_INSETS_UPDATED", handleInsetsUpdate)
+        nativeBridge.safeArea.get()
+
+        return () => {
+            window.WebBridge.unregister("ON_SAFE_AREA_INSETS_UPDATED")
+        }
+    }, [])
+
+    return insets
 }

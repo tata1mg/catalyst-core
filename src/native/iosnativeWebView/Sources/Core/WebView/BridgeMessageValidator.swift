@@ -186,6 +186,11 @@ class BridgeMessageValidator {
             "type": "object",
             "properties": [:],
             "additionalProperties": false
+        ],
+        "getSafeArea": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
         ]
     ]
 
@@ -346,7 +351,8 @@ class BridgeMessageValidator {
             "scheduleLocalNotification",
             "cancelLocalNotification",
             "subscribeToTopic",
-            "unsubscribeFromTopic"
+            "unsubscribeFromTopic",
+            "getSafeArea"
         ]
 
         if flexibleCommands.contains(command) {
