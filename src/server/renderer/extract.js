@@ -1,6 +1,10 @@
 import path from "path"
 import fs from "fs"
 
+// Use decimal megabytes (1 MB = 1,000,000 bytes) for all memory logs
+const BYTES_PER_MB = 1_000_000
+const toMB = (bytes) => (bytes / BYTES_PER_MB).toFixed(2)
+
 export function cachePreloadJSLinks(key, data) {
     if (!process.preloadJSLinkCache) {
         process.preloadJSLinkCache = {}
@@ -90,16 +94,27 @@ export function cacheCSS(key, data) {
                                 )
                             )
                             process.cssCache[assetName] = css
+
+                            const cssCacheSize = Object.keys(process.cssCache).length
+                            const cssCacheTotalSizeBytes = Object.values(process.cssCache).reduce(
+                                (total, cssContent) => total + Buffer.byteLength(cssContent),
+                                0
+                            )
+
                             const memoryUsage = process.memoryUsage()
-                            const availableMemory = memoryUsage?.heapTotal - memoryUsage?.heapUsed
+                            const availableMemoryBytes =
+                                (memoryUsage?.heapTotal ?? 0) - (memoryUsage?.heapUsed ?? 0)
+
                             logger.info(
                                 `Last Cached CSS - Asset: ${assetName}, ` +
-                                    `RSS: ${memoryUsage?.rss}, ` +
-                                    `Heap Total: ${memoryUsage?.heapTotal}, ` +
-                                    `Heap Used: ${memoryUsage?.heapUsed}, ` +
-                                    `External: ${memoryUsage?.external}, ` +
-                                    `Array Buffers: ${memoryUsage?.arrayBuffers}, ` +
-                                    `Available Memory: ${availableMemory}, ` +
+                                    `CSS Cache Entries: ${cssCacheSize}, ` +
+                                    `CSS Cache Total Size: ${toMB(cssCacheTotalSizeBytes)} MB, ` +
+                                    `RSS: ${toMB(memoryUsage?.rss ?? 0)} MB, ` +
+                                    `Heap Total: ${toMB(memoryUsage?.heapTotal ?? 0)} MB, ` +
+                                    `Heap Used: ${toMB(memoryUsage?.heapUsed ?? 0)} MB, ` +
+                                    `External: ${toMB(memoryUsage?.external ?? 0)} MB, ` +
+                                    `Array Buffers: ${toMB(memoryUsage?.arrayBuffers ?? 0)} MB, ` +
+                                    `Available Memory: ${toMB(availableMemoryBytes)} MB, ` +
                                     `Timestamp: ${new Date().toISOString()}`
                             )
                         }
