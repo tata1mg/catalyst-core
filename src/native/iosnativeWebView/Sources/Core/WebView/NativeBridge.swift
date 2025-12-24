@@ -19,6 +19,7 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
 
     // Protocol-based notification handler (injected at runtime)
     private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
+    private var networkStatusListenerId: UUID?
 
     // Lazy initialization for non-critical handlers
     private lazy var imageHandler: ImageHandler = {
@@ -130,6 +131,34 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     // Unregister to prevent memory leaks
     func unregister() {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "NativeBridge")
+        
+        if let listenerId = networkStatusListenerId {
+            NetworkMonitor.shared.removeListener(listenerId)
+            networkStatusListenerId = nil
+        }
+    }
+
+    private func startNetworkMonitoringIfNeeded() {
+        guard networkStatusListenerId == nil else { return }
+
+        networkStatusListenerId = NetworkMonitor.shared.addListener { [weak self] status in
+            self?.sendNetworkStatusUpdate(status)
+        }
+    }
+
+    private func sendNetworkStatusUpdate(_ status: NetworkStatus) {
+        var payload: [String: Any] = ["online": status.isOnline]
+        if let type = status.type {
+            payload["type"] = type
+        }
+
+        sendJSONCallback(eventName: "NETWORK_STATUS_CHANGED", data: payload)
+    }
+
+    private func sendCurrentNetworkStatus() {
+        startNetworkMonitoringIfNeeded()
+        let status = NetworkMonitor.shared.currentStatus
+        sendNetworkStatusUpdate(status)
     }
     
     
@@ -203,6 +232,8 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.requestCameraPermission(config: configString)
         case "getDeviceInfo":
             commandHandler.getDeviceInfo()
+        case "getNetworkStatus":
+            sendCurrentNetworkStatus()
         case "logger":
             commandHandler.logger()
         case "pickFile":

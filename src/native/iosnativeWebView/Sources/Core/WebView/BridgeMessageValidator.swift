@@ -124,6 +124,11 @@ class BridgeMessageValidator {
             "properties": [:],
             "additionalProperties": false
         ],
+        "getNetworkStatus": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
         "logger": [
             "type": "object",
             "properties": [:],
@@ -350,6 +355,7 @@ class BridgeMessageValidator {
             "requestHapticFeedback",
             "openFileWithIntent",
             "getDeviceInfo",
+            "getNetworkStatus",
             "logger",
             "googleSignIn",
             "getSubscribedTopics",

@@ -1193,19 +1193,57 @@ export const useNotification = () => {
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.success === false || result?.error) {
+                    base.handleNativeError(result.error || result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.success === false || result?.error) {
+                    base.handleNativeError(result.error || result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            setPushToken(result.token)
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                setPushToken(result.token)
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED, (data) => {
             const notification = typeof data === "string" ? JSON.parse(data) : data
             setLastNotification(notification)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_TAPPED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED, (data) => {
@@ -1214,22 +1252,49 @@ export const useNotification = () => {
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                const success = result?.success
+                if (success === false) {
+                    base.handleNativeError(result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         window.WebBridge.register(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT, (data) => {
-            const result = typeof data === "string" ? JSON.parse(data) : data
-            setSubscribedTopics(result.topics || [])
-            base.setDataAndComplete(result)
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                if (result?.success === false) {
+                    base.handleNativeError(result)
+                    return
+                }
+                setSubscribedTopics(result.topics || [])
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
         })
 
         return () => {
             // Cleanup
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
             window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_TAPPED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT)
             window.WebBridge.unregister(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT)
@@ -1301,5 +1366,56 @@ export const useNotification = () => {
         subscribeToTopic,
         unsubscribeFromTopic,
         getSubscribedTopics,
+    }
+}
+
+/**
+ * Network status hook
+ * Listens to native network changes and exposes online/offline state
+ */
+export const useNetworkStatus = () => {
+    const initialOnline = typeof navigator !== "undefined" ? navigator.onLine : true
+    const [status, setStatus] = useState({
+        online: initialOnline,
+        type: null,
+    })
+    const [error, setError] = useState(null)
+    const isNative = nativeBridge.isNativeEnvironment
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (!window.WebBridge) return
+        if (!isNative) return
+
+        const handleStatus = (payload) => {
+            try {
+                const parsed = parseNativePayload(payload) || {}
+                setStatus({
+                    online: Boolean(parsed.online),
+                    type: parsed.type || null,
+                })
+                setError(null)
+            } catch (e) {
+                console.error("🌐 Error parsing network status:", e)
+                setError(e.message)
+            }
+        }
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED, handleStatus)
+
+        try {
+            nativeBridge.network.getStatus()
+        } catch (e) {
+            setError(e.message || "Network status unavailable")
+        }
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED)
+        }
+    }, [isNative])
+
+    return {
+        ...status,
+        error,
     }
 }

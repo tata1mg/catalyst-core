@@ -7,10 +7,13 @@ import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
+import org.json.JSONObject
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
+import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.KeyboardUtil
+import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.NotificationConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -139,14 +142,25 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 val useHttps = properties.getProperty("useHttps", "false").toBoolean()
                 val protocol = if (useHttps) "https" else "http"
                 currentUrl = "$protocol://$local_ip:$port/$initial_url"
+                customWebView.updateLastTargetUrl(currentUrl)
             
 
             // Check for notification and handle via /notification endpoint
             if (intent.getBooleanExtra(NotificationConstants.EXTRA_IS_NOTIFICATION, false)) {
                 handleNotificationClick(currentUrl, intent)
             } else {
-                Log.d(TAG, "🔗 Loading base URL: $currentUrl")
-                customWebView.loadUrl(currentUrl)
+                val isOnline = NetworkUtils.getCurrentStatus(this).isOnline
+                if (isOnline) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "🔗 Loading base URL: $currentUrl")
+                    }
+                    customWebView.loadUrl(currentUrl)
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "📴 Device offline on launch, showing offline page")
+                    }
+                    customWebView.showOfflinePage()
+                }
             }
 
             metricsMonitor.markAppStartComplete()
@@ -230,18 +244,52 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         try {
             val action = intent.getStringExtra(NotificationConstants.EXTRA_ACTION)
             val notificationData = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_DATA)
+            val notificationId = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_ID)
 
             Log.d(TAG, "🔔 Handling notification click - Action: ${action ?: "none"}")
 
             // Dismiss the notification
             val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            notificationManager.cancelAll() // This dismisses all notifications from this app
+            if (!notificationId.isNullOrBlank()) {
+                notificationManager.cancel(notificationId.hashCode())
+            } else {
+                notificationManager.cancelAll() // Fallback if we didn't get an ID
+            }
 
             // Build simple /notification URL
             val url = buildNotificationUrl(baseUrl, action, notificationData)
             Log.d(TAG, "🔔 Navigating to: $url")
 
-            customWebView.loadUrl(url)
+            // Notify web layer about the action/tap
+            try {
+                val payload = org.json.JSONObject().apply {
+                    put("action", action ?: "tap")
+                    put("deepLinkURL", url)
+                    if (!notificationData.isNullOrBlank()) {
+                        put("data", org.json.JSONObject(notificationData))
+                    }
+                    if (!notificationId.isNullOrBlank()) {
+                        put("notificationId", notificationId)
+                    }
+                }
+                val webView = customWebView.getWebView()
+                if (action.isNullOrBlank()) {
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_TAPPED, payload.toString())
+                } else {
+                    BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_ACTION_PERFORMED, payload.toString())
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to notify web of notification action", e)
+            }
+
+            customWebView.updateLastTargetUrl(url)
+            val isOnline = NetworkUtils.getCurrentStatus(this).isOnline
+            if (isOnline) {
+                customWebView.loadUrl(url)
+            } else {
+                Log.w(TAG, "📴 Offline during notification click, showing offline page")
+                customWebView.showOfflinePage()
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "🔔 Error handling notification click: ${e.message}", e)

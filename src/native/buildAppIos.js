@@ -642,8 +642,8 @@ public enum ConfigConstants {
         }
 
         // Add URL whitelisting configuration if it exists
-        if (iosConfig.accessControl) {
-            const accessControl = iosConfig.accessControl
+        if (WEBVIEW_CONFIG.accessControl) {
+            const accessControl = WEBVIEW_CONFIG.accessControl
 
             configContent += `
     public static let accessControlEnabled = ${accessControl.enabled || false}`
@@ -1340,6 +1340,84 @@ async function processNotificationAssets(webviewConfig) {
         }
     } catch (error) {
         progress.log(`Warning: Error processing notifications: ${error.message}`, "warning")
+    }
+}
+
+async function addOfflinePageToXcodeProject() {
+    try {
+        const projectFilePath = getXcodeProjectFilePath()
+        const offlineFileName = "offline.html"
+        const offlineRelativePath = "offline/offline.html"
+
+        if (!fs.existsSync(projectFilePath)) {
+            progress.log("Xcode project file not found while adding offline.html", "warning")
+            return
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+
+        if (projectContent.includes(`/* ${offlineFileName} */`)) {
+            progress.log("offline.html already registered in Xcode project", "info")
+            return
+        }
+
+        const fileRefId = generateProjectObjectId(offlineFileName, "_ref")
+        const buildFileId = generateProjectObjectId(offlineFileName, "_build")
+
+        const fileRefEntry = `\t\t${fileRefId} /* ${offlineFileName} */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = ${offlineRelativePath}; sourceTree = "<group>"; };`
+        projectContent = projectContent.replace(
+            /(\/\* End PBXFileReference section \*\/)/,
+            `${fileRefEntry}\n$1`
+        )
+
+        const buildFileEntry = `\t\t${buildFileId} /* ${offlineFileName} in Resources */ = {isa = PBXBuildFile; fileRef = ${fileRefId} /* ${offlineFileName} */; };`
+        projectContent = projectContent.replace(
+            /(\/\* End PBXBuildFile section \*\/)/,
+            `${buildFileEntry}\n$1`
+        )
+
+        const groupPattern = /(\/\* iosnativeWebView \*\/ = \{[^}]*children = \([^)]*)/
+        if (groupPattern.test(projectContent)) {
+            projectContent = projectContent.replace(
+                groupPattern,
+                `$1\n\t\t\t\t${fileRefId} /* ${offlineFileName} */,`
+            )
+        }
+
+        const resourcesPattern = /(\/\* Resources \*\/ = \{[^}]*files = \([^)]*)/
+        if (resourcesPattern.test(projectContent)) {
+            projectContent = projectContent.replace(
+                resourcesPattern,
+                `$1\n\t\t\t\t${buildFileId} /* ${offlineFileName} in Resources */,`
+            )
+        }
+
+        fs.writeFileSync(projectFilePath, projectContent, "utf8")
+        progress.log("Registered offline.html with Xcode project", "success")
+    } catch (error) {
+        progress.log(`Warning: Failed to register offline.html in Xcode project: ${error.message}`, "warning")
+    }
+}
+
+async function copyOfflinePage() {
+    try {
+        const sourcePath = path.join(PUBLIC_PATH, "offline.html")
+        const destDir = `${PROJECT_DIR}/${PROJECT_NAME}/offline`
+        const destPath = `${destDir}/offline.html`
+
+        if (!fs.existsSync(sourcePath)) {
+            progress.log("offline.html not found in public/; skipping offline asset copy", "warning")
+            return false
+        }
+
+        fs.mkdirSync(destDir, { recursive: true })
+        fs.copyFileSync(sourcePath, destPath)
+        progress.log("offline.html copied to iOS bundle", "success")
+        await addOfflinePageToXcodeProject()
+        return true
+    } catch (error) {
+        progress.log(`Warning: Error copying offline.html: ${error.message}`, "warning")
+        return false
     }
 }
 
@@ -2209,6 +2287,7 @@ async function buildForIOS() {
         // Process notification assets
         progress.start("assets")
         await processNotificationAssets(WEBVIEW_CONFIG)
+        await copyOfflinePage()
         progress.complete("assets")
 
         await generateXCConfig()

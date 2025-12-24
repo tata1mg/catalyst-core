@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.3-canary.18",
+    "version": "0.0.3-canary.20",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -38,7 +38,7 @@
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "prepare": "babel src --out-dir ./dist && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift src/native/assets dist/native/ && rsync -a --exclude='.package-config-hash' src/native/iosnativeWebView/ dist/native/iosnativeWebView/",
+        "prepare": "babel src --out-dir ./dist --ignore '**/.build/**' && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift src/native/assets dist/native/ && rsync -a --exclude='.package-config-hash' src/native/iosnativeWebView/ dist/native/iosnativeWebView/",
         "prepublishOnly": "npm i && npm run prepare"
     },
     "license": "MIT",
