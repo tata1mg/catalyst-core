@@ -25,5 +25,10 @@ openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
 **/.idea/*
-*swiftlint.yml 
+*swiftlint.yml
 **/xcuserdata/*
+# Exclude iOS test files from npm package
+src/native/iosnativeWebView/Tests/**
+# Exclude Android test files from npm package
+src/native/androidProject/app/src/test/**
+src/native/androidProject/app/src/androidTest/**

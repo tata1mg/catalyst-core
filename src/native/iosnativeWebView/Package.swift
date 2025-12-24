@@ -21,6 +21,14 @@ let package = Package(
                 .product(name: "JSONSchema", package: "JSONSchema.swift")
             ],
             path: "Sources/Core"
+        ),
+        // Test target for CatalystCore
+        // Tests are excluded from npm package via .npmignore
+        // Run with: swift test (from iosnativeWebView directory)
+        .testTarget(
+            name: "CatalystCoreTests",
+            dependencies: ["CatalystCore"],
+            path: "Tests/CatalystCoreTests"
         )
     ]
 )

@@ -10,6 +10,7 @@ import java.io.IOException
 import java.net.URL
 import android.os.Handler
 import android.os.Looper
+import io.yourname.androidproject.URLWhitelistManager
 
 /**
  * Download utilities for native bridge operations  
@@ -80,13 +81,13 @@ object DownloadUtils {
             }
 
             // Whitelist validation for remote URLs
-            if (accessControlEnabled && allowedUrls.isNotEmpty() && !io.yourname.androidproject.isUrlAllowed(fileUrl, allowedUrls)) {
+            if (!URLWhitelistManager.isUrlAllowed(fileUrl)) {
                 val errorMessage = "Unable to process request. URL violates whitelisting protocols"
                 BridgeUtils.logError(TAG, "File URL blocked by access control: $fileUrl")
                 throw SecurityException(errorMessage)
-            } else if (accessControlEnabled && allowedUrls.isNotEmpty()) {
+            } else if (URLWhitelistManager.isAccessControlEnabled()) {
                 BridgeUtils.logDebug(TAG, "✅ File URL passed whitelist check: $fileUrl")
-            } else if (!accessControlEnabled) {
+            } else {
                 BridgeUtils.logDebug(TAG, "⚙️ Access control disabled; skipping whitelist checks for download")
             }
 
