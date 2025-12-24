@@ -817,6 +817,27 @@ class NativeBridge(
         }
     }
 
+    @JavascriptInterface
+    fun getSafeArea(data: String? = null) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED, "get safe area") {
+            mainActivity.runOnUiThread {
+                val insets = mainActivity.getCurrentSafeAreaInsets()
+                val insetsJson = org.json.JSONObject().apply {
+                    put("top", insets.top)
+                    put("right", insets.right)
+                    put("bottom", insets.bottom)
+                    put("left", insets.left)
+                }
+
+                BridgeUtils.notifyWebJson(
+                    webView,
+                    BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED,
+                    insetsJson
+                )
+            }
+        }
+    }
+
     /**
      * Cleanup method to be called when the bridge is being destroyed
      */

@@ -27,6 +27,9 @@ export const NATIVE_COMMANDS = {
     // Device info commands
     GET_DEVICE_INFO: "getDeviceInfo",
     GET_NETWORK_STATUS: "getNetworkStatus",
+
+    // Safe area commands
+    GET_SAFE_AREA: "getSafeArea",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -67,6 +70,9 @@ export const NATIVE_CALLBACKS = {
 
     // Network callbacks
     NETWORK_STATUS_CHANGED: "NETWORK_STATUS_CHANGED",
+
+    // Safe area callbacks
+    ON_SAFE_AREA_INSETS_UPDATED: "ON_SAFE_AREA_INSETS_UPDATED",
 }
 
 // Interface Categories for easier management
