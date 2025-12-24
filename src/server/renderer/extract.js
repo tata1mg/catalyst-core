@@ -90,6 +90,18 @@ export function cacheCSS(key, data) {
                                 )
                             )
                             process.cssCache[assetName] = css
+                            const memoryUsage = process.memoryUsage()
+                            const availableMemory = memoryUsage?.heapTotal - memoryUsage?.heapUsed
+                            logger.error(
+                                `Last Cached CSS - Asset: ${assetName}, ` +
+                                    `RSS: ${memoryUsage?.rss}, ` +
+                                    `Heap Total: ${memoryUsage?.heapTotal}, ` +
+                                    `Heap Used: ${memoryUsage?.heapUsed}, ` +
+                                    `External: ${memoryUsage?.external}, ` +
+                                    `Array Buffers: ${memoryUsage?.arrayBuffers}, ` +
+                                    `Available Memory: ${availableMemory}, ` +
+                                    `Timestamp: ${new Date().toISOString()}`
+                            )
                         }
                         // Use Set for O(1) lookup instead of Array.includes() O(N)
                         // if css file has not already been cached for this route, add the content of this CSS file in pageCSS
