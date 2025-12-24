@@ -92,7 +92,7 @@ export function cacheCSS(key, data) {
                             process.cssCache[assetName] = css
                             const memoryUsage = process.memoryUsage()
                             const availableMemory = memoryUsage?.heapTotal - memoryUsage?.heapUsed
-                            logger.error(
+                            logger.info(
                                 `Last Cached CSS - Asset: ${assetName}, ` +
                                     `RSS: ${memoryUsage?.rss}, ` +
                                     `Heap Total: ${memoryUsage?.heapTotal}, ` +
