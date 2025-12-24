@@ -29,6 +29,9 @@ export const NATIVE_COMMANDS = {
 
     // Network commands
     GET_NETWORK_STATUS: "getNetworkStatus",
+
+    // Auth commands
+    GOOGLE_SIGN_IN: "googleSignIn",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
