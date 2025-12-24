@@ -74,6 +74,9 @@ public struct WebView: UIViewRepresentable, Equatable {
         let bridgeTime = (CFAbsoluteTimeGetCurrent() - bridgeStart) * 1000
         logWithTimestamp("🌉 NativeBridge setup complete (took \(String(format: "%.2f", bridgeTime))ms)")
 
+        // Setup safe area handling (calculate insets and cache)
+        viewModel.setupSafeAreaHandling()
+
         // Initial load
         logWithTimestamp("🎯 About to request navigation to: \(urlString)")
         if let url = URL(string: urlString) {
@@ -143,6 +146,11 @@ public struct WebView: UIViewRepresentable, Equatable {
 
             // Create and register the native bridge
             let bridge = NativeBridge(webView: webView, viewController: hostingController)
+
+            // Inject WebViewModel for safe area handling
+            Task { @MainActor in
+                bridge.setWebViewModel(parent.viewModel)
+            }
 
             // Inject notification handler from global provider
             bridge.setNotificationHandler(NotificationHandlerProvider.shared)

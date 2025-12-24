@@ -64,7 +64,8 @@ public enum CatalystConstants {
                 "logger",
                 "pickFile",
                 "openFileWithIntent",
-                "requestHapticFeedback"
+                "requestHapticFeedback",
+                "getSafeArea"
             ]
 
             // Check if notifications are enabled via config
