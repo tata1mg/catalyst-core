@@ -11,6 +11,9 @@ import UIKit
 import AVFoundation
 import os
 import UserNotifications
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 private let commandLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.commandHandler)
 
@@ -33,6 +36,80 @@ class BridgeCommandHandler {
 
     // Notification handler - injected, defaults to null implementation
     private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
+    private var isGoogleSignInInProgress = false
+    private var hasAttemptedGoogleRestore = false
+
+    private struct GoogleSignInOptions {
+        let clientId: String?
+        let nonce: String?
+        let hint: String?
+        let additionalScopes: [String]?
+        let autoSelect: Bool
+        let filterByAuthorizedAccounts: Bool
+
+        static func from(params: Any?) -> GoogleSignInOptions {
+            if let stringParam = params as? String, !stringParam.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if let data = stringParam.data(using: .utf8),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    return GoogleSignInOptions.fromDictionary(json)
+                }
+
+                let trimmed = stringParam.trimmingCharacters(in: .whitespacesAndNewlines)
+                return GoogleSignInOptions(
+                    clientId: trimmed,
+                    nonce: nil,
+                    hint: nil,
+                    additionalScopes: nil,
+                    autoSelect: false,
+                    filterByAuthorizedAccounts: false
+                )
+            }
+
+            if let dict = params as? [String: Any] {
+                return GoogleSignInOptions.fromDictionary(dict)
+            }
+
+            return GoogleSignInOptions(
+                clientId: nil,
+                nonce: nil,
+                hint: nil,
+                additionalScopes: nil,
+                autoSelect: false,
+                filterByAuthorizedAccounts: false
+            )
+        }
+
+        private static func fromDictionary(_ dict: [String: Any]) -> GoogleSignInOptions {
+            func clean(_ value: String?) -> String? {
+                guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+                return value
+            }
+
+            let resolvedClientId = clean(dict["clientId"] as? String) ??
+                clean(dict["webClientId"] as? String)
+
+            let nonce = clean(dict["nonce"] as? String)
+            let hint = clean(dict["hint"] as? String ?? dict["email"] as? String)
+            var scopes: [String]?
+
+            if let scopesArray = dict["additionalScopes"] as? [String] {
+                let filtered = scopesArray.compactMap { clean($0) }
+                scopes = filtered.isEmpty ? nil : filtered
+            } else if let scopesString = clean(dict["additionalScopes"] as? String) {
+                let splitScopes = scopesString.split(separator: ",").map { clean(String($0)) }.compactMap { $0 }
+                scopes = splitScopes.isEmpty ? nil : splitScopes
+            }
+
+            return GoogleSignInOptions(
+                clientId: resolvedClientId,
+                nonce: nonce,
+                hint: hint,
+                additionalScopes: scopes,
+                autoSelect: dict["autoSelect"] as? Bool ?? false,
+                filterByAuthorizedAccounts: dict["filterByAuthorizedAccounts"] as? Bool ?? false
+            )
+        }
+    }
 
     init(viewController: UIViewController, imageHandler: ImageHandler, filePickerHandler: FilePickerHandler) {
         self.viewController = viewController
@@ -168,6 +245,130 @@ class BridgeCommandHandler {
                 "platform": "ios"
             ])
         }
+    }
+
+    func googleSignIn(params: Any?) {
+        #if canImport(GoogleSignIn)
+        guard ConfigConstants.GoogleSignIn.enabled else {
+            delegate?.sendErrorCallback(
+                eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+                error: "Google Sign-In is disabled in config",
+                code: "GOOGLE_SIGN_IN_ERROR"
+            )
+            return
+        }
+
+        let options = GoogleSignInOptions.from(params: params)
+
+        let resolvedClientId = (options.clientId ?? ConfigConstants.GoogleSignIn.clientId)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !resolvedClientId.isEmpty else {
+            delegate?.sendErrorCallback(
+                eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+                error: "clientId is required for Google Sign-In",
+                code: "GOOGLE_SIGN_IN_ERROR"
+            )
+            return
+        }
+
+        guard !isGoogleSignInInProgress else {
+            delegate?.sendErrorCallback(
+                eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+                error: "A Google Sign-In request is already in progress",
+                code: "GOOGLE_SIGN_IN_ERROR"
+            )
+            return
+        }
+
+        guard let presentingVC = resolvePresentingViewController() else {
+            delegate?.sendErrorCallback(
+                eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+                error: "No valid view controller available for Google Sign-In",
+                code: "GOOGLE_SIGN_IN_ERROR"
+            )
+            return
+        }
+
+        isGoogleSignInInProgress = true
+        commandLogger.debug("Starting Google Sign-In with clientId prefix: \(resolvedClientId.prefix(12))...")
+
+        configureGoogleSignIn(clientId: resolvedClientId)
+
+        if options.autoSelect || options.filterByAuthorizedAccounts {
+            commandLogger.debug("Google Sign-In options autoSelect/filterByAuthorizedAccounts are not supported on iOS SDK and will be ignored")
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            GIDSignIn.sharedInstance.signIn(
+                withPresenting: presentingVC,
+                hint: options.hint,
+                additionalScopes: options.additionalScopes
+            ) { [weak self] result, error in
+                guard let self = self else { return }
+                self.isGoogleSignInInProgress = false
+
+                if let error = error as NSError? {
+                    if self.isCancelledGoogleError(error) {
+                        self.delegate?.sendErrorCallback(
+                            eventName: "ON_GOOGLE_SIGN_IN_CANCELLED",
+                            error: "User cancelled Google sign-in",
+                            code: "OPERATION_CANCELLED"
+                        )
+                        return
+                    }
+
+                    commandLogger.error("Google Sign-In error: \(error.localizedDescription)")
+                    self.delegate?.sendErrorCallback(
+                        eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+                        error: error.localizedDescription,
+                        code: "GOOGLE_SIGN_IN_ERROR"
+                    )
+                    return
+                }
+
+                guard let user = result?.user, let idToken = user.idToken?.tokenString else {
+                    self.delegate?.sendErrorCallback(
+                        eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+                        error: "No ID token returned from Google sign-in",
+                        code: "GOOGLE_SIGN_IN_ERROR"
+                    )
+                    return
+                }
+
+                var payload: [String: Any] = [
+                    "idToken": idToken,
+                    "provider": "google"
+                ]
+
+                if let email = user.profile?.email, !email.isEmpty {
+                    payload["email"] = email
+                }
+
+                if let name = user.profile?.name, !name.isEmpty {
+                    payload["name"] = name
+                }
+
+                if let photoUrl = user.profile?.imageURL(withDimension: 160)?.absoluteString, !photoUrl.isEmpty {
+                    payload["photoUrl"] = photoUrl
+                }
+
+                if let serverAuthCode = result?.serverAuthCode, !serverAuthCode.isEmpty {
+                    payload["serverAuthCode"] = serverAuthCode
+                }
+
+                commandLogger.debug("Google Sign-In success (idToken length: \(idToken.count))")
+                self.delegate?.sendJSONCallback(eventName: "ON_GOOGLE_SIGN_IN_SUCCESS", data: payload)
+            }
+        }
+        #else
+        delegate?.sendErrorCallback(
+            eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+            error: "Google Sign-In SDK not available on this build",
+            code: "GOOGLE_SIGN_IN_UNAVAILABLE"
+        )
+        #endif
     }
 
     // Get device information
@@ -616,4 +817,47 @@ class BridgeCommandHandler {
         }
     }
 
+    // MARK: - Helpers
+
+    private func resolvePresentingViewController() -> UIViewController? {
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            if let window = scene.windows.first(where: { $0.isKeyWindow }),
+               let rootVC = window.rootViewController {
+                return rootVC.presentedViewController ?? rootVC
+            }
+        }
+
+        return viewController
+    }
+
+    private func configureGoogleSignIn(clientId: String) {
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+
+        if !hasAttemptedGoogleRestore {
+            hasAttemptedGoogleRestore = true
+            GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
+                if let error = error {
+                    commandLogger.debug("Google Sign-In restore failed: \(error.localizedDescription)")
+                } else if user != nil {
+                    commandLogger.debug("Google Sign-In restored previous session")
+                } else {
+                    commandLogger.debug("Google Sign-In restore found no previous user")
+                }
+            }
+        }
+    }
+
+    private func isCancelledGoogleError(_ error: NSError) -> Bool {
+        let description = error.localizedDescription.lowercased()
+        if description.contains("cancel") {
+            return true
+        }
+
+        // GIDSignIn cancellation historically uses code -5; keep the check resilient
+        if error.code == -5 {
+            return true
+        }
+
+        return false
+    }
 }
