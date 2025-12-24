@@ -57,11 +57,7 @@ export function arrayToObject(array) {
 const BUILD_FAILURE_MESSAGE = "\nBuild Failed!"
 
 function shouldFailBuild(result) {
-    return (
-        result.error ||
-        result.signal ||
-        (result.status !== null && result.status !== 0)
-    )
+    return result.error || result.signal || (result.status !== null && result.status !== 0)
 }
 
 function logBuildFailure(result, failureMessage = BUILD_FAILURE_MESSAGE) {
