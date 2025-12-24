@@ -45,9 +45,7 @@ function devBuild() {
     console.log(cyan("\n npm run devServe"))
     console.log("\nFind out more about deployment here:")
     console.log(
-        yellow(
-            "\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n"
-        )
+        yellow("\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n")
     )
 }
 
