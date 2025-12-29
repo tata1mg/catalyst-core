@@ -248,6 +248,8 @@ extension NativeBridge: WKScriptMessageHandler {
         // Notification commands (handled via protocol)
         case "requestNotificationPermission":
             commandHandler.requestNotificationPermission()
+        case "checkNotificationPermissionStatus":
+            commandHandler.checkNotificationPermissionStatus()
         case "scheduleLocalNotification":
             let config = delegateHandler.extractStringParam(from: params)
             commandHandler.scheduleLocalNotification(config)

@@ -353,6 +353,31 @@ class BridgeCommandHandler {
         }
     }
 
+    func checkNotificationPermissionStatus() {
+        // Check if notifications are enabled in config
+        guard ConfigConstants.Notifications.enabled else {
+            commandLogger.warning("Check notification permission status called but notifications are disabled in config")
+            delegate?.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: "DENIED")
+            return
+        }
+
+        commandLogger.debug("Checking notification permission status")
+
+        Task { [weak self] in
+            guard let self else { return }
+            let status = await self.notificationHandler.getPermissionStatusString()
+
+            await MainActor.run {
+                guard let delegate = self.delegate else {
+                    commandLogger.debug("Delegate released before NOTIFICATION_PERMISSION_STATUS callback")
+                    return
+                }
+                delegate.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: status)
+                commandLogger.debug("Notification permission status: \(status)")
+            }
+        }
+    }
+
     func scheduleLocalNotification(_ configString: String?) {
         // Check if notifications are enabled in config
         guard ConfigConstants.Notifications.enabled else {

@@ -123,6 +123,14 @@ class AppNotificationManager(
     fun requestPermission(activity: Activity, callback: (Boolean) -> Unit) {
         notificationUtils.requestNotificationPermission(activity, callback)
     }
+
+    /**
+     * Check current notification permission status without requesting it
+     * @return Permission status string: "GRANTED", "DENIED", or "NOT_DETERMINED"
+     */
+    fun checkPermissionStatus(): String {
+        return notificationUtils.checkPermissionStatus(context)
+    }
     
     // ==================== PUSH NOTIFICATIONS ====================
     
