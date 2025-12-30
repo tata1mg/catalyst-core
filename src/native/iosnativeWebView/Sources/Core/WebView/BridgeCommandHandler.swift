@@ -309,6 +309,8 @@ class BridgeCommandHandler {
                 guard let self = self else { return }
                 self.isGoogleSignInInProgress = false
 
+                let hasValidUserData = result?.user != nil && result?.user.idToken?.tokenString != nil
+
                 if let error = error as NSError? {
                     if self.isCancelledGoogleError(error) {
                         self.delegate?.sendErrorCallback(
@@ -319,13 +321,20 @@ class BridgeCommandHandler {
                         return
                     }
 
-                    commandLogger.error("Google Sign-In error: \(error.localizedDescription)")
-                    self.delegate?.sendErrorCallback(
-                        eventName: "ON_GOOGLE_SIGN_IN_ERROR",
-                        error: error.localizedDescription,
-                        code: "GOOGLE_SIGN_IN_ERROR"
-                    )
-                    return
+                    let errorDescription = error.localizedDescription.lowercased()
+                    let isKeychainError = errorDescription.contains("keychain")
+
+                    if isKeychainError && hasValidUserData {
+                        commandLogger.warning("Google Sign-In keychain error (common on simulators), but user data is valid: \(error.localizedDescription)")
+                    } else {
+                        commandLogger.error("Google Sign-In error: \(error.localizedDescription)")
+                        self.delegate?.sendErrorCallback(
+                            eventName: "ON_GOOGLE_SIGN_IN_ERROR",
+                            error: error.localizedDescription,
+                            code: "GOOGLE_SIGN_IN_ERROR"
+                        )
+                        return
+                    }
                 }
 
                 guard let user = result?.user, let idToken = user.idToken?.tokenString else {
@@ -831,7 +840,14 @@ class BridgeCommandHandler {
     }
 
     private func configureGoogleSignIn(clientId: String) {
-        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+        let iosClientId = ConfigConstants.GoogleSignIn.iosClientId
+        let serverClientId = clientId  // This is the Web Client ID
+        let configClientId = !iosClientId.isEmpty ? iosClientId : serverClientId
+
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+            clientID: configClientId,
+            serverClientID: serverClientId
+        )
 
         if !hasAttemptedGoogleRestore {
             hasAttemptedGoogleRestore = true

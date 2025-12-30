@@ -379,6 +379,7 @@ async function updateInfoPlist() {
         const googleServicesPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, GOOGLE_SERVICES_FILENAME)
         const googleClientId =
             WEBVIEW_CONFIG.googleSignIn?.clientId || WEBVIEW_CONFIG.googleSignIn?.webClientId || ""
+        const iosClientId = WEBVIEW_CONFIG.googleSignIn?.iosClientId || ""
 
         const googleServicesContent = fs.existsSync(googleServicesPlistPath)
             ? fs.readFileSync(googleServicesPlistPath, "utf8")
@@ -398,7 +399,7 @@ async function updateInfoPlist() {
             return value.split(".").reverse().join(".")
         }
 
-        const resolvedClientIdForScheme = googleClientId || clientIdFromServices || ""
+        const resolvedClientIdForScheme = iosClientId || googleClientId || clientIdFromServices || ""
         const resolvedReversedClientId =
             reversedClientIdFromServices || computeReversed(resolvedClientIdForScheme)
 
@@ -732,7 +733,7 @@ public enum ConfigConstants {
         if (!addedKeys.has("googleSignIn")) {
             progress.log("Google Sign-In not found in config, adding defaults (disabled)", "info")
             configContent +=
-                '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n    }'
+                '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n        public static let iosClientId = ""\n    }'
             addedKeys.add("googleSignIn")
         }
 
