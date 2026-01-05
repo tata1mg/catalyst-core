@@ -88,6 +88,21 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
         return settings.authorizationStatus
     }
 
+    public func getPermissionStatusString() async -> String {
+        let authStatus = await checkPermissionStatus()
+
+        switch authStatus {
+        case .authorized, .provisional, .ephemeral:
+            return "GRANTED"
+        case .denied:
+            return "DENIED"
+        case .notDetermined:
+            return "NOT_DETERMINED"
+        @unknown default:
+            return "NOT_DETERMINED"
+        }
+    }
+
     private func setupForPushNotifications() async {
         await MainActor.run {
             UIApplication.shared.registerForRemoteNotifications()

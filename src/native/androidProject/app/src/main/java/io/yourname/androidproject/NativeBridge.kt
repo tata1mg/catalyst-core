@@ -429,6 +429,14 @@ class NativeBridge(
     }
 
     @JavascriptInterface
+    fun checkNotificationPermissionStatus(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "check notification permission status") {
+            val status = notificationManager.checkPermissionStatus()
+            BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, status)
+        }
+    }
+
+    @JavascriptInterface
     fun registerForPushNotifications(config: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN, "register for push notifications") {
             mainActivity.runOnUiThread {

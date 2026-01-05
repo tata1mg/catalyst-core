@@ -392,6 +392,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         customWebView.onResume()
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.handlePermissionResult(requestCode, permissions, grantResults)
+        }
+    }
+
     override fun onDestroy() {
         // Log all performance metrics before destroying
         if (BuildConfig.DEBUG) {

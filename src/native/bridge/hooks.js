@@ -12,6 +12,38 @@ import {
 } from "./utils/FileObjectConverter.js"
 import { DEFAULT_INSETS, getSafeAreaFromGlobal, setSafeAreaGlobal } from "./safeArea.js"
 
+// Shared callback system for notification permission status
+// This allows multiple listeners (hook + requestNotificationPermission) to receive updates
+const permissionStatusListeners = new Set()
+let isPermissionCallbackRegistered = false
+
+const registerPermissionStatusListener = (callback) => {
+    permissionStatusListeners.add(callback)
+
+    // Register the shared handler with WebBridge if this is the first listener
+    if (!isPermissionCallbackRegistered && typeof window !== "undefined" && window.WebBridge) {
+        isPermissionCallbackRegistered = true
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+            // Notify all listeners
+            permissionStatusListeners.forEach((listener) => {
+                try {
+                    listener(data)
+                } catch (error) {
+                    console.error("Error in permission status listener:", error)
+                }
+            })
+        })
+    }
+
+    return () => {
+        permissionStatusListeners.delete(callback)
+    }
+}
+
+const unregisterPermissionStatusListener = (callback) => {
+    permissionStatusListeners.delete(callback)
+}
+
 const noop = () => {}
 const createSSRUnavailable = (methodName) => async () => {
     throw new Error(`${methodName} is not available in SSR environment`)
@@ -788,7 +820,8 @@ export const requestNotificationPermission = () => {
             }
 
             const handlePermissionStatus = (data) => {
-                window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+                // Unregister this one-time listener
+                unregisterPermissionStatusListener(handlePermissionStatus)
 
                 if (data === PERMISSION_STATUS.GRANTED) {
                     resolve(data)
@@ -797,10 +830,9 @@ export const requestNotificationPermission = () => {
                 }
             }
 
-            window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, handlePermissionStatus)
-            nativeBridge.notification.requestPermission()
+            registerPermissionStatusListener(handlePermissionStatus)
 
-            console.log("🔔 Notification permission requested")
+            nativeBridge.notification.requestPermission()
         } catch (error) {
             reject(error)
         }
@@ -1102,10 +1134,26 @@ export const useNotification = () => {
     }
 
     useEffect(() => {
-        // Register callbacks for all notification events
-        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+        const unregister = registerPermissionStatusListener((data) => {
             setPermissionStatus(data)
         })
+
+        // Check initial permission status without requesting (internal call)
+        if (nativeBridge.isAvailable()) {
+            try {
+                // Call native bridge directly without going through public API
+                if (nativeBridge.isAndroid && window.NativeBridge?.checkNotificationPermissionStatus) {
+                    window.NativeBridge.checkNotificationPermissionStatus(null)
+                } else if (nativeBridge.isIOS && window.webkit?.messageHandlers?.NativeBridge) {
+                    window.webkit.messageHandlers.NativeBridge.postMessage({
+                        command: "checkNotificationPermissionStatus",
+                        data: null,
+                    })
+                }
+            } catch (error) {
+                console.error("🔔 Error checking notification permission status:", error)
+            }
+        }
 
         window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED, (data) => {
             try {
@@ -1203,8 +1251,10 @@ export const useNotification = () => {
         })
 
         return () => {
-            // Cleanup
-            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+            // Cleanup - unregister from shared callback system
+            unregister()
+
+            // Cleanup other callbacks
             window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
