@@ -16,6 +16,7 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDelegate, BridgeDelegateHandlerDelegate {
     weak var webView: WKWebView?
     private weak var viewController: UIViewController?
+    private weak var webViewModel: WebViewModel?
 
     // Protocol-based notification handler (injected at runtime)
     private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
@@ -87,6 +88,19 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     deinit {
         unregister()
         logger.debug("NativeBridge deallocated")
+    }
+
+    /// Inject WebViewModel at runtime (called from WebView setup)
+    @MainActor
+    func setWebViewModel(_ viewModel: WebViewModel) {
+        self.webViewModel = viewModel
+
+        // Set up callback for safe area updates
+        viewModel.onSafeAreaUpdate = { [weak self] insets in
+            self?.sendSafeAreaUpdate(insets)
+        }
+
+        logger.debug("WebViewModel set and safe area callback registered")
     }
 
     /// Inject notification handler at runtime (called from WebView setup)
@@ -264,9 +278,47 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.unsubscribeFromTopic(config)
         case "getSubscribedTopics":
             commandHandler.getSubscribedTopics()
+        case "getSafeArea":
+            getSafeArea()
         default:
             // This should never happen due to validation, but keeping for safety
             logger.error("Unexpected command reached execution: \(command)")
         }
+    }
+
+    // MARK: - Safe Area Methods
+
+    /// Get current safe area insets and send via callback
+    /// Matches Android's NativeBridge.getSafeArea()
+    private func getSafeArea() {
+        Task { @MainActor in
+            guard let viewModel = self.webViewModel else {
+                logger.error("WebViewModel not set, cannot get safe area")
+                sendErrorCallback(eventName: "ON_SAFE_AREA_INSETS_UPDATED", error: "WebViewModel not initialized", code: "VIEWMODEL_NOT_SET")
+                return
+            }
+
+            let insets = viewModel.safeAreaInsets
+            let data = insets.toDict()
+
+            #if DEBUG
+            logger.debug("📐 getSafeArea() called, returning: \(data)")
+            #endif
+
+            sendJSONCallback(eventName: "ON_SAFE_AREA_INSETS_UPDATED", data: data)
+        }
+    }
+
+    /// Send safe area update notification to WebView
+    /// Called when safe area insets change (e.g., post-layout calculation)
+    /// Matches Android's MainActivity.notifySafeAreaUpdate()
+    private func sendSafeAreaUpdate(_ insets: SafeAreaInsets) {
+        let data = insets.toDict()
+
+        #if DEBUG
+        logger.info("🔄 Sending safe area update to WebView: \(data)")
+        #endif
+
+        sendJSONCallback(eventName: "ON_SAFE_AREA_INSETS_UPDATED", data: data)
     }
 }

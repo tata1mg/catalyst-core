@@ -40,6 +40,37 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             logger.info("📄 Body preview: \(bodyPreview)")
         }
 
+        // Inject safe area headers for main frame HTTP/HTTPS requests
+        // Only inject on main frame to match Android behavior (not on subresources)
+        let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? false
+        let isHttpScheme = ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+
+        if isMainFrame && isHttpScheme && httpMethod == "GET" {
+            let safeAreaHeaders = viewModel.getSafeAreaHeaders()
+
+            // Check if headers are already present (avoid re-injecting)
+            let currentHeaders = navigationAction.request.allHTTPHeaderFields ?? [:]
+            let hasExistingHeaders = currentHeaders.keys.contains("X-Safe-Area-Top")
+
+            if !hasExistingHeaders && !safeAreaHeaders.isEmpty {
+                logger.info("📋 Injecting safe area headers for main frame: \(url.absoluteString)")
+                #if DEBUG
+                logger.debug("📋 Headers: \(safeAreaHeaders)")
+                #endif
+
+                // Create new request with safe area headers
+                var newRequest = navigationAction.request
+                var allHeaders = currentHeaders
+                allHeaders.merge(safeAreaHeaders) { (_, new) in new }
+                newRequest.allHTTPHeaderFields = allHeaders
+
+                // Cancel current navigation and reload with headers
+                decisionHandler(.cancel)
+                webView.load(newRequest)
+                return
+            }
+        }
+
         // Handle offline retry scheme before any other processing
         if isRetryURL(url) {
             handleRetry(in: webView)
