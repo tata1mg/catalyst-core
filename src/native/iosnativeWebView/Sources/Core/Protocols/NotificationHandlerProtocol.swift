@@ -13,6 +13,7 @@ import Foundation
 public protocol NotificationHandlerProtocol {
     // MARK: - Permission Management
     func requestPermission() async -> Bool
+    func getPermissionStatusString() async -> String
 
     // MARK: - Local Notifications
     @discardableResult

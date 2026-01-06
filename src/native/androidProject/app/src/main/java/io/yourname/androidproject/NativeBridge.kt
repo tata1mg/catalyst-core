@@ -429,6 +429,14 @@ class NativeBridge(
     }
 
     @JavascriptInterface
+    fun checkNotificationPermissionStatus(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "check notification permission status") {
+            val status = notificationManager.checkPermissionStatus()
+            BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, status)
+        }
+    }
+
+    @JavascriptInterface
     fun registerForPushNotifications(config: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.PUSH_NOTIFICATION_TOKEN, "register for push notifications") {
             mainActivity.runOnUiThread {
@@ -814,6 +822,27 @@ class NativeBridge(
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "handle permission result") {
             // Delegate to notification manager which handles notification permissions
             notificationManager.getNotificationUtils().handlePermissionResult(requestCode, permissions, grantResults)
+        }
+    }
+
+    @JavascriptInterface
+    fun getSafeArea(data: String? = null) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED, "get safe area") {
+            mainActivity.runOnUiThread {
+                val insets = mainActivity.getCurrentSafeAreaInsets()
+                val insetsJson = org.json.JSONObject().apply {
+                    put("top", insets.top)
+                    put("right", insets.right)
+                    put("bottom", insets.bottom)
+                    put("left", insets.left)
+                }
+
+                BridgeUtils.notifyWebJson(
+                    webView,
+                    BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED,
+                    insetsJson
+                )
+            }
         }
     }
 
