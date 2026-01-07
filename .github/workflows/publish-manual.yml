@@ -41,7 +41,7 @@ on:
                 type: string
 
 permissions:
-    contents: read
+    contents: write
     id-token: write
 
 jobs:
@@ -50,35 +50,45 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            - name: Validate branch
+              run: |
+                  BRANCH="${{ github.ref_name }}"
+                  NPM_TAG="${{ github.event.inputs.npm_tag }}"
+
+                  if [ "$NPM_TAG" == "beta" ] && [ "$BRANCH" != "main" ]; then
+                    echo "::error::Publishing with 'beta' tag is only allowed from 'main' branch (current: $BRANCH)"
+                    exit 1
+                  fi
+
+            - name: Validate custom inputs
+              run: |
+                  NPM_TAG="${{ github.event.inputs.npm_tag }}"
+                  CUSTOM_TAG="${{ github.event.inputs.custom_tag }}"
+                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
+                  CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+
+                  if [ "$NPM_TAG" == "custom" ] && [ -z "$CUSTOM_TAG" ]; then
+                    echo "::error::Custom npm tag selected but 'custom_tag' is empty"
+                    exit 1
+                  fi
+
+                  if [ "$VERSION_BUMP" == "custom" ] && [ -z "$CUSTOM_VERSION" ]; then
+                    echo "::error::Custom version selected but 'custom_version' is empty"
+                    exit 1
+                  fi
+
+                  if [ "$VERSION_BUMP" == "custom" ]; then
+                    if ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+                      echo "::error::Invalid version format '$CUSTOM_VERSION'. Expected: X.Y.Z or X.Y.Z-prerelease"
+                      exit 1
+                    fi
+                  fi
+
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
                   node-version: "20"
                   registry-url: "https://registry.npmjs.org"
-
-            - name: Install rsync
-              run: sudo apt-get update && sudo apt-get install -y rsync
-
-            - name: Install dependencies
-              run: npm ci
-
-            - name: Build package
-              run: npm run prepare
-
-            - name: Configure Git
-              run: |
-                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
-                  git config --global user.name "github-actions[bot]"
-
-            - name: Rename package (if internal)
-              if: github.event.inputs.package == 'catalyst-core-internal'
-              run: |
-                  # Update package.json name
-                  npm pkg set name=catalyst-core-internal
-
-                  # Replace all instances of 'catalyst-core' with 'catalyst-core-internal' in dist
-                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' {} +
-                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i "s/'catalyst-core'/'catalyst-core-internal'/g" {} +
 
             - name: Determine npm tag
               id: npm_tag
@@ -90,35 +100,76 @@ jobs:
                   fi
 
             - name: Bump version
+              id: version
               run: |
                   VERSION_BUMP="${{ github.event.inputs.version_bump }}"
 
                   if [ "$VERSION_BUMP" == "custom" ]; then
-                    # Set custom version
                     npm version ${{ github.event.inputs.custom_version }} --no-git-tag-version
                   else
-                    # Standard version bump (patch, minor, major)
                     npm version $VERSION_BUMP --no-git-tag-version
                   fi
 
                   NEW_VERSION=$(node -p "require('./package.json').version")
-                  echo "📦 Publishing ${{ github.event.inputs.package }}@$NEW_VERSION with tag ${{ steps.npm_tag.outputs.tag }}"
+                  echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-            - name: Publish to npm (DRY RUN)
-              run: npm publish --dry-run --tag ${{ steps.npm_tag.outputs.tag }}
+            - name: Check version availability on npm
+              run: |
+                  PACKAGE_NAME="${{ github.event.inputs.package }}"
+                  VERSION="${{ steps.version.outputs.version }}"
+
+                  if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+                    echo "::error::Version $VERSION already exists on npm for $PACKAGE_NAME"
+                    exit 1
+                  fi
+
+            - name: Install rsync
+              run: sudo apt-get update && sudo apt-get install -y rsync
+
+            - name: Configure Git
+              run: |
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+                  git config --global user.name "github-actions[bot]"
+
+            - name: Rename package (if internal)
+              if: github.event.inputs.package == 'catalyst-core-internal'
+              run: npm pkg set name=catalyst-core-internal
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Build package
+              run: npm run prepare
+
+            - name: Rename dist files (if internal)
+              if: github.event.inputs.package == 'catalyst-core-internal'
+              run: |
+                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' {} +
+                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i "s/'catalyst-core'/'catalyst-core-internal'/g" {} +
+
+            - name: Commit version bump
+              if: github.event.inputs.package == 'catalyst-core'
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  git add package.json package-lock.json
+                  git commit -m "chore: release v$VERSION [skip ci]"
+                  git push
+
+            - name: Create git tag
+              if: github.event.inputs.package == 'catalyst-core'
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  git tag "v$VERSION"
+                  git push origin "v$VERSION"
+
+            - name: Publish to npm
+              run: npm publish --tag ${{ steps.npm_tag.outputs.tag }}
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-            - name: Output published version
+            - name: Summary
               run: |
                   PACKAGE_NAME="${{ github.event.inputs.package }}"
-                  VERSION=$(node -p "require('./package.json').version")
+                  VERSION="${{ steps.version.outputs.version }}"
                   NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
-                  echo "✅ Successfully published $PACKAGE_NAME@$VERSION with tag '$NPM_TAG'"
-                  echo ""
-                  echo "📥 Install with:"
-                  echo "   npm install $PACKAGE_NAME@$NPM_TAG"
-                  echo "   npm install $PACKAGE_NAME@$VERSION"
-                  echo ""
-                  echo "🔗 View on npm:"
-                  echo "   https://www.npmjs.com/package/$PACKAGE_NAME/v/$VERSION"
+                  echo "Published $PACKAGE_NAME@$VERSION (tag: $NPM_TAG)"
