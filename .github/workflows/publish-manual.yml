@@ -103,9 +103,34 @@ jobs:
               id: version
               run: |
                   VERSION_BUMP="${{ github.event.inputs.version_bump }}"
+                  NPM_TAG="${{ github.event.inputs.npm_tag }}"
+                  PACKAGE_NAME="${{ github.event.inputs.package }}"
 
                   if [ "$VERSION_BUMP" == "custom" ]; then
                     npm version ${{ github.event.inputs.custom_version }} --no-git-tag-version
+                  elif [ "$NPM_TAG" == "beta" ] || [ "$NPM_TAG" == "canary" ]; then
+                    # Get current version from package.json
+                    CURRENT_VERSION=$(node -p "require('./package.json').version")
+                    # Extract base version (remove any prerelease suffix)
+                    BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
+
+                    # Get latest prerelease number from npm for this base version and tag
+                    LATEST_PRERELEASE=$(npm view "$PACKAGE_NAME@>=${BASE_VERSION}-${NPM_TAG}.0 <${BASE_VERSION}-${NPM_TAG}.9999" version 2>/dev/null | tail -1 | sed "s/.*-${NPM_TAG}\.\([0-9]*\).*/\1/" || echo "-1")
+
+                    if [ -z "$LATEST_PRERELEASE" ] || [ "$LATEST_PRERELEASE" == "" ]; then
+                      LATEST_PRERELEASE=-1
+                    fi
+
+                    NEXT_PRERELEASE=$((LATEST_PRERELEASE + 1))
+
+                    # Apply base version bump first if requested
+                    if [ "$VERSION_BUMP" != "patch" ]; then
+                      npm version $VERSION_BUMP --no-git-tag-version
+                      BASE_VERSION=$(node -p "require('./package.json').version")
+                    fi
+
+                    # Set the prerelease version
+                    npm version "${BASE_VERSION}-${NPM_TAG}.${NEXT_PRERELEASE}" --no-git-tag-version
                   else
                     npm version $VERSION_BUMP --no-git-tag-version
                   fi
@@ -122,9 +147,6 @@ jobs:
                     echo "::error::Version $VERSION already exists on npm for $PACKAGE_NAME"
                     exit 1
                   fi
-
-            - name: Install rsync
-              run: sudo apt-get update && sudo apt-get install -y rsync
 
             - name: Configure Git
               run: |
@@ -162,10 +184,11 @@ jobs:
                   git tag "v$VERSION"
                   git push origin "v$VERSION"
 
+            - name: Update npm for OIDC support
+              run: npm install -g npm@latest
+
             - name: Publish to npm
-              run: npm publish --tag ${{ steps.npm_tag.outputs.tag }}
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              run: npm publish --tag ${{ steps.npm_tag.outputs.tag }} --access public
 
             - name: Summary
               run: |
