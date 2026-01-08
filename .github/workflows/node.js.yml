@@ -12,9 +12,6 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
-            - name: Install rsync
-              if: runner.os == 'Linux' 
-              run: apt-get update && apt-get install -y rsync
 
             - name: Build and Test
               run: node -v && chmod +x ./test.sh && ./test.sh
