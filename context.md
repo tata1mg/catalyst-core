@@ -1,4 +1,4 @@
-Catalyst Context
+sCatalyst Context
 
 -   Catalyst is a framework over react to build UIs
 
@@ -633,7 +633,7 @@ TITLE: Universal App Setup
 DESCRIPTION:
 
 -   Catalyst also provides support to build native iOS/android applications
--   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.9`
+-   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.10`
 
 SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/universal-app
 

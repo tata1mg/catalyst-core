@@ -1,0 +1,1426 @@
+/* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
+import nativeBridge from "./utils/NativeBridge.js"
+import { NATIVE_CALLBACKS, PERMISSION_STATUS, RESPONSE_STATUS } from "./constants/NativeInterfaces.js"
+import { useBaseHook } from "./useBaseHook.js"
+import { ERROR_CODES, createStandardError } from "./errors.js"
+import {
+    base64ToFile,
+    urlToFile,
+    canCreateFileObject,
+    getUnsupportedTransportMessage,
+} from "./utils/FileObjectConverter.js"
+import { DEFAULT_INSETS, getSafeAreaFromGlobal, setSafeAreaGlobal } from "./safeArea.js"
+
+// Shared callback system for notification permission status
+// This allows multiple listeners (hook + requestNotificationPermission) to receive updates
+const permissionStatusListeners = new Set()
+let isPermissionCallbackRegistered = false
+
+const registerPermissionStatusListener = (callback) => {
+    permissionStatusListeners.add(callback)
+
+    // Register the shared handler with WebBridge if this is the first listener
+    if (!isPermissionCallbackRegistered && typeof window !== "undefined" && window.WebBridge) {
+        isPermissionCallbackRegistered = true
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+            // Notify all listeners
+            permissionStatusListeners.forEach((listener) => {
+                try {
+                    listener(data)
+                } catch (error) {
+                    console.error("Error in permission status listener:", error)
+                }
+            })
+        })
+    }
+
+    return () => {
+        permissionStatusListeners.delete(callback)
+    }
+}
+
+const unregisterPermissionStatusListener = (callback) => {
+    permissionStatusListeners.delete(callback)
+}
+
+const noop = () => {}
+const createSSRUnavailable = (methodName) => async () => {
+    throw new Error(`${methodName} is not available in SSR environment`)
+}
+
+const SSR_FILE_PICKER_STUB = {
+    data: null,
+    loading: false,
+    progress: null,
+    error: null,
+    isWeb: true,
+    isNative: false,
+    execute: noop,
+    clear: noop,
+    clearError: noop,
+    getFileObject: createSSRUnavailable("getFileObject"),
+    getAllFileObjects: createSSRUnavailable("getAllFileObjects"),
+    canCreateFileObject: false,
+    canCreateFileObjects: [],
+    selectedFile: null,
+    selectedFiles: [],
+    pickFile: noop,
+    isLoading: false,
+    processingState: null,
+    clearFile: noop,
+}
+
+const parseNativePayload = (payload) => {
+    if (payload == null) return null
+    if (typeof payload !== "string") return payload
+    return JSON.parse(payload)
+}
+
+const extractFiles = (value) => {
+    if (!value) return []
+    if (Array.isArray(value)) return value.filter(Boolean)
+    if (Array.isArray(value.files)) return value.files.filter(Boolean)
+    if (value.files) return [value.files]
+    return [value].filter(Boolean)
+}
+
+const normalizeFilePickResult = (payload) => {
+    const parsed = parseNativePayload(payload)
+    if (!parsed) return null
+
+    const files = extractFiles(parsed)
+    if (!files.length) return null
+
+    const first = files[0]
+    const rawOptions =
+        !Array.isArray(parsed) && parsed && typeof parsed.options === "object" ? parsed.options : null
+    let normalizedOptions = rawOptions || null
+
+    if (rawOptions) {
+        try {
+            normalizedOptions = sanitizeFilePickerOptions(rawOptions)
+        } catch (_error) {
+            normalizedOptions = rawOptions
+        }
+    }
+
+    const totalSize =
+        parsed.totalSize ??
+        files.reduce((sum, file) => {
+            const size = typeof file?.size === "number" ? file.size : 0
+            return sum + size
+        }, 0)
+
+    const base = Array.isArray(parsed) ? {} : parsed
+
+    return {
+        ...base,
+        files,
+        multiple: parsed.multiple ?? files.length > 1,
+        count: parsed.count ?? files.length,
+        totalSize,
+        fileName: parsed.fileName ?? first?.fileName ?? first?.name ?? null,
+        fileSrc: parsed.fileSrc ?? first?.fileSrc ?? first?.src ?? null,
+        filePath: parsed.filePath ?? first?.filePath ?? null,
+        size: parsed.size ?? first?.size ?? null,
+        mimeType: parsed.mimeType ?? first?.mimeType ?? first?.type ?? null,
+        transport: parsed.transport ?? first?.transport ?? null,
+        options: normalizedOptions,
+    }
+}
+
+const updateProgressFromResult = (updateProgress, result) => {
+    if (!result) return
+
+    const first = result.files?.[0]
+    const transport = result.transport ?? first?.transport ?? null
+    const bytesTotal =
+        result.totalSize ?? result.size ?? (typeof first?.size === "number" ? first.size : null)
+
+    if (transport || bytesTotal != null) {
+        updateProgress({
+            transport: transport ?? null,
+            bytesTotal,
+        })
+    }
+}
+
+const mapStateToProgress = (state) => {
+    if (state == null) {
+        return {
+            state: "starting",
+            phase: null,
+            message: "File picker: starting...",
+        }
+    }
+
+    const rawState = String(state)
+    const normalized = rawState.toLowerCase()
+    const allowedStates = new Set(["opening", "processing", "routing"])
+    const progressState = allowedStates.has(normalized) ? normalized : "starting"
+
+    return {
+        state: progressState,
+        phase: rawState,
+        message: `File picker: ${rawState}...`,
+    }
+}
+
+const sanitizeFilePickerOptions = (input) => {
+    const options = { ...input }
+    const mime = typeof options.mimeType === "string" ? options.mimeType.trim() : ""
+    options.mimeType = mime.length > 0 ? mime : "*/*"
+
+    const coerceInteger = (value, min) => {
+        if (value == null) return undefined
+        const numeric = typeof value === "string" ? Number(value.trim()) : Number(value)
+        if (!Number.isFinite(numeric)) {
+            throw new Error("File picker numeric options must be valid numbers")
+        }
+        if (!Number.isInteger(numeric)) {
+            throw new Error("File picker numeric options must be integers")
+        }
+        if (numeric < min) {
+            throw new Error(`File picker numeric options must be ≥ ${min}`)
+        }
+        return numeric
+    }
+
+    const minFiles = coerceInteger(options.minFiles, 1)
+    const maxFiles = coerceInteger(options.maxFiles, 1)
+    const minFileSize = coerceInteger(options.minFileSize, 0)
+    const maxFileSize = coerceInteger(options.maxFileSize, 0)
+
+    if (minFiles !== undefined) options.minFiles = minFiles
+    if (maxFiles !== undefined) options.maxFiles = maxFiles
+    if (minFileSize !== undefined) options.minFileSize = minFileSize
+    if (maxFileSize !== undefined) options.maxFileSize = maxFileSize
+
+    if (minFiles !== undefined && maxFiles !== undefined && minFiles > maxFiles) {
+        throw new Error("minFiles cannot be greater than maxFiles")
+    }
+
+    if (minFileSize !== undefined && maxFileSize !== undefined && minFileSize > maxFileSize) {
+        throw new Error("minFileSize cannot be greater than maxFileSize")
+    }
+
+    const multiple = typeof options.multiple === "boolean" ? options.multiple : Boolean(options.multiple)
+    options.multiple = multiple || (minFiles && minFiles > 1) || (maxFiles && maxFiles > 1)
+
+    return options
+}
+
+const resolvePickPayload = (input) => {
+    if (input == null) return "*/*"
+    if (typeof input === "string") return input.trim() || "*/*"
+
+    return sanitizeFilePickerOptions(input)
+}
+
+const registerNativeHandlers = (handlers) => {
+    handlers.forEach(([event, handler]) => window.WebBridge.register(event, handler))
+    return () => {
+        handlers.forEach(([event]) => window.WebBridge.unregister(event))
+    }
+}
+
+/**
+ * React hook for camera functionality using standardized interface
+ * Handles camera permissions, photo capture, and error states
+ */
+export const useCamera = () => {
+    // Use standardized base hook
+    const base = useBaseHook("useCamera")
+
+    // Camera-specific state
+    const [permission, setPermission] = useState(null)
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return {
+            data: null,
+            loading: false,
+            progress: null,
+            error: null,
+            isWeb: true,
+            isNative: false,
+            execute: () => {},
+            clear: () => {},
+            clearError: () => {},
+            permission: null,
+            // Legacy aliases
+            photo: null,
+            takePhoto: () => {},
+            isLoading: false,
+            clearPhoto: () => {},
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        // Register callback handlers
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_CAMERA_CAPTURE, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                console.log("📷 Camera capture result:", result)
+
+                // Handle new tri-transport format or legacy format
+                const photoData = result.fileSrc
+                    ? {
+                          // New tri-transport format
+                          fileSrc: result.fileSrc,
+                          fileName: result.fileName,
+                          size: result.size,
+                          mimeType: result.mimeType,
+                          transport: result.transport,
+                          source: result.source,
+                      }
+                    : {
+                          // Legacy format (fallback)
+                          fileSrc: result.imageUrl,
+                          fileName: "camera_photo.jpg",
+                          size: 0,
+                          mimeType: "image/jpeg",
+                          transport: "LEGACY",
+                          source: "camera",
+                      }
+
+                base.setDataAndComplete(photoData)
+
+                // Update progress with transport info if available
+                if (photoData.transport) {
+                    base.updateProgress({
+                        transport: photoData.transport,
+                        bytesTotal: photoData.size || null,
+                    })
+                }
+
+                console.log("📷 Photo captured successfully via transport:", photoData.transport)
+            } catch (parseError) {
+                console.error("📷 Error parsing camera capture data:", parseError)
+                base.handleNativeError("Failed to process captured photo")
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.CAMERA_PERMISSION_STATUS, (data) => {
+            setPermission(data)
+            console.log("📷 Camera permission status:", data)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_CAMERA_ERROR, (data) => {
+            console.error("📷 Camera error:", data)
+            base.handleNativeError(data)
+        })
+
+        return () => {
+            // Cleanup: unregister all handlers
+            window.WebBridge.unregister(NATIVE_CALLBACKS.CAMERA_PERMISSION_STATUS)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_CAMERA_CAPTURE)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_CAMERA_ERROR)
+        }
+    }, [base.setDataAndComplete, base.handleNativeError, base.updateProgress])
+
+    const takePhoto = () => {
+        console.log("📷 Camera open requested")
+
+        base.executeOperation(() => {
+            // Update progress to show capturing state
+            base.updateProgress({
+                state: "capturing",
+                phase: "requesting",
+                message: "Opening camera...",
+            })
+            nativeBridge.camera.open()
+        }, "camera capture")
+    }
+
+    // Standardized execute function (new interface)
+    const execute = takePhoto
+
+    return {
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        execute,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Camera-specific extras
+        permission,
+
+        // Legacy aliases for backward compatibility
+        photo: base.data,
+        takePhoto,
+        isLoading: base.loading,
+        clearPhoto: base.clear,
+    }
+}
+
+/**
+ * React hook for intent handling using standardized interface
+ * Manages file opening operations with external apps
+ */
+export const useIntent = () => {
+    // Use standardized base hook
+    const base = useBaseHook("useIntent")
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return {
+            data: null,
+            loading: false,
+            progress: null,
+            error: null,
+            isWeb: true,
+            isNative: false,
+            execute: () => {},
+            clear: () => {},
+            clearError: () => {},
+            // Legacy aliases
+            isLoading: false,
+            processingState: null,
+            openFile: () => {},
+            success: null,
+            reset: () => {},
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        // Register callback handlers
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_INTENT_SUCCESS, (data) => {
+            console.log("📄 Intent completed successfully:", data)
+            base.setDataAndComplete({ result: data, success: true })
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_INTENT_ERROR, (data) => {
+            console.error("📄 Intent error:", data)
+            base.handleNativeError(data)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_INTENT_CANCELLED, (data) => {
+            console.log("📄 Intent cancelled:", data)
+            base.setLoading(false)
+            base.resetProgress()
+            // Keep data as is when cancelled
+        })
+
+        return () => {
+            // Cleanup: unregister all handlers
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_INTENT_SUCCESS)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_INTENT_ERROR)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_INTENT_CANCELLED)
+        }
+    }, [base.setDataAndComplete, base.handleNativeError, base.setLoading, base.resetProgress])
+
+    const openFile = (fileUrl, mimeType = null) => {
+        if (!fileUrl) {
+            base.handleNativeError("File URL is required")
+            return
+        }
+
+        console.log("📄 File open with intent requested:", { fileUrl, mimeType })
+
+        base.executeOperation(() => {
+            // Update progress to show opening state
+            base.updateProgress({
+                state: "opening_file",
+                phase: "processing",
+                message: "Opening file with external app...",
+            })
+            nativeBridge.file.openWithIntent(fileUrl, mimeType)
+        }, "intent file open")
+    }
+
+    // Standardized execute function (new interface)
+    const execute = openFile
+
+    return {
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        execute,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Legacy aliases for backward compatibility
+        isLoading: base.loading,
+        processingState: base.progress?.phase || null,
+        openFile,
+        success: base.data?.success || null,
+        reset: base.clear,
+    }
+}
+
+/**
+ * React hook for file picker functionality
+ * Manages file selection operations using standardized interface
+ */
+export const useFilePicker = () => {
+    // Use standardized base hook
+    const base = useBaseHook("useFilePicker")
+
+    // Cache for converted File objects to prevent redundant conversions
+    const fileObjectCache = useRef(new Map())
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return SSR_FILE_PICKER_STUB
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    const {
+        data,
+        loading,
+        progress,
+        error,
+        isWeb,
+        isNative,
+        clear: baseClear,
+        clearError,
+        updateProgress,
+        resetProgress,
+        setDataAndComplete,
+        handleNativeError,
+        executeOperation,
+        setLoading,
+    } = base
+
+    useEffect(() => {
+        const handleFilePicked = (payload) => {
+            try {
+                fileObjectCache.current.clear()
+
+                const normalizedData = normalizeFilePickResult(payload)
+                console.log("📁 File picked:", normalizedData)
+
+                if (!normalizedData) {
+                    throw new Error("No file data received from native file picker")
+                }
+
+                setDataAndComplete(normalizedData)
+                updateProgressFromResult(updateProgress, normalizedData)
+            } catch (error) {
+                console.error("📁 Error processing file data:", error)
+                handleNativeError("Error processing selected file")
+            }
+        }
+
+        const handleFilePickError = (nativeError) => {
+            console.error("📁 File pick error:", nativeError)
+            handleNativeError(nativeError)
+        }
+
+        const handleFilePickCancelled = (data) => {
+            console.log("📁 File pick cancelled:", data)
+            setLoading(false)
+            resetProgress()
+        }
+
+        const handleFilePickStateUpdate = (stateData) => {
+            try {
+                const parsedState = parseNativePayload(stateData)
+                console.log("📁 File picker state:", parsedState?.state)
+
+                const progressUpdate = mapStateToProgress(parsedState?.state)
+                updateProgress(progressUpdate)
+
+                if (parsedState?.state) {
+                    setLoading(true)
+                }
+            } catch (parseError) {
+                console.error("📁 Error parsing state data:", parseError)
+            }
+        }
+
+        return registerNativeHandlers([
+            [NATIVE_CALLBACKS.ON_FILE_PICKED, handleFilePicked],
+            [NATIVE_CALLBACKS.ON_FILE_PICK_ERROR, handleFilePickError],
+            [NATIVE_CALLBACKS.ON_FILE_PICK_CANCELLED, handleFilePickCancelled],
+            [NATIVE_CALLBACKS.ON_FILE_PICK_STATE_UPDATE, handleFilePickStateUpdate],
+        ])
+    }, [handleNativeError, resetProgress, setDataAndComplete, setLoading, updateProgress])
+
+    const pickFile = useCallback(
+        (input = null) => {
+            let payload
+            try {
+                payload = resolvePickPayload(input)
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Invalid file picker options"
+                handleNativeError(message)
+                return
+            }
+
+            if (typeof payload === "string") {
+                console.log("📁 Picking file with MIME type:", payload)
+            } else {
+                console.log("📁 Picking file with options:", payload)
+            }
+
+            executeOperation(() => {
+                nativeBridge.file.pick(payload)
+            }, "file pick")
+        },
+        [executeOperation, handleNativeError]
+    )
+
+    // Standardized execute function (new interface)
+    const execute = pickFile
+
+    const files = useMemo(() => extractFiles(data), [data])
+
+    /**
+     * Get File object from current file data
+     * Supports accessing specific file by index when multiple files are selected
+     * @param {number} index - Index of the file (default: 0)
+     * @returns {Promise<File>} JavaScript File object for FormData/POST API
+     * @throws {Error} If file data is unavailable or transport is unsupported
+     */
+    const getFileObject = useCallback(
+        async (index = 0) => {
+            if (!files.length) {
+                throw new Error("No file data available. Please pick a file first.")
+            }
+
+            const targetIndex = Number(index)
+            const fileEntry = files[targetIndex]
+
+            if (!fileEntry) {
+                throw new Error(`No file data available at index ${targetIndex}.`)
+            }
+
+            if (fileObjectCache.current.has(targetIndex)) {
+                console.log("📁 Returning cached File object", { index: targetIndex })
+                return fileObjectCache.current.get(targetIndex)
+            }
+
+            const { fileSrc, fileName, mimeType, transport } = fileEntry
+
+            // Check if transport supports File object creation
+            if (!canCreateFileObject(transport)) {
+                const errorMessage = getUnsupportedTransportMessage(transport)
+                console.error("❌", errorMessage)
+                throw new Error(errorMessage)
+            }
+
+            console.log("📁 Converting to File object", {
+                index: targetIndex,
+                transport,
+                fileName,
+                mimeType,
+            })
+
+            try {
+                let fileObject
+
+                if (transport === "BRIDGE_BASE64") {
+                    // Synchronous conversion for base64
+                    fileObject = base64ToFile(fileSrc, fileName, mimeType)
+                } else if (transport === "FRAMEWORK_SERVER") {
+                    // Asynchronous fetch and conversion for URL
+                    fileObject = await urlToFile(fileSrc, fileName, mimeType)
+                }
+
+                // Cache the result per index
+                fileObjectCache.current.set(targetIndex, fileObject)
+                console.log("✅ File object created successfully", {
+                    index: targetIndex,
+                    name: fileObject.name,
+                    size: fileObject.size,
+                    type: fileObject.type,
+                })
+
+                return fileObject
+            } catch (error) {
+                console.error("❌ Failed to create File object:", error)
+                throw new Error(`Failed to create File object: ${error.message}`)
+            }
+        },
+        [files]
+    )
+
+    const getAllFileObjects = useCallback(async () => {
+        if (!files.length) {
+            throw new Error("No file data available. Please pick a file first.")
+        }
+
+        const indices = files.map((_, index) => index)
+        return Promise.all(indices.map((index) => getFileObject(index)))
+    }, [files, getFileObject])
+
+    const canCreateFileObjectForCurrentFile = useMemo(
+        () => (files.length > 0 ? canCreateFileObject(files[0].transport) : false),
+        [files]
+    )
+    const canCreateFileObjectsList = useMemo(
+        () => files.map((file) => canCreateFileObject(file.transport)),
+        [files]
+    )
+
+    const clear = useCallback(() => {
+        fileObjectCache.current.clear()
+        baseClear()
+    }, [baseClear])
+
+    return {
+        // Standardized interface
+        data,
+        loading,
+        progress,
+        error,
+        isWeb,
+        isNative,
+        execute,
+        clear,
+        clearError,
+
+        // File object conversion helpers
+        getFileObject,
+        getAllFileObjects,
+        canCreateFileObject: canCreateFileObjectForCurrentFile,
+        canCreateFileObjects: canCreateFileObjectsList,
+
+        // Legacy aliases for backward compatibility
+        selectedFile: files[0] || null,
+        selectedFiles: files,
+        pickFile,
+        isLoading: loading,
+        processingState: progress?.phase || null,
+        clearFile: clear,
+    }
+}
+
+/**
+ * Promise-based camera permission request
+ * @returns {Promise<string>} Promise that resolves with permission status
+ */
+export const requestCameraPermission = () => {
+    if (typeof window === "undefined") {
+        return Promise.resolve(null)
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            if (!nativeBridge.isAvailable()) {
+                reject(new Error("Native bridge not available"))
+                return
+            }
+
+            // Set up one-time listener
+            const handlePermissionStatus = (data) => {
+                window.WebBridge.unregister(NATIVE_CALLBACKS.CAMERA_PERMISSION_STATUS)
+
+                if (data === PERMISSION_STATUS.GRANTED) {
+                    resolve(data)
+                } else {
+                    reject(new Error(`Camera permission ${data.toLowerCase()}`))
+                }
+            }
+
+            window.WebBridge.register(NATIVE_CALLBACKS.CAMERA_PERMISSION_STATUS, handlePermissionStatus)
+            nativeBridge.camera.requestPermission()
+
+            console.log("📷 Camera permission requested")
+        } catch (error) {
+            reject(error)
+        }
+    })
+}
+
+/**
+ * React hook for camera permission status
+ * Automatically requests permission on mount
+ */
+export const useCameraPermission = () => {
+    if (typeof window === "undefined") {
+        return { permission: null, isLoading: false }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    const [permission, setPermission] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        const requestPermission = async () => {
+            try {
+                if (!nativeBridge.isAvailable()) {
+                    setPermission(PERMISSION_STATUS.NOT_DETERMINED)
+                    setIsLoading(false)
+                    return
+                }
+
+                window.WebBridge.register(NATIVE_CALLBACKS.CAMERA_PERMISSION_STATUS, (data) => {
+                    setPermission(data)
+                    setIsLoading(false)
+                    console.log("📷 Camera permission status updated:", data)
+                })
+
+                nativeBridge.camera.requestPermission()
+            } catch (error) {
+                console.error("📷 Error requesting camera permission:", error)
+                setPermission(PERMISSION_STATUS.DENIED)
+                setIsLoading(false)
+            }
+        }
+
+        requestPermission()
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.CAMERA_PERMISSION_STATUS)
+        }
+    }, [])
+
+    return { permission, isLoading }
+}
+
+/**
+ * Promise-based notification permission request
+ * @returns {Promise<string>} Promise that resolves with permission status
+ */
+export const requestNotificationPermission = () => {
+    if (typeof window === "undefined") {
+        return Promise.resolve(null)
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            if (!nativeBridge.isAvailable()) {
+                reject(new Error("Native bridge not available"))
+                return
+            }
+
+            const handlePermissionStatus = (data) => {
+                // Unregister this one-time listener
+                unregisterPermissionStatusListener(handlePermissionStatus)
+
+                if (data === PERMISSION_STATUS.GRANTED) {
+                    resolve(data)
+                } else {
+                    reject(new Error(`Notification permission ${data.toLowerCase()}`))
+                }
+            }
+
+            registerPermissionStatusListener(handlePermissionStatus)
+
+            nativeBridge.notification.requestPermission()
+        } catch (error) {
+            reject(error)
+        }
+    })
+}
+
+/**
+ * React hook for notification permission status
+ * Automatically requests permission on mount
+ */
+export const useNotificationPermission = () => {
+    if (typeof window === "undefined") {
+        return { permission: null, isLoading: false }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    const [permission, setPermission] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        const requestPermission = async () => {
+            try {
+                if (!nativeBridge.isAvailable()) {
+                    setPermission(PERMISSION_STATUS.NOT_DETERMINED)
+                    setIsLoading(false)
+                    return
+                }
+
+                window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+                    setPermission(data)
+                    setIsLoading(false)
+                    console.log("🔔 Notification permission status updated:", data)
+                })
+
+                nativeBridge.notification.requestPermission()
+            } catch (error) {
+                console.error("🔔 Error requesting notification permission:", error)
+                setPermission(PERMISSION_STATUS.DENIED)
+                setIsLoading(false)
+            }
+        }
+
+        requestPermission()
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+        }
+    }, [])
+
+    return { permission, isLoading }
+}
+
+/**
+ * Promise-based haptic feedback request
+ * @param {string} feedbackType - Type of haptic feedback (from HAPTIC_FEEDBACK_TYPES)
+ * @returns {Promise<string>} Promise that resolves with success status
+ */
+export const requestHapticFeedback = (feedbackType = "light") => {
+    if (typeof window === "undefined") {
+        return Promise.resolve(null)
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            if (!nativeBridge.isAvailable()) {
+                reject(new Error("Native bridge not available"))
+                return
+            }
+
+            // Set up one-time listener
+            const handleHapticResponse = (data) => {
+                window.WebBridge.unregister(NATIVE_CALLBACKS.HAPTIC_FEEDBACK)
+
+                if (data === RESPONSE_STATUS.SUCCESS) {
+                    resolve(data)
+                } else {
+                    reject(new Error(`Haptic feedback failed: ${data}`))
+                }
+            }
+
+            window.WebBridge.register(NATIVE_CALLBACKS.HAPTIC_FEEDBACK, handleHapticResponse)
+            nativeBridge.haptic.feedback(feedbackType)
+
+            console.log("📳 Haptic feedback requested:", feedbackType)
+        } catch (error) {
+            reject(error)
+        }
+    })
+}
+
+/**
+ * React hook for haptic feedback
+ * Provides a function to trigger haptic feedback
+ */
+export const useHapticFeedback = () => {
+    const base = useBaseHook("useHapticFeedback")
+    const [capabilities, setCapabilities] = useState({
+        isSupported: false,
+        availableTypes: ["light", "medium", "heavy"],
+        platform: "unknown",
+    })
+
+    // Haptic types
+    const HAPTIC_TYPES = {
+        LIGHT: "light",
+        MEDIUM: "medium",
+        HEAVY: "heavy",
+        SUCCESS: "success",
+        WARNING: "warning",
+        ERROR: "error",
+        SELECTION: "selection",
+        IMPACT: "impact",
+    }
+
+    useEffect(() => {
+        // Initialize capabilities
+        const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : ""
+        let platform = "unknown"
+        let isSupported = false
+        let availableTypes = []
+
+        if (base.isNative) {
+            isSupported = true
+            if (userAgent.includes("android")) {
+                platform = "android"
+                availableTypes = [HAPTIC_TYPES.LIGHT, HAPTIC_TYPES.MEDIUM, HAPTIC_TYPES.HEAVY]
+            } else if (userAgent.includes("iphone") || userAgent.includes("ipad")) {
+                platform = "ios"
+                availableTypes = Object.values(HAPTIC_TYPES)
+            }
+        } else {
+            platform = "web"
+            isSupported = typeof navigator !== "undefined" && "vibrate" in navigator
+            if (isSupported) {
+                availableTypes = [HAPTIC_TYPES.LIGHT, HAPTIC_TYPES.MEDIUM, HAPTIC_TYPES.HEAVY]
+            }
+        }
+
+        setCapabilities({ isSupported, availableTypes, platform })
+    }, [base.isNative])
+
+    // Main execute function for haptic superhook
+    const executeHaptic = (type = "light", options = {}) => {
+        if (!capabilities.isSupported) {
+            const error = createStandardError(
+                ERROR_CODES.FEATURE_UNSUPPORTED,
+                "Haptic feedback not supported",
+                null,
+                "Device does not support haptic feedback"
+            )
+            base.handleNativeError(error)
+            return
+        }
+
+        return handleHapticTrigger(type, options)
+    }
+
+    // Haptic trigger handler
+    const handleHapticTrigger = async (type, options = {}) => {
+        try {
+            base.setLoading(true)
+            base.updateProgress({
+                state: "active",
+                phase: "triggering",
+                message: `Triggering ${type} haptic feedback...`,
+            })
+
+            let success = false
+
+            if (base.isNative) {
+                // Use existing native implementation
+                success = await requestHapticFeedback(type)
+            } else {
+                // Web fallback
+                success = handleWebHaptic(type, options)
+            }
+
+            const hapticData = {
+                lastType: type,
+                lastOptions: options,
+                timestamp: new Date().toISOString(),
+                success: success,
+                capabilities: capabilities,
+                lastOperation: "trigger",
+                operationSuccess: success,
+            }
+
+            base.setDataAndComplete(hapticData)
+            return success
+        } catch (error) {
+            console.error("📳 Haptic feedback failed:", error)
+            base.handleNativeError(error)
+            return false
+        }
+    }
+
+    // Web haptic fallback
+    const handleWebHaptic = (type) => {
+        if (!navigator.vibrate) {
+            return false
+        }
+
+        const vibrationPatterns = {
+            [HAPTIC_TYPES.LIGHT]: [50],
+            [HAPTIC_TYPES.MEDIUM]: [100],
+            [HAPTIC_TYPES.HEAVY]: [200],
+            [HAPTIC_TYPES.SUCCESS]: [100, 50, 100],
+            [HAPTIC_TYPES.WARNING]: [200, 100, 200],
+            [HAPTIC_TYPES.ERROR]: [300, 100, 300, 100, 300],
+            [HAPTIC_TYPES.SELECTION]: [25],
+            [HAPTIC_TYPES.IMPACT]: [150],
+        }
+
+        const pattern = vibrationPatterns[type] || [100]
+        navigator.vibrate(pattern)
+        return true
+    }
+
+    // Return standardized superhook interface
+    return {
+        // Standard interface (from useBaseHook)
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Main execute function
+        execute: executeHaptic,
+
+        // Semantic aliases for execute
+        triggerHaptic: executeHaptic, // Legacy compatibility
+        trigger: executeHaptic,
+        light: () => executeHaptic(HAPTIC_TYPES.LIGHT),
+        medium: () => executeHaptic(HAPTIC_TYPES.MEDIUM),
+        heavy: () => executeHaptic(HAPTIC_TYPES.HEAVY),
+        success: () => executeHaptic(HAPTIC_TYPES.SUCCESS),
+        warning: () => executeHaptic(HAPTIC_TYPES.WARNING),
+        errorHaptic: () => executeHaptic(HAPTIC_TYPES.ERROR),
+        selection: () => executeHaptic(HAPTIC_TYPES.SELECTION),
+        impact: () => executeHaptic(HAPTIC_TYPES.IMPACT),
+
+        // Capability info
+        capabilities: capabilities,
+        isSupported: capabilities.isSupported,
+        isAvailable: capabilities.isSupported, // Legacy compatibility
+        availableTypes: capabilities.availableTypes,
+
+        // Haptic types constant
+        HAPTIC_TYPES,
+    }
+}
+
+/**
+ * React hook for notification functionality
+ * Handles local notifications, push notifications, and badge management
+ */
+export const useNotification = () => {
+    const base = useBaseHook("useNotification")
+    const [permissionStatus, setPermissionStatus] = useState(null)
+    const [pushToken, setPushToken] = useState(null)
+    const [badges, setBadges] = useState(0)
+    const [lastNotification, setLastNotification] = useState(null)
+    const [subscribedTopics, setSubscribedTopics] = useState([])
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return {
+            data: null,
+            loading: false,
+            error: null,
+            execute: () => {},
+            scheduleLocal: () => {},
+            cancelLocal: () => {},
+            registerForPush: () => {},
+            updateBadge: () => {},
+            subscribeToTopic: () => {},
+            unsubscribeFromTopic: () => {},
+            getSubscribedTopics: () => {},
+            permissionStatus: null,
+            pushToken: null,
+            badges: 0,
+            subscribedTopics: [],
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        const unregister = registerPermissionStatusListener((data) => {
+            setPermissionStatus(data)
+        })
+
+        // Check initial permission status without requesting (internal call)
+        if (nativeBridge.isAvailable()) {
+            try {
+                // Call native bridge directly without going through public API
+                if (nativeBridge.isAndroid && window.NativeBridge?.checkNotificationPermissionStatus) {
+                    window.NativeBridge.checkNotificationPermissionStatus(null)
+                } else if (nativeBridge.isIOS && window.webkit?.messageHandlers?.NativeBridge) {
+                    window.webkit.messageHandlers.NativeBridge.postMessage({
+                        command: "checkNotificationPermissionStatus",
+                        data: null,
+                    })
+                }
+            } catch (error) {
+                console.error("🔔 Error checking notification permission status:", error)
+            }
+        }
+
+        window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.success === false || result?.error) {
+                    base.handleNativeError(result.error || result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.success === false || result?.error) {
+                    base.handleNativeError(result.error || result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                setPushToken(result.token)
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED, (data) => {
+            const notification = typeof data === "string" ? JSON.parse(data) : data
+            setLastNotification(notification)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_TAPPED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED, (data) => {
+            const action = typeof data === "string" ? JSON.parse(data) : data
+            base.setDataAndComplete(action)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                const success = result?.success
+                if (success === false) {
+                    base.handleNativeError(result)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                if (result?.success === false) {
+                    base.handleNativeError(result)
+                    return
+                }
+                setSubscribedTopics(result.topics || [])
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        })
+
+        return () => {
+            // Cleanup - unregister from shared callback system
+            unregister()
+
+            // Cleanup other callbacks
+            window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_RECEIVED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_TAPPED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_ACTION_PERFORMED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.TOPIC_SUBSCRIPTION_RESULT)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT)
+        }
+    }, [])
+
+    // Local notification scheduling with all supported styles
+    const scheduleLocal = (config) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.scheduleLocal(config)
+        }, "schedule local notification")
+    }
+
+    const cancelLocal = (notificationId) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.cancelLocal(notificationId)
+        }, "cancel notification")
+    }
+
+    const registerForPush = () => {
+        base.executeOperation(() => {
+            nativeBridge.notification.registerForPush()
+        }, "register for push")
+    }
+
+    const updateBadge = (count) => {
+        nativeBridge.notification.updateBadge(count)
+        setBadges(count)
+    }
+
+    const subscribeToTopic = (topic) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.subscribeToTopic(topic)
+        }, "subscribe to topic")
+    }
+
+    const unsubscribeFromTopic = (topic) => {
+        base.executeOperation(() => {
+            nativeBridge.notification.unsubscribeFromTopic(topic)
+        }, "unsubscribe from topic")
+    }
+
+    const getSubscribedTopics = () => {
+        base.executeOperation(() => {
+            nativeBridge.notification.getSubscribedTopics()
+        }, "get subscribed topics")
+    }
+
+    return {
+        // Standardized interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        execute: scheduleLocal,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Notification-specific
+        permissionStatus,
+        pushToken,
+        badges,
+        lastNotification,
+        subscribedTopics,
+        scheduleLocal,
+        cancelLocal,
+        registerForPush,
+        updateBadge,
+        subscribeToTopic,
+        unsubscribeFromTopic,
+        getSubscribedTopics,
+    }
+}
+
+/**
+ * Network status hook
+ * Listens to native network changes and exposes online/offline state
+ */
+export const useNetworkStatus = () => {
+    const initialOnline = typeof navigator !== "undefined" ? navigator.onLine : true
+    const [status, setStatus] = useState({
+        online: initialOnline,
+        type: null,
+    })
+    const [error, setError] = useState(null)
+    const isNative = nativeBridge.isNativeEnvironment
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (!window.WebBridge) return
+        if (!isNative) return
+
+        const handleStatus = (payload) => {
+            try {
+                const parsed = parseNativePayload(payload) || {}
+                setStatus({
+                    online: Boolean(parsed.online),
+                    type: parsed.type || null,
+                })
+                setError(null)
+            } catch (e) {
+                console.error("🌐 Error parsing network status:", e)
+                setError(e.message)
+            }
+        }
+
+        window.WebBridge.register(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED, handleStatus)
+
+        try {
+            nativeBridge.network.getStatus()
+        } catch (e) {
+            setError(e.message || "Network status unavailable")
+        }
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED)
+        }
+    }, [isNative])
+
+    return {
+        ...status,
+        error,
+    }
+}
+
+export const useSafeArea = () => {
+    const fromGlobal = getSafeAreaFromGlobal()
+    const initialValue = fromGlobal || { ...DEFAULT_INSETS }
+
+    const [insets, setInsets] = useState(() => initialValue)
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (!window.WebBridge) return
+        if (!nativeBridge.isAvailable()) return
+
+        const handleInsetsUpdate = (data) => {
+            try {
+                const parsed = typeof data === "string" ? JSON.parse(data) : data
+                const normalized = {
+                    top: Number(parsed.top) || 0,
+                    right: Number(parsed.right) || 0,
+                    bottom: Number(parsed.bottom) || 0,
+                    left: Number(parsed.left) || 0,
+                }
+
+                setInsets(normalized)
+                setSafeAreaGlobal(normalized)
+            } catch (error) {
+                console.error("Error parsing safe area insets:", error)
+                setInsets({ ...DEFAULT_INSETS })
+            }
+        }
+
+        window.WebBridge.register("ON_SAFE_AREA_INSETS_UPDATED", handleInsetsUpdate)
+        nativeBridge.safeArea.get()
+
+        return () => {
+            window.WebBridge.unregister("ON_SAFE_AREA_INSETS_UPDATED")
+        }
+    }, [])
+
+    return insets
+}
