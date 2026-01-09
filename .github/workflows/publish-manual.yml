@@ -1,0 +1,198 @@
+name: Manual Publish
+
+on:
+    workflow_dispatch:
+        inputs:
+            package:
+                description: "Which package to publish"
+                required: true
+                type: choice
+                options:
+                    - catalyst-core
+                    - catalyst-core-internal
+                default: catalyst-core
+            npm_tag:
+                description: "NPM distribution tag"
+                required: true
+                type: choice
+                options:
+                    - latest
+                    - beta
+                    - canary
+                    - custom
+                default: latest
+            custom_tag:
+                description: 'Custom NPM tag (only if npm_tag is "custom")'
+                required: false
+                type: string
+            version_bump:
+                description: "Version bump type"
+                required: true
+                type: choice
+                options:
+                    - patch
+                    - minor
+                    - major
+                    - custom
+                default: patch
+            custom_version:
+                description: 'Custom version (only if version_bump is "custom", e.g., 2.0.0-rc.1)'
+                required: false
+                type: string
+
+permissions:
+    contents: write
+    id-token: write
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Validate branch
+              run: |
+                  BRANCH="${{ github.ref_name }}"
+                  NPM_TAG="${{ github.event.inputs.npm_tag }}"
+
+                  if [ "$NPM_TAG" == "beta" ] && [ "$BRANCH" != "main" ]; then
+                    echo "::error::Publishing with 'beta' tag is only allowed from 'main' branch (current: $BRANCH)"
+                    exit 1
+                  fi
+
+            - name: Validate custom inputs
+              run: |
+                  NPM_TAG="${{ github.event.inputs.npm_tag }}"
+                  CUSTOM_TAG="${{ github.event.inputs.custom_tag }}"
+                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
+                  CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+
+                  if [ "$NPM_TAG" == "custom" ] && [ -z "$CUSTOM_TAG" ]; then
+                    echo "::error::Custom npm tag selected but 'custom_tag' is empty"
+                    exit 1
+                  fi
+
+                  if [ "$VERSION_BUMP" == "custom" ] && [ -z "$CUSTOM_VERSION" ]; then
+                    echo "::error::Custom version selected but 'custom_version' is empty"
+                    exit 1
+                  fi
+
+                  if [ "$VERSION_BUMP" == "custom" ]; then
+                    if ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+                      echo "::error::Invalid version format '$CUSTOM_VERSION'. Expected: X.Y.Z or X.Y.Z-prerelease"
+                      exit 1
+                    fi
+                  fi
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  registry-url: "https://registry.npmjs.org"
+
+            - name: Determine npm tag
+              id: npm_tag
+              run: |
+                  if [ "${{ github.event.inputs.npm_tag }}" == "custom" ]; then
+                    echo "tag=${{ github.event.inputs.custom_tag }}" >> $GITHUB_OUTPUT
+                  else
+                    echo "tag=${{ github.event.inputs.npm_tag }}" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Bump version
+              id: version
+              run: |
+                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
+                  NPM_TAG="${{ github.event.inputs.npm_tag }}"
+                  PACKAGE_NAME="${{ github.event.inputs.package }}"
+
+                  if [ "$VERSION_BUMP" == "custom" ]; then
+                    npm version ${{ github.event.inputs.custom_version }} --no-git-tag-version
+                  elif [ "$NPM_TAG" == "beta" ] || [ "$NPM_TAG" == "canary" ]; then
+                    # Get current version from package.json
+                    CURRENT_VERSION=$(node -p "require('./package.json').version")
+                    # Extract base version (remove any prerelease suffix)
+                    BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
+
+                    # Get latest prerelease number from npm for this base version and tag
+                    LATEST_PRERELEASE=$(npm view "$PACKAGE_NAME@>=${BASE_VERSION}-${NPM_TAG}.0 <${BASE_VERSION}-${NPM_TAG}.9999" version 2>/dev/null | tail -1 | sed "s/.*-${NPM_TAG}\.\([0-9]*\).*/\1/" || echo "-1")
+
+                    if [ -z "$LATEST_PRERELEASE" ] || [ "$LATEST_PRERELEASE" == "" ]; then
+                      LATEST_PRERELEASE=-1
+                    fi
+
+                    NEXT_PRERELEASE=$((LATEST_PRERELEASE + 1))
+
+                    # Apply base version bump first if requested
+                    if [ "$VERSION_BUMP" != "patch" ]; then
+                      npm version $VERSION_BUMP --no-git-tag-version
+                      BASE_VERSION=$(node -p "require('./package.json').version")
+                    fi
+
+                    # Set the prerelease version
+                    npm version "${BASE_VERSION}-${NPM_TAG}.${NEXT_PRERELEASE}" --no-git-tag-version
+                  else
+                    npm version $VERSION_BUMP --no-git-tag-version
+                  fi
+
+                  NEW_VERSION=$(node -p "require('./package.json').version")
+                  echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+            - name: Check version availability on npm
+              run: |
+                  PACKAGE_NAME="${{ github.event.inputs.package }}"
+                  VERSION="${{ steps.version.outputs.version }}"
+
+                  if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+                    echo "::error::Version $VERSION already exists on npm for $PACKAGE_NAME"
+                    exit 1
+                  fi
+
+            - name: Configure Git
+              run: |
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+                  git config --global user.name "github-actions[bot]"
+
+            - name: Rename package (if internal)
+              if: github.event.inputs.package == 'catalyst-core-internal'
+              run: npm pkg set name=catalyst-core-internal
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Build package
+              run: npm run prepare
+
+            - name: Rename dist files (if internal)
+              if: github.event.inputs.package == 'catalyst-core-internal'
+              run: |
+                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' {} +
+                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i "s/'catalyst-core'/'catalyst-core-internal'/g" {} +
+
+            - name: Commit version bump
+              if: github.event.inputs.package == 'catalyst-core'
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  git add package.json package-lock.json
+                  git commit -m "chore: release v$VERSION [skip ci]"
+                  git push
+
+            - name: Create git tag
+              if: github.event.inputs.package == 'catalyst-core'
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  git tag "v$VERSION"
+                  git push origin "v$VERSION"
+
+            - name: Update npm for OIDC support
+              run: npm install -g npm@latest
+
+            - name: Publish to npm
+              run: npm publish --tag ${{ steps.npm_tag.outputs.tag }} --access public
+
+            - name: Summary
+              run: |
+                  PACKAGE_NAME="${{ github.event.inputs.package }}"
+                  VERSION="${{ steps.version.outputs.version }}"
+                  NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
+                  echo "Published $PACKAGE_NAME@$VERSION (tag: $NPM_TAG)"
