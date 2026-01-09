@@ -1,0 +1,23 @@
+.github/workflows/publish-manual.yml
+  dfaa3542bf6bda96 158,160-161,173-175,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.31",
+  "base_commit_sha": "b58cfbe36762bb9050ecd0128c9b1c6cc0fec32e",
+  "prompts": {
+    "dfaa3542bf6bda96": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55750258-9544-4894-8b65-aff78131f745",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 24,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}
