@@ -166,8 +166,10 @@ jobs:
             - name: Rename dist files (if internal)
               if: github.event.inputs.package == 'catalyst-core-internal'
               run: |
-                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i 's/"catalyst-core"/"catalyst-core-internal"/g' {} +
-                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i "s/'catalyst-core'/'catalyst-core-internal'/g" {} +
+                  # Replace 'catalyst-core' with 'catalyst-core-internal' in dist (excluding native templates)
+                  # Uses negative lookbehind logic: match catalyst-core NOT followed by -internal
+                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) ! -path "./dist/native/iosnativeWebView/*" ! -path "./dist/native/androidProject/*" -exec sed -i 's/catalyst-core\([^-]\)/catalyst-core-internal\1/g' {} +
+                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) ! -path "./dist/native/iosnativeWebView/*" ! -path "./dist/native/androidProject/*" -exec sed -i 's/catalyst-core$/catalyst-core-internal/g' {} +
 
             - name: Commit version bump
               if: github.event.inputs.package == 'catalyst-core'
