@@ -155,27 +155,24 @@ jobs:
 
             - name: Rename package (if internal)
               if: github.event.inputs.package == 'catalyst-core-internal'
+              run: npm pkg set name=catalyst-core-internal
+
+            - name: Replace in source files (if internal)
+              if: github.event.inputs.package == 'catalyst-core-internal'
               run: |
-                  npm pkg set name=catalyst-core-internal
-                  # Remove prepublishOnly to prevent rebuilding (which would undo our replacements)
-                  npm pkg delete scripts.prepublishOnly
+                  # Replace 'catalyst-core' with 'catalyst-core-internal' in source files before build
+                  echo "Files containing 'catalyst-core' in source:"
+                  grep -rl "catalyst-core" ./src --include="*.js" --include="*.ts" || echo "No matches found"
+
+                  echo ""
+                  echo "Replacing 'catalyst-core' with 'catalyst-core-internal' in source files..."
+                  find ./src -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i 's/catalyst-core/catalyst-core-internal/g' {} \;
 
             - name: Install dependencies
               run: npm install
 
             - name: Build package
               run: npm run prepare
-
-            - name: Rename dist files (if internal)
-              if: github.event.inputs.package == 'catalyst-core-internal'
-              run: |
-                  # Replace 'catalyst-core' with 'catalyst-core-internal' in all dist files
-                  echo "Files containing 'catalyst-core' BEFORE replacement:"
-                  grep -rl "catalyst-core" ./dist --include="*.js" --include="*.ts" || echo "No matches found"
-
-                  echo ""
-                  echo "Replacing 'catalyst-core' with 'catalyst-core-internal'..."
-                  find ./dist -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i 's/catalyst-core/catalyst-core-internal/g' {} \;
 
             - name: Commit version bump
               if: github.event.inputs.package == 'catalyst-core'
