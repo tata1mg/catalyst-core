@@ -16,7 +16,7 @@ public struct ContentView: View {
             // Conditionally apply edge-to-edge based on config (matches Android behavior)
             if ConfigConstants.EdgeToEdge.enabled {
                 WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
-                    .edgesIgnoringSafeArea(.all)
+                    .ignoresSafeArea()
                     .onAppear {
                         logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: enabled]")
                     }
