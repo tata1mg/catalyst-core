@@ -601,6 +601,16 @@ public enum ConfigConstants {
             progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
         }
 
+        // Ensure EdgeToEdge.enabled always exists (default to false if not configured)
+        if (!addedKeys.has("edgeToEdge")) {
+            progress.log("EdgeToEdge not found in config, adding default (false)", "info")
+            configContent +=
+                "\n    public enum EdgeToEdge {\n        public static let enabled = false\n    }"
+            addedKeys.add("edgeToEdge")
+        } else {
+            progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
+        }
+
         // Close the enum
         configContent += `
 }`
