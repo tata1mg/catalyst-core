@@ -201,3 +201,21 @@ jobs:
                   VERSION="${{ steps.version.outputs.version }}"
                   NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
                   echo "Published $PACKAGE_NAME@$VERSION (tag: $NPM_TAG)"
+
+            - name: Send Flock notification
+              if: success()
+              run: |
+                  PACKAGE_NAME="${{ github.event.inputs.package }}"
+                  VERSION="${{ steps.version.outputs.version }}"
+                  NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
+
+                  curl -X POST "${{ secrets.FLOCK_WEBHOOK_URL }}" \
+                    -H "Content-Type: application/json" \
+                    -d "{
+                      \"text\": \"✅ Package Published Successfully\",
+                      \"attachments\": [{
+                        \"title\": \"$PACKAGE_NAME@$VERSION\",
+                        \"description\": \"NPM Tag: $NPM_TAG\n\nPublished by: ${{ github.actor }}\nBranch: ${{ github.ref_name }}\",
+                        \"color\": \"#00C851\"
+                      }]
+                    }"
