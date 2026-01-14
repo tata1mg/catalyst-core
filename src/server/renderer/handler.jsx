@@ -9,7 +9,7 @@ import { Head } from "./document/Head.jsx"
 
 import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "../../router/ServerRouter.js"
-import { renderToPipeableStream, renderToString } from "react-dom/server"
+import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"

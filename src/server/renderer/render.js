@@ -1,5 +1,3 @@
-import { cacheCSS, cacheJS } from "./extract"
-
 /**
  * returns data which will be used in Head component for page rendering
  * @param {string} pageCss - cached styles for page
