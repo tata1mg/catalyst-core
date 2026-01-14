@@ -1,0 +1,23 @@
+src/native/buildAppAndroid.js
+  c1e3c4018f462c59 731,735-737,939
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.31",
+  "base_commit_sha": "7d7ea6539b51b06e6b3fc8cef4ffe9aafabcd641",
+  "prompts": {
+    "c1e3c4018f462c59": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bffe1c85-98aa-4a5f-9c90-88cd20d65c4e",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 40,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}
