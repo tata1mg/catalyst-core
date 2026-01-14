@@ -208,6 +208,7 @@ jobs:
                   PACKAGE_NAME="${{ github.event.inputs.package }}"
                   VERSION="${{ steps.version.outputs.version }}"
                   NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
+                  NPM_URL="https://www.npmjs.com/package/$PACKAGE_NAME/v/$VERSION"
 
                   curl -X POST "${{ secrets.FLOCK_WEBHOOK_URL }}" \
                     -H "Content-Type: application/json" \
@@ -215,7 +216,7 @@ jobs:
                       \"text\": \"✅ Package Published Successfully\",
                       \"attachments\": [{
                         \"title\": \"$PACKAGE_NAME@$VERSION\",
-                        \"description\": \"NPM Tag: $NPM_TAG\n\nPublished by: ${{ github.actor }}\nBranch: ${{ github.ref_name }}\",
+                        \"description\": \"NPM Tag: $NPM_TAG\n\nPublished by: ${{ github.actor }}\nBranch: ${{ github.ref_name }}\n\n📦 View on npm: $NPM_URL\",
                         \"color\": \"#00C851\"
                       }]
                     }"
