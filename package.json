@@ -26,6 +26,7 @@
     },
     "exports": {
         ".": "./dist/index.js",
+        "./package.json": "./package.json",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
