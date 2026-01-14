@@ -4,7 +4,8 @@ const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 const crypto = require("crypto")
 
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
+const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
+const pwd = path.join(catalystCorePath, "dist/native")
 const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
 
 // Configuration constants
