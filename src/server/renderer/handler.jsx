@@ -186,7 +186,6 @@ const renderMarkUp = async (
         const { pipe } = renderToPipeableStream(<CompleteDocument />, {
             onShellReady() {
                 res.setHeader("content-type", "text/html")
-                res.write(`<!DOCTYPE html>`)
                 pipe(res)
                 // res.end()
             },
