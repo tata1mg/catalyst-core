@@ -175,6 +175,7 @@ export const generateStylesheetLinks = (cssAssets, req) => {
                 rel: "stylesheet",
                 crossorigin: "",
                 href: assetUrl,
+                preload: true,
             })
         )
 
