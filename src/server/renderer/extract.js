@@ -1,5 +1,6 @@
 import React from "react"
 import path from "path"
+import fs from "fs"
 
 // Generate script tags as HTML strings
 export const generateScriptTagsAsStrings = (jsAssets, req) => {
@@ -183,4 +184,73 @@ export const generateStylesheetLinks = (cssAssets, req) => {
     })
 
     return linkElements
+}
+
+/**
+ * Reads a list of CSS asset files from disk and returns a single inline CSS string.
+ *
+ * This is intended for cases where you want to inject critical CSS using:
+ *   <style dangerouslySetInnerHTML={{ __html: pageCss }} />
+ *
+ * @param {string[]} cssAssets - List of CSS asset paths (relative or absolute).
+ * @param {object} [options]
+ * @param {string} [options.assetsBasePath] - Base directory on the filesystem where assets live.
+ *                                           If not provided, falls back to process.cwd().
+ * @returns {string} Concatenated CSS content from all readable assets.
+ */
+export const generateInlineCssFromAssets = (cssAssets = [], options = {}) => {
+    const { assetsBasePath } = options
+
+    if (!Array.isArray(cssAssets) || cssAssets.length === 0) {
+        return ""
+    }
+
+    const baseDir = assetsBasePath || process.cwd()
+    const seen = new Set()
+    const cssChunks = []
+
+    cssAssets.forEach((asset) => {
+        if (!asset || typeof asset !== "string") {
+            return
+        }
+
+        // Deduplicate by original asset value
+        if (seen.has(asset)) {
+            return
+        }
+        seen.add(asset)
+
+        // If it's an http URL we can't read it from disk here, so skip.
+        if (asset.startsWith("http://") || asset.startsWith("https://")) {
+            return
+        }
+
+        // Resolve a filesystem path for the asset
+        let filePath = asset
+
+        // If it looks like a URL path (starts with /), strip the leading slash
+        // and resolve it relative to the provided baseDir.
+        if (!path.isAbsolute(filePath)) {
+            const normalized = filePath.replace(/^\/+/, "")
+            filePath = path.join(baseDir, normalized)
+        }
+
+        try {
+            const fileContent = fs.readFileSync(filePath, "utf8")
+            if (fileContent) {
+                cssChunks.push(fileContent)
+            }
+        } catch (error) {
+            // In production we silently ignore missing/unreadable assets.
+            // In development log a warning to aid debugging.
+            if (process.env.NODE_ENV !== "production") {
+                // eslint-disable-next-line no-console
+                console.warn(
+                    `[generateInlineCssFromAssets] Failed to read CSS asset "${asset}" from "${filePath}": ${error.message}`
+                )
+            }
+        }
+    })
+
+    return cssChunks.join("\n")
 }

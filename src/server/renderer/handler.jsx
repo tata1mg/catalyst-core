@@ -16,7 +16,7 @@ import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
     generateScriptTags,
-    generateStylesheetLinks,
+    generateInlineCssFromAssets,
     generateScriptTagsAsStrings,
     generateStylesheetLinksAsStrings,
 } from "./extract.js"
@@ -129,7 +129,9 @@ const renderMarkUp = async (
 
     // Process ChunkExtractor discovered assets
     const scriptElements = generateScriptTags(discoveredAssets.js, req)
-    const stylesheetLinks = generateStylesheetLinks(discoveredAssets.css, req, chunkExtractor)
+    const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
+        assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
+    })
 
     // Use stylesheet links instead of inlined CSS
     res.locals.pageJS = scriptElements
