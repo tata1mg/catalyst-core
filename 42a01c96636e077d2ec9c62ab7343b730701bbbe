@@ -1,0 +1,29 @@
+src/native/buildAppIos.js
+  d483791d807f4f6a 7-8
+src/native/buildAppAndroid.js
+  d483791d807f4f6a 19-20
+src/native/androidSetup.js
+  d483791d807f4f6a 2,6,8-9
+package.json
+  d483791d807f4f6a 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.31",
+  "base_commit_sha": "42a01c96636e077d2ec9c62ab7343b730701bbbe",
+  "prompts": {
+    "d483791d807f4f6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "86db6e7d-8863-46ad-9661-a7d1313599f5",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 8,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}
