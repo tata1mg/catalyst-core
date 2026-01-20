@@ -1,0 +1,35 @@
+{
+  "name": "ai-sdk",
+  "version": "1.0.0",
+  "description": "A simple AI SDK similar built with React",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server-example.js",
+    "start": "node server-example.js"
+  },
+  "keywords": [
+    "ai",
+    "sdk",
+    "openai",
+    "anthropic",
+    "react",
+    "streaming",
+    "llm",
+    "chatgpt",
+    "claude"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "express": "^4.18.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
