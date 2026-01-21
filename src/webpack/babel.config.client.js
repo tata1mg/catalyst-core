@@ -38,6 +38,9 @@ export default {
         test: {
             presets: ["@babel/preset-react"],
         },
+        development: {
+            plugins: ["react-refresh/babel"],
+        },
     },
     ignore: ["__TEST__"],
 }
