@@ -43,6 +43,53 @@ function validateRequest(body) {
     return { valid: false, error: 'API key is required' };
   }
 
+  // Validate messages array if provided
+  if (body.messages) {
+    if (!Array.isArray(body.messages)) {
+      return { valid: false, error: 'Messages must be an array' };
+    }
+    
+    if (body.messages.length === 0) {
+      return { valid: false, error: 'Messages array cannot be empty' };
+    }
+
+    // Validate message structure
+    for (let i = 0; i < body.messages.length; i++) {
+      const msg = body.messages[i];
+      if (!msg.role || typeof msg.role !== 'string') {
+        return { valid: false, error: `Message at index ${i} missing valid role` };
+      }
+      if (msg.content === undefined || msg.content === null) {
+        return { valid: false, error: `Message at index ${i} missing content` };
+      }
+    }
+  }
+
+  // Validate prompt if provided
+  if (body.prompt) {
+    if (typeof body.prompt !== 'string') {
+      return { valid: false, error: 'Prompt must be a string' };
+    }
+    if (body.prompt.trim().length === 0) {
+      return { valid: false, error: 'Prompt cannot be empty' };
+    }
+  }
+
+  // Validate optional parameters
+  if (body.temperature !== undefined) {
+    const temp = Number(body.temperature);
+    if (isNaN(temp) || temp < 0 || temp > 2) {
+      return { valid: false, error: 'Temperature must be between 0 and 2' };
+    }
+  }
+
+  if (body.maxTokens !== undefined) {
+    const tokens = Number(body.maxTokens);
+    if (isNaN(tokens) || tokens < 1) {
+      return { valid: false, error: 'maxTokens must be a positive number' };
+    }
+  }
+
   return { valid: true };
 }
 
@@ -100,20 +147,31 @@ async function handleStreaming(req, res, provider) {
   } catch (error) {
     console.error('Streaming error:', error);
     
-    // Try to send error as SSE
-    try {
-      res.write(formatSSE({
-        type: 'error',
-        error: error.message
-      }));
-    } catch {
-      // If that fails, send as JSON
-      if (!res.headersSent) {
+    // Try to send error as SSE if headers already sent
+    if (res.headersSent) {
+      try {
+        res.write(formatSSE({
+          type: 'error',
+          error: error.message
+        }));
+        res.end();
+      } catch (writeError) {
+        console.error('Failed to write error to stream:', writeError);
+        // Connection might be broken, just end silently
+        try {
+          res.end();
+        } catch {
+          // Connection already closed
+        }
+      }
+    } else {
+      // Headers not sent yet, send as JSON error
+      try {
         res.status(500).json({ error: error.message });
+      } catch (jsonError) {
+        console.error('Failed to send JSON error:', jsonError);
       }
     }
-    
-    res.end();
   }
 }
 

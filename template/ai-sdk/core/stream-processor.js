@@ -7,12 +7,18 @@
  * Process a text stream from the server
  * @param {ReadableStream} stream - The response stream
  * @param {Object} callbacks - Callback functions
+ * @param {(chunk: string, fullText: string) => void} [callbacks.onChunk] - Called for each chunk
+ * @param {(fullText: string) => void} [callbacks.onComplete] - Called when stream completes
+ * @param {(error: Error) => void} [callbacks.onError] - Called on error
+ * @param {number} [callbacks.maxLength=1048576] - Max accumulated text length (default: 1MB)
+ * @returns {Promise<string>} - The accumulated text
  */
 export async function processTextStream(stream, callbacks = {}) {
   const {
     onChunk = () => {},
     onComplete = () => {},
-    onError = () => {}
+    onError = () => {},
+    maxLength = 1024 * 1024 // 1MB default limit
   } = callbacks;
 
   const reader = stream.getReader();
@@ -35,8 +41,8 @@ export async function processTextStream(stream, callbacks = {}) {
       // Split by newlines to process each line
       const lines = buffer.split('\n');
       
-      // Keep the last incomplete line in the buffer
-      buffer = lines.pop() || '';
+      // Keep the last incomplete line in the buffer (unless buffer ends with \n)
+      buffer = buffer.endsWith('\n') ? '' : (lines.pop() || '');
 
       // Process each complete line
       for (const line of lines) {
@@ -57,6 +63,12 @@ export async function processTextStream(stream, callbacks = {}) {
 
             // Handle different chunk types
             if (data.type === 'text-delta' && data.delta) {
+              // Check accumulated text length to prevent memory issues
+              if (accumulatedText.length + data.delta.length > maxLength) {
+                const error = new Error(`Response exceeded maximum length of ${maxLength} characters`);
+                onError(error);
+                return accumulatedText;
+              }
               accumulatedText += data.delta;
               onChunk(data.delta, accumulatedText);
             } else if (data.type === 'error') {
@@ -64,11 +76,18 @@ export async function processTextStream(stream, callbacks = {}) {
               return accumulatedText;
             } else if (data.content) {
               // Direct content format
+              if (accumulatedText.length + data.content.length > maxLength) {
+                const error = new Error(`Response exceeded maximum length of ${maxLength} characters`);
+                onError(error);
+                return accumulatedText;
+              }
               accumulatedText += data.content;
               onChunk(data.content, accumulatedText);
             }
           } catch (parseError) {
-            console.warn('Failed to parse stream data:', parseError);
+            console.warn('Failed to parse stream data:', parseError, 'Line:', line);
+            // Optionally notify about parsing errors
+            onError(new Error(`Stream parsing error: ${parseError.message}`));
           }
         }
       }
@@ -82,6 +101,8 @@ export async function processTextStream(stream, callbacks = {}) {
 
 /**
  * Create a readable stream wrapper
+ * @param {Response} response - Fetch API response object
+ * @returns {Object} Stream wrapper with process and getReader methods
  */
 export function createStreamWrapper(response) {
   if (!response.body) {
@@ -103,6 +124,8 @@ export function createStreamWrapper(response) {
 
 /**
  * Parse SSE line
+ * @param {string} line - SSE formatted line
+ * @returns {Object|null} Parsed data object or null if invalid
  */
 export function parseSSELine(line) {
   if (!line.startsWith('data: ')) {
@@ -124,12 +147,15 @@ export function parseSSELine(line) {
 
 /**
  * Create SSE formatter for server-side
+ * @param {Object} data - Data object to format
+ * @returns {string} SSE formatted string
  */
 export function formatSSE(data) {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 /**
  * Create completion signal
+ * @returns {string} SSE formatted completion signal
  */
 export function createCompletionSignal() {
   return 'data: [DONE]\n\n';

@@ -3,7 +3,7 @@
  * React hook for managing chat conversations with streaming support
  */
 
-import { useReducer, useCallback, useRef } from 'react';
+import { useReducer, useCallback, useRef, useEffect } from 'react';
 import {
   chatReducer,
   createInitialChatState,
@@ -45,10 +45,16 @@ export function useDialogue(options = {}) {
 
   // Refs
   const abortControllerRef = useRef(null);
-  const messagesRef = useRef(state.messages);
 
-  // Update messages ref when state changes
-  messagesRef.current = state.messages;
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
 
   /**
    * Send a message
@@ -74,9 +80,10 @@ export function useDialogue(options = {}) {
       // Create abort controller
       abortControllerRef.current = createAbortController();
 
-      // Prepare request body
+      // Prepare request body - read from current state instead of ref
+      const currentMessages = [...state.messages, userMessage];
       const requestBody = {
-        messages: [...messagesRef.current, userMessage],
+        messages: currentMessages,
         ...customBody,
         ...options
       };
@@ -137,26 +144,25 @@ export function useDialogue(options = {}) {
    * Reload the last assistant message
    */
   const reload = useCallback(async () => {
-    const messages = messagesRef.current;
-    if (messages.length === 0) return;
+    if (state.messages.length === 0) return;
 
     // Find last user message
-    const lastUserMessageIndex = [...messages].reverse().findIndex(
+    const lastUserMessageIndex = [...state.messages].reverse().findIndex(
       msg => msg.role === 'user'
     );
     
     if (lastUserMessageIndex === -1) return;
 
-    const actualIndex = messages.length - 1 - lastUserMessageIndex;
-    const lastUserMessage = messages[actualIndex];
+    const actualIndex = state.messages.length - 1 - lastUserMessageIndex;
+    const lastUserMessage = state.messages[actualIndex];
 
     // Remove messages after last user message
-    const newMessages = messages.slice(0, actualIndex + 1);
+    const newMessages = state.messages.slice(0, actualIndex + 1);
     dispatch({ type: CHAT_ACTIONS.SET_MESSAGES, payload: newMessages });
 
     // Resend the message
     await sendMessage(lastUserMessage.content);
-  }, [sendMessage]);
+  }, [sendMessage, state.messages]);
 
   /**
    * Stop the current generation

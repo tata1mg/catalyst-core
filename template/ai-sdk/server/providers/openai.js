@@ -343,7 +343,8 @@ export function createStreamProcessor() {
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          // Keep incomplete line in buffer
+          buffer = buffer.endsWith('\n') ? '' : (lines.pop() || '');
 
           for (const line of lines) {
             if (!line.trim() || !line.startsWith('data: ')) continue;
@@ -409,19 +410,28 @@ export function createStreamProcessor() {
                 };
               }
             } catch (e) {
-              console.warn('Failed to parse OpenAI stream chunk:', e);
+              console.warn('Failed to parse OpenAI stream chunk:', e, 'Line:', line);
               yield {
                 type: 'error',
-                error: 'Failed to parse stream chunk'
+                error: `Failed to parse stream chunk: ${e.message}`
               };
+              // Continue processing other lines instead of breaking
             }
           }
         }
       } catch (error) {
+        console.error('OpenAI stream processing error:', error);
         yield {
           type: 'error',
-          error: error.message
+          error: error.message || 'Stream processing failed'
         };
+      } finally {
+        // Ensure reader is released
+        try {
+          reader.releaseLock();
+        } catch (e) {
+          // Reader might already be released
+        }
       }
     }
   };

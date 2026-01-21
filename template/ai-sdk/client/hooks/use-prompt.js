@@ -3,7 +3,7 @@
  * React hook for text completion with streaming support
  */
 
-import { useReducer, useCallback, useRef } from 'react';
+import { useReducer, useCallback, useRef, useEffect } from 'react';
 import {
   completionReducer,
   createInitialCompletionState,
@@ -46,6 +46,16 @@ export function usePrompt(options = {}) {
 
   // Refs
   const abortControllerRef = useRef(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
 
   /**
    * Complete the prompt
