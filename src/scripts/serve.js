@@ -13,7 +13,7 @@ function serve() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    const command = `cross-env APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js --expose-gc --trace-gc --trace-gc-verbose --inspect=0.0.0.0:9229 ${process.cwd()}/${BUILD_OUTPUT_PATH}/startServer.js`
+    const command = `cross-env APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ${process.cwd()}/${BUILD_OUTPUT_PATH}/startServer.js`
 
     //  const command = `cross-env APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js --inspect=0.0.0.0:9229 ${process.cwd()}/${BUILD_OUTPUT_PATH}/startServer.js`
 

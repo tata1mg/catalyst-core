@@ -54,7 +54,7 @@ process.on("unhandledRejection", (err) => console.log("unhandledRejection in Cat
 const port = process.env.NODE_SERVER_PORT ?? 3005
 const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
 
-let statsPath  = path.join(__dirname, "../../", `loadable-stats.json`)
+let statsPath = path.join(__dirname, "../../", `loadable-stats.json`)
 
 
 if (env === "production") {
@@ -69,16 +69,13 @@ const clearServerCache = () => {
     const projectPath = process.env.src_path // or your mweb path
     Object.keys(require.cache).forEach((key) => {
         // Clear all files from your project, except node_modules dependencies
-     if(key.startsWith(projectPath) || key.includes('catalyst-core')) {
-        delete require.cache[key]
-     }
+        if (key.startsWith(projectPath) || key.includes('catalyst-core')) {
+            delete require.cache[key]
+        }
     })
 }
 
 const startServer = () => {
-
-    clearServerCache()
-
     const server = require("./expressServer.js").default
 
     serverInstance = server.listen({ port, host }, (error) => {
@@ -112,63 +109,67 @@ const startServer = () => {
     })
 }
 
-if (fs.existsSync(statsPath)) {
-    // if loadable-stats.json exist this block will start the server in development environment. This happens in dev environment when loadable stats already exists and developer is  making changes to the files. lodable-stats.json will be updated after every change.
-    watcher.on("change", () => {
-       clearServerCache()
+if (process.env.NODE_ENV === "development") {
+    if (fs.existsSync(statsPath)) {
+        // if loadable-stats.json exist this block will start the server in development environment. This happens in dev environment when loadable stats already exists and developer is  making changes to the files. lodable-stats.json will be updated after every change.
+        watcher.on("change", () => {
+            clearServerCache()
+        })
+        // this block will start the server when your files have been compiled for production and lodable-stats.json exists.
+        watcher.on("add", () => {
+            if (serverInstance) {
+                serverInstance.close(() => startServer())
+            } else {
+                startServer()
+            }
+            // }
+        })
+    } else {
+        // this block will start the server in development environment for the first time when loadable-stats.json does not exists.
+        watcher.on("add", () => {
+            console.log("loadable-stats.json added first time")
+            // watcher.close()
+            if (serverInstance) {
+                serverInstance.close(() => startServer())
+            } else {
+                startServer()
+            }
+        })
+    }
+    const serverPath = path.join(process.env.src_path, 'server')
+
+    const serverWatcher = chokidar.watch(serverPath, {
+        persistent: true,
+        ignoreInitial: true,  // Don't trigger on initial scan
+        ignored: /node_modules/
     })
-    // this block will start the server when your files have been compiled for production and lodable-stats.json exists.
-    watcher.on("add", () => {
+
+    serverWatcher.on('change', (filePath) => {
+        console.log(`Server file changed: ${filePath}`)
         if (serverInstance) {
             serverInstance.close(() => startServer())
         } else {
             startServer()
         }
-        // }
     })
-} else {
-    // this block will start the server in development environment for the first time when loadable-stats.json does not exists.
-    watcher.on("add", () => {
-        console.log("loadable-stats.json added first time")
-        // watcher.close()
+
+    serverWatcher.on('add', (filePath) => {
+        console.log(`Server file added: ${filePath}`)
         if (serverInstance) {
             serverInstance.close(() => startServer())
         } else {
             startServer()
         }
     })
+
+    serverWatcher.on('unlink', (filePath) => {
+        console.log(`Server file removed: ${filePath}`)
+        if (serverInstance) {
+            serverInstance.close(() => startServer())
+        } else {
+            startServer()
+        }
+    })
+}else{
+    startServer()
 }
-const serverPath = path.join(process.env.src_path, 'server')
-
-const serverWatcher = chokidar.watch(serverPath, { 
-    persistent: true,
-    ignoreInitial: true,  // Don't trigger on initial scan
-    ignored: /node_modules/
-})
-
-serverWatcher.on('change', (filePath) => {
-    console.log(`Server file changed: ${filePath}`)
-     if (serverInstance) {
-            serverInstance.close(() => startServer())
-        } else {
-            startServer()
-    }
-})
-
-serverWatcher.on('add', (filePath) => {
-    console.log(`Server file added: ${filePath}`)
-    if (serverInstance) {
-            serverInstance.close(() => startServer())
-        } else {
-            startServer()
-    }
-})
-
-serverWatcher.on('unlink', (filePath) => {
-    console.log(`Server file removed: ${filePath}`)
-     if (serverInstance) {
-            serverInstance.close(() => startServer())
-        } else {
-            startServer()
-    }
-})
