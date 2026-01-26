@@ -53,6 +53,40 @@ if (fs.existsSync(storePath)) {
 const isProduction = process.env.NODE_ENV === "production"
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
 
+// Cache webStats path - computed once at module load
+const webStatsPath = isProduction
+    ? path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
+    : path.join(__dirname, "../../..", `loadable-stats.json`)
+
+// Cache ChunkExtractor in production - stats file doesn't change after build
+// This avoids reading and parsing the stats file on every request
+let cachedWebExtractor = null
+const getWebExtractor = () => {
+    if (isProduction) {
+        if (!cachedWebExtractor) {
+            cachedWebExtractor = new ChunkExtractor({
+                statsFile: webStatsPath,
+                entrypoints: ["app"],
+            })
+        }
+        return cachedWebExtractor
+    }
+    // In development, create new extractor each time (stats file may change)
+    return new ChunkExtractor({
+        statsFile: webStatsPath,
+        entrypoints: ["app"],
+    })
+}
+
+// Cache routes array - getRoutes() returns same reference, but validate once
+let cachedRoutes = null
+const getCachedRoutes = () => {
+    if (!cachedRoutes) {
+        cachedRoutes = validateGetRoutes(getRoutes) ? getRoutes() : []
+    }
+    return cachedRoutes
+}
+
 const parseSafeAreaFromHeaders = (req) => {
     const readEdge = (header) => {
         const raw = req.get(header) ?? req.headers[header.toLowerCase()]
@@ -179,12 +213,26 @@ const renderMarkUp = async (
         publicAssetPath = `http://${WEBPACK_DEV_SERVER_HOSTNAME}:${WEBPACK_DEV_SERVER_PORT}/assets/`
     }
 
+    // Extract res.locals once to avoid passing full res object to document
+    // This reduces memory footprint as document only needs these specific values
+    const resLocals = {
+        pageCss: res.locals.pageCss,
+        preloadJSLinks: res.locals.preloadJSLinks,
+        isWebView: res.locals.isWebView,
+        isLegacyWebView: res.locals.isLegacyWebView,
+        cspNonce: res.locals.cspNonce,
+        affiliateConfig: res.locals.affiliateConfig,
+        requestCookies: res.locals.requestCookies,
+        customHeaders: res.locals.customHeaders,
+    }
+
     const finalProps = {
         req,
         res,
+        resLocals, // Extracted res.locals for document.js optimization
         lang: "en",
-        pageCss: res.locals.pageCss,
-        preloadJSLinks: res.locals.preloadJSLinks,
+        pageCss: resLocals.pageCss,
+        preloadJSLinks: resLocals.preloadJSLinks,
         metaTags,
         isBot,
         publicAssetPath,
@@ -280,29 +328,18 @@ export default async function (req, res) {
         let context = {}
         let fetcherData = {}
 
-        let webStats = path.join(__dirname, "../../..", `loadable-stats.json`)
-
-        if (isProduction) {
-            webStats = path.join(
-                process.env.src_path,
-                `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`
-            )
-        }
-
-        const webExtractor = new ChunkExtractor({
-            statsFile: webStats,
-            entrypoints: ["app"],
-        })
+        // Use cached webExtractor (in production) to avoid reading/parsing stats file per request
+        const webExtractor = getWebExtractor()
 
         // creates store
         const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
 
-        // user defined routes
-        const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
+        // Use cached routes to avoid repeated validation
+        const routes = getCachedRoutes()
 
         // Matches req url with routes
         const matches = getMatchRoutes(routes, req, res, store, context, fetcherData, undefined, webExtractor)
-        const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
+        const allMatches = NestedMatchRoutes(routes, req.baseUrl)
         let allTags = []
 
         // function defined by user which needs to run after route is matched
