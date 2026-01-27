@@ -54,40 +54,6 @@ if (fs.existsSync(storePath)) {
 
 const isProduction = process.env.NODE_ENV === "production"
 
-// Cache webStats path - computed once at module load
-const webStatsPath = isProduction
-    ? path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
-    : path.join(__dirname, "../../..", `loadable-stats.json`)
-
-// Cache ChunkExtractor in production - stats file doesn't change after build
-// This avoids reading and parsing the stats file on every request
-let cachedWebExtractor = null
-const getWebExtractor = () => {
-    if (isProduction) {
-        if (!cachedWebExtractor) {
-            cachedWebExtractor = new ChunkExtractor({
-                statsFile: webStatsPath,
-                entrypoints: ["app"],
-            })
-        }
-        return cachedWebExtractor
-    }
-    // In development, create new extractor each time (stats file may change)
-    return new ChunkExtractor({
-        statsFile: webStatsPath,
-        entrypoints: ["app"],
-    })
-}
-
-// Cache routes array - getRoutes() returns same reference, but validate once
-let cachedRoutes = null
-const getCachedRoutes = () => {
-    if (!cachedRoutes) {
-        cachedRoutes = validateGetRoutes(getRoutes) ? getRoutes() : []
-    }
-    return cachedRoutes
-}
-
 // matches request route with routes defined in the application.
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "", webExtractor) => {
     return routes.reduce((matches, route) => {
@@ -265,18 +231,29 @@ export default async function handler(req, res) {
         let context = {}
         let fetcherData = {}
 
-        // Use cached webExtractor (in production) to avoid reading/parsing stats file per request
-        const webExtractor = getWebExtractor()
+        let webStats = path.join(__dirname, "../../..", `loadable-stats.json`)
+
+        if (isProduction) {
+            webStats = path.join(
+                process.env.src_path,
+                `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`
+            )
+        }
+
+        const webExtractor = new ChunkExtractor({
+            statsFile: webStats,
+            entrypoints: ["app"],
+        })
 
         // creates store
         const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
 
-        // Use cached routes to avoid repeated validation
-        const routes = getCachedRoutes()
+        // user defined routes
+        const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
 
         // Matches req url with routes
         const matches = getMatchRoutes(routes, req, res, store, context, fetcherData, undefined, webExtractor)
-        const allMatches = NestedMatchRoutes(routes, req.baseUrl)
+        const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
 
         // function defined by user which needs to run after route is matched

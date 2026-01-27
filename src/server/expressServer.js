@@ -14,10 +14,10 @@ const env = process.env.NODE_ENV || "development"
 const app = express()
 
 // This middleware is being used to extract the body of the request
-app.use(bodyParser.json({ limit: "100kb" }))
+app.use(bodyParser.json())
 
 // This middleware has been added to accommodate “byetstream array”
-app.use(bodyParser.raw({ type: "application/*", limit: "100kb" }))
+app.use(bodyParser.raw({ type: "application/*" }))
 
 // This middleware is being used to parse cookies!
 app.use(cookieParser())
