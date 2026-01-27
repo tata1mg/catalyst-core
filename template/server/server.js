@@ -1,7 +1,7 @@
-const express = require("express")
-const path = require("path")
-const { handlePromptRequest } = require("./api/prompt")
-const { handleDialogueRequest } = require("./api/dialogue")
+import express from "express"
+import path from "path"
+import { handlePromptRequest } from "./api/prompt.js"
+import { handleDialogueRequest } from "./api/dialogue.js"
 
 export function addMiddlewares(app) {
     // Middleware for parsing JSON
