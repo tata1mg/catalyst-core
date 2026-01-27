@@ -266,8 +266,18 @@ export async function textStream(options = {}) {
     streamOptions
   } = options;
 
+  console.log('🤖 OpenAI textStream called:', {
+    hasApiKey: !!apiKey,
+    model,
+    hasPrompt: !!prompt,
+    hasMessages: !!messages,
+    messagesCount: messages?.length || 0
+  });
+
   // Validate API key
   validateApiKey(apiKey);
+  
+  console.log('✅ API key validated');
 
   const url = `${OPENAI_CONFIG.baseURL}/chat/completions`;
   
@@ -301,6 +311,9 @@ export async function textStream(options = {}) {
   }
 
   try {
+    console.log('🌐 Calling OpenAI API:', url);
+    console.log('📦 Request body:', JSON.stringify(requestBody, null, 2));
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -310,14 +323,19 @@ export async function textStream(options = {}) {
       body: JSON.stringify(requestBody)
     });
 
+    console.log('📡 OpenAI Response status:', response.status, response.statusText);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('❌ OpenAI API error:', errorData);
       const error = new Error(errorData.error?.message || `OpenAI API error: ${response.status}`);
       throw handleOpenAIError(error, response);
     }
 
+    console.log('✅ OpenAI stream body received, returning...');
     return response.body;
   } catch (error) {
+    console.error('💥 OpenAI textStream error:', error);
     if (error.status) {
       throw error; // Already handled
     }

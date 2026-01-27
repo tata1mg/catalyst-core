@@ -44,12 +44,29 @@ export async function makeRequest(url, options = {}) {
   
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      console.log('🚀 [HTTP Client] Making request:', {
+        url,
+        method: requestOptions.method,
+        hasBody: !!requestOptions.body,
+        bodyPreview: requestOptions.body ? requestOptions.body.substring(0, 200) : 'none',
+        headers: requestOptions.headers
+      });
+
       const response = await fetch(url, requestOptions);
+
+      console.log('📨 [HTTP Client] Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           error: `HTTP ${response.status}: ${response.statusText}`
         }));
+        
+        console.error('❌ [HTTP Client] Request failed:', errorData);
         
         const error = new Error(errorData.error || `Request failed with status ${response.status}`);
         error.status = response.status;
@@ -62,8 +79,16 @@ export async function makeRequest(url, options = {}) {
         throw error;
       }
 
+      console.log('✅ [HTTP Client] Request successful, returning response');
       return response;
     } catch (error) {
+      console.error('💥 [HTTP Client] Request error:', {
+        name: error.name,
+        message: error.message,
+        status: error.status,
+        attempt: attempt + 1,
+        maxRetries: retries + 1
+      });
       lastError = error;
       
       if (error.name === 'AbortError') {

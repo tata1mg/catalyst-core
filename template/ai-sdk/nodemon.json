@@ -1,0 +1,29 @@
+{
+  "watch": [
+    "server/**/*",
+    "client/**/*",
+    "core/**/*",
+    "examples/**/*",
+    ".env"
+  ],
+  "ext": "js,json,env",
+  "ignore": [
+    "node_modules/**/*",
+    "dist/**/*",
+    "build/**/*",
+    "*.test.js",
+    "*.spec.js"
+  ],
+  "exec": "node examples/server-example.js",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "colours": true,
+  "verbose": false,
+  "delay": 1000,
+  "events": {
+    "restart": "echo '🔄 AI SDK Server restarting...'",
+    "crash": "echo '💥 Server crashed - fix the error and save to restart...'",
+    "start": "echo '✅ AI SDK Server ready!'"
+  }
+}

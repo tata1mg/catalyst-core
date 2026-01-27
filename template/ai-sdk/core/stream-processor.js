@@ -21,19 +21,28 @@ export async function processTextStream(stream, callbacks = {}) {
     maxLength = 1024 * 1024 // 1MB default limit
   } = callbacks;
 
+  console.log('🌊 [Stream Processor] Starting stream processing');
+
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let accumulatedText = '';
+  let chunkCount = 0;
 
   try {
     while (true) {
       const { done, value } = await reader.read();
 
       if (done) {
+        console.log('✅ [Stream Processor] Stream complete:', {
+          totalChunks: chunkCount,
+          textLength: accumulatedText.length
+        });
         onComplete(accumulatedText);
         break;
       }
+
+      chunkCount++;
 
       // Decode the chunk
       buffer += decoder.decode(value, { stream: true });
@@ -71,7 +80,9 @@ export async function processTextStream(stream, callbacks = {}) {
               }
               accumulatedText += data.delta;
               onChunk(data.delta, accumulatedText);
+              console.log('📝 [Stream Processor] Text delta received:', data.delta.substring(0, 50) + '...');
             } else if (data.type === 'error') {
+              console.error('❌ [Stream Processor] Error in stream:', data.error);
               onError(new Error(data.error || 'Stream error'));
               return accumulatedText;
             } else if (data.content) {

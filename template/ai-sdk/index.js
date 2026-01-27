@@ -1,94 +1,41 @@
 /**
- * AI SDK v2
- * Main export file
+ * @ai-sdk/core
+ * Main export file for AI SDK
  * 
- * Client => Server => LLM flow with streaming support
+ * A lightweight AI SDK for building LLM-powered applications with React
+ * Supports OpenAI and Anthropic with streaming capabilities
  */
 
 // ==========================================
 // CLIENT-SIDE EXPORTS
 // ==========================================
-
-// Core functions
-export { textGenerate, textGenerateWithMessages } from './client/text-generate.js';
-export { textStream, textStreamWithMessages } from './client/text-stream.js';
-
-// React Hooks
-export { useDialogue } from './client/hooks/use-dialogue.js';
-export { usePrompt } from './client/hooks/use-prompt.js';
+export * from "./client/index.js"
 
 // ==========================================
 // SERVER-SIDE EXPORTS
 // ==========================================
-
-// API Handlers
-export {
-  createAPIHandler,
-  createChatHandler,
-  createCompletionHandler,
-  bodyParserMiddleware
-} from './server/api-handler.js';
-
-// Providers
-export * as openaiProvider from './server/providers/openai.js';
-export * as anthropicProvider from './server/providers/anthropic.js';
+export * from "./server/index.js"
 
 // ==========================================
 // CORE UTILITIES
 // ==========================================
-
-// Stream processing
-export {
-  processTextStream,
-  createStreamWrapper,
-  parseSSELine,
-  formatSSE,
-  createCompletionSignal
-} from './core/stream-processor.js';
-
-// HTTP client
-export {
-  makeRequest,
-  makeJSONRequest,
-  makeStreamRequest,
-  createAbortController,
-  handleAPIError,
-  validatePayload
-} from './core/http-client.js';
-
-// State management
-export {
-  createInitialChatState,
-  createInitialCompletionState,
-  CHAT_ACTIONS,
-  COMPLETION_ACTIONS,
-  chatReducer,
-  completionReducer,
-  generateId,
-  createMessage,
-  validateMessage
-} from './core/state-manager.js';
-
-// ==========================================
-// EXAMPLES
-// ==========================================
-
-export { ChatExample } from './examples/ChatExample.js';
-export { CompletionExample } from './examples/CompletionExample.js';
+export * from "./core/index.js"
 
 // ==========================================
 // DEFAULT EXPORT (for convenience)
 // ==========================================
+import { textGenerate, textStream, useDialogue, usePrompt } from "./client/index.js"
+import { createAPIHandler, createChatHandler, createCompletionHandler } from "./server/index.js"
 
 export default {
-  // Client
-  textGenerate,
-  textStream,
-  useDialogue,
-  usePrompt,
-  
-  // Server
-  createAPIHandler,
-  createChatHandler,
-  createCompletionHandler
-};
+    // Client
+    textGenerate,
+    textStream,
+    useDialogue,
+    usePrompt,
+    
+    // Server
+    createAPIHandler,
+    createChatHandler,
+    createCompletionHandler,
+}
