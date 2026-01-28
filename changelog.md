@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.0-canary.2] - 2026-01-28
+
+- Adds mono-repository support for catalyst
+- Notifications sound channel bug fix
+
 ## [0.1.0-canary.1] - 2026-01-12
 
 - Universal Merge
