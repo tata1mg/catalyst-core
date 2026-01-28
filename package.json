@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.1.0-canary.1",
+    "version": "0.1.0-canary.2",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -26,6 +26,7 @@
     },
     "exports": {
         ".": "./dist/index.js",
+        "./package.json": "./package.json",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",

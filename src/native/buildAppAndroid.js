@@ -16,7 +16,8 @@ function _interopRequireDefault(e) {
 
 const configPath = `${process.env.PWD}/config/config.json`
 const publicPath = `${process.env.PWD}/public`
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
+const catalystCorePath = _path.default.dirname(require.resolve("catalyst-core/package.json"))
+const pwd = _path.default.join(catalystCorePath, "dist/native")
 const ANDROID_PACKAGE = "io.yourname.androidproject"
 
 // Default values for AAB building
