@@ -1,6 +1,10 @@
 import path from "path"
 import fs from "fs"
 
+// Use decimal megabytes (1 MB = 1,000,000 bytes) for all memory logs
+const BYTES_PER_MB = 1_000_000
+const toMB = (bytes) => (bytes / BYTES_PER_MB).toFixed(2)
+
 export function cachePreloadJSLinks(key, data) {
     if (!process.preloadJSLinkCache) {
         process.preloadJSLinkCache = {}
@@ -18,6 +22,42 @@ export function cachePreloadJSLinks(key, data) {
 }
 
 /**
+ * stores css and js in cache
+ * @param {object} res - response object
+ * @param {string} route - route path
+ */
+
+function extractCss(cssArray) {
+    if (!cssArray || cssArray.length === 0) {
+        return ""
+    }
+    // Use Array.join() for better performance than string concatenation
+    const cssContents = cssArray.map((css) => process.cssCache[css]).filter(Boolean)
+    if (cssContents.length === 0) {
+        return ""
+    }
+    return cssContents.join("")
+}
+
+/**
+ * returns cached css
+ * @param {string} key - router path
+ * @return {Array} - array of CSS asset names
+ */
+function fetchRouteCSSAssets(key) {
+    if (process.routeCssCache && process.routeCssCache[key]) {
+        // Convert Set to Array for compatibility - Set doesn't have .map() method
+        return Array.from(process.routeCssCache[key]).reverse()
+    }
+    return []
+}
+
+function fetchPreloadJSLinkCache(key) {
+    return process.preloadJSLinkCache && process.preloadJSLinkCache[key]
+        ? process.preloadJSLinkCache[key]
+        : null
+}
+/**
  * Stores css chunks styles into cache in string format
  * @param {string} key - router path
  * @param {object} data - css elements array extracted through loadable chunk extracter
@@ -26,8 +66,15 @@ export function cacheCSS(key, data) {
     if (!process.cssCache) {
         process.cssCache = {}
     }
+
+    if (!process.routeCssCache) {
+        process.routeCssCache = {}
+    }
+    if (!process.routeCssCache[key]) {
+        process.routeCssCache[key] = new Set()
+    }
     let pageCss = ""
-    let listOfCachedAssets = {}
+
     if (Array.isArray(data)) {
         try {
             if (process.env.NODE_ENV === "production") {
@@ -38,18 +85,44 @@ export function cacheCSS(key, data) {
 
                     if (ext === ".css") {
                         // if css file has not already been cached, add the content of this CSS file in pageCSS
-                        if (
-                            !listOfCachedAssets[assetName] &&
-                            !process.cssCache?.[key]?.listOfCachedAssets?.[assetName]
-                        ) {
-                            pageCss += fs.readFileSync(
+                        if (!process.cssCache[assetName]) {
+                            const css = fs.readFileSync(
                                 path.resolve(
                                     process.env.src_path,
                                     `${process.env.BUILD_OUTPUT_PATH}/public`,
                                     assetName
                                 )
                             )
-                            listOfCachedAssets[assetName] = true
+                            process.cssCache[assetName] = css
+
+                            const cssCacheSize = Object.keys(process.cssCache).length
+                            const cssCacheTotalSizeBytes = Object.values(process.cssCache).reduce(
+                                (total, cssContent) => total + Buffer.byteLength(cssContent),
+                                0
+                            )
+
+                            const memoryUsage = process.memoryUsage()
+                            const availableMemoryBytes =
+                                (memoryUsage?.heapTotal ?? 0) - (memoryUsage?.heapUsed ?? 0)
+
+                            logger.info(
+                                `Last Cached CSS - Asset: ${assetName}, ` +
+                                    `CSS Cache Entries: ${cssCacheSize}, ` +
+                                    `CSS Cache Total Size: ${toMB(cssCacheTotalSizeBytes)} MB, ` +
+                                    `RSS: ${toMB(memoryUsage?.rss ?? 0)} MB, ` +
+                                    `Heap Total: ${toMB(memoryUsage?.heapTotal ?? 0)} MB, ` +
+                                    `Heap Used: ${toMB(memoryUsage?.heapUsed ?? 0)} MB, ` +
+                                    `External: ${toMB(memoryUsage?.external ?? 0)} MB, ` +
+                                    `Array Buffers: ${toMB(memoryUsage?.arrayBuffers ?? 0)} MB, ` +
+                                    `Available Memory: ${toMB(availableMemoryBytes)} MB, ` +
+                                    `Timestamp: ${new Date().toISOString()}`
+                            )
+                        }
+                        // Use Set for O(1) lookup instead of Array.includes() O(N)
+                        // if css file has not already been cached for this route, add the content of this CSS file in pageCSS
+                        if (!process.routeCssCache[key].has(assetName)) {
+                            process.routeCssCache[key].add(assetName)
+                            pageCss = process.cssCache[assetName] + pageCss
                         }
                     }
                 })
@@ -58,62 +131,8 @@ export function cacheCSS(key, data) {
             logger.error("Error in caching CSS:" + error)
         }
     }
-    // if css cache exists for a route and there are some uncached css, add that css to the cache
-    // this will run on subsequent hits and will add css of uncached widgets to the cache
-    if (process.cssCache[key]) {
-        if (pageCss !== "") {
-            let existingListOfCachedAssets = process.cssCache[key].listOfCachedAssets
-            const newPageCSS = process.cssCache[key].pageCss + pageCss
-            let newListOfCachedAssets = { ...existingListOfCachedAssets, ...listOfCachedAssets }
-            process.cssCache[key] = { pageCss: newPageCSS, listOfCachedAssets: newListOfCachedAssets }
-        }
-    } else {
-        // create css cache for a page. This will run on the first hit.
-        process.cssCache[key] = { pageCss, listOfCachedAssets }
-    }
 
-    return pageCss
-}
-
-/**
- * returns cached css
- * @param {string} key - router path
- * @return {string} - cached css
- */
-function fetchCachedCSS(key) {
-    return process.cssCache && process.cssCache[key] ? process.cssCache[key].pageCss : ""
-}
-
-function fetchPreloadJSLinkCache(key) {
-    return process.preloadJSLinkCache && process.preloadJSLinkCache[key]
-        ? process.preloadJSLinkCache[key]
-        : null
-}
-
-/**
- * stores css and js in cache
- * @param {object} res - response object
- * @param {string} route - route path
- */
-export default function (res, route) {
-    try {
-        const requestPath = route.path
-        const cachedCss = fetchCachedCSS(requestPath)
-        const cachedPreloadJSLinks = fetchPreloadJSLinkCache(requestPath)
-
-        if (cachedCss || cachedPreloadJSLinks) {
-            res.locals.pageCss = cachedCss
-            res.locals.preloadJSLinks = cachedPreloadJSLinks
-            return
-        }
-
-        logger.info({
-            message: "Cache Missed",
-            uri: requestPath,
-        })
-    } catch (error) {
-        logger.error("Error in extracting assets:" + error)
-    }
+    return pageCss === "" ? "" : pageCss
 }
 
 export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
@@ -138,7 +157,7 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
             firstFoldCss = webExtractor.getStyleTags()
         }
         // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
-        firstFoldJS = webExtractor.getScriptTags()
+        firstFoldJS = !isBot ? webExtractor.getScriptTags() : ""
     }
 
     // This block will run for the first time and cache preloaded JS Links for second render
@@ -151,4 +170,26 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
     }
 
     return { firstFoldCss, firstFoldJS }
+}
+
+export default function extract(res, route) {
+    try {
+        const requestPath = route.path
+        const cssAssets = fetchRouteCSSAssets(requestPath)
+        const cachedCss = extractCss(cssAssets)
+        const cachedPreloadJSLinks = fetchPreloadJSLinkCache(requestPath)
+
+        if (cachedCss || cachedPreloadJSLinks) {
+            res.locals.pageCss = cachedCss
+            res.locals.preloadJSLinks = cachedPreloadJSLinks
+            return
+        }
+
+        logger.info({
+            message: "Cache Missed",
+            uri: requestPath,
+        })
+    } catch (error) {
+        logger.error("Error in extracting assets:" + error)
+    }
 }

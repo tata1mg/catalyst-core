@@ -36,10 +36,7 @@ export default {
             plugins: ["react-refresh/babel"],
         },
         production: {
-            plugins: [
-                require("./babel-plugins/remove-client.plugin").default,
-                "transform-react-remove-prop-types",
-            ],
+            plugins: [require("./babel-plugins/remove-client.plugin").default],
         },
     },
     ignore: ["__TEST__"],

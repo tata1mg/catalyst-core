@@ -1,5 +1,4 @@
 import React from "react"
-import PropTypes from "prop-types"
 
 /**
  * Body component which will be used in page component
@@ -9,8 +8,7 @@ import PropTypes from "prop-types"
  * @param {object} fetcherData - contains data from executing serverFetcher function
  * @param {object} children - contains any child elements defined within the component
  */
-export function Body(props) {
-    const { jsx = "", initialState = {}, fetcherData = {}, children } = props
+export function Body({ jsx = "", initialState = {}, fetcherData = {}, children }) {
     return (
         <body>
             {jsx}
@@ -27,11 +25,4 @@ export function Body(props) {
             {children}
         </body>
     )
-}
-
-Body.propTypes = {
-    initialState: PropTypes.object,
-    jsx: PropTypes.any,
-    fetcherData: PropTypes.object,
-    children: PropTypes.node,
 }
