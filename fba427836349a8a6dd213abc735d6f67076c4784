@@ -1,0 +1,59 @@
+template/ai-sdk/examples/server-example.js
+  1543f67efc4c2319 89,111
+template/ai-sdk/server/providers/anthropic.js
+  1543f67efc4c2319 52,139
+template/ai-sdk/client/hooks/use-prompt.js
+  1543f67efc4c2319 2,16,29
+template/ai-sdk/README.md
+  1543f67efc4c2319 7-12,18-36,44,46,58,60,69,72,75,97,100,103
+template/ai-sdk/examples/ChatExample.js
+  1543f67efc4c2319 3,7,20
+template/ai-sdk/server/providers/openai.js
+  1543f67efc4c2319 139,248
+  303718b5a57c36b4 11,13-42,48,50-61,63-65,67-82,84-86,88-93,95-96,98-125,127-133,145,151-158,161-162,166,169,172-173,181-192,206-207,211-213,217-223,233-234,238-240,254,260-266,269-270,274,277,288-301,315-316,321-323,330,352-355,357,361,363-366,371-408,413-416,427-457,459-460,469-473
+template/ai-sdk/examples/CompletionExample.js
+  1543f67efc4c2319 3,7,20
+template/ai-sdk/client/text-stream.js
+  1543f67efc4c2319 25,141
+template/ai-sdk/client/hooks/use-dialogue.js
+  1543f67efc4c2319 2,17,29
+template/ai-sdk/client/text-generate.js
+  1543f67efc4c2319 22,79
+template/ai-sdk/server/api-handler.js
+  1543f67efc4c2319 54,74
+template/ai-sdk/index.js
+  1543f67efc4c2319 13-14,17-18,85-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.34",
+  "base_commit_sha": "fba427836349a8a6dd213abc735d6f67076c4784",
+  "prompts": {
+    "1543f67efc4c2319": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "365872",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "unknown",
+      "messages": [],
+      "total_additions": 67,
+      "total_deletions": 67,
+      "accepted_lines": 67,
+      "overriden_lines": 0
+    },
+    "303718b5a57c36b4": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "354203",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "unknown",
+      "messages": [],
+      "total_additions": 1959,
+      "total_deletions": 64,
+      "accepted_lines": 1951,
+      "overriden_lines": 0
+    }
+  }
+}
