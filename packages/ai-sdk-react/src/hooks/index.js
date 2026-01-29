@@ -1,6 +1,6 @@
 /**
- * AI SDK React Hooks
- * Export all React hooks for client-side usage
+ * React Hooks Index
+ * Exports all React hooks
  */
 
 export { useDialogue } from "./use-dialogue.js"

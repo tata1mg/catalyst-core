@@ -1,6 +1,8 @@
 /**
  * AI SDK Core Exports
  * Core utilities and processors
+ * 
+ * Note: State management has been moved to @catalyst/ai-sdk-react
  */
 
 // Stream processing
@@ -21,19 +23,6 @@ export {
     handleAPIError,
     validatePayload,
 } from "./http-client.js"
-
-// State management
-export {
-    createInitialChatState,
-    createInitialCompletionState,
-    CHAT_ACTIONS,
-    COMPLETION_ACTIONS,
-    chatReducer,
-    completionReducer,
-    generateId,
-    createMessage,
-    validateMessage,
-} from "./state-manager.js"
 
 // Rate limiter (default export, re-exported as named)
 export { default as RateLimiter } from "./rate-limiter.js"

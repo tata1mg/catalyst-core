@@ -3,14 +3,14 @@
  * React hook for text completion with streaming support
  */
 
-import { useReducer, useCallback, useRef, useEffect } from "react"
+import React, { useReducer, useCallback, useRef, useEffect } from "react"
 import {
     completionReducer,
     createInitialCompletionState,
     COMPLETION_ACTIONS,
-} from "../../core/state-manager.js"
-import { makeRequest, createAbortController } from "../../core/http-client.js"
-import { processTextStream } from "../../core/stream-processor.js"
+} from "../state-manager.js"
+import { makeRequest, createAbortController } from "@catalyst/ai-sdk/core"
+import { processTextStream } from "@catalyst/ai-sdk/core"
 
 /**
  * usePrompt hook
@@ -18,6 +18,7 @@ import { processTextStream } from "../../core/stream-processor.js"
  * @param {Object} options - Configuration options
  * @param {string} options.api - API endpoint (default: '/api/dialogue')
  * @param {string} options.initialCompletion - Initial completion text
+ * @param {boolean} options.stream - Enable streaming (default: true)
  * @param {Function} options.onFinish - Called when completion finishes
  * @param {Function} options.onError - Called on error
  * @param {Function} options.onResponse - Called when response starts
@@ -30,6 +31,7 @@ export function usePrompt(options = {}) {
     const {
         api = "/api/prompt",
         initialCompletion = "",
+        stream = true,
         onFinish,
         onError,
         onResponse,
@@ -78,11 +80,12 @@ export function usePrompt(options = {}) {
                 // Prepare request body
                 const requestBody = {
                     prompt,
+                    stream,
                     ...customBody,
                     ...options,
                 }
 
-                // Make streaming request
+                // Make request
                 const response = await makeRequest(api, {
                     method: "POST",
                     headers: customHeaders,
@@ -95,45 +98,65 @@ export function usePrompt(options = {}) {
                     onResponse(response)
                 }
 
-                // Process stream
-                let accumulatedText = ""
+                let completionText = ""
 
-                await processTextStream(response.body, {
-                    onChunk: (chunk) => {
-                        accumulatedText += chunk
-                        dispatch({
-                            type: COMPLETION_ACTIONS.SET_COMPLETION,
-                            payload: accumulatedText,
-                        })
-                    },
-                    onComplete: (fullText) => {
-                        dispatch({ type: COMPLETION_ACTIONS.SET_LOADING, payload: false })
-                        if (onFinish) {
-                            onFinish(prompt, fullText)
-                        }
-                    },
-                    onError: (error) => {
-                        dispatch({ type: COMPLETION_ACTIONS.SET_ERROR, payload: error })
-                        if (onError) {
-                            onError(error)
-                        }
-                    },
-                })
+                if (stream) {
+                    // Process streaming response
+                    await processTextStream(response.body, {
+                        onChunk: (chunk) => {
+                            completionText += chunk
+                            dispatch({
+                                type: COMPLETION_ACTIONS.SET_COMPLETION,
+                                payload: completionText,
+                            })
+                        },
+                        onComplete: (fullText) => {
+                            dispatch({ type: COMPLETION_ACTIONS.SET_LOADING, payload: false })
+                            if (onFinish) {
+                                onFinish(prompt, fullText)
+                            }
+                        },
+                        onError: (error) => {
+                            dispatch({ type: COMPLETION_ACTIONS.SET_ERROR, payload: error })
+                            if (onError) {
+                                onError(error)
+                            }
+                        },
+                    })
+                } else {
+                    // Process non-streaming response
+                    const data = await response.json()
+                    completionText = data.text || data.content || ""
 
-                return accumulatedText
+                    dispatch({
+                        type: COMPLETION_ACTIONS.SET_COMPLETION,
+                        payload: completionText,
+                    })
+                    dispatch({ type: COMPLETION_ACTIONS.SET_LOADING, payload: false })
+
+                    if (onFinish) {
+                        onFinish(prompt, completionText)
+                    }
+                }
+
+                return completionText
             } catch (error) {
                 if (error.name !== "AbortError") {
                     dispatch({ type: COMPLETION_ACTIONS.SET_ERROR, payload: error })
+                    dispatch({ type: COMPLETION_ACTIONS.SET_LOADING, payload: false })
                     if (onError) {
                         onError(error)
                     }
+                } else {
+                    // AbortError - loading already set to false by stop()
+                    dispatch({ type: COMPLETION_ACTIONS.SET_LOADING, payload: false })
                 }
                 throw error
             } finally {
                 abortControllerRef.current = null
             }
         },
-        [api, customHeaders, customBody, onFinish, onError, onResponse]
+        [api, stream, customHeaders, customBody, onFinish, onError, onResponse]
     )
 
     /**

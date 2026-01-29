@@ -117,9 +117,17 @@ async function handleStreaming(req, res, provider) {
 
         // Set SSE headers
         res.setHeader("Content-Type", "text/event-stream")
-        res.setHeader("Cache-Control", "no-cache")
+        res.setHeader("Cache-Control", "no-cache, no-transform")
         res.setHeader("Connection", "keep-alive")
         res.setHeader("Access-Control-Allow-Origin", "*")
+        res.setHeader("X-Accel-Buffering", "no") // Disable nginx buffering
+        
+        // Disable compression for this response
+        res.removeHeader("Content-Encoding")
+        
+        // Send initial data to establish connection
+        res.write(":ok\\n\\n")
+        if (res.flush) res.flush()
 
         console.log("📡 Calling provider.textStream...")
         // Get stream from provider
@@ -134,12 +142,13 @@ async function handleStreaming(req, res, provider) {
         // Process and send chunks
         for await (const chunk of processor.processStream(reader)) {
             if (chunk.type === "text-delta") {
-                res.write(
-                    formatSSE({
-                        type: "text-delta",
-                        delta: chunk.delta,
-                    })
-                )
+                const sseData = formatSSE({
+                    type: "text-delta",
+                    delta: chunk.delta,
+                })
+                res.write(sseData)
+                // Flush the response immediately to ensure streaming
+                if (res.flush) res.flush()
             } else if (chunk.type === "error") {
                 res.write(
                     formatSSE({
@@ -147,9 +156,11 @@ async function handleStreaming(req, res, provider) {
                         error: chunk.error,
                     })
                 )
+                if (res.flush) res.flush()
                 break
             } else if (chunk.type === "done") {
-                res.write("data: [DONE]\n\n")
+                res.write("data: [DONE]\\n\\n")
+                if (res.flush) res.flush()
                 break
             }
         }
@@ -201,7 +212,6 @@ async function handleStreaming(req, res, provider) {
 export function createAPIHandler(config = {}) {
     return async (req, res) => {
         // Only accept POST requests
-        console.log(">>>>> requesycreateAPIHandler")
         if (req.method !== "POST") {
             return res.status(405).json({ error: "Method not allowed" })
         }

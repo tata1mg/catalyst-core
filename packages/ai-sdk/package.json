@@ -1,0 +1,67 @@
+{
+    "name": "@catalyst/ai-sdk",
+    "version": "1.0.0",
+    "description": "Lightweight AI SDK for streaming text generation with OpenAI and Anthropic. Core utilities for client and server.",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "exports": {
+        ".": {
+            "module": "./dist/index.mjs",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./client": {
+            "module": "./dist/client/index.mjs",
+            "import": "./dist/client/index.mjs",
+            "require": "./dist/client/index.js"
+        },
+        "./core": {
+            "module": "./dist/core/index.mjs",
+            "import": "./dist/core/index.mjs",
+            "require": "./dist/core/index.js"
+        },
+        "./server": {
+            "node": "./dist/server/index.mjs",
+            "import": "./dist/server/index.mjs",
+            "require": "./dist/server/index.js"
+        }
+    },
+    "files": [
+        "dist/**/*",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "node scripts/build.js",
+        "clean": "rm -rf dist",
+        "prepare": "npm run build",
+        "prepublishOnly": "npm i && npm run prepare",
+        "test:cjs": "node -e \"const sdk = require('./dist/index.js'); console.log('✅ CJS works:', Object.keys(sdk));\"",
+        "test:esm": "node --input-type=module -e \"import * as sdk from './dist/index.mjs'; console.log('✅ ESM works:', Object.keys(sdk));\""
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/ai-sdk"
+    },
+    "keywords": [
+        "ai",
+        "sdk",
+        "openai",
+        "anthropic",
+        "streaming",
+        "llm",
+        "chatgpt",
+        "claude",
+        "text-generation"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {},
+    "devDependencies": {},
+    "engines": {
+        "node": ">=16.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
