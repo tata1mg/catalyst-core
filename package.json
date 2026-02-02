@@ -79,9 +79,9 @@
         "picocolors": "^1.0.0",
         "postcss-loader": "^7.3.3",
         "postcss-scss": "^4.0.9",
-        "react": "19.2.3",
+        "react": "19.2.4",
         "react-compiler-runtime": "^19.0.0-beta-decd7b8-20250118",
-        "react-dom": "19.2.3",
+        "react-dom": "19.2.4",
         "react-redux": "^9.2.0",
         "react-refresh": "^0.14.0",
         "react-router-dom": "^6.16.0",
@@ -102,8 +102,8 @@
         "winston-daily-rotate-file": "^5.0.0"
     },
     "peerDependencies": {
-        "react": "^19.2.3",
-        "react-dom": "^19.2.3"
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4"
     },
     "devDependencies": {
         "@babel/eslint-parser": "^7.19.1",
