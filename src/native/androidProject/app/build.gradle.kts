@@ -90,7 +90,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "false")
+            buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "true")
             buildConfigField("String", "LOCAL_IP", "\"127.0.0.1\"")
 
             // Only apply signing config if the keystore exists
