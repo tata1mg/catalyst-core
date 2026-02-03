@@ -1,0 +1,25 @@
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  cf84f812b17b2cb7 257
+src/native/androidProject/app/build.gradle.kts
+  cf84f812b17b2cb7 117-118,122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "772ae85f4db5c8fac58b4db82fe8bee4ea1742da",
+  "prompts": {
+    "cf84f812b17b2cb7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0fec16e-2fab-4ee9-a517-8bfe7cf29f6c",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 10,
+      "accepted_lines": 4,
+      "overriden_lines": 1
+    }
+  }
+}
