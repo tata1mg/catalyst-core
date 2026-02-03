@@ -135,7 +135,6 @@ object DesignTokens {
 
         // Font weights (Android Typeface)
         const val FONT_WEIGHT_NORMAL = android.graphics.Typeface.NORMAL
-        const val FONT_WEIGHT_MEDIUM = android.graphics.Typeface.BOLD  // Medium approximation
         const val FONT_WEIGHT_BOLD = android.graphics.Typeface.BOLD
     }
 
@@ -305,14 +304,4 @@ object DesignTokens {
         return (dp * context.resources.displayMetrics.density).toInt()
     }
 
-    /**
-     * Convert SP to pixels (for text sizes).
-     *
-     * @param context Android context
-     * @param sp Value in scalable pixels
-     * @return Value in pixels
-     */
-    fun spToPx(context: Context, sp: Float): Int {
-        return (sp * context.resources.displayMetrics.scaledDensity).toInt()
-    }
 }

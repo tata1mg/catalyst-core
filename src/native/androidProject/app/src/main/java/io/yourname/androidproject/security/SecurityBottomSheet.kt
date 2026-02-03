@@ -78,15 +78,10 @@ class SecurityBottomSheet(
             return
         }
 
-        if (animated) {
-            // Hide content initially by positioning it off-screen
-            customView.translationY = customView.height.toFloat() + 1000f
-        }
-
-        // Show dialog - at this point content is off-screen if animated
+        // Show dialog first so layout pass runs
         bottomSheetDialog.show()
 
-        // Wait for layout to complete, then make containers transparent and animate
+        // Wait for layout to complete, then position off-screen and animate in
         customView.post {
             // Force transparent background on all container layers AFTER layout
             bottomSheetDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.apply {
@@ -96,8 +91,9 @@ class SecurityBottomSheet(
                 setBackgroundResource(android.R.color.transparent)
             }
 
-            // Now animate the content view if requested
             if (animated) {
+                // Position off-screen using real measured height (available after layout)
+                customView.translationY = customView.height.toFloat()
                 customView.animate()
                     .translationY(0f)
                     .setDuration(ANIMATION_DURATION_MS)

@@ -165,11 +165,9 @@ object SecurityCheckManager {
      * @param context Android context
      * @return Boolean indicating if device is rooted
      */
-    private suspend fun checkRooted(context: Context): Boolean = withContext(Dispatchers.Default) {
-        return@withContext try {
+    private suspend fun checkRooted(context: Context): Boolean {
+        return try {
             val rootBeer = RootBeer(context)
-
-            // Get detailed root check results
             val isRooted = rootBeer.isRooted
 
             BridgeUtils.logDebug("SecurityCheckManager", "=== ROOT CHECK DETAILS ===")
@@ -189,8 +187,8 @@ object SecurityCheckManager {
      * @param context Android context
      * @return Boolean indicating if running on emulator
      */
-    private suspend fun checkEmulator(context: Context): Boolean = withContext(Dispatchers.Default) {
-        return@withContext try {
+    private suspend fun checkEmulator(context: Context): Boolean {
+        return try {
             val isEmulator = EmulatorDetector.isEmulator(context)
             BridgeUtils.logDebug("SecurityCheckManager", "Emulator check result: $isEmulator")
             isEmulator
@@ -205,8 +203,8 @@ object SecurityCheckManager {
      *
      * @return Boolean indicating if Frida is detected
      */
-    private suspend fun checkFridaDetected(): Boolean = withContext(Dispatchers.Default) {
-        return@withContext try {
+    private suspend fun checkFridaDetected(): Boolean {
+        return try {
             val isFridaDetected = FridaDetector.isFridaDetected()
             BridgeUtils.logDebug("SecurityCheckManager", "Frida detection result: $isFridaDetected")
             isFridaDetected

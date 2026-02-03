@@ -63,9 +63,22 @@
 -keep class com.scottyab.rootbeer.** { *; }
 -dontwarn com.scottyab.rootbeer.**
 
-# Keep security detection classes
--keep class io.yourname.androidproject.security.** { *; }
--keepclassmembers class io.yourname.androidproject.security.** { *; }
+# Security: keep only the public API surface that MainActivity wires up.
+# Detection internals (EmulatorDetector, FridaDetector) and UI classes
+# (SecurityBottomSheet, SecurityAlertUI) are intentionally obfuscated.
+-keep class io.yourname.androidproject.security.SecurityCheckScheduler {
+    public static void initialize(android.content.Context, kotlinx.coroutines.CoroutineScope, io.yourname.androidproject.security.SecurityCheckScheduler$SecurityCheckCallback);
+}
+-keep interface io.yourname.androidproject.security.SecurityCheckScheduler$SecurityCheckCallback {
+    public void onSecurityCheckComplete(org.json.JSONObject);
+}
+-keep class io.yourname.androidproject.security.SecurityCheckManager {
+    public static org.json.JSONObject getLatestSecurityResults(android.content.Context);
+    public static java.lang.String getSecurityMode(android.content.Context);
+}
+-keep class io.yourname.androidproject.security.SecurityAlertHandler {
+    public static void handleSecurityCheckResults(android.app.Activity, org.json.JSONObject);
+}
 
 # Keep Play Integrity API
 -keep class com.google.android.play.core.integrity.** { *; }

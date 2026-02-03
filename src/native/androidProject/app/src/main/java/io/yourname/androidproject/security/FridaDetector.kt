@@ -171,13 +171,6 @@ object FridaDetector {
     }
 
     /**
-     * Check if debugger is attached
-     */
-    private fun isDebuggerConnected(): Boolean {
-        return android.os.Debug.isDebuggerConnected()
-    }
-
-    /**
      * Get detailed Frida detection info for debugging
      */
     fun getFridaCheckDetails(): Map<String, Any> {
@@ -187,7 +180,6 @@ object FridaDetector {
             "libraryCheck" to checkLoadedLibraries(),
             "fileCheck" to checkFridaFiles(),
             "hookingFrameworkCheck" to checkHookingFrameworks(),
-            "debuggerConnected" to isDebuggerConnected(),
             "isDebuggable" to (Build.FINGERPRINT.lowercase().contains("test-keys") ||
                              Build.TAGS.lowercase().contains("test-keys"))
         )

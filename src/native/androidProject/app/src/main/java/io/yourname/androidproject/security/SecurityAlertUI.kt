@@ -208,7 +208,7 @@ object SecurityAlertUI {
             text = "Detected Issues:"
             textSize = DesignTokens.Typography.TEXT_SIZE_BODY
             setTextColor(DesignTokens.getOnSurfaceVariantColor(context))
-            setTypeface(null, DesignTokens.Typography.FONT_WEIGHT_MEDIUM)
+            setTypeface(null, DesignTokens.Typography.FONT_WEIGHT_BOLD)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -340,7 +340,7 @@ object SecurityAlertUI {
             text = "Exit App"
             textSize = DesignTokens.Typography.TEXT_SIZE_BODY_LG
             setTextColor(DesignTokens.getOnErrorColor(context))
-            setTypeface(null, DesignTokens.Typography.FONT_WEIGHT_MEDIUM)
+            setTypeface(null, DesignTokens.Typography.FONT_WEIGHT_BOLD)
             isAllCaps = false // Material Design 3 uses sentence case
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,

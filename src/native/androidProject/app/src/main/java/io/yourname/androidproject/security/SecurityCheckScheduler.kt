@@ -42,7 +42,7 @@ object SecurityCheckScheduler {
             // Launch background coroutine to perform security checks
             // Local checks (root, emulator, Frida) always run - they're fast and critical
             // Play Integrity check is cached internally by SecurityCheckManager
-            scope.launch(Dispatchers.IO) {
+            scope.launch {
                 try {
                     BridgeUtils.logDebug("SecurityCheckScheduler", "Starting background security checks")
 

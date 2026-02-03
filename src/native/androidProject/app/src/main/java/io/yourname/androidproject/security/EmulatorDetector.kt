@@ -42,22 +42,17 @@ object EmulatorDetector {
         try {
             val buildCheck = checkBuildProperties()
             val hardwareCheck = checkHardwareFeatures(context)
-            val operatorCheck = checkOperatorName()
+            val fingerprintCheck = checkFingerprint()
 
-            val checks = listOf(buildCheck, hardwareCheck, operatorCheck)
+            val checks = mapOf("Build" to buildCheck, "Hardware" to hardwareCheck, "Fingerprint" to fingerprintCheck)
+            val isEmulator = checks.values.any { it }
 
-            // If ANY check indicates emulator, consider it an emulator (strict mode)
-            val suspiciousCount = checks.count { it }
-            val isEmulator = suspiciousCount >= 1
-
-            BridgeUtils.logDebug(TAG, "Emulator check results: Build=$buildCheck, Hardware=$hardwareCheck, Operator=$operatorCheck")
-            BridgeUtils.logDebug(TAG, "Suspicious count: $suspiciousCount/3, isEmulator=$isEmulator")
+            val fired = checks.filter { it.value }.keys
+            BridgeUtils.logDebug(TAG, "Emulator check results: $checks — fired: $fired")
             BridgeUtils.logDebug(TAG, "Build info: FINGERPRINT=${Build.FINGERPRINT}, MODEL=${Build.MODEL}, MANUFACTURER=${Build.MANUFACTURER}, HARDWARE=${Build.HARDWARE}, DEVICE=${Build.DEVICE}, PRODUCT=${Build.PRODUCT}")
 
             if (isEmulator) {
-                BridgeUtils.logDebug(TAG, "EMULATOR DETECTED (${suspiciousCount}/3 checks positive)")
-            } else {
-                BridgeUtils.logDebug(TAG, "NOT an emulator (${suspiciousCount}/3 checks positive)")
+                BridgeUtils.logDebug(TAG, "EMULATOR DETECTED: $fired")
             }
 
             return isEmulator
@@ -171,9 +166,9 @@ object EmulatorDetector {
     }
 
     /**
-     * Check operator name (emulators often have "Android" as operator)
+     * Check Build.FINGERPRINT for emulator indicators (generic/unknown prefix, test-keys)
      */
-    private fun checkOperatorName(): Boolean {
+    private fun checkFingerprint(): Boolean {
         return try {
             val fingerprint = Build.FINGERPRINT
             val hasGeneric = fingerprint.startsWith("generic")
@@ -181,11 +176,11 @@ object EmulatorDetector {
             val hasTestKeys = fingerprint.lowercase().contains("test-keys")
 
             val result = hasGeneric || hasUnknown || hasTestKeys
-            BridgeUtils.logDebug(TAG, "checkOperatorName result: $result (generic=$hasGeneric, unknown=$hasUnknown, testKeys=$hasTestKeys)")
+            BridgeUtils.logDebug(TAG, "checkFingerprint result: $result (generic=$hasGeneric, unknown=$hasUnknown, testKeys=$hasTestKeys)")
             BridgeUtils.logDebug(TAG, "Full FINGERPRINT: $fingerprint")
             result
         } catch (e: Exception) {
-            BridgeUtils.logError(TAG, "Error checking operator name", e)
+            BridgeUtils.logError(TAG, "Error checking fingerprint", e)
             false
         }
     }
@@ -198,7 +193,7 @@ object EmulatorDetector {
             "isEmulator" to isEmulator(context),
             "buildCheck" to checkBuildProperties(),
             "hardwareCheck" to checkHardwareFeatures(context),
-            "operatorCheck" to checkOperatorName(),
+            "fingerprintCheck" to checkFingerprint(),
             "fingerprint" to Build.FINGERPRINT,
             "model" to Build.MODEL,
             "manufacturer" to Build.MANUFACTURER,

@@ -36,7 +36,6 @@ object DeviceInfoUtils {
             deviceInfo.put("appInfo", appInfo ?: JSONObject.NULL)
 
             // Add latest security data
-            // Note: Security checks are temporarily enabled for debug builds during testing
             val securityData = SecurityCheckManager.getLatestSecurityResults(context)
             if (securityData != null) {
                 deviceInfo.put("security", securityData)
