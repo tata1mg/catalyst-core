@@ -19,6 +19,12 @@ object EmulatorDetector {
         "vbox", "goldfish", "ranchu", "generic"
     )
 
+    // Whitelist: Known legitimate patterns that contain 'sdk' but are NOT emulators
+    // These are excluded from emulator detection to prevent false positives
+    private val LEGITIMATE_SDK_PATTERNS = setOf(
+        "mt", "mediatek", "helio", "qcom", "qualcomm", "snapdragon"
+    )
+
     private val SUSPICIOUS_MANUFACTURERS = setOf(
         "Genymotion", "unknown", "Generic"
     )
@@ -77,6 +83,7 @@ object EmulatorDetector {
         BridgeUtils.logDebug(TAG, "Build properties - brand: $brand, device: $device, product: $product, hardware: $hardware")
 
         // Check for emulator-specific strings in Build properties
+        var sdkMatchFound = false
         val hasEmulatorProperty = EMULATOR_PROPERTIES.any {
             val found = fingerprint.contains(it) ||
                 model.contains(it) ||
@@ -87,8 +94,28 @@ object EmulatorDetector {
                 hardware.contains(it)
             if (found) {
                 BridgeUtils.logDebug(TAG, "Found emulator property: '$it'")
+                // Track if 'sdk' was the match (for whitelist check)
+                if (it == "sdk") {
+                    sdkMatchFound = true
+                }
             }
             found
+        }
+
+        // If flagged as emulator ONLY because of 'sdk', check if it's a legitimate device
+        val isLegitimateDevice = if (sdkMatchFound && hasEmulatorProperty) {
+            val isLegit = LEGITIMATE_SDK_PATTERNS.any {
+                manufacturer.contains(it) || 
+                brand.contains(it) || 
+                hardware.contains(it) ||
+                model.contains(it)
+            }
+            if (isLegit) {
+                BridgeUtils.logDebug(TAG, "Device flagged by 'sdk' but matches legitimate pattern - likely MediaTek/Qualcomm chipset")
+            }
+            isLegit
+        } else {
+            false
         }
 
         // Check suspicious manufacturer/model
@@ -107,8 +134,9 @@ object EmulatorDetector {
             found
         }
 
-        val result = hasEmulatorProperty || hasSuspiciousManufacturer || hasSuspiciousModel
-        BridgeUtils.logDebug(TAG, "checkBuildProperties result: $result (emulatorProp=$hasEmulatorProperty, suspiciousManufacturer=$hasSuspiciousManufacturer, suspiciousModel=$hasSuspiciousModel)")
+        // Final result: emulator if properties match AND not whitelisted, OR suspicious manufacturer/model
+        val result = (hasEmulatorProperty && !isLegitimateDevice) || hasSuspiciousManufacturer || hasSuspiciousModel
+        BridgeUtils.logDebug(TAG, "checkBuildProperties result: $result (emulatorProp=$hasEmulatorProperty, legitimateDevice=$isLegitimateDevice, suspiciousManufacturer=$hasSuspiciousManufacturer, suspiciousModel=$hasSuspiciousModel)")
         return result
     }
 

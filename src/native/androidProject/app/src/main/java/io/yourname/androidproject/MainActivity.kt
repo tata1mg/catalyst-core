@@ -256,7 +256,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Initialize security checks (release builds only)
         if (!BuildConfig.DEBUG) {
-            SecurityCheckScheduler.initialize(this, object : SecurityCheckScheduler.SecurityCheckCallback {
+            SecurityCheckScheduler.initialize(this, this, object : SecurityCheckScheduler.SecurityCheckCallback {
                 override fun onSecurityCheckComplete(results: JSONObject) {
                     io.yourname.androidproject.security.SecurityAlertHandler.handleSecurityCheckResults(this@MainActivity, results)
                 }

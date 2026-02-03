@@ -67,9 +67,8 @@ class SecurityBottomSheet(
      * Uses DecelerateInterpolator for natural deceleration (Material Design).
      *
      * Animation tuning: Adjust ANIMATION_DURATION_MS to control entrance speed
-     * - Default: 500ms (smooth, noticeable entrance)
-     * - Fast: 300ms
-     * - Slow: 700ms
+     * - Default: 1200ms (slow, dramatic entrance)
+     * - Past options: 300ms (fast), 500ms (smooth)
      *
      * @param animated Whether to animate the bottom sheet appearance
      */
@@ -116,8 +115,8 @@ class SecurityBottomSheet(
          *
          * Adjust this value to control how quickly the bottom sheet slides up:
          * - 300ms = Fast, snappy entrance
-         * - 500ms = Smooth, balanced entrance (default)
-         * - 700ms = Slow, dramatic entrance
+         * - 500ms = Smooth, balanced entrance
+         * - 1200ms = Slow, dramatic entrance (Current Default)
          */
         const val ANIMATION_DURATION_MS = 1200L
     }
@@ -126,8 +125,11 @@ class SecurityBottomSheet(
      * Dismiss the bottom sheet.
      */
     fun dismiss() {
-        if (!activity.isFinishing && !activity.isDestroyed) {
-            bottomSheetDialog.dismiss()
+        // Ensure dismissal happens on UI thread to prevent crashes
+        activity.runOnUiThread {
+            if (!activity.isFinishing && !activity.isDestroyed) {
+                bottomSheetDialog.dismiss()
+            }
         }
     }
 

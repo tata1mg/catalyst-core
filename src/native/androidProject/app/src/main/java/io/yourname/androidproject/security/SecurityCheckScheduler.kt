@@ -32,16 +32,17 @@ object SecurityCheckScheduler {
      * All checks run in a background coroutine without blocking the main thread.
      *
      * @param context The Android context used to access SharedPreferences and perform checks
+     * @param scope The CoroutineScope to launch checks in (usually lifecycleScope)
      * @param callback Optional callback to receive security check results
      */
-    fun initialize(context: Context, callback: SecurityCheckCallback? = null) {
+    fun initialize(context: Context, scope: CoroutineScope, callback: SecurityCheckCallback? = null) {
         try {
             BridgeUtils.logDebug("SecurityCheckScheduler", "Initializing security check scheduler")
 
             // Launch background coroutine to perform security checks
             // Local checks (root, emulator, Frida) always run - they're fast and critical
             // Play Integrity check is cached internally by SecurityCheckManager
-            CoroutineScope(Dispatchers.IO).launch {
+            scope.launch(Dispatchers.IO) {
                 try {
                     BridgeUtils.logDebug("SecurityCheckScheduler", "Starting background security checks")
 

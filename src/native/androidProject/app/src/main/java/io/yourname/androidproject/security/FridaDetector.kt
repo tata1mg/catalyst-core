@@ -68,10 +68,13 @@ object FridaDetector {
     private fun checkFridaPorts(): Boolean {
         return FRIDA_PORTS.any { port ->
             try {
-                Socket("127.0.0.1", port).use { socket ->
+                Socket().use { socket ->
+                    val address = java.net.InetSocketAddress("127.0.0.1", port)
+                    socket.connect(address, 2000)  // 2 second timeout
                     socket.isConnected
                 }
             } catch (e: Exception) {
+                // Connection failed or timed out - no Frida on this port
                 false
             }
         }
@@ -86,17 +89,22 @@ object FridaDetector {
             val mapsFile = File("/proc/self/maps")
             if (!mapsFile.exists()) return false
 
-            val content = mapsFile.readText().lowercase()
-
-            // Check for Frida libraries
-            val hasFridaLib = FRIDA_LIBRARIES.any { content.contains(it) }
-            if (hasFridaLib) return true
-
-            // Check for hooking frameworks
-            val hasHookingLib = HOOKING_LIBRARIES.any { content.contains(it) }
-            if (hasHookingLib) return true
-
-            return false
+            // optimization: read line-by-line using BufferedReader (via useLines)
+            // instead of loading entire file into memory with readText()
+            var isDetected = false
+            mapsFile.useLines { lines ->
+                for (line in lines) {
+                    val lowerLine = line.lowercase()
+                    
+                    // Check for Frida/Hooking libs
+                    if (FRIDA_LIBRARIES.any { lowerLine.contains(it) } || 
+                        HOOKING_LIBRARIES.any { lowerLine.contains(it) }) {
+                        isDetected = true
+                        break 
+                    }
+                }
+            }
+            return isDetected
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error checking loaded libraries", e)
             return false
