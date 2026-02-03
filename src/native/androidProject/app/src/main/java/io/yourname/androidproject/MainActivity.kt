@@ -20,6 +20,7 @@ import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.NotificationConstants
 import io.yourname.androidproject.utils.SafeAreaInsets
 import io.yourname.androidproject.utils.SafeAreaUtils
+import io.yourname.androidproject.security.SecurityCheckScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
@@ -252,6 +253,15 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         }
 
         configureEdgeToEdge()
+
+        // Initialize security checks (release builds only)
+       // if (!BuildConfig.DEBUG) {
+            SecurityCheckScheduler.initialize(this, object : SecurityCheckScheduler.SecurityCheckCallback {
+                override fun onSecurityCheckComplete(results: JSONObject) {
+                    io.yourname.androidproject.security.SecurityAlertHandler.handleSecurityCheckResults(this@MainActivity, results)
+                }
+            })
+       //}
 
         // Initialize MetricsMonitor
         metricsMonitor = MetricsMonitor.getInstance(this)

@@ -59,6 +59,18 @@
 -keep class io.yourname.androidproject.WebCacheManager$CacheEntry { *; }
 -keep class io.yourname.androidproject.WebCacheManager$CacheMetadata { *; }
 
+# Keep RootBeer library for root detection
+-keep class com.scottyab.rootbeer.** { *; }
+-dontwarn com.scottyab.rootbeer.**
+
+# Keep security detection classes
+-keep class io.yourname.androidproject.security.** { *; }
+-keepclassmembers class io.yourname.androidproject.security.** { *; }
+
+# Keep Play Integrity API
+-keep class com.google.android.play.core.integrity.** { *; }
+-dontwarn com.google.android.play.core.integrity.**
+
 # Remove debug logging in release builds
 -assumenosideeffects class android.util.Log {
     public static *** d(...);

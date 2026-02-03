@@ -23,4 +23,16 @@
         <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@android:color/transparent</item>
         <item name="android:windowSplashScreenAnimationDuration" tools:targetApi="31">0</item>
     </style>
+
+    <!-- Transparent BottomSheet theme for security alerts -->
+    <style name="TransparentBottomSheetDialog" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/TransparentBottomSheet</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
+    <style name="TransparentBottomSheet" parent="Widget.MaterialComponents.BottomSheet">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
 </resources>
