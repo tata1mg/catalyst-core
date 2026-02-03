@@ -255,13 +255,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         configureEdgeToEdge()
 
         // Initialize security checks (release builds only)
-       // if (!BuildConfig.DEBUG) {
+        if (!BuildConfig.DEBUG) {
             SecurityCheckScheduler.initialize(this, object : SecurityCheckScheduler.SecurityCheckCallback {
                 override fun onSecurityCheckComplete(results: JSONObject) {
                     io.yourname.androidproject.security.SecurityAlertHandler.handleSecurityCheckResults(this@MainActivity, results)
                 }
             })
-       //}
+        }
 
         // Initialize MetricsMonitor
         metricsMonitor = MetricsMonitor.getInstance(this)
