@@ -36,6 +36,17 @@ const ssrConfig = mergeWithCustomize({
     resolve: {
         alias: catalystResultMap,
     },
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                type: "javascript/auto",
+                resolve: {
+                    fullySpecified: false,
+                },
+            },
+        ],
+    },
     plugins: [
         ...customWebpackConfig.ssrPlugins,
         new LoadablePlugin({

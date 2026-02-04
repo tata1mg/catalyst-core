@@ -112,6 +112,17 @@ const webpackSSRConfig = mergeWithCustomize({
     resolve: {
         alias: catalystResultMap,
     },
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                type: "javascript/auto",
+                resolve: {
+                    fullySpecified: false,
+                },
+            },
+        ],
+    },
     output: {
         path: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
         chunkFilename: catalystConfig.chunkFileName,
