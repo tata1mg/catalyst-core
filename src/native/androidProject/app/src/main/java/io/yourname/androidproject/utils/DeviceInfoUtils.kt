@@ -6,6 +6,7 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import org.json.JSONObject
 import io.yourname.androidproject.BuildConfig
+import io.yourname.androidproject.security.SecurityCheckManager
 import java.util.Properties
 
 object DeviceInfoUtils {
@@ -33,6 +34,17 @@ object DeviceInfoUtils {
             // Add appInfo from properties if available
             val appInfo = properties?.getProperty("appInfo")
             deviceInfo.put("appInfo", appInfo ?: JSONObject.NULL)
+
+            // Add latest security data
+            val securityData = SecurityCheckManager.getLatestSecurityResults(context)
+            if (securityData != null) {
+                deviceInfo.put("security", securityData)
+            } else {
+                // No results available yet (first launch before background check completes)
+                deviceInfo.put("security", JSONObject().apply {
+                    put("pending", true)
+                })
+            }
 
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error getting device info", e)
