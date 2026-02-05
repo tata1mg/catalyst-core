@@ -36,6 +36,17 @@ const ssrConfig = mergeWithCustomize({
     resolve: {
         alias: catalystResultMap,
     },
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                type: "javascript/auto",
+                resolve: {
+                    fullySpecified: false,
+                },
+            },
+        ],
+    },
     plugins: [
         ...customWebpackConfig.ssrPlugins,
         new LoadablePlugin({
@@ -68,6 +79,7 @@ const ssrConfig = mergeWithCustomize({
         chunkFilename: catalystConfig.chunkFileNameProd,
         filename: "handler.js",
         libraryTarget: "commonjs",
+        publicPath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH, "/renderer") + "/",
     },
 })
 

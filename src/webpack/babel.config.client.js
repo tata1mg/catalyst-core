@@ -29,6 +29,15 @@ export default {
     ],
     plugins: [
         ...(isCompilerEnabled ? [["babel-plugin-react-compiler", reactCompilerOptions]] : []),
+        [
+            "@babel/plugin-transform-runtime",
+            {
+                helpers: true,
+                regenerator: true,
+                useESModules: false,
+                absoluteRuntime: false,
+            },
+        ],
         "@loadable/babel-plugin",
     ],
     env: {

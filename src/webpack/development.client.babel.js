@@ -49,9 +49,11 @@ const webpackClientConfig = merge(baseConfig, {
             : {
                   cacheGroups: {
                       commonVendor: {
-                          test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|react-router-dom|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-fast-compare|react-async-script|babel|@loadable\/component|catalyst)[\\/]/,
+                          test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|react-router-dom|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-fast-compare|react-async-script|@babel\/runtime|@loadable\/component|catalyst)[\\/]/,
                           name: "commonVendor",
                           minSize: 30000,
+                          priority: 10,
+                          enforce: true,
                       },
                       utilityVendor: {
                           maxInitialRequests: Infinity,
@@ -60,6 +62,7 @@ const webpackClientConfig = merge(baseConfig, {
                           reuseExistingChunk: true, // Disable to replicate stand alone chunking for all packages
                           minRemainingSize: 1000, // Disable to replicate stand alone chunking for all packages
                           test: /[\\/]node_modules[\\/]/,
+                          priority: 5,
                           name(module) {
                               const moduleFileName = module
                                   .identifier()
@@ -112,11 +115,23 @@ const webpackSSRConfig = mergeWithCustomize({
     resolve: {
         alias: catalystResultMap,
     },
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                type: "javascript/auto",
+                resolve: {
+                    fullySpecified: false,
+                },
+            },
+        ],
+    },
     output: {
         path: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
         chunkFilename: catalystConfig.chunkFileName,
         filename: "handler.development.js",
         libraryTarget: "commonjs",
+        publicPath: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer") + "/",
     },
     plugins: [
         new LoadablePlugin({

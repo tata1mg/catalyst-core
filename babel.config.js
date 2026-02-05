@@ -20,8 +20,17 @@ module.exports = (api) => {
             ],
             ["@babel/preset-react", { runtime: "automatic" }],
         ],
+        plugins: [
+            [
+                "@babel/plugin-transform-runtime",
+                {
+                    helpers: true,
+                    regenerator: true,
+                },
+            ],
+            "@loadable/babel-plugin",
+        ],
         compact: true,
-        plugins: ["@loadable/babel-plugin"],
         env: {
             test: {
                 presets: ["@babel/preset-react"],
