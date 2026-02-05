@@ -49,7 +49,7 @@ const webpackClientConfig = merge(baseConfig, {
             : {
                   cacheGroups: {
                       commonVendor: {
-                          test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|react-router-dom|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-fast-compare|react-async-script|babel|@loadable\/component|catalyst)[\\/]/,
+                          test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|react-router-dom|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-fast-compare|react-async-script|@babel\/runtime|@loadable\/component|catalyst)[\\/]/,
                           name: "commonVendor",
                           minSize: 30000,
                       },

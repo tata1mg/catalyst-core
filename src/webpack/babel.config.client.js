@@ -34,6 +34,8 @@ export default {
             {
                 helpers: true,
                 regenerator: true,
+                useESModules: false,
+                absoluteRuntime: false,
             },
         ],
         "@loadable/babel-plugin",
