@@ -128,6 +128,7 @@ const webpackSSRConfig = mergeWithCustomize({
         chunkFilename: catalystConfig.chunkFileName,
         filename: "handler.development.js",
         libraryTarget: "commonjs",
+        publicPath: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer") + "/",
     },
     plugins: [
         new LoadablePlugin({

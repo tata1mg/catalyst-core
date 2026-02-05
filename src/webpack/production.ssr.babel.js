@@ -79,6 +79,7 @@ const ssrConfig = mergeWithCustomize({
         chunkFilename: catalystConfig.chunkFileNameProd,
         filename: "handler.js",
         libraryTarget: "commonjs",
+        publicPath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH, "/renderer") + "/",
     },
 })
 
