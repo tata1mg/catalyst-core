@@ -52,6 +52,8 @@ const webpackClientConfig = merge(baseConfig, {
                           test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|react-router-dom|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-fast-compare|react-async-script|@babel\/runtime|@loadable\/component|catalyst)[\\/]/,
                           name: "commonVendor",
                           minSize: 30000,
+                          priority: 10,
+                          enforce: true,
                       },
                       utilityVendor: {
                           maxInitialRequests: Infinity,
@@ -60,6 +62,7 @@ const webpackClientConfig = merge(baseConfig, {
                           reuseExistingChunk: true, // Disable to replicate stand alone chunking for all packages
                           minRemainingSize: 1000, // Disable to replicate stand alone chunking for all packages
                           test: /[\\/]node_modules[\\/]/,
+                          priority: 5,
                           name(module) {
                               const moduleFileName = module
                                   .identifier()
