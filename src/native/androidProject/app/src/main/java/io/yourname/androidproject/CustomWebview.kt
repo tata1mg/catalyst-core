@@ -1,14 +1,18 @@
 package io.yourname.androidproject
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.webkit.*
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebResourceRequestCompat
@@ -34,6 +38,13 @@ class CustomWebView(
     private val TAG = "WebViewDebug"
     private val job = SupervisorJob()
     override val coroutineContext = Dispatchers.Main + job
+
+    // Store geolocation callback for permission result
+    private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
+    private var pendingGeolocationOrigin: String? = null
+
+    // Geolocation permission launcher
+    private var geolocationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>? = null
 
     private var cacheManager: WebCacheManager
     private val metricsMonitor = MetricsMonitor.getInstance(context)
@@ -63,6 +74,12 @@ class CustomWebView(
     init {
         setupFromProperties()
         cacheManager = WebCacheManager(context, properties)
+
+        // Initialize geolocation permission launcher if context is an Activity
+        if (context is androidx.activity.ComponentActivity) {
+            initializeGeolocationPermissionLauncher(context)
+        }
+
         setupWebView()
     }
 
@@ -243,6 +260,25 @@ class CustomWebView(
     fun destroy() {
         job.cancel()
         webView.destroy()
+    }
+
+    private fun initializeGeolocationPermissionLauncher(activity: androidx.activity.ComponentActivity) {
+        geolocationPermissionLauncher = activity.registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            val granted = permissions.values.any { it }
+            val callback = pendingGeolocationCallback
+            val origin = pendingGeolocationOrigin
+
+            if (callback != null && origin != null) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Geolocation permission result: granted=$granted")
+                }
+                callback.invoke(origin, granted, false)
+                pendingGeolocationCallback = null
+                pendingGeolocationOrigin = null
+            }
+        }
     }
 
     fun cleanupCache() {
@@ -600,6 +636,10 @@ class CustomWebView(
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+
+            // Enable geolocation
+            javaScriptCanOpenWindowsAutomatically = true
+            setGeolocationEnabled(true)
 
             // TODO: Enable these when build optimization feature is implemented
             // These are deprecated but may be needed for local file access in development
@@ -977,30 +1017,71 @@ class CustomWebView(
                 return true
             }
 
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: GeolocationPermissions.Callback?
+            ) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Geolocation permission requested for origin: $origin")
+                }
+
+                // Check if app has location permission
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasPermission) {
+                    // App has permission, grant to WebView
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "App has location permission, granting to WebView")
+                    }
+                    callback?.invoke(origin, true, false)
+                } else {
+                    // App doesn't have permission, request it using modern API
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "App doesn't have location permission, requesting from user")
+                    }
+                    pendingGeolocationCallback = callback
+                    pendingGeolocationOrigin = origin
+                    geolocationPermissionLauncher?.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    ) ?: run {
+                        // Launcher not available, deny
+                        callback?.invoke(origin, false, false)
+                    }
+                }
+            }
+
             override fun onPermissionRequest(request: PermissionRequest) {
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "Permission request from web content: ${request.resources?.joinToString()}")
                 }
 
-                // Check if camera permission is being requested
-                val cameraRequested = request.resources?.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE) == true
+                // Define allowed resources
+                val allowedResources = setOf(
+                    PermissionRequest.RESOURCE_VIDEO_CAPTURE,
+                    PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID
+                )
 
-                if (cameraRequested) {
-                    // Check if native app has camera permission
-                    if (CameraUtils.hasCameraPermission(context as android.app.Activity)) {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Granting camera permission to WebView - native permission available")
-                        }
-                        request.grant(request.resources)
-                    } else {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Denying camera permission to WebView - native permission not granted")
-                        }
-                        request.deny()
+                // Check if any requested resource is allowed
+                val hasAllowedResource = request.resources?.any { it in allowedResources } == true
+
+                if (hasAllowedResource) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "Granting permission request to WebView")
                     }
+                    request.grant(request.resources)
                 } else {
                     if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "Denying non-camera permission request: ${request.resources?.joinToString()}")
+                        Log.d(TAG, "Denying unknown permission request: ${request.resources?.joinToString()}")
                     }
                     request.deny()
                 }
