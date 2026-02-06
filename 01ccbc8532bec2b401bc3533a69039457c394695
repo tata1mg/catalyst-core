@@ -1,0 +1,66 @@
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  77d3af97a18ec517 3,7,14-15,42-47,77-82,265-278,280-283,640-643,1020-1062,1068-1072,1074-1077,1079,1081,1084
+src/native/iosnativeWebView/iosnativeWebView/Info.plist
+  77d3af97a18ec517 16-17
+src/native/androidProject/app/src/main/AndroidManifest.xml
+  77d3af97a18ec517 8-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "01ccbc8532bec2b401bc3533a69039457c394695",
+  "prompts": {
+    "0d9a0adeb8e6e241": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "badc0a7f-d72d-4bc2-ab14-29edca7c684d",
+        "model": "gemini-3-pro-preview"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 281,
+      "total_deletions": 4,
+      "accepted_lines": 251,
+      "overriden_lines": 1
+    },
+    "3acf72298340e8e4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3cba5b80-7201-4c8e-aac3-b4d6eeac33d9",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 8,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "77d3af97a18ec517": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a925d969-fa4c-4d26-a414-67cc42e07799",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 187,
+      "total_deletions": 93,
+      "accepted_lines": 117,
+      "overriden_lines": 1
+    },
+    "e50a71bc1313c851": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6eb97c28-f9d3-41fd-ab93-3b61c4a53535",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
