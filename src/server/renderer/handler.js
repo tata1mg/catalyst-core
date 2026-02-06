@@ -59,22 +59,25 @@ const webStatsPath = isProduction
     ? path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
     : path.join(__dirname, "../../..", `loadable-stats.json`)
 
-// Cache ChunkExtractor in production - stats file doesn't change after build
-// This avoids reading and parsing the stats file on every request
-let cachedWebExtractor = null
-const getWebExtractor = () => {
-    if (isProduction) {
-        if (!cachedWebExtractor) {
-            cachedWebExtractor = new ChunkExtractor({
-                statsFile: webStatsPath,
-                entrypoints: ["app"],
-            })
-        }
-        return cachedWebExtractor
+// IMPORTANT:
+// - ChunkExtractor is stateful (tracks "used chunks") and MUST be per-request.
+// - The loadable stats are immutable in production and CAN be cached.
+let cachedWebStats = null
+const getWebStats = () => {
+    if (!isProduction) {
+        // In development, stats can change; always read fresh.
+        return JSON.parse(fs.readFileSync(webStatsPath, "utf-8"))
     }
-    // In development, create new extractor each time (stats file may change)
+
+    if (!cachedWebStats) {
+        cachedWebStats = JSON.parse(fs.readFileSync(webStatsPath, "utf-8"))
+    }
+    return cachedWebStats
+}
+
+const createWebExtractor = () => {
     return new ChunkExtractor({
-        statsFile: webStatsPath,
+        stats: getWebStats(),
         entrypoints: ["app"],
     })
 }
@@ -265,8 +268,9 @@ export default async function handler(req, res) {
         let context = {}
         let fetcherData = {}
 
-        // Use cached webExtractor (in production) to avoid reading/parsing stats file per request
-        const webExtractor = getWebExtractor()
+        // ChunkExtractor must be per-request to avoid cross-route chunk leakage.
+        // We still avoid repeated stats file parsing by caching parsed stats in production.
+        const webExtractor = createWebExtractor()
 
         // creates store
         const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
