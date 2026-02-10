@@ -65,7 +65,7 @@ public enum CatalystConstants {
                 "pickFile",
                 "openFileWithIntent",
                 "requestHapticFeedback",
-                "googleSignIn"
+                "googleSignIn",
                 "getSafeArea"
             ]
 

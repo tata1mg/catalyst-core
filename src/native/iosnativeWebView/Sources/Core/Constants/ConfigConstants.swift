@@ -17,6 +17,7 @@ public enum ConfigConstants {
     public enum GoogleSignIn {
         public static let enabled = false
         public static let clientId = ""
+        public static let iosClientId = ""
     }
 
     // Access control configuration
