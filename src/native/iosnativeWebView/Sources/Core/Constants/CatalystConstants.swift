@@ -66,6 +66,7 @@ public enum CatalystConstants {
                 "openFileWithIntent",
                 "requestHapticFeedback",
                 "googleSignIn"
+                "getSafeArea"
             ]
 
             // Check if notifications are enabled via config

@@ -25,4 +25,10 @@ public enum ConfigConstants {
 
     // Splash screen configuration
     public static let splashScreenEnabled = false
+
+    // Edge-to-edge configuration
+    // This stub defaults to disabled - will be replaced during build
+    public enum EdgeToEdge {
+        public static let enabled = false
+    }
 }

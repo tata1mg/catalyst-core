@@ -1,9 +1,8 @@
 const path = require("path")
-const { spawnSync } = require("child_process")
 const { green, cyan, yellow } = require("picocolors")
 const { name } = require(`${process.cwd()}/package.json`)
 const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
-const { arrayToObject, printBundleInformation } = require("./scriptUtils.js")
+const { arrayToObject, printBundleInformation, runBuildCommands } = require("./scriptUtils.js")
 
 /**
  * @description - creates a production build of the application.
@@ -23,14 +22,11 @@ function build() {
         `cross-env APPLICATION=${name || "catalyst_app"} npx babel ${process.cwd()}/server --out-dir ${process.cwd()}/${BUILD_OUTPUT_PATH} --extensions .js,.ts,.jsx,.tsx --quiet`,
     ]
 
-    const command = commands.join(isWindows ? " && " : " ; ")
-
     console.log("Creating an optimized production build...")
 
-    const result = spawnSync(command, [], {
+    runBuildCommands({
+        commands,
         cwd: dirname,
-        stdio: "inherit",
-        shell: true,
         env: {
             ...process.env,
             src_path: process.cwd(),
@@ -41,22 +37,16 @@ function build() {
         },
     })
 
-    if (result.error) {
-        console.error("Error occurred:", result.error)
-    } else {
-        console.log(green("Compiled successfully."))
-        console.log("\nFile sizes after gzip:\n")
-        printBundleInformation()
-        console.log(`\nThe ${cyan(BUILD_OUTPUT_PATH)} folder is ready to be deployed.`)
-        console.log("You may serve it with a serve command:")
-        console.log(cyan("\n npm run serve"))
-        console.log("\nFind out more about deployment here:")
-        console.log(
-            yellow(
-                "\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n"
-            )
-        )
-    }
+    console.log(green("Compiled successfully."))
+    console.log("\nFile sizes after gzip:\n")
+    printBundleInformation()
+    console.log(`\nThe ${cyan(BUILD_OUTPUT_PATH)} folder is ready to be deployed.`)
+    console.log("You may serve it with a serve command:")
+    console.log(cyan("\n npm run serve"))
+    console.log("\nFind out more about deployment here:")
+    console.log(
+        yellow("\n https://catalyst.1mg.com/public_docs/content/Deployment%20and%20Production/deployment\n")
+    )
 }
 
 build()

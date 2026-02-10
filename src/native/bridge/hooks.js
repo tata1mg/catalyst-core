@@ -10,6 +10,39 @@ import {
     canCreateFileObject,
     getUnsupportedTransportMessage,
 } from "./utils/FileObjectConverter.js"
+import { DEFAULT_INSETS, getSafeAreaFromGlobal, setSafeAreaGlobal } from "./safeArea.js"
+
+// Shared callback system for notification permission status
+// This allows multiple listeners (hook + requestNotificationPermission) to receive updates
+const permissionStatusListeners = new Set()
+let isPermissionCallbackRegistered = false
+
+const registerPermissionStatusListener = (callback) => {
+    permissionStatusListeners.add(callback)
+
+    // Register the shared handler with WebBridge if this is the first listener
+    if (!isPermissionCallbackRegistered && typeof window !== "undefined" && window.WebBridge) {
+        isPermissionCallbackRegistered = true
+        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+            // Notify all listeners
+            permissionStatusListeners.forEach((listener) => {
+                try {
+                    listener(data)
+                } catch (error) {
+                    console.error("Error in permission status listener:", error)
+                }
+            })
+        })
+    }
+
+    return () => {
+        permissionStatusListeners.delete(callback)
+    }
+}
+
+const unregisterPermissionStatusListener = (callback) => {
+    permissionStatusListeners.delete(callback)
+}
 
 const noop = () => {}
 const createSSRUnavailable = (methodName) => async () => {
@@ -873,7 +906,8 @@ export const requestNotificationPermission = () => {
             }
 
             const handlePermissionStatus = (data) => {
-                window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+                // Unregister this one-time listener
+                unregisterPermissionStatusListener(handlePermissionStatus)
 
                 if (data === PERMISSION_STATUS.GRANTED) {
                     resolve(data)
@@ -882,10 +916,9 @@ export const requestNotificationPermission = () => {
                 }
             }
 
-            window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, handlePermissionStatus)
-            nativeBridge.notification.requestPermission()
+            registerPermissionStatusListener(handlePermissionStatus)
 
-            console.log("🔔 Notification permission requested")
+            nativeBridge.notification.requestPermission()
         } catch (error) {
             reject(error)
         }
@@ -1187,10 +1220,26 @@ export const useNotification = () => {
     }
 
     useEffect(() => {
-        // Register callbacks for all notification events
-        window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
+        const unregister = registerPermissionStatusListener((data) => {
             setPermissionStatus(data)
         })
+
+        // Check initial permission status without requesting (internal call)
+        if (nativeBridge.isAvailable()) {
+            try {
+                // Call native bridge directly without going through public API
+                if (nativeBridge.isAndroid && window.NativeBridge?.checkNotificationPermissionStatus) {
+                    window.NativeBridge.checkNotificationPermissionStatus(null)
+                } else if (nativeBridge.isIOS && window.webkit?.messageHandlers?.NativeBridge) {
+                    window.webkit.messageHandlers.NativeBridge.postMessage({
+                        command: "checkNotificationPermissionStatus",
+                        data: null,
+                    })
+                }
+            } catch (error) {
+                console.error("🔔 Error checking notification permission status:", error)
+            }
+        }
 
         window.WebBridge.register(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED, (data) => {
             try {
@@ -1288,8 +1337,10 @@ export const useNotification = () => {
         })
 
         return () => {
-            // Cleanup
-            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
+            // Cleanup - unregister from shared callback system
+            unregister()
+
+            // Cleanup other callbacks
             window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_SCHEDULED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.LOCAL_NOTIFICATION_CANCELLED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.PUSH_NOTIFICATION_TOKEN)
@@ -1418,4 +1469,44 @@ export const useNetworkStatus = () => {
         ...status,
         error,
     }
+}
+
+export const useSafeArea = () => {
+    const fromGlobal = getSafeAreaFromGlobal()
+    const initialValue = fromGlobal || { ...DEFAULT_INSETS }
+
+    const [insets, setInsets] = useState(() => initialValue)
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (!window.WebBridge) return
+        if (!nativeBridge.isAvailable()) return
+
+        const handleInsetsUpdate = (data) => {
+            try {
+                const parsed = typeof data === "string" ? JSON.parse(data) : data
+                const normalized = {
+                    top: Number(parsed.top) || 0,
+                    right: Number(parsed.right) || 0,
+                    bottom: Number(parsed.bottom) || 0,
+                    left: Number(parsed.left) || 0,
+                }
+
+                setInsets(normalized)
+                setSafeAreaGlobal(normalized)
+            } catch (error) {
+                console.error("Error parsing safe area insets:", error)
+                setInsets({ ...DEFAULT_INSETS })
+            }
+        }
+
+        window.WebBridge.register("ON_SAFE_AREA_INSETS_UPDATED", handleInsetsUpdate)
+        nativeBridge.safeArea.get()
+
+        return () => {
+            window.WebBridge.unregister("ON_SAFE_AREA_INSETS_UPDATED")
+        }
+    }, [])
+
+    return insets
 }

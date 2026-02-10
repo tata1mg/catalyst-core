@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.0.3-canary.20",
+    "version": "0.1.0-canary.3",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -26,6 +26,7 @@
     },
     "exports": {
         ".": "./dist/index.js",
+        "./package.json": "./package.json",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
@@ -38,7 +39,7 @@
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "prepare": "babel src --out-dir ./dist --ignore '**/.build/**' && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift src/native/assets dist/native/ && rsync -a --exclude='.package-config-hash' src/native/iosnativeWebView/ dist/native/iosnativeWebView/",
+        "prepare": "babel src --out-dir ./dist --ignore '**/.build/**' && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift src/native/assets dist/native/ && mkdir -p dist/native/iosnativeWebView && tar -C src/native/iosnativeWebView --exclude='.build' --exclude='.package-config-hash' -cf - . | tar -C dist/native/iosnativeWebView -xf -",
         "prepublishOnly": "npm i && npm run prepare"
     },
     "license": "MIT",

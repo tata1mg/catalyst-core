@@ -276,7 +276,7 @@ export const translateError = (nativeError) => {
     }
 
     // Default to internal error
-    return createStandardError(ERROR_CODES.INTERNAL_ERROR, nativeError.toString(), nativeError)
+    return createStandardError(ERROR_CODES.INTERNAL_ERROR, null, nativeError)
 }
 
 /**

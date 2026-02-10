@@ -16,7 +16,8 @@ function _interopRequireDefault(e) {
 
 const configPath = `${process.env.PWD}/config/config.json`
 const publicPath = `${process.env.PWD}/public`
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
+const catalystCorePath = _path.default.dirname(require.resolve("catalyst-core/package.json"))
+const pwd = _path.default.join(catalystCorePath, "dist/native")
 const ANDROID_PACKAGE = "io.yourname.androidproject"
 
 // Default values for AAB building
@@ -728,10 +729,13 @@ async function addNotificationMetadata() {
         <!-- Firebase default notification configuration -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="fcm_default_channel" />
+            android:value="default" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_sound"
+            android:resource="@raw/notification_sound_default" />
 
         <!-- Push Notification Service -->
         <service
@@ -933,6 +937,7 @@ async function cleanupNotificationMetadata() {
             "default_notification_color",
             "com.google.firebase.messaging.default_notification_channel_id",
             "com.google.firebase.messaging.default_notification_icon",
+            "com.google.firebase.messaging.default_notification_sound",
         ]
 
         metadataNames.forEach((metadataName) => {

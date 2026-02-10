@@ -73,6 +73,8 @@ object BridgeUtils {
 
         // Network events
         NETWORK_STATUS_CHANGED("NETWORK_STATUS_CHANGED"),
+        // Safe area events
+        ON_SAFE_AREA_INSETS_UPDATED("ON_SAFE_AREA_INSETS_UPDATED"),
     }
     
     /**

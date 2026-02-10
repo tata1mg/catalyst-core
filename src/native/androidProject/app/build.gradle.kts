@@ -132,12 +132,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
     }
 
     buildFeatures {
@@ -153,6 +153,10 @@ android {
             excludes.add("META-INF/NOTICE")
             excludes.add("META-INF/INDEX.LIST")
             excludes.add("META-INF/io.netty.versions.properties")
+        }
+        jniLibs {
+            // Enable 16KB page size alignment for all native libraries
+            useLegacyPackaging = false
         }
     }
 
@@ -186,27 +190,18 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.androidx.webkit)
     implementation("org.json:json:20231013")
-    
     // Ktor Server dependencies for FrameworkServer (~200KB total)
     implementation("io.ktor:ktor-server-core:3.0.3")
     implementation("io.ktor:ktor-server-netty:3.0.3")
     implementation("io.ktor:ktor-server-content-negotiation:3.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
+    // Security detection dependencies
+    implementation("com.scottyab:rootbeer-lib:0.1.1")  // Root detection
+    implementation("com.google.android.play:integrity:1.3.0")  // Play Integrity API
+
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
-
-    // Google Sign-In via Credential Manager (packaged only when enabled)
-    if (isGoogleSignInEnabled()) {
-        implementation("androidx.credentials:credentials:1.3.0")
-        implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
-        implementation("com.google.android.libraries.identity.googleid:googleid:1.1.0")
-    } else {
-        // Keep compile classpath without bundling when disabled
-        compileOnly("androidx.credentials:credentials:1.3.0")
-        compileOnly("androidx.credentials:credentials-play-services-auth:1.3.0")
-        compileOnly("com.google.android.libraries.identity.googleid:googleid:1.1.0")
-    }
 
     // Notification dependencies - conditional based on config
     if (isNotificationsEnabled()) {

@@ -295,6 +295,16 @@ class NativeBridgeUtil {
         },
     }
 
+    /** Safe area methods
+     */
+    safeArea = {
+        /**
+         * Get current safe area insets
+         * Returns insets through ON_SAFE_AREA_INSETS_UPDATED callback
+         */
+        get: () => this.call(NATIVE_COMMANDS.GET_SAFE_AREA),
+    }
+
     /**
      * Get environment info
      */

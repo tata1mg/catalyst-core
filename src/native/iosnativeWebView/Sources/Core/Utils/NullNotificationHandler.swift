@@ -27,6 +27,11 @@ public class NullNotificationHandler: NotificationHandlerProtocol {
         return false
     }
 
+    public func getPermissionStatusString() async -> String {
+        logger.info("Permission status check ignored (notifications disabled)")
+        return "DENIED"
+    }
+
     // MARK: - Local Notifications
 
     @discardableResult

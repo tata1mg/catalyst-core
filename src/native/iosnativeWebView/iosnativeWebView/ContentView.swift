@@ -13,11 +13,19 @@ public struct ContentView: View {
     public var body: some View {
         ZStack {
             // Normal remote URL - isolated from state changes
-            WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
-                .edgesIgnoringSafeArea(.all)
-                .onAppear {
-                    logger.info("WebView appeared with URL: \(ConfigConstants.url)")
-                }
+            // Conditionally apply edge-to-edge based on config (matches Android behavior)
+            if ConfigConstants.EdgeToEdge.enabled {
+                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
+                    .ignoresSafeArea()
+                    .onAppear {
+                        logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: enabled]")
+                    }
+            } else {
+                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
+                    .onAppear {
+                        logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: disabled, respecting safe areas]")
+                    }
+            }
             
             // Show splash screen if enabled in configuration
             if ConfigConstants.splashScreenEnabled {

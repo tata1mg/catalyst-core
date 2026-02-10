@@ -1,11 +1,14 @@
 package io.yourname.androidproject
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 
 import org.json.JSONObject
 import java.util.Properties
@@ -15,13 +18,25 @@ import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.KeyboardUtil
 import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.NotificationConstants
+import io.yourname.androidproject.utils.SafeAreaInsets
+import io.yourname.androidproject.utils.SafeAreaUtils
+import io.yourname.androidproject.security.SecurityCheckScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
 
 class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
-    private val TAG = "WebViewDebug"
+    companion object {
+        private const val TAG = "WebViewDebug"
+        private const val PREFS_NAME = "safe_area_prefs"
+        private const val PREF_SAFE_AREA_TOP = "safe_area_top"
+        private const val PREF_SAFE_AREA_RIGHT = "safe_area_right"
+        private const val PREF_SAFE_AREA_BOTTOM = "safe_area_bottom"
+        private const val PREF_SAFE_AREA_LEFT = "safe_area_left"
+        private const val PREF_SAFE_AREA_CACHED = "safe_area_cached"
+    }
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
     private lateinit var customWebView: CustomWebView
@@ -30,6 +45,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var keyboardUtil: KeyboardUtil
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
+    private var edgeToEdgeEnabled = false
+    private var latestSafeAreaInsets: SafeAreaInsets = SafeAreaInsets.ZERO
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -54,12 +71,173 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    private fun configureEdgeToEdge() {
+        edgeToEdgeEnabled = properties
+            .getProperty("edgeToEdge.enabled", "false")
+            .equals("true", ignoreCase = true)
+
+        if (edgeToEdgeEnabled) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+        } else {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+        }
+    }
+
+    private fun setupSafeAreaHandling() {
+        val rootView = binding.root
+        val cachedInsets = loadCachedSafeAreaInsets()
 
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, "📱 onCreate started on thread: ${Thread.currentThread().name}")
+            Log.d(TAG, "📋 Cache lookup result: $cachedInsets")
         }
+
+        if (cachedInsets != null) {
+            latestSafeAreaInsets = cachedInsets
+            customWebView.setDefaultRequestHeaders(buildSafeAreaHeaders())
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "✅ Using cached safe area insets: $cachedInsets")
+            }
+        } else {
+            val initialInsets = SafeAreaUtils.getSafeAreaInsets(window, rootView, edgeToEdgeEnabled)
+            latestSafeAreaInsets = initialInsets
+            customWebView.setDefaultRequestHeaders(buildSafeAreaHeaders())
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🆕 No cache found - initial insets: $initialInsets")
+            }
+        }
+
+        rootView.post {
+            val postLayoutInsets = SafeAreaUtils.getSafeAreaInsets(window, rootView, edgeToEdgeEnabled)
+
+            if (postLayoutInsets != latestSafeAreaInsets) {
+                latestSafeAreaInsets = postLayoutInsets
+                customWebView.setDefaultRequestHeaders(buildSafeAreaHeaders())
+                notifySafeAreaUpdate(postLayoutInsets)
+
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "🔄 Updated safe area insets: $postLayoutInsets")
+                }
+            }
+
+            // Save to cache if not already cached or if values changed
+            if (cachedInsets == null || cachedInsets != postLayoutInsets) {
+                saveSafeAreaInsetsToCache(postLayoutInsets)
+            }
+        }
+    }
+
+    private fun buildSafeAreaHeaders(): Map<String, String> = mapOf(
+        "X-Safe-Area-Top" to latestSafeAreaInsets.top.toString(),
+        "X-Safe-Area-Right" to latestSafeAreaInsets.right.toString(),
+        "X-Safe-Area-Bottom" to latestSafeAreaInsets.bottom.toString(),
+        "X-Safe-Area-Left" to latestSafeAreaInsets.left.toString(),
+        // Prevent caching of SSR response so updated headers are always used
+        "Cache-Control" to "no-cache, no-store, must-revalidate",
+        "Pragma" to "no-cache"
+    )
+
+    // Public method for NativeBridge to get current safe area insets
+    fun getCurrentSafeAreaInsets(): SafeAreaInsets = latestSafeAreaInsets
+
+    /**
+     * Notify WebView when safe area insets are updated
+     * Called when deferred inset calculation completes
+     */
+    private fun notifySafeAreaUpdate(insets: SafeAreaInsets) {
+        if (::nativeBridge.isInitialized && ::customWebView.isInitialized) {
+            val insetsJson = org.json.JSONObject().apply {
+                put("top", insets.top)
+                put("right", insets.right)
+                put("bottom", insets.bottom)
+                put("left", insets.left)
+            }
+
+            BridgeUtils.notifyWebJson(
+                customWebView.getWebView(),
+                BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED,
+                insetsJson
+            )
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "📐 Safe area insets updated and sent to WebView: $insets")
+            }
+        }
+    }
+
+    /**
+     * Load cached safe area insets from SharedPreferences
+     * Returns null if no cache exists
+     */
+    private fun loadCachedSafeAreaInsets(): SafeAreaInsets? {
+        val prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+
+        if (!prefs.getBoolean(PREF_SAFE_AREA_CACHED, false)) {
+            return null
+        }
+
+        return SafeAreaInsets(
+            top = prefs.getInt(PREF_SAFE_AREA_TOP, 0),
+            right = prefs.getInt(PREF_SAFE_AREA_RIGHT, 0),
+            bottom = prefs.getInt(PREF_SAFE_AREA_BOTTOM, 0),
+            left = prefs.getInt(PREF_SAFE_AREA_LEFT, 0)
+        )
+    }
+
+    /**
+     * Save safe area insets to SharedPreferences for future launches
+     * Only saves if insets contain at least one non-zero value
+     */
+    private fun saveSafeAreaInsetsToCache(insets: SafeAreaInsets) {
+        // Only cache if we have meaningful (non-zero) values
+        // This prevents caching zeros from incomplete initialization
+        if (insets.top == 0 && insets.right == 0 && insets.bottom == 0 && insets.left == 0) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "⚠️ Skipping cache save - all insets are zero")
+            }
+            return
+        }
+
+        val saved = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).edit().apply {
+            putInt(PREF_SAFE_AREA_TOP, insets.top)
+            putInt(PREF_SAFE_AREA_RIGHT, insets.right)
+            putInt(PREF_SAFE_AREA_BOTTOM, insets.bottom)
+            putInt(PREF_SAFE_AREA_LEFT, insets.left)
+            putBoolean(PREF_SAFE_AREA_CACHED, true)
+        }.commit()  // Use commit() instead of apply() to ensure immediate persistence
+
+        if (BuildConfig.DEBUG) {
+            if (saved) {
+                // Verify by reading back immediately
+                val prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                val verified = SafeAreaInsets(
+                    top = prefs.getInt(PREF_SAFE_AREA_TOP, -1),
+                    right = prefs.getInt(PREF_SAFE_AREA_RIGHT, -1),
+                    bottom = prefs.getInt(PREF_SAFE_AREA_BOTTOM, -1),
+                    left = prefs.getInt(PREF_SAFE_AREA_LEFT, -1)
+                )
+                Log.d(TAG, "💾 Cached safe area insets: $insets")
+                Log.d(TAG, "✓ Verified cached values: $verified")
+            } else {
+                Log.e(TAG, "❌ Failed to cache safe area insets: $insets")
+            }
+        }
+    }
+
+    private fun loadUrlWithSafeArea(url: String) {
+        // Set headers with current safe area insets
+        customWebView.setDefaultRequestHeaders(buildSafeAreaHeaders())
+        // Load URL with safe area headers
+        customWebView.loadUrl(url)
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "🔄 Loading URL with safe area headers: $latestSafeAreaInsets")
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
         // Load properties
         properties = Properties()
@@ -72,6 +250,17 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             // Fall back to default properties if the file doesn't exist
             properties.setProperty("buildType", if (BuildConfig.DEBUG) "debug" else "release")
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
+        }
+
+        configureEdgeToEdge()
+
+        // Initialize security checks (release builds only)
+        if (!BuildConfig.DEBUG) {
+            SecurityCheckScheduler.initialize(this, this, object : SecurityCheckScheduler.SecurityCheckCallback {
+                override fun onSecurityCheckComplete(results: JSONObject) {
+                    io.yourname.androidproject.security.SecurityAlertHandler.handleSecurityCheckResults(this@MainActivity, results)
+                }
+            })
         }
 
         // Initialize MetricsMonitor
@@ -120,6 +309,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")
         }
 
+        setupSafeAreaHandling()
+
         // Setup back press handler (modern API)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -154,7 +345,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "🔗 Loading base URL: $currentUrl")
                     }
-                    customWebView.loadUrl(currentUrl)
+                    loadUrlWithSafeArea(currentUrl)
                 } else {
                     if (BuildConfig.DEBUG) {
                         Log.w(TAG, "📴 Device offline on launch, showing offline page")
@@ -181,7 +372,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 handleNotificationClick(currentUrl, newIntent)
             } else {
                 Log.d(TAG, "🔗 onNewIntent - Loading base URL: $currentUrl")
-                customWebView.loadUrl(currentUrl)
+                loadUrlWithSafeArea(currentUrl)
             }
         }
     }
@@ -209,6 +400,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     override fun onResume() {
         super.onResume()
         customWebView.onResume()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.handlePermissionResult(requestCode, permissions, grantResults)
+        }
     }
 
     override fun onDestroy() {
@@ -285,7 +483,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             customWebView.updateLastTargetUrl(url)
             val isOnline = NetworkUtils.getCurrentStatus(this).isOnline
             if (isOnline) {
-                customWebView.loadUrl(url)
+                loadUrlWithSafeArea(url)
             } else {
                 Log.w(TAG, "📴 Offline during notification click, showing offline page")
                 customWebView.showOfflinePage()
@@ -293,7 +491,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         } catch (e: Exception) {
             Log.e(TAG, "🔔 Error handling notification click: ${e.message}", e)
-            customWebView.loadUrl(baseUrl)
+            loadUrlWithSafeArea(baseUrl)
         }
     }
 

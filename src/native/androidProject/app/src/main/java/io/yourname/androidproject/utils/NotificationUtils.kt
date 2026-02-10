@@ -220,6 +220,31 @@ class NotificationUtils(private val context: Context) {
             BridgeUtils.logInfo(TAG, "Notification permission result: ${if (granted) "GRANTED" else "DENIED"}")
         }
     }
+
+    /**
+     * Check current notification permission status without requesting it
+     * @return Permission status string: "GRANTED", "DENIED", or "NOT_DETERMINED"
+     */
+    fun checkPermissionStatus(context: Context): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ requires POST_NOTIFICATIONS permission
+            when (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)) {
+                PackageManager.PERMISSION_GRANTED -> "GRANTED"
+                else -> {
+                    // Check if we should show rationale (user previously denied)
+                    val activity = context as? Activity
+                    if (activity != null && ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)) {
+                        "DENIED"
+                    } else {
+                        "NOT_DETERMINED"
+                    }
+                }
+            }
+        } else {
+            // For older versions, check system notification settings
+            if (areNotificationsEnabled(context)) "GRANTED" else "DENIED"
+        }
+    }
     
     /**
      * Build notification based on style

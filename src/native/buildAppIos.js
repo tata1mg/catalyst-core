@@ -4,7 +4,8 @@ const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 const crypto = require("crypto")
 
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
+const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
+const pwd = path.join(catalystCorePath, "dist/native")
 const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
 
 // Configuration constants
@@ -735,6 +736,16 @@ public enum ConfigConstants {
             configContent +=
                 '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n        public static let iosClientId = ""\n    }'
             addedKeys.add("googleSignIn")
+        }
+
+        // Ensure EdgeToEdge.enabled always exists (default to false if not configured)
+        if (!addedKeys.has("edgeToEdge")) {
+            progress.log("EdgeToEdge not found in config, adding default (false)", "info")
+            configContent +=
+                "\n    public enum EdgeToEdge {\n        public static let enabled = false\n    }"
+            addedKeys.add("edgeToEdge")
+        } else {
+            progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
         }
 
         // Close the enum
