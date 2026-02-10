@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.1",
+  "base_commit_sha": "3fb29681cfc98144fd8f682c370996e833a57671",
+  "prompts": {
+    "4042e5a4889392fc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9e26fa5-608a-4616-8752-2f6bbe414641",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 474,
+      "total_deletions": 123,
+      "accepted_lines": 276,
+      "overriden_lines": 0
+    }
+  }
+}
