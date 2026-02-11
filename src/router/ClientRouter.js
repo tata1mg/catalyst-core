@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "../index.jsx"
-import { preparedRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
+import { preparedRoutes } from "@catalyst/template/src/js/routes/utils"
 
 /**
  * @returns returns browsers routers (client routes)

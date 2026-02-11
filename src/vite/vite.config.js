@@ -1,5 +1,50 @@
-import { defineConfig } from "vite"
+import { defineConfig, transformWithEsbuild } from "vite"
 import react from "@vitejs/plugin-react"
+
+/**
+ * Treat all .scss imports as CSS modules (webpack compat).
+ * Webpack's css-loader with modules:true scopes every .scss file.
+ * Vite only does this for files named .module.scss.
+ * This plugin renames the resolved ID so Vite's CSS pipeline treats them as modules.
+ */
+function scssModulesPlugin() {
+    return {
+        name: "vite-plugin-scss-as-modules",
+        enforce: "pre",
+        async resolveId(source, importer, options) {
+            if (!source.endsWith(".scss") || source.includes(".module.")) return null
+            if (!importer) return null
+
+            const resolved = await this.resolve(source, importer, { ...options, skipSelf: true })
+            if (!resolved || resolved.id.includes("node_modules")) return null
+
+            return resolved.id.replace(/\.scss$/, ".module.scss")
+        },
+        load(id) {
+            const cleanId = id.split("?")[0]
+            if (cleanId.endsWith(".module.scss") && !fs.existsSync(cleanId)) {
+                const originalPath = cleanId.replace(/\.module\.scss$/, ".scss")
+                if (fs.existsSync(originalPath)) {
+                    return fs.readFileSync(originalPath, "utf-8")
+                }
+            }
+            return null
+        },
+    }
+}
+
+function jsxInJsPlugin() {
+    return {
+        name: "vite-plugin-jsx-in-js",
+        enforce: "pre",
+        async transform(code, id) {
+            if (!id.endsWith(".js")) return null
+            if (id.includes("node_modules")) return null
+            if (!/</.test(code)) return null
+            return transformWithEsbuild(code, id, { loader: "jsx" })
+        },
+    }
+}
 
 import { fileURLToPath } from "url"
 import { dirname } from "path"
@@ -82,23 +127,46 @@ export const getClientEnvVariables = () => {
 
 const isProduction = process.env.NODE_ENV === "production"
 
+// Common list of browser-facing dependencies that benefit from pre-bundling
+const browserOptimizeDeps = [
+    "react",
+    "react-dom",
+    "react-router-dom",
+    "@tata1mg/router",
+    "invariant",
+    "react-fast-compare",
+    "shallowequal",
+    "prop-types",
+    "redux-thunk",
+    "redux-logger",
+]
+
+// Node-only / instrumentation dependencies that should remain external in SSR
+const nodeOnlyExternalDeps = [
+    "elastic-apm-node",
+    "@opentelemetry/api",
+    "@opentelemetry/core",
+    "@opentelemetry/sdk-node",
+    "@opentelemetry/sdk-trace-base",
+    "@opentelemetry/sdk-metrics",
+    "@opentelemetry/resources",
+    "@opentelemetry/instrumentation-http",
+    "@opentelemetry/instrumentation-express",
+    "@grpc/grpc-js",
+]
+
 export default defineConfig({
     ssr: {
+        // Keep selected React-side packages bundled for SSR
         noExternal: ["@tata1mg/slowboi-react", "@tata1mg/prefetch-core", "@tata1mg/prefetch-core/react"],
+        // Ensure Node-only instrumentation and low-level Node deps stay external
+        external: nodeOnlyExternalDeps,
         optimizeDeps: {
             include: [
-                "react",
-                "react-dom",
-                "invariant",
-                "react-fast-compare",
-                "shallowequal",
-                "prop-types",
-                "redux-thunk",
-                "redux-logger",
+                ...browserOptimizeDeps,
                 "@tata1mg/slowboi-react",
                 "@tata1mg/prefetch-core",
                 "@tata1mg/prefetch-core/react",
-                "react-dom",
                 "react-dom/server.node",
             ],
             exclude: ["catalyst-core/router/ClientRouter"],
@@ -106,10 +174,13 @@ export default defineConfig({
             esbuildOptions: {
                 format: "esm",
                 target: "node2022",
+                loader: {
+                    ".js": "jsx",
+                },
             },
         },
     },
-    plugins: [react()],
+    plugins: [scssModulesPlugin(), jsxInJsPlugin(), react()],
     resolve: {
         alias: alias(),
     },
@@ -137,19 +208,15 @@ export default defineConfig({
     },
 
     optimizeDeps: {
-        include: [
-            "invariant",
-            "react-fast-compare",
-            "shallowequal",
-            "prop-types",
-            "redux-thunk",
-            "redux-logger",
-        ],
+        include: browserOptimizeDeps,
         exclude: ["catalyst-core/router/ClientRouter"],
         force: true,
         esbuildOptions: {
             format: "esm",
             target: "node2022",
+            loader: {
+                ".js": "jsx",
+            },
         },
     },
 
@@ -161,7 +228,7 @@ export default defineConfig({
         preprocessorOptions: {
             scss: {
                 additionalData: `@import "@css/resources/index.scss" ; $font_url: "${fontUrl()}";  $url_for: "${imageUrl()}"; `,
-                silenceDeprecations: ["import", "global-builtin", "color-functions"],
+                silenceDeprecations: ["import", "global-builtin", "color-functions", "if-function"],
             },
         },
     },

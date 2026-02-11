@@ -21,10 +21,10 @@ import {
     generateStylesheetLinksAsStrings,
 } from "./extract.js"
 
-import CustomDocument from "@catalyst/template/server/document.jsx"
+import CustomDocument from "@catalyst/template/server/document"
 
-import App from "@catalyst/template/src/js/containers/App/index.jsx"
-import { getRoutes } from "@catalyst/template/src/js/routes/utils.jsx"
+import App from "@catalyst/template/src/js/containers/App/index"
+import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 // const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 

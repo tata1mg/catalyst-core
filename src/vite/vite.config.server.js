@@ -55,8 +55,6 @@ export default defineConfig({
                     return "server/assets/[name]-[hash][extname]"
                 },
             },
-            // Prevent externalization for server build - bundle all dependencies
-            external: [],
         },
 
         // Production-specific optimization
