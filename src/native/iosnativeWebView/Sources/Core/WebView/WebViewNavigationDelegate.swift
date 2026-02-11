@@ -4,7 +4,7 @@ import UIKit
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
 
-class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
+class WebViewNavigationDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
     private var viewModel: WebViewModel
     private let offlineFileName = "offline.html"
     private let offlineSubdirectory = "offline"
@@ -290,6 +290,19 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         // For all other domains, use default certificate validation
         logger.debug("🔐 SSL challenge for \(host) - using default validation")
         completionHandler(.performDefaultHandling, nil)
+    }
+
+    @available(iOS 13.0, *)
+    func webView(_ webView: WKWebView,
+                 contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
+                 completionHandler: @escaping (UIContextMenuConfiguration?) -> Void) {
+        completionHandler(nil)
+    }
+
+    @available(iOS 13.0, *)
+    func webView(_ webView: WKWebView,
+                 contextMenuWillPresentForElement elementInfo: WKContextMenuElementInfo) {
+        // Intentionally empty to suppress context menu presentation behavior.
     }
 
     private func isRetryURL(_ url: URL) -> Bool {
