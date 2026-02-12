@@ -190,6 +190,10 @@ export const translateError = (nativeError) => {
 
     const errorString = nativeError.toString().toLowerCase()
 
+    if (errorString.includes("disabled") && errorString.includes("config")) {
+        return createStandardError(ERROR_CODES.FEATURE_UNSUPPORTED, nativeError.toString(), nativeError)
+    }
+
     // Permission errors
     if (errorString.includes("permission") && errorString.includes("denied")) {
         if (errorString.includes("camera")) {

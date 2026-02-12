@@ -4,6 +4,7 @@ import android.util.Log
 import android.webkit.WebView
 import io.yourname.androidproject.CatalystConstants
 import org.json.JSONObject
+import android.os.Looper
 
 /**
  * Common utilities for native bridge operations
@@ -65,9 +66,13 @@ object BridgeUtils {
         TOPIC_SUBSCRIPTION_RESULT("TOPIC_SUBSCRIPTION_RESULT"),
         SUBSCRIBED_TOPICS_RESULT("SUBSCRIBED_TOPICS_RESULT"),
 
+        // Auth events
+        ON_GOOGLE_SIGN_IN_SUCCESS("ON_GOOGLE_SIGN_IN_SUCCESS"),
+        ON_GOOGLE_SIGN_IN_ERROR("ON_GOOGLE_SIGN_IN_ERROR"),
+        ON_GOOGLE_SIGN_IN_CANCELLED("ON_GOOGLE_SIGN_IN_CANCELLED"),
+
         // Network events
         NETWORK_STATUS_CHANGED("NETWORK_STATUS_CHANGED"),
-
         // Safe area events
         ON_SAFE_AREA_INSETS_UPDATED("ON_SAFE_AREA_INSETS_UPDATED"),
     }
@@ -80,6 +85,12 @@ object BridgeUtils {
      * @param data The data to send (can be null)
      */
     fun notifyWeb(webView: WebView, event: WebEvents, data: String? = null) {
+        // Ensure WebView interactions happen on the main thread
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            webView.post { notifyWeb(webView, event, data) }
+            return
+        }
+
         try {
             val safeData = data?.replace("'", "\\'") ?: ""
             val jsCode = if (data != null) {

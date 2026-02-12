@@ -134,6 +134,23 @@ class BridgeMessageValidator {
             "properties": [:],
             "additionalProperties": false
         ],
+        "googleSignIn": [
+            "type": "object",
+            "properties": [
+                "clientId": ["type": "string"],
+                "webClientId": ["type": "string"],
+                "nonce": ["type": "string"],
+                "hint": ["type": "string"],
+                "email": ["type": "string"],
+                "autoSelect": ["type": "boolean"],
+                "filterByAuthorizedAccounts": ["type": "boolean"],
+                "additionalScopes": [
+                    "type": "array",
+                    "items": ["type": "string"]
+                ]
+            ],
+            "additionalProperties": false
+        ],
         // Notification commands
         "requestNotificationPermission": [
             "type": "object",
@@ -345,6 +362,7 @@ class BridgeMessageValidator {
             "getDeviceInfo",
             "getNetworkStatus",
             "logger",
+            "googleSignIn",
             "getSubscribedTopics",
             "requestNotificationPermission",
             "registerForPushNotifications",

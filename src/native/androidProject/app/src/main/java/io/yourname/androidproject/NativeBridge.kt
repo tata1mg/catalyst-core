@@ -10,6 +10,12 @@ import android.webkit.WebView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationCompat
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
@@ -86,6 +92,37 @@ private fun JSONObject.optIntNullable(key: String): Int? =
 private fun JSONObject.optLongNullable(key: String): Long? =
     if (has(key) && !isNull(key)) getLong(key) else null
 
+private data class GoogleSignInOptions(
+    val clientId: String,
+    val nonce: String? = null,
+    val autoSelect: Boolean = false,
+    val filterByAuthorizedAccounts: Boolean = false
+) {
+    companion object {
+        fun fromRaw(raw: String?): GoogleSignInOptions {
+            if (raw.isNullOrBlank()) {
+                // Allow fallback to config-supplied clientId
+                return GoogleSignInOptions(clientId = "")
+            }
+
+            return try {
+                val json = JSONObject(raw)
+                val resolvedClientId = json.optString("clientId")
+                    .ifBlank { json.optString("webClientId") }
+
+                GoogleSignInOptions(
+                    clientId = resolvedClientId,
+                    nonce = json.optString("nonce").takeIf { it.isNotBlank() },
+                    autoSelect = json.optBoolean("autoSelect", false),
+                    filterByAuthorizedAccounts = json.optBoolean("filterByAuthorizedAccounts", false)
+                )
+            } catch (_: Exception) {
+                GoogleSignInOptions(clientId = raw.trim())
+            }
+        }
+    }
+}
+
 class NativeBridge(
     private val mainActivity: MainActivity,
     private val webView: WebView,
@@ -104,6 +141,12 @@ class NativeBridge(
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
+    private var isGoogleSignInInProgress: Boolean = false
+    private val credentialManager: CredentialManager by lazy { CredentialManager.create(mainActivity) }
+    private val isGoogleSignInEnabled: Boolean by lazy {
+        properties.getProperty("googleSignIn.enabled", "false").toBoolean()
+    }
+    
     private var networkMonitor: NetworkMonitor? = null
 
     // Unified notification manager
@@ -234,6 +277,56 @@ class NativeBridge(
                     throw Exception("Haptic feedback failed for type: $type")
                 }
             }
+        }
+    }
+
+    @JavascriptInterface
+    fun googleSignIn(optionsRaw: String?) {
+        BridgeUtils.safeExecute(
+            webView,
+            BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+            "start Google Sign-In"
+        ) {
+            if (!isGoogleSignInEnabled) {
+                BridgeUtils.notifyWebError(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                    "Google Sign-In is disabled in config"
+                )
+                return@safeExecute
+            }
+
+            val options = GoogleSignInOptions.fromRaw(optionsRaw)
+
+            val resolvedClientId = when {
+                options.clientId.isNotBlank() -> options.clientId
+                !properties.getProperty("googleSignIn.clientId", "").isNullOrBlank() ->
+                    properties.getProperty("googleSignIn.clientId", "")
+                else -> ""
+            }
+
+            if (resolvedClientId.isBlank()) {
+                BridgeUtils.notifyWebError(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                    "clientId is required for Google Sign-In"
+                )
+                return@safeExecute
+            }
+
+            if (isGoogleSignInInProgress) {
+                BridgeUtils.notifyWebError(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                    "A Google Sign-In request is already in progress"
+                )
+                return@safeExecute
+            }
+
+            isGoogleSignInInProgress = true
+            BridgeUtils.logDebug(TAG, "Google Sign-In using clientId prefix: ${resolvedClientId.take(12)}...")
+
+            launchGoogleSignIn(options.copy(clientId = resolvedClientId))
         }
     }
 
@@ -624,6 +717,114 @@ class NativeBridge(
             } catch (e: Exception) {
                 BridgeUtils.logError(TAG, "Error starting FrameworkServer", e)
             }
+        }
+    }
+
+    private fun launchGoogleSignIn(options: GoogleSignInOptions) {
+        launch {
+            try {
+                val googleOptionBuilder = GetSignInWithGoogleOption.Builder(options.clientId)
+                options.nonce?.let { googleOptionBuilder.setNonce(it) }
+                val googleOption = googleOptionBuilder.build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleOption)
+                    .build()
+
+                BridgeUtils.logDebug(
+                    TAG,
+                    "Starting Google Sign-In via CredentialManager (hasNonce=${options.nonce != null})"
+                )
+
+                val response = credentialManager.getCredential(mainActivity, request)
+                handleCredentialResponse(response)
+            } catch (e: GetCredentialCancellationException) {
+                isGoogleSignInInProgress = false
+                BridgeUtils.logDebug(
+                    TAG,
+                    "Google Sign-In cancelled: ${e.message} :: ${e.javaClass.simpleName}"
+                )
+                BridgeUtils.notifyWeb(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_CANCELLED,
+                    "User cancelled Google sign-in"
+                )
+            } catch (e: GetCredentialException) {
+                isGoogleSignInInProgress = false
+                val message = e.errorMessage?.toString() ?: e.message ?: "Credential request failed"
+                BridgeUtils.logError(
+                    TAG,
+                    "Google Sign-In credential error: $message :: ${e.javaClass.simpleName}",
+                    e
+                )
+                BridgeUtils.notifyWebError(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                    message
+                )
+            } catch (e: Exception) {
+                isGoogleSignInInProgress = false
+                BridgeUtils.logError(
+                    TAG,
+                    "Google Sign-In unexpected error: ${e.message} :: ${e.javaClass.simpleName}",
+                    e
+                )
+                BridgeUtils.notifyWebError(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                    "Error preparing Google sign-in: ${e.message}"
+                )
+            }
+        }
+    }
+
+    private fun handleCredentialResponse(response: androidx.credentials.GetCredentialResponse) {
+        try {
+            val credential = response.credential
+            if (credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                isGoogleSignInInProgress = false
+                BridgeUtils.notifyWebError(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                    "Unsupported credential type returned"
+                )
+                return
+            }
+
+            val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
+            val idToken = googleCredential.idToken
+
+            if (idToken.isNullOrBlank()) {
+                isGoogleSignInInProgress = false
+                BridgeUtils.notifyWebError(
+                    webView,
+                    BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                    "No ID token returned from Google sign-in"
+                )
+                return
+            }
+
+            val payload = JSONObject().apply {
+                put("idToken", idToken)
+                googleCredential.id?.let { put("email", it) }
+                googleCredential.displayName?.let { put("name", it) }
+                googleCredential.profilePictureUri?.toString()?.let { put("photoUrl", it) }
+                put("provider", "google")
+            }
+
+            isGoogleSignInInProgress = false
+            BridgeUtils.notifyWebJson(
+                webView,
+                BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_SUCCESS,
+                payload
+            )
+        } catch (e: Exception) {
+            isGoogleSignInInProgress = false
+            BridgeUtils.notifyWebError(
+                webView,
+                BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
+                "Error handling Google credential: ${e.message}"
+            )
         }
     }
     

@@ -3,6 +3,7 @@
 // This minimal version allows Xcode to open the project without resolving Firebase
 import PackageDescription
 
+// TODO: haven't made this conditional yet
 let package = Package(
     name: "iosnativeWebView",
     platforms: [.iOS(.v17)],
@@ -10,7 +11,8 @@ let package = Package(
         .library(name: "CatalystCore", targets: ["CatalystCore"])
     ],
     dependencies: [
-        .package(url: "https://github.com/kylef/JSONSchema.swift", from: "0.6.0")
+        .package(url: "https://github.com/kylef/JSONSchema.swift", from: "0.6.0"),
+        .package(url: "https://github.com/google/GoogleSignIn-iOS", from: "7.0.0")
     ],
     targets: [
         // Core functionality (WebView, bridge, utils, constants)
@@ -18,7 +20,8 @@ let package = Package(
         .target(
             name: "CatalystCore",
             dependencies: [
-                .product(name: "JSONSchema", package: "JSONSchema.swift")
+                .product(name: "JSONSchema", package: "JSONSchema.swift"),
+                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
             ],
             path: "Sources/Core"
         )
