@@ -406,6 +406,28 @@ async function updateInfoPlist() {
 
         const plistTargets = [infoPlistPath, infoReleasePlistPath]
 
+        const findMatchingArrayCloseTag = (content, arrayStartIndex) => {
+            if (arrayStartIndex < 0) return -1
+
+            const tokenRegex = /<array>|<\/array>/g
+            tokenRegex.lastIndex = arrayStartIndex
+            let depth = 0
+            let match
+
+            while ((match = tokenRegex.exec(content)) !== null) {
+                if (match[0] === "<array>") {
+                    depth += 1
+                } else {
+                    depth -= 1
+                    if (depth === 0) {
+                        return match.index
+                    }
+                }
+            }
+
+            return -1
+        }
+
         const ensureGoogleUrlScheme = (plistPath) => {
             if (!isGoogleSignInEnabled || !resolvedReversedClientId) {
                 return
@@ -422,12 +444,27 @@ async function updateInfoPlist() {
             }
 
             const urlTypeEntry = `\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>googleSignIn</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${resolvedReversedClientId}</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`
+            const urlTypeDictEntry = `\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>googleSignIn</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${resolvedReversedClientId}</string>\n\t\t\t</array>\n\t\t</dict>\n`
 
             if (plistContent.includes("<key>CFBundleURLTypes</key>")) {
-                plistContent = plistContent.replace(
-                    /(<key>CFBundleURLTypes<\/key>\s*<array>)([\s\S]*?)(<\/array>)/,
-                    `$1$2\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>googleSignIn</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${resolvedReversedClientId}</string>\n\t\t\t</array>\n\t\t</dict>\n\t$3`
-                )
+                const urlTypesKeyIndex = plistContent.indexOf("<key>CFBundleURLTypes</key>")
+                const urlTypesArrayStart = plistContent.indexOf("<array>", urlTypesKeyIndex)
+                const urlTypesArrayClose = findMatchingArrayCloseTag(plistContent, urlTypesArrayStart)
+
+                if (urlTypesArrayStart >= 0 && urlTypesArrayClose >= 0) {
+                    plistContent =
+                        plistContent.slice(0, urlTypesArrayClose) +
+                        urlTypeDictEntry +
+                        plistContent.slice(urlTypesArrayClose)
+                } else {
+                    const insertPoint = plistContent.lastIndexOf("</dict>")
+                    plistContent =
+                        plistContent.slice(0, insertPoint) + urlTypeEntry + plistContent.slice(insertPoint)
+                    progress.log(
+                        `CFBundleURLTypes block could not be parsed in ${path.basename(plistPath)}; appended block instead`,
+                        "warning"
+                    )
+                }
             } else {
                 const insertPoint = plistContent.lastIndexOf("</dict>")
                 plistContent =
