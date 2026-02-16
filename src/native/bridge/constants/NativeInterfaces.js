@@ -26,7 +26,12 @@ export const NATIVE_COMMANDS = {
 
     // Device info commands
     GET_DEVICE_INFO: "getDeviceInfo",
+
+    // Network commands
     GET_NETWORK_STATUS: "getNetworkStatus",
+
+    // Auth commands
+    GOOGLE_SIGN_IN: "googleSignIn",
 
     // Safe area commands
     GET_SAFE_AREA: "getSafeArea",
@@ -67,6 +72,11 @@ export const NATIVE_CALLBACKS = {
     // Device info callbacks
     ON_DEVICE_INFO_SUCCESS: "ON_DEVICE_INFO_SUCCESS",
     ON_DEVICE_INFO_ERROR: "ON_DEVICE_INFO_ERROR",
+
+    // Auth callbacks
+    ON_GOOGLE_SIGN_IN_SUCCESS: "ON_GOOGLE_SIGN_IN_SUCCESS",
+    ON_GOOGLE_SIGN_IN_ERROR: "ON_GOOGLE_SIGN_IN_ERROR",
+    ON_GOOGLE_SIGN_IN_CANCELLED: "ON_GOOGLE_SIGN_IN_CANCELLED",
 
     // Network callbacks
     NETWORK_STATUS_CHANGED: "NETWORK_STATUS_CHANGED",
@@ -132,6 +142,14 @@ export const INTERFACE_CATEGORIES = {
     DEVICE_INFO: {
         commands: [NATIVE_COMMANDS.GET_DEVICE_INFO],
         callbacks: [NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR],
+    },
+    AUTH: {
+        commands: [NATIVE_COMMANDS.GOOGLE_SIGN_IN],
+        callbacks: [
+            NATIVE_CALLBACKS.ON_GOOGLE_SIGN_IN_SUCCESS,
+            NATIVE_CALLBACKS.ON_GOOGLE_SIGN_IN_ERROR,
+            NATIVE_CALLBACKS.ON_GOOGLE_SIGN_IN_CANCELLED,
+        ],
     },
     NETWORK: {
         commands: [NATIVE_COMMANDS.GET_NETWORK_STATUS],

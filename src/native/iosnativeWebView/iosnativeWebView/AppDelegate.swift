@@ -9,6 +9,9 @@ import UIKit
 import WebKit
 import os
 import CatalystCore
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "AppDelegate")
 
@@ -67,5 +70,15 @@ public class AppDelegate: NSObject, UIApplicationDelegate {
             object: nil,
             userInfo: ["notification": userInfo, "completion": completionHandler]
         )
+    }
+
+    public func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        #if canImport(GoogleSignIn)
+        if GIDSignIn.sharedInstance.handle(url) {
+            logWithTimestamp("🔐 Google Sign-In handled openURL callback")
+            return true
+        }
+        #endif
+        return false
     }
 }

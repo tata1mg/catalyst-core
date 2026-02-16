@@ -258,6 +258,8 @@ extension NativeBridge: WKScriptMessageHandler {
         case "requestHapticFeedback":
             let feedbackType = delegateHandler.extractFeedbackType(from: params)
             commandHandler.requestHapticFeedback(feedbackType: feedbackType)
+        case "googleSignIn":
+            commandHandler.googleSignIn(params: params)
 
         // Notification commands (handled via protocol)
         case "requestNotificationPermission":
