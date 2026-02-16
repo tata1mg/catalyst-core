@@ -404,6 +404,11 @@ async function updateInfoPlist() {
         const resolvedReversedClientId =
             reversedClientIdFromServices || computeReversed(resolvedClientIdForScheme)
 
+        if (isGoogleSignInEnabled && !resolvedReversedClientId) {
+            progress.fail("config", "Google Sign-In enabled but no valid clientId found")
+            process.exit(1)
+        }
+
         const plistTargets = [infoPlistPath, infoReleasePlistPath]
 
         const findMatchingArrayCloseTag = (content, arrayStartIndex) => {

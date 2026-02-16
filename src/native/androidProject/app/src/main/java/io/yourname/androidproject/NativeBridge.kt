@@ -22,6 +22,7 @@ import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Properties
+import java.util.concurrent.atomic.AtomicBoolean
 
 private data class FilePickerOptions(
     val mimeType: String = "*/*",
@@ -116,7 +117,8 @@ private data class GoogleSignInOptions(
                     autoSelect = json.optBoolean("autoSelect", false),
                     filterByAuthorizedAccounts = json.optBoolean("filterByAuthorizedAccounts", false)
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                BridgeUtils.logDebug("NativeBridge", "Failed to parse options JSON: ${e.message}")
                 GoogleSignInOptions(clientId = raw.trim())
             }
         }
@@ -141,7 +143,7 @@ class NativeBridge(
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
-    private var isGoogleSignInInProgress: Boolean = false
+    private val isGoogleSignInInProgress = AtomicBoolean(false)
     private val credentialManager: CredentialManager by lazy { CredentialManager.create(mainActivity) }
     private val isGoogleSignInEnabled: Boolean by lazy {
         properties.getProperty("googleSignIn.enabled", "false").toBoolean()
@@ -154,6 +156,7 @@ class NativeBridge(
 
     companion object {
         private const val TAG = "NativeBridge"
+        private const val GOOGLE_SIGN_IN_SAFE_EXECUTE_ACTION = "start Google Sign-In"
 
         /**
          * Parse and validate bridge message
@@ -285,7 +288,7 @@ class NativeBridge(
         BridgeUtils.safeExecute(
             webView,
             BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
-            "start Google Sign-In"
+            GOOGLE_SIGN_IN_SAFE_EXECUTE_ACTION
         ) {
             if (!isGoogleSignInEnabled) {
                 BridgeUtils.notifyWebError(
@@ -314,7 +317,7 @@ class NativeBridge(
                 return@safeExecute
             }
 
-            if (isGoogleSignInInProgress) {
+            if (!isGoogleSignInInProgress.compareAndSet(false, true)) {
                 BridgeUtils.notifyWebError(
                     webView,
                     BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
@@ -323,7 +326,6 @@ class NativeBridge(
                 return@safeExecute
             }
 
-            isGoogleSignInInProgress = true
             BridgeUtils.logDebug(TAG, "Google Sign-In using clientId prefix: ${resolvedClientId.take(12)}...")
 
             launchGoogleSignIn(options.copy(clientId = resolvedClientId))
@@ -739,7 +741,7 @@ class NativeBridge(
                 val response = credentialManager.getCredential(mainActivity, request)
                 handleCredentialResponse(response)
             } catch (e: GetCredentialCancellationException) {
-                isGoogleSignInInProgress = false
+                isGoogleSignInInProgress.set(false)
                 BridgeUtils.logDebug(
                     TAG,
                     "Google Sign-In cancelled: ${e.message} :: ${e.javaClass.simpleName}"
@@ -750,7 +752,7 @@ class NativeBridge(
                     "User cancelled Google sign-in"
                 )
             } catch (e: GetCredentialException) {
-                isGoogleSignInInProgress = false
+                isGoogleSignInInProgress.set(false)
                 val message = e.errorMessage?.toString() ?: e.message ?: "Credential request failed"
                 BridgeUtils.logError(
                     TAG,
@@ -763,7 +765,7 @@ class NativeBridge(
                     message
                 )
             } catch (e: Exception) {
-                isGoogleSignInInProgress = false
+                isGoogleSignInInProgress.set(false)
                 BridgeUtils.logError(
                     TAG,
                     "Google Sign-In unexpected error: ${e.message} :: ${e.javaClass.simpleName}",
@@ -782,7 +784,8 @@ class NativeBridge(
         try {
             val credential = response.credential
             if (credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                isGoogleSignInInProgress = false
+                BridgeUtils.logError(TAG, "Unexpected credential type: ${credential.type}")
+                isGoogleSignInInProgress.set(false)
                 BridgeUtils.notifyWebError(
                     webView,
                     BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
@@ -795,7 +798,7 @@ class NativeBridge(
             val idToken = googleCredential.idToken
 
             if (idToken.isNullOrBlank()) {
-                isGoogleSignInInProgress = false
+                isGoogleSignInInProgress.set(false)
                 BridgeUtils.notifyWebError(
                     webView,
                     BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
@@ -812,14 +815,14 @@ class NativeBridge(
                 put("provider", "google")
             }
 
-            isGoogleSignInInProgress = false
+            isGoogleSignInInProgress.set(false)
             BridgeUtils.notifyWebJson(
                 webView,
                 BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_SUCCESS,
                 payload
             )
         } catch (e: Exception) {
-            isGoogleSignInInProgress = false
+            isGoogleSignInInProgress.set(false)
             BridgeUtils.notifyWebError(
                 webView,
                 BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,

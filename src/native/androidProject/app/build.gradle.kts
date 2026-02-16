@@ -31,24 +31,6 @@ fun isNotificationsEnabled(): Boolean {
     }
 }
 
-fun isGoogleSignInEnabled(): Boolean {
-    return try {
-        if (configPath == null) return false
-        val configFile = File(configPath!!)
-        if (!configFile.exists()) return false
-
-        val json = JSONObject(configFile.readText())
-        if (!json.has("WEBVIEW_CONFIG")) return false
-
-        val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
-        val googleConfig = webviewConfig.optJSONObject("googleSignIn") ?: return false
-
-        googleConfig.optBoolean("enabled", false)
-    } catch (e: Exception) {
-        false
-    }
-}
-
 fun getLocalIpAddress(): String {
     return NetworkInterface.getNetworkInterfaces().toList()
         .flatMap { it.inetAddresses.toList() }

@@ -38,6 +38,7 @@ class BridgeCommandHandler {
     private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
     private var isGoogleSignInInProgress = false
     private var hasAttemptedGoogleRestore = false
+    private var lastConfiguredGoogleClientId: String?
 
     private struct GoogleSignInOptions {
         let clientId: String?
@@ -865,6 +866,9 @@ class BridgeCommandHandler {
     }
 
     private func configureGoogleSignIn(clientId: String) {
+        guard lastConfiguredGoogleClientId != clientId else { return }
+        lastConfiguredGoogleClientId = clientId
+
         let iosClientId = ConfigConstants.GoogleSignIn.iosClientId
         let serverClientId = clientId  // This is the Web Client ID
         let configClientId = !iosClientId.isEmpty ? iosClientId : serverClientId
