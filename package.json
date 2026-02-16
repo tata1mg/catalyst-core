@@ -10,6 +10,15 @@
         "type": "git",
         "url": "https://github.com/tata1mg/catalyst-core.git"
     },
+    "files": [
+        "dist",
+        "bin",
+        "index.js",
+        "router",
+        "server",
+        "webpack",
+        "scripts"
+    ],
     "_moduleAliases": {
         "@catalyst/template": ".",
         "@catalyst/template/src": "src",
@@ -22,7 +31,11 @@
         "@catalyst/router": "router",
         "@catalyst/scripts": "scripts",
         "@catalyst/server": "server",
-        "@catalyst/webpack": "webpack"
+        "@catalyst/webpack": "webpack",
+        "@catalyst-core/ai-sdk": "src/packages/ai-sdk/src",
+        "@catalyst-core/ai-sdk/server": "src/packages/ai-sdk/src/server",
+        "@catalyst-core/ai-sdk/core": "src/packages/ai-sdk/src/core",
+        "@catalyst-core/ai-sdk-react": "src/packages/ai-sdk-react/src"
     },
     "exports": {
         ".": "./dist/index.js",
@@ -30,7 +43,27 @@
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
         "./sentry": "./dist/sentry.js",
-        "./otel": "./dist/otel.js"
+        "./otel": "./dist/otel.js",
+        "./ai-sdk": {
+            "require": "./dist/packages/ai-sdk/src/index.js",
+            "import": "./dist/packages/ai-sdk/src/index.js",
+            "default": "./dist/packages/ai-sdk/src/index.js"
+        },
+        "./ai-sdk/server": {
+            "require": "./dist/packages/ai-sdk/src/server/index.js",
+            "import": "./dist/packages/ai-sdk/src/server/index.js",
+            "default": "./dist/packages/ai-sdk/src/server/index.js"
+        },
+        "./ai-sdk/core": {
+            "require": "./dist/packages/ai-sdk/src/core/index.js",
+            "import": "./dist/packages/ai-sdk/src/core/index.js",
+            "default": "./dist/packages/ai-sdk/src/core/index.js"
+        },
+        "./ai-sdk-react": {
+            "require": "./dist/packages/ai-sdk-react/src/index.js",
+            "import": "./dist/packages/ai-sdk-react/src/index.js",
+            "default": "./dist/packages/ai-sdk-react/src/index.js"
+        }
     },
     "scripts": {
         "lint": "eslint .",
@@ -127,9 +160,6 @@
             "prettier . --write"
         ]
     },
-    "workspaces": [
-        "packages/*"
-    ],
     "engines": {
         "node": "22.x"
     }

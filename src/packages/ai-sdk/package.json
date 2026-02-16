@@ -28,7 +28,9 @@
     },
     "files": [
         "dist/**/*",
-        "README.md"
+        "README.md",
+        "CONFIGURATION.md",
+        ".env.example"
     ],
     "scripts": {
         "build": "node scripts/build.js",

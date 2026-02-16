@@ -3,10 +3,13 @@
  * Prevents too many requests in a short time
  */
 
+import { RATE_LIMITER_DEFAULTS } from '../config/defaults.js';
+
 class RateLimiter {
-  constructor(maxRequests = 3, windowMs = 60000) {
-    this.maxRequests = maxRequests;  // Max requests
-    this.windowMs = windowMs;        // Time window in ms
+  constructor(maxRequests, windowMs) {
+    const defaults = RATE_LIMITER_DEFAULTS.default;
+    this.maxRequests = maxRequests ?? defaults.maxRequests;  // Max requests
+    this.windowMs = windowMs ?? defaults.windowMs;           // Time window in ms
     this.requests = [];
   }
 

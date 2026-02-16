@@ -34,6 +34,18 @@ export {
 } from "./api-handler.js"
 
 // ==========================================
+// UTILITY FUNCTIONS FOR RESPONSES API
+// ==========================================
+// Export utility functions for model selection and capability checking
+export {
+    listModels,
+    supportsCapability,
+    getRecommendedModel,
+    supportsNativeTools,
+    supportsReasoning,
+} from "../providers/openai/openai-utils.js"
+
+// ==========================================
 // INTERNAL ONLY - NOT EXPORTED
 // ==========================================
 // Providers (openai.js, anthropic.js) are internal implementation details.

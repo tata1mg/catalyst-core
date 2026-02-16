@@ -16,6 +16,16 @@ export const catalystResultMap = Object.keys(_moduleAliases || []).reduce((resul
         return resultMap
     }
 
+    if (aliasName?.includes("@catalyst-core")) {
+        // Handle @catalyst-core/* aliases (e.g., @catalyst-core/ai-sdk, @catalyst-core/ai-sdk-react)
+        if (aliasName?.includes("server") && process.env.NODE_ENV === "production") {
+            resultMap[aliasName] = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH)
+        } else {
+            resultMap[aliasName] = path.join(__dirname, "../", aliasPath)
+        }
+        return resultMap
+    }
+
     if (aliasName?.includes("@catalyst") && !aliasName?.includes("@catalyst/template")) {
         if (aliasName?.includes("server") && process.env.NODE_ENV === "production") {
             resultMap[aliasName] = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH)

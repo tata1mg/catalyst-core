@@ -3,6 +3,8 @@
  * Handles SSE (Server-Sent Events) stream processing
  */
 
+import { STREAM_DEFAULTS, ERROR_MESSAGES } from "../config/defaults.js"
+
 /**
  * Process a text stream from the server
  * @param {ReadableStream} stream - The response stream
@@ -10,7 +12,8 @@
  * @param {(chunk: string, fullText: string) => void} [callbacks.onChunk] - Called for each chunk
  * @param {(fullText: string) => void} [callbacks.onComplete] - Called when stream completes
  * @param {(error: Error) => void} [callbacks.onError] - Called on error
- * @param {number} [callbacks.maxLength=1048576] - Max accumulated text length (default: 1MB)
+ * @param {(metadata: Object) => void} [callbacks.onMetadata] - Called when metadata is received (responseId, conversationId, etc.)
+ * @param {number} [callbacks.maxLength] - Max accumulated text length (default from config)
  * @returns {Promise<string>} - The accumulated text
  */
 export async function processTextStream(stream, callbacks = {}) {
@@ -18,35 +21,23 @@ export async function processTextStream(stream, callbacks = {}) {
         onChunk = () => {},
         onComplete = () => {},
         onError = () => {},
-        maxLength = 1024 * 1024, // 1MB default limit
+        onMetadata = () => {},
+        maxLength = STREAM_DEFAULTS.maxLength,
     } = callbacks
-
-    console.log("🌊 [Stream Processor] Starting stream processing")
 
     const reader = stream.getReader()
     const decoder = new TextDecoder()
     let buffer = ""
     let accumulatedText = ""
-    let chunkCount = 0
 
     try {
-        while (true) {
+        let streaming = true
+        while (streaming) {
             const { done, value } = await reader.read()
 
             if (done) {
-                console.log("✅ [Stream Processor] Stream complete:", {
-                    totalChunks: chunkCount,
-                    textLength: accumulatedText.length,
-                    remainingBuffer: buffer.length,
-                })
-
                 // Process any remaining buffer content before completing
                 if (buffer.trim()) {
-                    console.log(
-                        "📦 [Stream Processor] Processing remaining buffer:",
-                        buffer.substring(0, 100)
-                    )
-
                     // Try to parse as JSON (non-SSE format)
                     try {
                         const data = JSON.parse(buffer)
@@ -72,14 +63,11 @@ export async function processTextStream(stream, callbacks = {}) {
                                         onChunk(data.content, accumulatedText)
                                     }
                                 }
-                            } catch (sseError) {
-                                console.warn("Failed to parse remaining SSE buffer:", sseError)
-                            }
-                        } else {
-                            console.warn(
-                                "Remaining buffer is not valid JSON or SSE:",
-                                buffer.substring(0, 100)
-                            )
+                                } catch (sseError) {
+                                    // Failed to parse remaining SSE buffer
+                                }
+                            } else {
+                                // Remaining buffer is not valid JSON or SSE
                         }
                     }
                 }
@@ -87,8 +75,6 @@ export async function processTextStream(stream, callbacks = {}) {
                 onComplete(accumulatedText)
                 break
             }
-
-            chunkCount++
 
             // Decode the chunk
             buffer += decoder.decode(value, { stream: true })
@@ -98,7 +84,6 @@ export async function processTextStream(stream, callbacks = {}) {
 
             // Keep the last incomplete line in the buffer (unless buffer ends with \n)
             buffer = buffer.endsWith("\n") ? "" : lines.pop() || ""
-
             // Process each complete line
             for (const line of lines) {
                 if (!line.trim()) continue
@@ -123,28 +108,30 @@ export async function processTextStream(stream, callbacks = {}) {
                         if (data.type === "text-delta" && data.delta) {
                             // Check accumulated text length to prevent memory issues
                             if (accumulatedText.length + data.delta.length > maxLength) {
-                                const error = new Error(
-                                    `Response exceeded maximum length of ${maxLength} characters`
-                                )
+                                const error = new Error(ERROR_MESSAGES.MAX_LENGTH_EXCEEDED)
                                 onError(error)
                                 return accumulatedText
                             }
                             accumulatedText += data.delta
                             onChunk(data.delta, accumulatedText)
-                            console.log(
-                                "📝 [Stream Processor] Text delta received:",
-                                data.delta.substring(0, 50) + "..."
-                            )
+                        } else if (data.type === "response-created") {
+                            // Pass metadata to callback
+                            onMetadata({
+                                responseId: data.responseId,
+                                conversationId: data.conversationId,
+                                metadata: data.metadata,
+                            })
+                        } else if (data.type === "reasoning-delta") {
+                            // Responses API: reasoning tokens
+                        } else if (data.type === "done") {
+                            // Stream completion
                         } else if (data.type === "error") {
-                            console.error("❌ [Stream Processor] Error in stream:", data.error)
-                            onError(new Error(data.error || "Stream error"))
+                            onError(new Error(data.error || ERROR_MESSAGES.STREAM_PROCESSING_ERROR))
                             return accumulatedText
                         } else if (data.content) {
-                            // Direct content format
+                            // Direct content format (legacy)
                             if (accumulatedText.length + data.content.length > maxLength) {
-                                const error = new Error(
-                                    `Response exceeded maximum length of ${maxLength} characters`
-                                )
+                                const error = new Error(ERROR_MESSAGES.MAX_LENGTH_EXCEEDED)
                                 onError(error)
                                 return accumulatedText
                             }
@@ -152,9 +139,8 @@ export async function processTextStream(stream, callbacks = {}) {
                             onChunk(data.content, accumulatedText)
                         }
                     } catch (parseError) {
-                        console.warn("Failed to parse stream data:", parseError, "Line:", line)
                         // Optionally notify about parsing errors
-                        onError(new Error(`Stream parsing error: ${parseError.message}`))
+                        onError(new Error(`${ERROR_MESSAGES.STREAM_PARSING_ERROR}: ${parseError.message}`))
                     }
                 } else {
                     // Handle non-SSE format (raw JSON response)
@@ -163,12 +149,9 @@ export async function processTextStream(stream, callbacks = {}) {
 
                         // Check if this is a complete response (non-streaming format)
                         if (data.text) {
-                            console.log("📦 [Stream Processor] Received complete response (non-SSE format)")
                             const content = data.text
                             if (accumulatedText.length + content.length > maxLength) {
-                                const error = new Error(
-                                    `Response exceeded maximum length of ${maxLength} characters`
-                                )
+                                const error = new Error(ERROR_MESSAGES.MAX_LENGTH_EXCEEDED)
                                 onError(error)
                                 return accumulatedText
                             }
@@ -177,9 +160,7 @@ export async function processTextStream(stream, callbacks = {}) {
                         } else if (data.content) {
                             const content = data.content
                             if (accumulatedText.length + content.length > maxLength) {
-                                const error = new Error(
-                                    `Response exceeded maximum length of ${maxLength} characters`
-                                )
+                                const error = new Error(ERROR_MESSAGES.MAX_LENGTH_EXCEEDED)
                                 onError(error)
                                 return accumulatedText
                             }
@@ -188,21 +169,15 @@ export async function processTextStream(stream, callbacks = {}) {
                         } else if (data.type === "text-delta" && data.delta) {
                             // Handle delta format without SSE prefix
                             if (accumulatedText.length + data.delta.length > maxLength) {
-                                const error = new Error(
-                                    `Response exceeded maximum length of ${maxLength} characters`
-                                )
+                                const error = new Error(ERROR_MESSAGES.MAX_LENGTH_EXCEEDED)
                                 onError(error)
                                 return accumulatedText
                             }
                             accumulatedText += data.delta
                             onChunk(data.delta, accumulatedText)
                         }
-                    } catch (parseError) {
-                        // Not JSON, might be plain text or invalid format
-                        console.warn(
-                            "⚠️ [Stream Processor] Line is not valid JSON and not SSE format:",
-                            line.substring(0, 100)
-                        )
+                        } catch (parseError) {
+                            // Line is not valid JSON and not SSE format
                     }
                 }
             }
@@ -221,7 +196,7 @@ export async function processTextStream(stream, callbacks = {}) {
  */
 export function createStreamWrapper(response) {
     if (!response.body) {
-        throw new Error("Response does not contain a readable body")
+        throw new Error(ERROR_MESSAGES.NO_READABLE_BODY)
     }
 
     return {

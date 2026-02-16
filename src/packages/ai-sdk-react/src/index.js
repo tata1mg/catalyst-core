@@ -18,19 +18,19 @@
 export { useDialogue, usePrompt } from "./hooks/index.js"
 
 // ==========================================
-// STATE MANAGEMENT UTILITIES
+// STATE MANAGEMENT UTILITIES (PUBLIC API)
 // ==========================================
 export {
     createInitialChatState,
     createInitialCompletionState,
-    CHAT_ACTIONS,
-    COMPLETION_ACTIONS,
-    chatReducer,
-    completionReducer,
     generateId,
     createMessage,
     validateMessage,
 } from "./state-manager.js"
+
+// Note: CHAT_ACTIONS, COMPLETION_ACTIONS, chatReducer, and completionReducer
+// are internal utilities used by useDialogue and usePrompt hooks.
+// They are not exported as end users should use the hooks directly.
 
 // ==========================================
 // DEFAULT EXPORT (for convenience)

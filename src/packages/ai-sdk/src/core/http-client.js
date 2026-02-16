@@ -3,6 +3,8 @@
  * Handles HTTP requests with proper error handling
  */
 
+import { HTTP_CLIENT_DEFAULTS, ERROR_MESSAGES } from "../config/defaults.js"
+
 /**
  * Sleep utility for retry logic
  */
@@ -14,26 +16,39 @@ function sleep(ms) {
  * Make an API request with retry logic
  * @param {string} url - API endpoint
  * @param {Object} options - Request options
- * @param {number} options.retries - Number of retry attempts (default: 0)
- * @param {number} options.retryDelay - Base delay between retries in ms (default: 1000)
+ * @param {number} options.retries - Number of retry attempts (default from config)
+ * @param {number} options.retryDelay - Base delay between retries in ms (default from config)
+ * @param {number} options.timeout - Request timeout in ms (default from config)
  */
 export async function makeRequest(url, options = {}) {
     const {
-        method = "POST",
+        method = HTTP_CLIENT_DEFAULTS.method,
         headers = {},
         body = null,
         signal = null,
-        retries = 0,
-        retryDelay = 1000,
+        retries = HTTP_CLIENT_DEFAULTS.retries,
+        retryDelay = HTTP_CLIENT_DEFAULTS.retryDelay,
+        timeout = HTTP_CLIENT_DEFAULTS.timeout,
     } = options
+
+    // Create abort controller for timeout if no signal provided
+    let timeoutId
+    let abortController
+
+    if (!signal && timeout) {
+        abortController = new AbortController()
+        timeoutId = setTimeout(() => {
+            abortController.abort()
+        }, timeout)
+    }
 
     const requestOptions = {
         method,
         headers: {
-            "Content-Type": "application/json",
+            ...HTTP_CLIENT_DEFAULTS.headers,
             ...headers,
         },
-        signal,
+        signal: signal || abortController?.signal,
     }
 
     if (body) {
@@ -44,29 +59,12 @@ export async function makeRequest(url, options = {}) {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            console.log("🚀 [HTTP Client] Making request:", {
-                url,
-                method: requestOptions.method,
-                hasBody: !!requestOptions.body,
-                bodyPreview: requestOptions.body ? requestOptions.body.substring(0, 200) : "none",
-                headers: requestOptions.headers,
-            })
-
             const response = await fetch(url, requestOptions)
-
-            console.log("📨 [HTTP Client] Response received:", {
-                status: response.status,
-                statusText: response.statusText,
-                ok: response.ok,
-                headers: Object.fromEntries(response.headers.entries()),
-            })
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({
                     error: `HTTP ${response.status}: ${response.statusText}`,
                 }))
-
-                console.error("❌ [HTTP Client] Request failed:", errorData)
 
                 const error = new Error(errorData.error || `Request failed with status ${response.status}`)
                 error.status = response.status
@@ -78,21 +76,16 @@ export async function makeRequest(url, options = {}) {
 
                 throw error
             }
-
-            console.log("✅ [HTTP Client] Request successful, returning response")
             return response
         } catch (error) {
-            console.error("💥 [HTTP Client] Request error:", {
-                name: error.name,
-                message: error.message,
-                status: error.status,
-                attempt: attempt + 1,
-                maxRetries: retries + 1,
-            })
+                
             lastError = error
 
+            // Clear timeout on error
+            if (timeoutId) clearTimeout(timeoutId)
+
             if (error.name === "AbortError") {
-                throw new Error("Request was aborted")
+                throw new Error(signal ? ERROR_MESSAGES.REQUEST_ABORTED : ERROR_MESSAGES.REQUEST_TIMEOUT)
             }
 
             // Don't retry on last attempt or for non-retryable errors
@@ -106,6 +99,9 @@ export async function makeRequest(url, options = {}) {
             await sleep(delay)
         }
     }
+
+    // Clear timeout on success
+    if (timeoutId) clearTimeout(timeoutId)
 
     throw lastError
 }
