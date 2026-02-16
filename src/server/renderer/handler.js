@@ -25,8 +25,6 @@ import {
     onRouteMatch,
     onFetcherSuccess,
     onFetcherError,
-    onAppServerSideSuccess,
-    onAppServerSideError,
     onRenderError,
     onRequestError,
 } from "@catalyst/template/server/index.js"
@@ -53,6 +51,32 @@ if (fs.existsSync(storePath)) {
 }
 
 const isProduction = process.env.NODE_ENV === "production"
+const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
+
+const parseSafeAreaFromHeaders = (req) => {
+    const readEdge = (header) => {
+        const raw = req.get(header) ?? req.headers[header.toLowerCase()]
+        const value = Number(raw)
+        return Number.isFinite(value) && value >= 0 ? value : null
+    }
+
+    const top = readEdge("X-Safe-Area-Top")
+    const right = readEdge("X-Safe-Area-Right")
+    const bottom = readEdge("X-Safe-Area-Bottom")
+    const left = readEdge("X-Safe-Area-Left")
+
+    const hasAny = [top, right, bottom, left].some((value) => value !== null)
+    if (!hasAny) {
+        return null
+    }
+
+    return {
+        top: top ?? 0,
+        right: right ?? 0,
+        bottom: bottom ?? 0,
+        left: left ?? 0,
+    }
+}
 
 // matches request route with routes defined in the application.
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "", webExtractor) => {
@@ -135,7 +159,16 @@ const renderMarkUp = async (
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
 
+    const safeArea = parseSafeAreaFromHeaders(req) || { ...DEFAULT_SAFE_AREA_INSETS }
+
+    // Set in globalThis for hooks to access during SSR
+    /* eslint-disable no-undef */
+    const previousSafeArea = globalThis.__SAFE_AREA_INITIAL__
+    globalThis.__SAFE_AREA_INITIAL__ = safeArea
+    /* eslint-enable no-undef */
+
     let state = store.getState()
+
     const jsx = webExtractor.collectChunks(getComponent(store, context, req, fetcherData))
 
     const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
@@ -158,6 +191,7 @@ const renderMarkUp = async (
         jsx,
         initialState: state,
         fetcherData,
+        safeArea,
     }
 
     let CompleteDocument = () => {
@@ -177,14 +211,26 @@ const renderMarkUp = async (
                         jsx={finalProps.jsx}
                         fetcherData={finalProps.fetcherData}
                         initialState={finalProps.initialState}
+                        safeArea={finalProps.safeArea}
                     />
                 </html>
             )
         }
     }
 
+    // Helper to cleanup globalThis after rendering completes
+    const cleanupGlobalThis = () => {
+        /* eslint-disable no-undef */
+        if (previousSafeArea === undefined) {
+            delete globalThis.__SAFE_AREA_INITIAL__
+        } else {
+            globalThis.__SAFE_AREA_INITIAL__ = previousSafeArea
+        }
+        /* eslint-enable no-undef */
+    }
+
     try {
-        let status = errorCode || (matches.length && matches[0].match.path === "*" ? 404 : 200)
+        let status = matches.length && matches[0].match.path === "*" ? 404 : 200
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
 
@@ -199,12 +245,14 @@ const renderMarkUp = async (
                     res.write(firstFoldCss)
                     res.write(firstFoldJS)
                     res.end()
+                    cleanupGlobalThis()
                     resolve()
                 },
                 onError(error) {
                     logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
                     // function defined by user which needs to run if rendering fails
-                    safeCall(onRenderError, { req, res, store, error })
+                    safeCall(onRenderError)
+                    cleanupGlobalThis()
                     reject(error)
                 },
             })
@@ -216,7 +264,8 @@ const renderMarkUp = async (
             url: req.originalUrl,
         })
         // function defined by user which needs to run if rendering fails
-        safeCall(onRenderError, { req, res, store, error })
+        safeCall(onRenderError)
+        cleanupGlobalThis()
         return Promise.reject(error)
     }
 }
@@ -226,7 +275,7 @@ const renderMarkUp = async (
  * @param {object} req - request object
  * @param {object} res - response object
  */
-export default async function handler(req, res) {
+export default async function (req, res) {
     try {
         let context = {}
         let fetcherData = {}
@@ -257,7 +306,7 @@ export default async function handler(req, res) {
         let allTags = []
 
         // function defined by user which needs to run after route is matched
-        safeCall(onRouteMatch, { req, res, matches, store })
+        safeCall(onRouteMatch, { req, res, matches })
 
         if (res.headersSent) {
             return Promise.resolve(res)
@@ -266,9 +315,6 @@ export default async function handler(req, res) {
         try {
             // Executing app server side function
             await App.serverSideFunction({ store, req, res })
-
-            // function defined by user which needs to run after app server side function succeeds
-            safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) {
                 return Promise.resolve(res)
@@ -285,65 +331,24 @@ export default async function handler(req, res) {
                     return Promise.resolve(res)
                 }
 
-                // Check if serverDataFetcher returned an error in the response
-                const err = fetcherData?.[req.originalUrl]?.error
-
                 allTags = getMetaData(allMatches, fetcherData)
 
-                if (err) {
-                    // function defined by user which needs to run when serverDataFetcher returns an error
-                    safeCall(onFetcherError, { req, res, store, error: err })
+                // function defined by user which needs to run after SSR functions are executed
+                safeCall(onFetcherSuccess, { req, res, fetcherData })
 
-                    if (res.headersSent) {
-                        return Promise.reject(err)
-                    }
-
-                    // TODO: this seems very dependent on developers error handling, we are assuming they attach status_code key in their errors (same in App.serverSideFunction error)
-                    const statusCode = err.status_code || 404
-
-                    return new Promise((resolve, reject) => {
-                        renderMarkUp(
-                            statusCode,
-                            req,
-                            res,
-                            allTags,
-                            fetcherData,
-                            store,
-                            matches,
-                            context,
-                            webExtractor
-                        )
-                            .then(resolve)
-                            .catch(reject)
-                    })
-                } else {
-                    // function defined by user which needs to run after SSR functions are executed successfully
-                    safeCall(onFetcherSuccess, { req, res, store })
-
-                    if (res.headersSent) {
-                        return Promise.resolve(res)
-                    }
-
-                    return new Promise((resolve, reject) => {
-                        renderMarkUp(
-                            null,
-                            req,
-                            res,
-                            allTags,
-                            fetcherData,
-                            store,
-                            matches,
-                            context,
-                            webExtractor
-                        )
-                            .then(resolve)
-                            .catch(reject)
-                    })
+                if (res.headersSent) {
+                    return Promise.resolve(res)
                 }
+
+                return new Promise((resolve, reject) => {
+                    renderMarkUp(null, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+                        .then(resolve)
+                        .catch(reject)
+                })
             } catch (error) {
-                // TODO: This catch block is kept for any unexpected errors from serverDataFetcher or getMetaData
+                // TODO: serverDataFetcher never throws any error
                 logger.error("Error in executing serverFetcher functions: " + error)
-                safeCall(onFetcherError, { req, res, store, error })
+                safeCall(onFetcherError, { req, res, error })
 
                 if (res.headersSent) {
                     return Promise.reject(error)
@@ -357,13 +362,6 @@ export default async function handler(req, res) {
             }
         } catch (error) {
             logger.error("Error in executing serverSideFunction inside App: " + error)
-            // function defined by user which needs to run after app server side function fails
-            safeCall(onAppServerSideError, { req, res, store, error })
-
-            if (res.headersSent) {
-                return Promise.reject(error)
-            }
-
             return new Promise((resolve, reject) => {
                 renderMarkUp(
                     error.status_code,
