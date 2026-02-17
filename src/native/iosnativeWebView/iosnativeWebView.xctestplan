@@ -1,0 +1,46 @@
+{
+  "configurations" : [
+    {
+      "id" : "3D292A1A-2D43-41E8-A3B6-CD0973A5E8AD",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : "-OSLogEnable"
+      },
+      {
+        "argument" : "-LogResourceLoading"
+      }
+    ],
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:iosnativeWebView.xcodeproj",
+      "identifier" : "4777D51A2C60B87500E85AC6",
+      "name" : "iosnativeWebView"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:iosnativeWebView.xcodeproj",
+        "identifier" : "4777D52A2C60B87800E85AC6",
+        "name" : "iosnativeWebViewTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:iosnativeWebView.xcodeproj",
+        "identifier" : "4777D5342C60B87800E85AC6",
+        "name" : "iosnativeWebViewUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

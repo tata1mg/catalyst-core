@@ -148,6 +148,13 @@ android {
         abortOnError = true
     }
 
+    // Configure test options for unit tests
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
+
     // Conditional source sets based on notifications config
     sourceSets {
         getByName("main") {
