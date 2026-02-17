@@ -1,11 +1,13 @@
 import fs from "fs"
+import path from "path"
 import { exec } from "child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
-
-const pwd = `${process.cwd()}/node_modules/catalyst-core/dist/native`
-const configPath = `${process.env.PWD}/config/config.json`
 import { setupServer } from "./setupServer.js"
+
+const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
+const pwd = path.join(catalystCorePath, "dist/native")
+const configPath = `${process.env.PWD}/config/config.json`
 
 const steps = {
     java: "Check Java Environment",
