@@ -143,7 +143,7 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
 
     const { routePath, preloadJSLinks } = res.locals
 
-    const linkElements = webExtractor.getLinkElements()
+    const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
 
     // We want to cache/or check for update css on every call
     // We want to extract script tags for every call that will get added to body.
@@ -157,7 +157,7 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
             firstFoldCss = webExtractor.getStyleTags()
         }
         // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
-        firstFoldJS = !isBot ? webExtractor.getScriptTags() : ""
+        firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
     }
 
     // This block will run for the first time and cache preloaded JS Links for second render
