@@ -120,6 +120,7 @@ export default {
                     {
                         loader: "css-loader",
                         options: {
+                            esModule: false,
                             modules: {
                                 mode: "local",
                                 exportOnlyLocals: !isDev && isSSR,
@@ -156,7 +157,7 @@ export default {
                 use: [
                     isDev && "css-hot-loader",
                     !isSSR && MiniCssExtractPlugin.loader,
-                    { loader: "css-loader" },
+                    { loader: "css-loader", options: { esModule: false } },
                     { loader: "postcss-loader" },
                     {
                         loader: "sass-loader",
@@ -176,16 +177,21 @@ export default {
             },
             {
                 test: /\.css$/,
-                use: [!isSSR && MiniCssExtractPlugin.loader, "css-loader", "postcss-loader"],
+                use: [!isSSR && MiniCssExtractPlugin.loader, { loader: "css-loader", options: { esModule: false } }, "postcss-loader"],
             },
             {
-                test: /\.(png|jpg|gif|jpeg|ico?)$/,
+                test: /\.(png|jpg|gif|jpeg|webp|ico?)$/,
                 use: ["url-loader?limit=10240", "img-loader"],
             },
             {
                 test: /\.svg$/i,
                 issuer: /\.[jt]sx?$/,
                 use: ["@svgr/webpack", "url-loader?limit=10240", "img-loader"],
+            },
+            {
+                test: /\.svg$/i,
+                issuer: /\.(scss|css)$/,
+                type: "asset/resource",
             },
             {
                 // This loader loads fonts in src/static/fonts using file-loader
