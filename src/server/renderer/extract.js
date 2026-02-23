@@ -1,4 +1,3 @@
-import React from "react"
 import path from "path"
 import fs from "fs"
 
@@ -6,22 +5,11 @@ import fs from "fs"
 const BYTES_PER_MB = 1_000_000
 const toMB = (bytes) => (bytes / BYTES_PER_MB).toFixed(2)
 
-export function cachePreloadJSLinks(key, data) {
+export function cacheFirstFoldJS(key, scriptElements) {
     if (!process.preloadJSLinkCache) {
         process.preloadJSLinkCache = {}
     }
-    let preloadJSLinks = []
-    if (Array.isArray(data)) {
-        try {
-            preloadJSLinks = data
-                .filter((asset) => asset?.props?.as === "script")
-                .map((asset) => <script key={asset.key} defer src={asset.props.href} />)
-        } catch (error) {
-            logger.error("Error in filtering preloaded JS:" + error)
-        }
-    }
-
-    process.preloadJSLinkCache[key] = preloadJSLinks
+    process.preloadJSLinkCache[key] = scriptElements
 }
 
 /**
@@ -157,19 +145,24 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
             if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
         } else {
             cacheCSS(routePath, linkElements)
-            firstFoldCss = webExtractor.getStyleTags()
+            // Skip writing CSS to body when already injected in head via cached style elements
+            firstFoldCss = preloadJSLinks ? "" : webExtractor.getStyleTags()
         }
         // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
         firstFoldJS = !isBot ? webExtractor.getScriptTags() : ""
     }
 
-    // This block will run for the first time and cache preloaded JS Links for second render
-    // firstFoldJS ->scripts gets inject in body
-    // firstFoldCss -> Inline css gets injected in body only for the first render
+    // Cache head elements for subsequent renders:
+    // - prod: deferred script elements only (CSS is inlined from file)
+    // - dev: style elements + deferred script elements (no CSS files to inline)
     if (!isProd || isBot || (routePath && !preloadJSLinks)) {
-        // For production, we inject link tags with preload/prefetch using getLinkElements and inlining them via file reads
-        // For local, given we have assets in memory we dont read from file rather directly inject via link elements returned without preload/prefetch
-        !isBot && cachePreloadJSLinks(routePath, linkElements)
+        if (!isBot) {
+            const scriptElements = webExtractor.getScriptElements({ defer: true })
+            const elements = isProd
+                ? scriptElements
+                : [...webExtractor.getStyleElements(), ...scriptElements]
+            cacheFirstFoldJS(routePath, elements)
+        }
     }
 
     return { firstFoldCss, firstFoldJS }
