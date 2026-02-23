@@ -1,3 +1,4 @@
+import React from "react"
 import path from "path"
 import fs from "fs"
 
@@ -12,7 +13,9 @@ export function cachePreloadJSLinks(key, data) {
     let preloadJSLinks = []
     if (Array.isArray(data)) {
         try {
-            preloadJSLinks = data.filter((asset) => asset?.props?.as === "script")
+            preloadJSLinks = data
+                .filter((asset) => asset?.props?.as === "script")
+                .map((asset) => <script key={asset.key} defer src={asset.props.href} />)
         } catch (error) {
             logger.error("Error in filtering preloaded JS:" + error)
         }
