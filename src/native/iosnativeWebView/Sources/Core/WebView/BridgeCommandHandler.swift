@@ -9,6 +9,7 @@
 import Foundation
 import UIKit
 import AVFoundation
+import WebKit
 import os
 import UserNotifications
 
@@ -27,6 +28,7 @@ protocol BridgeCommandHandlerDelegate: AnyObject {
 class BridgeCommandHandler {
 
     private weak var viewController: UIViewController?
+    private weak var webView: WKWebView?
     private let imageHandler: ImageHandler
     private let filePickerHandler: FilePickerHandler
     private weak var delegate: BridgeCommandHandlerDelegate?
@@ -41,6 +43,11 @@ class BridgeCommandHandler {
 
         commandLogger.debug("BridgeCommandHandler initialized")
         commandLogger.debug("Notifications enabled: \(ConfigConstants.Notifications.enabled)")
+    }
+
+    // Inject webView reference for commands that need direct WKWebView access
+    func setWebView(_ webView: WKWebView) {
+        self.webView = webView
     }
 
     // Inject notification handler (called from AppDelegate when notifications enabled)
@@ -221,6 +228,82 @@ class BridgeCommandHandler {
         }
 
         filePickerHandler.presentFilePicker(from: presentingVC, options: options)
+    }
+
+    // MARK: - Security Methods
+
+    /// Enable or disable screen-secure mode (app-switcher overlay).
+    /// Payload: { "enable": true/false } or bare boolean string.
+    func setScreenSecure(params: Any?) {
+        let enable: Bool
+
+        if let dict = params as? [String: Any], let val = dict["enable"] as? Bool {
+            enable = val
+        } else if let str = params as? String,
+                  let jsonData = str.data(using: .utf8),
+                  let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                  let val = dict["enable"] as? Bool {
+            // params arrived as JSON string e.g. '{"enable":true}' — parse it
+            enable = val
+            commandLogger.debug("setScreenSecure: parsed enable from JSON string → \(enable)")
+        } else if let str = params as? String {
+            enable = str.lowercased() == "true" || str == "1"
+        } else {
+            commandLogger.error("setScreenSecure: invalid or missing params")
+            delegate?.sendJSONCallback(eventName: "ON_SCREEN_SECURE_ERROR", data: [
+                "success": false,
+                "error": "Invalid params: expected {enable: bool}"
+            ])
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            ScreenSecureManager.shared.setScreenSecure(enable)
+            let secure = ScreenSecureManager.shared.isScreenSecure
+            commandLogger.debug("setScreenSecure → \(secure)")
+            self.delegate?.sendJSONCallback(eventName: "ON_SCREEN_SECURE_SET", data: [
+                "secure": secure,
+                "success": true
+            ])
+        }
+    }
+
+    /// Query whether screen-secure mode is currently active.
+    func getScreenSecure() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let secure = ScreenSecureManager.shared.isScreenSecure
+            commandLogger.debug("getScreenSecure → \(secure)")
+            self.delegate?.sendJSONCallback(eventName: "ON_SCREEN_SECURE_STATUS", data: [
+                "secure": secure,
+                "success": true
+            ])
+        }
+    }
+
+    /// Clear all WKWebView data: cache, cookies, local storage, IndexedDB.
+    /// Fires ON_WEB_DATA_CLEARED only after the async removal completes.
+    func clearWebData() {
+        commandLogger.debug("clearWebData called")
+
+        guard let webView else {
+            commandLogger.debug("clearWebData: webView is nil, skipping")
+            return
+        }
+        let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+        let store = webView.configuration.websiteDataStore
+
+        store.removeData(ofTypes: dataTypes, modifiedSince: .distantPast) { [weak self] in
+            guard let self else { return }
+            CacheManager.shared.clearCache()
+            commandLogger.debug("clearWebData complete")
+            DispatchQueue.main.async {
+                self.delegate?.sendJSONCallback(eventName: "ON_WEB_DATA_CLEARED", data: [
+                    "success": true
+                ])
+            }
+        }
     }
 
     // MARK: - Helper Methods

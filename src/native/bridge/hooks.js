@@ -1385,6 +1385,161 @@ export const useNetworkStatus = () => {
     }
 }
 
+/**
+ * React hook for data protection primitives.
+ *
+ * Exposes screen-capture prevention and web data clearing as
+ * composable building blocks — the web layer decides when to call them
+ * (e.g. on sensitive screen mount/unmount, on logout).
+ *
+ * Extensible: add future security bridge commands here.
+ *
+ * @returns {{
+ *   screenSecure: boolean,
+ *   setScreenSecure: (enable: boolean) => void,
+ *   clearWebData: () => void,
+ *   data: Object|null,
+ *   loading: boolean,
+ *   error: Object|null,
+ *   isWeb: boolean,
+ *   isNative: boolean,
+ *   clear: () => void,
+ *   clearError: () => void,
+ * }}
+ */
+export const useDataProtection = () => {
+    const base = useBaseHook("useDataProtection")
+    const [screenSecure, setScreenSecureState] = useState(false)
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return {
+            screenSecure: false,
+            setScreenSecure: () => {},
+            clearWebData: () => {},
+            data: null,
+            loading: false,
+            progress: null,
+            error: null,
+            isWeb: true,
+            isNative: false,
+            clear: () => {},
+            clearError: () => {},
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        const handleScreenSecureSet = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                setScreenSecureState(Boolean(result?.secure))
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleScreenSecureError = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                base.handleNativeError(result?.error || "setScreenSecure failed")
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleWebDataCleared = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleWebDataClearError = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                base.handleNativeError(result?.error || "clearWebData failed")
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleScreenSecureStatus = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                setScreenSecureState(Boolean(result?.secure))
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const cleanup = registerNativeHandlers([
+            [NATIVE_CALLBACKS.ON_SCREEN_SECURE_SET, handleScreenSecureSet],
+            [NATIVE_CALLBACKS.ON_SCREEN_SECURE_STATUS, handleScreenSecureStatus],
+            [NATIVE_CALLBACKS.ON_SCREEN_SECURE_ERROR, handleScreenSecureError],
+            [NATIVE_CALLBACKS.ON_WEB_DATA_CLEARED, handleWebDataCleared],
+            [NATIVE_CALLBACKS.ON_WEB_DATA_CLEAR_ERROR, handleWebDataClearError],
+        ])
+
+        // Initialize screenSecure state from native on mount
+        nativeBridge.security.getScreenSecure()
+
+        return cleanup
+    }, [base.setDataAndComplete, base.handleNativeError])
+
+    const setScreenSecure = useCallback(
+        (enable) => {
+            base.executeOperation(() => {
+                nativeBridge.security.setScreenSecure(enable)
+            }, "setScreenSecure")
+        },
+        [base.executeOperation]
+    )
+
+    const clearWebData = useCallback(() => {
+        base.executeOperation(() => {
+            nativeBridge.security.clearWebData()
+        }, "clearWebData")
+    }, [base.executeOperation])
+
+    return {
+        // Standardized base interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Security state
+        screenSecure,
+
+        // Security actions
+        setScreenSecure,
+        clearWebData,
+    }
+}
+
 export const useSafeArea = () => {
     const fromGlobal = getSafeAreaFromGlobal()
     const initialValue = fromGlobal || { ...DEFAULT_INSETS }

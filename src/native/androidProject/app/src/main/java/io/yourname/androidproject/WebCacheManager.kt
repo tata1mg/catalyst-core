@@ -178,6 +178,18 @@ class WebCacheManager(private val context: Context, private val properties: java
             }
         }
 
+    fun clearAll() {
+        try {
+            memoryCache.evictAll()
+            cacheDir.listFiles()?.forEach { it.delete() }
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "clearAll: memory cache and disk cache wiped")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "clearAll failed: ${e.message}")
+        }
+    }
+
     suspend fun cleanup() {
         withContext(Dispatchers.IO) {
             try {

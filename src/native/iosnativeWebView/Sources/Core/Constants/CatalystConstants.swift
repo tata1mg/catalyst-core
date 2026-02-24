@@ -65,7 +65,10 @@ public enum CatalystConstants {
                 "pickFile",
                 "openFileWithIntent",
                 "requestHapticFeedback",
-                "getSafeArea"
+                "getSafeArea",
+                "setScreenSecure",
+                "getScreenSecure",
+                "clearWebData"
             ]
 
             // Check if notifications are enabled via config

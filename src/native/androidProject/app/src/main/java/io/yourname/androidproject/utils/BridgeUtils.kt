@@ -70,6 +70,13 @@ object BridgeUtils {
 
         // Safe area events
         ON_SAFE_AREA_INSETS_UPDATED("ON_SAFE_AREA_INSETS_UPDATED"),
+
+        // Security events
+        ON_SCREEN_SECURE_SET("ON_SCREEN_SECURE_SET"),
+        ON_SCREEN_SECURE_STATUS("ON_SCREEN_SECURE_STATUS"),
+        ON_SCREEN_SECURE_ERROR("ON_SCREEN_SECURE_ERROR"),
+        ON_WEB_DATA_CLEARED("ON_WEB_DATA_CLEARED"),
+        ON_WEB_DATA_CLEAR_ERROR("ON_WEB_DATA_CLEAR_ERROR"),
     }
     
     /**

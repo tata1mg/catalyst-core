@@ -187,6 +187,10 @@ class CustomWebView(
         webView.clearHistory()
     }
 
+    fun clearAllCache() {
+        cacheManager.clearAll()
+    }
+
     fun canGoBack(): Boolean = webView.canGoBack()
 
     fun goBack() {
