@@ -281,7 +281,21 @@ class NativeBridgeUtil {
     }
 
     /**
-     * Safe area methods
+     * Auth methods
+     */
+    auth = {
+        /**
+         * Trigger Google Sign-In (Credential Manager)
+         * @param {Object} options - config (clientId, nonce, autoSelect, etc.)
+         */
+        googleSignIn: (options = {}) => {
+            const payload =
+                options && typeof options === "object" ? JSON.stringify(options) : options?.toString?.()
+            return this.call(NATIVE_COMMANDS.GOOGLE_SIGN_IN, payload)
+        },
+    }
+
+    /** Safe area methods
      */
     safeArea = {
         /**

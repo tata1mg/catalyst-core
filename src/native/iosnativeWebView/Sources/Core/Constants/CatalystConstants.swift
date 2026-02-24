@@ -65,6 +65,7 @@ public enum CatalystConstants {
                 "pickFile",
                 "openFileWithIntent",
                 "requestHapticFeedback",
+                "googleSignIn",
                 "getSafeArea",
                 "setScreenSecure",
                 "getScreenSecure",
@@ -87,6 +88,8 @@ public enum CatalystConstants {
             } else {
                 print("❌ DEBUG: Notifications disabled in config - notification commands not available")
             }
+
+            print("🔐 DEBUG: Google Sign-In enabled in config? \(ConfigConstants.GoogleSignIn.enabled)")
 
             print("🔧 DEBUG: Valid commands available: \(commands.sorted().joined(separator: ", "))")
             return commands

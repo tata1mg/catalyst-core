@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0-canary.4] - 2026-02-12
+
+- Added Google Sign-In support for both Android and iOS in Catalyst, enabling a unified native authentication experience for apps built on the framework.
+- Improved release/build reliability with related bridge and CI updates, making integration smoother and more consistent across platforms.
+
+## [0.1.0-canary.3] - 2026-02-04
+
+- Android device security: added root, emulator, and Frida detection with launch-time checks and a Material Design 3 bottom sheet threat alert UI
+
 ## [0.1.0-canary.2] - 2026-01-28
 
 - Adds mono-repository support for catalyst
