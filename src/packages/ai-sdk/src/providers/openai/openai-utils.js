@@ -298,6 +298,216 @@ export function formatResponsesInput(prompt, messages) {
 }
 
 /**
+ * Build Responses API request body
+ * Creates a properly formatted request body for OpenAI Responses API
+ *
+ * OPENAI RESPONSES API BODY FORMAT (Complete Structure):
+ * ========================================================
+ *
+ * REQUIRED PARAMETERS:
+ * - model: string (e.g., "gpt-4o", "gpt-5", "o3-mini")
+ * - input: string | array of input items (or previous_response_id for continuation)
+ *
+ * CORE PARAMETERS:
+ * - temperature: number (0-2, default: 1.0)
+ * - max_output_tokens: number (max tokens in output)
+ * - instructions: string (system/developer instructions, replaces system message)
+ * - stream: boolean (enable SSE streaming)
+ * - stream_options: object { include_reasoning: boolean }
+ *
+ * CONVERSATION & CONTEXT:
+ * - conversation: string | object (conversation ID or config)
+ * - previous_response_id: string (for multi-turn conversations)
+ * - context_management: array of { type, compact_threshold }
+ *
+ * TEXT OUTPUT:
+ * - text: { format: "plain" | "json", verbosity: string }
+ *
+ * TOOLS & FUNCTION CALLING:
+ * - tools: array of tool definitions (web_search, file_search, code_interpreter, computer, function, custom, mcp)
+ * - tool_choice: "auto" | "none" | "required" | object
+ * - parallel_tool_calls: boolean
+ * - max_tool_calls: number
+ *
+ * REASONING (o-series, gpt-5 models):
+ * - reasoning: { effort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh", summary: "auto" | "concise" | "detailed" }
+ *
+ * INCLUDE ADDITIONAL DATA:
+ * - include: array of strings (e.g., "web_search_call.action.sources", "reasoning.encrypted_content")
+ *
+ * PROMPT MANAGEMENT:
+ * - prompt: { id, version, variables }
+ *
+ * CACHING:
+ * - prompt_cache_key: string
+ * - prompt_cache_retention: "in-memory" | "24h"
+ *
+ * SERVICE & STORAGE:
+ * - service_tier: "auto" | "default" | "flex" | "priority"
+ * - store: boolean
+ * - background: boolean
+ *
+ * SAMPLING PARAMETERS:
+ * - top_p: number (0-1)
+ * - top_logprobs: number (0-20)
+ * - stop: string | array
+ * - seed: number
+ *
+ * SAFETY & METADATA:
+ * - truncation: "auto" | "disabled"
+ * - safety_identifier: string (hashed user ID)
+ * - user: string (deprecated, use safety_identifier)
+ * - metadata: object (16 key-value pairs max)
+ *
+ * DEPRECATED/UNSUPPORTED PARAMETERS (will be ignored):
+ * - frequency_penalty (not supported in Responses API)
+ * - presence_penalty (not supported in Responses API)
+ * - logit_bias (not supported in Responses API)
+ * - response_format (use text.format instead)
+ * - max_tokens (use max_output_tokens instead)
+ * - messages (use input instead)
+ *
+ * @param {Object} options - Configuration options
+ * @returns {Object} - Formatted request body
+ */
+export function buildResponsesAPIRequestBody(options = {}) {
+    const {
+        model,
+        temperature,
+        maxTokens,
+        prompt,
+        messages,
+        systemPrompt,
+        previousResponseId,
+        conversation,
+        topP,
+        stop,
+        user,
+        seed,
+        reasoningEffort,
+        includeReasoning = false,
+        metadata,
+        tools,
+        toolChoice,
+        parallelToolCalls,
+        maxToolCalls,
+        textFormat,
+        textVerbosity,
+        include,
+        promptCacheKey,
+        promptCacheRetention,
+        serviceTier,
+        store,
+        truncation,
+        safetyIdentifier,
+        background,
+        contextManagement,
+        topLogprobs,
+        stream = false,
+    } = options
+
+    // Build base request body with required fields
+    const requestBody = {
+        model,
+        stream,
+    }
+
+    // Stream options (required for streaming)
+    if (stream) {
+        requestBody.stream_options = {}
+        if (includeReasoning) {
+            requestBody.stream_options.include_reasoning = true
+        }
+    }
+
+    // Core parameters
+    if (temperature !== undefined) requestBody.temperature = temperature
+    if (maxTokens !== undefined) requestBody.max_output_tokens = maxTokens
+
+    // System instructions (top-level for Responses API)
+    if (systemPrompt) {
+        requestBody.instructions = systemPrompt
+    }
+
+    // Input handling
+    if (previousResponseId) {
+        requestBody.previous_response_id = previousResponseId
+        // Only add input if we have new messages/prompt to add to the conversation
+        if (prompt || messages) {
+            requestBody.input = formatResponsesInput(prompt, messages)
+        }
+    } else if (conversation) {
+        requestBody.conversation = conversation
+        if (prompt || messages) {
+            requestBody.input = formatResponsesInput(prompt, messages)
+        }
+    } else {
+        // New conversation - input is required
+        requestBody.input = formatResponsesInput(prompt, messages)
+    }
+
+    // Reasoning configuration (for o-series and gpt-5 models)
+    if (reasoningEffort) {
+        requestBody.reasoning = { effort: reasoningEffort }
+    }
+
+    // Text output configuration
+    if (textFormat || textVerbosity) {
+        requestBody.text = {}
+        if (textFormat) requestBody.text.format = textFormat
+        if (textVerbosity) requestBody.text.verbosity = textVerbosity
+    }
+
+    // Tools configuration
+    if (tools && Array.isArray(tools) && tools.length > 0) {
+        requestBody.tools = tools
+        if (toolChoice !== undefined) requestBody.tool_choice = toolChoice
+        if (parallelToolCalls !== undefined) requestBody.parallel_tool_calls = parallelToolCalls
+        if (maxToolCalls !== undefined) requestBody.max_tool_calls = maxToolCalls
+    }
+
+    // Include additional data in response
+    if (include && Array.isArray(include) && include.length > 0) {
+        requestBody.include = include
+    }
+
+    // Optional sampling parameters (only supported parameters)
+    if (topP !== undefined) requestBody.top_p = topP
+    if (topLogprobs !== undefined) requestBody.top_logprobs = topLogprobs
+    if (stop !== undefined) requestBody.stop = stop
+    if (seed !== undefined) requestBody.seed = seed
+
+    // Note: frequency_penalty, presence_penalty, and logit_bias are NOT supported
+    // in Responses API and are silently ignored if passed
+
+    // Context management
+    if (contextManagement && Array.isArray(contextManagement)) {
+        requestBody.context_management = contextManagement
+    }
+
+    // Caching
+    if (promptCacheKey) requestBody.prompt_cache_key = promptCacheKey
+    if (promptCacheRetention) requestBody.prompt_cache_retention = promptCacheRetention
+
+    // Service configuration
+    if (serviceTier) requestBody.service_tier = serviceTier
+    if (store !== undefined) requestBody.store = store
+    if (truncation) requestBody.truncation = truncation
+    if (background !== undefined) requestBody.background = background
+
+    // Safety and metadata
+    if (safetyIdentifier) requestBody.safety_identifier = safetyIdentifier
+    if (user) requestBody.user = user
+    if (metadata) requestBody.metadata = metadata
+
+    // Note: These parameters are NOT supported in Responses API
+    // frequency_penalty, presence_penalty are deprecated
+    // Use the moderation parameter or text configuration instead
+
+    return requestBody
+}
+
+/**
  * Validate Responses API request body structure
  * Ensures all parameters match the Responses API specification
  *
@@ -374,10 +584,27 @@ export function validateResponsesAPIPayload(requestBody) {
 
     // Reasoning effort validation
     if (requestBody.reasoning?.effort) {
-        const validEfforts = ["low", "medium", "high"]
+        const validEfforts = ["none", "minimal", "low", "medium", "high", "xhigh"]
         if (!validEfforts.includes(requestBody.reasoning.effort)) {
             errors.push(`Invalid reasoning.effort: must be one of ${validEfforts.join(", ")}`)
         }
+    }
+
+    // Check for deprecated parameters
+    if (requestBody.frequency_penalty !== undefined) {
+        errors.push("Deprecated parameter: 'frequency_penalty' is not supported in Responses API")
+    }
+
+    if (requestBody.presence_penalty !== undefined) {
+        errors.push("Deprecated parameter: 'presence_penalty' is not supported in Responses API")
+    }
+
+    if (requestBody.logit_bias !== undefined) {
+        errors.push("Deprecated parameter: 'logit_bias' is not supported in Responses API")
+    }
+
+    if (requestBody.reasoning_effort !== undefined) {
+        errors.push("Invalid parameter: 'reasoning_effort' should be 'reasoning.effort' in Responses API")
     }
 
     return {

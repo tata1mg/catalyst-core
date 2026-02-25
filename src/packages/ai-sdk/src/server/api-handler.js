@@ -158,7 +158,7 @@ async function handleStreaming(req, res, provider) {
 
         // Disable compression for this response
         res.removeHeader("Content-Encoding")
-        
+
         // Force unbuffered mode in Node.js
         res.socket?.setNoDelay?.(true)
         res.socket?.setTimeout?.(0)
@@ -189,7 +189,7 @@ async function handleStreaming(req, res, provider) {
                 }
                 // Fallback for environments without res.flush
                 if (res.socket && !res.flush) {
-                    res.socket.write('')
+                    res.socket.write("")
                 }
             } else if (chunk.type === "error") {
                 res.write(
@@ -200,11 +200,11 @@ async function handleStreaming(req, res, provider) {
                 )
                 if (res.flush) res.flush()
                 break
-                } else if (chunk.type === "done") {
-                    res.write("data: [DONE]\n\n")
-                    if (res.flush) res.flush()
-                    break
-                }
+            } else if (chunk.type === "done") {
+                res.write("data: [DONE]\n\n")
+                if (res.flush) res.flush()
+                break
+            }
         }
 
         res.end()
@@ -264,7 +264,6 @@ async function handleResponseGeneration(req, res, provider) {
  */
 async function handleResponseStreaming(req, res, provider) {
     try {
-
         // Set SSE headers with explicit no-cache and chunked encoding
         Object.entries(API_HANDLER_DEFAULTS.headers).forEach(([key, value]) => {
             res.setHeader(key, value)
@@ -273,7 +272,7 @@ async function handleResponseStreaming(req, res, provider) {
         res.setHeader("Cache-Control", "no-cache, no-transform")
         res.setHeader("X-Accel-Buffering", "no") // Disable nginx buffering
         res.removeHeader("Content-Encoding")
-        
+
         // Force unbuffered mode in Node.js
         res.socket?.setNoDelay?.(true)
         res.socket?.setTimeout?.(0)
@@ -289,17 +288,18 @@ async function handleResponseStreaming(req, res, provider) {
 
         // Process and send chunks
         for await (const chunk of processor.processStream(reader)) {
-            // Send all chunk types as SSE
+
+            // Send all chunk types as SSE (including tool-call)
             const sseData = formatSSE(chunk)
             res.write(sseData)
-            
+
             // Force immediate flush - critical for streaming
             if (res.flush) {
                 res.flush()
             }
             // Fallback for environments without res.flush
             if (res.socket && !res.flush) {
-                res.socket.write('')
+                res.socket.write("")
             }
 
             if (chunk.type === "done" || chunk.type === "error") {
@@ -357,7 +357,6 @@ export function createAPIHandler(config = {}) {
         }
 
         try {
-
             // Merge config with request body
             const requestData = {
                 ...config,
@@ -397,8 +396,8 @@ export function createAPIHandler(config = {}) {
                     await handleGeneration(req, res, provider)
                 }
             }
-            } catch (error) {
-                if (!res.headersSent) {
+        } catch (error) {
+            if (!res.headersSent) {
                 res.status(500).json({ error: error.message })
             }
         }

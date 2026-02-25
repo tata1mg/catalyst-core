@@ -6,12 +6,12 @@ import { PROVIDER_DEFAULTS } from "../../config/defaults.js"
 import {
     OPENAI_CONFIG,
     formatMessages,
-    formatResponsesInput,
     validateApiKey,
     handleOpenAIError,
     extractResponsesText,
     extractResponsesDeltaText,
     convertChatToResponsesFormat,
+    buildResponsesAPIRequestBody,
 } from "./openai-utils.js"
 
 /**
@@ -300,18 +300,18 @@ export function createStreamProcessor() {
                                     totalTokens: parsed.usage.total_tokens,
                                 }
                             }
-                            } catch (e) {
-                                yield {
-                                    type: "error",
+                        } catch (e) {
+                            yield {
+                                type: "error",
                                 error: `Failed to parse stream chunk: ${e.message}`,
                             }
                             // Continue processing other lines instead of breaking
                         }
                     }
                 }
-                } catch (error) {
-                    yield {
-                        type: "error",
+            } catch (error) {
+                yield {
+                    type: "error",
                     error: error.message || "Stream processing failed",
                 }
             } finally {
@@ -351,7 +351,7 @@ export async function responseGenerate(options = {}) {
         toolChoice,
         reasoningEffort = "medium", // low/medium/high (for o3-mini, o4-mini models)
         metadata, // Custom metadata for tracking
-        logitBias,
+        
     } = options
 
     // Validate API key
@@ -364,72 +364,41 @@ export async function responseGenerate(options = {}) {
     const finalTemperature = temperature ?? PROVIDER_DEFAULTS.openai.temperature
     const finalMaxTokens = maxTokens || PROVIDER_DEFAULTS.openai.maxTokens
 
-    // Build request body for Responses API
+    // Build request body using utility function
     // NOTE: Responses API does NOT accept `max_tokens` (chat/completions param).
-    // Most current deployments accept `max_output_tokens`; some accept `max_completion_tokens`.
-    // We send `max_output_tokens` and fall back to `max_completion_tokens` on 400 unknown_parameter.
-    const requestBody = {
+    // Use `max_output_tokens`; fall back to `max_completion_tokens` on 400 unknown_parameter.
+    const requestBody = buildResponsesAPIRequestBody({
         model: finalModel,
         temperature: finalTemperature,
-        max_output_tokens: finalMaxTokens,
+        maxTokens: finalMaxTokens,
+        prompt,
+        messages,
+        systemPrompt,
+        previousResponseId,
+        topP,
+        frequencyPenalty,
+        presencePenalty,
+        stop,
+        user,
+        seed,
+        reasoningEffort,
+        metadata,
+        tools,
+        toolChoice,
+        store,
+        background,
         stream: false,
-    }
+    })
 
-    // Handle conversation state
-    if (store) {
-        requestBody.store = true
-    }
-
-    // Add system prompt as top-level instructions (Responses API format)
-    if (systemPrompt) {
-        requestBody.instructions = systemPrompt
-    }
-
-    if (previousResponseId) {
-        requestBody.previous_response_id = previousResponseId
-        // When continuing, optionally send new message
-        if (prompt || messages) {
-            requestBody.input = formatResponsesInput(prompt, messages, systemPrompt)
-        }
-    } else {
-        // New conversation - send all messages (input for Responses API)
-        requestBody.input = formatResponsesInput(prompt, messages, systemPrompt)
-    }
-
-    // Background mode for long-running tasks
-    if (background) {
-        requestBody.background = true
-    }
-
-    // Reasoning effort (for o3-mini, o4-mini models)
-    if (reasoningEffort && (model?.includes("o3") || model?.includes("o4"))) {
-        requestBody.reasoning_effort = reasoningEffort
-    }
-
-    // Add optional parameters
-    if (topP !== undefined) requestBody.top_p = topP
-    if (frequencyPenalty !== undefined) requestBody.frequency_penalty = frequencyPenalty
-    if (presencePenalty !== undefined) requestBody.presence_penalty = presencePenalty
-    if (stop) requestBody.stop = stop
-    if (user) requestBody.user = user
-    if (seed !== undefined) requestBody.seed = seed
-    if (logitBias) requestBody.logit_bias = logitBias
-
-    // Advanced features - Structured outputs with strict schema
+    // Note: responseFormat and logitBias are deprecated in Responses API
+    // Use text.format instead of response_format
     if (responseFormat) {
-        requestBody.response_format = responseFormat
+        // Handle legacy response_format parameter
+        if (responseFormat.type === "json_object") {
+            requestBody.text = { format: "json" }
+        }
     }
 
-    // Tools (can be native tools or custom functions)
-    if (tools && Array.isArray(tools) && tools.length > 0) {
-        requestBody.tools = tools
-        if (toolChoice) requestBody.tool_choice = toolChoice
-    }
-
-    // Custom metadata
-    if (metadata) {
-        requestBody.metadata = metadata
-    }
 
     try {
         const doFetch = async (body) =>
@@ -538,7 +507,7 @@ export async function responseStream(options = {}) {
         stop,
         user,
         seed,
-        responseFormat,
+
         tools,
         toolChoice,
         previousResponseId,
@@ -557,68 +526,33 @@ export async function responseStream(options = {}) {
     const finalTemperature = temperature ?? PROVIDER_DEFAULTS.openai.temperature
     const finalMaxTokens = maxTokens || PROVIDER_DEFAULTS.openai.maxTokens
 
-    // Build request body
+    // Build request body using utility function
     // NOTE: Responses API does NOT accept `max_tokens`.
-    // Prefer `max_output_tokens`; fall back to `max_completion_tokens` on 400 unknown_parameter.
-    const requestBody = {
+    // Use `max_output_tokens`; fall back to `max_completion_tokens` on 400 unknown_parameter.
+    const requestBody = buildResponsesAPIRequestBody({
         model: finalModel,
         temperature: finalTemperature,
-        max_output_tokens: finalMaxTokens,
-        // CRITICAL: stream_options must be set for proper streaming
-        stream_options: {},
+        maxTokens: finalMaxTokens,
+        prompt,
+        messages,
+        systemPrompt,
+        previousResponseId,
+        topP,
+        frequencyPenalty,
+        presencePenalty,
+        stop,
+        user,
+        seed,
+        reasoningEffort:
+            reasoningEffort && (model?.includes("o3") || model?.includes("o4") || model?.includes("gpt-5"))
+                ? reasoningEffort
+                : undefined,
+        includeReasoning,
+        metadata,
+        tools,
+        toolChoice,
         stream: true,
-    }
-
-    // Add system prompt as top-level instructions (Responses API format)
-    if (systemPrompt) {
-        requestBody.instructions = systemPrompt
-    }
-
-    // Handle conversation state
-    // if (store) {
-    //     requestBody.store = true
-    // }
-
-    if (previousResponseId) {
-        requestBody.previous_response_id = previousResponseId
-        if (prompt || messages) {
-            requestBody.input = formatResponsesInput(prompt, messages, systemPrompt)
-        }
-    } else {
-        // Input parameter for Responses API
-        requestBody.input = formatResponsesInput(prompt, messages, systemPrompt)
-    }
-
-    // Reasoning effort (for o3-mini, o4-mini models)
-    if (reasoningEffort && (model?.includes("o3") || model?.includes("o4"))) {
-        requestBody.reasoning_effort = reasoningEffort
-    }
-
-    // Add optional parameters
-    if (topP !== undefined) requestBody.top_p = topP
-    if (frequencyPenalty !== undefined) requestBody.frequency_penalty = frequencyPenalty
-    if (presencePenalty !== undefined) requestBody.presence_penalty = presencePenalty
-    if (stop) requestBody.stop = stop
-    if (user) requestBody.user = user
-    if (seed !== undefined) requestBody.seed = seed
-
-    // Advanced features
-    if (responseFormat) {
-        requestBody.response_format = responseFormat
-    }
-    if (tools && Array.isArray(tools) && tools.length > 0) {
-        requestBody.tools = tools
-        if (toolChoice) requestBody.tool_choice = toolChoice
-    }
-
-    // Include reasoning in stream
-    if (includeReasoning) {
-        requestBody.stream_options = { include_reasoning: true }
-    }
-
-    if (metadata) {
-        requestBody.metadata = metadata
-    }
+    })
 
     try {
         const doFetch = async (body) =>
@@ -746,7 +680,7 @@ export function createResponseStreamProcessor() {
                                         const text = parsed.text || ""
                                         if (text) {
                                             yield {
-                                                type: "text-delta",
+                                                type: "output-text-done",
                                                 delta: text,
                                             }
                                         }
@@ -758,7 +692,7 @@ export function createResponseStreamProcessor() {
                                         const text = parsed.part?.text || ""
                                         if (text) {
                                             yield {
-                                                type: "text-delta",
+                                                type: "content-part-done",
                                                 delta: text,
                                             }
                                         }
@@ -829,9 +763,9 @@ export function createResponseStreamProcessor() {
                                             data: parsed,
                                         }
                                 }
-                                } catch (e) {
-                                    // Failed to parse stream event
-                                }
+                            } catch (e) {
+                                // Failed to parse stream event
+                            }
 
                             i++ // Skip the data line we just processed
                         }
@@ -855,15 +789,15 @@ export function createResponseStreamProcessor() {
                                         delta: content,
                                     }
                                 }
-                                } catch (e) {
-                                    // Failed to parse stream data
-                                }
+                            } catch (e) {
+                                // Failed to parse stream data
+                            }
                         }
                     }
                 }
-                } catch (error) {
-                    yield {
-                        type: "error",
+            } catch (error) {
+                yield {
+                    type: "error",
                     error: error.message || "Stream processing failed",
                 }
             } finally {
