@@ -45,7 +45,7 @@ function start() {
 
         // Node Server
         spawn(
-            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
+            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --extensions .js,.ts,.jsx,.tsx --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
             [],
             {
                 cwd: dirname,
