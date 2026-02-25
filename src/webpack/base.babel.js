@@ -69,6 +69,16 @@ if (IS_DEV_COMMAND === "true" && !isDev) {
 export default {
     context: path.resolve(process.env.src_path),
     mode: isDev ? "development" : "production",
+    // Use filesystem cache to reduce memory pressure and improve rebuild performance
+    cache: isDev
+        ? {
+              type: "filesystem",
+              buildDependencies: {
+                  config: [__filename],
+              },
+              cacheDirectory: path.join(process.env.src_path, "node_modules/catalyst-core/.cache/webpack"),
+          }
+        : false,
     entry: {
         app: [path.resolve(process.env.src_path, "./client/index.js")],
     },
@@ -115,7 +125,6 @@ export default {
                     path.resolve(process.env.src_path, "./src/static/css/base"),
                 ],
                 use: [
-                    isDev && "css-hot-loader",
                     !isSSR && MiniCssExtractPlugin.loader,
                     {
                         loader: "css-loader",
@@ -154,7 +163,6 @@ export default {
                     path.resolve(process.env.src_path, "./src/static/css/base"),
                 ],
                 use: [
-                    isDev && "css-hot-loader",
                     !isSSR && MiniCssExtractPlugin.loader,
                     { loader: "css-loader" },
                     { loader: "postcss-loader" },
