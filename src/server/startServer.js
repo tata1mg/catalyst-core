@@ -102,10 +102,10 @@ let serverInstance = null
  * node_modules are intentionally left in cache to avoid re-evaluating them on
  * every hot reload.
  */
-const clearServerCache = () => {
+const clearServerCache = (filePath = "") => {
     const projectPath = process.env.src_path
     Object.keys(require.cache).forEach((key) => {
-        if (key.startsWith(projectPath) || key.includes("catalyst-core")) {
+        if (key.startsWith(projectPath) || key.includes("catalyst-core") || key.includes(filePath)) {
             delete require.cache[key]
         }
     })
@@ -221,7 +221,7 @@ checkPortAvailability(port, host)
                 // Wait for loadable-stats.json to be created before starting the server,
                 // otherwise @loadable/server would fail trying to read chunk metadata.
                 watcher.on("add", () => {
-                    restartServer()
+                    startServer()
                 })
             }
 
@@ -236,7 +236,10 @@ checkPortAvailability(port, host)
                 ignored: /node_modules/,
             })
 
-            serverWatcher.on("change", () => restartServer())
+            serverWatcher.on("change", (filePath) => {
+                clearServerCache(filePath)
+                restartServer()
+            })
             serverWatcher.on("add", () => restartServer())
             serverWatcher.on("unlink", () => restartServer())
         } else {
