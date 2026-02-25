@@ -1,3 +1,4 @@
+import net from "net"
 import webpack from "webpack"
 import merge from "webpack-merge"
 import WebpackDevServer from "webpack-dev-server"
@@ -101,10 +102,41 @@ let devServer = new WebpackDevServer(
     webpack(webpackClientConfig)
 )
 
-devServer.startCallback(() => {
-    console.log("Catalyst is compiling your files.")
-    console.log("Please wait until bundling is finished.\n")
-})
+const checkPortAvailability = (port, host) => {
+    return new Promise((resolve, reject) => {
+        const tester = net
+            .createServer()
+            .once("error", (err) => {
+                tester.close(() => {
+                    if (err.code === "EADDRINUSE") {
+                        reject(
+                            new Error(
+                                `Port ${port} is already in use on ${host}. Please free the port or set a different WEBPACK_DEV_SERVER_PORT.`
+                            )
+                        )
+                    } else {
+                        reject(err)
+                    }
+                })
+            })
+            .once("listening", () => {
+                tester.close(() => resolve())
+            })
+            .listen(port, host)
+    })
+}
+
+checkPortAvailability(WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME)
+    .then(() => {
+        devServer.startCallback(() => {
+            console.log("Catalyst is compiling your files.")
+            console.log("Please wait until bundling is finished.\n")
+        })
+    })
+    .catch((err) => {
+        console.error(`\n[Catalyst] Dev server startup failed: ${err.message}\n`)
+        process.exit(1)
+    })
 
 // Cleanup on exit
 const cleanup = () => {
