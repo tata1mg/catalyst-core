@@ -1,0 +1,140 @@
+src/packages/ai-sdk/src/core/index.js
+  b9556a09d7cf0ee3 24-28,30-34
+src/packages/ai-sdk/src/providers/openai/openai-adapter.js
+  b9556a09d7cf0ee3 1-18,22-40,42-64,71-79,81-86,89-90,110,112,114,118-120,122-127,129-135,155-158,160,163-164,166-167,170-172,190-200,202-223,228-236,238-243,246-247,266-269,271-276,278-295,297,299-321,324-325,329,333,335,338,340-341,344,346-347,403,405-406,411,494,501-502,517-518,529,532-553
+  d4c39bbda03f2260 21,102-104,259,261
+  91c8b3f658663b30 41,65-70,80,87-88,91-101,105-109,111,113,115-117,121,128,136-154,159,161-162,165,168-169,173-189,201,224-227,237,244-245,248-258,260,262-265,270,277,296,298,322-323,326-328,330-332,334,336-337,339,342-343,345,348-355,357-358,363-402,404,407-410,412-493,495-500,503-516,519-528,530-531
+src/packages/ai-sdk-react/src/hooks/use-dialogue.js
+  6c3c81713ff1d358 123
+  b9556a09d7cf0ee3 4-8,19-20,42,45,47,51-53
+  91c8b3f658663b30 108-113,117-118,122,129,131
+src/packages/ai-sdk/src/client/text-stream.js
+  b9556a09d7cf0ee3 4-8,17-18,44,48,50,54,156-158,178,182,184,188
+src/packages/ai-sdk/src/providers/openai/openai.js
+  d4c39bbda03f2260 15,401-402,563-564
+  b30c521d7b52a014 16,63-69,73-76,162-168,172-175
+src/packages/ai-sdk/src/core/make-request.js
+  b9556a09d7cf0ee3 1-22,24,26-28,30-33,35-38,40,42-45,47-50,52-56,58,60,62-68,70-72,74-80,82-85,87-96,98-100,102-117,119-124,126-129
+src/packages/ai-sdk/src/providers/anthropic/anthropic-adapter.js
+  91c8b3f658663b30 52,150
+  b9556a09d7cf0ee3 1-51,53-149,151-361
+src/packages/ai-sdk-react/src/index.js
+  b9556a09d7cf0ee3 8-19,21,25-39,43
+src/packages/ai-sdk/src/server/api-handler.js
+  91c8b3f658663b30 155-157
+  b9556a09d7cf0ee3 5-7,10-13,17-20,23-24,27-33,39,50-51,129,133-139,141-142,146,148-154,162-164,166-167,170-171,177,199-205,207-256,269-271,280,293-295,297-298,307-309,313-316,319-320,322-324,336-337,340-345,354,361,363,369-371,373-374,377-378
+src/packages/ai-sdk/src/server/index.js
+  b9556a09d7cf0ee3 5-9,22-23,52-60,64-65,67-69
+src/packages/ai-sdk-react/src/hooks/use-prompt.js
+  b9556a09d7cf0ee3 4-8,19-20,44,47,49,53-55,97,99,101,107-108
+  6c3c81713ff1d358 112
+  91c8b3f658663b30 48,98,100
+src/packages/ai-sdk/src/core/http-client.js
+  91c8b3f658663b30 79-85,89-96,98
+  6c3c81713ff1d358 8-17,86-88
+src/packages/ai-sdk/src/client/text-generate.js
+  b9556a09d7cf0ee3 4-8,16-18,39,43,45,49,53,61,93-94,112,116,118,122,126,134
+src/packages/ai-sdk/src/index.js
+  b9556a09d7cf0ee3 8-18,22-24,32,34
+src/packages/ai-sdk/src/core/provider-registry.js
+  b9556a09d7cf0ee3 3-12,15-16,21,24,26-70,72-78,80-110,112-126,130,132-133
+  a7eaf982a608ef1e 1-2,13-14,17-20,22-23,25,127-129,131
+src/packages/ai-sdk/src/providers/anthropic/anthropic-utils.js
+  b9556a09d7cf0ee3 51-61
+src/packages/ai-sdk/src/providers/anthropic/index.js
+  b9556a09d7cf0ee3 6-9,12-16
+src/packages/ai-sdk/src/providers/openai/openai-utils.js
+  b30c521d7b52a014 32-35,249-261,435-436,438,489-490,492
+  d4c39bbda03f2260 235-248
+src/packages/ai-sdk/src/providers/openai/index.js
+  b30c521d7b52a014 40,66
+  b9556a09d7cf0ee3 6-9,12-16,25-32
+src/packages/ai-sdk/src/core/smart-error.js
+  b9556a09d7cf0ee3 3-6,14,16-19,25,27-45,48-50,52,54-56,58-60,62-83,87-92,97,99,104-105,110,112,114-118,123,125,127-130
+  a7eaf982a608ef1e 1-2,7-12,15,20,22-24,26,51,53,85-86,95-96,98,100-103,106,108-109,111,113,119,121-122,124,126,131,133-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.4",
+  "base_commit_sha": "a808ec18bfdcd5d1b9902165dfbbd9323cab8555",
+  "prompts": {
+    "6c3c81713ff1d358": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384420",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 11,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    },
+    "91c8b3f658663b30": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384291",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 370,
+      "total_deletions": 153,
+      "accepted_lines": 324,
+      "overriden_lines": 2
+    },
+    "a7eaf982a608ef1e": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384071",
+        "model": "OPENROUTER_CLAUDE_4_POINT_5_HAIKU"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 4262,
+      "total_deletions": 0,
+      "accepted_lines": 4119,
+      "overriden_lines": 3
+    },
+    "b30c521d7b52a014": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384622",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 36,
+      "accepted_lines": 50,
+      "overriden_lines": 1
+    },
+    "b9556a09d7cf0ee3": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384135",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1799,
+      "total_deletions": 414,
+      "accepted_lines": 1521,
+      "overriden_lines": 40
+    },
+    "d4c39bbda03f2260": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384496",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 49,
+      "total_deletions": 36,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    }
+  }
+}
