@@ -18,7 +18,7 @@ const loadEnvironmentVariables = () => {
         const sentryConfig = require("@catalyst/template/config/sentry.config.json")
         process.env.SENTRY_CONFIG = JSON.stringify(sentryConfig)
     } catch (error) {
-        console.warn("Warning: Failed to load sentry.config.json")
+        // Sentry config is optional
     }
 }
 

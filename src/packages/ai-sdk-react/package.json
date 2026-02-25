@@ -1,0 +1,63 @@
+{
+    "name": "@catalyst/ai-sdk-react",
+    "version": "1.0.0",
+    "private": true,
+    "description": "React hooks and state management for AI SDK - streaming text generation with OpenAI and Anthropic",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "exports": {
+        ".": {
+            "module": "./dist/index.mjs",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./hooks": {
+            "module": "./dist/hooks/index.mjs",
+            "import": "./dist/hooks/index.mjs",
+            "require": "./dist/hooks/index.js"
+        }
+    },
+    "files": [
+        "dist/**/*",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "node scripts/build.js",
+        "clean": "rm -rf dist",
+        "prepare": "npm run build",
+        "prepublishOnly": "npm i && npm run prepare"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/ai-sdk-react"
+    },
+    "keywords": [
+        "ai",
+        "sdk",
+        "react",
+        "hooks",
+        "openai",
+        "anthropic",
+        "streaming",
+        "llm",
+        "chatgpt",
+        "claude"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+        "@catalyst/ai-sdk": "^1.0.0"
+    },
+    "peerDependencies": {
+        "react": ">=16.8.0",
+        "react-dom": ">=16.8.0"
+    },
+    "devDependencies": {},
+    "engines": {
+        "node": ">=16.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

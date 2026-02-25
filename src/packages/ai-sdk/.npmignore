@@ -1,0 +1,31 @@
+# Source files (we publish dist/ only)
+src/
+
+# Development files
+scripts/
+examples/
+.env
+.env.*
+*.log
+node_modules/
+
+# Build artifacts
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Git
+.git/
+.gitignore
+
+# Config files
+nodemon.json
+babel.config.js
