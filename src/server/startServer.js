@@ -138,14 +138,14 @@ checkPortAvailability(port, host)
         console.log("Port is available")
         if (process.env.NODE_ENV === "development") {
             if (fs.existsSync(statsPath)) {
-                console.log("loadable-stats.json exists")
+                // console.log("loadable-stats.json exists")
                 // if loadable-stats.json exist this block will start the server in development environment. This happens in dev environment when loadable stats already exists and developer is  making changes to the files. lodable-stats.json will be updated after every change.
                 watcher.on("change", () => {
                     clearServerCache()
                 })
                 // this block will start the server when your files have been compiled for production and lodable-stats.json exists.
                 // watcher.on("add", () => {
-                console.log("loadable-stats.json exists, starting server")
+                // console.log("loadable-stats.json exists, starting server")
                 if (serverInstance) {
                     serverInstance.close(() => startServer())
                 } else {
@@ -154,10 +154,10 @@ checkPortAvailability(port, host)
                 // }
                 // })
             } else {
-                console.log("loadable-stats.json does not exist, creating one")
+                // console.log("loadable-stats.json does not exist, creating one")
                 // this block will start the server in development environment for the first time when loadable-stats.json does not exists.
                 watcher.on("add", () => {
-                    console.log("loadable-stats.json added first time")
+                    // console.log("loadable-stats.json added first time")
                     // watcher.close()
                     if (serverInstance) {
                         serverInstance.close(() => startServer())
@@ -174,8 +174,8 @@ checkPortAvailability(port, host)
                 ignored: /node_modules/,
             })
 
-            serverWatcher.on("change", (filePath) => {
-                console.log(`Server file changed: ${filePath}`)
+            serverWatcher.on("change", () => {
+                // console.log(`Server file changed: ${filePath}`)
                 if (serverInstance) {
                     serverInstance.close(() => startServer())
                 } else {
@@ -183,8 +183,8 @@ checkPortAvailability(port, host)
                 }
             })
 
-            serverWatcher.on("add", (filePath) => {
-                console.log(`Server file added: ${filePath}`)
+            serverWatcher.on("add", () => {
+                // console.log(`Server file added: ${filePath}`)
                 if (serverInstance) {
                     serverInstance.close(() => startServer())
                 } else {
@@ -192,8 +192,8 @@ checkPortAvailability(port, host)
                 }
             })
 
-            serverWatcher.on("unlink", (filePath) => {
-                console.log(`Server file removed: ${filePath}`)
+            serverWatcher.on("unlink", () => {
+                // console.log(`Server file removed: ${filePath}`)
                 if (serverInstance) {
                     serverInstance.close(() => startServer())
                 } else {
