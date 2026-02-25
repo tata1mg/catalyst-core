@@ -1,0 +1,66 @@
+src/packages/ai-sdk/src/providers/openai/openai.js
+  e3946ff2aa8af2a8 14,367,369-370,373-389,391,393-394,396-399,529,531-532,535-553
+src/packages/ai-sdk/src/server/api-handler.js
+  fbb23c7a687d68d9 292
+src/packages/ai-sdk/src/providers/openai/openai-utils.js
+  e3946ff2aa8af2a8 301-509,587,593-607
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.4",
+  "base_commit_sha": "119873fa2e168b58ec016f4c13037921f3cc1cf2",
+  "prompts": {
+    "42abccdadffd36da": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "377771",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 70,
+      "total_deletions": 5,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "93f2a3c249121b0e": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "377687",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 962,
+      "total_deletions": 0,
+      "accepted_lines": 962,
+      "overriden_lines": 0
+    },
+    "e3946ff2aa8af2a8": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "378168",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 962,
+      "total_deletions": 119,
+      "accepted_lines": 961,
+      "overriden_lines": 0
+    },
+    "fbb23c7a687d68d9": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "378554",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 232,
+      "total_deletions": 61,
+      "accepted_lines": 30,
+      "overriden_lines": 20
+    }
+  }
+}
