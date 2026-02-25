@@ -205,8 +205,6 @@ const checkPortAvailability = (port, host) => {
 
 checkPortAvailability(port, host)
     .then(() => {
-        console.log("Port is available")
-
         if (process.env.NODE_ENV === "development") {
             if (fs.existsSync(statsPath)) {
                 // loadable-stats.json already exists (e.g. dev server restarted mid-session):

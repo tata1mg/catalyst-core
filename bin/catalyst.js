@@ -6,11 +6,11 @@ process.on("unhandledRejection", (err) => {
 const { spawnSync } = require("node:child_process")
 const args = process.argv.slice(2)
 const scriptIndex = args.findIndex(
-    (x) => x === "build" || x === "start" || x === "serve" || x === "devBuild" || x === "devServe"
+    (x) => x === "build" || x === "start" || x === "serve" || x === "devBuild" || x === "devServe" || x === "cleanCache"
 )
 const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
 const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
-if (["build", "start", "serve", "devBuild", "devServe"].includes(script)) {
+if (["build", "start", "serve", "devBuild", "devServe", "cleanCache"].includes(script)) {
     const result = spawnSync(
         process.execPath,
         nodeArgs.concat(require.resolve("../dist/scripts/" + script)).concat(args.slice(scriptIndex + 1)),
@@ -34,5 +34,5 @@ if (["build", "start", "serve", "devBuild", "devServe"].includes(script)) {
     }
     process.exit(result.status)
 } else {
-    console.log('Unknown script "' + script + '".')
+    console.log('Unknown script "' + script + '". Available: build, start, serve, devBuild, devServe, cleanCache')
 }
