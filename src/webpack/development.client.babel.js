@@ -13,15 +13,16 @@ import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
-// Create client config
 const webpackClientConfig = merge(baseConfig, {
-    // Use eval-cheap-module-source-map for better performance and lower memory usage
+    // eval-cheap-module-source-map: faster rebuilds and lower memory than inline-source-map
     devtool: "eval-cheap-module-source-map",
     stats: "none",
     infrastructureLogging: {
         level: "none",
     },
     plugins: [
+        // writeToDisk is required because the Node server runs in a separate process
+        // and cannot access webpack's in-memory filesystem to read loadable-stats.json.
         new LoadablePlugin({
             filename: "loadable-stats.json",
             writeToDisk: {
@@ -77,8 +78,7 @@ const webpackClientConfig = merge(baseConfig, {
     },
 })
 
-// Create dev server for client-side only
-// Note: SSR compiler now runs in a separate process (ssr.watcher.js) for better memory management
+// SSR compiler runs in a separate process; this process handles client-side HMR only
 let devServer = new WebpackDevServer(
     {
         port: WEBPACK_DEV_SERVER_PORT,
@@ -138,7 +138,6 @@ checkPortAvailability(WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME)
         process.exit(1)
     })
 
-// Cleanup on exit
 const cleanup = () => {
     console.log("[Client] Shutting down client dev server...")
     devServer.stop().then(() => {

@@ -61,15 +61,13 @@ function getAssetsFromCachedExtractor(routePath) {
     const extractor = process.extractorCache[routePath]
     const linkElements = extractor.getLinkElements()
 
-    // If no link elements, extractor hasn't been used yet
+    // Extractor hasn't run renderToString yet — no chunks collected
     if (!linkElements || linkElements.length === 0) {
         return null
     }
 
-    // Get preload JS links
     const preloadJSLinks = linkElements.filter((asset) => asset?.props?.as === "script")
 
-    // Get CSS assets
     const cssAssets = linkElements.filter((e) => {
         const href = e?.props?.href
         return href && href.endsWith(".css")
@@ -83,7 +81,7 @@ function getAssetsFromCachedExtractor(routePath) {
         if (process.cssCache && process.cssCache[assetName]) {
             cssContents.push(process.cssCache[assetName])
         } else {
-            // CSS not cached yet, can't use cached extractor
+            // CSS file not in cache yet — fall back to full render path
             return null
         }
     }
@@ -128,8 +126,10 @@ function buildInlineCSS(linkElements) {
 }
 
 /**
- * Main function called by handler to fetch or build assets
- * Phase 2: Called on every request after Phase 1 (renderToString)
+ * Phase 2: called from renderMarkUp's onAllReady after renderToPipeableStream finishes.
+ * Builds the inline CSS (<style> block) and script tags that are appended to the stream.
+ * In production, CSS is inlined from disk-cached files; in dev, style tags are used directly.
+ * Bots receive no JS — only the fully rendered HTML is needed for crawling.
  */
 export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
     let firstFoldCss = ""
@@ -141,14 +141,11 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
 
     if (routePath) {
         if (isProd) {
-            // Build inline CSS from cached extractor's link elements
             firstFoldCss = buildInlineCSS(linkElements)
             if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
         } else {
-            // Development: Use style tags directly
             firstFoldCss = webExtractor.getStyleTags()
         }
-        // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
         firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
     }
 
@@ -164,8 +161,6 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
 export default function extractAssets(res, route) {
     try {
         const routePath = route.path
-
-        // Try to get assets from cached ChunkExtractor
         const cached = getAssetsFromCachedExtractor(routePath)
 
         if (cached && (cached.css || cached.preloadJSLinks)) {

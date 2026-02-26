@@ -1,18 +1,12 @@
 /**
- * startServer.js
+ * Entry point for the Catalyst Node.js server process.
  *
- * Entry point for the Catalyst Node.js server process. Handles:
- *   1. Process-level error and signal handlers
- *   2. Port availability check before binding
- *   3. Hot-reload in development:
- *        - Watches loadable-stats.json (rebuilt by webpack on every client-side change)
- *          to know when a new bundle is ready, then clears the require cache so the
- *          next request picks up the latest server bundle.
- *        - Watches the app's /server directory and fully restarts the Express server
- *          whenever server-side source files change.
- *   4. Safe server restart logic that prevents EADDRINUSE by nulling the instance
- *      reference before closing, ensuring concurrent watcher events don't each
- *      queue an independent startServer() callback on the same closing socket.
+ * Dev hot-reload strategy:
+ *   - loadable-stats.json change → clear require cache (picks up new client chunks)
+ *   - /server file change       → clear require cache + full Express restart
+ *
+ * EADDRINUSE prevention: restartServer() nulls `serverInstance` before close() so
+ * concurrent watcher events only schedule one startServer() on the closing socket.
  */
 
 import fs from "fs"
@@ -43,7 +37,6 @@ process.on("uncaughtExceptionMonitor", (err, origin) => {
 
 process.on("unhandledRejection", (err) => console.log("unhandledRejection in Catalyst", safeStringify(err)))
 
-// Graceful shutdown on Ctrl-C
 process.on("SIGINT", function (data) {
     console.log("SIGINT")
     console.log(data)

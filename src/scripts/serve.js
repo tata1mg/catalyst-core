@@ -15,8 +15,6 @@ function serve() {
 
     const command = `cross-env APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ${process.cwd()}/${BUILD_OUTPUT_PATH}/startServer.js`
 
-    //  const command = `cross-env APPLICATION=${name || "catalyst_app"} node -r ./dist/scripts/loadScriptsBeforeServerStarts.js --inspect=0.0.0.0:9229 ${process.cwd()}/${BUILD_OUTPUT_PATH}/startServer.js`
-
     spawnSync(command, [], {
         cwd: dirname,
         stdio: "inherit",
