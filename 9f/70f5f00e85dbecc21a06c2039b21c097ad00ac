@@ -1,0 +1,138 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.5",
+  "base_commit_sha": "9f70f5f00e85dbecc21a06c2039b21c097ad00ac",
+  "prompts": {
+    "249d85834b91b0ec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14df0828-de30-449e-a89f-f01d32e3c4db",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 275,
+      "total_deletions": 38,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "4018b573193b79a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c6bbd306-acf0-4b34-9ae1-e7707f28e1b9",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 867,
+      "total_deletions": 3,
+      "accepted_lines": 560,
+      "overriden_lines": 5
+    },
+    "51dda2f9202fe536": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4e5e60d7-ad31-4c34-b2d2-971e444de4cf",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 932,
+      "total_deletions": 1073,
+      "accepted_lines": 865,
+      "overriden_lines": 0
+    },
+    "9b656304855d38d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aa91c43-3ec2-46e4-b868-fee78a2b4717",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 727,
+      "total_deletions": 8,
+      "accepted_lines": 505,
+      "overriden_lines": 26
+    },
+    "9c6f63b7c19279c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "45e7e8c3-b6f4-4ed7-9de4-3158ebd52a4d",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 180,
+      "total_deletions": 47,
+      "accepted_lines": 50,
+      "overriden_lines": 0
+    },
+    "a1151960ceeb242f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0c458a08-239a-4450-93b7-0b8fdf2e0a9e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 718,
+      "total_deletions": 52,
+      "accepted_lines": 675,
+      "overriden_lines": 31
+    },
+    "c6f7156a93b5a3c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b18ff9b1-9524-4362-bbc8-cf229f7025da",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 232,
+      "total_deletions": 134,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "e24cacaea866134c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2689e13-4a01-49f7-9aa3-1ddc10fc9b44",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 427,
+      "total_deletions": 1,
+      "accepted_lines": 626,
+      "overriden_lines": 0
+    },
+    "f228f3b8613bc516": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "84681623-30e2-4c7a-9285-9d7bf1c12115",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 77,
+      "total_deletions": 9,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "f2db226890fee3d7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb7a0202-e8c6-4057-a2bf-5143b058a7ce",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 242,
+      "total_deletions": 46,
+      "accepted_lines": 210,
+      "overriden_lines": 0
+    }
+  }
+}
