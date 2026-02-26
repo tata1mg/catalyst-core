@@ -35,6 +35,11 @@ export const NATIVE_COMMANDS = {
 
     // Safe area commands
     GET_SAFE_AREA: "getSafeArea",
+
+    // Security commands
+    SET_SCREEN_SECURE: "setScreenSecure",
+    GET_SCREEN_SECURE: "getScreenSecure",
+    CLEAR_WEB_DATA: "clearWebData",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -83,6 +88,13 @@ export const NATIVE_CALLBACKS = {
 
     // Safe area callbacks
     ON_SAFE_AREA_INSETS_UPDATED: "ON_SAFE_AREA_INSETS_UPDATED",
+
+    // Security callbacks
+    ON_SCREEN_SECURE_SET: "ON_SCREEN_SECURE_SET",
+    ON_SCREEN_SECURE_STATUS: "ON_SCREEN_SECURE_STATUS",
+    ON_SCREEN_SECURE_ERROR: "ON_SCREEN_SECURE_ERROR",
+    ON_WEB_DATA_CLEARED: "ON_WEB_DATA_CLEARED",
+    ON_WEB_DATA_CLEAR_ERROR: "ON_WEB_DATA_CLEAR_ERROR",
 }
 
 // Interface Categories for easier management
@@ -154,6 +166,19 @@ export const INTERFACE_CATEGORIES = {
     NETWORK: {
         commands: [NATIVE_COMMANDS.GET_NETWORK_STATUS],
         callbacks: [NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED],
+    },
+    SECURITY: {
+        commands: [
+            NATIVE_COMMANDS.SET_SCREEN_SECURE,
+            NATIVE_COMMANDS.GET_SCREEN_SECURE,
+            NATIVE_COMMANDS.CLEAR_WEB_DATA,
+        ],
+        callbacks: [
+            NATIVE_CALLBACKS.ON_SCREEN_SECURE_SET,
+            NATIVE_CALLBACKS.ON_SCREEN_SECURE_ERROR,
+            NATIVE_CALLBACKS.ON_WEB_DATA_CLEARED,
+            NATIVE_CALLBACKS.ON_WEB_DATA_CLEAR_ERROR,
+        ],
     },
 }
 

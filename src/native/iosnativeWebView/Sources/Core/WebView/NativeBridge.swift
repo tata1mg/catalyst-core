@@ -45,8 +45,8 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
             filePickerHandler: filePickerHandler
         )
         handler.setDelegate(self)
-        // Pass the notification handler to command handler
         handler.setNotificationHandler(notificationHandler)
+        if let wv = webView { handler.setWebView(wv) }
         return handler
     }()
 
@@ -284,6 +284,12 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.getSubscribedTopics()
         case "getSafeArea":
             getSafeArea()
+        case "setScreenSecure":
+            commandHandler.setScreenSecure(params: params)
+        case "getScreenSecure":
+            commandHandler.getScreenSecure()
+        case "clearWebData":
+            commandHandler.clearWebData()
         default:
             // This should never happen due to validation, but keeping for safety
             logger.error("Unexpected command reached execution: \(command)")
