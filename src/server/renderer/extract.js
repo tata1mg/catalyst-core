@@ -137,7 +137,7 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
     const isProd = process.env.NODE_ENV === "production"
     const { routePath } = res.locals
 
-    const linkElements = webExtractor.getLinkElements()
+    const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
 
     if (routePath) {
         if (isProd) {
@@ -148,9 +148,8 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
             // Development: Use style tags directly
             firstFoldCss = webExtractor.getStyleTags()
         }
-
-        // Get script tags (Phase 2: injected in body)
-        firstFoldJS = !isBot ? webExtractor.getScriptTags() : ""
+        // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
+        firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
     }
 
     return { firstFoldCss, firstFoldJS }
