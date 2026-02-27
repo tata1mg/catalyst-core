@@ -20,9 +20,7 @@ export default {
         [
             "@babel/preset-env",
             {
-                targets: {
-                    browsers: "last 2 versions",
-                },
+                targets: "last 2 versions, not dead",
             },
         ],
         ["@babel/preset-react", { runtime: "automatic" }],
