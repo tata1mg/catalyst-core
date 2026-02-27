@@ -15,10 +15,12 @@ function start() {
 
     const command = `
     node ./dist/scripts/checkVersion
-    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --extensions .js,.ts,.jsx,.tsx --watch-path=${process.env.PWD}/server --watch-path=${process.env.PWD}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
+    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --extensions .js,.ts,.jsx,.tsx --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
     `
 
     if (isWindows) {
+        // Windows doesn't support `&` for parallel processes in a single shell command,
+        // so we use two non-blocking spawn() calls instead of a single spawnSync().
         spawn(
             `node ./dist/scripts/checkVersion && start /b npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
             [],
@@ -39,7 +41,7 @@ function start() {
         )
 
         spawn(
-            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
+            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --extensions .js,.ts,.jsx,.tsx --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
             [],
             {
                 cwd: dirname,

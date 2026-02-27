@@ -54,8 +54,63 @@ if (fs.existsSync(storePath)) {
 
 const isProduction = process.env.NODE_ENV === "production"
 
-// matches request route with routes defined in the application.
-const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "", webExtractor) => {
+// Cache webStats path - computed once at module load
+const webStatsPath = isProduction
+    ? path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
+    : path.join(__dirname, "../../..", `loadable-stats.json`)
+
+// Cache for parsed stats (production only)
+let cachedWebStats = null
+
+const getWebStats = () => {
+    if (!isProduction) {
+        // In development, stats can change; always read fresh.
+        return JSON.parse(fs.readFileSync(webStatsPath, "utf-8"))
+    }
+
+    if (!cachedWebStats) {
+        cachedWebStats = JSON.parse(fs.readFileSync(webStatsPath, "utf-8"))
+        logger.info("ChunkExtractor stats cached in memory")
+    }
+    return cachedWebStats
+}
+
+// Cache for ChunkExtractor instances per route (production only)
+if (!process.extractorCache) {
+    process.extractorCache = {}
+}
+
+const getOrCreateExtractorForRoute = (routePath) => {
+    if (!isProduction) {
+        // In dev, always create fresh extractor (HMR compatible)
+        return new ChunkExtractor({
+            stats: getWebStats(),
+            entrypoints: ["app"],
+        })
+    }
+
+    // Production: cache extractor per route
+    if (!process.extractorCache[routePath]) {
+        process.extractorCache[routePath] = new ChunkExtractor({
+            stats: getWebStats(),
+            entrypoints: ["app"],
+        })
+        logger.info(`ChunkExtractor created and cached for route: ${routePath}`)
+    }
+
+    return process.extractorCache[routePath]
+}
+
+// Cache routes array - getRoutes() returns same reference, but validate once
+let cachedRoutes = null
+const getCachedRoutes = () => {
+    if (!cachedRoutes) {
+        cachedRoutes = validateGetRoutes(getRoutes) ? getRoutes() : []
+    }
+    return cachedRoutes
+}
+
+const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
         const { path } = route
         const match = matchPath(
@@ -66,12 +121,24 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         if (match) {
             if (!res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
                 res.locals.routePath = path
+                // Phase 1a: try to serve CSS/preloadLinks from the extractor cache (production only).
+                // On a cache hit, res.locals.pageCss and preloadJSLinks are populated and
+                // the renderToString dry-run below is skipped entirely for this request.
                 extractAssets(res, route)
             }
+
+            // Production: reuses the same ChunkExtractor per route (chunks accumulate over time).
+            // Dev: always creates a fresh extractor so HMR chunk changes are picked up immediately.
+            if (!res.locals.webExtractor) {
+                res.locals.webExtractor = getOrCreateExtractorForRoute(path)
+            }
+
             if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
-                //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
+                // Phase 1b: dry-run renderToString solely to let the ChunkExtractor record which
+                // chunks this route needs. The output is discarded — the real render happens later
+                // in renderMarkUp via renderToPipeableStream.
                 renderToString(
-                    <ChunkExtractorManager extractor={webExtractor}>
+                    <ChunkExtractorManager extractor={res.locals.webExtractor}>
                         <Provider store={store}>
                             <StaticRouter context={context} location={req.originalUrl}>
                                 <ServerRouter store={store} intialData={fetcherData} />
@@ -88,7 +155,6 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
             })
         }
         if (!match && route.children) {
-            // recursively try to match nested routes
             const nested = getMatchRoutes(
                 route.children,
                 req,
@@ -96,8 +162,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
                 store,
                 context,
                 fetcherData,
-                `${basePath}/${path}`,
-                webExtractor
+                `${basePath}/${path}`
             )
             if (nested.length) {
                 matches = matches.concat(nested)
@@ -120,7 +185,6 @@ const getComponent = (store, context, req, fetcherData) => {
         </div>
     )
 }
-// sends document after rendering
 const renderMarkUp = async (
     errorCode,
     req,
@@ -136,6 +200,8 @@ const renderMarkUp = async (
     const isBot = deviceDetails.googleBot ? true : false
 
     let state = store.getState()
+    // collectChunks wraps the component tree so the extractor can track which loadable
+    // chunks are actually rendered, building the final script/link tag lists.
     const jsx = webExtractor.collectChunks(getComponent(store, context, req, fetcherData))
 
     const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
@@ -191,10 +257,14 @@ const renderMarkUp = async (
         return new Promise((resolve, reject) => {
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
                 onShellReady() {
+                    // Start streaming the HTML shell (everything above Suspense boundaries)
+                    // as soon as it's ready to minimise TTFB.
                     res.setHeader("content-type", "text/html")
                     pipe(res)
                 },
                 onAllReady() {
+                    // All Suspense boundaries have resolved. Append inline CSS and script
+                    // tags at the end of the stream so the browser can start executing JS.
                     const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
                     res.write(firstFoldCss)
                     res.write(firstFoldJS)
@@ -222,41 +292,33 @@ const renderMarkUp = async (
 }
 
 /**
- * middleware for document handling
- * @param {object} req - request object
- * @param {object} res - response object
+ * SSR request handler. Execution pipeline per request:
+ *   1. Match route → collect loadable chunks (Phase 1 dry-run)
+ *   2. App.serverSideFunction (app-level server hook)
+ *   3. serverDataFetcher (route-level data fetching)
+ *   4. renderMarkUp → renderToPipeableStream (Phase 2 — real render + stream to client)
+ *
+ * res.headersSent is checked after each async step: if a user hook (onRouteMatch,
+ * onAppServerSideSuccess, etc.) has already sent a response (e.g. a redirect), we
+ * bail out early without attempting another render.
  */
 export default async function handler(req, res) {
     try {
         let context = {}
         let fetcherData = {}
 
-        let webStats = path.join(__dirname, "../../..", `loadable-stats.json`)
-
-        if (isProduction) {
-            webStats = path.join(
-                process.env.src_path,
-                `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`
-            )
-        }
-
-        const webExtractor = new ChunkExtractor({
-            statsFile: webStats,
-            entrypoints: ["app"],
-        })
-
-        // creates store
         const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
+        const routes = getCachedRoutes()
 
-        // user defined routes
-        const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
-
-        // Matches req url with routes
-        const matches = getMatchRoutes(routes, req, res, store, context, fetcherData, undefined, webExtractor)
-        const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
+        // matches: routes that exactly match this URL — used for serverSideFunction execution.
+        // allMatches: full nested match tree — used by getMetaData to collect meta tags.
+        const matches = getMatchRoutes(routes, req, res, store, context, fetcherData)
+        const allMatches = NestedMatchRoutes(routes, req.baseUrl)
         let allTags = []
 
-        // function defined by user which needs to run after route is matched
+        // Extractor is attached to res.locals inside getMatchRoutes; reused for collectChunks in renderMarkUp
+        const webExtractor = res.locals.webExtractor
+
         safeCall(onRouteMatch, { req, res, matches, store })
 
         if (res.headersSent) {
@@ -264,10 +326,7 @@ export default async function handler(req, res) {
         }
 
         try {
-            // Executing app server side function
             await App.serverSideFunction({ store, req, res })
-
-            // function defined by user which needs to run after app server side function succeeds
             safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) {
@@ -275,7 +334,6 @@ export default async function handler(req, res) {
             }
 
             try {
-                // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
                 fetcherData = await serverDataFetcher(
                     { routes: routes, req, res, url: req.originalUrl },
                     { store }
@@ -291,7 +349,6 @@ export default async function handler(req, res) {
                 allTags = getMetaData(allMatches, fetcherData)
 
                 if (err) {
-                    // function defined by user which needs to run when serverDataFetcher returns an error
                     safeCall(onFetcherError, { req, res, store, error: err })
 
                     if (res.headersSent) {

@@ -17,7 +17,7 @@ const isDev = process.env.NODE_ENV === "development"
 const isSSR = !!process.env.SSR || false
 
 export const basePlugins = [
-    // **This loads process.env variable during webpack build process
+    // Expose only the whitelisted env vars to the client bundle
     new webpack.DefinePlugin({
         "process.env": (
             [
@@ -35,7 +35,6 @@ export const basePlugins = [
         }, {}),
     }),
 
-    // ** This is used to analyze bundle size.
     ANALYZE_BUNDLE &&
         new BundleAnalyzerPlugin({
             generateStatsFile: ANALYZE_BUNDLE,
@@ -69,6 +68,16 @@ if (IS_DEV_COMMAND === "true" && !isDev) {
 export default {
     context: path.resolve(process.env.src_path),
     mode: isDev ? "development" : "production",
+    // Use filesystem cache to reduce memory pressure and improve rebuild performance
+    cache: isDev
+        ? {
+              type: "filesystem",
+              buildDependencies: {
+                  config: [__filename],
+              },
+              cacheDirectory: path.join(process.env.src_path, "node_modules/catalyst-core/.cache/webpack"),
+          }
+        : false,
     entry: {
         app: [path.resolve(process.env.src_path, "./client/index.js")],
     },
@@ -108,14 +117,13 @@ export default {
                 },
             },
             {
-                // This loader processes all the .scss files that should be modularized. This should exclude anything inside node_modules and everything inside src/css/base since they should be globally scoped.
+                // CSS Modules for component-scoped styles; excludes node_modules and global base styles
                 test: /\.scss$/,
                 exclude: [
                     path.resolve(process.env.src_path, "./node_modules"),
                     path.resolve(process.env.src_path, "./src/static/css/base"),
                 ],
                 use: [
-                    isDev && "css-hot-loader",
                     !isSSR && MiniCssExtractPlugin.loader,
                     {
                         loader: "css-loader",
@@ -148,14 +156,13 @@ export default {
                 ],
             },
             {
-                // In development mode, client request app.css ,which has all the css in node_modules and src/static/css/base, This is served by webpack-dev-server. However in prod this css is injected in the doc sent from the server and needs to be global, so we don't pass the files through css-loader to be modularized.
+                // Global styles (node_modules + base CSS): not modularized, served by dev-server in dev / inlined by server in prod
                 test: /\.scss$/,
                 include: [
                     path.resolve(process.env.src_path, "./node_modules"),
                     path.resolve(process.env.src_path, "./src/static/css/base"),
                 ],
                 use: [
-                    isDev && "css-hot-loader",
                     !isSSR && MiniCssExtractPlugin.loader,
                     { loader: "css-loader", options: { esModule: false } },
                     { loader: "postcss-loader" },
@@ -177,7 +184,11 @@ export default {
             },
             {
                 test: /\.css$/,
-                use: [!isSSR && MiniCssExtractPlugin.loader, { loader: "css-loader", options: { esModule: false } }, "postcss-loader"],
+                use: [
+                    !isSSR && MiniCssExtractPlugin.loader,
+                    { loader: "css-loader", options: { esModule: false } },
+                    "postcss-loader",
+                ],
             },
             {
                 test: /\.(png|jpg|gif|jpeg|webp|ico?)$/,
@@ -189,12 +200,6 @@ export default {
                 use: ["@svgr/webpack", "url-loader?limit=10240", "img-loader"],
             },
             {
-                test: /\.svg$/i,
-                issuer: /\.(scss|css)$/,
-                type: "asset/resource",
-            },
-            {
-                // This loader loads fonts in src/static/fonts using file-loader
                 test: /\.(ttf|eot|woff2?)$/,
                 use: [
                     {
@@ -208,7 +213,6 @@ export default {
                 ],
             },
             {
-                // This loader loads html files
                 test: /\.html$/,
                 use: [
                     {
