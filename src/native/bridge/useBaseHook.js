@@ -10,13 +10,13 @@ import { translateError, isDevelopment } from "./errors"
  * @returns {Object} Base hook interface with common functionality
  */
 export const useBaseHook = (hookName) => {
-    // Environment detection
+    // Environment detection — live check at call time, never stale from SSR
     const isNative = useCallback(() => {
-        // Server-side rendering safety
         if (typeof window === "undefined") return false
-
-        // Check for WebBridge and verify it's functional
-        return !!(window.WebBridge && nativeBridge.isAvailable())
+        return !!(
+            window.WebBridge &&
+            (window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge)
+        )
     }, [])
 
     const isWeb = useCallback(() => {
@@ -144,7 +144,7 @@ export const useBaseHook = (hookName) => {
                     return
                 }
 
-                if (!nativeBridge.isAvailable()) {
+                if (!isNative()) {
                     throw new Error("Native bridge not available")
                 }
 
