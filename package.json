@@ -77,8 +77,6 @@
         "picocolors": "^1.0.0",
         "postcss-loader": "^7.3.3",
         "postcss-scss": "^4.0.9",
-        "react": "19.0.0",
-        "react-dom": "19.0.0",
         "react-compiler-runtime": "^19.0.0-beta-decd7b8-20250118",
         "react-redux": "^9.2.0",
         "react-refresh": "^0.14.0",
@@ -126,6 +124,10 @@
             "eslint .",
             "prettier . --write"
         ]
+    },
+    "peerDependencies": {
+        "react": "^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || >=19.0.0-canary.0",
+        "react-dom": "^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || >=19.0.0-canary.0"
     },
     "engines": {
         "node": "22.x"
