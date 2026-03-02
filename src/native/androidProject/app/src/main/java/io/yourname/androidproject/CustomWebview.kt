@@ -227,7 +227,7 @@ class CustomWebView(
         }
 
         // Additional security check: only allow whitelisted interface names
-        val allowedInterfaces = setOf("NativeBridge", "AndroidBridge")
+        val allowedInterfaces = setOf("NativeBridge", "AndroidBridge", "PluginBridge")
         if (name !in allowedInterfaces) {
             Log.e(TAG, "❌ Security: Interface name '$name' is not in whitelist. Refusing to add interface.")
             return

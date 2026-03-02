@@ -31,6 +31,7 @@
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
         "./WebBridge": "./dist/native/bridge/WebBridge.js",
+        "./PluginBridge": "./dist/native/plugin-bridge/PluginBridge.js",
         "./hooks": "./dist/native/bridge/hooks.js",
         "./sentry": "./dist/sentry.js",
         "./otel": "./dist/otel.js"

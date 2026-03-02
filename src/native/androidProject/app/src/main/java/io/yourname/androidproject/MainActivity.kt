@@ -14,6 +14,7 @@ import org.json.JSONObject
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
+import io.yourname.androidproject.plugins.PluginBridge
 import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.KeyboardUtil
 import io.yourname.androidproject.utils.NetworkUtils
@@ -39,6 +40,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
+    private lateinit var pluginBridge: PluginBridge
     private lateinit var customWebView: CustomWebView
     lateinit var properties: Properties
     private lateinit var metricsMonitor: MetricsMonitor
@@ -307,6 +309,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             customWebView.addJavascriptInterface(nativeBridge, "NativeBridge")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")
+        }
+
+        // Setup isolated PluginBridge
+        try {
+            pluginBridge = PluginBridge(customWebView.getWebView())
+            customWebView.addJavascriptInterface(pluginBridge, "PluginBridge")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize PluginBridge: ${e.message}")
         }
 
         setupSafeAreaHandling()
