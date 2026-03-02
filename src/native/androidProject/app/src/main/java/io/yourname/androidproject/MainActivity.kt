@@ -143,6 +143,25 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     // Public method for NativeBridge to get current safe area insets
     fun getCurrentSafeAreaInsets(): SafeAreaInsets = latestSafeAreaInsets
 
+    fun clearWebCache() {
+        customWebView.clearAllCache()
+    }
+
+    fun setScreenSecure(enable: Boolean) {
+        if (enable) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE
+            )
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    fun isScreenSecure(): Boolean {
+        return (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
+    }
+
     /**
      * Notify WebView when safe area insets are updated
      * Called when deferred inset calculation completes

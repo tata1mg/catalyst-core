@@ -2,7 +2,11 @@
 // Unified configuration constants for the iOS native web bridge
 
 import Foundation
-import UIKit // For CGFloat
+#if canImport(UIKit)
+import UIKit // For CGFloat on iOS
+#elseif canImport(CoreGraphics)
+import CoreGraphics // For CGFloat on macOS during testing
+#endif
 
 // Centralized configuration used across the project
 // Mirrors the Android-side constants to keep behavior consistent
@@ -66,7 +70,10 @@ public enum CatalystConstants {
                 "openFileWithIntent",
                 "requestHapticFeedback",
                 "googleSignIn",
-                "getSafeArea"
+                "getSafeArea",
+                "setScreenSecure",
+                "getScreenSecure",
+                "clearWebData"
             ]
 
             // Check if notifications are enabled via config

@@ -70,7 +70,10 @@ object CatalystConstants {
             "logger",
             "pickFile",
             "openFileWithIntent",
-            "requestHapticFeedback"
+            "requestHapticFeedback",
+            "setScreenSecure",
+            "getScreenSecure",
+            "clearWebData"
         )
     }
 

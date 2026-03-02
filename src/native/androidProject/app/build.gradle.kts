@@ -15,6 +15,18 @@ val keystorePassword: String? by project.properties  // Changed from keyStorePas
 val keyAlias: String? by project.properties
 val keyPassword: String? by project.properties
 
+fun isAllowBackupEnabled(): Boolean {
+    return try {
+        val propsFile = File("${project.projectDir}/src/main/assets/webview_config.properties")
+        if (!propsFile.exists()) return false
+        val props = Properties()
+        props.load(propsFile.inputStream())
+        props.getProperty("android.security.allowBackup", "false").trim().lowercase() == "true"
+    } catch (e: Exception) {
+        false
+    }
+}
+
 fun isNotificationsEnabled(): Boolean {
     return try {
         if (configPath == null) return false
@@ -56,6 +68,7 @@ android {
         versionName = "1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
+        manifestPlaceholders["allowBackup"] = isAllowBackupEnabled()
     }
 
     // Add signing configuration for app bundle
@@ -146,6 +159,13 @@ android {
     lint {
         checkReleaseBuilds = true
         abortOnError = true
+    }
+
+    // Configure test options for unit tests
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
     }
 
     // Conditional source sets based on notifications config

@@ -306,6 +306,30 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Security methods
+     */
+    security = {
+        /**
+         * Enable or disable FLAG_SECURE (prevents screenshots / app-switcher caching)
+         * @param {boolean} enable - true to secure, false to unsecure
+         */
+        setScreenSecure: (enable) =>
+            this.call(NATIVE_COMMANDS.SET_SCREEN_SECURE, JSON.stringify({ enable })),
+
+        /**
+         * Query current FLAG_SECURE status
+         * Returns result through ON_SCREEN_SECURE_SET callback
+         */
+        getScreenSecure: () => this.call(NATIVE_COMMANDS.GET_SCREEN_SECURE),
+
+        /**
+         * Clear all WebView data (cache, history, cookies, WebStorage)
+         * Returns result through ON_WEB_DATA_CLEARED / ON_WEB_DATA_CLEAR_ERROR callback
+         */
+        clearWebData: () => this.call(NATIVE_COMMANDS.CLEAR_WEB_DATA),
+    }
+
+    /**
      * Get environment info
      */
     getEnvironmentInfo() {
