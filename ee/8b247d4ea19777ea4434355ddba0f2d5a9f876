@@ -1,0 +1,34 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.5",
+  "base_commit_sha": "ee8b247d4ea19777ea4434355ddba0f2d5a9f876",
+  "prompts": {
+    "06977d32b69c2e73": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019c9349-4fca-7e13-a373-d4424ad2f23f",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "a1685c9175b60fca": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019c9348-110c-7581-b278-523b713bba0e",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 37,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}
