@@ -71,6 +71,24 @@ async function initializeConfig() {
     return { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }
 }
 
+function resolvePluginConfig(WEBVIEW_CONFIG) {
+    const pluginConfig = {}
+
+    if (WEBVIEW_CONFIG.plugins != null) {
+        if (typeof WEBVIEW_CONFIG.plugins !== "object" || Array.isArray(WEBVIEW_CONFIG.plugins)) {
+            throw new Error("'WEBVIEW_CONFIG.plugins' must be an object with boolean values")
+        }
+
+        for (const [key, value] of Object.entries(WEBVIEW_CONFIG.plugins)) {
+            if (typeof value !== "boolean") {
+                throw new Error(`'WEBVIEW_CONFIG.plugins.${key}' must be boolean`)
+            }
+            pluginConfig[key] = value
+        }
+    }
+    return pluginConfig
+}
+
 function validateAndroidTools(androidConfig) {
     const ANDROID_SDK = androidConfig.sdkPath
     const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
@@ -1256,15 +1274,16 @@ async function buildAndroidApp() {
         await copyOfflinePage()
         await copyIconAssets()
         await configureAppName(androidConfig)
-        const corePluginsDistPath = _path.default.join(catalystCorePath, "dist/native/plugins")
-        const corePluginsSrcPath = _path.default.join(catalystCorePath, "src/native/plugins")
+        const pluginConfig = resolvePluginConfig(WEBVIEW_CONFIG)
+        const corePluginsDistPath = _path.default.join(catalystCorePath, "dist/native/internal-plugins")
+        const corePluginsSrcPath = _path.default.join(catalystCorePath, "src/native/internal-plugins")
         const resolvedCorePluginPath = _fs.default.existsSync(corePluginsDistPath)
             ? corePluginsDistPath
             : corePluginsSrcPath
         ;(0, _pluginComposerAndroid.composeAndroidPlugins)({
-            appRoot: process.env.PWD,
             corePluginsRoot: resolvedCorePluginPath,
             androidProjectPath: `${pwd}/androidProject`,
+            pluginConfig,
             log: (message, status = "info") => progress.log(message, status),
         })
         await processNotifications(WEBVIEW_CONFIG)

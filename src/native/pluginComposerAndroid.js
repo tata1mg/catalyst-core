@@ -3,7 +3,6 @@
 const fs = require("fs")
 const path = require("path")
 
-const APP_PLUGIN_DIRS = ["plugin", "plugins", "catalyst-plugins"]
 const PLUGINS_PACKAGE_PARTS = ["io", "yourname", "androidproject", "plugins"]
 
 function isDir(dirPath) {
@@ -20,110 +19,148 @@ function sanitizeForPath(value) {
     return value.replace(/[^a-zA-Z0-9_-]/g, "_")
 }
 
-function mustBeNonEmptyString(value, fieldName, manifestPath) {
+function mustBeNonEmptyString(value, fieldName, sourcePath) {
     if (typeof value !== "string" || !value.trim()) {
-        throw new Error(`Invalid '${fieldName}' in ${manifestPath}`)
+        throw new Error(`Invalid '${fieldName}' in ${sourcePath}`)
     }
     return value.trim()
 }
 
-function readStringArray(value, fieldName, manifestPath, { required = false, nonEmpty = false } = {}) {
+function readStringArray(value, fieldName, sourcePath, { required = false, nonEmpty = false } = {}) {
     if (!Array.isArray(value)) {
         if (required) {
-            throw new Error(`'${fieldName}' is required and must be an array in ${manifestPath}`)
+            throw new Error(`'${fieldName}' is required and must be an array in ${sourcePath}`)
         }
         return []
     }
 
-    const result = value.map((entry) => mustBeNonEmptyString(entry, `${fieldName}[]`, manifestPath))
+    const result = value.map((entry) => mustBeNonEmptyString(entry, `${fieldName}[]`, sourcePath))
     if (nonEmpty && result.length === 0) {
-        throw new Error(`'${fieldName}' is required and must be non-empty in ${manifestPath}`)
+        throw new Error(`'${fieldName}' is required and must be non-empty in ${sourcePath}`)
     }
     return result
 }
 
-function readManifest(pluginDir) {
+function asUniqueSorted(values) {
+    return [...new Set(values)].sort()
+}
+
+function parsePluginManifest(pluginDir) {
     const manifestPath = path.join(pluginDir, "manifest.json")
     if (!fs.existsSync(manifestPath)) {
         return null
     }
 
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    const androidConfig = manifest.android
+    if (!androidConfig || typeof androidConfig !== "object") {
+        throw new Error(`'android' config is required for Android plugin in ${manifestPath}`)
+    }
+
     return {
+        pluginDir,
         manifestPath,
-        manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
+        id: mustBeNonEmptyString(manifest.id, "id", manifestPath),
+        version: mustBeNonEmptyString(manifest.version, "version", manifestPath),
+        configKey:
+            manifest.configKey == null
+                ? null
+                : mustBeNonEmptyString(manifest.configKey, "configKey", manifestPath),
+        commands: readStringArray(manifest.commands, "commands", manifestPath, {
+            required: true,
+            nonEmpty: true,
+        }),
+        callbacks: readStringArray(manifest.callbacks, "callbacks", manifestPath),
+        permissions: readStringArray(androidConfig.permissions, "android.permissions", manifestPath),
+        dependencies: readStringArray(androidConfig.dependencies, "android.dependencies", manifestPath),
+        className: mustBeNonEmptyString(androidConfig.className, "android.className", manifestPath),
     }
 }
 
-function discoverPlugins({ appRoot, corePluginsRoot, log }) {
-    const roots = []
-    if (corePluginsRoot && isDir(corePluginsRoot)) {
-        roots.push({ root: corePluginsRoot, source: "core" })
+function discoverInternalPlugins(corePluginsRoot, log) {
+    if (!corePluginsRoot || !isDir(corePluginsRoot)) {
+        log(`No internal plugin directory found at ${corePluginsRoot || "<empty>"}`, "info")
+        return []
     }
 
-    for (const dirName of APP_PLUGIN_DIRS) {
-        const absPath = path.join(appRoot, dirName)
-        if (isDir(absPath)) {
-            roots.push({ root: absPath, source: "app" })
-        }
-    }
-
-    const discovered = []
-    for (const { root, source } of roots) {
-        for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-            if (!entry.isDirectory()) {
-                continue
-            }
-
-            const pluginDir = path.join(root, entry.name)
-            const manifestData = readManifest(pluginDir)
-            if (!manifestData) {
-                continue
-            }
-
-            discovered.push({
-                source,
-                pluginDir,
-                manifestPath: manifestData.manifestPath,
-                manifest: manifestData.manifest,
-            })
-        }
-    }
-
-    log(`Discovered ${discovered.length} plugin manifest(s)`, "info")
-    return discovered
-}
-
-function normalizePlugins(discovered) {
     const plugins = []
-
-    for (const item of discovered) {
-        const { manifest, manifestPath, pluginDir } = item
-        if (manifest.enabled === false) {
+    for (const entry of fs.readdirSync(corePluginsRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) {
             continue
         }
 
-        const androidConfig = manifest.android
-        if (!androidConfig || typeof androidConfig !== "object") {
-            throw new Error(`'android' config is required for Android plugin in ${manifestPath}`)
+        const pluginDir = path.join(corePluginsRoot, entry.name)
+        const parsed = parsePluginManifest(pluginDir)
+        if (parsed) {
+            plugins.push(parsed)
         }
-
-        plugins.push({
-            ...item,
-            id: mustBeNonEmptyString(manifest.id, "id", manifestPath),
-            version: mustBeNonEmptyString(manifest.version, "version", manifestPath),
-            pluginDir,
-            commands: readStringArray(manifest.commands, "commands", manifestPath, {
-                required: true,
-                nonEmpty: true,
-            }),
-            callbacks: readStringArray(manifest.callbacks, "callbacks", manifestPath),
-            permissions: readStringArray(androidConfig.permissions, "android.permissions", manifestPath),
-            dependencies: readStringArray(androidConfig.dependencies, "android.dependencies", manifestPath),
-            className: mustBeNonEmptyString(androidConfig.className, "android.className", manifestPath),
-        })
     }
 
+    log(`Discovered ${plugins.length} internal plugin manifest(s)`, "info")
     return plugins
+}
+
+function parsePluginToggleConfig(pluginConfig) {
+    if (pluginConfig == null) {
+        return {}
+    }
+
+    if (typeof pluginConfig !== "object" || Array.isArray(pluginConfig)) {
+        throw new Error("'WEBVIEW_CONFIG.plugins' must be an object with boolean values")
+    }
+
+    const toggles = {}
+    for (const [key, value] of Object.entries(pluginConfig)) {
+        const normalizedKey = mustBeNonEmptyString(key, "plugins.<key>", "WEBVIEW_CONFIG")
+        if (typeof value !== "boolean") {
+            throw new Error(`'WEBVIEW_CONFIG.plugins.${normalizedKey}' must be boolean`)
+        }
+        toggles[normalizedKey] = value
+    }
+
+    return toggles
+}
+
+function selectPluginsByConfig(plugins, pluginConfig, log) {
+    const toggles = parsePluginToggleConfig(pluginConfig)
+
+    const matchedKeys = new Set()
+    const selected = []
+
+    for (const plugin of plugins) {
+        const selectorKeys = plugin.configKey ? [plugin.configKey, plugin.id] : [plugin.id]
+
+        const matches = []
+        for (const key of selectorKeys) {
+            if (Object.prototype.hasOwnProperty.call(toggles, key)) {
+                matches.push({ key, value: toggles[key] })
+                matchedKeys.add(key)
+            }
+        }
+
+        const uniqueValues = [...new Set(matches.map((entry) => entry.value))]
+        if (uniqueValues.length > 1) {
+            throw new Error(
+                `Conflicting toggle values for plugin '${plugin.id}' across keys: ${matches
+                    .map((entry) => `${entry.key}=${entry.value}`)
+                    .join(", ")}`
+            )
+        }
+
+        const enabled = matches.length === 0 ? false : matches[0].value
+        if (enabled) {
+            selected.push(plugin)
+        } else {
+            log(`Plugin disabled by config: ${plugin.id}`, "info")
+        }
+    }
+
+    const unknownKeys = Object.keys(toggles).filter((key) => !matchedKeys.has(key))
+    if (unknownKeys.length > 0) {
+        throw new Error(`Unknown plugin toggle key(s) in WEBVIEW_CONFIG.plugins: ${unknownKeys.join(", ")}`)
+    }
+
+    return selected
 }
 
 function parseDependency(dependency, pluginId) {
@@ -140,8 +177,9 @@ function parseDependency(dependency, pluginId) {
     }
 }
 
-function validateCollisions(plugins) {
+function validatePlugins(plugins) {
     const pluginIds = new Set()
+    const configKeys = new Set()
     const dependencies = new Map()
 
     for (const plugin of plugins) {
@@ -150,13 +188,18 @@ function validateCollisions(plugins) {
         }
         pluginIds.add(plugin.id)
 
-        const uniqueCommands = new Set(plugin.commands)
-        if (uniqueCommands.size !== plugin.commands.length) {
+        if (plugin.configKey) {
+            if (configKeys.has(plugin.configKey)) {
+                throw new Error(`Duplicate configKey detected: ${plugin.configKey}`)
+            }
+            configKeys.add(plugin.configKey)
+        }
+
+        if (new Set(plugin.commands).size !== plugin.commands.length) {
             throw new Error(`Duplicate command(s) detected within plugin '${plugin.id}'`)
         }
 
-        const uniqueCallbacks = new Set(plugin.callbacks)
-        if (uniqueCallbacks.size !== plugin.callbacks.length) {
+        if (new Set(plugin.callbacks).size !== plugin.callbacks.length) {
             throw new Error(`Duplicate callback(s) detected within plugin '${plugin.id}'`)
         }
 
@@ -198,8 +241,8 @@ function copyTree(sourceDir, targetDir) {
     if (!isDir(sourceDir)) {
         return
     }
-    ensureDir(targetDir)
 
+    ensureDir(targetDir)
     for (const filePath of walkFiles(sourceDir, () => true)) {
         const targetPath = path.join(targetDir, path.relative(sourceDir, filePath))
         ensureDir(path.dirname(targetPath))
@@ -208,14 +251,14 @@ function copyTree(sourceDir, targetDir) {
 }
 
 function copyAndroidPluginSources(plugins, javaRoot, log) {
-    const externalRoot = path.join(javaRoot, ...PLUGINS_PACKAGE_PARTS, "external")
-    fs.rmSync(externalRoot, { recursive: true, force: true })
-    ensureDir(externalRoot)
+    const internalRoot = path.join(javaRoot, ...PLUGINS_PACKAGE_PARTS, "internal")
+    fs.rmSync(internalRoot, { recursive: true, force: true })
+    ensureDir(internalRoot)
 
     let copiedCount = 0
     for (const plugin of plugins) {
         const androidDir = path.join(plugin.pluginDir, "android")
-        const pluginOutputDir = path.join(externalRoot, sanitizeForPath(plugin.id))
+        const pluginOutputDir = path.join(internalRoot, sanitizeForPath(plugin.id))
         const codeFiles = walkFiles(androidDir, (name) => name.endsWith(".kt") || name.endsWith(".java"))
 
         for (const sourcePath of codeFiles) {
@@ -241,10 +284,6 @@ function copyPluginAssets(plugins, androidProjectPath, log) {
     }
 
     log("Plugin assets copied to app/src/main/assets/plugins", "info")
-}
-
-function asUniqueSorted(values) {
-    return [...new Set(values)].sort()
 }
 
 function formatKotlinMap(entries, emptyLiteral = "emptyMap()") {
@@ -304,36 +343,49 @@ object GeneratedPluginIndex {
     fs.rmSync(path.join(pluginsDir, "GeneratedPluginMeta.kt"), { force: true })
 }
 
-function updateAndroidManifestPermissions(manifestPath, permissions) {
-    const uniquePermissions = asUniqueSorted(permissions)
-    if (uniquePermissions.length === 0) {
-        return
-    }
+function escapeRegexLiteral(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
 
+function updateAndroidManifestPermissions(manifestPath, selectedPermissions, allKnownPluginPermissions) {
+    const uniquePermissions = asUniqueSorted(selectedPermissions)
+    const knownPermissions = asUniqueSorted(allKnownPluginPermissions)
     let manifest = fs.readFileSync(manifestPath, "utf8")
-    const permissionRegex = /<uses-permission\s+android:name="([^"]+)"[^>]*\/>/g
-    const existingPermissions = new Set([...manifest.matchAll(permissionRegex)].map((match) => match[1]))
-    const missingPermissions = uniquePermissions.filter((permission) => !existingPermissions.has(permission))
 
-    if (missingPermissions.length === 0) {
-        return
+    const beginMarker = "<!-- CATALYST_PLUGIN_PERMISSIONS_START -->"
+    const endMarker = "<!-- CATALYST_PLUGIN_PERMISSIONS_END -->"
+    const markerRegex =
+        /[ \t]*<!-- CATALYST_PLUGIN_PERMISSIONS_START -->[\s\S]*?<!-- CATALYST_PLUGIN_PERMISSIONS_END -->\s*/g
+    manifest = manifest.replace(markerRegex, "")
+
+    // Migration cleanup for legacy entries previously written without markers.
+    for (const permission of knownPermissions) {
+        const escaped = escapeRegexLiteral(permission)
+        const legacyRegex = new RegExp(
+            `^[ \\t]*<uses-permission\\s+android:name="${escaped}"\\s*/>\\s*\\n?`,
+            "gm"
+        )
+        manifest = manifest.replace(legacyRegex, "")
     }
 
-    const permissionLines = missingPermissions
-        .map((permission) => `    <uses-permission android:name="${permission}" />`)
-        .join("\n")
+    if (uniquePermissions.length > 0) {
+        const permissionLines = uniquePermissions
+            .map((permission) => `    <uses-permission android:name="${permission}" />`)
+            .join("\n")
+        const managedBlock = `    ${beginMarker}\n${permissionLines}\n    ${endMarker}\n`
+        manifest = manifest.replace(/<application\b/, `${managedBlock}    <application`)
+    }
 
-    manifest = manifest.replace(/<application\b/, `${permissionLines}\n    <application`)
     fs.writeFileSync(manifestPath, manifest)
 }
 
 function findDependenciesBlockRange(gradleText, gradlePath) {
-    const blockStart = gradleText.indexOf("\ndependencies {")
-    if (blockStart === -1) {
-        throw new Error(`Could not find main dependencies block in ${gradlePath}`)
+    const headerMatch = gradleText.match(/^\s*dependencies\s*\{/m)
+    if (!headerMatch || headerMatch.index == null) {
+        throw new Error(`Could not find dependencies block in ${gradlePath}`)
     }
 
-    const openBraceIndex = gradleText.indexOf("{", blockStart)
+    const openBraceIndex = gradleText.indexOf("{", headerMatch.index)
     if (openBraceIndex === -1) {
         throw new Error(`Malformed dependencies block in ${gradlePath}`)
     }
@@ -351,56 +403,64 @@ function findDependenciesBlockRange(gradleText, gradlePath) {
     throw new Error(`Could not find end of dependencies block in ${gradlePath}`)
 }
 
-function updateGradleDependencies(gradlePath, dependencies) {
-    const uniqueDependencies = asUniqueSorted(dependencies)
-    if (uniqueDependencies.length === 0) {
-        return
-    }
-
+function updateGradleDependencies(gradlePath, selectedDependencies, allKnownPluginDependencies) {
+    const uniqueDependencies = asUniqueSorted(selectedDependencies)
+    const knownDependencies = asUniqueSorted(allKnownPluginDependencies)
     let gradle = fs.readFileSync(gradlePath, "utf8")
     const { openBraceIndex, blockEnd } = findDependenciesBlockRange(gradle, gradlePath)
-    const blockBody = gradle.slice(openBraceIndex + 1, blockEnd)
-    const missingDependencies = uniqueDependencies.filter(
-        (dependency) => !blockBody.includes(`implementation("${dependency}")`)
-    )
+    let blockBody = gradle.slice(openBraceIndex + 1, blockEnd)
 
-    if (missingDependencies.length === 0) {
-        return
+    const beginMarker = "// CATALYST_PLUGIN_DEPENDENCIES_START"
+    const endMarker = "// CATALYST_PLUGIN_DEPENDENCIES_END"
+    const markerRegex =
+        /[ \t]*\/\/ CATALYST_PLUGIN_DEPENDENCIES_START[\s\S]*?\/\/ CATALYST_PLUGIN_DEPENDENCIES_END\s*/g
+    blockBody = blockBody.replace(markerRegex, "")
+
+    // Migration cleanup for legacy entries previously written without markers.
+    for (const dependency of knownDependencies) {
+        const escaped = escapeRegexLiteral(dependency)
+        const legacyRegex = new RegExp(`^[ \\t]*implementation\\("${escaped}"\\)\\s*\\n?`, "gm")
+        blockBody = blockBody.replace(legacyRegex, "")
     }
 
-    const linesToInsert = `\n${missingDependencies
-        .map((dependency) => `    implementation("${dependency}")`)
-        .join("\n")}\n`
+    if (uniqueDependencies.length > 0) {
+        const managedLines = uniqueDependencies
+            .map((dependency) => `    implementation("${dependency}")`)
+            .join("\n")
+        blockBody = `${blockBody}\n    ${beginMarker}\n${managedLines}\n    ${endMarker}\n`
+    }
 
-    gradle = `${gradle.slice(0, blockEnd)}${linesToInsert}${gradle.slice(blockEnd)}`
+    gradle = `${gradle.slice(0, openBraceIndex + 1)}${blockBody}${gradle.slice(blockEnd)}`
     fs.writeFileSync(gradlePath, gradle)
 }
 
-function composeAndroidPlugins({ appRoot, corePluginsRoot, androidProjectPath, log }) {
-    const discovered = discoverPlugins({ appRoot, corePluginsRoot, log })
-    const plugins = normalizePlugins(discovered)
-    validateCollisions(plugins)
+function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConfig, log }) {
+    const discovered = discoverInternalPlugins(corePluginsRoot, log)
+    validatePlugins(discovered)
+    const selected = selectPluginsByConfig(discovered, pluginConfig, log)
 
     const javaRoot = path.join(androidProjectPath, "app", "src", "main", "java")
     const manifestPath = path.join(androidProjectPath, "app", "src", "main", "AndroidManifest.xml")
     const gradlePath = path.join(androidProjectPath, "app", "build.gradle.kts")
 
-    copyAndroidPluginSources(plugins, javaRoot, log)
-    copyPluginAssets(plugins, androidProjectPath, log)
-    generatePluginRegistryFiles(plugins, javaRoot)
+    copyAndroidPluginSources(selected, javaRoot, log)
+    copyPluginAssets(selected, androidProjectPath, log)
+    generatePluginRegistryFiles(selected, javaRoot)
     updateAndroidManifestPermissions(
         manifestPath,
-        plugins.flatMap((plugin) => plugin.permissions)
+        selected.flatMap((plugin) => plugin.permissions),
+        discovered.flatMap((plugin) => plugin.permissions)
     )
     updateGradleDependencies(
         gradlePath,
-        plugins.flatMap((plugin) => plugin.dependencies)
+        selected.flatMap((plugin) => plugin.dependencies),
+        discovered.flatMap((plugin) => plugin.dependencies)
     )
 
-    log(`Plugin composition complete (${plugins.length} enabled plugin(s))`, "success")
+    log(`Plugin composition complete (${selected.length} enabled plugin(s))`, "success")
     return {
-        pluginCount: plugins.length,
-        commandCount: plugins.reduce((total, plugin) => total + plugin.commands.length, 0),
+        pluginCount: selected.length,
+        commandCount: selected.reduce((total, plugin) => total + plugin.commands.length, 0),
     }
 }
 
