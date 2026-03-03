@@ -1,6 +1,6 @@
 sCatalyst Context
 
--   Catalyst is a framework over react to build UIs
+- Catalyst is a framework over react to build UIs
 
 ---
 
@@ -54,7 +54,7 @@ TITLE: Building and serving the production version
 
 DESCRIPTION:
 
--   To create an optimized production build of your Catalyst application, use the following command. This will generate the production-ready assets in the build directory.
+- To create an optimized production build of your Catalyst application, use the following command. This will generate the production-ready assets in the build directory.
 
 LANGUAGE: bash
 CODE:
@@ -63,7 +63,7 @@ CODE:
 npm run build
 ```
 
--   To serve the production build locally (for testing or preview), use the following command. This will start a server that serves your built application, typically on `http://localhost:3005`.
+- To serve the production build locally (for testing or preview), use the following command. This will start a server that serves your built application, typically on `http://localhost:3005`.
 
 LANGUAGE: bash
 CODE:
@@ -80,11 +80,11 @@ TITLE: Adding routes in catalyst
 
 DESCRIPTION:
 
--   Catalyst uses @tata1mg/router package for routing, which is a wrapper around react-router
--   Catalyst uses react-router-v6 based routing
--   Routes are defined in "src/js/routes/index.js" file
--   Pages are imported at top of this file
--   A new entry in the routes array is added like this
+- Catalyst uses @tata1mg/router package for routing, which is a wrapper around react-router
+- Catalyst uses react-router-v6 based routing
+- Routes are defined in "src/js/routes/index.js" file
+- Pages are imported at top of this file
+- A new entry in the routes array is added like this
 
 SOURCE: https://catalyst.1mg.com/public_docs/content/Core%20Concepts/Routing/routing/index
 
@@ -107,7 +107,7 @@ TITLE: Navigation in catalyst
 
 DESCRIPTION:
 
--   Navigation in @tata1mg/router is based on react-router-v6, and client side navigation can be achieved through components like <Navigate> or <Link> or through hooks like useNavigate
+- Navigation in @tata1mg/router is based on react-router-v6, and client side navigation can be achieved through components like <Navigate> or <Link> or through hooks like useNavigate
 
 LANGUAGE: js
 CODE:
@@ -135,7 +135,7 @@ const Page = () => {
 }
 ```
 
--   Navigation inside clientFetcher function can be achieved through the navigate property which is available as an argument in clientFetcher.
+- Navigation inside clientFetcher function can be achieved through the navigate property which is available as an argument in clientFetcher.
 
 LANGUAGE: js
 CODE:
@@ -146,8 +146,8 @@ Page.clientFetcher = async ({ navigate }) => {
 }
 ```
 
--   Navigation inside serverFetcher function can also be achieved through the navigate property which is available as an argument in serverFetcher.
-    navigate available inside server fetcher is a wrapper around response.send() so it would result it server side navigation.
+- Navigation inside serverFetcher function can also be achieved through the navigate property which is available as an argument in serverFetcher.
+  navigate available inside server fetcher is a wrapper around response.send() so it would result it server side navigation.
 
 LANGUAGE: js
 CODE:
@@ -166,7 +166,7 @@ TITLE: Data fetching in catalyst
 
 DESCRIPTION:
 
--   Routes can fetch data using two primary functions:
+- Routes can fetch data using two primary functions:
 
 1. **Client Fetcher**: Executes during client-side navigation or absence of **_server fetcher_**.
 2. **Server Fetcher**: Executes during server-side rendering (SSR)
@@ -271,10 +271,10 @@ TITLE: Environment variables in catalyst
 
 DESCRIPTION:
 
--   Catalyst can be configured through a config/config.json file in the root of your project directory. You can define your keys to access them inside the project.
--   These variables will be accessible through process.env[variable_name].
--   Out of the complete contents of config/config.json, keys listed in CLIENT_ENV_KEYS are filtered and made available for the client side code.
--   Any key that is listed in CLIENT_ENV_KEYS will be exposed on the client and can become a security issue. Be careful while adding keys
+- Catalyst can be configured through a config/config.json file in the root of your project directory. You can define your keys to access them inside the project.
+- These variables will be accessible through process.env[variable_name].
+- Out of the complete contents of config/config.json, keys listed in CLIENT_ENV_KEYS are filtered and made available for the client side code.
+- Any key that is listed in CLIENT_ENV_KEYS will be exposed on the client and can become a security issue. Be careful while adding keys
 
 ---
 
@@ -284,9 +284,9 @@ TITLE: App shell in catalyst
 
 DESCRIPTION:
 
--   Catalyst offers an app shell, which serves as a wrapper around your page code, enabling you to perform common operations required for all pages. You can access the app shell inside the src/js/containers/App directory under the src folder.
--   All your pages will be rendered in this app shell. It will be the parent component for all your apps.
--   The app shell provides you with a function called serverSideFunction, which you can use to perform any operations while rendering your page on the server. This function is similar to serverFetcher, which we define in the page component. The key distinction lies in the fact that serverSideFunction runs on each page request, whereas serverFetcher runs only when that specific page is requested.
+- Catalyst offers an app shell, which serves as a wrapper around your page code, enabling you to perform common operations required for all pages. You can access the app shell inside the src/js/containers/App directory under the src folder.
+- All your pages will be rendered in this app shell. It will be the parent component for all your apps.
+- The app shell provides you with a function called serverSideFunction, which you can use to perform any operations while rendering your page on the server. This function is similar to serverFetcher, which we define in the page component. The key distinction lies in the fact that serverSideFunction runs on each page request, whereas serverFetcher runs only when that specific page is requested.
 
 LANGUAGE: js
 CODE:
@@ -318,15 +318,15 @@ TITLE: Lifecycle methods in catalyst
 
 DESCRIPTION:
 
--   Catalyst provides several methods to handle different stages of the SSR lifecycle, allowing for more fine grain control over the flow
--   Functions
+- Catalyst provides several methods to handle different stages of the SSR lifecycle, allowing for more fine grain control over the flow
+- Functions
     1. preServerInit - Triggers before starting the server.
     2. onServerError - Triggered if the SSR server fails to start or encounters a critical error. Useful for handling server initialization issues.
     3. onRouteMatch - Called after route matching attempts, regardless of whether a match was found or not. This method enables you to handle both successful and failed route matches
     4. onFetcherSuccess - Triggered after running a container's serverFetcher (currently running for both success and failure case)
     5. onRenderError - Executes when the rendering process encounters an error. This allows you to handle any failures during component rendering.
     6. onRequestError - Executes if any error occurs while handling the document request (think of it like the outer most catch block)
--   All these functions can be defined in and exported from server/index.js
+- All these functions can be defined in and exported from server/index.js
 
 LANGUAGE: js
 CODE:
@@ -343,10 +343,10 @@ TITLE: Adding middlewares on the server
 
 DESCRIPTION:
 
--   Catalyst offers a flexible approach to defining server-side code, granting you greater control and customization over server operations.
--   To modify the server behavior, create a file named server.js within the server directory of your app.
--   Define a function named addMiddlewares, which receives the app server instance as a parameter. Catalyst - provides this instance when executing the function on the server.
--   Use the app parameter to configure middleware for your application.
+- Catalyst offers a flexible approach to defining server-side code, granting you greater control and customization over server operations.
+- To modify the server behavior, create a file named server.js within the server directory of your app.
+- Define a function named addMiddlewares, which receives the app server instance as a parameter. Catalyst - provides this instance when executing the function on the server.
+- Use the app parameter to configure middleware for your application.
 
 LANGUAGE: js
 File: server/server.js
@@ -366,14 +366,14 @@ TITLE: Styling in catalyst
 
 DESCRIPTION:
 
--   Catalyst offers a variety of methods for styling your application
+- Catalyst offers a variety of methods for styling your application
 
 Global CSS
 
--   Global styles can be imported into any layout, page, or component.
--   Place all your global css in "/src/static/css/base"
--   Placing css in "/src/static/css/base" would prevent it from being modularized as css-module is enabled by default in Catalyst
--   Import these global css file in client/styles.js so that it can be available globally.
+- Global styles can be imported into any layout, page, or component.
+- Place all your global css in "/src/static/css/base"
+- Placing css in "/src/static/css/base" would prevent it from being modularized as css-module is enabled by default in Catalyst
+- Import these global css file in client/styles.js so that it can be available globally.
 
 LANGUAGE: js
 File: Home.js
@@ -405,7 +405,7 @@ CODE:
 
 CSS modules
 
--   Catalyst enables support for css-module out-of-the-box. CSS-modules locally scope CSS by creating unique names. This allows you to use same classnames in different files without worrying about naming conflicts.
+- Catalyst enables support for css-module out-of-the-box. CSS-modules locally scope CSS by creating unique names. This allows you to use same classnames in different files without worrying about naming conflicts.
 
 LANGUAGE: js
 CODE:
@@ -420,8 +420,8 @@ const Home = () => {
 
 Sass
 
--   Catalyst includes out-of-the-box support for Sass. Utilize Sass in Catalyst with the .scss file extension.
--   Place all mixins, variables, and other Sass resources in /src/static/css/resources. These will be automatically imported into your .scss files, allowing you to use these resources without manual imports.
+- Catalyst includes out-of-the-box support for Sass. Utilize Sass in Catalyst with the .scss file extension.
+- Place all mixins, variables, and other Sass resources in /src/static/css/resources. These will be automatically imported into your .scss files, allowing you to use these resources without manual imports.
 
 ---
 
@@ -431,7 +431,7 @@ TITLE: Code splitting in catalyst
 
 DESCRIPTION:
 
--   Catalyst utilizes loadable-components for efficient code splitting on both the client and server. It offers built-in support for code splitting, making it easy to split your code into smaller chunks.
+- Catalyst utilizes loadable-components for efficient code splitting on both the client and server. It offers built-in support for code splitting, making it easy to split your code into smaller chunks.
 
 LANGUAGE: js
 CODE:
@@ -457,8 +457,8 @@ TITLE: Module aliases in catalyst
 
 DESCRIPTION:
 
--   Catalyst supports module aliases to create shorter and more descriptive import paths for modules. This practice can make the codebase cleaner and more maintainable. Some module aliases come pre-configured when setting up Catalyst, making imports cleaner.
--   To create module aliases, add \_moduleAliases key to package.json
+- Catalyst supports module aliases to create shorter and more descriptive import paths for modules. This practice can make the codebase cleaner and more maintainable. Some module aliases come pre-configured when setting up Catalyst, making imports cleaner.
+- To create module aliases, add \_moduleAliases key to package.json
 
 LANGUAGE: JSON
 CODE:
@@ -485,10 +485,10 @@ TITLE: Custom document
 
 DESCRIPTION:
 
--   The document is an HTML file served by the Node server whenever a page request is made. It contains the head, body, and all HTML tags.
--   Custom Document enables ability to update these tags and render the data according to the needs.
--   Head and Body tags are required and the application won't work without it. It is mandatory to pass props because they are used in Head and Body tags.
--   Custom tags should be added between the Head and Body tags.
+- The document is an HTML file served by the Node server whenever a page request is made. It contains the head, body, and all HTML tags.
+- Custom Document enables ability to update these tags and render the data according to the needs.
+- Head and Body tags are required and the application won't work without it. It is mandatory to pass props because they are used in Head and Body tags.
+- Custom tags should be added between the Head and Body tags.
 
 LANGUAGE: js
 FILE: server/document.js
@@ -516,7 +516,7 @@ TITLE: Webpack customization
 
 DESCRIPTION:
 
--   Catalyst provides ways to customize webpack configuration for specific needs through the webpackConfig.js file.
+- Catalyst provides ways to customize webpack configuration for specific needs through the webpackConfig.js file.
 
 Catalyst allows customizing webpack's chunk splitting behavior through the splitChunksConfig option
 LANGUAGE: js
@@ -551,8 +551,8 @@ TITLE: State management
 
 DESCRIPTION:
 
--   To address use cases where a global store is needed and must be accessible on both the client and server, Catalyst provides built-in support for Redux and Redux Toolkit
--   The Redux store should be defined in src/js/store/index.js
+- To address use cases where a global store is needed and must be accessible on both the client and server, Catalyst provides built-in support for Redux and Redux Toolkit
+- The Redux store should be defined in src/js/store/index.js
 
 Redux integration demo
 
@@ -606,7 +606,7 @@ export default configureStore
 
 ```
 
--   This store is available in both clientFetcher and serverFetcher
+- This store is available in both clientFetcher and serverFetcher
 
 LANGUAGE: js
 CODE:
@@ -632,8 +632,8 @@ TITLE: Universal App Setup
 
 DESCRIPTION:
 
--   Catalyst also provides support to build native iOS/android applications
--   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.10`
+- Catalyst also provides support to build native iOS/android applications
+- This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.10`
 
 SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/universal-app
 
@@ -669,9 +669,9 @@ xcode-select -p
 xcode-select --install
 ```
 
--   To configure the android / iOS simulators, run `npm run setupEmulator:android` or `npm run setupEmulator:ios`
--   To run the application, first start the development server `npm run start`
--   Then in a new terminal, build the app using `npm run buildApp:android` or `npm run buildApp:ios`
+- To configure the android / iOS simulators, run `npm run setupEmulator:android` or `npm run setupEmulator:ios`
+- To run the application, first start the development server `npm run start`
+- Then in a new terminal, build the app using `npm run buildApp:android` or `npm run buildApp:ios`
 
 ---
 
@@ -704,24 +704,24 @@ Configure caching through the `config.json` file:
 
 Configuration options:
 
--   `buildType`: Set to "debug" to bypass caching. This is crucial for development with Hot Module Replacement (HMR), ensuring that WebView receives real-time updates without cache interference
--   `cachePattern`: Comma-separated list of file patterns to cache (e.g., "_.css,_.js")
+- `buildType`: Set to "debug" to bypass caching. This is crucial for development with Hot Module Replacement (HMR), ensuring that WebView receives real-time updates without cache interference
+- `cachePattern`: Comma-separated list of file patterns to cache (e.g., "_.css,_.js")
 
 ### iOS Configuration
 
 Configure caching by setting cache patterns in constants:
 
--   Define patterns for files to be cached (e.g., CSS and JS files)
--   Multiple patterns can be specified in an array
+- Define patterns for files to be cached (e.g., CSS and JS files)
+- Multiple patterns can be specified in an array
 
 ## Cache Pattern Format
 
 Both platforms support wildcard patterns for cache matching:
 
--   `*.css`: Matches all CSS files
--   `*.js`: Matches all JavaScript files
--   Multiple patterns can be specified
--   File extensions are case-insensitive
+- `*.css`: Matches all CSS files
+- `*.js`: Matches all JavaScript files
+- Multiple patterns can be specified
+- File extensions are case-insensitive
 
 ## Internal Implementation
 
@@ -733,7 +733,6 @@ The Android implementation features:
     - Memory cache using LruCache for fast access
     - Disk cache for persistence
 2. Cache Entry Management:
-
     - Cache entries include:
         - Response data
         - Timestamp
@@ -741,7 +740,6 @@ The Android implementation features:
         - Last-Modified headers
 
 3. Cache Validation Strategy:
-
     - Implements stale-while-revalidate pattern
     - Handles cache expiration
     - Supports background revalidation
@@ -756,12 +754,10 @@ The Android implementation features:
 The iOS implementation uses a custom URL protocol :
 
 1. Request Interception:
-
     - Intercepts WebView requests matching cache patterns
     - Handles both HTTP and HTTPS schemes
 
 2. Caching Strategy:
-
     - Checks cache before network requests
     - Supports conditional requests (ETag, Last-Modified)
     - Automatic cache invalidation
@@ -778,13 +774,11 @@ The cache implements a sophisticated lifecycle management strategy that balances
 ### Content States
 
 1. Fresh Content (< 24 hours)
-
     - Content is served directly from cache
     - No network requests made
     - Fastest possible response time
 
 2. Stale Content (24-25 hours)
-
     - Content is served from cache immediately
     - Background revalidation is triggered
     - User sees cached content while fresh data is fetched
@@ -798,10 +792,10 @@ The cache implements a sophisticated lifecycle management strategy that balances
 
 This stale-while-revalidate pattern provides:
 
--   Optimal user experience with immediate responses
--   Efficient network usage
--   Up-to-date content without sacrificing performance
--   Graceful handling of network issues
+- Optimal user experience with immediate responses
+- Efficient network usage
+- Up-to-date content without sacrificing performance
+- Graceful handling of network issues
 
 ### Production vs Development
 
@@ -859,20 +853,18 @@ Configure the build optimization through the `config.json` file:
 
 Configuration options:
 
--   `buildOptimisation`: Enable/disable the feature (set to `true` to enable)
+- `buildOptimisation`: Enable/disable the feature (set to `true` to enable)
 
 ## Asset Loading Process
 
 The optimized asset loading follows this sequence:
 
 1. **Initial Route Request**:
-
     - Intercepts the first GET request
     - Serves `index.html` from assets regardless of URL
     - Sets flags to track initial page load status
 
 2. **Static Resource Loading**:
-
     - Checks if requested resources match static file patterns
     - Extracts asset path from URL
     - Loads resource directly from device storage
@@ -887,15 +879,14 @@ The optimized asset loading follows this sequence:
 
 With Build Optimization enabled:
 
--   **Load Time Reduction**: ~90% faster page loading
--   **Network Requests**: Near-zero network requests for static assets
--   **Asset Success Rate**: 100% for bundled resources
--   **Initial Page Loading**: Directly from device storage, eliminating network latency
+- **Load Time Reduction**: ~90% faster page loading
+- **Network Requests**: Near-zero network requests for static assets
+- **Asset Success Rate**: 100% for bundled resources
+- **Initial Page Loading**: Directly from device storage, eliminating network latency
 
 ## Best Practices
 
 1. **Asset Selection**:
-
     - Include critical JS, CSS, and images in your build folder
     - Keep bundle size reasonable to avoid large APK sizes
     - Consider excluding rarely used resources to optimize size
@@ -938,18 +929,15 @@ With Build Optimization enabled:
 If you encounter issues with asset loading:
 
 1. **Check Logs**:
-
     - Look for "Asset loading stats" in logs
     - Check for failed asset loading attempts
     - Verify MIME type assignment
 
 2. **Configuration Issues**:
-
     - Ensure `buildOptimisation` is correctly set
     - Verify build assets were copied successfully
 
 3. **Loading Failures**:
-
     - Asset paths may be incorrect
     - Assets might be missing from the build
     - Check for file permission issues
@@ -993,19 +981,19 @@ Control URL access restrictions through the `accessControl.enabled` setting.
 
 #### enabled
 
--   **Type**: Boolean
--   **Default**: `false`
--   **Description**: Enables or disables access control whitelisting
--   **Behavior**:
-    -   `true`: Only URLs in `allowedUrls` array can be accessed (default deny)
-    -   `false`: All URLs are accessible (no restrictions)
+- **Type**: Boolean
+- **Default**: `false`
+- **Description**: Enables or disables access control whitelisting
+- **Behavior**:
+    - `true`: Only URLs in `allowedUrls` array can be accessed (default deny)
+    - `false`: All URLs are accessible (no restrictions)
 
 #### allowedUrls
 
--   **Type**: Array of strings
--   **Default**: `[]`
--   **Description**: List of URLs that are permitted when access control is enabled
--   **Format**: Supports exact URLs, wildcard patterns, and subdomain matching
+- **Type**: Array of strings
+- **Default**: `[]`
+- **Description**: List of URLs that are permitted when access control is enabled
+- **Format**: Supports exact URLs, wildcard patterns, and subdomain matching
 
 ## Whitelisting Behavior
 
@@ -1051,10 +1039,10 @@ Match all subdomains of a domain:
 
 ## Security Benefits
 
--   **Default Deny**: All network requests are blocked by default, providing a secure baseline
--   **Explicit Allow**: Only explicitly whitelisted URLs can be accessed
--   **Pattern Flexibility**: Support for exact, wildcard, and subdomain matching patterns
--   **Navigation Control**: External links are automatically handled by the system browser
+- **Default Deny**: All network requests are blocked by default, providing a secure baseline
+- **Explicit Allow**: Only explicitly whitelisted URLs can be accessed
+- **Pattern Flexibility**: Support for exact, wildcard, and subdomain matching patterns
+- **Navigation Control**: External links are automatically handled by the system browser
 
 ## Use Cases
 
@@ -1100,11 +1088,11 @@ Whitelist external services and APIs:
 
 ## Implementation Notes
 
--   URLs are matched against the patterns in the order they appear in the array
--   The first matching pattern allows the request
--   If no patterns match, the request is blocked
--   Subdomain patterns support multiple levels (e.g., `*.*.example.com`)
--   Wildcard patterns are greedy and match everything within the segment
+- URLs are matched against the patterns in the order they appear in the array
+- The first matching pattern allows the request
+- If no patterns match, the request is blocked
+- Subdomain patterns support multiple levels (e.g., `*.*.example.com`)
+- Wildcard patterns are greedy and match everything within the segment
 
 ---
 
@@ -1132,21 +1120,21 @@ SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/Splashscree
 
 Place your custom splashscreen icon at `public/splashscreen.jpg`. Supported file extensions:
 
--   `.png`
--   `.jpg`
--   `.jpeg`
--   `.gif`
--   `.bmp`
--   `.svg`
--   `.webp`
+- `.png`
+- `.jpg`
+- `.jpeg`
+- `.gif`
+- `.bmp`
+- `.svg`
+- `.webp`
 
 ## Behavior
 
 ### Default Behavior
 
--   **No Configuration**: Default Android splashscreen is shown
--   **No Custom Icon**: Fallback Catalyst logo is displayed
--   **With Configuration**: Custom splashscreen with specified duration and background
+- **No Configuration**: Default Android splashscreen is shown
+- **No Custom Icon**: Fallback Catalyst logo is displayed
+- **With Configuration**: Custom splashscreen with specified duration and background
 
 ### Configuration Options
 
@@ -1162,9 +1150,9 @@ Controls how long the splashscreen is displayed:
 }
 ```
 
--   **Range**: 500ms - 5000ms
--   **Default**: 1000ms (1 second)
--   **Unit**: Milliseconds
+- **Range**: 500ms - 5000ms
+- **Default**: 1000ms (1 second)
+- **Unit**: Milliseconds
 
 #### Background Color
 
@@ -1178,17 +1166,17 @@ Sets the background color of the splashscreen:
 }
 ```
 
--   **Format**: Hex color code (e.g., `#ffffff`, `#2196F3`)
--   **Default**: `#ffffff` (white)
--   **Transparency**: Not supported, use solid colors only
+- **Format**: Hex color code (e.g., `#ffffff`, `#2196F3`)
+- **Default**: `#ffffff` (white)
+- **Transparency**: Not supported, use solid colors only
 
 ## Implementation Notes
 
--   Configuration is required to enable custom splashscreen
--   Without configuration, the default Android splashscreen is used
--   Custom icon at `public/splashscreen.jpg` is automatically detected
--   Fallback Catalyst logo is shown if configuration exists but no custom icon is found
--   Background color applies to the entire screen, not just behind the icon
+- Configuration is required to enable custom splashscreen
+- Without configuration, the default Android splashscreen is used
+- Custom icon at `public/splashscreen.jpg` is automatically detected
+- Fallback Catalyst logo is shown if configuration exists but no custom icon is found
+- Background color applies to the entire screen, not just behind the icon
 
 ---
 
@@ -1223,27 +1211,27 @@ your-project/
 
 ### Supported File Extensions
 
--   `.png`
--   `.jpg`
--   `.jpeg`
--   `.gif`
--   `.bmp`
--   `.svg`
--   `.webp`
+- `.png`
+- `.jpg`
+- `.jpeg`
+- `.gif`
+- `.bmp`
+- `.svg`
+- `.webp`
 
 ## Behavior
 
 ### Default Behavior
 
--   **No Custom Icon**: Default Android icon is displayed
--   **With Custom Icon**: Automatically uses `public/icon.jpg` as the app icon
+- **No Custom Icon**: Default Android icon is displayed
+- **With Custom Icon**: Automatically uses `public/icon.jpg` as the app icon
 
 ## Important Notes
 
--   Icon replacement is automatic - no code changes required
--   Changes take effect on the next app build
--   Default Android icon is used as fallback if custom icon is not found
--   Icon appears in device launchers, app stores, and system settings
+- Icon replacement is automatic - no code changes required
+- Changes take effect on the next app build
+- Default Android icon is used as fallback if custom icon is not found
+- Icon appears in device launchers, app stores, and system settings
 
 ---
 
@@ -1501,9 +1489,9 @@ SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Storage
 
 Available Storage APIs:
 
--   localStorage
--   sessionStorage
--   document.cookie
+- localStorage
+- sessionStorage
+- document.cookie
 
 ---
 
@@ -1598,9 +1586,9 @@ The protocol setting is configured through the `WEBVIEW_CONFIG.useHttps` propert
 }
 ```
 
--   **Type**: Boolean
--   **Default**: `false`
--   **Description**: Controls the protocol used for webview URLs
--   **Behavior**:
-    -   `true`: Uses HTTPS protocol
-    -   `false`: Uses HTTP protocol
+- **Type**: Boolean
+- **Default**: `false`
+- **Description**: Controls the protocol used for webview URLs
+- **Behavior**:
+    - `true`: Uses HTTPS protocol
+    - `false`: Uses HTTP protocol

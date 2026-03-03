@@ -313,8 +313,7 @@ class NativeBridgeUtil {
          * Enable or disable FLAG_SECURE (prevents screenshots / app-switcher caching)
          * @param {boolean} enable - true to secure, false to unsecure
          */
-        setScreenSecure: (enable) =>
-            this.call(NATIVE_COMMANDS.SET_SCREEN_SECURE, JSON.stringify({ enable })),
+        setScreenSecure: (enable) => this.call(NATIVE_COMMANDS.SET_SCREEN_SECURE, JSON.stringify({ enable })),
 
         /**
          * Query current FLAG_SECURE status
