@@ -82,18 +82,23 @@ export class ChunkExtractor {
      * @param {Function} componentImportFn - Component import function
      */
     addComponent(cacheKey) {
-        if (this.manifest[cacheKey]) {
+        const resolvedKey =
+            this.manifest[cacheKey] != null
+                ? cacheKey
+                : Object.keys(this.manifest).find((k) => k.startsWith(cacheKey + "."))
+
+        if (resolvedKey) {
             // Determine category based on asset manifest
             let category = "unknown"
-            if (this.assetManifest.ssrTrue && this.assetManifest.ssrTrue[cacheKey]) {
+            if (this.assetManifest.ssrTrue && this.assetManifest.ssrTrue[resolvedKey]) {
                 category = "ssrTrue"
-            } else if (this.assetManifest.ssrFalse && this.assetManifest.ssrFalse[cacheKey]) {
+            } else if (this.assetManifest.ssrFalse && this.assetManifest.ssrFalse[resolvedKey]) {
                 category = "ssrFalse"
-            } else if (this.assetManifest.essential && this.assetManifest.essential[cacheKey]) {
+            } else if (this.assetManifest.essential && this.assetManifest.essential[resolvedKey]) {
                 category = "essential"
             }
 
-            this.addNonEssentialAssets(this.manifest[cacheKey], category, cacheKey)
+            this.addNonEssentialAssets(this.manifest[resolvedKey], category, resolvedKey)
         }
     }
 

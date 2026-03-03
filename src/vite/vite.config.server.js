@@ -8,7 +8,11 @@ import { dirname } from "path"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
-import customViteConfig from "@catalyst/template/buildConfig.js"
+// import customViteConfig from "@catalyst/template/buildConfig.js"
+const customViteConfig = {
+    ssrPlugins: [],
+    clientPlugins: [],
+}
 
 export default defineConfig({
     ...baseConfig,

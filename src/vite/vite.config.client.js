@@ -3,11 +3,35 @@ import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 
-import customViteConfig from "@catalyst/template/buildConfig.js"
+// import customViteConfig from "@catalyst/template/buildConfig.js"
 
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
 
+/**
+ * Removes Vite's automatic CSS link tag injection from the built JS bundle.
+ * Vite generates `__vite__injectCss(url)` calls in output chunks that create
+ * <link rel="stylesheet"> elements at runtime. Since SSR handles CSS loading
+ * server-side, we strip these to prevent duplicate stylesheet injection.
+ */
+function disableCssInjectPlugin() {
+    return {
+        name: "vite-plugin-disable-css-inject",
+        apply: "build",
+        enforce: "post",
+        generateBundle(_, bundle) {
+            for (const chunk of Object.values(bundle)) {
+                if (chunk.type === "chunk" && chunk.code) {
+                    chunk.code = chunk.code.replace(/__vite__injectCss\([^)]*\);?\s*/g, "")
+                }
+            }
+        },
+    }
+}
+
+const customViteConfig = {
+    clientPlugins: [],
+}
 const clientConfig = defineConfig({
     ...baseConfig,
     mode: "production",
@@ -25,6 +49,7 @@ const clientConfig = defineConfig({
             publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/`,
         }),
         ...(customViteConfig?.clientPlugins || []),
+        // disableCssInjectPlugin(),
     ],
 
     build: {
@@ -39,7 +64,7 @@ const clientConfig = defineConfig({
         rollupOptions: {
             input: {
                 // Client entry point (corrected path)
-                main: path.join(process.env.src_path, "client/index.jsx"),
+                main: path.join(process.env.src_path, "client/index.js"),
             },
             output: {
                 format: "es",
@@ -62,6 +87,8 @@ const clientConfig = defineConfig({
                 },
             },
         },
+
+        modulePreload: false,
 
         // Production-specific optimization
         chunkSizeWarningLimit: 1000,

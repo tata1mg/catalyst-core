@@ -12,11 +12,13 @@ function scssModulesPlugin() {
         name: "vite-plugin-scss-as-modules",
         enforce: "pre",
         async resolveId(source, importer, options) {
-            if (!source.endsWith(".scss") || source.includes(".module.")) return null
             if (!importer) return null
 
+            if (!source.endsWith(".scss") || source.includes(".module.")) return null
+
             const resolved = await this.resolve(source, importer, { ...options, skipSelf: true })
-            if (!resolved || resolved.id.includes("node_modules")) return null
+            if (!resolved || resolved.id.includes("node_modules") || resolved.id.includes("src/static/css"))
+                return null
 
             return resolved.id.replace(/\.scss$/, ".module.scss")
         },
@@ -157,20 +159,34 @@ const nodeOnlyExternalDeps = [
 
 export default defineConfig({
     ssr: {
-        // Keep selected React-side packages bundled for SSR
-        noExternal: ["@tata1mg/slowboi-react", "@tata1mg/prefetch-core", "@tata1mg/prefetch-core/react"],
+        // Keep selected React-side packages bundled for SSR (transformed by Vite, NOT pre-bundled)
+        // noExternal: ["@tata1mg/slowboi-react"],
         // Ensure Node-only instrumentation and low-level Node deps stay external
-        external: nodeOnlyExternalDeps,
+        // external: [...nodeOnlyExternalDeps, "@tata1mg/prefetch-core", "@tata1mg/prefetch-core/react"],
         optimizeDeps: {
             include: [
-                ...browserOptimizeDeps,
-                "@tata1mg/slowboi-react",
-                "@tata1mg/prefetch-core",
-                "@tata1mg/prefetch-core/react",
-                "react-dom/server.node",
+                "invariant",
+                "react-fast-compare",
+                "shallowequal",
+                "prop-types",
+                "redux-thunk",
+                "redux-logger",
+                "@tata1mg/synapse",
+                "@tata1mg/synapse/utils",
+                "@tata1mg/synapse/handler",
             ],
-            exclude: ["catalyst-core/router/ClientRouter"],
-            force: true,
+            // Prevent pre-bundling React ecosystem packages for SSR to avoid duplicate
+            // React instances. Pre-bundled copies in .vite/deps_ssr/ create a separate
+            // React instance from node_modules/react used by react-dom/server, causing
+            // "Invalid hook call" errors when hooks try to read a null dispatcher.
+            exclude: [
+                "react",
+                "react-dom",
+                "react-router-dom",
+                "@tata1mg/router",
+                // "@tata1mg/slowoi-react",
+                "catalyst-core/router/ClientRouter",
+            ],
             esbuildOptions: {
                 format: "esm",
                 target: "node2022",
@@ -183,6 +199,9 @@ export default defineConfig({
     plugins: [scssModulesPlugin(), jsxInJsPlugin(), react()],
     resolve: {
         alias: alias(),
+        // Ensure only one copy of React-related packages is used (prevents
+        // duplicate instances from hoisted/linked packages in monorepos)
+        dedupe: ["react", "react-dom", "react-router-dom"],
     },
     define: {
         ...getClientEnvVariables(),

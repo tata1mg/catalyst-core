@@ -22,7 +22,7 @@ export function Body(props) {
     return (
         <body>
             {process.env.NODE_ENV === "development" && (
-                <script type="module" src={path.resolve(process.env.src_path, "client/index.jsx")}></script>
+                <script type="module" src={path.resolve(process.env.src_path, "client/index.js")}></script>
             )}
             {jsx}
             <script

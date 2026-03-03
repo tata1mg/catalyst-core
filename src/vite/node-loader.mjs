@@ -74,13 +74,27 @@ function resolveWithExtensions(basePath) {
         return basePath
     }
 
-    const extensions = [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]
+    const extensions = [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".scss"]
 
-    // Try with common extensions
+    // Try with common extensions (for extensionless imports)
     for (const ext of extensions) {
         const candidate = `${basePath}${ext}`
         if (existsSync(candidate)) {
             return candidate
+        }
+    }
+
+    // Try replacing the existing extension (e.g. .js → .jsx, .ts → .tsx)
+    // This handles webpack-style resolution where .js imports can resolve to .jsx files
+    const currentExt = extname(basePath)
+    if (currentExt) {
+        const withoutExt = basePath.slice(0, -currentExt.length)
+        for (const ext of extensions) {
+            if (ext === currentExt) continue
+            const candidate = `${withoutExt}${ext}`
+            if (existsSync(candidate)) {
+                return candidate
+            }
         }
     }
 
@@ -158,6 +172,11 @@ export async function resolve(specifier, context, defaultResolve) {
         const aliasResolved = resolveAlias(specifier, context.parentURL)
         if (aliasResolved) {
             const fileURL = pathToFileURL(aliasResolved).href
+            const ext = extname(aliasResolved)
+            // Node's default resolver can't handle .jsx/.tsx — shortCircuit directly
+            if (ext === ".jsx" || ext === ".tsx") {
+                return { url: fileURL, shortCircuit: true }
+            }
             return await defaultResolve(fileURL, context)
         }
 
@@ -232,12 +251,48 @@ function isCjsModule(filePath) {
 
 const VALID_IDENTIFIER_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
 const JS_RESERVED = new Set([
-    "break", "case", "catch", "continue", "debugger", "default", "delete",
-    "do", "else", "finally", "for", "function", "if", "in", "instanceof",
-    "new", "return", "switch", "this", "throw", "try", "typeof", "var",
-    "void", "while", "with", "class", "const", "enum", "export", "extends",
-    "import", "super", "implements", "interface", "let", "package", "private",
-    "protected", "public", "static", "yield",
+    "break",
+    "case",
+    "catch",
+    "continue",
+    "debugger",
+    "default",
+    "delete",
+    "do",
+    "else",
+    "finally",
+    "for",
+    "function",
+    "if",
+    "in",
+    "instanceof",
+    "new",
+    "return",
+    "switch",
+    "this",
+    "throw",
+    "try",
+    "typeof",
+    "var",
+    "void",
+    "while",
+    "with",
+    "class",
+    "const",
+    "enum",
+    "export",
+    "extends",
+    "import",
+    "super",
+    "implements",
+    "interface",
+    "let",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "static",
+    "yield",
 ])
 
 function isValidExportName(name) {
@@ -277,7 +332,7 @@ function generateCjsWrapper(filePath, url) {
 /**
  * Node.js loader hook for transforming source code.
  * - Wraps CJS modules (node_modules and app files) as ESM so named imports work.
- * - Transpiles JSX in .js/.jsx app files so Node can execute them.
+ * - Transpiles JSX in .js/.js app files so Node can execute them.
  */
 export async function load(url, context, defaultLoad) {
     // Only transform file:// URLs (skip node: builtins, data: urls, etc.)
@@ -307,7 +362,7 @@ export async function load(url, context, defaultLoad) {
         }
     }
 
-    // For non-node_modules .js/.jsx files, read source to detect CJS or JSX
+    // For non-node_modules .js/.js files, read source to detect CJS or JSX
     if (!isNodeModule) {
         const source = readFileSync(filePath, "utf8")
 
@@ -358,6 +413,23 @@ export async function load(url, context, defaultLoad) {
                 // If esbuild fails, return with just the shim
                 return { format: "module", source: transformed, shortCircuit: true }
             }
+        }
+    }
+
+    // .jsx files in node_modules still need esbuild transformation
+    // since Node.js cannot natively handle the .jsx extension
+    if (ext === ".jsx") {
+        const source = readFileSync(filePath, "utf8")
+        try {
+            const result = transformSync(source, {
+                loader: "jsx",
+                format: "esm",
+                sourcefile: filePath,
+                target: "node20",
+            })
+            return { format: "module", source: result.code, shortCircuit: true }
+        } catch {
+            return { format: "module", source, shortCircuit: true }
         }
     }
 

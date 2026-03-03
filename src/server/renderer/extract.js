@@ -21,10 +21,10 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
 
         // For client assets, ensure /client/ prefix
         if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}/${asset}`
         }
 
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${assetPath}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}${assetPath}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
@@ -41,6 +41,7 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
         // } else {
         // Generate preload hint for non-JS assets
         scriptStrings.push(`<link rel="modulepreload" href="${assetUrl}" as="script">`)
+        scriptStrings.push(`<script type="module" src="${assetUrl}"></script>`)
         // }
     })
 
@@ -98,14 +99,9 @@ export const generateScriptTags = (jsAssets, req) => {
         const host = (req && req.get && req.get("host")) || "localhost:3005"
 
         // Ensure asset path starts with /
-        const assetPath = asset.startsWith("/") ? asset : `/${asset}`
+        const assetPath = asset.startsWith("/") ? asset : `${asset}`
 
-        // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/${asset}`
-        }
-
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}/${asset}`
     }
 
     // Deduplicate assets by URL to prevent duplicates

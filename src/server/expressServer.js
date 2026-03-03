@@ -48,10 +48,9 @@ async function createServer() {
         // In production, serve built assets
         const buildPath = path.join(process.env.src_path, "build")
         const publicPath = path.join(buildPath, "client")
-
         // Serve static assets
         app.use(
-            process.env.PUBLIC_STATIC_ASSET_PATH || "/assets",
+            "client/assets",
             express.static(publicPath, {
                 maxAge: "1y",
                 etag: true,

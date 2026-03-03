@@ -190,14 +190,17 @@ const renderMarkUp = async (
                 // res.end()
             },
             onAllReady() {
-                const discoveredAssets = chunkExtractor.getNonEssentialAssets()
+                // In dev mode, inject CSS module URLs as stylesheets
+                // Vite's dev server compiles and serves these on request
+
+                const discoveredAssets = chunkExtractor
+                    ? chunkExtractor.getNonEssentialAssets()
+                    : { js: [], css: [] }
                 const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
-                const stylesheetLinks = generateStylesheetLinksAsStrings(
-                    discoveredAssets.css,
-                    req,
-                    chunkExtractor
-                )
-                res.write(stylesheetLinks)
+                const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
+                    assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
+                })
+                res.write(`<style>${stylesheetLinks}</style>`)
                 res.write(scriptElements)
             },
             // onError(error) {

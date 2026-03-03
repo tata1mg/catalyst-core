@@ -1,5 +1,12 @@
 import React, { Suspense, lazy } from "react"
 
+// Synchronous module cache: importFn → resolved module.
+// Populated by the eager importFn().then() calls at split() invocation time.
+// By the time window.load fires (when hydrateRoot runs), all chunk <script>
+// tags in the HTML have already executed, so every .then() has already
+// resolved and the module is available here synchronously.
+const moduleCache = new Map()
+
 /**
  * Split component that wraps React's lazy and Suspense for SSR compatibility
  * @param {Object} props
@@ -8,7 +15,7 @@ import React, { Suspense, lazy } from "react"
  * @param {Function} props.children - Function that returns the lazy component import
  * @param {string} props.cacheKey - Resolved path for better asset tracking
  */
-const Split = ({ importFn, ssr = true, fallback = null, cacheKey, children, ...props }) => {
+const Split = ({ ssr = true, fallback = null, cacheKey, children, ...props }) => {
     // Check if we're on the server
     const isServer = typeof window === "undefined"
     if (isServer) {
@@ -19,8 +26,6 @@ const Split = ({ importFn, ssr = true, fallback = null, cacheKey, children, ...p
                 if (global.__CHUNK_EXTRACTOR__) {
                     global.__CHUNK_EXTRACTOR__.addComponent(cacheKey)
                 }
-
-                // Load the component and wait for it to resolve
 
                 return <Suspense fallback={fallback}>{children}</Suspense>
             } catch (error) {
@@ -45,13 +50,41 @@ const Split = ({ importFn, ssr = true, fallback = null, cacheKey, children, ...p
  * @param {string} cacheKey - Resolved path for better asset tracking (injected by plugin)
  */
 export const split = (importFn, { ssr = true, fallback = null, key } = {}, cacheKey) => {
+    if (ssr && typeof window !== "undefined") {
+        // Eagerly start loading the module and store the resolved value in
+        // moduleCache once the Promise settles.  All module <script> tags are
+        // executed before window.load fires, so by the time hydrateRoot is
+        // called this .then() callback will already have run.
+        importFn().then((mod) => {
+            moduleCache.set(importFn, mod)
+        })
+    }
+
     const LazyComponent = lazy(importFn)
 
-    return (props) => (
-        <Split importFn={importFn} ssr={ssr} fallback={fallback} cacheKey={cacheKey} {...props}>
-            <LazyComponent {...props} />
-        </Split>
-    )
+    return (props) => {
+        // On the client, for SSR-enabled components, check if the module has
+        // already resolved into moduleCache.  If it has, render the real
+        // component directly — bypassing React.lazy entirely.
+        //
+        // React.lazy ALWAYS suspends on the very first render because
+        // import() returns a new Promise and its .then() is only fired as a
+        // microtask (never in the same synchronous render tick).  If we don't
+        // bypass it here, the Suspense fallback (e.g. HomeSkeleton) is briefly
+        // shown even though the server already rendered the full component,
+        // causing a visible flash and a hydration mismatch.
+        const mod = moduleCache.get(importFn)
+        if (mod) {
+            const Component = mod.default || mod
+            return <Component {...props} />
+        }
+
+        return (
+            <Split ssr={ssr} fallback={fallback} cacheKey={cacheKey} {...props}>
+                <LazyComponent {...props} />
+            </Split>
+        )
+    }
 }
 
 export default Split
