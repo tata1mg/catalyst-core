@@ -107,3 +107,4 @@ openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
 *.xcshareddata
+**/node_modules
