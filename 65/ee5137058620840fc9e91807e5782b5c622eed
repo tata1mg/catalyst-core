@@ -1,0 +1,83 @@
+src/native/iosnativeWebView/Sources/Core/Utils/CacheManager.swift
+  4dc74c990a4583b8 269-281
+src/native/iosnativeWebView/iosnativeWebViewTests/WebViewTests.swift
+  f79184defcf93409 41
+  4dc74c990a4583b8 127,157
+  9214b85451d56c01 141,150,171,180
+src/native/androidProject/app/src/test/java/io/yourname/androidproject/SecurityBridgeTest.kt
+  f79184defcf93409 1-199
+src/native/bridge/useBaseHook.js
+  9a97a6b245532799 138-155,224
+src/native/iosnativeWebView/iosnativeWebViewTests/ScreenSecureManagerTests.swift
+  f79184defcf93409 1-121
+src/native/bridge/utils/NativeBridge.js
+  9a97a6b245532799 62,345,348
+src/native/iosnativeWebView/iosnativeWebViewTests/FrameworkServerUtilsTests.swift
+  9214b85451d56c01 50,54-59
+  4dc74c990a4583b8 150-151,153-157
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/BridgeMessageValidator.kt
+  f79184defcf93409 65-66
+src/native/bridge/hooks.js
+  9a97a6b245532799 1375,1434,1588-1589
+src/native/iosnativeWebView/iosnativeWebViewTests/BridgeCommandHandlerSecurityTests.swift
+  f79184defcf93409 1-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "65ee5137058620840fc9e91807e5782b5c622eed",
+  "prompts": {
+    "4dc74c990a4583b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ede128bb-b74d-49b5-bf77-030f81da17d3",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 44,
+      "total_deletions": 30,
+      "accepted_lines": 22,
+      "overriden_lines": 1
+    },
+    "9214b85451d56c01": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93a4d6ad-e746-47c6-be5d-66d464fe517c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 21,
+      "total_deletions": 23,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    },
+    "9a97a6b245532799": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3bbc596-76ae-486e-9181-bd8aa50945c3",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 26,
+      "total_deletions": 7,
+      "accepted_lines": 26,
+      "overriden_lines": 0
+    },
+    "f79184defcf93409": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "00e622eb-9e8a-44eb-88da-3ad9d70180a1",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 543,
+      "total_deletions": 19,
+      "accepted_lines": 535,
+      "overriden_lines": 0
+    }
+  }
+}
