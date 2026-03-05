@@ -62,16 +62,8 @@ object BridgeMessageValidator {
     private const val TAG = "BridgeMessageValidator"
     private const val MAX_MESSAGE_SIZE = 10 * 1024 * 1024 // 10MB (match iOS)
 
-    // Valid commands (should match iOS CatalystConstants.Bridge.validCommands)
-    private val validCommands = setOf(
-        "openCamera",
-        "requestCameraPermission",
-        "pickFile",
-        "requestHapticFeedback",
-        "openFileWithIntent",
-        "getDeviceInfo",
-        "logger"
-    )
+    // Valid commands — single source of truth from CatalystConstants
+    private val validCommands = CatalystConstants.Bridge.VALID_COMMANDS
 
     // MARK: - Schema Definitions (mirror iOS schemas)
 

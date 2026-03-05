@@ -59,7 +59,7 @@ class NativeBridgeUtil {
             )
         }
 
-        if (!this.isNativeEnvironment) {
+        if (!this.isAvailable()) {
             throw new Error(
                 "Native bridge not available. Ensure you are running in a native WebView environment."
             )
@@ -342,10 +342,10 @@ class NativeBridgeUtil {
     }
 
     /**
-     * Check if native bridge is available
+     * Check if native bridge is available — live check, never stale
      */
     isAvailable() {
-        return this.isNativeEnvironment
+        return this._detectAndroid() || this._detectIOS()
     }
 
     /**

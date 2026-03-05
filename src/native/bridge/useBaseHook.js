@@ -135,6 +135,24 @@ export const useBaseHook = (hookName) => {
         }
     }, [hookName, resetProgress])
 
+    // Fire-and-forget native call — no-ops silently on web, routes errors through handleNativeError on native
+    const callNative = useCallback(
+        (fn) => {
+            if (!isNative()) {
+                if (isDevelopment()) {
+                    console.warn(`${hookName} callNative skipped — not in native environment`)
+                }
+                return
+            }
+            try {
+                fn()
+            } catch (err) {
+                handleNativeError(err)
+            }
+        },
+        [hookName, isNative, handleNativeError]
+    )
+
     // Operation wrapper that handles common patterns
     const executeOperation = useCallback(
         (operationCallback, operationName = "operation") => {
@@ -203,6 +221,7 @@ export const useBaseHook = (hookName) => {
         errorProgress,
         setDataAndComplete,
         handleNativeError,
+        callNative,
         executeOperation,
     }
 }

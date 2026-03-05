@@ -1372,7 +1372,7 @@ export const useNotification = () => {
     }
 
     const updateBadge = (count) => {
-        nativeBridge.notification.updateBadge(count)
+        base.callNative(() => nativeBridge.notification.updateBadge(count))
         setBadges(count)
     }
 
@@ -1431,7 +1431,7 @@ export const useNetworkStatus = () => {
         type: null,
     })
     const [error, setError] = useState(null)
-    const isNative = nativeBridge.isNativeEnvironment
+    const isNative = nativeBridge.isAvailable()
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -1585,8 +1585,8 @@ export const useDataProtection = () => {
             [NATIVE_CALLBACKS.ON_WEB_DATA_CLEAR_ERROR, handleWebDataClearError],
         ])
 
-        // Initialize screenSecure state from native on mount
-        nativeBridge.security.getScreenSecure()
+        // Initialize screenSecure state from native on mount (native env only)
+        base.callNative(() => nativeBridge.security.getScreenSecure())
 
         return cleanup
     }, [base.setDataAndComplete, base.handleNativeError])
