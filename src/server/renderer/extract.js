@@ -59,7 +59,7 @@ function getAssetsFromCachedExtractor(routePath) {
     }
 
     const extractor = process.extractorCache[routePath]
-    const linkElements = extractor.getLinkElements()
+    const linkElements = extractor.getLinkElements({ fetchpriority: "low" })
 
     // Extractor hasn't run renderToString yet — no chunks collected
     if (!linkElements || linkElements.length === 0) {
