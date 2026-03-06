@@ -1,10 +1,10 @@
 import { execSync } from "child_process"
 import fs from "fs"
-import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
+import { runCommand, promptUser, validateAndCompleteConfig, initializeConfig, saveConfig, handlePostSetupSteps } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
+const { getLocalIPAddress, updateConfigWithLocalIP, isServerRunning, startServerBackground } = require("./setupServer.js")
 
 const configPath = `${process.env.PWD}/config/config.json`
-const { setupServer } = require("./setupServer.js")
 
 const ITEMS_PER_PAGE = 10
 
@@ -14,7 +14,8 @@ const steps = {
     simulator: "Configure iOS Simulator",
     launch: "Launch iOS Simulator",
     saveConfig: "Saving configuration",
-    setupServer: "Setup Server",
+    updateIP: "Optional IP Update",
+    startServer: "Optional Server Start",
 }
 const progressPaddingConfig = {
     titlePaddingTop: 2,
@@ -26,46 +27,6 @@ const progressPaddingConfig = {
 }
 
 const progress = new TerminalProgress(steps, "Catalyst Universal Ios Setup", progressPaddingConfig)
-async function initializeConfig() {
-    const configFile = fs.readFileSync(configPath, "utf8")
-    const config = JSON.parse(configFile)
-    const { WEBVIEW_CONFIG } = config
-
-    if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
-        progress.log("WebView Config missing in " + configPath, "error")
-        process.exit(1)
-    }
-
-    if (!WEBVIEW_CONFIG.ios) {
-        WEBVIEW_CONFIG.ios = {}
-    }
-
-    return { WEBVIEW_CONFIG }
-}
-
-async function saveConfig(newConfig) {
-    try {
-        // Read the existing config
-        const existingConfigFile = fs.readFileSync(configPath, "utf8")
-        const existingConfig = JSON.parse(existingConfigFile)
-
-        // Merge the new WEBVIEW_CONFIG with existing config
-        const updatedConfig = {
-            ...existingConfig, // Preserve all existing keys
-            WEBVIEW_CONFIG: {
-                ...existingConfig.WEBVIEW_CONFIG,
-                ios: newConfig.WEBVIEW_CONFIG.ios,
-            }, // Update only WEBVIEW_CONFIG
-        }
-
-        // Save the merged config
-        fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2))
-        progress.log("Configuration saved successfully", "success")
-    } catch (error) {
-        progress.log("Failed to save configuration: " + error.message, "error")
-        process.exit(1)
-    }
-}
 
 async function setupIOSEnvironment() {
     try {
@@ -77,7 +38,7 @@ async function setupIOSEnvironment() {
         progress.complete("platform")
 
         progress.start("config")
-        const { WEBVIEW_CONFIG } = await initializeConfig()
+        await initializeConfig("ios", configPath, progress)
         progress.complete("config")
 
         progress.start("simulator")
@@ -90,11 +51,15 @@ async function setupIOSEnvironment() {
 
         progress.start("saveConfig")
         const config = await validateAndCompleteConfig("ios", configPath)
+        await saveConfig("ios", configPath, { WEBVIEW_CONFIG: config }, progress)
         progress.complete("saveConfig")
 
-        progress.start("setupServer")
-        await setupServer(configPath)
-        progress.start("setupServer")
+        await handlePostSetupSteps("ios", configPath, progress, {
+            getLocalIPAddress,
+            updateConfigWithLocalIP,
+            isServerRunning,
+            startServerBackground,
+        })
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",

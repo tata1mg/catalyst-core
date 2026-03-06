@@ -34,6 +34,20 @@ async function promptUser(question) {
     })
 }
 
+async function promptUserWithTimeout(question, timeoutMs, defaultValue) {
+    return new Promise((resolve) => {
+        let timer = setTimeout(() => {
+            console.log(`\nNo input received. Defaulting to: ${defaultValue}`)
+            resolve(defaultValue)
+        }, timeoutMs)
+
+        rl.question(question, (answer) => {
+            clearTimeout(timer)
+            resolve(answer.trim() || defaultValue)
+        })
+    })
+}
+
 async function runInteractiveCommand(command, args, promptResponses = {}) {
     return new Promise((resolve, reject) => {
         const process = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })
@@ -186,11 +200,115 @@ async function validateAndCompleteConfig(platform, configPath) {
     }
 }
 
+/**
+ * Initialize configuration for a specific platform
+ */
+async function initializeConfig(platform, configPath, progress) {
+    const configFile = fs.readFileSync(configPath, "utf8")
+    const config = JSON.parse(configFile)
+    const { WEBVIEW_CONFIG } = config
+
+    if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
+        progress.log("WebView Config missing in " + configPath, "error")
+        process.exit(1)
+    }
+
+    if (!WEBVIEW_CONFIG[platform]) {
+        WEBVIEW_CONFIG[platform] = {}
+    }
+
+    return { WEBVIEW_CONFIG }
+}
+
+/**
+ * Save configuration for a specific platform
+ */
+async function saveConfig(platform, configPath, newConfig, progress) {
+    try {
+        const existingConfigFile = fs.readFileSync(configPath, "utf8")
+        const existingConfig = JSON.parse(existingConfigFile)
+
+        const updatedConfig = {
+            ...existingConfig,
+            WEBVIEW_CONFIG: {
+                ...existingConfig.WEBVIEW_CONFIG,
+                [platform]: newConfig.WEBVIEW_CONFIG[platform],
+            },
+        }
+
+        fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2))
+        progress.log("Configuration saved successfully", "success")
+    } catch (error) {
+        progress.log("Failed to save configuration: " + error.message, "error")
+        process.exit(1)
+    }
+}
+
+/**
+ * Handle post-setup interactive prompts (IP Update and Server Start)
+ */
+async function handlePostSetupSteps(platform, configPath, progress, utils) {
+    const { getLocalIPAddress, updateConfigWithLocalIP, isServerRunning, startServerBackground } = utils
+
+    // Step 1: Optional IP Update
+    progress.start("updateIP")
+    progress.pause()
+    const updateIP = await promptUserWithTimeout(
+        "\nWould you like to update the local IP in the configuration? (y/N) [Default: N, Timeout: 10s]: ",
+        10000,
+        "n"
+    )
+    progress.resume()
+
+    if (updateIP.toLowerCase() === "y") {
+        progress.pause()
+        const localIP = getLocalIPAddress()
+        updateConfigWithLocalIP(configPath, localIP)
+        progress.resume()
+        progress.log(`Configuration updated with local IP: ${localIP}`, "success")
+    } else {
+        progress.log("Skipping IP update", "info")
+    }
+    progress.complete("updateIP")
+
+    // Step 2: Optional Server Start
+    progress.start("startServer")
+    const configFile = fs.readFileSync(configPath, "utf8")
+    const configObj = JSON.parse(configFile)
+    const port = configObj.WEBVIEW_CONFIG?.port || 3005
+    const running = await isServerRunning(port)
+
+    if (running) {
+        progress.log(`Dev server already running on port ${port}`, "info")
+    } else {
+        progress.pause()
+        const startServer = await promptUserWithTimeout(
+            "\nWould you like to start the dev server? (y/N) [Default: N, Timeout: 10s]: ",
+            10000,
+            "n"
+        )
+        progress.resume()
+
+        if (startServer.toLowerCase() === "y") {
+            startServerBackground()
+            progress.log("Dev server started in background", "success")
+        } else {
+            progress.log("Skipping server startup", "info")
+            progress.log("To serve pages locally, start the dev server manually.", "info")
+        }
+    }
+    progress.complete("startServer")
+}
+
 export {
     runCommand,
     commandExists,
     promptUser,
+    promptUserWithTimeout,
     runSdkManagerCommand,
     runInteractiveCommand,
     validateAndCompleteConfig,
+    initializeConfig,
+    saveConfig,
+    handlePostSetupSteps,
 }

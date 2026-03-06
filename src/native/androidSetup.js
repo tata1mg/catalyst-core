@@ -1,9 +1,9 @@
 import fs from "fs"
 import path from "path"
 import { exec } from "child_process"
-import { runCommand, validateAndCompleteConfig } from "./utils.js"
+import { runCommand, validateAndCompleteConfig, initializeConfig, saveConfig, handlePostSetupSteps } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
-import { setupServer } from "./setupServer.js"
+import { getLocalIPAddress, updateConfigWithLocalIP, isServerRunning, startServerBackground } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
@@ -16,7 +16,8 @@ const steps = {
     emulator: "Configure Android Emulator",
     properties: "Update Local Properties",
     saveConfig: "Save Configuration",
-    setupServer: "Setup Server",
+    updateIP: "Optional IP Update",
+    startServer: "Optional Server Start",
 }
 
 const progressPaddingConfig = {
@@ -139,43 +140,6 @@ async function validateJavaEnvironment() {
     progress.complete("java")
 }
 
-async function initializeConfig() {
-    const configFile = fs.readFileSync(configPath, "utf8")
-    const config = JSON.parse(configFile)
-    const { WEBVIEW_CONFIG } = config
-
-    if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
-        progress.log("WebView Config missing in " + configPath, "error")
-        process.exit(1)
-    }
-
-    if (!WEBVIEW_CONFIG.android) {
-        WEBVIEW_CONFIG.android = {}
-    }
-
-    return { WEBVIEW_CONFIG }
-}
-
-async function saveConfig(newConfig) {
-    try {
-        const existingConfigFile = fs.readFileSync(configPath, "utf8")
-        const existingConfig = JSON.parse(existingConfigFile)
-
-        const updatedConfig = {
-            ...existingConfig,
-            WEBVIEW_CONFIG: {
-                ...existingConfig.WEBVIEW_CONFIG,
-                android: newConfig.WEBVIEW_CONFIG.android,
-            },
-        }
-
-        fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2))
-        progress.log("Configuration saved successfully", "success")
-    } catch (error) {
-        progress.log("Failed to save configuration: " + error.message, "error")
-        process.exit(1)
-    }
-}
 
 function validateAndroidTools(androidConfig) {
     const ANDROID_SDK = androidConfig.sdkPath
@@ -263,7 +227,7 @@ async function setupAndroidEnvironment() {
         await validateJavaEnvironment()
 
         progress.start("config")
-        await initializeConfig()
+        await initializeConfig("android", configPath, progress)
         const config = await validateAndCompleteConfig("android", configPath)
         progress.complete("config")
 
@@ -286,12 +250,15 @@ async function setupAndroidEnvironment() {
         }
 
         progress.start("saveConfig")
-        await saveConfig({ WEBVIEW_CONFIG: config })
+        await saveConfig("android", configPath, { WEBVIEW_CONFIG: config }, progress)
         progress.complete("saveConfig")
 
-        progress.start("setupServer")
-        await setupServer(configPath)
-        progress.complete("setupServer")
+        await handlePostSetupSteps("android", configPath, progress, {
+            getLocalIPAddress,
+            updateConfigWithLocalIP,
+            isServerRunning,
+            startServerBackground,
+        })
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
