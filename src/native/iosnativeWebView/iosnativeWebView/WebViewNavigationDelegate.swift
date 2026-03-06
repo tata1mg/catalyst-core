@@ -3,12 +3,16 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
 
+@MainActor
 class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
-    private var viewModel: WebViewModel
+    private let viewModel: WebViewModel
+    private let resourceManager: WebResourceManager
     
-    init(viewModel: WebViewModel) {
+    init(viewModel: WebViewModel, resourceManager: WebResourceManager = .shared) {
         self.viewModel = viewModel
+        self.resourceManager = resourceManager
         super.init()
+        logger.info("🏗️ [\(ThreadHelper.currentThreadInfo())] Navigation delegate initialized")
     }
     
     func webView(_ webView: WKWebView,
@@ -16,7 +20,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         
         guard let url = navigationAction.request.url else {
-            logger.info("⚠️ No URL in navigation action")
+            logger.info("⚠️ [\(ThreadHelper.currentThreadInfo())] No URL in navigation action")
             decisionHandler(.allow)
             return
         }
@@ -56,23 +60,59 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             } else {
                 logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
             }
-            
-            await MainActor.run {
-                viewModel.setLoading(true, fromCache: false)
-            }
-            decisionHandler(.allow)
         }
     }
     
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        logger.info("▶️ [\(ThreadHelper.currentThreadInfo())] Started provisional navigation")
+        Task { @MainActor in
+            viewModel.setLoading(true, fromCache: false)
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        logger.info("✳️ [\(ThreadHelper.currentThreadInfo())] Navigation committed")
+        Task { @MainActor in
+            if let url = webView.url {
+                viewModel.setLastLoadedURL(url)
+            }
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        logger.info("✅ [\(ThreadHelper.currentThreadInfo())] Navigation finished")
+        Task { @MainActor in
+            if let url = webView.url {
+                viewModel.setLastLoadedURL(url)
+                viewModel.setCanGoBack(webView.canGoBack)
+                viewModel.addToHistory(url.absoluteString)
+                viewModel.setLoading(false, fromCache: false)
+            }
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Navigation failed: \(error.localizedDescription)")
+        handleNavigationError(error)
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Provisional navigation failed: \(error.localizedDescription)")
+        handleNavigationError(error)
+    }
+
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
         
         guard let response = navigationResponse.response as? HTTPURLResponse,
               let url = response.url else {
+            logger.info("⚠️ [\(ThreadHelper.currentThreadInfo())] No valid response for policy decision")
             decisionHandler(.allow)
             return
         }
+        
+        logger.info("📥 [\(ThreadHelper.currentThreadInfo())] Received navigation response for: \(url.absoluteString)")
         
         Task {
             if CacheManager.shared.shouldCacheURL(url) {
@@ -88,53 +128,26 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                                 for: request
                             )
                         }
+                    } else if let error = error {
+                        logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Cache storage failed: \(error.localizedDescription)")
                     }
                 }.resume()
+            } else {
+                logger.info("⏭️ [\(ThreadHelper.currentThreadInfo())] URL not eligible for caching")
             }
             
             await MainActor.run {
+                logger.info("✅ [\(ThreadHelper.currentThreadInfo())] Allowing navigation response")
                 decisionHandler(.allow)
             }
         }
     }
     
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        Task { @MainActor in
-            viewModel.setLoading(true, fromCache: false)
-        }
-    }
-    
-    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        Task { @MainActor in
-            if let url = webView.url {
-                viewModel.lastLoadedURL = url
-            }
-        }
-    }
-    
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        Task { @MainActor in
-            if let url = webView.url {
-                viewModel.lastLoadedURL = url
-                viewModel.canGoBack = webView.canGoBack
-                viewModel.addToHistory(url.absoluteString)
-                viewModel.setLoading(false, fromCache: false)
-            }
-        }
-    }
-    
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        handleNavigationError(error)
-    }
-    
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        handleNavigationError(error)
-    }
-    
     private func handleNavigationError(_ error: Error) {
         Task { @MainActor in
+            logger.error("💥 [\(ThreadHelper.currentThreadInfo())] Handling navigation error: \(error.localizedDescription)")
+            viewModel.setError(error)
             viewModel.reset()
-            logger.error("Navigation failed: \(error.localizedDescription)")
         }
     }
 }
