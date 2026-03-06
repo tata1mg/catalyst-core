@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import java.net.URL                 
 import java.net.HttpURLConnection
 
@@ -25,6 +26,15 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var myWebView: WebView
     private lateinit var cacheManager: WebCacheManager
+    private var buildType: String = "debug"  // Default to debug
+    private var cachePatterns: List<String> = emptyList()
+
+    data class AndroidConfig(
+        val buildType: String = "debug",
+        val cachePattern: String = "",
+        val emulatorName: String = "",
+        val sdkPath: String = ""
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,6 +43,30 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         assets.open("webview_config.properties").use {
             properties.load(it)
         }
+
+        // Parse android config from JSON string
+        val androidConfigJson = properties.getProperty("android", "{}")
+        val androidConfig = try {
+            val jsonObject = JSONObject(androidConfigJson)
+            AndroidConfig(
+                buildType = jsonObject.optString("buildType", "debug"),
+                cachePattern = jsonObject.optString("cachePattern", ""),
+                emulatorName = jsonObject.optString("emulatorName", ""),
+                sdkPath = jsonObject.optString("sdkPath", "")
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing android config", e)
+            AndroidConfig()
+        }
+        Log.d(TAG, "android config parsed: $androidConfig")
+        buildType = androidConfig.buildType
+        cachePatterns = androidConfig.cachePattern
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+        Log.d(TAG, "Build type: $buildType")
+        Log.d(TAG, "Cache Pattern: $cachePatterns ")
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
@@ -61,6 +95,24 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         val port = properties.getProperty("port" , "3005")
         val loadUrl = "http://$local_ip:$port"
         makeRequest(loadUrl)
+    }
+
+    private fun shouldCacheUrl(url: String): Boolean {
+        // If no patterns specified, don't cache anything
+        if (cachePatterns.isEmpty()) return false
+
+        // Convert the wildcard pattern to a regex pattern
+        fun String.wildcardToRegex(): String {
+            return this.replace(".", "\\.")  // Escape dots
+                .replace("*", ".*")   // Convert * to .*
+                .let { "^$it$" }      // Anchor pattern
+        }
+
+        // Check if URL matches any of the patterns
+        return cachePatterns.any { pattern ->
+            val regex = pattern.wildcardToRegex().toRegex(RegexOption.IGNORE_CASE)
+            regex.matches(url) || url.endsWith(pattern.removePrefix("*"))
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -107,9 +159,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             ): WebResourceResponse? {
                 val originalUrl = request.url.toString()
                 Log.d(TAG, "Intercepting request for: $originalUrl")
-                return null
-                // Don't cache if it's not a GET request
-                if (request.method != "GET") {
+
+                if ( buildType == "debug" || request.method != "GET") {
+                    return null
+                }
+
+                // Check if URL matches patterns
+                if (!shouldCacheUrl(originalUrl)) {
+                    Log.d(TAG, "URL doesn't match cache patterns, skipping cache: $originalUrl")
                     return null
                 }
 
@@ -132,9 +189,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                             Log.d(TAG, "📱 Serving from cache: $originalUrl")
                             response
                         } else {
-                            // If not in cache, let WebView handle the request
-                            // The cacheManager will intercept and cache the response
-                            Log.d(TAG, "💾 Cache miss, fetching and caching: $originalUrl")
+                            Log.d(TAG, "Cache Manager unable to return response : $originalUrl")
                             null
                         }
                     } catch (e: Exception) {

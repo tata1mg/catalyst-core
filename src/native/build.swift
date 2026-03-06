@@ -7,7 +7,8 @@ guard CommandLine.arguments.count >= 3 else {
 }
 
 let url = CommandLine.arguments[1]
-let outputPath = CommandLine.arguments[2]
+let cachePattern = CommandLine.arguments[2]
+let outputPath = CommandLine.arguments[3]
 
 // Generate ConfigConstants.swift
 let configContent = """
@@ -16,6 +17,7 @@ import Foundation
 
 enum ConfigConstants {
     static let url = "\(url)"
+    static let cachePattern = "\(cachePattern)"
     static let useWKWebView = true
 }
 """

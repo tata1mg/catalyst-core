@@ -46,12 +46,40 @@ async function generateConfigConstants() {
             PROJECT_NAME,
             "ConfigConstants.swift"
         );
-        await runCommand(`swift ${pwd}/build.swift "${url}" "${configOutputPath}"`);
+
+        const configDir = path.dirname(configOutputPath);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
+
+        // Initialize base config with required URL
+        let configContent = `// This file is auto-generated. Do not edit.
+import Foundation
+
+enum ConfigConstants {
+    static let url = "${url}"`;
+
+        // Only add cachePattern if it exists and is not empty
+        if (iosConfig.cachePattern && iosConfig.cachePattern.trim()) {
+            // Convert comma-separated string to Swift array format
+            const patterns = iosConfig.cachePattern.split(',')
+                .map(pattern => pattern.trim())
+                .map(pattern => `"${pattern}"`)
+                .join(", ");
+            
+            configContent += `
+    static let cachePattern: [String] = [${patterns}]`;
+        }
+
+        // Close the enum
+        configContent += `
+}`;
+
+        fs.writeFileSync(configOutputPath, configContent, 'utf8');
         progress.log('Configuration constants generated successfully', 'success');
         progress.complete('config');
     } catch (error) {
         progress.fail('config', error.message);
-        // throw error;
         process.exit(1);
     }
 }
@@ -392,20 +420,23 @@ async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath,
     
     
   const buildCommand = `xcodebuild \
-      -scheme "${scheme}" \
-      -sdk ${sdk} \
-      -configuration Debug \
-      -destination "${destinationWithRuntime}" \
-      PRODUCT_BUNDLE_IDENTIFIER="${bundleId}" \
-      DEVELOPMENT_TEAM="" \
-      CODE_SIGN_IDENTITY="" \
-      CODE_SIGNING_REQUIRED=NO \
-      CODE_SIGNING_ALLOWED=NO \
-      ONLY_ACTIVE_ARCH=YES \
-      BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
-      CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
-      build`;
-  return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 });
+        -scheme "${scheme}" \
+        -sdk ${sdk} \
+        -configuration Debug \
+        -destination "${destinationWithRuntime}" \
+        PRODUCT_BUNDLE_IDENTIFIER="${bundleId}" \
+        DEVELOPMENT_TEAM="" \
+        CODE_SIGN_IDENTITY="" \
+        CODE_SIGNING_REQUIRED=NO \
+        CODE_SIGNING_ALLOWED=NO \
+        ONLY_ACTIVE_ARCH=YES \
+        BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
+        CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
+        OS_ACTIVITY_MODE=debug \
+        SWIFT_DEBUG_LOG=1 \
+        build`;;
+  return runCommand(buildCommand, { 
+    maxBuffer: 1024 * 1024 * 10  });
 }
 
 async function launchIOSSimulator(simulatorName) {
