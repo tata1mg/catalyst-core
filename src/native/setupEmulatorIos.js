@@ -2,7 +2,7 @@ import { execSync } from "child_process"
 import fs from "fs"
 import { runCommand, promptUser, validateAndCompleteConfig, promptUserWithTimeout } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
-const { getLocalIPAddress, updateConfigWithLocalIP } = require("./setupServer.js")
+const { getLocalIPAddress, updateConfigWithLocalIP, isServerRunning, startServerBackground } = require("./setupServer.js")
 
 const configPath = `${process.env.PWD}/config/config.json`
 
@@ -15,6 +15,7 @@ const steps = {
     launch: "Launch iOS Simulator",
     saveConfig: "Saving configuration",
     updateIP: "Optional IP Update",
+    startServer: "Optional Server Start",
 }
 const progressPaddingConfig = {
     titlePaddingTop: 2,
@@ -110,10 +111,33 @@ async function setupIOSEnvironment() {
         }
         progress.complete("updateIP")
 
-        progress.log(
-            "To serve pages locally, start the dev server manually.",
-            "info"
+        progress.start("startServer")
+        progress.pause()
+        const startServer = await promptUserWithTimeout(
+            "\nWould you like to start the dev server? (y/N) [Default: N, Timeout: 10s]: ",
+            10000,
+            "n"
         )
+        progress.resume()
+
+        if (startServer.toLowerCase() === "y") {
+            const configFile = fs.readFileSync(configPath, "utf8")
+            const configObj = JSON.parse(configFile)
+            const port = configObj.WEBVIEW_CONFIG?.port || 3005
+            const running = await isServerRunning(port)
+
+            if (!running) {
+                startServerBackground()
+                progress.log("Dev server started in background", "success")
+            } else {
+                progress.log(`Dev server already running on port ${port}`, "info")
+            }
+        } else {
+            progress.log("Skipping server startup", "info")
+        }
+        progress.complete("startServer")
+
+        progress.log("To serve pages locally, start the dev server manually.", "info")
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",

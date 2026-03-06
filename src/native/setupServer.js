@@ -164,4 +164,10 @@ async function setupServer(configPath) {
     }
 }
 
-module.exports = { setupServer, updateConfigWithLocalIP, getLocalIPAddress }
+module.exports = {
+    setupServer,
+    updateConfigWithLocalIP,
+    getLocalIPAddress,
+    isServerRunning,
+    startServerBackground,
+}

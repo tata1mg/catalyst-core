@@ -3,7 +3,7 @@ import path from "path"
 import { exec } from "child_process"
 import { runCommand, validateAndCompleteConfig, promptUserWithTimeout } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
-import { getLocalIPAddress, updateConfigWithLocalIP } from "./setupServer.js"
+import { getLocalIPAddress, updateConfigWithLocalIP, isServerRunning, startServerBackground } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
@@ -17,6 +17,7 @@ const steps = {
     properties: "Update Local Properties",
     saveConfig: "Save Configuration",
     updateIP: "Optional IP Update",
+    startServer: "Optional Server Start",
 }
 
 const progressPaddingConfig = {
@@ -307,10 +308,33 @@ async function setupAndroidEnvironment() {
         }
         progress.complete("updateIP")
 
-        progress.log(
-            "To serve pages locally, start the dev server manually.",
-            "info"
+        progress.start("startServer")
+        progress.pause()
+        const startServer = await promptUserWithTimeout(
+            "\nWould you like to start the dev server? (y/N) [Default: N, Timeout: 10s]: ",
+            10000,
+            "n"
         )
+        progress.resume()
+
+        if (startServer.toLowerCase() === "y") {
+            const configFile = fs.readFileSync(configPath, "utf8")
+            const configObj = JSON.parse(configFile)
+            const port = configObj.WEBVIEW_CONFIG?.port || 3005
+            const running = await isServerRunning(port)
+
+            if (!running) {
+                startServerBackground()
+                progress.log("Dev server started in background", "success")
+            } else {
+                progress.log(`Dev server already running on port ${port}`, "info")
+            }
+        } else {
+            progress.log("Skipping server startup", "info")
+        }
+        progress.complete("startServer")
+
+        progress.log("To serve pages locally, start the dev server manually.", "info")
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
