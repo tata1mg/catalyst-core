@@ -103,8 +103,10 @@ async function setupIOSEnvironment() {
         progress.resume()
 
         if (updateIP.toLowerCase() === "y") {
+            progress.pause()
             const localIP = getLocalIPAddress()
             updateConfigWithLocalIP(configPath, localIP)
+            progress.resume()
             progress.log(`Configuration updated with local IP: ${localIP}`, "success")
         } else {
             progress.log("Skipping IP update", "info")
@@ -134,10 +136,9 @@ async function setupIOSEnvironment() {
             }
         } else {
             progress.log("Skipping server startup", "info")
+            progress.log("To serve pages locally, start the dev server manually.", "info")
         }
         progress.complete("startServer")
-
-        progress.log("To serve pages locally, start the dev server manually.", "info")
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
