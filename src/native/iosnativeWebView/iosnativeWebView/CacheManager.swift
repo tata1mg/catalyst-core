@@ -3,8 +3,9 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "CacheManager")
 
-actor CacheManager {
+class CacheManager {
     static let shared = CacheManager()
+    private let queue = DispatchQueue(label: "com.app.cachemanager", attributes: .concurrent)
     
     enum CacheState {
         case fresh      // Content is within fresh window
@@ -41,8 +42,6 @@ actor CacheManager {
     }
     
     private init() {
-        logger.info("🏗️ [\(ThreadHelper.currentThreadInfo())] Initializing CacheManager")
-        
         let baseDirectory = FileManager.default.urls(
             for: .cachesDirectory,
             in: .userDomainMask
@@ -65,39 +64,35 @@ actor CacheManager {
         )
         
         session = URLSession(configuration: configuration)
-        logger.info("✅ [\(ThreadHelper.currentThreadInfo())] Cache initialized at: \(self.cacheDirectory.path)")
+        logger.info("Cache initialized at: \(self.cacheDirectory.path)")
         
-        Task {
-            await loadCacheFromDisk()
-        }
+        loadCacheFromDisk()
     }
     
     private func loadCacheFromDisk() {
-        logger.info("📂 [\(ThreadHelper.currentThreadInfo())] Loading cache from disk")
-        do {
-            let fileManager = FileManager.default
-            let files = try fileManager.contentsOfDirectory(
-                at: cacheDirectory,
-                includingPropertiesForKeys: nil
-            ).filter { $0.pathExtension == "cache" }
-            
-            logger.info("📚 [\(ThreadHelper.currentThreadInfo())] Found \(files.count) cached files")
-            
-            for file in files {
-                do {
-                    let data = try Data(contentsOf: file)
-                    if let resource = try? JSONDecoder().decode(CachedResource.self, from: data) {
-                        resourceCache[resource.urlString] = resource
-                        logger.info("📥 [\(ThreadHelper.currentThreadInfo())] Loaded cache for: \(resource.urlString)")
+        queue.async {
+            do {
+                let fileManager = FileManager.default
+                let files = try fileManager.contentsOfDirectory(
+                    at: self.cacheDirectory,
+                    includingPropertiesForKeys: nil
+                ).filter { $0.pathExtension == "cache" }
+                
+                for file in files {
+                    do {
+                        let data = try Data(contentsOf: file)
+                        if let resource = try? JSONDecoder().decode(CachedResource.self, from: data) {
+                            self.resourceCache[resource.urlString] = resource
+                        }
+                    } catch {
+                        logger.error("Failed to load cached file: \(error.localizedDescription)")
                     }
-                } catch {
-                    logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Failed to load cached file: \(error.localizedDescription)")
                 }
+                
+                logger.info("Loaded \(self.resourceCache.count) resources from disk cache")
+            } catch {
+                logger.error("Failed to load cache from disk: \(error.localizedDescription)")
             }
-            
-            logger.info("✅ [\(ThreadHelper.currentThreadInfo())] Loaded \(self.resourceCache.count) resources from disk cache")
-        } catch {
-            logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Failed to load cache from disk: \(error.localizedDescription)")
         }
     }
     
@@ -112,18 +107,19 @@ actor CacheManager {
     }
     
     func shouldCacheURL(_ url: URL) -> Bool {
-        logger.info("🔍 [\(ThreadHelper.currentThreadInfo())] Checking cache eligibility for: \(url.absoluteString)")
-        let urlString = url.absoluteString
-        let shouldCache = ConfigConstants.cachePattern.contains { pattern in
-            guard let regex = try? NSRegularExpression(
-                pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
-                options: .caseInsensitive
-            ) else {
-                return false
+        return queue.sync {
+            let urlString = url.absoluteString
+            return ConfigConstants.cachePattern.contains { pattern in
+                guard let regex = try? NSRegularExpression(
+                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
+                    options: .caseInsensitive
+                ) else {
+                    return false
+                }
+                
+                let range = NSRange(urlString.startIndex..., in: urlString)
+                return regex.firstMatch(in: urlString, options: [], range: range) != nil
             }
-            
-            let range = NSRange(urlString.startIndex..., in: urlString)
-            return regex.firstMatch(in: urlString, options: [], range: range) != nil
         }
         
         logger.info("📋 [\(ThreadHelper.currentThreadInfo())] Cache decision for \(url.absoluteString): \(shouldCache)")
@@ -143,34 +139,38 @@ actor CacheManager {
     }
     
     func getCachedResource(for request: URLRequest) async -> (Data?, CacheState, String?) {
-        guard let urlString = request.url?.absoluteString else {
-            logger.error("❌ [\(ThreadHelper.currentThreadInfo())] No URL in request")
-            return (nil, .expired, nil)
-        }
-        
-        if let cachedResource = resourceCache[urlString] {
-            let state = getCacheState(for: cachedResource.timestamp)
-            
-            switch state {
-            case .fresh:
-                logger.info("🟢 [\(ThreadHelper.currentThreadInfo())] Fresh cache hit: \(urlString)")
-                return (cachedResource.data, .fresh, cachedResource.mimeType)
-                
-            case .stale:
-                logger.info("🟡 [\(ThreadHelper.currentThreadInfo())] Stale cache hit: \(urlString)")
-                Task {
-                    await revalidateResource(request: request)
+        return await withCheckedContinuation { continuation in
+            queue.async {
+                guard let urlString = request.url?.absoluteString else {
+                    continuation.resume(returning: (nil, .expired, nil))
+                    return
                 }
-                return (cachedResource.data, .stale, cachedResource.mimeType)
                 
-            case .expired:
-                logger.info("🔴 [\(ThreadHelper.currentThreadInfo())] Cache expired: \(urlString)")
-                return (nil, .expired, nil)
+                if let cachedResource = self.resourceCache[urlString] {
+                    let state = self.getCacheState(for: cachedResource.timestamp)
+                    
+                    switch state {
+                    case .fresh:
+                        logger.info("🟢 Fresh cache hit for: \(urlString)")
+                        continuation.resume(returning: (cachedResource.data, .fresh, cachedResource.mimeType))
+                        
+                    case .stale:
+                        logger.info("🟡 Stale cache hit for: \(urlString)")
+                        Task {
+                            await self.revalidateResource(request: request)
+                        }
+                        continuation.resume(returning: (cachedResource.data, .stale, cachedResource.mimeType))
+                        
+                    case .expired:
+                        logger.info("🔴 Cache expired for: \(urlString)")
+                        continuation.resume(returning: (nil, .expired, nil))
+                    }
+                } else {
+                    logger.info("❌ Cache miss for: \(urlString)")
+                    continuation.resume(returning: (nil, .expired, nil))
+                }
             }
         }
-        
-        logger.info("❌ [\(ThreadHelper.currentThreadInfo())] Cache miss: \(urlString)")
-        return (nil, .expired, nil)
     }
     
     private func revalidateResource(request: URLRequest) async {
@@ -190,52 +190,50 @@ actor CacheManager {
     }
     
     func storeCachedResponse(_ response: HTTPURLResponse, data: Data, for request: URLRequest) {
-        guard let url = request.url else { return }
-        
-        logger.info("💾 [\(ThreadHelper.currentThreadInfo())] Storing cached response for: \(url.absoluteString)")
-        
-        let resource = CachedResource(
-            data: data,
-            timestamp: Date(),
-            mimeType: response.mimeType ?? "application/octet-stream",
-            urlString: url.absoluteString
-        )
-        
-        resourceCache[url.absoluteString] = resource
-        
-        let cachedResponse = CachedURLResponse(
-            response: response,
-            data: data,
-            userInfo: nil,
-            storagePolicy: .allowed
-        )
-        session.configuration.urlCache?.storeCachedResponse(cachedResponse, for: request)
-        
-        Task.detached(priority: .background) {
-            let cacheFile = await self.getCacheFilePath(for: url)
+        queue.async(flags: .barrier) {
+            guard let url = request.url else { return }
+            
+            let resource = CachedResource(
+                data: data,
+                timestamp: Date(),
+                mimeType: response.mimeType ?? "application/octet-stream",
+                urlString: url.absoluteString
+            )
+            
+            self.resourceCache[url.absoluteString] = resource
+            
+            let cachedResponse = CachedURLResponse(
+                response: response,
+                data: data,
+                userInfo: nil,
+                storagePolicy: .allowed
+            )
+            self.session.configuration.urlCache?.storeCachedResponse(cachedResponse, for: request)
+            
+            let cacheFile = self.getCacheFilePath(for: url)
             do {
                 let encodedData = try JSONEncoder().encode(resource)
                 try encodedData.write(to: cacheFile)
-                logger.info("✅ [\(ThreadHelper.currentThreadInfo())] Resource cached successfully")
+                logger.info("Resource cached: \(url.absoluteString)")
             } catch {
-                logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Failed to write cache: \(error.localizedDescription)")
+                logger.error("Failed to write cache to disk: \(error.localizedDescription)")
             }
         }
     }
     
     func clearCache() {
-        logger.info("🧹 [\(ThreadHelper.currentThreadInfo())] Clearing all caches")
-        resourceCache.removeAll()
-        session.configuration.urlCache?.removeAllCachedResponses()
-        
-        Task.detached(priority: .background) {
+        queue.async(flags: .barrier) {
+            self.resourceCache.removeAll()
+            self.session.configuration.urlCache?.removeAllCachedResponses()
+            
             try? FileManager.default.removeItem(at: self.cacheDirectory)
             try? FileManager.default.createDirectory(
                 at: self.cacheDirectory,
                 withIntermediateDirectories: true,
                 attributes: nil
             )
-            logger.info("✅ [\(ThreadHelper.currentThreadInfo())] Cache cleared successfully")
+            
+            logger.info("All caches cleared")
         }
     }
     
@@ -253,12 +251,11 @@ actor CacheManager {
         return isCacheable
     }
     
-    func getCacheStatistics() async -> (memoryUsed: Int, diskUsed: Int) {
-        let stats = (
-            session.configuration.urlCache?.currentMemoryUsage ?? 0,
-            session.configuration.urlCache?.currentDiskUsage ?? 0
-        )
-        logger.info("📊 [\(ThreadHelper.currentThreadInfo())] Cache stats - Memory: \(stats.0)B, Disk: \(stats.1)B")
-        return stats
+    func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
+        return queue.sync {
+            let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
+            let diskUsed = session.configuration.urlCache?.currentDiskUsage ?? 0
+            return (memoryUsed, diskUsed)
+        }
     }
 }

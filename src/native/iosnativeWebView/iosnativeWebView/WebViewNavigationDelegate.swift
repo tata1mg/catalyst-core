@@ -24,47 +24,41 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
-        
-        logger.info("🌐 [\(ThreadHelper.currentThreadInfo())] Navigation requested to: \(url.absoluteString)")
-        
+        logger.info("🌐 Navigation requested to: \(url.absoluteString)")
+
         Task {
-            do {
-                if await CacheManager.shared.shouldCacheURL(url) {
-                    logger.info("🎯 [\(ThreadHelper.currentThreadInfo())] URL matches cache pattern")
-                    
-                    // Update UI state immediately
-                    await viewModel.setLoading(true, fromCache: false)
-                    
-                    // Load resource asynchronously
-                    let (data, mimeType) = try await resourceManager.loadResource(url: url)
-                    
-                    // Handle successful load on main thread
-                    await MainActor.run {
-                        logger.info("📥 [\(ThreadHelper.currentThreadInfo())] Loading resource into WebView")
-                        if let mimeType = mimeType {
+            if CacheManager.shared.shouldCacheURL(url) {
+                logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
+
+                let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
+                    for: navigationAction.request
+                )
+                
+                switch cacheState {
+                case .fresh, .stale:
+                    logger.info("✅ Serving fresh/stale cached content")
+
+                    if let cachedData = cachedData,
+                       let mimeType = mimeType {
+                        logger.info("📤 Loading cached data with MIME type: \(mimeType)")
+                        await MainActor.run {
                             viewModel.setLoading(true, fromCache: true)
-                            
-                            webView.load(data,
+                            webView.load(cachedData,
                                        mimeType: mimeType,
                                        characterEncodingName: "UTF-8",
                                        baseURL: url)
-                            
-                            decisionHandler(.cancel)
-                            return
                         }
+                        
+                        decisionHandler(.cancel)
+                        return
                     }
+                    
+                case .expired:
+                    logger.info("♻️ Cache expired, fetching fresh content")
+                    break
                 }
-                
-                // Default behavior for non-cached content
-                logger.info("↗️ [\(ThreadHelper.currentThreadInfo())] Proceeding with normal navigation")
-                await viewModel.setLoading(true, fromCache: false)
-                decisionHandler(.allow)
-                
-            } catch {
-                logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Resource loading failed: \(error.localizedDescription)")
-                await viewModel.setError(error)
-                await viewModel.setLoading(false, fromCache: false)
-                decisionHandler(.allow)
+            } else {
+                logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
             }
         }
     }
@@ -121,17 +115,14 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         logger.info("📥 [\(ThreadHelper.currentThreadInfo())] Received navigation response for: \(url.absoluteString)")
         
         Task {
-            if await CacheManager.shared.shouldCacheURL(url) {
-                logger.info("💾 [\(ThreadHelper.currentThreadInfo())] URL is cacheable, initiating cache storage")
+            if CacheManager.shared.shouldCacheURL(url) {
                 let request = URLRequest(url: url)
                 
-                // Get response data for caching
-                URLSession.shared.dataTask(with: request) { [weak self] data, urlResponse, error in
+                URLSession.shared.dataTask(with: request) { data, urlResponse, error in
                     if let data = data,
                        let httpResponse = urlResponse as? HTTPURLResponse {
                         Task {
-                            logger.info("📦 [\(ThreadHelper.currentThreadInfo())] Storing response in cache")
-                            await CacheManager.shared.storeCachedResponse(
+                            CacheManager.shared.storeCachedResponse(
                                 httpResponse,
                                 data: data,
                                 for: request
