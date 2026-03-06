@@ -1,9 +1,9 @@
 import fs from "fs"
 import path from "path"
 import { exec } from "child_process"
-import { runCommand, validateAndCompleteConfig } from "./utils.js"
+import { runCommand, validateAndCompleteConfig, promptUserWithTimeout } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
-import { setupServer } from "./setupServer.js"
+import { getLocalIPAddress, updateConfigWithLocalIP } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
@@ -16,7 +16,7 @@ const steps = {
     emulator: "Configure Android Emulator",
     properties: "Update Local Properties",
     saveConfig: "Save Configuration",
-    setupServer: "Setup Server",
+    updateIP: "Optional IP Update",
 }
 
 const progressPaddingConfig = {
@@ -289,9 +289,28 @@ async function setupAndroidEnvironment() {
         await saveConfig({ WEBVIEW_CONFIG: config })
         progress.complete("saveConfig")
 
-        progress.start("setupServer")
-        await setupServer(configPath)
-        progress.complete("setupServer")
+        progress.start("updateIP")
+        progress.pause()
+        const updateIP = await promptUserWithTimeout(
+            "\nWould you like to update the local IP in the configuration? (y/N) [Default: N, Timeout: 10s]: ",
+            10000,
+            "n"
+        )
+        progress.resume()
+
+        if (updateIP.toLowerCase() === "y") {
+            const localIP = getLocalIPAddress()
+            updateConfigWithLocalIP(configPath, localIP)
+            progress.log(`Configuration updated with local IP: ${localIP}`, "success")
+        } else {
+            progress.log("Skipping IP update", "info")
+        }
+        progress.complete("updateIP")
+
+        progress.log(
+            "To serve pages locally, start the dev server manually.",
+            "info"
+        )
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",

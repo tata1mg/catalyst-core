@@ -1,10 +1,10 @@
 import { execSync } from "child_process"
 import fs from "fs"
-import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
+import { runCommand, promptUser, validateAndCompleteConfig, promptUserWithTimeout } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
+const { getLocalIPAddress, updateConfigWithLocalIP } = require("./setupServer.js")
 
 const configPath = `${process.env.PWD}/config/config.json`
-const { setupServer } = require("./setupServer.js")
 
 const ITEMS_PER_PAGE = 10
 
@@ -14,7 +14,7 @@ const steps = {
     simulator: "Configure iOS Simulator",
     launch: "Launch iOS Simulator",
     saveConfig: "Saving configuration",
-    setupServer: "Setup Server",
+    updateIP: "Optional IP Update",
 }
 const progressPaddingConfig = {
     titlePaddingTop: 2,
@@ -92,9 +92,28 @@ async function setupIOSEnvironment() {
         const config = await validateAndCompleteConfig("ios", configPath)
         progress.complete("saveConfig")
 
-        progress.start("setupServer")
-        await setupServer(configPath)
-        progress.start("setupServer")
+        progress.start("updateIP")
+        progress.pause()
+        const updateIP = await promptUserWithTimeout(
+            "\nWould you like to update the local IP in the configuration? (y/N) [Default: N, Timeout: 10s]: ",
+            10000,
+            "n"
+        )
+        progress.resume()
+
+        if (updateIP.toLowerCase() === "y") {
+            const localIP = getLocalIPAddress()
+            updateConfigWithLocalIP(configPath, localIP)
+            progress.log(`Configuration updated with local IP: ${localIP}`, "success")
+        } else {
+            progress.log("Skipping IP update", "info")
+        }
+        progress.complete("updateIP")
+
+        progress.log(
+            "To serve pages locally, start the dev server manually.",
+            "info"
+        )
 
         progress.printTreeContent("Configuration Explanation", [
             "WEBVIEW_CONFIG: Main configuration object for the WebView setup",

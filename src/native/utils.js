@@ -34,6 +34,20 @@ async function promptUser(question) {
     })
 }
 
+async function promptUserWithTimeout(question, timeoutMs, defaultValue) {
+    return new Promise((resolve) => {
+        let timer = setTimeout(() => {
+            console.log(`\nNo input received. Defaulting to: ${defaultValue}`)
+            resolve(defaultValue)
+        }, timeoutMs)
+
+        rl.question(question, (answer) => {
+            clearTimeout(timer)
+            resolve(answer.trim() || defaultValue)
+        })
+    })
+}
+
 async function runInteractiveCommand(command, args, promptResponses = {}) {
     return new Promise((resolve, reject) => {
         const process = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })
@@ -190,6 +204,7 @@ export {
     runCommand,
     commandExists,
     promptUser,
+    promptUserWithTimeout,
     runSdkManagerCommand,
     runInteractiveCommand,
     validateAndCompleteConfig,
