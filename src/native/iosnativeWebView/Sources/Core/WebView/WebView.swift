@@ -58,6 +58,15 @@ public struct WebView: UIViewRepresentable, Equatable {
         webView.allowsLinkPreview = false
         webView.allowsBackForwardNavigationGestures = true
 
+        // Prevent UIKit from auto-applying safe-area insets when edge-to-edge is enabled.
+        // In edge-to-edge mode, padding is handled in web content via safe-area values.
+        if ConfigConstants.EdgeToEdge.enabled {
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
+            if #available(iOS 13.0, *) {
+                webView.scrollView.automaticallyAdjustsScrollIndicatorInsets = false
+            }
+        }
+
         #if DEBUG
         // Enable Safari Web Inspector (only available in iOS 16.4+)
         if #available(iOS 16.4, *) {
