@@ -121,6 +121,9 @@ class CacheManager {
                 return regex.firstMatch(in: urlString, options: [], range: range) != nil
             }
         }
+        
+        logger.info("📋 [\(ThreadHelper.currentThreadInfo())] Cache decision for \(url.absoluteString): \(shouldCache)")
+        return shouldCache
     }
     
     private func getCacheState(for timestamp: Date) -> CacheState {
@@ -171,18 +174,18 @@ class CacheManager {
     }
     
     private func revalidateResource(request: URLRequest) async {
-        logger.info("🔄 Starting revalidation for: \(request.url?.absoluteString ?? "")")
+        logger.info("🔄 [\(ThreadHelper.currentThreadInfo())] Revalidating: \(request.url?.absoluteString ?? "")")
         
         do {
             let (data, response) = try await session.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse,
                isCacheableResponse(httpResponse) {
-                storeCachedResponse(httpResponse, data: data, for: request)
-                logger.info("Resource revalidated: \(request.url?.absoluteString ?? "")")
+                await storeCachedResponse(httpResponse, data: data, for: request)
+                logger.info("✅ [\(ThreadHelper.currentThreadInfo())] Resource revalidated successfully")
             }
         } catch {
-            logger.error("Revalidation failed: \(error.localizedDescription)")
+            logger.error("❌ [\(ThreadHelper.currentThreadInfo())] Revalidation failed: \(error.localizedDescription)")
         }
     }
     
@@ -235,6 +238,7 @@ class CacheManager {
     }
     
     func createCacheableRequest(from url: URL) -> URLRequest {
+        logger.info("📝 [\(ThreadHelper.currentThreadInfo())] Creating cacheable request for: \(url.absoluteString)")
         var request = URLRequest(url: url)
         request.cachePolicy = .returnCacheDataElseLoad
         return request
@@ -242,7 +246,9 @@ class CacheManager {
     
     func isCacheableResponse(_ response: HTTPURLResponse) -> Bool {
         guard let url = response.url else { return false }
-        return (200...299 ~= response.statusCode) && shouldCacheURL(url)
+        let isCacheable = (200...299 ~= response.statusCode) && shouldCacheURL(url)
+        logger.info("🔍 [\(ThreadHelper.currentThreadInfo())] Response cacheable check: \(isCacheable) for \(url.absoluteString)")
+        return isCacheable
     }
     
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
