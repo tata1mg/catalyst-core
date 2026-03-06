@@ -311,29 +311,29 @@ async function setupAndroidEnvironment() {
         progress.complete("updateIP")
 
         progress.start("startServer")
-        progress.pause()
-        const startServer = await promptUserWithTimeout(
-            "\nWould you like to start the dev server? (y/N) [Default: N, Timeout: 10s]: ",
-            10000,
-            "n"
-        )
-        progress.resume()
+        const configFile = fs.readFileSync(configPath, "utf8")
+        const configObj = JSON.parse(configFile)
+        const port = configObj.WEBVIEW_CONFIG?.port || 3005
+        const running = await isServerRunning(port)
 
-        if (startServer.toLowerCase() === "y") {
-            const configFile = fs.readFileSync(configPath, "utf8")
-            const configObj = JSON.parse(configFile)
-            const port = configObj.WEBVIEW_CONFIG?.port || 3005
-            const running = await isServerRunning(port)
+        if (running) {
+            progress.log(`Dev server already running on port ${port}`, "info")
+        } else {
+            progress.pause()
+            const startServer = await promptUserWithTimeout(
+                "\nWould you like to start the dev server? (y/N) [Default: N, Timeout: 10s]: ",
+                10000,
+                "n"
+            )
+            progress.resume()
 
-            if (!running) {
+            if (startServer.toLowerCase() === "y") {
                 startServerBackground()
                 progress.log("Dev server started in background", "success")
             } else {
-                progress.log(`Dev server already running on port ${port}`, "info")
+                progress.log("Skipping server startup", "info")
+                progress.log("To serve pages locally, start the dev server manually.", "info")
             }
-        } else {
-            progress.log("Skipping server startup", "info")
-            progress.log("To serve pages locally, start the dev server manually.", "info")
         }
         progress.complete("startServer")
 
