@@ -5,6 +5,11 @@ import fs from "fs"
 const BYTES_PER_MB = 1_000_000
 const toMB = (bytes) => (bytes / BYTES_PER_MB).toFixed(2)
 
+// Cache for preload JS link elements per route (production only)
+if (!process.preloadLinksCache) {
+    process.preloadLinksCache = {}
+}
+
 /**
  * Caches CSS file content (shared across all routes)
  * @param {string} assetName - CSS filename
@@ -46,9 +51,12 @@ function cacheCSS(assetName, assetPath) {
 }
 
 /**
- * Extracts CSS and preload links from cached ChunkExtractor
+ * Attempts to build inline CSS for a route from the in-memory caches.
+ * Requires both process.extractorCache (ChunkExtractor) and process.cssCache (file contents)
+ * to be populated — both are filled on the first request for a route.
+ * Returns null on any cache miss, signalling that a Phase 1b dry-run is needed.
  * @param {string} routePath - Route path
- * @returns {object} { css: string, preloadJSLinks: array } or null if not cached
+ * @returns {{ css: string }|null} Inline CSS string, or null if any cache entry is missing
  */
 function getAssetsFromCachedExtractor(routePath) {
     const isProd = process.env.NODE_ENV === "production"
@@ -65,8 +73,6 @@ function getAssetsFromCachedExtractor(routePath) {
     if (!linkElements || linkElements.length === 0) {
         return null
     }
-
-    const preloadJSLinks = linkElements.filter((asset) => asset?.props?.as === "script")
 
     const cssAssets = linkElements.filter((e) => {
         const href = e?.props?.href
@@ -86,12 +92,7 @@ function getAssetsFromCachedExtractor(routePath) {
         }
     }
 
-    const cachedCss = cssContents.join("")
-
-    return {
-        css: cachedCss,
-        preloadJSLinks: preloadJSLinks,
-    }
+    return { css: cssContents.join("") }
 }
 
 /**
@@ -126,8 +127,30 @@ function buildInlineCSS(linkElements) {
 }
 
 /**
+ * Filters preload JS link elements from a ChunkExtractor's link list and caches them
+ * per route in production so subsequent requests can skip the dry-run renderToString.
+ * @param {object} webExtractor - ChunkExtractor instance
+ * @param {string} routePath - Route path used as cache key
+ * @returns {array} Filtered preload JS link elements
+ */
+export function cachePreloadJSLinks(webExtractor, routePath) {
+    const isProd = process.env.NODE_ENV === "production"
+    const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
+    const preloadJSLinks = linkElements.filter((asset) => asset?.props?.as === "script")
+    if (isProd) {
+        process.preloadLinksCache[routePath] = preloadJSLinks
+    }
+    return preloadJSLinks
+}
+
+/**
  * Phase 2: called from renderMarkUp's onAllReady after renderToPipeableStream finishes.
  * Builds the inline CSS (<style> block) and script tags that are appended to the stream.
+ *
+ * CSS injection is skipped when res.locals.pageCss is already set (Phase 1a cache hit),
+ * since the CSS was already inlined in <head> by the Head component — injecting it again
+ * here would cause duplication.
+ *
  * In production, CSS is inlined from disk-cached files; in dev, style tags are used directly.
  * Bots receive no JS — only the fully rendered HTML is needed for crawling.
  */
@@ -140,11 +163,14 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
     const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
 
     if (routePath) {
-        if (isProd) {
-            firstFoldCss = buildInlineCSS(linkElements)
-            if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
-        } else {
-            firstFoldCss = webExtractor.getStyleTags()
+        // Skip CSS injection if already inlined in <head> via res.locals.pageCss (cache hit)
+        if (!res.locals.pageCss) {
+            if (isProd) {
+                firstFoldCss = buildInlineCSS(linkElements)
+                if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
+            } else {
+                firstFoldCss = webExtractor.getStyleTags()
+            }
         }
         firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
     }
@@ -153,26 +179,32 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
 }
 
 /**
- * Checks if we have cached assets for this route
- * Called during Phase 1 to determine if we can skip renderToString
+ * Phase 1a: populates res.locals.pageCss and res.locals.preloadJSLinks from their
+ * respective process-level caches. When both are restored, the Phase 1b dry-run
+ * renderToString is skipped entirely for this request.
  * @param {object} res - Response object
  * @param {object} route - Route configuration
  */
 export default function extractAssets(res, route) {
     try {
         const routePath = route.path
-        const cached = getAssetsFromCachedExtractor(routePath)
+        const isProd = process.env.NODE_ENV === "production"
 
-        if (cached && (cached.css || cached.preloadJSLinks)) {
+        const cached = getAssetsFromCachedExtractor(routePath)
+        if (cached && cached.css) {
             res.locals.pageCss = cached.css
-            res.locals.preloadJSLinks = cached.preloadJSLinks
-            return
         }
 
-        logger.info({
-            message: "Cache Missed",
-            uri: routePath,
-        })
+        if (isProd && process.preloadLinksCache[routePath]) {
+            res.locals.preloadJSLinks = process.preloadLinksCache[routePath]
+        }
+
+        if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
+            logger.info({
+                message: "Cache Missed",
+                uri: routePath,
+            })
+        }
     } catch (error) {
         logger.error("Error in extracting assets:" + error)
     }

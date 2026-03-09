@@ -2,7 +2,7 @@ import fs from "fs"
 import path from "path"
 import React from "react"
 
-import extractAssets, { cacheAndFetchAssets } from "./extract"
+import extractAssets, { cacheAndFetchAssets, cachePreloadJSLinks } from "./extract"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -121,9 +121,8 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         if (match) {
             if (!res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
                 res.locals.routePath = path
-                // Phase 1a: try to serve CSS/preloadLinks from the extractor cache (production only).
-                // On a cache hit, res.locals.pageCss and preloadJSLinks are populated and
-                // the renderToString dry-run below is skipped entirely for this request.
+                // Phase 1a: restore pageCss and preloadJSLinks from their process-level
+                // caches. On a full hit, the Phase 1b dry-run is skipped entirely.
                 extractAssets(res, route)
             }
 
@@ -134,7 +133,8 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
             }
 
             if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
-                // Phase 1b: dry-run renderToString solely to let the ChunkExtractor record which
+                // Phase 1b: skipped when Phase 1a restored both pageCss and preloadJSLinks from cache.
+                // Otherwise runs a dry-run renderToString to let the ChunkExtractor record which
                 // chunks this route needs. The output is discarded — the real render happens later
                 // in renderMarkUp via renderToPipeableStream.
                 renderToString(
@@ -146,6 +146,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
                         </Provider>
                     </ChunkExtractorManager>
                 )
+                res.locals.preloadJSLinks = cachePreloadJSLinks(res.locals.webExtractor, path)
             }
             const wc = route.component
             matches.push({
@@ -173,7 +174,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
     }, [])
 }
 
-// Preloads chunks required for rendering document
+// Builds the app component tree used in both the dry-run (Phase 1b) and the real render (Phase 2).
 const getComponent = (store, context, req, fetcherData) => {
     return (
         <div id="app">
@@ -293,7 +294,9 @@ const renderMarkUp = async (
 
 /**
  * SSR request handler. Execution pipeline per request:
- *   1. Match route → collect loadable chunks (Phase 1 dry-run)
+ *   1. Match route
+ *      - Phase 1a: restore pageCss + preloadJSLinks from process-level caches (extract.js)
+ *      - Phase 1b: dry-run renderToString to collect loadable chunks (skipped on full cache hit)
  *   2. App.serverSideFunction (app-level server hook)
  *   3. serverDataFetcher (route-level data fetching)
  *   4. renderMarkUp → renderToPipeableStream (Phase 2 — real render + stream to client)
