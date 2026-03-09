@@ -1,0 +1,38 @@
+src/native/bridge/hooks.js
+  e16f5e2cf9232d67 1596,1598,1602-1603
+src/native/bridge/useBaseHook.js
+  e16f5e2cf9232d67 150-152,155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "ca09051af336880fc39fdab9f8ace44f55894573",
+  "prompts": {
+    "9214b85451d56c01": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93a4d6ad-e746-47c6-be5d-66d464fe517c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "e16f5e2cf9232d67": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "663de640-17a5-4f50-b99a-f8ce03459d05",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 10,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}
