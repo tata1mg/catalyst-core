@@ -77,11 +77,12 @@ class NativeBridgeUtil {
                 window.NativeBridge[command](data)
                 return true
             } else {
-                throw new Error(`Android bridge method '${command}' not found`)
+                console.error(`Android bridge method '${command}' not found`)
+                return false
             }
         } catch (error) {
             console.error(`Error executing Android command '${command}':`, error)
-            throw error
+            return false
         }
     }
 

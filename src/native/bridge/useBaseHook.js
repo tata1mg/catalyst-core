@@ -165,7 +165,8 @@ export const useBaseHook = (hookName) => {
                 }
 
                 if (!isNative()) {
-                    throw new Error("Native bridge not available")
+                    console.error(`${hookName} executeOperation: Native bridge not available`)
+                    return
                 }
 
                 setLoading(true)
