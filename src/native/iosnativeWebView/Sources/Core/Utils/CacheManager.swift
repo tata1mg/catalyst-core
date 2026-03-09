@@ -265,9 +265,20 @@ public final class CacheManager {
     }
     
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
-        // URLCache methods are thread-safe, no need for sync queue
         let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
-        let diskUsed = session.configuration.urlCache?.currentDiskUsage ?? 0
+
+        // Sum size of all custom .cache files written to disk (separate from URLCache internals)
+        var diskUsed = 0
+        if let files = try? FileManager.default.contentsOfDirectory(
+            at: cacheDirectory,
+            includingPropertiesForKeys: [.fileSizeKey]
+        ) {
+            diskUsed = files.reduce(0) { total, url in
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+                return total + size
+            }
+        }
+
         return (memoryUsed, diskUsed)
     }
 }
