@@ -1,0 +1,38 @@
+src/native/bridge/useBaseHook.js
+  588aa94b55ad6881 168-169
+src/native/bridge/utils/NativeBridge.js
+  588aa94b55ad6881 80-81,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "da61e755e55a13c6d810b073a9fdabcd88243027",
+  "prompts": {
+    "588aa94b55ad6881": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8728653d-341f-4c14-bccb-cdaa497b32a9",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 3,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "9214b85451d56c01": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93a4d6ad-e746-47c6-be5d-66d464fe517c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
