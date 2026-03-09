@@ -1,0 +1,23 @@
+src/server/renderer/document/Body.js
+  79707e3238c422e5 11,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "80bd6dddfe90694e73ba0b047c3bc37a00f3490a",
+  "prompts": {
+    "79707e3238c422e5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cd259-0ca9-7b11-a7c7-0347f4b71116",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 1,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
