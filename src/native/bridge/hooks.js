@@ -1593,18 +1593,14 @@ export const useDataProtection = () => {
 
     const setScreenSecure = useCallback(
         (enable) => {
-            base.executeOperation(() => {
-                nativeBridge.security.setScreenSecure(enable)
-            }, "setScreenSecure")
+            base.callNative(() => nativeBridge.security.setScreenSecure(enable))
         },
-        [base.executeOperation]
+        [base.callNative]
     )
 
     const clearWebData = useCallback(() => {
-        base.executeOperation(() => {
-            nativeBridge.security.clearWebData()
-        }, "clearWebData")
-    }, [base.executeOperation])
+        base.callNative(() => nativeBridge.security.clearWebData())
+    }, [base.callNative])
 
     return {
         // Standardized base interface

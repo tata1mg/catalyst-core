@@ -147,10 +147,12 @@ export const useBaseHook = (hookName) => {
             try {
                 fn()
             } catch (err) {
-                handleNativeError(err)
+                if (isDevelopment()) {
+                    console.warn(`${hookName} callNative failed silently:`, err)
+                }
             }
         },
-        [hookName, isNative, handleNativeError]
+        [hookName, isNative]
     )
 
     // Operation wrapper that handles common patterns
