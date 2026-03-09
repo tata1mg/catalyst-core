@@ -220,6 +220,36 @@ function initializeCustomMetrics(serviceName, serviceVersion) {
 }
 
 /**
+ * Wraps a synchronous function and measures total execution time.
+ * Creates a single OpenTelemetry span per function call.
+ * Use this instead of withObservability when the wrapped function is synchronous,
+ * so the return type and call sites remain unchanged.
+ *
+ * @param {string} serviceName - The name of the service
+ * @param {Function} fn - The synchronous function to wrap
+ * @param {string} name - Span name (optional)
+ * @returns {Function} Wrapped function (still synchronous)
+ */
+export function withSyncObservability(serviceName, fn, name) {
+    const tracer = trace.getTracer(serviceName)
+    const spanName = name || fn.name || "anonymousFunction"
+
+    return function (...args) {
+        return tracer.startActiveSpan(spanName, (span) => {
+            try {
+                return fn(...args)
+            } catch (err) {
+                span.recordException(err)
+                span.setStatus({ code: 2, message: err.message })
+                throw err
+            } finally {
+                span.end()
+            }
+        })
+    }
+}
+
+/**
  * Wraps a function (sync or async) and measures total execution time.
  * Creates a single OpenTelemetry span per function call.
  *
@@ -248,4 +278,4 @@ export function withObservability(serviceName, fn, name) {
     }
 }
 
-export default { init, withObservability }
+export default { init, withObservability, withSyncObservability }

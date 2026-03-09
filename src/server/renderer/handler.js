@@ -3,6 +3,7 @@ import path from "path"
 import React from "react"
 
 import extractAssets, { cacheAndFetchAssets, cachePreloadJSLinks } from "./extract"
+import { withObservability } from "../../otel"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -109,6 +110,8 @@ const getCachedRoutes = () => {
     }
     return cachedRoutes
 }
+
+const SSR_SERVICE = process.env.SERVICE_NAME || "catalyst-ssr"
 
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
@@ -305,6 +308,14 @@ const renderMarkUp = async (
  * onAppServerSideSuccess, etc.) has already sent a response (e.g. a redirect), we
  * bail out early without attempting another render.
  */
+const tracedAppServerSideFunction = withObservability(
+    SSR_SERVICE,
+    (args) => App.serverSideFunction(args),
+    "App.serverSideFunction"
+)
+const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
+const tracedRenderMarkUp = withObservability(SSR_SERVICE, renderMarkUp, "renderMarkUp")
+
 export default async function handler(req, res) {
     try {
         let context = {}
@@ -329,7 +340,7 @@ export default async function handler(req, res) {
         }
 
         try {
-            await App.serverSideFunction({ store, req, res })
+            await tracedAppServerSideFunction({ store, req, res })
             safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) {
@@ -337,7 +348,7 @@ export default async function handler(req, res) {
             }
 
             try {
-                fetcherData = await serverDataFetcher(
+                fetcherData = await tracedServerDataFetcher(
                     { routes: routes, req, res, url: req.originalUrl },
                     { store }
                 )
@@ -362,7 +373,7 @@ export default async function handler(req, res) {
                     const statusCode = err.status_code || 404
 
                     return new Promise((resolve, reject) => {
-                        renderMarkUp(
+                        tracedRenderMarkUp(
                             statusCode,
                             req,
                             res,
@@ -385,7 +396,7 @@ export default async function handler(req, res) {
                     }
 
                     return new Promise((resolve, reject) => {
-                        renderMarkUp(
+                        tracedRenderMarkUp(
                             null,
                             req,
                             res,
@@ -410,7 +421,17 @@ export default async function handler(req, res) {
                 }
 
                 return new Promise((resolve, reject) => {
-                    renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+                    tracedRenderMarkUp(
+                        404,
+                        req,
+                        res,
+                        allTags,
+                        fetcherData,
+                        store,
+                        matches,
+                        context,
+                        webExtractor
+                    )
                         .then(resolve)
                         .catch(reject)
                 })
@@ -425,7 +446,7 @@ export default async function handler(req, res) {
             }
 
             return new Promise((resolve, reject) => {
-                renderMarkUp(
+                tracedRenderMarkUp(
                     error.status_code,
                     req,
                     res,

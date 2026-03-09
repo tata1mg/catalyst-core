@@ -1,5 +1,6 @@
 import path from "path"
 import fs from "fs"
+import { withSyncObservability } from "../../otel"
 
 // Use decimal megabytes (1 MB = 1,000,000 bytes) for all memory logs
 const BYTES_PER_MB = 1_000_000
@@ -133,7 +134,9 @@ function buildInlineCSS(linkElements) {
  * @param {string} routePath - Route path used as cache key
  * @returns {array} Filtered preload JS link elements
  */
-export function cachePreloadJSLinks(webExtractor, routePath) {
+export const cachePreloadJSLinks = withSyncObservability(
+    process.env.SERVICE_NAME || "catalyst-ssr",
+    function cachePreloadJSLinks(webExtractor, routePath) {
     const isProd = process.env.NODE_ENV === "production"
     const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
     const preloadJSLinks = linkElements.filter((asset) => asset?.props?.as === "script")
@@ -141,7 +144,9 @@ export function cachePreloadJSLinks(webExtractor, routePath) {
         process.preloadLinksCache[routePath] = preloadJSLinks
     }
     return preloadJSLinks
-}
+},
+"cachePreloadJSLinks"
+)
 
 /**
  * Phase 2: called from renderMarkUp's onAllReady after renderToPipeableStream finishes.
@@ -154,7 +159,9 @@ export function cachePreloadJSLinks(webExtractor, routePath) {
  * In production, CSS is inlined from disk-cached files; in dev, style tags are used directly.
  * Bots receive no JS — only the fully rendered HTML is needed for crawling.
  */
-export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
+export const cacheAndFetchAssets = withSyncObservability(
+    process.env.SERVICE_NAME || "catalyst-ssr",
+    function cacheAndFetchAssets({ webExtractor, res, isBot }) {
     let firstFoldCss = ""
     let firstFoldJS = ""
     const isProd = process.env.NODE_ENV === "production"
@@ -176,7 +183,9 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
     }
 
     return { firstFoldCss, firstFoldJS }
-}
+},
+"cacheAndFetchAssets"
+)
 
 /**
  * Phase 1a: populates res.locals.pageCss and res.locals.preloadJSLinks from their
@@ -185,7 +194,9 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
  * @param {object} res - Response object
  * @param {object} route - Route configuration
  */
-export default function extractAssets(res, route) {
+export default withSyncObservability(
+    process.env.SERVICE_NAME || "catalyst-ssr",
+    function extractAssets(res, route) {
     try {
         const routePath = route.path
         const isProd = process.env.NODE_ENV === "production"
@@ -208,4 +219,6 @@ export default function extractAssets(res, route) {
     } catch (error) {
         logger.error("Error in extracting assets:" + error)
     }
-}
+},
+"extractAssets"
+)
