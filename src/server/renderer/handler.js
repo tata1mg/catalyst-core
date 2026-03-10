@@ -3,7 +3,7 @@ import path from "path"
 import React from "react"
 
 import extractAssets, { cacheAndFetchAssets, cachePreloadJSLinks } from "./extract"
-import { withObservability } from "../../otel"
+import { withObservability, withSyncObservability } from "../../otel"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -113,7 +113,8 @@ const getCachedRoutes = () => {
 
 const SSR_SERVICE = process.env.SERVICE_NAME || "catalyst-ssr"
 
-const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
+// Internal recursive implementation — called directly to avoid creating a new span on each recursion.
+const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
         const { path } = route
         const match = matchPath(
@@ -159,7 +160,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
             })
         }
         if (!match && route.children) {
-            const nested = getMatchRoutes(
+            const nested = _getMatchRoutes(
                 route.children,
                 req,
                 res,
@@ -176,6 +177,8 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         return matches
     }, [])
 }
+
+const getMatchRoutes = withSyncObservability(SSR_SERVICE, _getMatchRoutes, "getMatchRoutes")
 
 // Builds the app component tree used in both the dry-run (Phase 1b) and the real render (Phase 2).
 const getComponent = (store, context, req, fetcherData) => {
