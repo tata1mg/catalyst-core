@@ -113,6 +113,23 @@ const getCachedRoutes = () => {
 
 const SSR_SERVICE = process.env.SERVICE_NAME || "catalyst-ssr"
 
+// Phase 1b dry-run: wrapped separately so it appears as a distinct span inside getMatchRoutes.
+const renderToStringWithObservability = withSyncObservability(
+    SSR_SERVICE,
+    function dryRunRender(webExtractor, store, context, req, fetcherData) {
+        renderToString(
+            <ChunkExtractorManager extractor={webExtractor}>
+                <Provider store={store}>
+                    <StaticRouter context={context} location={req.originalUrl}>
+                        <ServerRouter store={store} intialData={fetcherData} />
+                    </StaticRouter>
+                </Provider>
+            </ChunkExtractorManager>
+        )
+    },
+    "renderToString"
+)
+
 // Internal recursive implementation — called directly to avoid creating a new span on each recursion.
 const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
@@ -141,15 +158,7 @@ const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath
                 // Otherwise runs a dry-run renderToString to let the ChunkExtractor record which
                 // chunks this route needs. The output is discarded — the real render happens later
                 // in renderMarkUp via renderToPipeableStream.
-                renderToString(
-                    <ChunkExtractorManager extractor={res.locals.webExtractor}>
-                        <Provider store={store}>
-                            <StaticRouter context={context} location={req.originalUrl}>
-                                <ServerRouter store={store} intialData={fetcherData} />
-                            </StaticRouter>
-                        </Provider>
-                    </ChunkExtractorManager>
-                )
+                renderToStringWithObservability(res.locals.webExtractor, store, context, req, fetcherData)
                 res.locals.preloadJSLinks = cachePreloadJSLinks(res.locals.webExtractor, path)
             }
             const wc = route.component
