@@ -212,7 +212,7 @@ const renderMarkUp = async (
     webExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    const isBot = deviceDetails.googleBot ? true : false
+     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
 
     let state = store.getState()
     // collectChunks wraps the component tree so the extractor can track which loadable
