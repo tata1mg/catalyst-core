@@ -46,6 +46,7 @@ public struct WebView: UIViewRepresentable, Equatable {
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
+        configuration.userContentController.addUserScript(makeSelectionBlockerScript())
 
         let webViewCreateStart = CFAbsoluteTimeGetCurrent()
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -53,7 +54,18 @@ public struct WebView: UIViewRepresentable, Equatable {
         logWithTimestamp("📦 WKWebView created (took \(String(format: "%.2f", webViewCreateTime))ms)")
 
         webView.navigationDelegate = navigationDelegate
+        webView.uiDelegate = navigationDelegate
+        webView.allowsLinkPreview = false
         webView.allowsBackForwardNavigationGestures = true
+
+        // Prevent UIKit from auto-applying safe-area insets when edge-to-edge is enabled.
+        // In edge-to-edge mode, padding is handled in web content via safe-area values.
+        if ConfigConstants.EdgeToEdge.enabled {
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
+            if #available(iOS 13.0, *) {
+                webView.scrollView.automaticallyAdjustsScrollIndicatorInsets = false
+            }
+        }
 
         #if DEBUG
         // Enable Safari Web Inspector (only available in iOS 16.4+)
@@ -98,6 +110,29 @@ public struct WebView: UIViewRepresentable, Equatable {
         logWithTimestamp("🔨 makeUIView() completed (took \(String(format: "%.2f", makeUIViewTime))ms)")
 
         return webView
+    }
+
+    private func makeSelectionBlockerScript() -> WKUserScript {
+        let scriptSource = """
+        (function() {
+            var STYLE_ID = 'catalyst-disable-selection-style';
+            function injectStyle() {
+                if (document.getElementById(STYLE_ID)) return;
+                var style = document.createElement('style');
+                style.id = STYLE_ID;
+                style.textContent = '*{-webkit-touch-callout:none !important;-webkit-user-select:none !important;user-select:none !important;}';
+                (document.head || document.documentElement).appendChild(style);
+            }
+
+            injectStyle();
+            document.addEventListener('DOMContentLoaded', injectStyle, { once: true });
+            document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, true);
+            document.addEventListener('selectstart', function(e) { e.preventDefault(); }, true);
+            document.addEventListener('dragstart', function(e) { e.preventDefault(); }, true);
+        })();
+        """
+
+        return WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
     }
     
     public func updateUIView(_ webView: WKWebView, context: Context) {

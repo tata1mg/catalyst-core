@@ -1547,6 +1547,8 @@ DEVELOPMENT_ASSET_PATHS = "iosnativeWebView/Preview Content"
 
 // Privacy descriptions
 INFOPLIST_KEY_NSCameraUsageDescription = This app requires camera access to capture images
+INFOPLIST_KEY_NSPhotoLibraryUsageDescription = This app requires photo library access to select images from your gallery
+INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = This app needs your location to provide location-based services
 INFOPLIST_KEY_NSLocalNetworkUsageDescription = Debug web content in Safari Web Inspector
 
 // UI Configuration
