@@ -192,7 +192,7 @@ const renderMarkUp = async (
     webExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    const isBot = deviceDetails.googleBot ? true : false
+     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
 
     const safeArea = parseSafeAreaFromHeaders(req) || { ...DEFAULT_SAFE_AREA_INSETS }
 
