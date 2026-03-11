@@ -133,7 +133,7 @@ const renderMarkUp = async (
     webExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    const isBot = deviceDetails.googleBot ? true : false
+     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
 
     let state = store.getState()
     const jsx = webExtractor.collectChunks(getComponent(store, context, req, fetcherData))
