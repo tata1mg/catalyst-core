@@ -1,9 +1,11 @@
 import path from "path"
 import fs from "fs"
+import { withSyncObservability } from "../../otel"
 
 // Use decimal megabytes (1 MB = 1,000,000 bytes) for all memory logs
 const BYTES_PER_MB = 1_000_000
 const toMB = (bytes) => (bytes / BYTES_PER_MB).toFixed(2)
+const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
 
 /**
  * Caches CSS file content (shared across all routes)
@@ -131,26 +133,30 @@ function buildInlineCSS(linkElements) {
  * In production, CSS is inlined from disk-cached files; in dev, style tags are used directly.
  * Bots receive no JS — only the fully rendered HTML is needed for crawling.
  */
-export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
-    let firstFoldCss = ""
-    let firstFoldJS = ""
-    const isProd = process.env.NODE_ENV === "production"
-    const { routePath } = res.locals
+export const cacheAndFetchAssets = withSyncObservability(
+    SSR_SERVICE,
+    function cacheAndFetchAssets({ webExtractor, res, isBot }) {
+        let firstFoldCss = ""
+        let firstFoldJS = ""
+        const isProd = process.env.NODE_ENV === "production"
+        const { routePath } = res.locals
 
-    const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
+        const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
 
-    if (routePath) {
-        if (isProd) {
-            firstFoldCss = buildInlineCSS(linkElements)
-            if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
-        } else {
-            firstFoldCss = webExtractor.getStyleTags()
+        if (routePath) {
+            if (isProd) {
+                firstFoldCss = buildInlineCSS(linkElements)
+                if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
+            } else {
+                firstFoldCss = webExtractor.getStyleTags()
+            }
+            firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
         }
-        firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
-    }
 
-    return { firstFoldCss, firstFoldJS }
-}
+        return { firstFoldCss, firstFoldJS }
+    },
+    "cacheAndFetchAssets"
+)
 
 /**
  * Checks if we have cached assets for this route
@@ -158,22 +164,26 @@ export const cacheAndFetchAssets = ({ webExtractor, res, isBot }) => {
  * @param {object} res - Response object
  * @param {object} route - Route configuration
  */
-export default function extractAssets(res, route) {
-    try {
-        const routePath = route.path
-        const cached = getAssetsFromCachedExtractor(routePath)
+export default withSyncObservability(
+    SSR_SERVICE,
+    function extractAssets(res, route) {
+        try {
+            const routePath = route.path
+            const cached = getAssetsFromCachedExtractor(routePath)
 
-        if (cached && (cached.css || cached.preloadJSLinks)) {
-            res.locals.pageCss = cached.css
-            res.locals.preloadJSLinks = cached.preloadJSLinks
-            return
+            if (cached && (cached.css || cached.preloadJSLinks)) {
+                res.locals.pageCss = cached.css
+                res.locals.preloadJSLinks = cached.preloadJSLinks
+                return
+            }
+
+            logger.info({
+                message: "Cache Missed",
+                uri: routePath,
+            })
+        } catch (error) {
+            logger.error("Error in extracting assets:" + error)
         }
-
-        logger.info({
-            message: "Cache Missed",
-            uri: routePath,
-        })
-    } catch (error) {
-        logger.error("Error in extracting assets:" + error)
-    }
-}
+    },
+    "extractAssets"
+)

@@ -3,6 +3,7 @@ import path from "path"
 import React from "react"
 
 import extractAssets, { cacheAndFetchAssets } from "./extract"
+import { withObservability, withSyncObservability } from "../../otel"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -110,7 +111,27 @@ const getCachedRoutes = () => {
     return cachedRoutes
 }
 
-const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
+const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
+
+// Phase 1b dry-run: wrapped separately so it appears as a distinct span inside getMatchRoutes.
+const renderToStringWithObservability = withSyncObservability(
+    SSR_SERVICE,
+    function dryRunRender(webExtractor, store, context, req, fetcherData) {
+        renderToString(
+            <ChunkExtractorManager extractor={webExtractor}>
+                <Provider store={store}>
+                    <StaticRouter context={context} location={req.originalUrl}>
+                        <ServerRouter store={store} intialData={fetcherData} />
+                    </StaticRouter>
+                </Provider>
+            </ChunkExtractorManager>
+        )
+    },
+    "renderToString"
+)
+
+// Internal recursive implementation — called directly to avoid creating a new span on each recursion.
+const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
         const { path } = route
         const match = matchPath(
@@ -137,15 +158,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
                 // Phase 1b: dry-run renderToString solely to let the ChunkExtractor record which
                 // chunks this route needs. The output is discarded — the real render happens later
                 // in renderMarkUp via renderToPipeableStream.
-                renderToString(
-                    <ChunkExtractorManager extractor={res.locals.webExtractor}>
-                        <Provider store={store}>
-                            <StaticRouter context={context} location={req.originalUrl}>
-                                <ServerRouter store={store} intialData={fetcherData} />
-                            </StaticRouter>
-                        </Provider>
-                    </ChunkExtractorManager>
-                )
+                renderToStringWithObservability(res.locals.webExtractor, store, context, req, fetcherData)
             }
             const wc = route.component
             matches.push({
@@ -155,7 +168,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
             })
         }
         if (!match && route.children) {
-            const nested = getMatchRoutes(
+            const nested = _getMatchRoutes(
                 route.children,
                 req,
                 res,
@@ -172,6 +185,8 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         return matches
     }, [])
 }
+
+const getMatchRoutes = withSyncObservability(SSR_SERVICE, _getMatchRoutes, "getMatchRoutes")
 
 // Preloads chunks required for rendering document
 const getComponent = (store, context, req, fetcherData) => {
@@ -291,6 +306,14 @@ const renderMarkUp = async (
     }
 }
 
+const tracedAppServerSideFunction = withObservability(
+    SSR_SERVICE,
+    (args) => App.serverSideFunction(args),
+    "App.serverSideFunction"
+)
+const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
+const tracedRenderMarkUp = withObservability(SSR_SERVICE, renderMarkUp, "renderMarkUp")
+
 /**
  * SSR request handler. Execution pipeline per request:
  *   1. Match route → collect loadable chunks (Phase 1 dry-run)
@@ -326,7 +349,7 @@ export default async function handler(req, res) {
         }
 
         try {
-            await App.serverSideFunction({ store, req, res })
+            await tracedAppServerSideFunction({ store, req, res })
             safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) {
@@ -334,7 +357,7 @@ export default async function handler(req, res) {
             }
 
             try {
-                fetcherData = await serverDataFetcher(
+                fetcherData = await tracedServerDataFetcher(
                     { routes: routes, req, res, url: req.originalUrl },
                     { store }
                 )
@@ -359,7 +382,7 @@ export default async function handler(req, res) {
                     const statusCode = err.status_code || 404
 
                     return new Promise((resolve, reject) => {
-                        renderMarkUp(
+                        tracedRenderMarkUp(
                             statusCode,
                             req,
                             res,
@@ -382,7 +405,7 @@ export default async function handler(req, res) {
                     }
 
                     return new Promise((resolve, reject) => {
-                        renderMarkUp(
+                        tracedRenderMarkUp(
                             null,
                             req,
                             res,
@@ -407,7 +430,17 @@ export default async function handler(req, res) {
                 }
 
                 return new Promise((resolve, reject) => {
-                    renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+                    tracedRenderMarkUp(
+                        404,
+                        req,
+                        res,
+                        allTags,
+                        fetcherData,
+                        store,
+                        matches,
+                        context,
+                        webExtractor
+                    )
                         .then(resolve)
                         .catch(reject)
                 })
@@ -422,7 +455,7 @@ export default async function handler(req, res) {
             }
 
             return new Promise((resolve, reject) => {
-                renderMarkUp(
+                tracedRenderMarkUp(
                     error.status_code,
                     req,
                     res,
