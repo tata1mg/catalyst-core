@@ -59,7 +59,7 @@ class NativeBridgeUtil {
             )
         }
 
-        if (!this.isNativeEnvironment) {
+        if (!this.isAvailable()) {
             throw new Error(
                 "Native bridge not available. Ensure you are running in a native WebView environment."
             )
@@ -77,11 +77,12 @@ class NativeBridgeUtil {
                 window.NativeBridge[command](data)
                 return true
             } else {
-                throw new Error(`Android bridge method '${command}' not found`)
+                console.error(`Android bridge method '${command}' not found`)
+                return false
             }
         } catch (error) {
             console.error(`Error executing Android command '${command}':`, error)
-            throw error
+            return false
         }
     }
 
@@ -341,10 +342,10 @@ class NativeBridgeUtil {
     }
 
     /**
-     * Check if native bridge is available
+     * Check if native bridge is available — live check, never stale
      */
     isAvailable() {
-        return this.isNativeEnvironment
+        return this._detectAndroid() || this._detectIOS()
     }
 
     /**
