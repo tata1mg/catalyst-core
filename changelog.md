@@ -1,36 +1,19 @@
 # Changelog
 
-## [0.0.3-canary.1] - 31-01-2025
+## [0.0.3-canary.3] - 06-03-2025
 
-### Changes
-
-# Native WebView Implementation and Cache Management Updates
+## Cache Management Updates
 
 ## Overview
-This PR introduces native WebView implementations for both Android and iOS platforms, along with significant cache management improvements and bug fixes.
+This PR introduces native WebView implementations for Android, along with significant cache management improvements and bug fixes.
 
 ## Changes
 
-### New Features
-- Implemented native Android WebView with cache management functionality
-- Added iOS native WebView implementation with custom cache handling
-- Introduced new cache pattern management system
+- Increased buffer size for `BufferedInputStream` in `WebCacheManager.kt` to 32KB (32 * 1024) for optimized cache file reading
+- Refactored `MainActivity.kt` to use `properties.getProperty` instead of `jsonObject.optString` for configuration values
 
-### Technical Implementation Details
-- Android:
-  - Added complete Android project structure with WebView implementation
-  - Implemented `WebCacheManager.kt` for handling cache operations
-  - Set up Gradle configuration and project dependencies
-
-- iOS:
-  - Created iOS native WebView project with Swift
-  - Implemented `CacheManager.swift` and `ResourceURLProtocol.swift` for cache handling
-  - Added WebView navigation and view model components
-
-
-### Other Changes
-- Enhanced terminal progress reporting
-- Updated documentation and README
+### Fixed
+- Corrected prompt string in `utils.js` from "CSS pattern" to "Cache pattern"
 
 ## Version
-- Target version: 0.0.3-canary.1
+- Target version: 0.0.3-canary.3

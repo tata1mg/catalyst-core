@@ -15,6 +15,7 @@ class WebCacheManager(private val context: Context) {
     private val TAG = "WebCacheManager"
     private val cacheDir = File(context.cacheDir, "webview_cache")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val BUFFER_SIZE = 32 * 1024 
 
     // Cache timing configurations
     private val maxAge = TimeUnit.HOURS.toMillis(24) // Time until content becomes stale
@@ -233,10 +234,10 @@ class WebCacheManager(private val context: Context) {
 
                 // Create response for immediate use
                 val response = WebResourceResponse(
-                    mimeType,
-                    encoding,
-                    ByteArrayInputStream(responseBytes)
-                )
+                        mimeType,
+                        encoding,
+                        ByteArrayInputStream(responseBytes)
+                    )
 
                 // Cache the response
                 val cacheEntry = CacheEntry(
@@ -286,7 +287,7 @@ class WebCacheManager(private val context: Context) {
         return WebResourceResponse(
             metadata.mimeType,
             metadata.encoding,
-            BufferedInputStream(FileInputStream(cacheFile))
+            BufferedInputStream(FileInputStream(cacheFile), BUFFER_SIZE)
         )
     }
 

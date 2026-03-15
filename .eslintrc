@@ -5,8 +5,8 @@
         "react/display-name": [
             0,
             {
-                "ignoreTranspilerName": true
-            }
+                "ignoreTranspilerName": true,
+            },
         ],
         "react-hooks/exhaustive-deps": "error", // Checks effect dependencies
         "no-prototype-builtins": "off",
@@ -18,74 +18,64 @@
         "risxss/catch-potential-xss-react": [
             "error",
             {
-                "trustedLibraries": [
-                    "@commonUtils"
-                ]
-            }
+                "trustedLibraries": ["@commonUtils"],
+            },
         ],
         "react/jsx-no-target-blank": [
             0,
             {
-                "enforceDynamicLinks": "never"
-            }
-        ]
+                "enforceDynamicLinks": "never",
+            },
+        ],
+        "react-compiler/react-compiler": "error",
     },
     "env": {
         "browser": true,
         "es6": true,
         "jest": true,
-        "node": true
+        "node": true,
     },
     "globals": {
         "expect": true,
         "__non_webpack_require__": true,
         "logger": "readonly",
-        "AppCallbacks": "readonly"
+        "AppCallbacks": "readonly",
     },
-    "extends": [
-        "eslint:recommended",
-        "plugin:react/recommended"
-    ],
+    "extends": ["eslint:recommended", "plugin:react/recommended"],
     "parserOptions": {
         "sourceType": "module",
         "ecmaFeatures": {
             "experimentalObjectRestSpread": true,
-            "jsx": true
+            "jsx": true,
         },
         "babelOptions": {
-            "configFile": "./babel.config.json"
+            "configFile": "./babel.config.js",
         },
-        "ecmaVersion": 6
+        "ecmaVersion": 6,
     },
-    "plugins": [
-        "babel",
-        "react",
-        "react-hooks",
-        "security",
-        "risxss"
-    ],
+    "plugins": ["babel", "react", "react-hooks", "security", "risxss", "eslint-plugin-react-compiler"],
     "settings": {
         "react": {
             "createClass": "createReactClass",
             "pragma": "React",
-            "version": "detect"
+            "version": "detect",
         },
         "propWrapperFunctions": [
             "forbidExtraProps",
             {
                 "property": "freeze",
-                "object": "Object"
+                "object": "Object",
             },
             {
-                "property": "myFavoriteWrapper"
-            }
+                "property": "myFavoriteWrapper",
+            },
         ],
         "linkComponents": [
             "Hyperlink",
             {
                 "name": "Link",
-                "linkAttribute": "to"
-            }
-        ]
-    }
+                "linkAttribute": "to",
+            },
+        ],
+    },
 }

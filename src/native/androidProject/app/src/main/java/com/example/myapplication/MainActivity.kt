@@ -73,10 +73,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         val androidConfig = try {
             val jsonObject = JSONObject(androidConfigJson)
             AndroidConfig(
-                buildType = jsonObject.optString("buildType", "debug"),
-                cachePattern = jsonObject.optString("cachePattern", ""),
-                emulatorName = jsonObject.optString("emulatorName", ""),
-                sdkPath = jsonObject.optString("sdkPath", "")
+                buildType = properties.getProperty("buildType", "debug"),
+                cachePattern = properties.getProperty("cachePattern", ""),
+                emulatorName = properties.getProperty("emulatorName", ""),
+                sdkPath = properties.getProperty("sdkPath", "")
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing android config", e)
