@@ -15,7 +15,7 @@ const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
 const webpackClientConfig = merge(baseConfig, {
     // eval-cheap-module-source-map: faster rebuilds and lower memory than inline-source-map
-    devtool: "eval-cheap-module-source-map",
+    devtool: "inline-source-map",
     stats: "none",
     infrastructureLogging: {
         level: "none",
