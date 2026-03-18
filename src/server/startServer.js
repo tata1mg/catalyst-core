@@ -198,7 +198,7 @@ const checkPortAvailability = (port, host) => {
 
 checkPortAvailability(port, host)
     .then(() => {
-        if (process.env.NODE_ENV === "development") {
+        if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "testing") {
             if (fs.existsSync(statsPath)) {
                 // loadable-stats.json already exists (e.g. dev server restarted mid-session):
                 // start immediately and clear the module cache on every subsequent webpack rebuild

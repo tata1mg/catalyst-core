@@ -53,7 +53,7 @@ if (fs.existsSync(storePath)) {
     }
 }
 
-const isProduction = process.env.NODE_ENV === "production"
+const isProduction = process.env.NODE_ENV === "production" || process.env.NODE_ENV === "testing"
 
 // Cache webStats path - computed once at module load
 const webStatsPath = isProduction
@@ -212,7 +212,7 @@ const renderMarkUp = async (
     webExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
+    const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
 
     let state = store.getState()
     // collectChunks wraps the component tree so the extractor can track which loadable
