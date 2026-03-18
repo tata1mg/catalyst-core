@@ -29,15 +29,23 @@ fun isAllowBackupEnabled(): Boolean {
 
 fun isNotificationsEnabled(): Boolean {
     return try {
-        if (configPath == null) return false
-        val configFile = File(configPath!!)
-        if (!configFile.exists()) return false
+        if (configPath != null) {
+            val configFile = File(configPath!!)
+            if (configFile.exists()) {
+                val json = JSONObject(configFile.readText())
+                if (!json.has("WEBVIEW_CONFIG")) return false
 
-        val json = JSONObject(configFile.readText())
-        if (!json.has("WEBVIEW_CONFIG")) return false
+                val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
+                return webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+            }
+        }
 
-        val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
-        webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+        val propsFile = File("${project.projectDir}/src/main/assets/webview_config.properties")
+        if (!propsFile.exists()) return false
+
+        val props = Properties()
+        props.load(propsFile.inputStream())
+        props.getProperty("notifications.enabled", "false").trim().lowercase() == "true"
     } catch (e: Exception) {
         false
     }
