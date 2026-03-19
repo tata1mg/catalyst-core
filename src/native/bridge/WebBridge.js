@@ -6,6 +6,7 @@ import {
 } from "./constants/NativeInterfaces.js"
 import nativeBridge from "./utils/NativeBridge.js"
 import CameraUtils from "./utils/CameraUtils.js"
+import WebPerfCollector from "./perf/index.js"
 
 class WebBridge {
     constructor() {
@@ -45,6 +46,10 @@ class WebBridge {
         bridge.initialized = true
 
         const { platform } = nativeBridge.getEnvironmentInfo()
+
+        // Start perf collection — hooks into native cache/keyboard events
+        // and sets up LoAF/layout-shift/scroll observers.
+        WebPerfCollector.init(bridge)
 
         console.log("🌉 WebBridge created and attached to window")
         return { bridge, platform, getDeviceInfo: bridge.getDeviceInfo }

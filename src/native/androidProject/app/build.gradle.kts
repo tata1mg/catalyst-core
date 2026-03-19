@@ -93,6 +93,7 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             isMinifyEnabled = false
+            enableUnitTestCoverage = true
             buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "true")
             buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
         }

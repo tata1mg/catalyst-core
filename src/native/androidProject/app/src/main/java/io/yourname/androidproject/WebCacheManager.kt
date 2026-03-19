@@ -1,18 +1,27 @@
 package io.yourname.androidproject
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import android.util.LruCache
 import android.webkit.WebResourceResponse
+import android.webkit.WebView
 import io.yourname.androidproject.BuildConfig
+import io.yourname.androidproject.utils.BridgeUtils
+import io.yourname.androidproject.utils.PerfEventBuffer
 import kotlinx.coroutines.*
+import org.json.JSONObject
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
-class WebCacheManager(private val context: Context, private val properties: java.util.Properties? = null) {
+class WebCacheManager(
+    private val context: Context,
+    private val properties: java.util.Properties? = null,
+    private val webView: WebView? = null,
+) {
     private val TAG = "WebCacheManager"
     private val cacheDir = File(context.cacheDir, "webview_cache")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -58,13 +67,61 @@ class WebCacheManager(private val context: Context, private val properties: java
         val lastModified: String? = null
     )
 
+    // ─── Perf telemetry ──────────────────────────────────────────────────────
+
+    /**
+     * Emit a cache/network perf event to WebPerfCollector.
+     * Runs on whatever thread calls it — BridgeUtils.emitPerfEvent() handles
+     * posting to main thread before touching WebView.
+     *
+     * @param type  One of: cache-hit-memory, cache-hit-disk, cache-miss-fetch,
+     *              network-fetch-complete
+     * @param url   The full resource URL
+     * @param startMs SystemClock.elapsedRealtime() at operation start
+     */
+    private fun emitCachePerfEvent(
+        type: String,
+        url: String,
+        startMs: Long,
+        resourceType: String = "other",
+        statusCode: Int? = null,
+        interceptThread: String? = null,
+    ) {
+        if (!BuildConfig.DEBUG) return
+        val endMs = SystemClock.elapsedRealtime()
+        val durationMs = endMs - startMs
+        try {
+            val payload = JSONObject().apply {
+                put("type", type)
+                put("url", url)
+                put("durationMs", durationMs)
+                put("nativeStartMs", startMs)
+                put("resourceType", resourceType)
+                put("thread", Thread.currentThread().name)
+                interceptThread?.let { put("interceptThread", it) }
+                statusCode?.let { put("statusCode", it) }
+            }
+            // Buffer cache events — flushed as a batch to web after onPageFinished.
+            // This avoids per-event evaluateJavascript calls during resource loading.
+            PerfEventBuffer.add(payload)
+        } catch (e: Exception) {
+            Log.e(TAG, "emitCachePerfEvent failed: ${e.message}")
+        }
+    }
+
     /**
      * Synchronous cache check - only returns cached content if immediately available
      * Does not perform network requests or background revalidation
      * Used by ServiceWorker to avoid blocking
      */
-    fun getCachedResponseSync(url: String, headers: Map<String, String>): WebResourceResponse? {
+    fun getCachedResponseSync(
+        url: String,
+        headers: Map<String, String>,
+        resourceType: String = "other",
+        interceptThread: String? = null,
+    ): WebResourceResponse? {
         return try {
+            val startMs = SystemClock.elapsedRealtime()
             val cacheKey = generateCacheKey(url)
             val currentTime = System.currentTimeMillis()
 
@@ -77,6 +134,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "✅ Serving from memory cache (sync): $url")
                     }
+                    emitCachePerfEvent("cache-hit-memory", url, startMs, resourceType, interceptThread = interceptThread)
                     return memoryCacheEntry.response
                 }
             }
@@ -91,6 +149,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "✅ Serving from disk cache (sync): $url")
                     }
+                    emitCachePerfEvent("cache-hit-disk", url, startMs, resourceType, interceptThread = interceptThread)
                     return response
                 }
             }
@@ -99,6 +158,7 @@ class WebCacheManager(private val context: Context, private val properties: java
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "❌ No valid cache available (sync): $url")
             }
+            emitCachePerfEvent("cache-miss-fetch", url, startMs, resourceType, interceptThread = interceptThread)
             null
         } catch (e: Exception) {
             Log.e(TAG, "Error in getCachedResponseSync for URL: $url: ${e.message}")
@@ -106,9 +166,14 @@ class WebCacheManager(private val context: Context, private val properties: java
         }
     }
 
-    suspend fun getCachedResponse(url: String, headers: Map<String, String>): WebResourceResponse? =
+    suspend fun getCachedResponse(
+        url: String,
+        headers: Map<String, String>,
+        resourceType: String = "other",
+    ): WebResourceResponse? =
         withContext(Dispatchers.IO) {
             try {
+                val startMs = SystemClock.elapsedRealtime()
                 val cacheKey = generateCacheKey(url)
                 val currentTime = System.currentTimeMillis()
 
@@ -123,6 +188,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                             if (BuildConfig.DEBUG) {
                                 Log.d(TAG, "Serving fresh content from memory cache: $url")
                             }
+                            emitCachePerfEvent("cache-hit-memory", url, startMs, resourceType)
                             return@withContext memoryCacheEntry.response
                         }
                         age <= maxAge + staleWhileRevalidate -> {
@@ -130,6 +196,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                             if (BuildConfig.DEBUG) {
                                 Log.d(TAG, "Serving stale content while revalidating: $url")
                             }
+                            emitCachePerfEvent("cache-hit-memory", url, startMs, resourceType)
                             revalidateInBackground(url, headers, cacheKey, memoryCacheEntry)
                             return@withContext memoryCacheEntry.response
                         }
@@ -147,6 +214,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                             // Fresh content from disk
                             val response = createResponseFromCache(cacheFile, metadata)
                             memoryCache.put(cacheKey, CacheEntry(response))
+                            emitCachePerfEvent("cache-hit-disk", url, startMs, resourceType)
                             return@withContext response
                         }
                         fileAge <= maxAge + staleWhileRevalidate -> {
@@ -158,6 +226,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                                 eTag = metadata.eTag,
                                 lastModified = metadata.lastModified
                             )
+                            emitCachePerfEvent("cache-hit-disk", url, startMs, resourceType)
                             revalidateInBackground(url, headers, cacheKey, cacheEntry)
                             return@withContext response
                         }
@@ -168,7 +237,8 @@ class WebCacheManager(private val context: Context, private val properties: java
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "❌ Cache miss, fetching fresh content: $url")
                 }
-                fetchAndCacheResource(url, headers, cacheKey)
+                emitCachePerfEvent("cache-miss-fetch", url, startMs, resourceType)
+                fetchAndCacheResource(url, headers, cacheKey, resourceType)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in getCachedResponse for URL: $url: ${e.message}")
                 if (BuildConfig.DEBUG) {
@@ -311,8 +381,10 @@ class WebCacheManager(private val context: Context, private val properties: java
     private suspend fun fetchAndCacheResource(
         url: String,
         headers: Map<String, String>,
-        cacheKey: String
+        cacheKey: String,
+        resourceType: String = "other",
     ): WebResourceResponse? = withContext(Dispatchers.IO) {
+        val fetchStartMs = SystemClock.elapsedRealtime()
         var connection: HttpURLConnection? = null
         try {
             connection = URL(url).openConnection() as HttpURLConnection
@@ -353,6 +425,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                     lastModified = lastModified
                 )
                 memoryCache.put(cacheKey, cacheEntry)
+                emitCachePerfEvent("network-fetch-complete", url, fetchStartMs, resourceType, connection.responseCode)
 
                 // Save to disk cache
                 scope.launch {

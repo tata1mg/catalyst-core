@@ -9,6 +9,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.webkit.*
 import androidx.core.app.ActivityCompat
@@ -21,8 +23,11 @@ import androidx.webkit.WebViewAssetLoader
 import io.yourname.androidproject.WebCacheManager
 import io.yourname.androidproject.URLWhitelistManager
 import io.yourname.androidproject.matchesCachePattern
+import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.CameraUtils
 import io.yourname.androidproject.utils.NetworkUtils
+import io.yourname.androidproject.utils.PerfEventBuffer
+import org.json.JSONObject
 import kotlinx.coroutines.*
 import java.io.FileNotFoundException
 import java.util.Properties
@@ -59,6 +64,10 @@ class CustomWebView(
     private var accessControlEnabled: Boolean = false
     private val offlineAssetPath = "offline/offline.html"
     private val offlineAssetUrl = "file:///android_asset/$offlineAssetPath"
+
+    // ── Scroll tracking ───────────────────────────────────────────────────────
+    private var scrollSessionOpen = false
+    private lateinit var scrollGestureDetector: GestureDetector
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
     private var defaultRequestHeaders: Map<String, String> = emptyMap()
@@ -71,8 +80,19 @@ class CustomWebView(
     private val ongoingCacheFetches = mutableSetOf<String>()
 
     init {
+        // Boot timing: stamp webview construction
+        if (BuildConfig.DEBUG) {
+            PerfEventBuffer.add(JSONObject().apply {
+                put("type", "boot-webview-constructed")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("thread", Thread.currentThread().name)
+            })
+        }
+
         setupFromProperties()
-        cacheManager = WebCacheManager(context, properties)
+        cacheManager = WebCacheManager(context, properties, webView)
+        // Attach WebView to MetricsMonitor so it can emit perf events to the JS side
+        metricsMonitor.attachWebView(webView)
 
         // Initialize geolocation permission launcher if context is an Activity
         if (context is androidx.activity.ComponentActivity) {
@@ -167,6 +187,16 @@ class CustomWebView(
     fun loadUrl(url: String) {
         lastTargetUrl = url
         offlinePageVisible = false
+        // Boot timing: reset buffer for new page, stamp loadUrl call
+        if (BuildConfig.DEBUG) {
+            PerfEventBuffer.reset()
+            PerfEventBuffer.add(JSONObject().apply {
+                put("type", "boot-load-url")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("url", url)
+                put("thread", Thread.currentThread().name)
+            })
+        }
         loadUrlInternal(url)
     }
 
@@ -265,6 +295,7 @@ class CustomWebView(
 
     fun destroy() {
         job.cancel()
+        metricsMonitor.detachWebView()
         webView.destroy()
     }
 
@@ -315,6 +346,13 @@ class CustomWebView(
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "🚀 Hardware acceleration enabled - Thread: ${Thread.currentThread().name}")
             }
+            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                put("type", "hw-accel-change")
+                put("state", "on")
+                put("trigger", "cleanup")
+                put("thread", Thread.currentThread().name)
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+            })
         }
     }
 
@@ -325,6 +363,13 @@ class CustomWebView(
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "⚫ Hardware acceleration disabled - Thread: ${Thread.currentThread().name}")
             }
+            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                put("type", "hw-accel-change")
+                put("state", "off")
+                put("trigger", "cache-serve")
+                put("thread", Thread.currentThread().name)
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+            })
         }
     }
 
@@ -508,6 +553,25 @@ class CustomWebView(
         }
     }
 
+    /**
+     * Infer Chrome DevTools-compatible resource type from URL extension.
+     * Values match the initiatorType strings used in Resource Timing API:
+     * script, stylesheet, image, font, other.
+     */
+    private fun inferResourceType(url: String): String {
+        val path = try { java.net.URL(url).path } catch (_: Exception) { url }
+        val ext = path.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "js", "mjs"                       -> "script"
+            "css"                             -> "stylesheet"
+            "png", "jpg", "jpeg", "gif",
+            "svg", "webp", "ico", "avif"      -> "image"
+            "woff", "woff2", "ttf", "eot",
+            "otf"                             -> "font"
+            else                              -> "other"
+        }
+    }
+
     private fun setupServiceWorker() {
         try {
             val serviceWorkerController = ServiceWorkerControllerCompat.getInstance()
@@ -552,7 +616,8 @@ class CustomWebView(
                             }
 
                             // Get cached response synchronously (non-blocking for ServiceWorker)
-                            val response = cacheManager.getCachedResponseSync(url, headers)
+                            val resType = inferResourceType(url)
+                            val response = cacheManager.getCachedResponseSync(url, headers, resType, interceptThread = Thread.currentThread().name)
                             if (response != null) {
                                 if (BuildConfig.DEBUG) {
                                     Log.d(TAG, "✅ SERVICE_WORKER: Served from cache: $url")
@@ -574,7 +639,7 @@ class CustomWebView(
                                     }
                                     launch(Dispatchers.IO) {
                                         try {
-                                            cacheManager.getCachedResponse(url, headers)
+                                            cacheManager.getCachedResponse(url, headers, resType)
                                             if (BuildConfig.DEBUG) {
                                                 Log.d(TAG, "✅ SERVICE_WORKER: Async cache fetch completed: $url")
                                             }
@@ -622,7 +687,7 @@ class CustomWebView(
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     private fun setupWebView() {
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🌐 Setting up WebView on thread: ${Thread.currentThread().name}")
@@ -686,9 +751,13 @@ class CustomWebView(
                         return true
                     }
 
-                    // Let WebView handle loading non-API HTTP/HTTPS URLs
+                    // Let WebView handle loading non-API HTTP/HTTPS URLs.
+                    // Flush any pending perf events before the new page load resets the buffer.
                     if (url.scheme in listOf("http", "https")) {
                         lastTargetUrl = urlString
+                        if (BuildConfig.DEBUG) {
+                            PerfEventBuffer.flushNow(view ?: webView)
+                        }
                         return false
                     }
                 }
@@ -844,7 +913,8 @@ class CustomWebView(
                         }
 
                         // Use synchronous cache check to avoid blocking
-                        val response = cacheManager.getCachedResponseSync(url, headers)
+                        val resType = inferResourceType(url)
+                        val response = cacheManager.getCachedResponseSync(url, headers, resType, interceptThread = Thread.currentThread().name)
 
                         if (response != null) {
                             if (BuildConfig.DEBUG) {
@@ -867,7 +937,7 @@ class CustomWebView(
                             if (shouldFetch) {
                                 launch(Dispatchers.IO) {
                                     try {
-                                        cacheManager.getCachedResponse(url, headers)
+                                        cacheManager.getCachedResponse(url, headers, resType)
                                         if (BuildConfig.DEBUG) {
                                             Log.d(TAG, "✅ WEBVIEW_CLIENT: Async cache fetch completed: $url")
                                         }
@@ -930,6 +1000,35 @@ class CustomWebView(
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "⏳ Page load started for: $url - Hardware Acceleration: $isHardwareAccelerationEnabled")
                 }
+
+                // Inject native time offset so WebPerfCollector can align web timestamps
+                // with native SystemClock.elapsedRealtime() traces.
+                // offset = elapsedRealtime - performance.now() at the same instant.
+                val nativeNow = android.os.SystemClock.elapsedRealtime()
+                view?.evaluateJavascript(
+                    "window.__NATIVE_TIME_OFFSET = $nativeNow - performance.now();",
+                    null
+                )
+
+                // Boot timing: stamp onPageStarted
+                if (BuildConfig.DEBUG && url != null) {
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "boot-page-started")
+                        put("nativeTime", nativeNow)
+                        put("url", url)
+                    })
+                }
+
+                // Buffer page-load-start so it survives until JS is ready.
+                // emitPerfEvent here is a no-op — JS hasn't loaded yet at onPageStarted.
+                // The batch flush after onPageFinished delivers it when the page is live.
+                if (BuildConfig.DEBUG && url != null) {
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "page-load-start")
+                        put("nativeTime", nativeNow)
+                        put("url", url)
+                    })
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -938,6 +1037,36 @@ class CustomWebView(
                     isInitialPageLoaded = true
                 }
                 url?.let { metricsMonitor.trackPageLoadEnd(it) }
+
+                val pageFinishedNative = android.os.SystemClock.elapsedRealtime()
+
+                // Boot timing: stamp onPageFinished
+                if (BuildConfig.DEBUG && url != null) {
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "boot-page-finished")
+                        put("nativeTime", pageFinishedNative)
+                        put("url", url)
+                    })
+                }
+
+                // Buffer page-load-end alongside page-load-start so both are delivered
+                // together in the batch flush when JS is ready.
+                if (BuildConfig.DEBUG && url != null) {
+                    val startTime = view?.tag as? Long
+                    val durationMs = if (startTime != null) System.currentTimeMillis() - startTime else 0L
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "page-load-end")
+                        put("nativeTime", pageFinishedNative)
+                        put("url", url)
+                        put("durationMs", durationMs)
+                    })
+                }
+
+                // Flush native buffer to web layer (boot timing + cache + api-call events)
+                if (BuildConfig.DEBUG && view != null) {
+                    PerfEventBuffer.scheduleFlush(view)
+                }
+
                 if (BuildConfig.DEBUG) {
                     val startTime = view?.tag as? Long ?: return
                     val loadTime = System.currentTimeMillis() - startTime
@@ -964,6 +1093,16 @@ class CustomWebView(
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (error != null) {
                     Log.e(TAG, "❌ Error loading ${request?.url}: ${error.errorCode} ${error.description}")
+                    // Emit page-load-error for Catalyst Perf track (main frame only to avoid noise)
+                    if (view != null && request?.isForMainFrame == true) {
+                        BridgeUtils.emitPerfEvent(view, JSONObject().apply {
+                            put("type", "page-load-error")
+                            put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                            put("url", request.url?.toString() ?: "")
+                            put("errorCode", error.errorCode)
+                            put("description", error.description?.toString() ?: "")
+                        })
+                    }
                 }
                 super.onReceivedError(view, request, error)
             }
@@ -1093,5 +1232,45 @@ class CustomWebView(
 
         // Only enable WebView debugging in debug builds
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+
+        // ── Scroll tracking via GestureDetector ───────────────────────────────
+        // DOM window scroll events don't fire in React SPAs (inner divs scroll,
+        // not window). GestureDetector on the WebView catches real finger scrolls
+        // and emits scroll-start / scroll-end to the JS perf layer.
+        if (BuildConfig.DEBUG) {
+            scrollGestureDetector = GestureDetector(context,
+                object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onScroll(
+                        e1: MotionEvent?,
+                        e2: MotionEvent,
+                        distanceX: Float,
+                        distanceY: Float
+                    ): Boolean {
+                        if (!scrollSessionOpen) {
+                            scrollSessionOpen = true
+                            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                                put("type", "scroll-start")
+                                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                            })
+                        }
+                        return false  // don't consume — WebView handles the scroll
+                    }
+                }
+            )
+
+            webView.setOnTouchListener { v, event ->
+                scrollGestureDetector.onTouchEvent(event)
+                if (scrollSessionOpen &&
+                    (event.action == MotionEvent.ACTION_UP ||
+                     event.action == MotionEvent.ACTION_CANCEL)) {
+                    scrollSessionOpen = false
+                    BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                        put("type", "scroll-end")
+                        put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                    })
+                }
+                false  // pass event through so WebView can scroll
+            }
+        }
     }
 }

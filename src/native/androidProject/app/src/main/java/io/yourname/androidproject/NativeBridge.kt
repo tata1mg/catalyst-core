@@ -144,6 +144,7 @@ class NativeBridge(
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
     private val isGoogleSignInInProgress = AtomicBoolean(false)
+    private var googleSignInCallId: String? = null
     private val credentialManager: CredentialManager by lazy { CredentialManager.create(mainActivity) }
     private val isGoogleSignInEnabled: Boolean by lazy {
         properties.getProperty("googleSignIn.enabled", "false").toBoolean()
@@ -241,8 +242,11 @@ class NativeBridge(
 
     @JavascriptInterface
     fun openCamera(options: String?) {
+        val callId = "openCamera:${android.os.SystemClock.elapsedRealtime()}"
+        BridgeUtils.bridgeCallReceived(callId, "openCamera")
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "open camera") {
             mainActivity.runOnUiThread {
+                BridgeUtils.bridgeCallDispatched(callId)
                 if (CameraUtils.hasCameraPermission(mainActivity)) {
                     launchCamera()
                 } else {
@@ -285,6 +289,9 @@ class NativeBridge(
 
     @JavascriptInterface
     fun googleSignIn(optionsRaw: String?) {
+        val callId = "googleSignIn:${android.os.SystemClock.elapsedRealtime()}"
+        BridgeUtils.bridgeCallReceived(callId, "googleSignIn")
+        googleSignInCallId = callId
         BridgeUtils.safeExecute(
             webView,
             BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_ERROR,
@@ -401,10 +408,13 @@ class NativeBridge(
 
     @JavascriptInterface
     fun getDeviceInfo(options: String?) {
+        val callId = "getDeviceInfo:${android.os.SystemClock.elapsedRealtime()}"
+        BridgeUtils.bridgeCallReceived(callId, "getDeviceInfo")
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_ERROR, "get device info") {
             mainActivity.runOnUiThread {
                 val deviceInfo = DeviceInfoUtils.getDeviceInfo(mainActivity, properties)
                 BridgeUtils.logDebug(TAG, "Device info retrieved: $deviceInfo")
+                BridgeUtils.bridgeCallDispatched(callId)
                 BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, deviceInfo.toString())
             }
         }
@@ -816,6 +826,8 @@ class NativeBridge(
             }
 
             isGoogleSignInInProgress.set(false)
+            googleSignInCallId?.let { BridgeUtils.bridgeCallDispatched(it) }
+            googleSignInCallId = null
             BridgeUtils.notifyWebJson(
                 webView,
                 BridgeUtils.WebEvents.ON_GOOGLE_SIGN_IN_SUCCESS,

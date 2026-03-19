@@ -5,6 +5,10 @@ import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import android.view.Choreographer
+import android.webkit.WebView
+import io.yourname.androidproject.utils.BridgeUtils
+import io.yourname.androidproject.utils.PerfEventBuffer
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -13,6 +17,23 @@ import java.util.concurrent.atomic.AtomicInteger
  * Tracks key performance metrics and logs them on app destroy.
  */
 class MetricsMonitor(private val context: Context) {
+
+    // WebView reference for emitting perf events — set via attachWebView()
+    @Volatile private var webView: WebView? = null
+
+    fun attachWebView(wv: WebView) {
+        webView = wv
+    }
+
+    fun detachWebView() {
+        // Flush any open fps-drop episode before losing the WebView reference
+        if (inFpsDropEpisode) emitFpsDropEpisode(endTime = SystemClock.elapsedRealtime())
+        webView = null
+    }
+
+    private fun emitPerf(payload: JSONObject) {
+        webView?.let { BridgeUtils.emitPerfEvent(it, payload) }
+    }
     private val TAG = "MetricsMonitor"
 
     // App Startup metrics
@@ -33,6 +54,15 @@ class MetricsMonitor(private val context: Context) {
     private var maxFps = 0.0
     private var avgFps = 0.0
     private var fpsReadings = 0
+
+    // fps-drop episode tracking
+    private var inFpsDropEpisode = false
+    private var episodeStartNativeTime: Long = 0
+    private var episodeMinFps = Double.MAX_VALUE
+    private var episodeFpsSum = 0.0
+    private var episodeSampleCount = 0
+    private val FPS_EPISODE_MAX_MS = 10_000L  // force-close after 10s
+    private var lastStableFps = 60.0          // fps reading just before episode started — used to compute deltaFps
 
     // Memory metrics
     private var initialMemory: Long = getMemoryUsage()
@@ -76,6 +106,14 @@ class MetricsMonitor(private val context: Context) {
     fun markAppStartComplete() {
         coldStartDuration = SystemClock.elapsedRealtime() - appStartTime
         Log.d(TAG, "App cold start completed in: $coldStartDuration ms")
+        // Buffer so it is delivered with the post-load batch flush when JS is ready.
+        // emitPerf (live path) would be a no-op here — JS may not have loaded yet.
+        PerfEventBuffer.add(JSONObject().apply {
+            put("type", "cold-start")
+            put("nativeTime", SystemClock.elapsedRealtime())
+            put("durationMs", coldStartDuration)
+            put("thread", Thread.currentThread().name)
+        })
     }
 
     fun trackPageLoadStart(url: String) {
@@ -144,8 +182,14 @@ class MetricsMonitor(private val context: Context) {
         uiBlockingEvents++
     }
 
-    fun recordLongTask() {
+    fun recordLongTask(durationMs: Long = longTaskThreshold) {
         longTasksDetected++
+        emitPerf(JSONObject().apply {
+            put("type", "long-task")
+            put("nativeTime", SystemClock.elapsedRealtime())
+            put("durationMs", durationMs)
+            put("thread", Thread.currentThread().name)
+        })
     }
 
     private fun startFrameMonitoring() {
@@ -173,27 +217,106 @@ class MetricsMonitor(private val context: Context) {
         val timeSpan = now - lastFpsCheckTime
         lastFpsCheckTime = now
 
-        if (timeSpan > 0) {
-            currentFps = frames * 1000.0 / timeSpan
+        if (timeSpan <= 0) return
 
-            // Update min/max/avg
-            if (minFps == Double.MAX_VALUE) minFps = currentFps
-            minFps = minFps.coerceAtMost(currentFps)
-            maxFps = maxFps.coerceAtLeast(currentFps)
+        currentFps = frames * 1000.0 / timeSpan
 
-            val totalFps = avgFps * fpsReadings + currentFps
-            fpsReadings++
-            avgFps = totalFps / fpsReadings
+        // Update session-level min/max/avg
+        if (minFps == Double.MAX_VALUE) minFps = currentFps
+        minFps = minFps.coerceAtMost(currentFps)
+        maxFps = maxFps.coerceAtLeast(currentFps)
+        val totalFps = avgFps * fpsReadings + currentFps
+        fpsReadings++
+        avgFps = totalFps / fpsReadings
+
+        if (currentFps < 55.0) {
+            if (!inFpsDropEpisode) {
+                // Start new episode — capture the last stable fps as baseline for deltaFps
+                inFpsDropEpisode = true
+                episodeStartNativeTime = now - timeSpan  // start of the measured window
+                episodeMinFps = currentFps
+                episodeFpsSum = currentFps
+                episodeSampleCount = 1
+                // lastStableFps already holds the previous reading (set in the else branch below)
+            } else {
+                // Accumulate into current episode
+                episodeMinFps = episodeMinFps.coerceAtMost(currentFps)
+                episodeFpsSum += currentFps
+                episodeSampleCount++
+
+                // Force-close if episode has run for >= 10s
+                val episodeDuration = now - episodeStartNativeTime
+                if (episodeDuration >= FPS_EPISODE_MAX_MS) {
+                    emitFpsDropEpisode(endTime = now)
+                    // Immediately start a new episode for the continuing drop
+                    inFpsDropEpisode = true
+                    episodeStartNativeTime = now
+                    episodeMinFps = currentFps
+                    episodeFpsSum = currentFps
+                    episodeSampleCount = 1
+                }
+            }
+        } else {
+            // FPS is good — update lastStableFps and close episode if one was open
+            lastStableFps = currentFps
+            if (inFpsDropEpisode) {
+                emitFpsDropEpisode(endTime = now)
+            }
         }
+    }
+
+    private fun emitFpsDropEpisode(endTime: Long) {
+        if (!inFpsDropEpisode) return
+        val durationMs = endTime - episodeStartNativeTime
+        val avgEpisodeFps = if (episodeSampleCount > 0) episodeFpsSum / episodeSampleCount else episodeMinFps
+        // deltaFps = how far FPS fell from the last stable reading before the episode
+        val deltaFps = lastStableFps - episodeMinFps
+        emitPerf(JSONObject().apply {
+            put("type", "fps-drop-episode")
+            put("startNativeTime", episodeStartNativeTime)
+            put("endNativeTime", endTime)
+            put("durationMs", durationMs)
+            put("minFps", episodeMinFps)
+            put("avgFps", avgEpisodeFps)
+            put("deltaFps", deltaFps)     // drop magnitude from last stable fps
+            put("baselineFps", lastStableFps)
+            put("thread", Thread.currentThread().name)
+        })
+        inFpsDropEpisode = false
+        episodeMinFps = Double.MAX_VALUE
+        episodeFpsSum = 0.0
+        episodeSampleCount = 0
     }
 
     private fun monitorMemoryPeriodically() {
         Thread {
             while (!Thread.interrupted()) {
                 try {
-                    currentMemory = getMemoryUsage()
-                    peakMemory = peakMemory.coerceAtLeast(currentMemory)
-                    Thread.sleep(5000) // Check every 5 seconds
+                    val memInfo = Debug.MemoryInfo()
+                    Debug.getMemoryInfo(memInfo)
+
+                    // PSS breakdown — all values in KB, convert to MB
+                    val jvmMb     = memInfo.dalvikPss  / 1024.0  // Kotlin/Java heap
+                    val webviewMb = memInfo.nativePss  / 1024.0  // V8 + Blink + JNI (WebView proxy)
+                    val otherMb   = memInfo.otherPss   / 1024.0  // graphics buffers, code, stack
+                    val totalMb   = memInfo.totalPss   / 1024.0  // what Android OOM killer sees
+
+                    currentMemory = memInfo.totalPss.toLong()
+                    peakMemory    = peakMemory.coerceAtLeast(currentMemory)
+
+                    val now = SystemClock.elapsedRealtime()
+                    emitPerf(JSONObject().apply {
+                        put("type",         "memory-snapshot")
+                        put("nativeTime",    now)
+                        put("jvmMb",        jvmMb)
+                        put("webviewMb",    webviewMb)
+                        put("otherMb",      otherMb)
+                        put("totalMb",      totalMb)
+                        put("peakMb",       peakMemory / 1024.0)
+                        put("thread",       Thread.currentThread().name)
+                        if (coldStartDuration > 0) put("coldStartMs", coldStartDuration)
+                    })
+                    Thread.sleep(5000)
                 } catch (e: InterruptedException) {
                     break
                 }
@@ -324,7 +447,7 @@ class MetricsMonitor(private val context: Context) {
     }
 
     fun cleanup() {
-        // Remove frame callback
+        if (inFpsDropEpisode) emitFpsDropEpisode(endTime = SystemClock.elapsedRealtime())
         Choreographer.getInstance().removeFrameCallback(frameCallback)
     }
 

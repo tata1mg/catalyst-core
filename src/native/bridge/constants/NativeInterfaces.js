@@ -95,6 +95,9 @@ export const NATIVE_CALLBACKS = {
     ON_SCREEN_SECURE_ERROR: "ON_SCREEN_SECURE_ERROR",
     ON_WEB_DATA_CLEARED: "ON_WEB_DATA_CLEARED",
     ON_WEB_DATA_CLEAR_ERROR: "ON_WEB_DATA_CLEAR_ERROR",
+
+    // Perf telemetry callbacks (native → web)
+    CATALYST_PERF_EVENT: "CATALYST_PERF_EVENT",
 }
 
 // Interface Categories for easier management

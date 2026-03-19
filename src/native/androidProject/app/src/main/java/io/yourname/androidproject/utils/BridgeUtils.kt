@@ -5,6 +5,8 @@ import android.webkit.WebView
 import io.yourname.androidproject.CatalystConstants
 import org.json.JSONObject
 import android.os.Looper
+import android.os.SystemClock
+import io.yourname.androidproject.BuildConfig
 
 /**
  * Common utilities for native bridge operations
@@ -82,11 +84,64 @@ object BridgeUtils {
         ON_SCREEN_SECURE_ERROR("ON_SCREEN_SECURE_ERROR"),
         ON_WEB_DATA_CLEARED("ON_WEB_DATA_CLEARED"),
         ON_WEB_DATA_CLEAR_ERROR("ON_WEB_DATA_CLEAR_ERROR"),
+
+        // Perf telemetry
+        CATALYST_PERF_EVENT("CATALYST_PERF_EVENT"),
     }
     
     /**
+     * Emit a performance event directly to WebPerfCollector via
+     * window.__catalystPerfEvent(). Bypasses the WebBridge callback system
+     * to keep perf overhead minimal — no JS parsing, no handler lookup.
+     *
+     * Must be called from any thread — posts to main thread automatically.
+     *
+     * @param webView The WebView instance
+     * @param payload JSONObject with at minimum a "type" field
+     */
+    /**
+     * Record that a @JavascriptInterface method was invoked (t0).
+     * Pair with bridgeCallDispatched() at notifyWeb() call site.
+     * No-op in release builds.
+     *
+     * @param callId  Unique identifier for this call (e.g. "getDeviceInfo:<timestamp>")
+     * @param method  Human-readable method name for ApiCollector.js
+     */
+    fun bridgeCallReceived(callId: String, method: String) {
+        if (!BuildConfig.DEBUG) return
+        PerfEventBuffer.bridgeCallReceived(callId, method)
+    }
+
+    /**
+     * Record that native dispatched the callback back to JS (t1).
+     * Must be called just before (or just after) notifyWeb().
+     */
+    fun bridgeCallDispatched(callId: String) {
+        if (!BuildConfig.DEBUG) return
+        PerfEventBuffer.bridgeCallDispatched(callId)
+    }
+
+    fun emitPerfEvent(webView: WebView, payload: JSONObject) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            // Capture caller thread name before marshalling to main thread
+            if (!payload.has("emitThread")) {
+                payload.put("emitThread", Thread.currentThread().name)
+            }
+            webView.post { emitPerfEvent(webView, payload) }
+            return
+        }
+        try {
+            // Use JSON.parse inside the JS call so we never deal with quote escaping
+            val jsonStr = payload.toString().replace("\\", "\\\\").replace("'", "\\'")
+            webView.evaluateJavascript("window.__catalystPerfEvent && window.__catalystPerfEvent('$jsonStr')", null)
+        } catch (e: Exception) {
+            Log.e(TAG, "emitPerfEvent failed: ${e.message}")
+        }
+    }
+
+    /**
      * Send a callback to the web layer
-     * 
+     *
      * @param webView The WebView instance
      * @param event The web event to send
      * @param data The data to send (can be null)
