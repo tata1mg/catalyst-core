@@ -1,0 +1,23 @@
+src/native/androidProject/app/build.gradle.kts
+  4115a3f8405b06b7 32,34-36,38-41,43-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "b461f5400f0ed02139bd7d6b42bc44b89e352836",
+  "prompts": {
+    "4115a3f8405b06b7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cffa7-1401-7cf0-be60-728cef7ae4dd",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 7,
+      "accepted_lines": 14,
+      "overriden_lines": 0
+    }
+  }
+}
