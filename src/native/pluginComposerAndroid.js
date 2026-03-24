@@ -2,6 +2,7 @@
 
 const fs = require("fs")
 const path = require("path")
+const { discoverInternalPlugins } = require("./internalPluginUtils.js")
 
 const PLUGINS_PACKAGE_PARTS = ["io", "yourname", "androidproject", "plugins"]
 
@@ -26,78 +27,8 @@ function mustBeNonEmptyString(value, fieldName, sourcePath) {
     return value.trim()
 }
 
-function readStringArray(value, fieldName, sourcePath, { required = false, nonEmpty = false } = {}) {
-    if (!Array.isArray(value)) {
-        if (required) {
-            throw new Error(`'${fieldName}' is required and must be an array in ${sourcePath}`)
-        }
-        return []
-    }
-
-    const result = value.map((entry) => mustBeNonEmptyString(entry, `${fieldName}[]`, sourcePath))
-    if (nonEmpty && result.length === 0) {
-        throw new Error(`'${fieldName}' is required and must be non-empty in ${sourcePath}`)
-    }
-    return result
-}
-
 function asUniqueSorted(values) {
     return [...new Set(values)].sort()
-}
-
-function parsePluginManifest(pluginDir) {
-    const manifestPath = path.join(pluginDir, "manifest.json")
-    if (!fs.existsSync(manifestPath)) {
-        return null
-    }
-
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
-    const androidConfig = manifest.android
-    if (!androidConfig || typeof androidConfig !== "object") {
-        throw new Error(`'android' config is required for Android plugin in ${manifestPath}`)
-    }
-
-    return {
-        pluginDir,
-        manifestPath,
-        id: mustBeNonEmptyString(manifest.id, "id", manifestPath),
-        version: mustBeNonEmptyString(manifest.version, "version", manifestPath),
-        configKey:
-            manifest.configKey == null
-                ? null
-                : mustBeNonEmptyString(manifest.configKey, "configKey", manifestPath),
-        commands: readStringArray(manifest.commands, "commands", manifestPath, {
-            required: true,
-            nonEmpty: true,
-        }),
-        callbacks: readStringArray(manifest.callbacks, "callbacks", manifestPath),
-        permissions: readStringArray(androidConfig.permissions, "android.permissions", manifestPath),
-        dependencies: readStringArray(androidConfig.dependencies, "android.dependencies", manifestPath),
-        className: mustBeNonEmptyString(androidConfig.className, "android.className", manifestPath),
-    }
-}
-
-function discoverInternalPlugins(corePluginsRoot, log) {
-    if (!corePluginsRoot || !isDir(corePluginsRoot)) {
-        log(`No internal plugin directory found at ${corePluginsRoot || "<empty>"}`, "info")
-        return []
-    }
-
-    const plugins = []
-    for (const entry of fs.readdirSync(corePluginsRoot, { withFileTypes: true })) {
-        if (!entry.isDirectory()) {
-            continue
-        }
-
-        const pluginDir = path.join(corePluginsRoot, entry.name)
-        const parsed = parsePluginManifest(pluginDir)
-        if (parsed) {
-            plugins.push(parsed)
-        }
-    }
-
-    log(`Discovered ${plugins.length} internal plugin manifest(s)`, "info")
-    return plugins
 }
 
 function parsePluginToggleConfig(pluginConfig) {
@@ -181,6 +112,7 @@ function validatePlugins(plugins) {
     const pluginIds = new Set()
     const configKeys = new Set()
     const dependencies = new Map()
+    const selectorKeys = new Map()
 
     for (const plugin of plugins) {
         if (pluginIds.has(plugin.id)) {
@@ -193,6 +125,19 @@ function validatePlugins(plugins) {
                 throw new Error(`Duplicate configKey detected: ${plugin.configKey}`)
             }
             configKeys.add(plugin.configKey)
+        }
+
+        for (const [field, selector] of [
+            ["id", plugin.id],
+            ["configKey", plugin.configKey],
+        ]) {
+            const existing = selectorKeys.get(selector)
+            if (existing && existing.pluginId !== plugin.id) {
+                throw new Error(
+                    `Plugin selector collision for '${selector}': '${existing.pluginId}' (${existing.field}) conflicts with '${plugin.id}' (${field})`
+                )
+            }
+            selectorKeys.set(selector, { pluginId: plugin.id, field })
         }
 
         if (new Set(plugin.commands).size !== plugin.commands.length) {
@@ -237,6 +182,38 @@ function walkFiles(rootDir, predicate, results = []) {
     return results
 }
 
+function resolvePluginClassSourcePath(plugin) {
+    const relativePath = plugin.className.split(".").join(path.sep)
+    const candidates = [
+        path.join(plugin.androidDir, `${relativePath}.kt`),
+        path.join(plugin.androidDir, `${relativePath}.java`),
+    ]
+
+    return candidates.find((candidate) => fs.existsSync(candidate)) || null
+}
+
+function validateSelectedPluginSources(plugins) {
+    for (const plugin of plugins) {
+        if (!isDir(plugin.androidDir)) {
+            throw new Error(`Android source directory missing for selected plugin '${plugin.id}'`)
+        }
+
+        const codeFiles = walkFiles(
+            plugin.androidDir,
+            (name) => name.endsWith(".kt") || name.endsWith(".java")
+        )
+        if (codeFiles.length === 0) {
+            throw new Error(`No Android source files found for selected plugin '${plugin.id}'`)
+        }
+
+        if (!resolvePluginClassSourcePath(plugin)) {
+            throw new Error(
+                `Declared class '${plugin.className}' for selected plugin '${plugin.id}' was not found under ${plugin.androidDir}`
+            )
+        }
+    }
+}
+
 function copyTree(sourceDir, targetDir) {
     if (!isDir(sourceDir)) {
         return
@@ -257,12 +234,14 @@ function copyAndroidPluginSources(plugins, javaRoot, log) {
 
     let copiedCount = 0
     for (const plugin of plugins) {
-        const androidDir = path.join(plugin.pluginDir, "android")
         const pluginOutputDir = path.join(internalRoot, sanitizeForPath(plugin.id))
-        const codeFiles = walkFiles(androidDir, (name) => name.endsWith(".kt") || name.endsWith(".java"))
+        const codeFiles = walkFiles(
+            plugin.androidDir,
+            (name) => name.endsWith(".kt") || name.endsWith(".java")
+        )
 
         for (const sourcePath of codeFiles) {
-            const targetPath = path.join(pluginOutputDir, path.relative(androidDir, sourcePath))
+            const targetPath = path.join(pluginOutputDir, path.relative(plugin.androidDir, sourcePath))
             ensureDir(path.dirname(targetPath))
             fs.copyFileSync(sourcePath, targetPath)
             copiedCount++
@@ -438,6 +417,7 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
     const discovered = discoverInternalPlugins(corePluginsRoot, log)
     validatePlugins(discovered)
     const selected = selectPluginsByConfig(discovered, pluginConfig, log)
+    validateSelectedPluginSources(selected)
 
     const javaRoot = path.join(androidProjectPath, "app", "src", "main", "java")
     const manifestPath = path.join(androidProjectPath, "app", "src", "main", "AndroidManifest.xml")

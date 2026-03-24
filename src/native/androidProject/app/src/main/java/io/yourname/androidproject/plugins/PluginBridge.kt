@@ -1,93 +1,130 @@
 package io.yourname.androidproject.plugins
 
+import android.app.Activity
+import android.content.Context
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import java.util.Properties
 
-class PluginBridge(private val webView: WebView) {
+internal data class PluginRequest(
+    val pluginId: String,
+    val command: String,
+    val data: Any?,
+    val requestId: String?
+)
+
+class PluginBridge(
+    private val activity: Activity,
+    private val webView: WebView,
+    private val properties: Properties
+) {
     companion object {
         private const val TAG = "PluginBridge"
         private const val ERROR_EVENT = "PLUGIN_BRIDGE_ERROR"
         private const val SYSTEM_PLUGIN_ID = "__bridge__"
+        private const val ERROR_CODE_INVALID_PAYLOAD = "INVALID_PAYLOAD"
+        private const val ERROR_CODE_PLUGIN_NOT_FOUND = "PLUGIN_NOT_FOUND"
+        private const val ERROR_CODE_COMMAND_NOT_SUPPORTED = "COMMAND_NOT_SUPPORTED"
+        private const val ERROR_CODE_PLUGIN_NOT_REGISTERED = "PLUGIN_NOT_REGISTERED"
+        private const val ERROR_CODE_PLUGIN_EXECUTION_FAILED = "PLUGIN_EXECUTION_FAILED"
+
+        internal fun parseRequest(payload: String?): PluginRequest {
+            if (payload.isNullOrBlank()) {
+                throw IllegalArgumentException("Payload is required")
+            }
+
+            val body = JSONObject(payload)
+            return PluginRequest(
+                pluginId = body.optString("pluginId", "").trim(),
+                command = body.optString("command", "").trim(),
+                data = if (body.has("data") && !body.isNull("data")) body.get("data") else null,
+                requestId = body.optString("requestId", "").trim().ifEmpty { null }
+            )
+        }
     }
 
     private val pluginIdToClassName = GeneratedPluginIndex.pluginIdToClassName
     private val pluginToCommands = GeneratedPluginIndex.pluginToCommands
     private val pluginToCallbacks = GeneratedPluginIndex.pluginToCallbacks
 
-    init {
-        Log.i(TAG, "Plugin registry ready with ${pluginIdToClassName.size} plugin(s)")
-    }
-
     @JavascriptInterface
     fun emit(payload: String?) {
-        Log.i(TAG, "emit invoked. payloadPresent=${!payload.isNullOrBlank()}")
-
-        if (payload.isNullOrBlank()) {
-            sendError("Payload is required")
-            return
-        }
+        var request: PluginRequest? = null
 
         try {
-            val body = JSONObject(payload)
-            val pluginId = body.optString("pluginId", "").trim()
-            val command = body.optString("command", "").trim()
-            val data = if (body.has("data") && !body.isNull("data")) body.get("data") else null
+            request = parseRequest(payload)
 
-            if (pluginId.isEmpty()) {
-                sendError("pluginId is required")
+            if (request.pluginId.isEmpty()) {
+                sendBridgeError("pluginId is required", ERROR_CODE_INVALID_PAYLOAD, request)
                 return
             }
-            if (command.isEmpty()) {
-                sendError("Command is required")
+            if (request.command.isEmpty()) {
+                sendBridgeError("command is required", ERROR_CODE_INVALID_PAYLOAD, request)
                 return
             }
 
-            Log.i(TAG, "Dispatch request received for pluginId=$pluginId command=$command")
-
-            if (!hasPlugin(pluginId)) {
-                sendError("Unsupported plugin: $pluginId", pluginId)
+            if (!hasPlugin(request.pluginId)) {
+                sendBridgeError("Unsupported plugin: ${request.pluginId}", ERROR_CODE_PLUGIN_NOT_FOUND, request)
                 return
             }
 
-            if (!hasCommand(pluginId, command)) {
-                sendError("Unsupported command '$command' for plugin '$pluginId'", pluginId)
+            if (!hasCommand(request.pluginId, request.command)) {
+                sendBridgeError(
+                    "Unsupported command '${request.command}' for plugin '${request.pluginId}'",
+                    ERROR_CODE_COMMAND_NOT_SUPPORTED,
+                    request
+                )
                 return
             }
 
-            val plugin = getPluginForId(pluginId)
+            val plugin = getPluginForId(request.pluginId)
             if (plugin == null) {
-                sendError("No plugin registered for id: $pluginId", pluginId)
+                sendBridgeError("No plugin registered for id: ${request.pluginId}", ERROR_CODE_PLUGIN_NOT_REGISTERED, request)
                 return
             }
 
             val callbackContext = PluginBridgeContext(
+                activity = activity,
                 webView = webView,
-                pluginId = pluginId,
-                allowedCallbacks = pluginToCallbacks[pluginId] ?: emptySet()
+                properties = properties,
+                pluginId = request.pluginId,
+                command = request.command,
+                requestId = request.requestId,
+                allowedCallbacks = pluginToCallbacks[request.pluginId] ?: emptySet()
             )
 
-            Log.i(TAG, "Invoking plugin handler for command=$command plugin=${plugin.javaClass.name}")
-            plugin.handle(command, data, callbackContext)
-            Log.i(TAG, "Plugin handler completed for command=$command")
+            plugin.handle(request.command, request.data, callbackContext)
+        } catch (error: IllegalArgumentException) {
+            sendBridgeError(error.message ?: "Invalid payload", ERROR_CODE_INVALID_PAYLOAD, request)
         } catch (error: JSONException) {
-            sendError("Invalid JSON payload: ${error.message}")
+            sendBridgeError("Invalid JSON payload: ${error.message}", ERROR_CODE_INVALID_PAYLOAD, request)
         } catch (error: Exception) {
-            Log.e(TAG, "Plugin command failed", error)
-            sendError("Plugin execution failed: ${error.message}")
+            Log.e(TAG, "Plugin command failed for ${request?.pluginId ?: "<unknown>"}.${request?.command ?: "<unknown>"}", error)
+            sendBridgeError("Plugin execution failed: ${error.message}", ERROR_CODE_PLUGIN_EXECUTION_FAILED, request)
         }
     }
 
-    private fun sendError(message: String, pluginId: String = SYSTEM_PLUGIN_ID) {
-        PluginBridgeContext(webView, pluginId, setOf(ERROR_EVENT)).callback(
+    private fun sendBridgeError(message: String, code: String, request: PluginRequest?) {
+        PluginBridgeContext(
+            activity = activity,
+            webView = webView,
+            properties = properties,
+            pluginId = SYSTEM_PLUGIN_ID,
+            command = request?.command,
+            requestId = request?.requestId,
+            allowedCallbacks = setOf(ERROR_EVENT)
+        ).callback(
             ERROR_EVENT,
             JSONObject().apply {
                 put("message", message)
-                put("source", TAG)
-                put("pluginId", pluginId)
+                put("code", code)
+                put("pluginId", request?.pluginId ?: SYSTEM_PLUGIN_ID)
+                request?.command?.takeIf { it.isNotEmpty() }?.let { put("command", it) }
+                request?.requestId?.let { put("requestId", it) }
             }
         )
     }
@@ -116,32 +153,37 @@ class PluginBridge(private val webView: WebView) {
 }
 
 class PluginBridgeContext(
-    private val webView: WebView,
-    private val pluginId: String,
+    val activity: Activity,
+    val webView: WebView,
+    val properties: Properties,
+    val pluginId: String,
+    val command: String?,
+    val requestId: String?,
     private val allowedCallbacks: Set<String>
 ) {
-    companion object {
-        private const val TAG = "PluginBridgeContext"
-    }
+    val context: Context
+        get() = activity
 
-    fun callback(eventName: String, data: Any?) {
-        if (eventName.isBlank()) {
-            Log.e(TAG, "Rejected callback with blank event name")
-            return
-        }
-        if (!allowedCallbacks.contains(eventName)) {
-            Log.e(TAG, "Rejected undeclared callback event=$eventName")
-            return
+    fun callback(
+        eventName: String,
+        data: Any?,
+        requestId: String? = this.requestId,
+        command: String? = this.command
+    ) {
+        require(eventName.isNotBlank()) { "Callback eventName is required" }
+        require(allowedCallbacks.contains(eventName)) {
+            "Undeclared callback '$eventName' for plugin '$pluginId'"
         }
 
         val pluginLiteral = JSONObject.quote(pluginId)
         val eventLiteral = JSONObject.quote(eventName)
         val dataLiteral = toJavaScriptLiteral(data)
-        Log.i(TAG, "Sending callback to web pluginId=$pluginId event=$eventName")
+        val requestLiteral = requestId?.let(JSONObject::quote) ?: "null"
+        val commandLiteral = command?.takeIf { it.isNotBlank() }?.let(JSONObject::quote) ?: "null"
 
         webView.post {
             webView.evaluateJavascript(
-                "window.PluginBridgeWeb && window.PluginBridgeWeb.callback($pluginLiteral, $eventLiteral, $dataLiteral);",
+                "window.PluginBridgeWeb && window.PluginBridgeWeb.callback($pluginLiteral, $eventLiteral, $dataLiteral, $requestLiteral, $commandLiteral);",
                 null
             )
         }

@@ -7,6 +7,7 @@ var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
 var _pluginComposerAndroid = require("./pluginComposerAndroid.js")
+var _internalPluginUtils = require("./internalPluginUtils.js")
 
 // Import the AAB builder
 import { buildAndroidAAB } from "./renameAndroidProject.js"
@@ -1275,13 +1276,8 @@ async function buildAndroidApp() {
         await copyIconAssets()
         await configureAppName(androidConfig)
         const pluginConfig = resolvePluginConfig(WEBVIEW_CONFIG)
-        const corePluginsDistPath = _path.default.join(catalystCorePath, "dist/native/internal-plugins")
-        const corePluginsSrcPath = _path.default.join(catalystCorePath, "src/native/internal-plugins")
-        const resolvedCorePluginPath = _fs.default.existsSync(corePluginsDistPath)
-            ? corePluginsDistPath
-            : corePluginsSrcPath
         ;(0, _pluginComposerAndroid.composeAndroidPlugins)({
-            corePluginsRoot: resolvedCorePluginPath,
+            corePluginsRoot: (0, _internalPluginUtils.resolveInternalPluginsRoot)(catalystCorePath),
             androidProjectPath: `${pwd}/androidProject`,
             pluginConfig,
             log: (message, status = "info") => progress.log(message, status),

@@ -332,7 +332,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Setup isolated PluginBridge
         try {
-            pluginBridge = PluginBridge(customWebView.getWebView())
+            pluginBridge = PluginBridge(this, customWebView.getWebView(), properties)
             customWebView.addJavascriptInterface(pluginBridge, "PluginBridge")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize PluginBridge: ${e.message}")
