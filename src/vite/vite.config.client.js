@@ -2,6 +2,7 @@ import { defineConfig } from "vite"
 import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
+import { compression } from "vite-plugin-compression2"
 
 // import customViteConfig from "@catalyst/template/buildConfig.js"
 
@@ -50,6 +51,8 @@ const clientConfig = defineConfig({
         }),
         ...(customViteConfig?.clientPlugins || []),
         // disableCssInjectPlugin(),
+        compression({ algorithm: "gzip" }),
+        compression({ algorithm: "brotliCompress", exclude: [/\.(br)$/, /\.(gz)$/] }),
     ],
 
     build: {
@@ -84,6 +87,25 @@ const clientConfig = defineConfig({
                         return "client/assets/css/[name]-[hash][extname]"
                     }
                     return "client/assets/[name]-[hash][extname]"
+                },
+                // Core framework deps → dedicated vendor chunk.
+                // All other static app imports → single main bundle (keeps essential chunk
+                // count low so the ChunkExtractor doesn't inject hundreds of <script> tags).
+                // Dynamically imported route/split chunks remain as separate files.
+                manualChunks(id, { getModuleInfo }) {
+                    if (
+                        /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg\/router)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor"
+                    }
+                    if (!id.includes("node_modules/")) {
+                        const info = getModuleInfo(id)
+                        if (info && info.dynamicImporters.length === 0) {
+                            return "main"
+                        }
+                    }
                 },
             },
         },

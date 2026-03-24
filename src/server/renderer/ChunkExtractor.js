@@ -57,14 +57,12 @@ export class ChunkExtractor {
     /**
      * Add ssrTrue assets directly
      */
-    addNonEssentialAssets(manifestEntry, category = "unknown") {
+    addNonEssentialAssets(manifestEntry) {
         if (manifestEntry.file) {
             if (this.nonEssentialAssets.js.has(manifestEntry.file)) {
                 return
             }
-            if (category === "ssrTrue") {
-                this.nonEssentialAssets.js.add(manifestEntry.file)
-            }
+            this.nonEssentialAssets.js.add(manifestEntry.file)
             if (manifestEntry.css && Array.isArray(manifestEntry.css)) {
                 manifestEntry.css.forEach((cssFile) => {
                     this.nonEssentialAssets.css.add(cssFile)
@@ -88,17 +86,7 @@ export class ChunkExtractor {
                 : Object.keys(this.manifest).find((k) => k.startsWith(cacheKey + "."))
 
         if (resolvedKey) {
-            // Determine category based on asset manifest
-            let category = "unknown"
-            if (this.assetManifest.ssrTrue && this.assetManifest.ssrTrue[resolvedKey]) {
-                category = "ssrTrue"
-            } else if (this.assetManifest.ssrFalse && this.assetManifest.ssrFalse[resolvedKey]) {
-                category = "ssrFalse"
-            } else if (this.assetManifest.essential && this.assetManifest.essential[resolvedKey]) {
-                category = "essential"
-            }
-
-            this.addNonEssentialAssets(this.manifest[resolvedKey], category, resolvedKey)
+            this.addNonEssentialAssets(this.manifest[resolvedKey])
         }
     }
 

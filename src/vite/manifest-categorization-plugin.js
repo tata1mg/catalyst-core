@@ -164,12 +164,13 @@ export function manifestCategorizationPlugin(options = {}) {
             }
         }
 
-        // Log any remaining chunks and why they're not categorized
+        // Add remaining chunks that are not split-only deps to essential
         for (const [fileName, chunk] of Object.entries(bundle)) {
             if (
                 chunk.type === "chunk" &&
                 !essentialChunkNames.has(fileName) &&
-                !splitChunkNames.has(fileName)
+                !splitChunkNames.has(fileName) &&
+                !isChunkOnlyUsedBySplits(fileName)
             ) {
                 categorizedChunks.essential[fileName] = {
                     file: fileName,

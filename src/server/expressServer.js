@@ -5,6 +5,7 @@ import express from "express"
 import bodyParser from "body-parser"
 import compression from "compression"
 import cookieParser from "cookie-parser"
+import expressStaticGzip from "express-static-gzip"
 import { createServer as createViteServer } from "vite"
 import util from "node:util"
 import pc from "picocolors"
@@ -48,13 +49,17 @@ async function createServer() {
         // In production, serve built assets
         const buildPath = path.join(process.env.src_path, "build")
         const publicPath = path.join(buildPath, "client")
-        // Serve static assets
+        // Serve static assets — prefers pre-compressed .br / .gz files generated at build time
         app.use(
             "client/assets",
-            express.static(publicPath, {
-                maxAge: "1y",
-                etag: true,
-                lastModified: true,
+            expressStaticGzip(publicPath, {
+                enableBrotli: true,
+                orderPreference: ["br", "gz"],
+                serveStatic: {
+                    maxAge: "1y",
+                    etag: true,
+                    lastModified: true,
+                },
             })
         )
 
