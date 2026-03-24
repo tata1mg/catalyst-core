@@ -1,5 +1,4 @@
 import fs from "fs"
-import path from "path"
 import React, { Suspense } from "react"
 import { renderStart, renderEnd } from "./render.js"
 // import extractAssets from "./extract.js"
@@ -18,8 +17,8 @@ import {
     generateScriptTags,
     generateInlineCssFromAssets,
     generateScriptTagsAsStrings,
-    generateStylesheetLinksAsStrings,
 } from "./extract.js"
+import path from "path"
 
 import CustomDocument from "@catalyst/template/server/document"
 
@@ -200,6 +199,17 @@ const renderMarkUp = async (
                 const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
                     assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
                 })
+
+                // Inline (non-module) script so it runs during HTML parsing, before any
+                // deferred module scripts.  Tells Split.jsx which components were actually
+                // rendered on the server so only those get eagerly re-imported on the client.
+                if (chunkExtractor) {
+                    const renderedKeys = chunkExtractor.getRenderedComponentKeys()
+                    res.write(
+                        `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
+                    )
+                }
+
                 res.write(`<style>${stylesheetLinks}</style>`)
                 res.write(scriptElements)
             },

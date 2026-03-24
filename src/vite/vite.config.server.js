@@ -18,9 +18,6 @@ export default defineConfig({
     ...baseConfig,
     mode: "production",
 
-    resolve: {
-        ...baseConfig.resolve,
-    },
     // Add cache key injection plugin first to transform split calls
     plugins: [injectCacheKeyPlugin(), ...(baseConfig.plugins || []), ...(customViteConfig?.ssrPlugins || [])],
 
@@ -32,9 +29,7 @@ export default defineConfig({
         manifest: false,
         ssrManifest: false,
 
-        // Override input paths for production
         rollupOptions: {
-            ...baseConfig.build.rollupOptions,
             input: {
                 // Server entry point for SSR
                 server: path.join(__dirname, "../server/renderer/index.js"),
@@ -61,16 +56,7 @@ export default defineConfig({
             },
         },
 
-        // Production-specific optimization
         chunkSizeWarningLimit: 1000,
-
-        // Separate builds for client and server
-        lib: {
-            entry: path.join(__dirname, "./renderer/index.js"),
-            name: "server",
-            fileName: "server",
-            formats: ["es"],
-        },
     },
 
     // Optimization for production

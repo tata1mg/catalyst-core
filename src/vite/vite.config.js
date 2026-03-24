@@ -124,23 +124,35 @@ export const getClientEnvVariables = () => {
         }
     })
     envVarDefinitions[`process.env.src_path`] = JSON.stringify(process.env["src_path"])
+    envVarDefinitions[`process.env.BUILD_OUTPUT_PATH`] = JSON.stringify(process.env["BUILD_OUTPUT_PATH"])
+    envVarDefinitions[`process.env.PUBLIC_STATIC_ASSET_PATH`] = JSON.stringify(
+        process.env["PUBLIC_STATIC_ASSET_PATH"]
+    )
+    envVarDefinitions[`process.env.PUBLIC_STATIC_ASSET_URL`] = JSON.stringify(
+        process.env["PUBLIC_STATIC_ASSET_URL"]
+    )
+
     return envVarDefinitions
 }
 
 const isProduction = process.env.NODE_ENV === "production"
 
-// Common list of browser-facing dependencies that benefit from pre-bundling
+// Mirrors the production vendor chunk regex in vite.config.client.js
 const browserOptimizeDeps = [
     "react",
     "react-dom",
+    "react-dom/client",
+    "react-redux",
     "react-router-dom",
-    "@tata1mg/router",
-    "invariant",
-    "react-fast-compare",
-    "shallowequal",
-    "prop-types",
+    "redux",
     "redux-thunk",
-    "redux-logger",
+    "axios",
+    "react-helmet-async",
+    "react-google-recaptcha",
+    "react-fast-compare",
+    "@tata1mg/router",
+    "history",
+    "lottie-web",
 ]
 
 // Node-only / instrumentation dependencies that should remain external in SSR
@@ -171,9 +183,6 @@ export default defineConfig({
                 "prop-types",
                 "redux-thunk",
                 "redux-logger",
-                "@tata1mg/synapse",
-                "@tata1mg/synapse/utils",
-                "@tata1mg/synapse/handler",
             ],
             // Prevent pre-bundling React ecosystem packages for SSR to avoid duplicate
             // React instances. Pre-bundled copies in .vite/deps_ssr/ create a separate
@@ -207,23 +216,8 @@ export default defineConfig({
         ...getClientEnvVariables(),
     },
 
-    // Production build configuration
     build: {
         outDir: path.join(process.env.src_path, "build"),
-        sourcemap: isProduction,
-        minify: false,
-        rollupOptions: {
-            output: {
-                manualChunks: (id) => {
-                    // Create separate chunks for better categorization
-                    if (id.includes("node_modules")) {
-                        return "vendor"
-                    }
-                    // Let Vite handle the rest automatically
-                    return null
-                },
-            },
-        },
     },
 
     optimizeDeps: {
@@ -246,8 +240,15 @@ export default defineConfig({
         },
         preprocessorOptions: {
             scss: {
-                additionalData: `@import "@css/resources/index.scss" ; $font_url: "${fontUrl()}";  $url_for: "${imageUrl()}"; `,
-                silenceDeprecations: ["import", "global-builtin", "color-functions", "if-function"],
+                additionalData: (content) =>
+                    `@import "@css/resources/index.scss"; $font_url: "${fontUrl()}"; $url_for: "${imageUrl()}";\n${content}`,
+                silenceDeprecations: [
+                    "import",
+                    "global-builtin",
+                    "color-functions",
+                    "if-function",
+                    "slash-div",
+                ],
             },
         },
     },

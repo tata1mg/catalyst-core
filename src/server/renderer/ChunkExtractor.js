@@ -77,9 +77,11 @@ export class ChunkExtractor {
 
     /**
      * Add a component for tracking
-     * @param {Function} componentImportFn - Component import function
+     * @param {string} cacheKey - The manifest key for the component
      */
     addComponent(cacheKey) {
+        this.components.add(cacheKey)
+
         const resolvedKey =
             this.manifest[cacheKey] != null
                 ? cacheKey
@@ -88,6 +90,14 @@ export class ChunkExtractor {
         if (resolvedKey) {
             this.addNonEssentialAssets(this.manifest[resolvedKey])
         }
+    }
+
+    /**
+     * Get the raw cacheKeys of all components actually rendered on the server
+     * @returns {string[]}
+     */
+    getRenderedComponentKeys() {
+        return Array.from(this.components)
     }
 
     /**

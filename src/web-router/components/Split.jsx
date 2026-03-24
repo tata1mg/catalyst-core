@@ -7,6 +7,23 @@ import React, { Suspense, lazy } from "react"
 // resolved and the module is available here synchronously.
 const moduleCache = new Map()
 
+// Collects one promise per SSR-rendered split() call on the client.
+// loadableReady() waits for all of them before hydration begins.
+const prefetchPromises = []
+
+/**
+ * Returns a promise that resolves once every SSR-rendered split component
+ * has been prefetched and stored in moduleCache.  Call this before
+ * hydrateRoot so the first render has all modules available synchronously
+ * and no Suspense fallback is shown.
+ *
+ * @example
+ * hydrationReady().then(() => {
+ *   hydrateRoot(document.getElementById("root"), <App />)
+ * })
+ */
+export const hydrationReady = () => Promise.all(prefetchPromises)
+
 /**
  * Split component that wraps React's lazy and Suspense for SSR compatibility
  * @param {Object} props
@@ -50,14 +67,16 @@ const Split = ({ ssr = true, fallback = null, cacheKey, children, ...props }) =>
  * @param {string} cacheKey - Resolved path for better asset tracking (injected by plugin)
  */
 export const split = (importFn, { ssr = true, fallback = null, key } = {}, cacheKey) => {
-    if (ssr && typeof window !== "undefined") {
-        // Eagerly start loading the module and store the resolved value in
-        // moduleCache once the Promise settles.  All module <script> tags are
-        // executed before window.load fires, so by the time hydrateRoot is
-        // called this .then() callback will already have run.
-        importFn().then((mod) => {
+    if (ssr && typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
+        // Only eagerly re-import modules that were actually rendered on the server.
+        // The server injects window.__SSR_RENDERED_COMPONENTS__ (a Set of cacheKeys)
+        // as a plain inline <script> so it is available before any deferred module
+        // scripts run.  Limiting eager loading to this set avoids fetching chunks
+        // for ssr:true components that were not part of the current server response.
+        const prefetch = importFn().then((mod) => {
             moduleCache.set(importFn, mod)
         })
+        prefetchPromises.push(prefetch)
     }
 
     const LazyComponent = lazy(importFn)

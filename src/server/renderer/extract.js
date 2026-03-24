@@ -79,7 +79,7 @@ export const generateStylesheetLinksAsStrings = (cssAssets, req) => {
     uniqueAssets.forEach((asset) => {
         const assetUrl = getAssetUrl(asset)
 
-        linkStrings.push(`<link rel="preload" as="style" crossorigin="" href="${assetUrl}">`)
+        linkStrings.push(`<link rel="stylesheet" crossorigin="" href="${assetUrl}">`)
     })
 
     return linkStrings.join("")

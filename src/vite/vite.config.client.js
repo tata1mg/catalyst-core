@@ -3,32 +3,12 @@ import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { compression } from "vite-plugin-compression2"
+import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 
 // import customViteConfig from "@catalyst/template/buildConfig.js"
 
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
-
-/**
- * Removes Vite's automatic CSS link tag injection from the built JS bundle.
- * Vite generates `__vite__injectCss(url)` calls in output chunks that create
- * <link rel="stylesheet"> elements at runtime. Since SSR handles CSS loading
- * server-side, we strip these to prevent duplicate stylesheet injection.
- */
-function disableCssInjectPlugin() {
-    return {
-        name: "vite-plugin-disable-css-inject",
-        apply: "build",
-        enforce: "post",
-        generateBundle(_, bundle) {
-            for (const chunk of Object.values(bundle)) {
-                if (chunk.type === "chunk" && chunk.code) {
-                    chunk.code = chunk.code.replace(/__vite__injectCss\([^)]*\);?\s*/g, "")
-                }
-            }
-        },
-    }
-}
 
 const customViteConfig = {
     clientPlugins: [],
@@ -37,11 +17,6 @@ const clientConfig = defineConfig({
     ...baseConfig,
     mode: "production",
 
-    // Ensure resolve configuration is inherited
-    resolve: {
-        ...baseConfig.resolve,
-    },
-
     // Add manifest categorization plugin (run it last to ensure Vite manifest is available)
     plugins: [
         ...(baseConfig.plugins || []),
@@ -49,8 +24,8 @@ const clientConfig = defineConfig({
             outputFile: "asset-categories.json",
             publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/`,
         }),
+        injectCacheKeyPlugin(),
         ...(customViteConfig?.clientPlugins || []),
-        // disableCssInjectPlugin(),
         compression({ algorithm: "gzip" }),
         compression({ algorithm: "brotliCompress", exclude: [/\.(br)$/, /\.(gz)$/] }),
     ],
@@ -93,8 +68,13 @@ const clientConfig = defineConfig({
                 // count low so the ChunkExtractor doesn't inject hundreds of <script> tags).
                 // Dynamically imported route/split chunks remain as separate files.
                 manualChunks(id, { getModuleInfo }) {
+                    // Let Vite's CSS pipeline handle splitting — returning a chunk name
+                    // for style modules merges all CSS into one file (e.g. main.css).
+                    if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
+                        return undefined
+                    }
                     if (
-                        /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg\/router)[\\/]/.test(
+                        /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg\/router|lottie)[\\/]/.test(
                             id
                         )
                     ) {
@@ -102,8 +82,17 @@ const clientConfig = defineConfig({
                     }
                     if (!id.includes("node_modules/")) {
                         const info = getModuleInfo(id)
-                        if (info && info.dynamicImporters.length === 0) {
-                            return "main"
+                        if (info) {
+                            const isStaticallyImported = info.importers.length > 0
+                            const isLazyLoaded = info.dynamicImporters.length > 0
+                            if (isLazyLoaded) {
+                                // Shared between static and lazy chunks → isolate to avoid
+                                // duplication across split bundles.
+                                return undefined
+                            }
+                            if (!isLazyLoaded) {
+                                return "main"
+                            }
                         }
                     }
                 },

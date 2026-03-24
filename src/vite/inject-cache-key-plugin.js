@@ -1,65 +1,153 @@
 import path from "path"
+import { readFileSync, existsSync, statSync } from "fs"
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Cache for loaded aliases
+let aliasCache = null
 
 /**
- * Normalize import path using Vite aliases
- * @param {string} importPath - The import path to normalize
- * @param {object} viteConfig - The Vite configuration object
- * @returns {string} - The normalized path
+ * Load and resolve module aliases from both the consuming app and catalyst-core,
+ * using the same algorithm as node-loader.mjs.
  */
-function normalizePath(importPath, viteConfig) {
-    const aliases = viteConfig.resolve?.alias || {}
-    let resolvedPath = importPath
+function loadAliases() {
+    if (aliasCache) {
+        return aliasCache
+    }
 
-    // Handle both object format { find: string, replacement: string } and simple object format
-    if (Array.isArray(aliases)) {
-        for (const alias of aliases) {
-            if (alias.find && typeof alias.find === "string" && importPath.startsWith(alias.find)) {
-                resolvedPath = importPath.replace(alias.find, alias.replacement)
-                break
-            }
-        }
-    } else if (typeof aliases === "object") {
-        // Handle simple object format: { "@alias": "/path" }
-        for (const [aliasKey, aliasPath] of Object.entries(aliases)) {
-            if (importPath.startsWith(aliasKey)) {
-                resolvedPath = importPath.replace(aliasKey, aliasPath)
-                break
+    const appRoot = process.env.src_path || process.cwd()
+    const appPackageJsonConfig = path.resolve(appRoot, "package.json")
+    const catalystPackageJsonConfig = path.resolve(__dirname, "../../package.json")
+
+    let appModuleAliases = {}
+    let catalystModuleAliases = {}
+
+    try {
+        const appPackageJson = JSON.parse(readFileSync(appPackageJsonConfig, "utf8"))
+        appModuleAliases = appPackageJson._moduleAliases || {}
+    } catch {
+        // Silently fail if app package.json doesn't exist or is invalid
+    }
+
+    try {
+        const catalystPackageJson = JSON.parse(readFileSync(catalystPackageJsonConfig, "utf8"))
+        catalystModuleAliases = catalystPackageJson._moduleAliases || {}
+    } catch {
+        // Silently fail if catalyst package.json doesn't exist or is invalid
+    }
+
+    // Application aliases take precedence over catalyst-core aliases
+    const allAliases = { ...catalystModuleAliases, ...appModuleAliases }
+
+    aliasCache = {}
+    for (const [alias, aliasPath] of Object.entries(allAliases)) {
+        if (aliasPath && typeof aliasPath === "string") {
+            try {
+                const resolvedPath = path.resolve(appRoot, ...aliasPath.split("/"))
+                aliasCache[alias] = resolvedPath
+            } catch (error) {
+                console.warn(`Failed to resolve alias ${alias}:`, error.message)
             }
         }
     }
 
-    return resolvedPath.replace(/^\.\//, "")
+    return aliasCache
+}
+
+/**
+ * Try to resolve a path by applying common JS/TS/ESM extensions and index fallbacks,
+ * matching the same resolution order as node-loader.mjs.
+ */
+function resolveWithExtensions(basePath) {
+    if (existsSync(basePath) && statSync(basePath).isFile()) {
+        return basePath
+    }
+
+    const extensions = [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".scss"]
+
+    for (const ext of extensions) {
+        const candidate = `${basePath}${ext}`
+        if (existsSync(candidate)) {
+            return candidate
+        }
+    }
+
+    const currentExt = path.extname(basePath)
+    if (currentExt) {
+        const withoutExt = basePath.slice(0, -currentExt.length)
+        for (const ext of extensions) {
+            if (ext === currentExt) continue
+            const candidate = `${withoutExt}${ext}`
+            if (existsSync(candidate)) {
+                return candidate
+            }
+        }
+    }
+
+    for (const ext of extensions) {
+        const candidate = path.join(basePath, `index${ext}`)
+        if (existsSync(candidate)) {
+            return candidate
+        }
+    }
+
+    return null
+}
+
+/**
+ * Resolve import path to an absolute file path using the same alias algorithm as node-loader.mjs.
+ * Falls back to relative resolution when no alias matches.
+ */
+function resolveToAbsolutePath(importPath, importerId) {
+    const aliases = loadAliases()
+
+    // 1. Try alias resolution (same logic as node-loader resolveAlias)
+    for (const [alias, aliasPath] of Object.entries(aliases)) {
+        if (importPath === alias || importPath.startsWith(alias + "/")) {
+            const remainingPath = importPath === alias ? "" : importPath.slice(alias.length + 1)
+            const rawResolved = path.join(aliasPath, remainingPath)
+            const finalResolved = resolveWithExtensions(rawResolved)
+            if (finalResolved) {
+                return path.resolve(finalResolved)
+            }
+        }
+    }
+
+    // 2. Relative imports — resolve from the importer's directory
+    if (importPath.startsWith("./") || importPath.startsWith("../")) {
+        const importerDir = path.dirname(importerId)
+        const absolutePath = path.resolve(importerDir, importPath)
+        const resolved = resolveWithExtensions(absolutePath)
+        if (resolved) {
+            return resolved
+        }
+        return absolutePath
+    }
+
+    return null
 }
 
 /**
  * Resolve import path to a manifest key
  * @param {string} importPath - The import path to resolve
  * @param {string} importerId - The file ID that imports this path
- * @param {object} viteConfig - The Vite configuration object
  * @returns {string} - The resolved manifest key (relative to manifest location: build/.vite/)
  */
-function resolveImportPath(importPath, importerId, viteConfig) {
+function resolveImportPath(importPath, importerId) {
     try {
-        // Normalize the path using aliases
-        const normalizedPath = normalizePath(importPath, viteConfig)
+        const absolutePath = resolveToAbsolutePath(importPath, importerId)
 
-        // Resolve to absolute path relative to the importer
-        const importerDir = path.dirname(importerId)
-        const absolutePath = path.resolve(importerDir, normalizedPath)
-
-        // Convert to manifest-style key
-        // Vite manifest keys are relative to the manifest location (build/.vite/manifest.json)
-        if (process.env.src_path) {
+        if (absolutePath && process.env.src_path) {
             // Manifest is located at: build/.vite/manifest.json
             const manifestDir = path.join(process.env.src_path, "build", ".vite")
-
-            // Calculate relative path from manifest directory to the source file
             const relativePath = path.relative(manifestDir, absolutePath)
-            return relativePath.replace(/\\/g, "/") // Normalize path separators
+            return relativePath.replace(/\\/g, "/")
         }
 
-        // If no src_path, return the normalized path
-        return normalizedPath.replace(/^\.\//, "")
+        // Fallback: strip leading ./ and return as-is
+        return importPath.replace(/^\.\//, "")
     } catch (error) {
         console.warn(`Error resolving import path ${importPath}:`, error.message)
         return importPath.replace(/^\.\//, "")
@@ -70,15 +158,8 @@ function resolveImportPath(importPath, importerId, viteConfig) {
  * Vite plugin to add cacheKey to split calls with manifest keys
  */
 export function injectCacheKeyPlugin() {
-    let viteConfig
-
     return {
         name: "split-cache-key",
-
-        configResolved(config) {
-            // Store the resolved config so we can access aliases later
-            viteConfig = config
-        },
 
         async transform(code, id) {
             // Only process JS/JSX/TS/TSX files
@@ -181,7 +262,7 @@ export function injectCacheKeyPlugin() {
                         }
 
                         // Resolve the import path
-                        let manifestKey = resolveImportPath(importPath, id, viteConfig)
+                        let manifestKey = resolveImportPath(importPath, id)
                         if (manifestKey && !manifestKey.endsWith(".js")) {
                             manifestKey = manifestKey + ".js"
                         }
