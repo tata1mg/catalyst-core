@@ -1,0 +1,31 @@
+src/native/bridge/constants/NativeInterfaces.js
+  0c213d496c98caef 43-45
+src/native/bridge/WebBridge.js
+  0c213d496c98caef 335-352
+src/native/bridge/hooks.js
+  0c213d496c98caef 1664
+src/native/bridge/utils/NativeBridge.js
+  0c213d496c98caef 334-347
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  0c213d496c98caef 1157-1172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "92c9c75ae8a802a59c68f7acf70cc07baf2b49f1",
+  "prompts": {
+    "0c213d496c98caef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e94ca01d-3925-448d-bd27-90a4f6bc9fde",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 83,
+      "total_deletions": 30,
+      "accepted_lines": 53,
+      "overriden_lines": 0
+    }
+  }
+}
