@@ -331,6 +331,21 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Android-only methods
+     */
+    android = {
+        /**
+         * Update WebView settings dynamically (Android only)
+         * @param {Object} settings
+         * @param {boolean} [settings.supportZoom] - Enable pinch-to-zoom on the page
+         * @param {boolean} [settings.builtInZoomControls] - Enable built-in zoom controls
+         * @param {boolean} [settings.displayZoomControls] - Show/hide zoom control buttons
+         */
+        setWebViewSettings: (settings) =>
+            this.call(NATIVE_COMMANDS.SET_ANDROID_WEBVIEW_SETTINGS, JSON.stringify(settings)),
+    }
+
+    /**
      * Get environment info
      */
     getEnvironmentInfo() {

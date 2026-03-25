@@ -40,6 +40,9 @@ export const NATIVE_COMMANDS = {
     SET_SCREEN_SECURE: "setScreenSecure",
     GET_SCREEN_SECURE: "getScreenSecure",
     CLEAR_WEB_DATA: "clearWebData",
+
+    // Android WebView settings (Android only)
+    SET_ANDROID_WEBVIEW_SETTINGS: "setAndroidWebViewSettings",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
