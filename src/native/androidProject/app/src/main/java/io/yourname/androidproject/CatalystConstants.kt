@@ -73,7 +73,8 @@ object CatalystConstants {
             "requestHapticFeedback",
             "setScreenSecure",
             "getScreenSecure",
-            "clearWebData"
+            "clearWebData",
+            "setAndroidWebViewSettings"
         )
     }
 
