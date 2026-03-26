@@ -31,6 +31,99 @@ function readStringArray(value, fieldName, sourcePath, { required = false, nonEm
     return result
 }
 
+function readPlainObject(value, fieldName, sourcePath) {
+    if (value == null) {
+        return {}
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        throw new Error(`'${fieldName}' must be an object in ${sourcePath}`)
+    }
+    return value
+}
+
+function cloneJsonValue(value, fieldName, sourcePath) {
+    try {
+        return JSON.parse(JSON.stringify(value))
+    } catch (error) {
+        throw new Error(`'${fieldName}' must be JSON-serializable in ${sourcePath}`)
+    }
+}
+
+function readIosUrlSchemes(value, fieldName, sourcePath) {
+    if (value == null) {
+        return []
+    }
+    if (!Array.isArray(value)) {
+        throw new Error(`'${fieldName}' must be an array in ${sourcePath}`)
+    }
+
+    return value.map((entry, index) => {
+        const entryField = `${fieldName}[${index}]`
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+            throw new Error(`'${entryField}' must be an object in ${sourcePath}`)
+        }
+
+        return {
+            name:
+                entry.name == null
+                    ? null
+                    : mustBeNonEmptyString(entry.name, `${entryField}.name`, sourcePath),
+            schemes: readStringArray(entry.schemes, `${entryField}.schemes`, sourcePath, {
+                required: true,
+                nonEmpty: true,
+            }),
+        }
+    })
+}
+
+function readIosDependencies(value, fieldName, sourcePath) {
+    if (value == null) {
+        return []
+    }
+
+    if (!Array.isArray(value)) {
+        throw new Error(`'${fieldName}' must be an array in ${sourcePath}`)
+    }
+
+    return value.map((entry, index) => {
+        const entryField = `${fieldName}[${index}]`
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+            throw new Error(`'${entryField}' must be an object in ${sourcePath}`)
+        }
+
+        const url = mustBeNonEmptyString(entry.url, `${entryField}.url`, sourcePath)
+        const products = readStringArray(entry.products, `${entryField}.products`, sourcePath, {
+            required: true,
+            nonEmpty: true,
+        })
+        if (new Set(products).size !== products.length) {
+            throw new Error(`Duplicate product(s) found in '${entryField}.products' in ${sourcePath}`)
+        }
+
+        const hasFrom = entry.from != null
+        const hasExact = entry.exact != null
+        if (hasFrom === hasExact) {
+            throw new Error(
+                `'${entryField}' must define exactly one version requirement: 'from' or 'exact' in ${sourcePath}`
+            )
+        }
+
+        return {
+            url,
+            products,
+            requirement: hasFrom
+                ? {
+                      type: "from",
+                      version: mustBeNonEmptyString(entry.from, `${entryField}.from`, sourcePath),
+                  }
+                : {
+                      type: "exact",
+                      version: mustBeNonEmptyString(entry.exact, `${entryField}.exact`, sourcePath),
+                  },
+        }
+    })
+}
+
 function parsePluginManifest(pluginDir) {
     const manifestPath = path.join(pluginDir, "manifest.json")
     if (!fs.existsSync(manifestPath)) {
@@ -38,25 +131,24 @@ function parsePluginManifest(pluginDir) {
     }
 
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
-    const androidConfig = manifest.android
-    if (!androidConfig || typeof androidConfig !== "object") {
-        throw new Error(`'android' config is required for Android plugin in ${manifestPath}`)
-    }
-
     const id = mustBeNonEmptyString(manifest.id, "id", manifestPath)
     const configKey = mustBeNonEmptyString(manifest.configKey, "configKey", manifestPath)
     const platforms = readStringArray(manifest.platforms, "platforms", manifestPath, {
         required: true,
         nonEmpty: true,
     })
+    const androidConfig = platforms.includes("android") ? manifest.android : null
+    const iosConfig = platforms.includes("ios") ? manifest.ios : null
 
-    if (!platforms.includes("android")) {
-        throw new Error(`Internal plugin '${id}' must declare support for 'android' in ${manifestPath}`)
+    if (platforms.includes("android") && (!androidConfig || typeof androidConfig !== "object")) {
+        throw new Error(`'android' config is required for plugin '${id}' in ${manifestPath}`)
+    }
+    if (platforms.includes("ios") && (!iosConfig || typeof iosConfig !== "object")) {
+        throw new Error(`'ios' config is required for plugin '${id}' in ${manifestPath}`)
     }
 
     return {
         pluginDir,
-        androidDir: path.join(pluginDir, "android"),
         manifestPath,
         id,
         configKey,
@@ -70,9 +162,42 @@ function parsePluginManifest(pluginDir) {
             nonEmpty: true,
         }),
         callbacks: readStringArray(manifest.callbacks, "callbacks", manifestPath),
-        permissions: readStringArray(androidConfig.permissions, "android.permissions", manifestPath),
-        dependencies: readStringArray(androidConfig.dependencies, "android.dependencies", manifestPath),
-        className: mustBeNonEmptyString(androidConfig.className, "android.className", manifestPath),
+        android: androidConfig
+            ? {
+                  sourceDir: path.join(pluginDir, "android"),
+                  permissions: readStringArray(
+                      androidConfig.permissions,
+                      "android.permissions",
+                      manifestPath
+                  ),
+                  dependencies: readStringArray(
+                      androidConfig.dependencies,
+                      "android.dependencies",
+                      manifestPath
+                  ),
+                  className: mustBeNonEmptyString(androidConfig.className, "android.className", manifestPath),
+              }
+            : null,
+        ios: iosConfig
+            ? {
+                  sourceDir: path.join(pluginDir, "ios"),
+                  dependencies: readIosDependencies(iosConfig.dependencies, "ios.dependencies", manifestPath),
+                  className: mustBeNonEmptyString(iosConfig.className, "ios.className", manifestPath),
+                  infoPlist: cloneJsonValue(
+                      readPlainObject(iosConfig.infoPlist, "ios.infoPlist", manifestPath),
+                      "ios.infoPlist",
+                      manifestPath
+                  ),
+                  urlSchemes: readIosUrlSchemes(iosConfig.urlSchemes, "ios.urlSchemes", manifestPath),
+                  querySchemes: readStringArray(iosConfig.querySchemes, "ios.querySchemes", manifestPath),
+                  entitlements: cloneJsonValue(
+                      readPlainObject(iosConfig.entitlements, "ios.entitlements", manifestPath),
+                      "ios.entitlements",
+                      manifestPath
+                  ),
+                  resources: readStringArray(iosConfig.resources, "ios.resources", manifestPath),
+              }
+            : null,
     }
 }
 
@@ -110,8 +235,28 @@ function resolveInternalPluginsRoot(packageRoot) {
     return fs.existsSync(distPluginsPath) ? distPluginsPath : srcPluginsPath
 }
 
+function resolvePluginConfig(WEBVIEW_CONFIG) {
+    const pluginConfig = {}
+
+    if (WEBVIEW_CONFIG.plugins != null) {
+        if (typeof WEBVIEW_CONFIG.plugins !== "object" || Array.isArray(WEBVIEW_CONFIG.plugins)) {
+            throw new Error("'WEBVIEW_CONFIG.plugins' must be an object with boolean values")
+        }
+
+        for (const [key, value] of Object.entries(WEBVIEW_CONFIG.plugins)) {
+            if (typeof value !== "boolean") {
+                throw new Error(`'WEBVIEW_CONFIG.plugins.${key}' must be boolean`)
+            }
+            pluginConfig[key] = value
+        }
+    }
+
+    return pluginConfig
+}
+
 module.exports = {
     discoverInternalPlugins,
     parsePluginManifest,
+    resolvePluginConfig,
     resolveInternalPluginsRoot,
 }

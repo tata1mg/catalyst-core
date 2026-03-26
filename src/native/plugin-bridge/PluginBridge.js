@@ -37,9 +37,38 @@ class PluginNativeBridge {
 
         window.PluginBridgeWeb = window.PluginBridgeWeb || {}
         window.PluginBridgeWeb.callback = this.dispatchCallback
+        window.PluginBridgeWeb.dispatch = (message) => {
+            let parsed = message
+
+            if (typeof parsed === "string") {
+                try {
+                    parsed = JSON.parse(parsed)
+                } catch {
+                    return false
+                }
+            }
+
+            if (!parsed || typeof parsed !== "object") {
+                return false
+            }
+
+            const payload = Object.prototype.hasOwnProperty.call(parsed, "payload") ? parsed.payload : null
+
+            return this.dispatchCallback(
+                parsed.pluginId,
+                parsed.eventName,
+                payload,
+                parsed.requestId ?? null,
+                parsed.command ?? null
+            )
+        }
         this.isInitialized = true
         return this
     }
+
+    hasAndroidBridge = () => typeof window !== "undefined" && !!window.PluginBridge
+
+    hasIOSBridge = () => typeof window !== "undefined" && !!window.webkit?.messageHandlers?.PluginBridge
 
     init = () => this.ensureInitialized()
 
@@ -73,15 +102,23 @@ class PluginNativeBridge {
             throw new Error("command must be a non-empty string")
         }
 
-        if (typeof window === "undefined" || !window.PluginBridge) {
+        if (typeof window === "undefined") {
             throw new Error("PluginBridge is not available in this environment")
         }
 
         this.assertInitialized()
 
         const resolvedRequestId = this.normalizeRequestId(requestId) || this.createRequestId()
-        const payload = JSON.stringify({ pluginId, command, data, requestId: resolvedRequestId })
-        window.PluginBridge.emit(payload)
+        const payload = { pluginId, command, data, requestId: resolvedRequestId }
+
+        if (this.hasAndroidBridge()) {
+            window.PluginBridge.emit(JSON.stringify(payload))
+        } else if (this.hasIOSBridge()) {
+            window.webkit.messageHandlers.PluginBridge.postMessage(payload)
+        } else {
+            throw new Error("PluginBridge is not available in this environment")
+        }
+
         return resolvedRequestId
     }
 

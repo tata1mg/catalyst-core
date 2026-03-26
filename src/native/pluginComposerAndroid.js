@@ -148,7 +148,7 @@ function validatePlugins(plugins) {
             throw new Error(`Duplicate callback(s) detected within plugin '${plugin.id}'`)
         }
 
-        for (const dependency of plugin.dependencies) {
+        for (const dependency of plugin.android?.dependencies || []) {
             const parsed = parseDependency(dependency, plugin.id)
             const existing = dependencies.get(parsed.key)
             if (existing && existing.version !== parsed.version) {
@@ -161,6 +161,20 @@ function validatePlugins(plugins) {
             }
         }
     }
+}
+
+function selectPluginsForPlatform(plugins, platform, log) {
+    const selected = []
+
+    for (const plugin of plugins) {
+        if (plugin.platforms.includes(platform)) {
+            selected.push(plugin)
+            continue
+        }
+        log(`Plugin enabled but not supported on ${platform}: ${plugin.id}`, "info")
+    }
+
+    return selected
 }
 
 function walkFiles(rootDir, predicate, results = []) {
@@ -183,23 +197,30 @@ function walkFiles(rootDir, predicate, results = []) {
 }
 
 function resolvePluginClassSourcePath(plugin) {
-    const relativePath = plugin.className.split(".").join(path.sep)
-    const candidates = [
-        path.join(plugin.androidDir, `${relativePath}.kt`),
-        path.join(plugin.androidDir, `${relativePath}.java`),
-    ]
+    const className = plugin.android.className.split(".").pop()
+    const candidateNames = new Set([`${className}.kt`, `${className}.java`])
+    const candidates = walkFiles(plugin.android.sourceDir, (name) => candidateNames.has(name))
 
-    return candidates.find((candidate) => fs.existsSync(candidate)) || null
+    if (candidates.length > 1) {
+        throw new Error(
+            `Declared class '${plugin.android.className}' for selected plugin '${plugin.id}' resolved to multiple source files under ${plugin.android.sourceDir}`
+        )
+    }
+
+    return candidates[0] || null
 }
 
 function validateSelectedPluginSources(plugins) {
     for (const plugin of plugins) {
-        if (!isDir(plugin.androidDir)) {
+        if (!plugin.android) {
+            throw new Error(`Android config missing for selected plugin '${plugin.id}'`)
+        }
+        if (!isDir(plugin.android.sourceDir)) {
             throw new Error(`Android source directory missing for selected plugin '${plugin.id}'`)
         }
 
         const codeFiles = walkFiles(
-            plugin.androidDir,
+            plugin.android.sourceDir,
             (name) => name.endsWith(".kt") || name.endsWith(".java")
         )
         if (codeFiles.length === 0) {
@@ -208,7 +229,7 @@ function validateSelectedPluginSources(plugins) {
 
         if (!resolvePluginClassSourcePath(plugin)) {
             throw new Error(
-                `Declared class '${plugin.className}' for selected plugin '${plugin.id}' was not found under ${plugin.androidDir}`
+                `Declared class '${plugin.android.className}' for selected plugin '${plugin.id}' was not found as a .kt or .java file under ${plugin.android.sourceDir}`
             )
         }
     }
@@ -236,12 +257,12 @@ function copyAndroidPluginSources(plugins, javaRoot, log) {
     for (const plugin of plugins) {
         const pluginOutputDir = path.join(internalRoot, sanitizeForPath(plugin.id))
         const codeFiles = walkFiles(
-            plugin.androidDir,
+            plugin.android.sourceDir,
             (name) => name.endsWith(".kt") || name.endsWith(".java")
         )
 
         for (const sourcePath of codeFiles) {
-            const targetPath = path.join(pluginOutputDir, path.relative(plugin.androidDir, sourcePath))
+            const targetPath = path.join(pluginOutputDir, path.relative(plugin.android.sourceDir, sourcePath))
             ensureDir(path.dirname(targetPath))
             fs.copyFileSync(sourcePath, targetPath)
             copiedCount++
@@ -275,7 +296,7 @@ function generatePluginRegistryFiles(plugins, javaRoot) {
     const pluginToCallbacks = {}
 
     for (const plugin of plugins) {
-        pluginIdToClassName[plugin.id] = plugin.className
+        pluginIdToClassName[plugin.id] = plugin.android.className
         pluginToCommands[plugin.id] = asUniqueSorted(plugin.commands)
         pluginToCallbacks[plugin.id] = asUniqueSorted(plugin.callbacks)
     }
@@ -359,7 +380,7 @@ function updateAndroidManifestPermissions(manifestPath, selectedPermissions, all
 }
 
 function findDependenciesBlockRange(gradleText, gradlePath) {
-    const headerMatch = gradleText.match(/^\s*dependencies\s*\{/m)
+    const headerMatch = gradleText.match(/^dependencies\s*\{/m)
     if (!headerMatch || headerMatch.index == null) {
         throw new Error(`Could not find dependencies block in ${gradlePath}`)
     }
@@ -416,7 +437,8 @@ function updateGradleDependencies(gradlePath, selectedDependencies, allKnownPlug
 function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConfig, log }) {
     const discovered = discoverInternalPlugins(corePluginsRoot, log)
     validatePlugins(discovered)
-    const selected = selectPluginsByConfig(discovered, pluginConfig, log)
+    const enabled = selectPluginsByConfig(discovered, pluginConfig, log)
+    const selected = selectPluginsForPlatform(enabled, "android", log)
     validateSelectedPluginSources(selected)
 
     const javaRoot = path.join(androidProjectPath, "app", "src", "main", "java")
@@ -428,13 +450,13 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
     generatePluginRegistryFiles(selected, javaRoot)
     updateAndroidManifestPermissions(
         manifestPath,
-        selected.flatMap((plugin) => plugin.permissions),
-        discovered.flatMap((plugin) => plugin.permissions)
+        selected.flatMap((plugin) => plugin.android.permissions),
+        discovered.flatMap((plugin) => plugin.android?.permissions || [])
     )
     updateGradleDependencies(
         gradlePath,
-        selected.flatMap((plugin) => plugin.dependencies),
-        discovered.flatMap((plugin) => plugin.dependencies)
+        selected.flatMap((plugin) => plugin.android.dependencies),
+        discovered.flatMap((plugin) => plugin.android?.dependencies || [])
     )
 
     log(`Plugin composition complete (${selected.length} enabled plugin(s))`, "success")
