@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS framework_knowledge (
   source TEXT NOT NULL,          -- 'static' | 'sitemap'
   tags TEXT NOT NULL DEFAULT '[]', -- JSON array
   url TEXT,                      -- only for source='sitemap'
+  github_files TEXT,             -- JSON array of repo-relative paths; fetched when list-intent detected or on KB miss
   last_updated TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

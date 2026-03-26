@@ -60,8 +60,8 @@ function seedKnowledgeBase(db, projectInfo) {
   db.prepare(`DELETE FROM known_errors`).run();
 
   const insertKnowledge = db.prepare(`
-    INSERT INTO framework_knowledge (section, title, content, layer, source, tags)
-    VALUES (@section, @title, @content, @layer, @source, @tags)
+    INSERT INTO framework_knowledge (section, title, content, layer, source, tags, github_files)
+    VALUES (@section, @title, @content, @layer, @source, @tags, @github_files)
   `);
 
   const insertError = db.prepare(`
@@ -97,6 +97,7 @@ function seedKnowledgeBase(db, projectInfo) {
           layer: entry.layer,
           source: 'static',
           tags: JSON.stringify(entry.tags || []),
+          github_files: entry.github_files ? JSON.stringify(entry.github_files) : null,
         });
         knowledgeCount++;
       }
