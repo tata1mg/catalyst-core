@@ -1,3 +1,5 @@
+import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
+loadEnvironmentVariables()
 import { defineConfig } from "vite"
 import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
@@ -7,9 +9,6 @@ import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 
 const buildConfigPath = path.join(process.env.src_path, "buildConfig.js")
 const customViteConfig = await import(buildConfigPath)
-
-import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
-loadEnvironmentVariables()
 
 // const customViteConfig = {
 //     clientPlugins: [],
