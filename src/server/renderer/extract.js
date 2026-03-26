@@ -12,7 +12,11 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
             return asset
         }
 
-        const base = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`.replace(/\/+$/, "")
+        const base =
+            `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`.replace(
+                /\/+$/,
+                ""
+            )
         const assetPath = asset.startsWith("/") ? asset : `/${asset}`
         return `${base}${assetPath}`
     }
@@ -84,7 +88,11 @@ export const generateScriptTags = (jsAssets, req) => {
             return asset
         }
 
-        const base = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`.replace(/\/+$/, "")
+        const base =
+            `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`.replace(
+                /\/+$/,
+                ""
+            )
         const assetPath = asset.startsWith("/") ? asset : `/${asset}`
         return `${base}${assetPath}`
     }
@@ -217,9 +225,14 @@ export const generateInlineCssFromAssets = (cssAssets = [], options = {}) => {
         }
 
         try {
-            const fileContent = fs.readFileSync(filePath, "utf8")
-            if (fileContent) {
-                cssChunks.push(fileContent)
+            if (!process.cssFileCache) process.cssFileCache = {}
+
+            if (!process.cssFileCache[filePath]) {
+                process.cssFileCache[filePath] = fs.readFileSync(filePath, "utf8")
+            }
+
+            if (process.cssFileCache[filePath]) {
+                cssChunks.push(process.cssFileCache[filePath])
             }
         } catch (error) {
             // In production we silently ignore missing/unreadable assets.
