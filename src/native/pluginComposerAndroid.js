@@ -434,6 +434,30 @@ function updateGradleDependencies(gradlePath, selectedDependencies, allKnownPlug
     fs.writeFileSync(gradlePath, gradle)
 }
 
+function updateProguardKeepRules(proguardPath, selectedClassNames, allKnownPluginClassNames) {
+    const uniqueClassNames = asUniqueSorted(selectedClassNames)
+    const knownClassNames = asUniqueSorted(allKnownPluginClassNames)
+    let rules = fs.readFileSync(proguardPath, "utf8")
+
+    const beginMarker = "# CATALYST_PLUGIN_KEEP_START"
+    const endMarker = "# CATALYST_PLUGIN_KEEP_END"
+    const markerRegex = /[ \t]*# CATALYST_PLUGIN_KEEP_START[\s\S]*?# CATALYST_PLUGIN_KEEP_END\s*/g
+    rules = rules.replace(markerRegex, "")
+
+    for (const className of knownClassNames) {
+        const escaped = escapeRegexLiteral(className)
+        const legacyRegex = new RegExp(`^[ \\t]*-keep class ${escaped} \\{ \\*; \\}\\s*\\n?`, "gm")
+        rules = rules.replace(legacyRegex, "")
+    }
+
+    if (uniqueClassNames.length > 0) {
+        const keepLines = uniqueClassNames.map((className) => `-keep class ${className} { *; }`).join("\n")
+        rules = `${rules.trimEnd()}\n\n${beginMarker}\n${keepLines}\n${endMarker}\n`
+    }
+
+    fs.writeFileSync(proguardPath, rules)
+}
+
 function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConfig, log }) {
     const discovered = discoverInternalPlugins(corePluginsRoot, log)
     validatePlugins(discovered)
@@ -444,6 +468,7 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
     const javaRoot = path.join(androidProjectPath, "app", "src", "main", "java")
     const manifestPath = path.join(androidProjectPath, "app", "src", "main", "AndroidManifest.xml")
     const gradlePath = path.join(androidProjectPath, "app", "build.gradle.kts")
+    const proguardPath = path.join(androidProjectPath, "app", "proguard-rules.pro")
 
     copyAndroidPluginSources(selected, javaRoot, log)
     copyPluginAssets(selected, androidProjectPath, log)
@@ -457,6 +482,11 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
         gradlePath,
         selected.flatMap((plugin) => plugin.android.dependencies),
         discovered.flatMap((plugin) => plugin.android?.dependencies || [])
+    )
+    updateProguardKeepRules(
+        proguardPath,
+        selected.map((plugin) => plugin.android.className),
+        discovered.flatMap((plugin) => plugin.android?.className || [])
     )
 
     log(`Plugin composition complete (${selected.length} enabled plugin(s))`, "success")
