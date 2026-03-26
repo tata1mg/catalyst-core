@@ -1,0 +1,58 @@
+mcp_v2/knowledge-base.json
+  0d274ebe62d6755e 1411-1448
+  3737990ab004108a 1241-1292,1379
+mcp_v2/schema.sql
+  3e707ef198eeb873 23
+mcp_v2/setup.js
+  3e707ef198eeb873 63-64,100
+mcp_v2/tools/knowledge.js
+  3e707ef198eeb873 8-11,15-22,50,77-90,101-112,124,126-133,138,142-172,176-178,182
+mcp_v2/mcp.js
+  0d274ebe62d6755e 236,241-242
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "35484dbb806af78d2048f835241a302f58375252",
+  "prompts": {
+    "0d274ebe62d6755e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ad857d0-f0b8-451a-b674-dfdab92b117a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 3,
+      "accepted_lines": 41,
+      "overriden_lines": 0
+    },
+    "3737990ab004108a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9b5b27d0-ad4b-4c3d-ada7-d5b32f838eeb",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 54,
+      "total_deletions": 1,
+      "accepted_lines": 53,
+      "overriden_lines": 2
+    },
+    "3e707ef198eeb873": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6cb29507-7a50-48ce-842f-522bfb456ff5",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 113,
+      "total_deletions": 31,
+      "accepted_lines": 93,
+      "overriden_lines": 0
+    }
+  }
+}
