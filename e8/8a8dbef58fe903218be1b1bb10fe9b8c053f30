@@ -1,0 +1,25 @@
+src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebViewSettingsBridgeTest.kt
+  522fc4017435d547 1-124
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/CatalystConstants.kt
+  522fc4017435d547 76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "e88a8dbef58fe903218be1b1bb10fe9b8c053f30",
+  "prompts": {
+    "522fc4017435d547": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c9ebdbd-2810-4cdc-ba29-ee4d1a62b75b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 126,
+      "total_deletions": 1,
+      "accepted_lines": 126,
+      "overriden_lines": 0
+    }
+  }
+}
