@@ -8,11 +8,8 @@ import { dirname } from "path"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
-// import customViteConfig from "@catalyst/template/buildConfig.js"
-const customViteConfig = {
-    ssrPlugins: [],
-    clientPlugins: [],
-}
+const buildConfigPath = path.join(process.env.src_path, "buildConfig.js")
+const customViteConfig = await import(buildConfigPath)
 
 export default defineConfig({
     ...baseConfig,
@@ -57,7 +54,7 @@ export default defineConfig({
             },
         },
 
-        chunkSizeWarningLimit: 1000,
+        chunkSizeWarningLimit: 2000,
     },
 
     // Optimization for production

@@ -3,11 +3,13 @@ import { spawnSync } from "child_process"
 import { arrayToObject } from "./scriptUtils.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
-import { readFileSync, existsSync } from "fs"
+import { readFileSync, existsSync, rmSync } from "fs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
+const configPath = path.join(process.env.PWD, "config/config.json")
+const configJSON = JSON.parse(readFileSync(configPath), "utf-8")
 
 /**
  * @description - builds the application for production
@@ -20,6 +22,12 @@ function build() {
     // Read package.json
     const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
     const { name } = packageJson
+
+    const buildOutputPath = path.join(process.env.PWD, configJSON.BUILD_OUTPUT_PATH || "build")
+    if (existsSync(buildOutputPath)) {
+        console.log("🧹 Clearing previous build output...")
+        rmSync(buildOutputPath, { recursive: true, force: true })
+    }
 
     console.log("🏗️  Building application for production...")
 

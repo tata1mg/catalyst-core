@@ -2,17 +2,18 @@ import { defineConfig } from "vite"
 import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
-import { compression } from "vite-plugin-compression2"
+// import { compression } from "vite-plugin-compression2"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 
-// import customViteConfig from "@catalyst/template/buildConfig.js"
+const buildConfigPath = path.join(process.env.src_path, "buildConfig.js")
+const customViteConfig = await import(buildConfigPath)
 
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
 
-const customViteConfig = {
-    clientPlugins: [],
-}
+// const customViteConfig = {
+//     clientPlugins: [],
+// }
 const clientConfig = defineConfig({
     ...baseConfig,
     mode: "production",
@@ -27,8 +28,8 @@ const clientConfig = defineConfig({
         }),
         injectCacheKeyPlugin(),
         ...(customViteConfig?.clientPlugins || []),
-        compression({ algorithm: "gzip" }),
-        compression({ algorithm: "brotliCompress", exclude: [/\.(br)$/, /\.(gz)$/] }),
+        // compression({ algorithm: "gzip" }),
+        // compression({ algorithm: "brotliCompress", exclude: [/\.(br)$/, /\.(gz)$/] }),
     ],
 
     build: {
@@ -103,7 +104,7 @@ const clientConfig = defineConfig({
         modulePreload: false,
 
         // Production-specific optimization
-        chunkSizeWarningLimit: 1000,
+        chunkSizeWarningLimit: 2000,
     },
     esbuild: {
         legalComments: "none",

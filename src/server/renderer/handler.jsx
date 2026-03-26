@@ -121,7 +121,6 @@ const renderMarkUp = async (
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
-    console.log(">>>>>>>", discoveredAssets.js)
     // Process ChunkExtractor discovered assets
     const scriptElements = generateScriptTags(discoveredAssets.js, req)
     const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
