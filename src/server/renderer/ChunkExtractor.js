@@ -8,6 +8,8 @@ export class ChunkExtractor {
         this.manifest = options.manifest || {}
         this.components = new Set()
         this.assetManifest = options.assetManifest || {}
+        const baseUrl = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`
+        this.publicPath = options.publicPath || `${baseUrl.replace(/\/+$/, "")}/`
         this.essentialAssets = {
             js: new Set(),
             css: new Set(),
@@ -41,15 +43,23 @@ export class ChunkExtractor {
      */
     addEssentialAssets(manifestEntry, category = "unknown") {
         if (manifestEntry.file) {
-            if (this.essentialAssets.js.has(manifestEntry.file)) {
+            const filePart = manifestEntry.file.replace(/^\/+/, "")
+            const fileUrl = `${this.publicPath}${filePart}`
+            if (this.essentialAssets.js.has(fileUrl)) {
                 return
             }
             if (category === "essential") {
-                this.essentialAssets.js.add(manifestEntry.file)
+                this.essentialAssets.js.add(fileUrl)
             }
+            // CSS paths stay relative — generateInlineCssFromAssets reads them from disk
             if (manifestEntry.css && Array.isArray(manifestEntry.css)) {
                 manifestEntry.css.forEach((cssFile) => {
-                    this.essentialAssets.css.add(cssFile)
+                    this.essentialAssets.css.add(cssFile.replace(/^\/+/, ""))
+                })
+            }
+            if (manifestEntry.allCss && Array.isArray(manifestEntry.allCss)) {
+                manifestEntry.allCss.forEach((cssFile) => {
+                    this.essentialAssets.css.add(cssFile.replace(/^\/+/, ""))
                 })
             }
         }
@@ -59,13 +69,16 @@ export class ChunkExtractor {
      */
     addNonEssentialAssets(manifestEntry) {
         if (manifestEntry.file) {
-            if (this.nonEssentialAssets.js.has(manifestEntry.file)) {
+            const filePart = manifestEntry.file.replace(/^\/+/, "")
+            const fileUrl = `${this.publicPath}${filePart}`
+            if (this.nonEssentialAssets.js.has(fileUrl)) {
                 return
             }
-            this.nonEssentialAssets.js.add(manifestEntry.file)
+            this.nonEssentialAssets.js.add(fileUrl)
+            // CSS paths stay relative — generateInlineCssFromAssets reads them from disk
             if (manifestEntry.css && Array.isArray(manifestEntry.css)) {
                 manifestEntry.css.forEach((cssFile) => {
-                    this.nonEssentialAssets.css.add(cssFile)
+                    this.nonEssentialAssets.css.add(cssFile.replace(/^\/+/, ""))
                 })
             }
         }

@@ -153,6 +153,9 @@ const browserOptimizeDeps = [
     "@tata1mg/router",
     "history",
     "lottie-web",
+    // Pre-bundle alongside React so esbuild marks react/react-router as external
+    // and avoids a duplicate React instance (which causes useContext null errors)
+    "@tata1mg/slowboi-react",
 ]
 
 // Node-only / instrumentation dependencies that should remain external in SSR
@@ -210,14 +213,14 @@ export default defineConfig({
         alias: alias(),
         // Ensure only one copy of React-related packages is used (prevents
         // duplicate instances from hoisted/linked packages in monorepos)
-        dedupe: ["react", "react-dom", "react-router-dom"],
+        dedupe: ["react", "react-dom", "react-router-dom", "@tata1mg/slowboi-react"],
     },
     define: {
         ...getClientEnvVariables(),
     },
 
     build: {
-        outDir: path.join(process.env.src_path, "build"),
+        outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
     },
 
     optimizeDeps: {

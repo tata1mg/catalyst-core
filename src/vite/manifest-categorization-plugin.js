@@ -260,6 +260,31 @@ export function manifestCategorizationPlugin(options = {}) {
         })
     }
 
+    // Recursively collect all CSS files reachable from a manifest key
+    function collectTransitiveCss(viteKey, viteManifest, visited = new Set()) {
+        if (visited.has(viteKey)) return []
+        visited.add(viteKey)
+
+        const entry = viteManifest[viteKey]
+        if (!entry) return []
+
+        const css = [...(entry.css || [])]
+        for (const imp of entry.imports || []) {
+            css.push(...collectTransitiveCss(imp, viteManifest, visited))
+        }
+        return css
+    }
+
+    // Attach allCss (transitive) to every chunk in all categories
+    function enrichWithTransitiveCss(categorizedManifest, viteManifest) {
+        for (const category of ["essential", "ssrTrue", "ssrFalse"]) {
+            for (const [key, chunk] of Object.entries(categorizedManifest[category])) {
+                const transitiveCss = collectTransitiveCss(key, viteManifest)
+                chunk.allCss = [...new Set(transitiveCss)]
+            }
+        }
+    }
+
     return {
         name: "manifest-categorization",
 
@@ -323,7 +348,12 @@ export function manifestCategorizationPlugin(options = {}) {
             let viteManifest = null
 
             try {
-                const manifestPath = path.join(process.env.src_path, "build", ".vite", "manifest.json")
+                const manifestPath = path.join(
+                    process.env.src_path,
+                    process.env.BUILD_OUTPUT_PATH || "build",
+                    ".vite",
+                    "manifest.json"
+                )
                 if (fs.existsSync(manifestPath)) {
                     const manifestContent = fs.readFileSync(manifestPath, "utf8")
                     viteManifest = JSON.parse(manifestContent)
@@ -343,9 +373,15 @@ export function manifestCategorizationPlugin(options = {}) {
             }
 
             applyViteManifestStructure(processedManifest, viteManifest)
+            enrichWithTransitiveCss(processedManifest, viteManifest)
 
             // Write manifest file directly to filesystem
-            const outputPath = path.join(process.env.src_path, "build", ".vite", outputFile)
+            const outputPath = path.join(
+                process.env.src_path,
+                process.env.BUILD_OUTPUT_PATH || "build",
+                ".vite",
+                outputFile
+            )
             fs.writeFileSync(outputPath, JSON.stringify(processedManifest, null, 2))
         },
     }

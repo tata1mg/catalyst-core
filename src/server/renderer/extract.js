@@ -12,19 +12,9 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
             return asset
         }
 
-        // Construct proper URL with host and port
-        const protocol = (req && req.protocol) || "http"
-        const host = (req && req.get && req.get("host")) || "localhost:3005"
-
-        // Ensure asset path starts with /
+        const base = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`.replace(/\/+$/, "")
         const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-        // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}/${asset}`
-        }
-
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${assetPath}`
+        return `${base}${assetPath}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
@@ -94,14 +84,9 @@ export const generateScriptTags = (jsAssets, req) => {
             return asset
         }
 
-        // Construct proper URL with host and port
-        const protocol = (req && req.protocol) || "http"
-        const host = (req && req.get && req.get("host")) || "localhost:3005"
-
-        // Ensure asset path starts with /
-        const assetPath = asset.startsWith("/") ? asset : `${asset}`
-
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}/${asset}`
+        const base = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`.replace(/\/+$/, "")
+        const assetPath = asset.startsWith("/") ? asset : `/${asset}`
+        return `${base}${assetPath}`
     }
 
     // Deduplicate assets by URL to prevent duplicates

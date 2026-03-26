@@ -16,6 +16,7 @@ const customViteConfig = {
 const clientConfig = defineConfig({
     ...baseConfig,
     mode: "production",
+    base: `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || "/"}`,
 
     // Add manifest categorization plugin (run it last to ensure Vite manifest is available)
     plugins: [
@@ -36,7 +37,7 @@ const clientConfig = defineConfig({
         sourcemap: false,
         manifest: true,
         ssrManifest: true,
-        outDir: path.join(process.env.src_path, "build"),
+        outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
 
         // Override input paths for client production
         rollupOptions: {

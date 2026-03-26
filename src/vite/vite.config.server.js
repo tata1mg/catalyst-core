@@ -23,6 +23,7 @@ export default defineConfig({
 
     build: {
         ...baseConfig.build,
+        outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
         target: "es2022",
         minify: "esbuild",
         sourcemap: false,
@@ -37,7 +38,7 @@ export default defineConfig({
             output: {
                 format: "es",
                 entryFileNames: (chunkInfo) => {
-                    return chunkInfo.name === "server" ? "server/[name].js" : "server/assets/[name]-[hash].js"
+                    return chunkInfo.name === "server" ? "server/index.js" : "server/assets/[name]-[hash].js"
                 },
                 chunkFileNames: "server/assets/[name]-[hash].js",
                 assetFileNames: (assetInfo) => {

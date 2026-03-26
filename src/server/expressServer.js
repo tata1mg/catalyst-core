@@ -47,7 +47,7 @@ async function createServer() {
 
     if (isProduction) {
         // In production, serve built assets
-        const buildPath = path.join(process.env.src_path, "build")
+        const buildPath = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
         const publicPath = path.join(buildPath, "client")
         // Serve static assets — prefers pre-compressed .br / .gz files generated at build time
         app.use(
@@ -104,12 +104,22 @@ async function createServer() {
 
             if (isProduction) {
                 // In production, load the built server module
-                const serverPath = path.join(process.env.src_path, "build", "server", "server.js")
+                const serverPath = path.join(
+                    process.env.src_path,
+                    process.env.BUILD_OUTPUT_PATH || "build",
+                    "server",
+                    "server.js"
+                )
                 if (fs.existsSync(serverPath)) {
                     render = await import(serverPath)
                 } else {
                     // Fallback to renderer if server.js doesn't exist
-                    const rendererPath = path.join(process.env.src_path, "build", "server", "index.js")
+                    const rendererPath = path.join(
+                        process.env.src_path,
+                        process.env.BUILD_OUTPUT_PATH || "build",
+                        "server",
+                        "index.js"
+                    )
                     render = await import(rendererPath)
                 }
             } else {

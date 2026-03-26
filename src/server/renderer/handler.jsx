@@ -13,11 +13,7 @@ import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
-import {
-    generateScriptTags,
-    generateInlineCssFromAssets,
-    generateScriptTagsAsStrings,
-} from "./extract.js"
+import { generateScriptTags, generateInlineCssFromAssets, generateScriptTagsAsStrings } from "./extract.js"
 import path from "path"
 
 import CustomDocument from "@catalyst/template/server/document"
@@ -125,7 +121,7 @@ const renderMarkUp = async (
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
-
+    console.log(">>>>>>>", discoveredAssets.js)
     // Process ChunkExtractor discovered assets
     const scriptElements = generateScriptTags(discoveredAssets.js, req)
     const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
