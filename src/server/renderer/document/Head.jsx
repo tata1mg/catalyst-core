@@ -25,7 +25,7 @@ export function Head(props) {
             {metaTags && metaTags}
             {!isBot && pageJS}
 
-            {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+            {!isBot && pageCss}
 
             {children}
         </head>

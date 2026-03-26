@@ -13,7 +13,7 @@ import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
-import { generateScriptTags, generateInlineCssFromAssets, generateScriptTagsAsStrings } from "./extract.js"
+import { generateScriptTags, generateStylesheetLinks, generateStylesheetLinksAsStrings, generateInlineCssFromAssets, generateScriptTagsAsStrings } from "./extract.js"
 import path from "path"
 
 import CustomDocument from "@catalyst/template/server/document"
@@ -123,11 +123,10 @@ const renderMarkUp = async (
     const isBot = deviceDetails.googleBot ? true : false
     // Process ChunkExtractor discovered assets
     const scriptElements = generateScriptTags(discoveredAssets.js, req)
-    const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
-        assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
-    })
+    // Serve essential CSS as <link> elements — avoids inlining the entire component
+    // CSS library (~1MB+) into every SSR HTML response.
+    const stylesheetLinks = generateStylesheetLinks(discoveredAssets.css, req)
 
-    // Use stylesheet links instead of inlined CSS
     res.locals.pageJS = scriptElements
     res.locals.pageCss = stylesheetLinks
 
@@ -191,9 +190,10 @@ const renderMarkUp = async (
                     ? chunkExtractor.getNonEssentialAssets()
                     : { js: [], css: [] }
                 const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
-                const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
-                    assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
-                })
+                // Serve split-component CSS as <link> tags rather than inlining — the
+                // non-essential CSS can reference shared CSS chunks containing ALL component
+                // styles (700+ components) which bloats every SSR response with dead CSS.
+                const stylesheetLinks = generateStylesheetLinksAsStrings(discoveredAssets.css, req)
 
                 // Inline (non-module) script so it runs during HTML parsing, before any
                 // deferred module scripts.  Tells Split.jsx which components were actually
@@ -205,7 +205,7 @@ const renderMarkUp = async (
                     )
                 }
 
-                res.write(`<style>${stylesheetLinks}</style>`)
+                res.write(stylesheetLinks)
                 res.write(scriptElements)
             },
             // onError(error) {
@@ -234,41 +234,38 @@ export default async function (req, res) {
 
         // Matches req url with routes
         const matches = getMatchRoutes(routes, req, res, store, context, fetcherData, undefined)
-        const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
+        const allMatches = NestedMatchRoutes(routes, req.baseUrl)
         let allTags = []
+
+        // Collect essential assets immediately — only needs manifest data available at request time,
+        // so it runs in parallel with the async data-fetching pipeline instead of blocking on it.
+        const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
+            req.ssrManifest,
+            req.manifest,
+            req.assetManifest
+        )
 
         // Executing app server side function
         App.serverSideFunction({ store, req, res })
             // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
-            .then(() => {
+            .then(() =>
                 serverDataFetcher({ routes: routes, req, res, url: req.originalUrl }, { store })
-                    .then((res) => {
-                        fetcherData = res
+                    .then(async (fetcherRes) => {
+                        fetcherData = fetcherRes
                         allTags = getMetaData(allMatches, fetcherData)
-
-                        // Perform two-pass rendering to discover required assets
-                        const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
-                            req.ssrManifest,
-                            req.manifest,
-                            req.assetManifest
+                        await renderMarkUp(
+                            null,
+                            req,
+                            res,
+                            allTags,
+                            fetcherData,
+                            store,
+                            matches,
+                            context,
+                            discoveredAssets,
+                            chunkExtractor
                         )
-                        return { discoveredAssets, chunkExtractor }
                     })
-                    .then(
-                        async ({ discoveredAssets, chunkExtractor }) =>
-                            await renderMarkUp(
-                                null,
-                                req,
-                                res,
-                                allTags,
-                                fetcherData,
-                                store,
-                                matches,
-                                context,
-                                discoveredAssets,
-                                chunkExtractor
-                            )
-                    )
                     .catch(async (error) => {
                         console.error("Error in executing serverFetcher functions: " + error)
                         await renderMarkUp(
@@ -284,7 +281,7 @@ export default async function (req, res) {
                             null
                         )
                     })
-            })
+            )
             .catch((error) => {
                 console.error("Error in executing serverSideFunction inside App: " + error)
                 renderMarkUp(

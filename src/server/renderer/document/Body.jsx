@@ -31,7 +31,7 @@ export function Body(props) {
                     __html: `
                     window.__INITIAL_STATE__ = ${JSON.stringify(initialState)}
                     window.__STATUS_CODE__ = ${statusCode}
-                    window.__ROUTER_INITIAL_DATA__ = ${JSON.stringify(fetcherData)}
+                    window.__ROUTER_INITIAL_DATA__ = {}
             `,
                 }}
             />

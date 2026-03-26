@@ -57,11 +57,11 @@ export class ChunkExtractor {
                     this.essentialAssets.css.add(cssFile.replace(/^\/+/, ""))
                 })
             }
-            if (manifestEntry.allCss && Array.isArray(manifestEntry.allCss)) {
-                manifestEntry.allCss.forEach((cssFile) => {
-                    this.essentialAssets.css.add(cssFile.replace(/^\/+/, ""))
-                })
-            }
+            // if (manifestEntry.allCss && Array.isArray(manifestEntry.allCss)) {
+            //     manifestEntry.allCss.forEach((cssFile) => {
+            //         this.essentialAssets.css.add(cssFile.replace(/^\/+/, ""))
+            //     })
+            // }
         }
     }
     /**
