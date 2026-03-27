@@ -71,8 +71,10 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
     }, [])
 }
 
-// Collects essential assets for the current route
-const collectEssentialAssets = (ssrManifest, manifest, assetManifest) => {
+// Collects essential assets for the current route.
+// allMatches is passed so route-specific split-chunk CSS is inlined in <head>
+// (first-paint, blocking) rather than injected after the body stream.
+const collectEssentialAssets = (ssrManifest, manifest, assetManifest, allMatches = []) => {
     let discoveredAssets = { js: [], css: [] }
     let chunkExtractor = null
 
@@ -83,6 +85,11 @@ const collectEssentialAssets = (ssrManifest, manifest, assetManifest) => {
             ssrManifest: ssrManifest || {},
             assetManifest: assetManifest || {},
         })
+
+        // Pre-load the matched route's split-chunk CSS into essentialAssets so it
+        // is inlined in <head> at first paint. Reads __cacheKey from the route's
+        // component (attached by split() automatically) — no route config changes needed.
+        chunkExtractor.preloadRouteCss(allMatches)
 
         // Get extracted assets from ChunkExtractor
         discoveredAssets = chunkExtractor.getEssentialAssets()
@@ -191,7 +198,6 @@ const renderMarkUp = async (
                     ? chunkExtractor.getNonEssentialAssets()
                     : { js: [], css: [] }
                 const scriptElements = generateScriptTagsAsStrings(nonEssentialAssets.js, req)
-                const essentialScripts = generateScriptTagsAsStrings(discoveredAssets.js, req)
 
                 const stylesheetLinks = generateInlineCssFromAssets(nonEssentialAssets.css, {
                     assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
@@ -208,7 +214,6 @@ const renderMarkUp = async (
                 }
 
                 res.write(`<style>${stylesheetLinks}</style>`)
-                res.write(essentialScripts)
                 res.write(scriptElements)
             },
             // onError(error) {
@@ -253,7 +258,8 @@ export default async function (req, res) {
                         const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
                             req.ssrManifest,
                             req.manifest,
-                            req.assetManifest
+                            req.assetManifest,
+                            allMatches
                         )
                         return { discoveredAssets, chunkExtractor }
                     })

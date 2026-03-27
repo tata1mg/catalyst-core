@@ -81,7 +81,7 @@ export const split = (importFn, { ssr = true, fallback = null, key } = {}, cache
 
     const LazyComponent = lazy(importFn)
 
-    return (props) => {
+    const wrapper = (props) => {
         // On the client, for SSR-enabled components, check if the module has
         // already resolved into moduleCache.  If it has, render the real
         // component directly — bypassing React.lazy entirely.
@@ -104,6 +104,12 @@ export const split = (importFn, { ssr = true, fallback = null, key } = {}, cache
             </Split>
         )
     }
+
+    // Expose cacheKey so preloadRouteCss() can read it directly from the route's
+    // component reference — no manual cacheKey config needed on route objects.
+    wrapper.__cacheKey = cacheKey
+
+    return wrapper
 }
 
 export default Split

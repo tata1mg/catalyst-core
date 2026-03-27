@@ -32,10 +32,44 @@ export class ChunkExtractor {
      * Add critical assets that should always be included
      */
     addEssentialEntrypoints() {
-        // Critical entrypoints that must be loaded
         Object.entries(this.assetManifest.essential || {}).forEach(([key, manifestEntry]) => {
             this.addEssentialAssets(manifestEntry, "essential", key)
         })
+    }
+
+    /**
+     * Pre-load CSS for the matched route's split chunks into essentialAssets so
+     * it is inlined in <head> (blocking, first-paint) rather than injected after
+     * the body stream. Call this before rendering with the array of matched routes
+     * from React Router's matchRoutes().
+     *
+     * Reads __cacheKey directly from the route's component — attached by split()
+     * at build time — so no manual cacheKey config is needed on route objects.
+     * Routes whose component was not created via split() are silently skipped.
+     *
+     * @param {Array} allMatches - Result of matchRoutes(getRoutes(), url)
+     */
+    preloadRouteCss(allMatches = []) {
+        for (const match of allMatches) {
+            const route = match?.route
+            if (!route) continue
+
+            // split() attaches __cacheKey to the component it returns.
+            // Support both React Router v6 (Component/element) and v5 (component) conventions.
+            const component = route.Component || route.component
+            const cacheKey = component?.__cacheKey
+
+            if (!cacheKey) continue
+
+            const manifestEntry =
+                (this.assetManifest.ssrTrue || {})[cacheKey] ||
+                (this.assetManifest.ssrFalse || {})[cacheKey] ||
+                this.manifest[cacheKey]
+
+            if (manifestEntry) {
+                this.addEssentialAssets(manifestEntry, "essential")
+            }
+        }
     }
 
     /**
@@ -64,6 +98,7 @@ export class ChunkExtractor {
             }
         }
     }
+
     /**
      * Add ssrTrue assets directly
      */
@@ -81,12 +116,14 @@ export class ChunkExtractor {
                     this.nonEssentialAssets.css.add(cssFile.replace(/^\/+/, ""))
                 })
             }
+            // allCss contains transitive CSS — needed so deeply-nested CSS isn't missed
+            if (manifestEntry.allCss && Array.isArray(manifestEntry.allCss)) {
+                manifestEntry.allCss.forEach((cssFile) => {
+                    this.nonEssentialAssets.css.add(cssFile.replace(/^\/+/, ""))
+                })
+            }
         }
     }
-
-    /**
-     * Generate chunk ID for CSS file
-     */
 
     /**
      * Add a component for tracking
@@ -126,7 +163,7 @@ export class ChunkExtractor {
     }
 
     /**
-     * Get all extracted essential assets
+     * Get all extracted non-essential assets
      * @returns {Object} - Object with js and css arrays
      */
     getNonEssentialAssets() {

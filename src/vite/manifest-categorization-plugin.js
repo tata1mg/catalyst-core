@@ -2,189 +2,123 @@
  * Vite Plugin for Categorizing Assets by SSR Split Configuration
  *
  * This plugin categorizes build assets into three groups:
- * - essential: Assets not using split or direct imports
+ * - essential: Entry chunks + their transitive STATIC import closure (not dynamic)
  * - ssrTrue: Assets loaded via split with ssr: true
  * - ssrFalse: Assets loaded via split with ssr: false
  **/
 import path from "path"
 import fs from "fs"
 
+// Compiled once at module load — not inside transform to avoid per-file recompilation
+const SPLIT_REGEX =
+    /split\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*(?:,\s*\{([^}]*)\})?\s*\)/g
+
 export function manifestCategorizationPlugin(options = {}) {
     const { outputFile = "asset-categories.json", publicPath = "/client/assets/" } = options
 
-    // Track split calls and their resolved module IDs
+    // Collected during transform, resolved asynchronously in buildEnd
+    const pendingSplitPaths = [] // { importPath, importer, ssrValue }
     const splitModules = new Map() // resolvedId -> { ssr: boolean, originalPath: string }
 
-    // Track module ID to chunk mapping
     const moduleToChunk = new Map() // moduleId -> chunkFileName
+    const chunkDependencies = new Map() // chunkFileName -> Set<chunkFileName> (static imports only)
 
-    // Track chunk dependencies
-    const chunkDependencies = new Map() // chunkFileName -> Set<chunkFileName>
-
-    // Store processed manifest for later use
     let processedManifest = null
 
-    // Process bundle and categorize chunks
     function processBundle(bundle) {
-        // First pass: Build module to chunk mapping
+        // Pass 1: Build module → chunk mapping
         for (const [fileName, chunk] of Object.entries(bundle)) {
-            if (chunk.type === "chunk") {
-                // Map the main module
-                if (chunk.facadeModuleId) {
-                    moduleToChunk.set(chunk.facadeModuleId, fileName)
-                }
-
-                // Map all modules in this chunk
-                if (chunk.modules) {
-                    for (const moduleId of Object.keys(chunk.modules)) {
-                        moduleToChunk.set(moduleId, fileName)
-                    }
+            if (chunk.type !== "chunk") continue
+            if (chunk.facadeModuleId) {
+                moduleToChunk.set(chunk.facadeModuleId, fileName)
+            }
+            if (chunk.modules) {
+                for (const moduleId of Object.keys(chunk.modules)) {
+                    moduleToChunk.set(moduleId, fileName)
                 }
             }
         }
 
-        // Second pass: Build chunk dependency graph
+        // Pass 2: Build static-only dependency graph (excludes dynamicImports intentionally)
         for (const [fileName, chunk] of Object.entries(bundle)) {
-            if (chunk.type === "chunk") {
-                const deps = new Set()
+            if (chunk.type !== "chunk") continue
+            chunkDependencies.set(fileName, new Set(chunk.imports || []))
+        }
 
-                // Add static imports
-                if (chunk.imports) {
-                    chunk.imports.forEach((imp) => deps.add(imp))
-                }
+        // Identify which chunks are split targets
+        const splitChunkNames = new Set()
+        for (const moduleId of splitModules.keys()) {
+            const chunkName = moduleToChunk.get(moduleId)
+            if (chunkName && bundle[chunkName]) splitChunkNames.add(chunkName)
+        }
 
-                // Add dynamic imports
-                if (chunk.dynamicImports) {
-                    chunk.dynamicImports.forEach((imp) => deps.add(imp))
-                }
-
-                chunkDependencies.set(fileName, deps)
+        // Build reverse adjacency map once — O(n) instead of O(n²) per lookup
+        const importedBy = new Map() // chunkFileName -> Set<chunkFileNames that statically import it>
+        for (const [chunk, deps] of chunkDependencies.entries()) {
+            for (const dep of deps) {
+                if (!importedBy.has(dep)) importedBy.set(dep, new Set())
+                importedBy.get(dep).add(chunk)
             }
         }
 
-        // Third pass: Categorize chunks
-        const categorizedChunks = {
-            essential: {},
-            ssrTrue: {},
-            ssrFalse: {},
+        // Orphan chunks (no importers at all) are NOT split-only — they should be essential
+        const isChunkOnlyUsedBySplits = (chunkName) => {
+            const importers = importedBy.get(chunkName)
+            if (!importers || importers.size === 0) return false
+            return [...importers].every((imp) => splitChunkNames.has(imp))
         }
 
-        // Find entry chunks
+        // BFS over STATIC imports from entry chunks only.
+        // Dynamic imports (dynamicImports) are intentionally excluded — they are lazy by design.
         const entryChunks = Object.entries(bundle)
-            .filter(([_, chunk]) => chunk.type === "chunk" && chunk.isEntry)
+            .filter(([_, c]) => c.type === "chunk" && c.isEntry)
             .map(([fileName]) => fileName)
 
-        // Get all split chunks and their dependencies
-        const splitChunkNames = new Set()
-        const splitDependencyChunks = new Set()
+        const essentialChunkNames = new Set(entryChunks)
+        const queue = [...entryChunks]
 
-        for (const [moduleId, splitInfo] of splitModules.entries()) {
-            const chunkName = moduleToChunk.get(moduleId)
-            if (chunkName && bundle[chunkName]) {
-                splitChunkNames.add(chunkName)
-
-                // Add all dependencies of this split chunk to the split dependency set
-                const deps = chunkDependencies.get(chunkName) || new Set()
-                deps.forEach((dep) => {
-                    splitDependencyChunks.add(dep)
-                })
-            }
-        }
-
-        // Helper function to check if a chunk is only used by split chunks
-        const isChunkOnlyUsedBySplits = (chunkName) => {
-            // Check all chunks that import this chunk
-            for (const [otherChunk, deps] of chunkDependencies.entries()) {
-                if (deps.has(chunkName)) {
-                    // If this chunk is imported by a non-split chunk, it's not split-only
-                    if (!splitChunkNames.has(otherChunk)) {
-                        return false
-                    }
-                }
-            }
-            return true
-        }
-
-        // Define essential chunks more strictly
-        const essentialChunkNames = new Set()
-
-        // Start with entry chunks (always include entry chunks as essential)
-        for (const entryChunk of entryChunks) {
-            essentialChunkNames.add(entryChunk)
-        }
-
-        // Add dependencies that are:
-        // 1. Not split chunks themselves
-        // 2. Not used exclusively by split chunks (i.e., truly shared/core)
-        for (const [chunkName, deps] of chunkDependencies.entries()) {
-            if (essentialChunkNames.has(chunkName)) {
-                for (const dep of deps) {
-                    if (!splitChunkNames.has(dep)) {
-                        // Check if this dependency is used by non-split chunks
-                        if (!isChunkOnlyUsedBySplits(dep)) {
-                            essentialChunkNames.add(dep)
-                        }
-                    }
-                }
-            }
-        }
-        // Categorize split chunks
-        const categorizedChunkNames = new Set()
-
-        for (const [moduleId, splitInfo] of splitModules.entries()) {
-            const chunkName = moduleToChunk.get(moduleId)
-            if (chunkName && bundle[chunkName]) {
-                // Only categorize the specific chunk for the split module, not dependencies
-                if (!categorizedChunkNames.has(chunkName)) {
-                    const category = splitInfo.ssr ? "ssrTrue" : "ssrFalse"
-                    categorizedChunks[category][chunkName] = {
-                        file: chunkName,
-                        src: bundle[chunkName].facadeModuleId || "",
-                        isEntry: bundle[chunkName].isEntry || false,
-                        css: bundle[chunkName].css || [],
-                        imports: bundle[chunkName].imports || [],
-                        dynamicImports: bundle[chunkName].dynamicImports || [],
-                    }
-                    categorizedChunkNames.add(chunkName)
+        while (queue.length > 0) {
+            const current = queue.shift()
+            for (const dep of chunkDependencies.get(current) || []) {
+                if (
+                    !essentialChunkNames.has(dep) &&
+                    !splitChunkNames.has(dep) &&
+                    !isChunkOnlyUsedBySplits(dep)
+                ) {
+                    essentialChunkNames.add(dep)
+                    queue.push(dep)
                 }
             }
         }
 
-        // Add essential chunks
+        const toEntry = (fileName, chunk) => ({
+            file: fileName,
+            src: chunk.facadeModuleId || "",
+            isEntry: chunk.isEntry || false,
+            css: chunk.css || [],
+            imports: chunk.imports || [],
+            dynamicImports: chunk.dynamicImports || [],
+        })
+
+        const categorizedChunks = { essential: {}, ssrTrue: {}, ssrFalse: {} }
+
         for (const fileName of essentialChunkNames) {
-            if (bundle[fileName] && bundle[fileName].type === "chunk") {
-                categorizedChunks.essential[fileName] = {
-                    file: fileName,
-                    src: bundle[fileName].facadeModuleId || "",
-                    isEntry: bundle[fileName].isEntry || false,
-                    css: bundle[fileName].css || [],
-                    imports: bundle[fileName].imports || [],
-                    dynamicImports: bundle[fileName].dynamicImports || [],
-                }
+            if (bundle[fileName]?.type === "chunk") {
+                categorizedChunks.essential[fileName] = toEntry(fileName, bundle[fileName])
             }
         }
 
-        // Add remaining chunks that are not split-only deps to essential
-        for (const [fileName, chunk] of Object.entries(bundle)) {
-            if (
-                chunk.type === "chunk" &&
-                !essentialChunkNames.has(fileName) &&
-                !splitChunkNames.has(fileName) &&
-                !isChunkOnlyUsedBySplits(fileName)
-            ) {
-                categorizedChunks.essential[fileName] = {
-                    file: fileName,
-                    src: chunk.facadeModuleId || "",
-                    isEntry: chunk.isEntry || false,
-                    css: chunk.css || [],
-                    imports: chunk.imports || [],
-                    dynamicImports: chunk.dynamicImports || [],
-                }
+        const seen = new Set()
+        for (const [moduleId, splitInfo] of splitModules.entries()) {
+            const chunkName = moduleToChunk.get(moduleId)
+            if (chunkName && bundle[chunkName] && !seen.has(chunkName)) {
+                const category = splitInfo.ssr ? "ssrTrue" : "ssrFalse"
+                categorizedChunks[category][chunkName] = toEntry(chunkName, bundle[chunkName])
+                seen.add(chunkName)
             }
         }
 
-        // Process CSS files with hybrid loading strategy
-        const initialCategorization = {
+        processedManifest = {
             ...categorizedChunks,
             metadata: {
                 generatedAt: new Date().toISOString(),
@@ -197,16 +131,11 @@ export function manifestCategorizationPlugin(options = {}) {
             },
         }
 
-        // Store initial result for CSS processing
-        processedManifest = initialCategorization
-
-        // Return the enhanced categorization
         return processedManifest
     }
 
     // Apply Vite manifest structure to categorized chunks
     function applyViteManifestStructure(categorizedManifest, viteManifest) {
-        // Create new categorized structure using manifest keys
         const newCategorizedChunks = {
             essential: {},
             ssrTrue: {},
@@ -215,7 +144,6 @@ export function manifestCategorizationPlugin(options = {}) {
 
         for (const category of ["essential", "ssrTrue", "ssrFalse"]) {
             for (const [chunkName, chunkData] of Object.entries(categorizedManifest[category])) {
-                // Find the manifest entry where the 'file' property matches our chunk filename
                 let matchedViteKey = null
                 let matchedViteEntry = null
 
@@ -228,19 +156,15 @@ export function manifestCategorizationPlugin(options = {}) {
                 }
 
                 if (matchedViteEntry && matchedViteKey) {
-                    // Use the original manifest key and entry structure
-                    newCategorizedChunks[category][matchedViteKey] = {
-                        ...matchedViteEntry,
-                    }
+                    newCategorizedChunks[category][matchedViteKey] = { ...matchedViteEntry }
                 } else {
                     console.log(`❌ No manifest match found for ${chunkName}, keeping original structure`)
-                    // Fallback to original structure if no manifest match
                     newCategorizedChunks[category][chunkName] = chunkData
                 }
             }
         }
 
-        // Ensure entry points are always in essential category
+        // Ensure entry points are always in essential
         for (const [viteKey, viteEntry] of Object.entries(viteManifest)) {
             if (
                 viteEntry.isEntry &&
@@ -252,7 +176,6 @@ export function manifestCategorizationPlugin(options = {}) {
             }
         }
 
-        // Replace categorized chunks with new structure
         Object.keys(categorizedManifest).forEach((category) => {
             if (category !== "metadata") {
                 categorizedManifest[category] = newCategorizedChunks[category]
@@ -288,63 +211,54 @@ export function manifestCategorizationPlugin(options = {}) {
     return {
         name: "manifest-categorization",
 
-        // Use resolveId to track module resolution
         resolveId(id, importer, options) {
-            // Let Vite handle the resolution first
             return null
         },
 
-        // Scan source files to identify split calls
+        // Scan source files to identify split calls, collect for async resolution in buildEnd
         transform(code, id) {
-            if (id.includes("node_modules")) {
-                return null
-            }
+            if (id.includes("node_modules")) return null
+            if (!code.includes("split")) return null
 
-            // Look for split calls
-            if (code.includes("split")) {
-                // Single comprehensive regex for split
-                const splitRegex =
-                    /split\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*(?:,\s*\{([^}]*)\})?\s*\)/g
+            SPLIT_REGEX.lastIndex = 0 // reset /g flag since the regex is reused across files
 
-                let match
-                while ((match = splitRegex.exec(code)) !== null) {
-                    const importPath = match[1]
-                    const options = match[2] || ""
-
-                    // Determine SSR value
-                    let ssrValue = true // default
-                    const ssrMatch = options.match(/ssr\s*:\s*(true|false)/)
-                    if (ssrMatch) {
-                        ssrValue = ssrMatch[1] === "true"
-                    }
-
-                    // Resolve the import path using Vite's resolver
-                    this.resolve(importPath, id)
-                        .then((resolved) => {
-                            if (resolved) {
-                                splitModules.set(resolved.id, {
-                                    ssr: ssrValue,
-                                    originalPath: importPath,
-                                })
-                            }
-                        })
-                        .catch((err) => {
-                            console.log(`❌ Error resolving ${importPath}:`, err.message)
-                        })
-                }
+            let match
+            while ((match = SPLIT_REGEX.exec(code)) !== null) {
+                const importPath = match[1]
+                const optionsStr = match[2] || ""
+                const ssrMatch = optionsStr.match(/ssr\s*:\s*(true|false)/)
+                const ssrValue = ssrMatch ? ssrMatch[1] === "true" : true
+                pendingSplitPaths.push({ importPath, importer: id, ssrValue })
             }
 
             return null
         },
 
-        // Collect data during bundle generation (has access to full bundle data)
+        // Resolve all split paths here — buildEnd is async-safe, unlike transform
+        async buildEnd() {
+            await Promise.all(
+                pendingSplitPaths.map(async ({ importPath, importer, ssrValue }) => {
+                    try {
+                        const resolved = await this.resolve(importPath, importer)
+                        if (resolved) {
+                            splitModules.set(resolved.id, {
+                                ssr: ssrValue,
+                                originalPath: importPath,
+                            })
+                        }
+                    } catch (err) {
+                        console.log(`❌ Error resolving ${importPath}:`, err.message)
+                    }
+                })
+            )
+        },
+
         generateBundle(options, bundle) {
             processedManifest = processBundle(bundle)
         },
 
         // Write the file after all files are written (manifest.json is available)
         closeBundle() {
-            // Read Vite's manifest.json from disk (now guaranteed to exist)
             let viteManifest = null
 
             try {
@@ -366,7 +280,6 @@ export function manifestCategorizationPlugin(options = {}) {
                 return
             }
 
-            // Use processed manifest from generateBundle and apply Vite manifest structure
             if (!processedManifest) {
                 console.log("❌ No processed manifest available")
                 return
@@ -375,7 +288,6 @@ export function manifestCategorizationPlugin(options = {}) {
             applyViteManifestStructure(processedManifest, viteManifest)
             enrichWithTransitiveCss(processedManifest, viteManifest)
 
-            // Write manifest file directly to filesystem
             const outputPath = path.join(
                 process.env.src_path,
                 process.env.BUILD_OUTPUT_PATH || "build",
