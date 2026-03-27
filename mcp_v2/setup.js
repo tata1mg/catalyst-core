@@ -244,8 +244,16 @@ async function main() {
 
   db.close();
   console.log('\n✓ Setup complete. MCP is ready.\n');
-  console.log('Add to your Claude config:');
-  console.log(`  { "command": "node", "args": ["${path.join(MCP_DIR, 'mcp.js')}"] }`);
+  const mcpConfig = JSON.stringify({
+    "catalyst-mcp": {
+      "command": "node",
+      "args": [path.join(MCP_DIR, 'mcp.js')],
+      "disabledTools": [],
+      "disabled": false
+    }
+  }, null, 2);
+  console.log('Add to your MCP config (Claude, Cursor, Windsurf, or any MCP-compatible client):');
+  console.log(mcpConfig);
 }
 
 main().catch((e) => {
