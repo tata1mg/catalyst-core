@@ -24,6 +24,7 @@ public enum WebKitConfig {
         } else {
             if legacyPrewarmedWebView == nil {
                 let configuration = WKWebViewConfiguration()
+                applyMediaPlaybackConfiguration(to: configuration)
                 configuration.processPool = sharedProcessPool
                 legacyPrewarmedWebView = WKWebView(frame: .zero, configuration: configuration)
                 logWithTimestamp("🔥 WebKit process pool prewarmed for legacy iOS versions")
@@ -38,6 +39,18 @@ public enum WebKitConfig {
             return
         } else {
             configuration.processPool = sharedProcessPool
+        }
+    }
+
+    /// Keep camera previews inline inside WKWebView instead of letting iOS treat
+    /// them like regular media playback with native transport controls.
+    public static func applyMediaPlaybackConfiguration(to configuration: WKWebViewConfiguration) {
+        configuration.allowsInlineMediaPlayback = true
+        configuration.allowsPictureInPictureMediaPlayback = false
+        configuration.allowsAirPlayForMediaPlayback = false
+
+        if #available(iOS 10.0, *) {
+            configuration.mediaTypesRequiringUserActionForPlayback = []
         }
     }
 }
