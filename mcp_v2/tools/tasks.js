@@ -236,6 +236,7 @@ function getConversionStepsForGoal(goal, projectRoot) {
       detail:         t.reason,
       native_risk:    t.native_risk,
       guide:          t.fix_guide,
+      verify_hint:    t.verify_hint || null,
       depends_on:     t.depends_on,
       files_to_touch,
       missing_items,
@@ -271,6 +272,7 @@ function getConversionStepsForGoal(goal, projectRoot) {
         detail:         resolution.evidence,
         native_risk:    t.native_risk,
         guide:          t.fix_guide,
+        verify_hint:    t.verify_hint || null,
         depends_on:     t.depends_on,
         files_to_touch,
         missing_items,
@@ -396,10 +398,11 @@ function writeMdFile(projectRoot, slug, goal, steps, bareMinimum, userReviewWarn
 
   // Steps section
   const stepLines = steps.map(s => {
-    const check = s.status === 'done' ? 'x' : ' ';
-    const tier  = s.tier ? ` [T${s.tier}]` : '';
-    const risk  = s.native_risk ? ` ⚠ ${s.native_risk}` : '';
-    return `- [${check}]${tier} ${s.title}${risk}`;
+    const check  = s.status === 'done' ? 'x' : ' ';
+    const tier   = s.tier ? ` [T${s.tier}]` : '';
+    const risk   = s.native_risk ? ` ⚠ ${s.native_risk}` : '';
+    const verify = s.verify_hint ? `\n  > ✓ ${s.verify_hint}` : '';
+    return `- [${check}]${tier} ${s.title}${risk}${verify}`;
   }).join('\n');
 
   // Current step

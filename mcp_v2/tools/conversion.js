@@ -348,13 +348,13 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
         });
         break;
       case 'needs_review':
-        needs_review.push({ id: task.id, tier: task.tier, title: task.title, native_risk: r.native_risk, reason: r.reason, review_context: r.review_context, fix_guide: task.fix_guide, depends_on: task.depends_on });
+        needs_review.push({ id: task.id, tier: task.tier, title: task.title, native_risk: r.native_risk, reason: r.reason, review_context: r.review_context, fix_guide: task.fix_guide, verify_hint: task.verify_hint || null, depends_on: task.depends_on });
         break;
       case 'not_applicable':
         not_applicable.push({ id: task.id, tier: task.tier, title: task.title, reason: r.reason });
         break;
       default: // gap
-        gaps.push({ id: task.id, tier: task.tier, title: task.title, native_risk: r.native_risk, reason: r.reason, files: r.files || null, fix_guide: task.fix_guide, depends_on: task.depends_on });
+        gaps.push({ id: task.id, tier: task.tier, title: task.title, native_risk: r.native_risk, reason: r.reason, files: r.files || null, fix_guide: task.fix_guide, verify_hint: task.verify_hint || null, depends_on: task.depends_on });
     }
   }
 
@@ -378,10 +378,24 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
     ],
   } : null;
 
+  // ── Project context — raw signals for LLM to infer source framework ─────────
+  let topLevelFiles = [];
+  try { topLevelFiles = fs.readdirSync(root).filter(f => !['node_modules', '.git', 'build', 'dist'].includes(f)); } catch {}
+  let srcStructure = [];
+  try { srcStructure = fs.readdirSync(path.join(root, 'src')); } catch {}
+
+  const project_context = {
+    top_level_files: topLevelFiles,
+    src_structure:   srcStructure,
+    dependencies:    Object.keys(pkg.dependencies  || {}),
+    dev_dependencies: Object.keys(pkg.devDependencies || {}),
+  };
+
   const output = {
     project:    pkg.name || root,
     scanned_at: new Date().toISOString(),
     catalyst_core_version: installedVersion || 'unknown',
+    project_context,
     ...(versionBanner ? { version_warning: versionBanner } : {}),
     summary: {
       applicable_total:    applicableTotal,
@@ -422,12 +436,12 @@ function handle_get_conversion_tasks({ project_path, filter = 'all', include_not
 
   const actionable = applyFilter(status.gaps).map(g => {
     const task = taskMap[g.id];
-    return { id: g.id, tier: task.tier, title: task.title, status: 'gap', native_risk: g.native_risk, reason: g.reason, files: g.files || null, fix_guide: task.fix_guide, how_to_check: task.how_to_check, depends_on: task.depends_on, blocked_by: null };
+    return { id: g.id, tier: task.tier, title: task.title, status: 'gap', native_risk: g.native_risk, reason: g.reason, files: g.files || null, fix_guide: task.fix_guide, verify_hint: task.verify_hint || null, how_to_check: task.how_to_check, depends_on: task.depends_on, blocked_by: null };
   });
 
   const reviewList = applyFilter(status.needs_review).map(r => {
     const task = taskMap[r.id];
-    return { id: r.id, tier: task.tier, title: task.title, status: 'needs_review', native_risk: r.native_risk, reason: r.reason, review_context: r.review_context, fix_guide: task.fix_guide, how_to_check: task.how_to_check, depends_on: task.depends_on, blocked_by: null };
+    return { id: r.id, tier: task.tier, title: task.title, status: 'needs_review', native_risk: r.native_risk, reason: r.reason, review_context: r.review_context, fix_guide: task.fix_guide, verify_hint: task.verify_hint || null, how_to_check: task.how_to_check, depends_on: task.depends_on, blocked_by: null };
   });
 
   const blockedList = applyFilter(status.blocked).map(b => {

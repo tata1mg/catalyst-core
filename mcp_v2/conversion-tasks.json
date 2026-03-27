@@ -11,6 +11,7 @@
       "field: API_URL must be present"
     ],
     "fix_guide": "Create config/config.json with: { NODE_SERVER_PORT: 3000, API_URL: 'https://api.example.com', CLIENT_ENV_KEYS: [], PUBLIC_STATIC_ASSET_URL: '', WEBVIEW_CONFIG: { port: 3000, accessControl: { enabled: true, allowedUrls: [] } } }",
+    "verify_hint": "Run `npm run devServe`. Server should start without 'Cannot find module config' or 'missing required field' errors. Check terminal output — catalyst-core logs the config it loaded at boot.",
     "depends_on": []
   },
   {
@@ -22,6 +23,7 @@
       "package.json dependencies or devDependencies must include @tata1mg/router"
     ],
     "fix_guide": "Run: npm install @tata1mg/router. Then replace all react-router-dom imports with @tata1mg/router. Replace BrowserRouter/Routes/Route setup with RouterDataProvider + routes array in src/js/routes/index.js.",
+    "verify_hint": "Run `npm run devServe`. No 'Cannot resolve @tata1mg/router' errors in build output. If react-router-dom was the previous router, confirm no leftover BrowserRouter/Routes imports remain — they will conflict.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -36,6 +38,7 @@
       "pattern: file must export an array (export default [ or module.exports = [)"
     ],
     "fix_guide": "Create src/js/routes/index.js: import HomePage from '../pages/Home'; export default [{ path: '/', component: HomePage, exact: true }]. Add one entry per page component. Each component needs serverFetcher/clientFetcher attached (see T4_DATA_FETCHING).",
+    "verify_hint": "Run `npm run devServe` and open the first route in browser (e.g. http://localhost:3000/). Page should render — not a blank screen or 404. Check browser console for 'No routes matched' warnings which mean the route array is empty or paths are wrong.",
     "depends_on": [
       "T2_ROUTER_DEP"
     ]
@@ -55,6 +58,7 @@
       "llm judges: is any useEffect+fetch file a page component that needs conversion?"
     ],
     "fix_guide": "For each page component: 1) Remove useState+useEffect data loading. 2) Attach static function: HomePage.serverFetcher = async ({ params, searchParams }, { store }) => { return await fetchApi(); }. 3) In component body: const data = useCurrentRouteData() from @tata1mg/router. This is a full rewrite of every page's data layer.",
+    "verify_hint": "Open a migrated page in browser. Open DevTools Network tab — on first load there should be NO XHR/fetch calls for page data (data arrives server-rendered in HTML). View Page Source and confirm the page content (not just a loading skeleton) is present in the raw HTML. If content is missing from source, serverFetcher is not attached or not running.",
     "depends_on": [
       "T3_ROUTES_FILE"
     ]
@@ -69,6 +73,7 @@
       "pattern: RouterDataProvider must be imported and used in utils.js"
     ],
     "fix_guide": "Create src/js/routes/utils.js: import { RouterDataProvider } from '@tata1mg/router'; import routes from './index'; export default function AppRouter() { return <RouterDataProvider routes={routes} />; }. Without this, useCurrentRouteData() returns undefined everywhere.",
+    "verify_hint": "In a page component that uses useCurrentRouteData(), console.log the return value. It should be the data object returned by serverFetcher — not undefined. If undefined, RouterDataProvider is not wrapping the tree or the route entry is missing the component reference.",
     "depends_on": [
       "T3_ROUTES_FILE"
     ]
@@ -84,6 +89,7 @@
       "pattern: <Outlet /> must be rendered in the component"
     ],
     "fix_guide": "In src/js/containers/App/index.js: import { Outlet } from '@tata1mg/router'. Render <Outlet /> where route content should appear (replacing any <Switch> or <Routes> block). Keep global layout (nav, footer) around it.",
+    "verify_hint": "Open the app in browser. Global layout (header, footer, nav) should appear on every page. The area where page content changes should not be blank. If page content area is empty, <Outlet /> is missing or placed incorrectly in the App shell.",
     "depends_on": [
       "T5_ROUTER_DATA_PROVIDER"
     ]
@@ -99,6 +105,7 @@
       "file: server/document.js must exist"
     ],
     "fix_guide": "Create all 3 files: (1) server/index.js — export default { preServerInit: async () => {}, onRouteMatch: async (req, res) => {}, onServerError: (err) => {} }. (2) server/server.js — export const addMiddlewares = (app) => { /* add express middleware here */ }. (3) server/document.js — export default ({ html, head, scripts }) => `<!DOCTYPE html><html><head>${head}</head><body><div id='root'>${html}</div>${scripts}</body></html>`.",
+    "verify_hint": "Run `npm run devServe`. Server must start without 'Cannot find module ./server/index' errors. Hit http://localhost:3000/ — the response HTML should contain your document.js shell structure (check View Source). A blank body or missing <div id='root'> means document.js is not returning valid HTML.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -118,6 +125,7 @@
       "pattern: client/index.js must wrap app in RouterProvider from '@tata1mg/router'"
     ],
     "fix_guide": "Create client/index.js:\nimport React from 'react';\nimport './styles';\nimport { hydrateRoot } from 'react-dom/client';\nimport { loadableReady } from '@loadable/component';\nimport { Provider } from 'react-redux';\nimport { RouterProvider } from '@tata1mg/router';\nimport { HelmetProvider } from 'react-helmet-async';\nimport clientRouter from 'catalyst-core/router/ClientRouter';\nimport WebBridge from 'catalyst-core/WebBridge';\nimport configureStore from '@store';\n\nwindow.addEventListener('load', () => {\n  loadableReady(() => {\n    const { __ROUTER_INITIAL_DATA__: routerInitialData, __INITIAL_STATE__ } = window;\n    const store = configureStore(__INITIAL_STATE__ || {});\n    const router = clientRouter({ store, routerInitialState: routerInitialData });\n    const Application = (\n      <Provider store={store} serverState={__INITIAL_STATE__}>\n        <HelmetProvider>\n          <React.StrictMode>\n            <RouterProvider router={router} />\n          </React.StrictMode>\n        </HelmetProvider>\n      </Provider>\n    );\n    WebBridge.init();\n    const container = document.getElementById('app');\n    hydrateRoot(container, Application);\n  });\n});\n\nCreate client/styles.js: import '../src/styles/global.css' (adjust path to your global stylesheet).\n\nCRITICAL: WebBridge.init() must be called before hydrateRoot — it registers native bridge event handlers. Missing this call means no JS-to-native communication (postMessage, camera, file picker, haptics all break silently on device).",
+    "verify_hint": "Open the app in browser. Open DevTools Console — there should be no 'hydrateRoot' mismatch warnings (if there are, server HTML and client render differ). Open DevTools Elements — the #app or #root div should have React content inside it (not empty). Click an interactive element — if nothing responds, hydration failed. Also confirm global styles are applied (CSS loads).",
     "depends_on": [
       "T6_APP_SHELL"
     ]
@@ -136,6 +144,7 @@
       "package.json scripts must include: setupEmulator:android"
     ],
     "fix_guide": "Add to package.json scripts:\n\"devBuild\": \"catalyst devBuild\",\n\"devServe\": \"catalyst devServe\",\n\"buildApp\": \"catalyst buildApp\",\n\"buildApp:ios\": \"catalyst buildApp:ios\",\n\"buildApp:android\": \"catalyst buildApp:android\",\n\"setupEmulator\": \"catalyst setupEmulator\",\n\"setupEmulator:ios\": \"catalyst setupEmulator:ios\",\n\"setupEmulator:android\": \"catalyst setupEmulator:android\"\n\nThese scripts are required to run native builds and launch emulators. Without them, 'npm run buildApp:android' and MCP build flow commands will fail with 'missing script' errors.",
+    "verify_hint": "Run `npm run devBuild` — should start webpack compilation without 'missing script' error. Run `npm run devServe` — server should start on NODE_SERVER_PORT. Both commands should be found by npm, not fail with 'ERR_INVALID_ARG_TYPE' or 'script not found'.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -154,6 +163,7 @@
       "field: WEBVIEW_CONFIG.android.appName must exist"
     ],
     "fix_guide": "Add to WEBVIEW_CONFIG in config/config.json: android: { buildType: 'debug', sdkPath: '/Users/yourname/Android/sdk', emulatorName: 'Pixel_5_API_30', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. sdkPath must be absolute path to your Android SDK.",
+    "verify_hint": "Run `npm run buildApp:android`. Build should start without 'sdkPath not found' or 'missing android config' errors. If sdkPath is wrong, you'll see an immediate error — run `echo $ANDROID_HOME` in terminal to find the correct path.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -172,6 +182,7 @@
       "field: WEBVIEW_CONFIG.ios.appName must exist"
     ],
     "fix_guide": "Add to WEBVIEW_CONFIG in config/config.json: ios: { buildType: 'Debug', appBundleId: 'com.company.appname', simulatorName: 'iPhone 15', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. appBundleId must match your Apple Developer provisioning profile.",
+    "verify_hint": "Run `npm run buildApp:ios`. Build should start Xcode compilation without 'missing ios config' or 'bundle ID not found' errors. If simulatorName is wrong, run `xcrun simctl list devices` to see available simulators and update the field.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -188,6 +199,7 @@
       "field: WEBVIEW_CONFIG.accessControl.allowedUrls must be a non-empty array"
     ],
     "fix_guide": "Add to WEBVIEW_CONFIG: accessControl: { enabled: true, allowedUrls: ['*.yourdomain.com*', 'http://localhost:*', 'https://localhost:*'] }. Warning: if allowedUrls is defined but empty, ALL URLs are blocked including your own API. Always include http://localhost:* for dev.",
+    "verify_hint": "Open app on device/emulator and trigger an API call. If the response never comes back and the network tab shows the request was blocked, allowedUrls is missing your API domain. Add '*.yourdomain.com*' to allowedUrls and rebuild. On first run, check native logs (adb logcat / Xcode console) for 'URL blocked' messages.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -204,6 +216,7 @@
       "file: public/ios/splashscreen.png must exist"
     ],
     "fix_guide": "1) Add to top level of config/config.json (NOT inside WEBVIEW_CONFIG): splashScreen: { android: { path: 'public/android/splashscreen.png' }, ios: { path: 'public/ios/splashscreen.png' } }. 2) Place splash images at those paths. Recommended sizes: Android 1080x1920px, iOS 1242x2688px.",
+    "verify_hint": "Build and install the app on a device/emulator. On cold launch (after force-closing), you should see the splash image for ~1-2 seconds before the app loads. If you see a white flash instead, either the asset path is wrong or splashScreen is inside WEBVIEW_CONFIG instead of at the top level of config.json.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -221,6 +234,7 @@
       "file: public/android/appIcons/xxxhdpi.png must exist"
     ],
     "fix_guide": "Place PNG app icons at public/android/appIcons/ with these exact filenames and sizes: mdpi.png (48x48), hdpi.png (72x72), xhdpi.png (96x96), xxhdpi.png (144x144), xxxhdpi.png (192x192). All must be square with transparent background.",
+    "verify_hint": "After `npm run buildApp:android`, install the APK on a device. Check the home screen / app drawer — your app icon should appear (not the default catalyst placeholder icon). If you still see the placeholder, the filenames are wrong — they must be exactly mdpi.png, hdpi.png etc. (not icon-mdpi.png).",
     "depends_on": [
       "T9_WEBVIEW_ANDROID"
     ]
@@ -242,6 +256,7 @@
       "file: public/ios/appIcons/1024.png must exist"
     ],
     "fix_guide": "Place PNG app icons at public/ios/appIcons/ named by their pixel size (e.g. 120.png = 120x120px). Required sizes: 20, 29, 40, 58, 60, 80, 87, 120, 1024. No alpha/transparency — iOS rejects icons with transparency. Use solid background.",
+    "verify_hint": "After `npm run buildApp:ios`, install on simulator. Check home screen — your icon should appear. If Xcode build fails with 'Icon files are missing' or 'PNG file is corrupt', the images have transparency (iOS forbids it) or filenames are wrong. Run `xcrun simctl install booted <app.app>` to install manually if needed.",
     "depends_on": [
       "T10_WEBVIEW_IOS"
     ]
@@ -255,6 +270,7 @@
       "file: public/offline.html must exist"
     ],
     "fix_guide": "Create public/offline.html — shown when device is offline. Minimum: <!DOCTYPE html><html><body><h1>No internet connection</h1><p>Please check your network and try again.</p></body></html>. Can be styled to match app branding.",
+    "verify_hint": "On a real device with the app running, turn on Airplane mode. The app should show the offline.html content instead of a system 'No internet' error page or blank screen. If you still see the system error page, the file path is wrong or the build did not pick it up.",
     "depends_on": [
       "T1_CONFIG"
     ]
@@ -273,6 +289,7 @@
       "llm judges: for each file with input type=file, does useFilePicker exist in it or a parent component?"
     ],
     "fix_guide": "Replace <input type='file'> with useFilePicker. import { useFilePicker } from 'catalyst-core/hooks'. const { isNative, execute, data, error } = useFilePicker(); On native: <button onClick={execute}>Pick File</button>. Keep <input type='file'> as web-only fallback: if (!isNative) return <input type='file' onChange={...} />.",
+    "verify_hint": "On device/emulator, tap the file pick button. Native file picker sheet should open (system file browser on Android, Files app on iOS). If nothing happens, WebBridge is not initialized (check T8_CLIENT_ENTRY) or the hook execute() is not being called. On web, the regular file input should still work.",
     "depends_on": [
       "T8_CLIENT_ENTRY"
     ]
@@ -291,6 +308,7 @@
       "llm judges: for each capture input file, does useCamera exist in it or a parent component?"
     ],
     "fix_guide": "Replace <input type='file' accept='image/*' capture> with useCamera. import { useCamera } from 'catalyst-core/hooks'. const { isNative, takePhoto, data } = useCamera(); On native: <button onClick={takePhoto}>Take Photo</button>. Keep <input type='file' accept='image/*' capture> as web-only fallback: if (!isNative) return <input type='file' accept='image/*' capture onChange={...} />.",
+    "verify_hint": "On device/emulator, tap the camera button. System camera app should open. After taking a photo, the image data should be available in the component (log data to confirm). If camera opens but photo is not returned, check permissions — call requestPermission() before takePhoto() on first use.",
     "depends_on": [
       "T8_CLIENT_ENTRY"
     ]
@@ -309,6 +327,7 @@
       "llm judges: is navigator.vibrate in active component code (gap) or in test/polyfill/comment (ignore)?"
     ],
     "fix_guide": "Replace navigator.vibrate() with useHapticFeedback. import { useHapticFeedback } from 'catalyst-core/hooks'. const { trigger } = useHapticFeedback(); trigger('medium'). Types: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error'. No isNative guard needed — hook is a no-op on web.",
+    "verify_hint": "On a physical device (not emulator — emulators do not have haptic motors), trigger the action that previously called navigator.vibrate(). You should feel a vibration. No vibration on device means WebBridge is not initialized or the trigger type string is wrong. Emulator testing: check native logs for the haptic command being sent instead.",
     "depends_on": [
       "T8_CLIENT_ENTRY"
     ]
@@ -324,6 +343,7 @@
       "file: GoogleService-Info.plist must exist at project root (if notifications enabled)"
     ],
     "fix_guide": "1) Add to WEBVIEW_CONFIG: notifications: { enabled: true }. 2) Download google-services.json from Firebase console (Android) and place at project root. 3) Download GoogleService-Info.plist from Firebase console (iOS) and place at project root. 4) Use hook: import { useNotification } from 'catalyst-core/hooks'. Missing Firebase files with notifications.enabled=true = build error.",
+    "verify_hint": "Build and install app. Grant notification permission when prompted. Send a test push from Firebase console (Cloud Messaging > Send test message). Notification should arrive in the device tray. If no permission prompt appears, useNotification hook is not calling requestPermission(). If build fails, google-services.json or GoogleService-Info.plist is missing or has wrong package name / bundle ID.",
     "depends_on": [
       "T9_WEBVIEW_ANDROID",
       "T10_WEBVIEW_IOS"
@@ -343,6 +363,7 @@
       "llm judges: is the UA-sniffing in component/utility code for platform branching (gap) or in analytics/server/third-party (acceptable)?"
     ],
     "fix_guide": "Replace navigator.userAgent platform detection with catalyst APIs. In React components: destructure isNative from any catalyst hook — e.g. const { isNative } = useNetworkStatus() — isNative is true inside the native WebView shell, false on web. For Android/iOS distinction in components: import { useBaseHook } from catalyst-core/hooks and use base.isAndroid / base.isIOS. For imperative code outside React: check window.NativeBridge presence (Android) or window.webkit?.messageHandlers?.NativeBridge (iOS). Do NOT use window.__PLATFORM__ — that API does not exist in catalyst-core.",
+    "verify_hint": "Open the app on Android device and on iOS device (or simulators). Any UI that branches by platform (Android-only buttons, iOS-only UI) should appear correctly on each. On web, isNative should be false — platform-specific UI should not render. Add a temporary console.log(isNative) to confirm the value is correct on each surface before removing it.",
     "depends_on": [
       "T8_CLIENT_ENTRY"
     ]
