@@ -122,13 +122,13 @@ const renderMarkUp = async (
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
     // Process ChunkExtractor discovered assets
-    const scriptElements = generateScriptTags(discoveredAssets.js, req)
+    // const scriptElements = generateScriptTags(discoveredAssets.js, req)
     const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
         assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
     })
 
     // Use stylesheet links instead of inlined CSS
-    res.locals.pageJS = scriptElements
+    res.locals.pageJS = discoveredAssets.js
     res.locals.pageCss = stylesheetLinks
 
     // Transforms Head Props with discovered assets
@@ -191,6 +191,8 @@ const renderMarkUp = async (
                     ? chunkExtractor.getNonEssentialAssets()
                     : { js: [], css: [] }
                 const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
+                const essentialScripts = generateScriptTagsAsStrings(res.locals.pageJS, req)
+
                 const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
                     assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
                 })
@@ -206,6 +208,7 @@ const renderMarkUp = async (
                 }
 
                 res.write(`<style>${stylesheetLinks}</style>`)
+                res.write(essentialScripts)
                 res.write(scriptElements)
             },
             // onError(error) {

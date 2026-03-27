@@ -25,6 +25,7 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
     const uniqueAssets = [...new Set(jsAssets)]
 
     uniqueAssets.forEach((asset) => {
+        console.log(">>>>>>>", asset)
         const assetUrl = getAssetUrl(asset)
 
         // All Vite-generated JS files should be ES modules
@@ -34,49 +35,12 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
         //     scriptStrings.push(`<script type="module" src="${assetUrl}"></script>`)
         // } else {
         // Generate preload hint for non-JS assets
-        scriptStrings.push(`<link rel="modulepreload" href="${assetUrl}" as="script">`)
+        // scriptStrings.push(`<link rel="modulepreload" href="${assetUrl}" as="script">`)
         scriptStrings.push(`<script type="module" src="${assetUrl}"></script>`)
         // }
     })
 
     return scriptStrings.join("")
-}
-
-// Generate link elements for CSS stylesheets as HTML strings
-export const generateStylesheetLinksAsStrings = (cssAssets, req) => {
-    const linkStrings = []
-
-    // Get the correct base URL for assets
-    const getAssetUrl = (asset) => {
-        if (asset.startsWith("http")) {
-            return asset
-        }
-
-        // Construct proper URL with host and port
-        const protocol = (req && req.protocol) || "http"
-        const host = (req && req.get && req.get("host")) || "localhost:3005"
-
-        // Ensure asset path starts with /
-        const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-        // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
-        }
-
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
-    }
-
-    // Deduplicate assets by URL to prevent duplicates
-    const uniqueAssets = [...new Set(cssAssets)]
-
-    uniqueAssets.forEach((asset) => {
-        const assetUrl = getAssetUrl(asset)
-
-        linkStrings.push(`<link rel="stylesheet" crossorigin="" href="${assetUrl}">`)
-    })
-
-    return linkStrings.join("")
 }
 
 export const generateScriptTags = (jsAssets, req) => {
@@ -108,9 +72,11 @@ export const generateScriptTags = (jsAssets, req) => {
 
         if (isModule) {
             scriptElements.push(
-                React.createElement("script", {
-                    type: "module",
-                    src: assetUrl,
+                React.createElement("link", {
+                    key: `preload-${asset}-${index}`,
+                    rel: "modulepreload",
+                    href: assetUrl,
+                    as: "script",
                 })
             )
         } else {
@@ -126,53 +92,6 @@ export const generateScriptTags = (jsAssets, req) => {
         }
     })
     return scriptElements
-}
-
-// Generate link elements for CSS stylesheets
-export const generateStylesheetLinks = (cssAssets, req) => {
-    const linkElements = []
-    const processedAssets = []
-
-    // Get the correct base URL for assets
-    const getAssetUrl = (asset) => {
-        if (asset.startsWith("http")) {
-            return asset
-        }
-
-        // Construct proper URL with host and port
-        const protocol = (req && req.protocol) || "http"
-        const host = (req && req.get && req.get("host")) || "localhost:3005"
-
-        // Ensure asset path starts with /
-        const assetPath = asset.startsWith("/") ? asset : `/${asset}`
-
-        // For client assets, ensure /client/ prefix
-        if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
-        }
-
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
-    }
-
-    // Deduplicate assets by URL to prevent duplicates
-    const uniqueAssets = [...new Set(cssAssets)]
-
-    uniqueAssets.forEach((asset, index) => {
-        const assetUrl = getAssetUrl(asset)
-
-        linkElements.push(
-            React.createElement("link", {
-                rel: "stylesheet",
-                crossorigin: "",
-                href: assetUrl,
-                preload: true,
-            })
-        )
-
-        processedAssets.push(asset)
-    })
-
-    return linkElements
 }
 
 /**
