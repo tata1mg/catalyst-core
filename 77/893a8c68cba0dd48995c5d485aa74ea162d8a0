@@ -1,0 +1,50 @@
+src/native/internalPluginUtils.js
+  2cee5ab257b58123 95-98,117,132-143
+src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  2cee5ab257b58123 185-187,215-216,219-223,228-232,236-274,276-296,298-301,306-309,315-318,330,336-337
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/BridgeMessageValidator.kt
+  2cee5ab257b58123 63
+src/native/iosnativeWebView/iosnativeWebView.xcodeproj/project.pbxproj
+  2cee5ab257b58123 26,70,157,327
+src/native/pluginComposerIos.js
+  2cee5ab257b58123 82-85,219-221,313,323-327
+src/native/iosnativeWebView/iosnativeWebViewTests/PluginBridgeTests.swift
+  2cee5ab257b58123 1-174
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/plugins/PluginBridge.kt
+  2cee5ab257b58123 8,36-61,66-68,73-74,76
+src/native/buildAppIos.js
+  2cee5ab257b58123 41,53-55,245-250,774,777,782,785,790-791,793-794,798-799,801-802,835
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "77893a8c68cba0dd48995c5d485aa74ea162d8a0",
+  "prompts": {
+    "19bf5b06d8ab1014": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1ea0-3eac-7023-a1fe-aa1e36d8c31c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1804,
+      "overriden_lines": 0
+    },
+    "2cee5ab257b58123": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2a0d-0bee-7213-9359-33eb8459747a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 396,
+      "total_deletions": 53,
+      "accepted_lines": 392,
+      "overriden_lines": 0
+    }
+  }
+}
