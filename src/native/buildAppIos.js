@@ -29,18 +29,6 @@ const GOOGLE_SERVICES_FILENAME = "GoogleService-Info.plist"
 const MANAGED_BASELINE_SUFFIX = ".catalyst-base"
 const PLUGIN_RESOURCE_ROOT = "PluginResources"
 
-function packageNameFromUrl(url) {
-    const sanitizedUrl = url.replace(/\/+$/, "")
-    const packageName = sanitizedUrl
-        .split("/")
-        .pop()
-        ?.replace(/\.git$/, "")
-    if (!packageName) {
-        throw new Error(`Unable to derive package name from URL: ${url}`)
-    }
-    return packageName
-}
-
 function packageRequirementKey(dependency) {
     return `${dependency.requirement.type}:${dependency.requirement.version}`
 }
@@ -50,6 +38,7 @@ function mergePackageDependency(map, dependency, sourceLabel) {
     if (!existing) {
         map.set(dependency.url, {
             url: dependency.url,
+            package: dependency.package,
             requirement: dependency.requirement,
             products: [...new Set(dependency.products)],
         })
@@ -59,6 +48,11 @@ function mergePackageDependency(map, dependency, sourceLabel) {
     if (packageRequirementKey(existing) !== packageRequirementKey(dependency)) {
         throw new Error(
             `iOS package dependency conflict for '${dependency.url}' while processing ${sourceLabel}: '${existing.requirement.type}:${existing.requirement.version}' vs '${dependency.requirement.type}:${dependency.requirement.version}'`
+        )
+    }
+    if (existing.package !== dependency.package) {
+        throw new Error(
+            `iOS package identity conflict for '${dependency.url}' while processing ${sourceLabel}: '${existing.package}' vs '${dependency.package}'`
         )
     }
 
@@ -85,8 +79,7 @@ function formatSwiftPackageEntries(dependencies) {
 function formatSwiftProductEntries(dependencies) {
     return dependencies.flatMap((dependency) =>
         dependency.products.map(
-            (product) =>
-                `                .product(name: "${product}", package: "${packageNameFromUrl(dependency.url)}")`
+            (product) => `                .product(name: "${product}", package: "${dependency.package}")`
         )
     )
 }
@@ -249,6 +242,13 @@ function getXcodeProjectFilePath() {
     return path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj")
 }
 
+function replaceRequired(content, pattern, replacement, errorMessage) {
+    if (!pattern.test(content)) {
+        throw new Error(errorMessage)
+    }
+    return content.replace(pattern, replacement)
+}
+
 // Define build steps for progress tracking
 const steps = {
     config: "Generating Required Configuration for build",
@@ -352,11 +352,13 @@ async function generatePackageSwift(pluginDependencies = []) {
         const baseCoreDependencies = [
             {
                 url: "https://github.com/kylef/JSONSchema.swift",
+                package: "JSONSchema.swift",
                 requirement: { type: "from", version: "0.6.0" },
                 products: ["JSONSchema"],
             },
             {
                 url: "https://github.com/google/GoogleSignIn-iOS",
+                package: "GoogleSignIn-iOS",
                 requirement: { type: "from", version: "7.0.0" },
                 products: ["GoogleSignIn"],
             },
@@ -365,6 +367,7 @@ async function generatePackageSwift(pluginDependencies = []) {
             ? [
                   {
                       url: "https://github.com/firebase/firebase-ios-sdk",
+                      package: "firebase-ios-sdk",
                       requirement: { type: "from", version: "12.3.0" },
                       products: ["FirebaseCore", "FirebaseMessaging"],
                   },
@@ -742,10 +745,7 @@ async function removePluginResourcesFromXcodeProject() {
             progress.log("Removed managed plugin resources from Xcode project", "info")
         }
     } catch (error) {
-        progress.log(
-            `Warning: Could not remove plugin resources from Xcode project: ${error.message}`,
-            "warning"
-        )
+        throw new Error(`Could not remove plugin resources from Xcode project: ${error.message}`)
     }
 }
 
@@ -770,38 +770,42 @@ async function addPluginResourcesToXcodeProject(resources) {
             const fileType = detectPbxprojFileType(label)
 
             const fileRefEntry = `\t\t${fileRefId} /* ${label} */ = {isa = PBXFileReference; lastKnownFileType = ${fileType}; path = ${pbxprojPath}; sourceTree = "<group>"; };`
-            projectContent = projectContent.replace(
+            projectContent = replaceRequired(
+                projectContent,
                 /(\/\* End PBXFileReference section \*\/)/,
-                `${fileRefEntry}\n$1`
+                `${fileRefEntry}\n$1`,
+                "PBXFileReference section not found while registering plugin resources"
             )
 
             const buildFileEntry = `\t\t${buildFileId} /* ${label} in Resources */ = {isa = PBXBuildFile; fileRef = ${fileRefId} /* ${label} */; };`
-            projectContent = projectContent.replace(
+            projectContent = replaceRequired(
+                projectContent,
                 /(\/\* End PBXBuildFile section \*\/)/,
-                `${buildFileEntry}\n$1`
+                `${buildFileEntry}\n$1`,
+                "PBXBuildFile section not found while registering plugin resources"
             )
 
             const groupPattern = /(\/\* iosnativeWebView \*\/ = \{[^}]*children = \([^)]*)/
-            if (groupPattern.test(projectContent)) {
-                projectContent = projectContent.replace(
-                    groupPattern,
-                    `$1\n\t\t\t\t${fileRefId} /* ${label} */,`
-                )
-            }
+            projectContent = replaceRequired(
+                projectContent,
+                groupPattern,
+                `$1\n\t\t\t\t${fileRefId} /* ${label} */,`,
+                "iosnativeWebView group not found while registering plugin resources"
+            )
 
             const resourcesPattern = /(\/\* Resources \*\/ = \{[^}]*files = \([^)]*)/
-            if (resourcesPattern.test(projectContent)) {
-                projectContent = projectContent.replace(
-                    resourcesPattern,
-                    `$1\n\t\t\t\t${buildFileId} /* ${label} in Resources */,`
-                )
-            }
+            projectContent = replaceRequired(
+                projectContent,
+                resourcesPattern,
+                `$1\n\t\t\t\t${buildFileId} /* ${label} in Resources */,`,
+                "Resources build phase not found while registering plugin resources"
+            )
         }
 
         fs.writeFileSync(projectFilePath, projectContent, "utf8")
         progress.log(`Registered ${resources.length} managed plugin resource(s) in Xcode project`, "success")
     } catch (error) {
-        progress.log(`Warning: Could not add plugin resources to Xcode project: ${error.message}`, "warning")
+        throw new Error(`Could not add plugin resources to Xcode project: ${error.message}`)
     }
 }
 
@@ -827,7 +831,8 @@ async function syncPluginResources(pluginComposition = {}) {
         await addPluginResourcesToXcodeProject(resources)
         progress.log(`Synced ${resources.length} managed plugin resource(s)`, "success")
     } catch (error) {
-        progress.log(`Warning: Could not sync plugin resources: ${error.message}`, "warning")
+        progress.log(`❌ Failed to sync plugin resources: ${error.message}`, "error")
+        throw error
     }
 }
 

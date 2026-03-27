@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import io.yourname.androidproject.CatalystConstants
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -32,17 +33,47 @@ class PluginBridge(
         private const val ERROR_CODE_PLUGIN_NOT_REGISTERED = "PLUGIN_NOT_REGISTERED"
         private const val ERROR_CODE_PLUGIN_EXECUTION_FAILED = "PLUGIN_EXECUTION_FAILED"
 
+        private fun readRequiredString(body: JSONObject, key: String): String {
+            if (!body.has(key) || body.isNull(key)) {
+                return ""
+            }
+
+            val rawValue = body.get(key)
+            if (rawValue !is String) {
+                throw IllegalArgumentException("$key must be a string")
+            }
+
+            return rawValue.trim()
+        }
+
+        private fun readOptionalString(body: JSONObject, key: String): String? {
+            if (!body.has(key) || body.isNull(key)) {
+                return null
+            }
+
+            val rawValue = body.get(key)
+            if (rawValue !is String) {
+                throw IllegalArgumentException("$key must be a string when provided")
+            }
+
+            return rawValue.trim().ifEmpty { null }
+        }
+
         internal fun parseRequest(payload: String?): PluginRequest {
             if (payload.isNullOrBlank()) {
                 throw IllegalArgumentException("Payload is required")
             }
+            val messageSize = payload.toByteArray(Charsets.UTF_8).size
+            if (messageSize > CatalystConstants.Bridge.MAX_MESSAGE_SIZE) {
+                throw IllegalArgumentException("Payload exceeds maximum size")
+            }
 
             val body = JSONObject(payload)
             return PluginRequest(
-                pluginId = body.optString("pluginId", "").trim(),
-                command = body.optString("command", "").trim(),
+                pluginId = readRequiredString(body, "pluginId"),
+                command = readRequiredString(body, "command"),
                 data = if (body.has("data") && !body.isNull("data")) body.get("data") else null,
-                requestId = body.optString("requestId", "").trim().ifEmpty { null }
+                requestId = readOptionalString(body, "requestId")
             )
         }
     }

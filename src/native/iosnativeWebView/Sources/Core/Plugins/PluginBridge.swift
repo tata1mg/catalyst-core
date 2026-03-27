@@ -182,6 +182,9 @@ final class PluginBridgeContext {
     weak var webView: WKWebView?
     weak var viewController: UIViewController?
 
+    private let systemPluginId = "__bridge__"
+    private let bridgeErrorEvent = "PLUGIN_BRIDGE_ERROR"
+
     let pluginId: String
     let command: String?
     let requestId: String?
@@ -209,33 +212,110 @@ final class PluginBridgeContext {
         requestId: String? = nil,
         command: String? = nil
     ) {
+        let resolvedRequestId = requestId ?? self.requestId
+        let resolvedCommand = command ?? self.command
         let trimmedEventName = eventName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEventName.isEmpty else {
-            pluginBridgeLogger.error("Rejected callback with blank event name for plugin \(self.pluginId)")
+            emitBridgeError(
+                message: "Rejected callback with blank event name for plugin \(self.pluginId)",
+                code: "INVALID_CALLBACK",
+                requestId: resolvedRequestId,
+                command: resolvedCommand
+            )
             return
         }
         guard allowedCallbacks.contains(trimmedEventName) else {
-            pluginBridgeLogger.error("Rejected undeclared callback \(trimmedEventName) for plugin \(self.pluginId)")
+            emitBridgeError(
+                message: "Rejected undeclared callback \(trimmedEventName) for plugin \(self.pluginId)",
+                code: "INVALID_CALLBACK",
+                requestId: resolvedRequestId,
+                command: resolvedCommand
+            )
             return
         }
+        if !dispatchEnvelope(
+            pluginId: pluginId,
+            eventName: trimmedEventName,
+            payload: data,
+            requestId: resolvedRequestId,
+            command: resolvedCommand
+        ) {
+            if pluginId == systemPluginId && trimmedEventName == bridgeErrorEvent {
+                pluginBridgeLogger.error("Failed to dispatch bridge error event for plugin \(self.pluginId)")
+                return
+            }
+
+            emitBridgeError(
+                message: "Failed to dispatch callback \(trimmedEventName) for plugin \(self.pluginId)",
+                code: "PLUGIN_EXECUTION_FAILED",
+                requestId: resolvedRequestId,
+                command: resolvedCommand
+            )
+        }
+    }
+
+    private func emitBridgeError(
+        message: String,
+        code: String,
+        requestId: String?,
+        command: String?
+    ) {
+        var payload: [String: Any] = [
+            "message": message,
+            "code": code,
+            "pluginId": pluginId,
+        ]
+
+        if let command = command, !command.isEmpty {
+            payload["command"] = command
+        }
+
+        if let requestId = requestId, !requestId.isEmpty {
+            payload["requestId"] = requestId
+        }
+
+        if !dispatchEnvelope(
+            pluginId: systemPluginId,
+            eventName: bridgeErrorEvent,
+            payload: payload,
+            requestId: requestId,
+            command: command,
+            logFailures: false
+        ) {
+            pluginBridgeLogger.error("Failed to dispatch bridge error for plugin \(self.pluginId): \(message)")
+        }
+    }
+
+    private func dispatchEnvelope(
+        pluginId: String,
+        eventName: String,
+        payload: Any?,
+        requestId: String?,
+        command: String?,
+        logFailures: Bool = true
+    ) -> Bool {
         guard let webView = webView else {
-            pluginBridgeLogger.error("WebView unavailable for plugin callback \(trimmedEventName)")
-            return
+            if logFailures {
+                pluginBridgeLogger.error("WebView unavailable for plugin callback \(eventName)")
+            }
+            return false
         }
 
         let envelope: [String: Any] = [
             "pluginId": pluginId,
-            "eventName": trimmedEventName,
-            "payload": data ?? NSNull(),
-            "requestId": (requestId ?? self.requestId) ?? NSNull(),
-            "command": (command ?? self.command) ?? NSNull(),
+            "eventName": eventName,
+            "payload": payload ?? NSNull(),
+            "requestId": requestId ?? NSNull(),
+            "command": command ?? NSNull(),
         ]
 
         guard JSONSerialization.isValidJSONObject(envelope),
               let envelopeData = try? JSONSerialization.data(withJSONObject: envelope),
               let envelopeJson = String(data: envelopeData, encoding: .utf8) else {
-            pluginBridgeLogger.error("Failed to serialize plugin callback envelope for \(self.pluginId).\(trimmedEventName)")
-            return
+            if logFailures {
+                pluginBridgeLogger.error("Failed to serialize plugin callback envelope for \(pluginId).\(eventName)")
+            }
+            return false
         }
 
         let envelopeLiteral = javaScriptStringLiteral(envelopeJson)
@@ -247,12 +327,14 @@ final class PluginBridgeContext {
                 completionHandler: { _, error in
                     if let error = error {
                         pluginBridgeLogger.error(
-                            "Plugin callback JS failed for \(self.pluginId).\(trimmedEventName): \(error.localizedDescription)"
+                            "Plugin callback JS failed for \(pluginId).\(eventName): \(error.localizedDescription)"
                         )
                     }
                 }
             )
         }
+
+        return true
     }
 
     private func javaScriptStringLiteral(_ value: String) -> String {

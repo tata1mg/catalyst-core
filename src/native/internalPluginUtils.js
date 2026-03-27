@@ -92,6 +92,10 @@ function readIosDependencies(value, fieldName, sourcePath) {
         }
 
         const url = mustBeNonEmptyString(entry.url, `${entryField}.url`, sourcePath)
+        const packageIdentity =
+            entry.package == null
+                ? derivePackageIdentityFromUrl(url, `${entryField}.url`, sourcePath)
+                : mustBeNonEmptyString(entry.package, `${entryField}.package`, sourcePath)
         const products = readStringArray(entry.products, `${entryField}.products`, sourcePath, {
             required: true,
             nonEmpty: true,
@@ -110,6 +114,7 @@ function readIosDependencies(value, fieldName, sourcePath) {
 
         return {
             url,
+            package: packageIdentity,
             products,
             requirement: hasFrom
                 ? {
@@ -122,6 +127,20 @@ function readIosDependencies(value, fieldName, sourcePath) {
                   },
         }
     })
+}
+
+function derivePackageIdentityFromUrl(url, fieldName, sourcePath) {
+    const sanitizedUrl = url.replace(/\/+$/, "")
+    const packageIdentity = sanitizedUrl
+        .split("/")
+        .pop()
+        ?.replace(/\.git$/, "")
+
+    if (!packageIdentity) {
+        throw new Error(`Unable to derive package identity from '${fieldName}' in ${sourcePath}`)
+    }
+
+    return packageIdentity
 }
 
 function parsePluginManifest(pluginDir) {

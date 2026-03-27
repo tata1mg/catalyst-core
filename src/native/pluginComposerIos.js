@@ -79,6 +79,10 @@ function requirementKey(dependency) {
     return `${dependency.requirement.type}:${dependency.requirement.version}`
 }
 
+function packageKey(dependency) {
+    return dependency.package
+}
+
 function resolveManifestPath(pluginDir, relativePath, fieldName) {
     const resolvedPath = path.resolve(pluginDir, relativePath)
     const normalizedPluginDir = path.resolve(pluginDir)
@@ -212,6 +216,11 @@ function validatePlugins(plugins) {
                     `iOS dependency version conflict for '${dependency.url}': '${existing.dependency.requirement.type}:${existing.dependency.requirement.version}' in '${existing.pluginId}', '${dependency.requirement.type}:${dependency.requirement.version}' in '${plugin.id}'`
                 )
             }
+            if (existing && packageKey(existing.dependency) !== packageKey(dependency)) {
+                throw new Error(
+                    `iOS dependency package identity conflict for '${dependency.url}': '${existing.dependency.package}' in '${existing.pluginId}', '${dependency.package}' in '${plugin.id}'`
+                )
+            }
             if (!existing) {
                 dependencies.set(dependencyKey(dependency), { dependency, pluginId: plugin.id })
             }
@@ -301,6 +310,7 @@ function collectIosDependencies(plugins) {
             if (!existing) {
                 dependenciesByUrl.set(dependency.url, {
                     url: dependency.url,
+                    package: dependency.package,
                     requirement: dependency.requirement,
                     products: [...dependency.products],
                 })
@@ -310,6 +320,11 @@ function collectIosDependencies(plugins) {
             if (requirementKey(existing) !== requirementKey(dependency)) {
                 throw new Error(
                     `iOS dependency version conflict for '${dependency.url}' while composing selected plugins`
+                )
+            }
+            if (packageKey(existing) !== packageKey(dependency)) {
+                throw new Error(
+                    `iOS dependency package identity conflict for '${dependency.url}' while composing selected plugins`
                 )
             }
 
