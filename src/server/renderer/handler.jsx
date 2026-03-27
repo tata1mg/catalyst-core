@@ -122,13 +122,13 @@ const renderMarkUp = async (
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot ? true : false
     // Process ChunkExtractor discovered assets
-    // const scriptElements = generateScriptTags(discoveredAssets.js, req)
+    const scriptElements = generateScriptTags(discoveredAssets.js, req)
     const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
         assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
     })
 
     // Use stylesheet links instead of inlined CSS
-    res.locals.pageJS = discoveredAssets.js
+    res.locals.pageJS = scriptElements
     res.locals.pageCss = stylesheetLinks
 
     // Transforms Head Props with discovered assets
@@ -187,13 +187,13 @@ const renderMarkUp = async (
                 // In dev mode, inject CSS module URLs as stylesheets
                 // Vite's dev server compiles and serves these on request
 
-                const discoveredAssets = chunkExtractor
+                const nonEssentialAssets = chunkExtractor
                     ? chunkExtractor.getNonEssentialAssets()
                     : { js: [], css: [] }
-                const scriptElements = generateScriptTagsAsStrings(discoveredAssets.js, req)
-                const essentialScripts = generateScriptTagsAsStrings(res.locals.pageJS, req)
+                const scriptElements = generateScriptTagsAsStrings(nonEssentialAssets.js, req)
+                const essentialScripts = generateScriptTagsAsStrings(discoveredAssets.js, req)
 
-                const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
+                const stylesheetLinks = generateInlineCssFromAssets(nonEssentialAssets.css, {
                     assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
                 })
 

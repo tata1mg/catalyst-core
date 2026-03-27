@@ -25,7 +25,6 @@ export const generateScriptTagsAsStrings = (jsAssets, req) => {
     const uniqueAssets = [...new Set(jsAssets)]
 
     uniqueAssets.forEach((asset) => {
-        console.log(">>>>>>>", asset)
         const assetUrl = getAssetUrl(asset)
 
         // All Vite-generated JS files should be ES modules
@@ -68,28 +67,16 @@ export const generateScriptTags = (jsAssets, req) => {
         const assetUrl = getAssetUrl(asset)
 
         // All Vite-generated JS files should be ES modules
-        const isModule = asset.endsWith(".js")
 
-        if (isModule) {
-            scriptElements.push(
-                React.createElement("link", {
-                    key: `preload-${asset}-${index}`,
-                    rel: "modulepreload",
-                    href: assetUrl,
-                    as: "script",
-                })
-            )
-        } else {
-            // Generate preload hint for non-JS assets
-            scriptElements.push(
-                React.createElement("link", {
-                    key: `preload-${asset}-${index}`,
-                    rel: "modulepreload",
-                    href: assetUrl,
-                    as: "script",
-                })
-            )
-        }
+        // Generate preload hint for non-JS assets
+        scriptElements.push(
+            React.createElement("link", {
+                key: `preload-${asset}-${index}`,
+                rel: "modulepreload",
+                href: assetUrl,
+                as: "script",
+            })
+        )
     })
     return scriptElements
 }

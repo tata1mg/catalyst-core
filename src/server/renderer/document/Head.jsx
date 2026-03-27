@@ -23,7 +23,7 @@ export function Head(props) {
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {metaTags && metaTags}
-            {/* {!isBot && pageJS} */}
+            {!isBot && pageJS}
 
             {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
 
