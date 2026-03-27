@@ -332,6 +332,24 @@ class WebBridge {
             }
         })
     }
+
+    /**
+     * Update Android WebView settings dynamically (Android only, no-op on other platforms)
+     * @param {Object} settings
+     * @param {boolean} [settings.supportZoom] - Enable pinch-to-zoom on the page
+     * @param {boolean} [settings.builtInZoomControls] - Enable built-in zoom controls
+     * @param {boolean} [settings.displayZoomControls] - Show/hide zoom control buttons
+     */
+    setAndroidWebViewSettings = (settings) => {
+        const { isAndroid } = nativeBridge.getEnvironmentInfo()
+        if (!isAndroid) return
+        try {
+            nativeBridge.android.setWebViewSettings(settings)
+        } catch (err) {
+            console.warn("setAndroidWebViewSettings failed silently:", err)
+        }
+    }
+
 }
 
 export default WebBridge

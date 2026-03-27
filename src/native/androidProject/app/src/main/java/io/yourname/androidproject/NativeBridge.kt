@@ -1154,6 +1154,22 @@ class NativeBridge(
         }
     }
 
+    @JavascriptInterface
+    fun setAndroidWebViewSettings(params: String?) {
+        mainActivity.runOnUiThread {
+            try {
+                val json = org.json.JSONObject(params ?: "{}")
+                val settings = webView.settings
+                if (json.has("supportZoom")) settings.setSupportZoom(json.getBoolean("supportZoom"))
+                if (json.has("builtInZoomControls")) settings.builtInZoomControls = json.getBoolean("builtInZoomControls")
+                if (json.has("displayZoomControls")) settings.displayZoomControls = json.getBoolean("displayZoomControls")
+                Log.d(TAG, "WebView settings updated: $params")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update WebView settings: ${e.message}")
+            }
+        }
+    }
+
     /**
      * Cleanup method to be called when the bridge is being destroyed
      */
