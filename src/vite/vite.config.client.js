@@ -68,43 +68,42 @@ const clientConfig = defineConfig({
                 // All other static app imports → single main bundle (keeps essential chunk
                 // count low so the ChunkExtractor doesn't inject hundreds of <script> tags).
                 // Dynamically imported route/split chunks remain as separate files.
-                // manualChunks(id, { getModuleInfo }) {
-                //     // Let Vite's CSS pipeline handle splitting — returning a chunk name
-                //     // for style modules merges all CSS into one file (e.g. main.css).
-                //     if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
-                //         const info = getModuleInfo(id)
+                manualChunks(id, { getModuleInfo }) {
+                    // Let Vite's CSS pipeline handle splitting — returning a chunk name
+                    // for style modules merges all CSS into one file (e.g. main.css).
+                    if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
+                        const info = getModuleInfo(id)
 
-                //         console.log(">>>>>>>", id, info.importers.length, info.dynamicImporters.length)
-                //         return undefined
-                //     }
-                //     if (
-                //         /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg\/router|lottie)[\\/]/.test(
-                //             id
-                //         )
-                //     ) {
-                //         return "vendor"
-                //     }
-                //     if (!id.includes("node_modules/")) {
-                //         const info = getModuleInfo(id)
-                //         if (info) {
-                //             const isStaticallyImported = info.importers.length > 0
-                //             const isLazyLoaded = info.dynamicImporters.length > 0
-                //             if (isStaticallyImported && isLazyLoaded) {
-                //                 // Imported by both static and lazy chunks → isolate into a
-                //                 // dedicated shared chunk. This keeps shared CSS out of main.css
-                //                 // while still loading it eagerly (ChunkExtractor picks it up
-                //                 // as an essential asset via the manifest categorization).
-                //                 return undefined
-                //             }
-                //             if (isLazyLoaded) {
-                //                 // Pure lazy → let Vite split naturally.
-                //                 return undefined
-                //             }
-                //             // Pure static → consolidate into main.
-                //             return "main"
-                //         }
-                //     }
-                // },
+                        return undefined
+                    }
+                    if (
+                        /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg\/router|lottie)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor"
+                    }
+                    if (!id.includes("node_modules/")) {
+                        const info = getModuleInfo(id)
+                        if (info) {
+                            const isStaticallyImported = info.importers.length > 0
+                            const isLazyLoaded = info.dynamicImporters.length > 0
+                            if (isStaticallyImported && isLazyLoaded) {
+                                // Imported by both static and lazy chunks → isolate into a
+                                // dedicated shared chunk. This keeps shared CSS out of main.css
+                                // while still loading it eagerly (ChunkExtractor picks it up
+                                // as an essential asset via the manifest categorization).
+                                return undefined
+                            }
+                            if (isLazyLoaded) {
+                                // Pure lazy → let Vite split naturally.
+                                return undefined
+                            }
+                            // Pure static → consolidate into main.
+                            return "main"
+                        }
+                    }
+                },
             },
         },
 
