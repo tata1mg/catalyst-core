@@ -1,0 +1,27 @@
+mcp_v2/tools/tasks.js
+  13d7b985a1529743 239,275,401-405
+mcp_v2/tools/conversion.js
+  13d7b985a1529743 351,357,381-393,398,439,444
+mcp_v2/conversion-tasks.json
+  13d7b985a1529743 14,26,41,61,76,92,108,128,147,166,185,202,219,237,259,273,292,311,330,346,366,371
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "452eed5ecfc3399017fdfe72fc99496fba3dd29d",
+  "prompts": {
+    "13d7b985a1529743": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d72b61b-7eb3-4fd8-91c7-4ca14a12257b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 47,
+      "total_deletions": 9,
+      "accepted_lines": 47,
+      "overriden_lines": 0
+    }
+  }
+}
