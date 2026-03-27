@@ -148,10 +148,10 @@ export const generateStylesheetLinks = (cssAssets, req) => {
 
         // For client assets, ensure /client/ prefix
         if (!assetPath.startsWith("/client/")) {
-            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/css/${path.basename(asset)}`
+            return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}client/assets/css/${path.basename(asset)}`
         }
 
-        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/${asset}`
+        return `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}${asset}`
     }
 
     // Deduplicate assets by URL to prevent duplicates
