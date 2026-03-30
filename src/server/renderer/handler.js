@@ -140,6 +140,27 @@ const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath
         )
 
         if (match) {
+            // The "*" catch-all route (404 fallback) generates a "/*" pattern that matches every
+            // URL, and it appears in sharedRoutes before lazyVerticalRoutes in the flat array.
+            // If we let it set the extractor first, production's process.extractorCache["*"] ends
+            // up shared across all pages and accumulates every vertical chunk ever visited, leaking
+            // chunks into unrelated pages via preloadJSLinks.
+            // Fix: when a specific route (path !== "*") matches after the wildcard already set
+            // res.locals.routePath, override the extractor with the specific route's extractor and
+            // discard the stale wildcard-derived CSS/preload assets so the dry-run re-runs.
+            const isSpecificRoute = path !== "*"
+            const wildcardExtractorUsed = res.locals.routePath === "*"
+            const shouldOverride = isSpecificRoute && wildcardExtractorUsed
+
+            if (shouldOverride) {
+                // Discard assets cached from the wildcard extractor so Phase 1b dry-run executes
+                // with the correct route-specific extractor below.
+                res.locals.pageCss = undefined
+                res.locals.preloadJSLinks = undefined
+                res.locals.routePath = undefined
+                res.locals.webExtractor = undefined
+            }
+
             if (!res.locals.pageCss && !res.locals.preloadJSLinks && !res.locals.routePath) {
                 res.locals.routePath = path
                 // Phase 1a: try to serve CSS/preloadLinks from the extractor cache (production only).
