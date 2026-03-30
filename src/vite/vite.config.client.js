@@ -4,21 +4,16 @@ import { defineConfig } from "vite"
 import baseConfig, { getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
-// import { compression } from "vite-plugin-compression2"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 
 const buildConfigPath = path.join(process.env.src_path, "buildConfig.js")
 const customViteConfig = await import(buildConfigPath)
 
-// const customViteConfig = {
-//     clientPlugins: [],
-// }
 const clientConfig = defineConfig({
     ...baseConfig,
     mode: "production",
     base: `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || "/"}`,
 
-    // Add manifest categorization plugin (run it last to ensure Vite manifest is available)
     plugins: [
         ...(baseConfig.plugins || []),
         manifestCategorizationPlugin({
@@ -27,8 +22,6 @@ const clientConfig = defineConfig({
         }),
         injectCacheKeyPlugin(),
         ...(customViteConfig?.clientPlugins || []),
-        // compression({ algorithm: "gzip" }),
-        // compression({ algorithm: "brotliCompress", exclude: [/\.(br)$/, /\.(gz)$/] }),
     ],
 
     build: {
@@ -39,10 +32,12 @@ const clientConfig = defineConfig({
         ssrManifest: true,
         outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
 
-        // Override input paths for client production
+        // cssCodeSplit: true (default) — each chunk gets its own CSS file.
+        // Since ALL CSS is served via external <link> tags (never inlined),
+        // per-chunk CSS is fine — more files but each is small and cacheable.
+
         rollupOptions: {
             input: {
-                // Client entry point (corrected path)
                 main: path.join(process.env.src_path, "client/index.js"),
             },
             output: {
@@ -64,59 +59,35 @@ const clientConfig = defineConfig({
                     }
                     return "client/assets/[name]-[hash][extname]"
                 },
-                // Core framework deps → dedicated vendor chunk.
-                // All other static app imports → single main bundle (keeps essential chunk
-                // count low so the ChunkExtractor doesn't inject hundreds of <script> tags).
-                // Dynamically imported route/split chunks remain as separate files.
-                manualChunks(id, { getModuleInfo }) {
-                    // Let Vite's CSS pipeline handle splitting — returning a chunk name
-                    // for style modules merges all CSS into one file (e.g. main.css).
-                    if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
-                        const info = getModuleInfo(id)
 
+                // Simple chunk strategy:
+                //   vendor — core framework deps (cacheable across deploys)
+                //   <natural> — Vite/Rollup decides everything else
+                //
+                // CSS files are never forced into a manual chunk — they stay
+                // with the chunk that imports them so cssCodeSplit works correctly.
+                manualChunks(id) {
+                    if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
                         return undefined
                     }
                     if (
-                        /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg\/router|lottie)[\\/]/.test(
+                        /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg[\\/]router|lottie)[\\/]/.test(
                             id
                         )
                     ) {
                         return "vendor"
-                    }
-                    if (!id.includes("node_modules/")) {
-                        const info = getModuleInfo(id)
-                        if (info) {
-                            const isStaticallyImported = info.importers.length > 0
-                            const isLazyLoaded = info.dynamicImporters.length > 0
-                            if (isStaticallyImported && isLazyLoaded) {
-                                // Imported by both static and lazy chunks → isolate into a
-                                // dedicated shared chunk. This keeps shared CSS out of main.css
-                                // while still loading it eagerly (ChunkExtractor picks it up
-                                // as an essential asset via the manifest categorization).
-                                return undefined
-                            }
-                            if (isLazyLoaded) {
-                                // Pure lazy → let Vite split naturally.
-                                return undefined
-                            }
-                            // Pure static → consolidate into main.
-                            return "main"
-                        }
                     }
                 },
             },
         },
 
         modulePreload: false,
-
-        // Production-specific optimization
         chunkSizeWarningLimit: 2000,
     },
     esbuild: {
         legalComments: "none",
     },
 
-    // Production-specific define
     define: {
         ...getClientEnvVariables(),
         __DEV__: false,

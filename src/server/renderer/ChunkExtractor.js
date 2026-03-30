@@ -1,134 +1,63 @@
 /**
- * ChunkExtractor class for tracking and extracting chunks during SSR
- * Compatible with Vite's manifest and chunk splitting system
- * Enhanced with CSS registry support for deduplication
+ * ChunkExtractor — collects JS and CSS assets needed for the current SSR render.
+ *
+ * Two buckets:
+ *   critical  — loaded in <head> (inline CSS via <style>, entry + route JS)
+ *   deferred  — injected after </body> via onAllReady (external <link> CSS)
+ *
+ * Critical CSS is inlined as <style> to avoid FOUC/CLS.
+ * With natural Vite code-splitting (no mega "main" chunk), critical CSS stays small (~15-25KB).
  */
 export class ChunkExtractor {
-    constructor(options = {}) {
-        this.manifest = options.manifest || {}
+    constructor({ manifest = {}, assetManifest = {}, ssrManifest = {} } = {}) {
+        this.manifest = manifest
+        this.assetManifest = assetManifest
         this.components = new Set()
-        this.assetManifest = options.assetManifest || {}
+
         const baseUrl = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`
-        this.publicPath = options.publicPath || `${baseUrl.replace(/\/+$/, "")}/`
-        this.essentialAssets = {
-            js: new Set(),
-            css: new Set(),
-        }
-        this.nonEssentialAssets = {
-            js: new Set(),
-            css: new Set(),
-        }
+        this.publicPath = `${baseUrl.replace(/\/+$/, "")}/`
 
-        // Track essential entry points for the app to function
-        this.addEssentialEntrypoints()
+        // JS tracked as full URLs, CSS tracked as relative file paths (for disk reading)
+        this.critical = { js: new Set(), css: new Set() }
+        this.deferred = { js: new Set(), css: new Set() }
+        this._allCssPaths = new Set() // dedup across buckets
 
-        // Set global reference for Split component to use
+        this._loadEssentialEntrypoints()
+
         if (typeof global !== "undefined") {
             global.__CHUNK_EXTRACTOR__ = this
         }
     }
 
-    /**
-     * Add critical assets that should always be included
-     */
-    addEssentialEntrypoints() {
-        Object.entries(this.assetManifest.essential || {}).forEach(([key, manifestEntry]) => {
-            this.addEssentialAssets(manifestEntry, "essential", key)
-        })
+    // ── Build-time essential chunks (entry + static deps) ──────────────
+    _loadEssentialEntrypoints() {
+        for (const [, entry] of Object.entries(this.assetManifest.essential || {})) {
+            this._addAssets(entry, this.critical)
+        }
     }
 
-    /**
-     * Pre-load CSS for the matched route's split chunks into essentialAssets so
-     * it is inlined in <head> (blocking, first-paint) rather than injected after
-     * the body stream. Call this before rendering with the array of matched routes
-     * from React Router's matchRoutes().
-     *
-     * Reads __cacheKey directly from the route's component — attached by split()
-     * at build time — so no manual cacheKey config is needed on route objects.
-     * Routes whose component was not created via split() are silently skipped.
-     *
-     * @param {Array} allMatches - Result of matchRoutes(getRoutes(), url)
-     */
+    // ── Route-matched split chunks → critical (blocks first paint) ─────
     preloadRouteCss(allMatches = []) {
         for (const match of allMatches) {
             const route = match?.route
             if (!route) continue
 
-            // split() attaches __cacheKey to the component it returns.
-            // Support both React Router v6 (Component/element) and v5 (component) conventions.
             const component = route.Component || route.component
             const cacheKey = component?.__cacheKey
-
             if (!cacheKey) continue
 
-            const manifestEntry =
-                (this.assetManifest.ssrTrue || {})[cacheKey] ||
-                (this.assetManifest.ssrFalse || {})[cacheKey] ||
+            const entry =
+                this.assetManifest.ssrTrue?.[cacheKey] ||
+                this.assetManifest.ssrFalse?.[cacheKey] ||
                 this.manifest[cacheKey]
 
-            if (manifestEntry) {
-                this.addEssentialAssets(manifestEntry, "essential")
+            if (entry) {
+                this._addAssets(entry, this.critical)
             }
         }
     }
 
-    /**
-     * Add critical assets directly (always included regardless of ssr flag)
-     */
-    addEssentialAssets(manifestEntry, category = "unknown") {
-        if (manifestEntry.file) {
-            const filePart = manifestEntry.file.replace(/^\/+/, "")
-            const fileUrl = `${this.publicPath}${filePart}`
-            if (this.essentialAssets.js.has(fileUrl)) {
-                return
-            }
-            if (category === "essential") {
-                this.essentialAssets.js.add(fileUrl)
-            }
-            // CSS paths stay relative — generateInlineCssFromAssets reads them from disk
-            if (manifestEntry.css && Array.isArray(manifestEntry.css)) {
-                manifestEntry.css.forEach((cssFile) => {
-                    this.essentialAssets.css.add(cssFile.replace(/^\/+/, ""))
-                })
-            }
-            if (manifestEntry.allCss && Array.isArray(manifestEntry.allCss)) {
-                manifestEntry.allCss.forEach((cssFile) => {
-                    this.essentialAssets.css.add(cssFile.replace(/^\/+/, ""))
-                })
-            }
-        }
-    }
-
-    /**
-     * Add ssrTrue assets directly
-     */
-    addNonEssentialAssets(manifestEntry) {
-        if (manifestEntry.file) {
-            const filePart = manifestEntry.file.replace(/^\/+/, "")
-            const fileUrl = `${this.publicPath}${filePart}`
-            if (this.nonEssentialAssets.js.has(fileUrl)) {
-                return
-            }
-            this.nonEssentialAssets.js.add(fileUrl)
-            // CSS paths stay relative — generateInlineCssFromAssets reads them from disk
-            if (manifestEntry.css && Array.isArray(manifestEntry.css)) {
-                manifestEntry.css.forEach((cssFile) => {
-                    this.nonEssentialAssets.css.add(cssFile.replace(/^\/+/, ""))
-                })
-            }
-            // allCss contains transitive CSS — needed so deeply-nested CSS isn't missed
-            if (manifestEntry.allCss && Array.isArray(manifestEntry.allCss)) {
-                manifestEntry.allCss.forEach((cssFile) => {
-                    this.nonEssentialAssets.css.add(cssFile.replace(/^\/+/, ""))
-                })
-            }
-        }
-    }
-
-    /**
-     * Add a component for tracking
-     * @param {string} cacheKey - The manifest key for the component
-     */
+    // ── Components discovered during render → deferred ─────────────────
     addComponent(cacheKey) {
         this.components.add(cacheKey)
 
@@ -137,41 +66,64 @@ export class ChunkExtractor {
                 ? cacheKey
                 : Object.keys(this.manifest).find((k) => k.startsWith(cacheKey + "."))
 
-        if (resolvedKey) {
-            this.addNonEssentialAssets(this.manifest[resolvedKey])
+        if (resolvedKey && this.manifest[resolvedKey]) {
+            this._addAssets(this.manifest[resolvedKey], this.deferred)
         }
     }
 
-    /**
-     * Get the raw cacheKeys of all components actually rendered on the server
-     * @returns {string[]}
-     */
+    // ── Internal: add JS URLs + CSS file paths to a bucket ─────────────
+    _addAssets(manifestEntry, bucket) {
+        if (!manifestEntry?.file) return
+
+        const jsUrl = this._toUrl(manifestEntry.file)
+
+        // Skip if already tracked in either bucket
+        if (this.critical.js.has(jsUrl) || this.deferred.js.has(jsUrl)) return
+
+        bucket.js.add(jsUrl)
+
+        // Collect direct + transitive CSS as relative file paths (not URLs)
+        const cssFiles = [
+            ...(manifestEntry.css || []),
+            ...(manifestEntry.allCss || []),
+        ]
+        for (const cssFile of cssFiles) {
+            if (!this._allCssPaths.has(cssFile)) {
+                this._allCssPaths.add(cssFile)
+                bucket.css.add(cssFile)
+            }
+        }
+    }
+
+    _toUrl(filePath) {
+        const cleaned = filePath.replace(/^\/+/, "")
+        return `${this.publicPath}${cleaned}`
+    }
+
+    _toCssUrl(filePath) {
+        const cleaned = filePath.replace(/^\/+/, "")
+        return `${this.publicPath}${cleaned}`
+    }
+
+    // ── Public getters ─────────────────────────────────────────────────
+    /** Critical: CSS as relative file paths (for inlining from disk), JS as URLs */
+    getCriticalAssets() {
+        return {
+            js: Array.from(this.critical.js),
+            css: Array.from(this.critical.css),
+        }
+    }
+
+    /** Deferred: CSS as URLs (external <link>), JS as URLs */
+    getDeferredAssets() {
+        return {
+            js: Array.from(this.deferred.js),
+            css: Array.from(this.deferred.css).map((f) => this._toCssUrl(f)),
+        }
+    }
+
     getRenderedComponentKeys() {
         return Array.from(this.components)
-    }
-
-    /**
-     * Get all extracted essential assets
-     * @returns {Object} - Object with js and css arrays
-     */
-    getEssentialAssets() {
-        const assets = {
-            js: Array.from(this.essentialAssets.js),
-            css: Array.from(this.essentialAssets.css),
-        }
-        return assets
-    }
-
-    /**
-     * Get all extracted non-essential assets
-     * @returns {Object} - Object with js and css arrays
-     */
-    getNonEssentialAssets() {
-        const assets = {
-            js: Array.from(this.nonEssentialAssets.js),
-            css: Array.from(this.nonEssentialAssets.css),
-        }
-        return assets
     }
 }
 

@@ -1,7 +1,5 @@
-import fs from "fs"
-import React, { Suspense } from "react"
+import React from "react"
 import { renderStart, renderEnd } from "./render.js"
-// import extractAssets from "./extract.js"
 import { Provider } from "react-redux"
 import { Body } from "./document/Body.jsx"
 import { Head } from "./document/Head.jsx"
@@ -13,7 +11,12 @@ import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
-import { generateScriptTags, generateInlineCssFromAssets, generateScriptTagsAsStrings } from "./extract.js"
+import {
+    readCssFromDisk,
+    generateScriptElements,
+    generateCssLinkStrings,
+    generateScriptStrings,
+} from "./extract.js"
 import path from "path"
 
 import CustomDocument from "@catalyst/template/server/document"
@@ -21,28 +24,8 @@ import CustomDocument from "@catalyst/template/server/document"
 import App from "@catalyst/template/src/js/containers/App/index"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
-// const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
-// let createStore
-
-// if (fs.existsSync(storePath)) {
-//     try {
-//         const { default: configureStore } = await import(`${process.env.src_path}/src/js/store/index.js`)
-//         createStore = configureStore
-//     } catch (error) {
-//         createStore = () => {
-//             return {
-//                 getState: () => {},
-//             }
-//         }
-//     }
-// } else {
-//     createStore = () => {
-//         return { getState: () => {} }
-//     }
-// }
-
-// matches request route with routes defined in the application.
+// ── Route matching ─────────────────────────────────────────────────────
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
         const { path } = route
@@ -52,7 +35,6 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (!match && route.children) {
-            // recursively try to match nested routes
             const nested = getMatchRoutes(
                 route.children,
                 req,
@@ -71,49 +53,32 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
     }, [])
 }
 
-// Collects essential assets for the current route.
-// allMatches is passed so route-specific split-chunk CSS is inlined in <head>
-// (first-paint, blocking) rather than injected after the body stream.
-const collectEssentialAssets = (ssrManifest, manifest, assetManifest, allMatches = []) => {
-    let discoveredAssets = { js: [], css: [] }
-    let chunkExtractor = null
+// ── Asset collection ───────────────────────────────────────────────────
+const collectAssets = (req, allMatches) => {
+    const chunkExtractor = new ChunkExtractor({
+        manifest: req.manifest || {},
+        ssrManifest: req.ssrManifest || {},
+        assetManifest: req.assetManifest || {},
+    })
 
-    try {
-        // Create ChunkExtractor for this render
-        chunkExtractor = new ChunkExtractor({
-            manifest: manifest || {},
-            ssrManifest: ssrManifest || {},
-            assetManifest: assetManifest || {},
-        })
+    // Add route-matched CSS/JS to critical bucket (loaded in <head>)
+    chunkExtractor.preloadRouteCss(allMatches)
 
-        // Pre-load the matched route's split-chunk CSS into essentialAssets so it
-        // is inlined in <head> at first paint. Reads __cacheKey from the route's
-        // component (attached by split() automatically) — no route config changes needed.
-        chunkExtractor.preloadRouteCss(allMatches)
-
-        // Get extracted assets from ChunkExtractor
-        discoveredAssets = chunkExtractor.getEssentialAssets()
-    } catch (error) {
-        console.warn("Error while collecting essential assets:", error)
-    }
-
-    return { discoveredAssets, chunkExtractor }
+    return chunkExtractor
 }
 
-// Preloads chunks required for rendering document
-const getComponent = (store, context, req, fetcherData) => {
-    return (
-        <div id="app">
-            <Provider store={store}>
-                <StaticRouter context={context} location={req.originalUrl}>
-                    <ServerRouter store={store} intialData={fetcherData} />
-                </StaticRouter>
-            </Provider>
-        </div>
-    )
-}
+// ── JSX tree ───────────────────────────────────────────────────────────
+const getComponent = (store, context, req, fetcherData) => (
+    <div id="app">
+        <Provider store={store}>
+            <StaticRouter context={context} location={req.originalUrl}>
+                <ServerRouter store={store} intialData={fetcherData} />
+            </StaticRouter>
+        </Provider>
+    </div>
+)
 
-// sends document after rendering
+// ── Render and stream ──────────────────────────────────────────────────
 const renderMarkUp = async (
     errorCode,
     req,
@@ -123,89 +88,72 @@ const renderMarkUp = async (
     store,
     matches,
     context,
-    discoveredAssets = { js: [], css: [] },
-    chunkExtractor = null
+    chunkExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    const isBot = deviceDetails.googleBot ? true : false
-    // Process ChunkExtractor discovered assets
-    const scriptElements = generateScriptTags(discoveredAssets.js, req)
-    const stylesheetLinks = generateInlineCssFromAssets(discoveredAssets.css, {
-        assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
-    })
+    const isBot = !!deviceDetails.googleBot
 
-    // Use stylesheet links instead of inlined CSS
-    res.locals.pageJS = scriptElements
-    res.locals.pageCss = stylesheetLinks
+    // Critical assets → <head>
+    const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
 
-    // Transforms Head Props with discovered assets
-    const shellStart = await renderStart(res.locals.pageCss, res.locals.pageJS, metaTags, isBot, fetcherData)
+    // Inline critical CSS from disk (small thanks to natural code-splitting)
+    const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
+    const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
-    let state = store.getState()
+    const jsScripts = generateScriptElements(criticalAssets.js)
+
+    // Build Head props
+    const shellStart = renderStart({ inlineCss, jsScripts, metaTags, isBot, fetcherData })
+
+    const state = store.getState()
     const jsx = getComponent(store, context, req, fetcherData)
-
-    // Transforms Body Props
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
-    const finalProps = {
-        ...shellStart,
-        ...shellEnd,
-        jsx: jsx,
-        req,
-        res,
-    }
+    const finalProps = { ...shellStart, ...shellEnd, jsx, req, res }
 
-    let CompleteDocument = () => {
+    const CompleteDocument = () => {
         if (CustomDocument) {
             return CustomDocument(finalProps)
-        } else {
-            return (
-                <html lang={finalProps.lang}>
-                    <Head
-                        isBot={finalProps.isBot}
-                        pageJS={finalProps.pageJS}
-                        pageCss={finalProps.pageCss}
-                        fetcherData={finalProps.fetcherData}
-                        metaTags={finalProps.metaTags}
-                        publicAssetPath={finalProps.publicAssetPath}
-                    />
-                    <Body
-                        initialState={finalProps.initialState}
-                        jsx={finalProps.jsx}
-                        statusCode={finalProps.statusCode}
-                        fetcherData={finalProps.fetcherData}
-                    />
-                </html>
-            )
         }
+        return (
+            <html lang={finalProps.lang}>
+                <Head
+                    isBot={finalProps.isBot}
+                    inlineCss={finalProps.inlineCss}
+                    jsScripts={finalProps.jsScripts}
+                    fetcherData={finalProps.fetcherData}
+                    metaTags={finalProps.metaTags}
+                    publicAssetPath={finalProps.publicAssetPath}
+                />
+                <Body
+                    initialState={finalProps.initialState}
+                    jsx={finalProps.jsx}
+                    statusCode={finalProps.statusCode}
+                    fetcherData={finalProps.fetcherData}
+                />
+            </html>
+        )
     }
 
     try {
-        let status = matches.length && matches[0].match.path === "*" ? 404 : 200
+        const status = matches.length && matches[0].match.path === "*" ? 404 : 200
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
+
         const { pipe } = renderToPipeableStream(<CompleteDocument />, {
             onShellReady() {
                 res.setHeader("content-type", "text/html")
                 pipe(res)
-                // res.end()
             },
+
             onAllReady() {
-                // In dev mode, inject CSS module URLs as stylesheets
-                // Vite's dev server compiles and serves these on request
-
-                const nonEssentialAssets = chunkExtractor
-                    ? chunkExtractor.getNonEssentialAssets()
+                // Deferred assets — injected after body (non-blocking)
+                const deferredAssets = chunkExtractor
+                    ? chunkExtractor.getDeferredAssets()
                     : { js: [], css: [] }
-                const scriptElements = generateScriptTagsAsStrings(nonEssentialAssets.js, req)
 
-                const stylesheetLinks = generateInlineCssFromAssets(nonEssentialAssets.css, {
-                    assetsBasePath: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH),
-                })
-
-                // Inline (non-module) script so it runs during HTML parsing, before any
-                // deferred module scripts.  Tells Split.jsx which components were actually
-                // rendered on the server so only those get eagerly re-imported on the client.
+                // Tell client which components were SSR'd so split() can
+                // eagerly import them (prevents Suspense fallback flash)
                 if (chunkExtractor) {
                     const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                     res.write(
@@ -213,58 +161,38 @@ const renderMarkUp = async (
                     )
                 }
 
-                res.write(`<style>${stylesheetLinks}</style>`)
-                res.write(scriptElements)
+                // Deferred CSS as external <link> (not inline <style>)
+                res.write(generateCssLinkStrings(deferredAssets.css))
+                res.write(generateScriptStrings(deferredAssets.js))
             },
-            // onError(error) {
-            //     console.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
-            // },
         })
     } catch (error) {
         console.error("Error in rendering document on server:" + error)
     }
 }
 
-/**
- * middleware for document handling
- * @param {object} req - request object
- * @param {object} res - response object
- */
+// ── Express middleware ──────────────────────────────────────────────────
 export default async function (req, res) {
     try {
         let context = {}
         let fetcherData = {}
-        // creates store
         const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
-
-        // user defined routes
         const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
 
-        // Matches req url with routes
         const matches = getMatchRoutes(routes, req, res, store, context, fetcherData, undefined)
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
 
-        // Executing app server side function
         App.serverSideFunction({ store, req, res })
-            // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
             .then(() => {
-                serverDataFetcher({ routes: routes, req, res, url: req.originalUrl }, { store })
+                serverDataFetcher({ routes, req, res, url: req.originalUrl }, { store })
                     .then((res) => {
                         fetcherData = res
                         allTags = getMetaData(allMatches, fetcherData)
-
-                        // Perform two-pass rendering to discover required assets
-                        const { discoveredAssets, chunkExtractor } = collectEssentialAssets(
-                            req.ssrManifest,
-                            req.manifest,
-                            req.assetManifest,
-                            allMatches
-                        )
-                        return { discoveredAssets, chunkExtractor }
+                        return collectAssets(req, allMatches)
                     })
                     .then(
-                        async ({ discoveredAssets, chunkExtractor }) =>
+                        async (chunkExtractor) =>
                             await renderMarkUp(
                                 null,
                                 req,
@@ -274,40 +202,17 @@ export default async function (req, res) {
                                 store,
                                 matches,
                                 context,
-                                discoveredAssets,
                                 chunkExtractor
                             )
                     )
                     .catch(async (error) => {
                         console.error("Error in executing serverFetcher functions: " + error)
-                        await renderMarkUp(
-                            404,
-                            req,
-                            res,
-                            allTags,
-                            fetcherData,
-                            store,
-                            matches,
-                            context,
-                            { js: [], css: [] },
-                            null
-                        )
+                        await renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, null)
                     })
             })
             .catch((error) => {
                 console.error("Error in executing serverSideFunction inside App: " + error)
-                renderMarkUp(
-                    error.status_code,
-                    req,
-                    res,
-                    allTags,
-                    fetcherData,
-                    store,
-                    matches,
-                    context,
-                    { js: [], css: [] },
-                    null
-                )
+                renderMarkUp(error.status_code, req, res, allTags, fetcherData, store, matches, context, null)
             })
     } catch (error) {
         console.error("Error in handling document request: " + error.toString())

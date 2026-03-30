@@ -3,16 +3,12 @@ import PropTypes from "prop-types"
 import FastRefresh from "../../../vite/FastRefresh.jsx"
 
 /**
- * Head component which will be used in page rendering
- * @param {boolean} isBot - checks if request is made by bot
- * @param {array} pageCss - includes all stylesheet link elements for page css
- * @param {object} pageJS - async scripts for loading chunks
- * @param {array} metaTags - user defined function which returns meta tags in array
- * @param {string} publicAssetPath - public asset path for assets
- * @param {object} children - contains any child elements defined within the component
+ * Head component — inlines critical CSS as <style> and renders JS as <script type="module">.
+ * Critical CSS is small (~15-25KB) thanks to natural Vite code-splitting.
+ * Deferred CSS is loaded via external <link> after body in onAllReady.
  */
 export function Head(props) {
-    const { pageCss, pageJS, metaTags, isBot, publicAssetPath, children } = props
+    const { inlineCss, jsScripts, metaTags, isBot, publicAssetPath, children } = props
 
     return (
         <head>
@@ -23,9 +19,14 @@ export function Head(props) {
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {metaTags && metaTags}
-            {!isBot && pageJS}
 
-            {!isBot && pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
+            {/* Inline critical CSS — prevents FOUC/CLS */}
+            {!isBot && inlineCss && (
+                <style dangerouslySetInnerHTML={{ __html: inlineCss }} />
+            )}
+
+            {/* JS modules */}
+            {!isBot && jsScripts}
 
             {children}
         </head>
@@ -34,8 +35,8 @@ export function Head(props) {
 
 Head.propTypes = {
     isBot: PropTypes.bool,
-    pageJS: PropTypes.object,
-    pageCss: PropTypes.array, // Changed from string to array for stylesheet links
+    inlineCss: PropTypes.string,
+    jsScripts: PropTypes.array,
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
     children: PropTypes.node,
