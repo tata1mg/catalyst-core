@@ -3,6 +3,7 @@
  */
 export const renderStart = ({
     inlineCss,
+    deferredRouteInlineCss,
     jsScripts,
     criticalPreloadLinks,
     deferredPreloadLinks,
@@ -20,6 +21,7 @@ export const renderStart = ({
 
     return {
         inlineCss,
+        deferredRouteInlineCss,
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,

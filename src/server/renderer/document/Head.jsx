@@ -5,11 +5,12 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
 /**
  * Head component — inlines critical CSS as <style> and renders JS as <script type="module">.
  * Critical CSS is small (~15-25KB) thanks to natural Vite code-splitting.
- * Deferred CSS is loaded via external <link> after body in onAllReady.
+ * Route-cached deferred CSS is inlined here on repeat visits; new deferred CSS still appends after body.
  */
 export function Head(props) {
     const {
         inlineCss,
+        deferredRouteInlineCss,
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
@@ -37,6 +38,11 @@ export function Head(props) {
                 <style dangerouslySetInnerHTML={{ __html: inlineCss }} />
             )}
 
+            {/* Deferred CSS from prior SSRs on this route — avoids late layout from post-body <style> */}
+            {!isBot && deferredRouteInlineCss && (
+                <style dangerouslySetInnerHTML={{ __html: deferredRouteInlineCss }} />
+            )}
+
             {/* JS modules */}
             {!isBot && jsScripts}
 
@@ -48,6 +54,7 @@ export function Head(props) {
 Head.propTypes = {
     isBot: PropTypes.bool,
     inlineCss: PropTypes.string,
+    deferredRouteInlineCss: PropTypes.string,
     jsScripts: PropTypes.array,
     criticalPreloadLinks: PropTypes.array,
     deferredPreloadLinks: PropTypes.array,

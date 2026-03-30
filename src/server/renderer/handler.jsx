@@ -17,6 +17,9 @@ import {
     generateCssLinkStrings,
     generateScriptStrings,
     registerDeferredAssetUrls,
+    getDeferredRouteKey,
+    getCachedDeferredCssPathsForRoute,
+    registerDeferredAssetsForRoute,
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
 } from "./extract.js"
@@ -103,6 +106,12 @@ const renderMarkUp = async (
     const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
     const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
+    const deferredRouteKey = getDeferredRouteKey(req)
+    const deferredRouteInlineCss = readCssFromDisk(
+        getCachedDeferredCssPathsForRoute(deferredRouteKey),
+        buildDir
+    )
+
     const jsScripts = generateScriptElements(criticalAssets.js)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(criticalAssets.js)
@@ -111,6 +120,7 @@ const renderMarkUp = async (
     // Build Head props
     const shellStart = renderStart({
         inlineCss,
+        deferredRouteInlineCss,
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
@@ -134,6 +144,7 @@ const renderMarkUp = async (
                 <Head
                     isBot={finalProps.isBot}
                     inlineCss={finalProps.inlineCss}
+                    deferredRouteInlineCss={finalProps.deferredRouteInlineCss}
                     jsScripts={finalProps.jsScripts}
                     criticalPreloadLinks={finalProps.criticalPreloadLinks}
                     deferredPreloadLinks={finalProps.deferredPreloadLinks}
@@ -177,9 +188,11 @@ const renderMarkUp = async (
                     )
                 }
 
-                // Deferred CSS as external <link> (not inline <style>)
-                res.write(`<style>${readCssFromDisk(deferredAssets.css, buildDir)}</style>`)
+                const { newCssPaths } = registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets)
                 registerDeferredAssetUrls({ js: deferredAssets.js })
+                if (newCssPaths.length) {
+                    res.write(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                }
                 res.write(generateScriptStrings(deferredAssets.js))
             },
         })

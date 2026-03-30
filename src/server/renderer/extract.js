@@ -11,6 +11,55 @@ if (!process.cssFileCache) process.cssFileCache = {}
 // on the *next* requests (head streams before deferred chunks are known on first paint).
 if (!process.deferredAssetJsPreloadCache) process.deferredAssetJsPreloadCache = new Set()
 
+// Per-route deferred asset paths/URLs learned from past SSRs — inlined in <head> on later visits
+// so late <style> after </body> does not re-layout already-painted content. CSS file bodies use
+// process.cssFileCache inside readCssFromDisk (no repeat disk read).
+if (!process.deferredAssetsByRoute) process.deferredAssetsByRoute = new Map()
+
+const routeRecord = (routeKey) => {
+    let rec = process.deferredAssetsByRoute.get(routeKey)
+    if (!rec) {
+        rec = { css: new Set(), js: new Set() }
+        process.deferredAssetsByRoute.set(routeKey, rec)
+    }
+    return rec
+}
+
+/** Stable key for caching deferred chunks (Express baseUrl + path, no query). */
+export const getDeferredRouteKey = (req) => {
+    const base = req.baseUrl || ""
+    const p = req.path != null ? req.path : "/"
+    const joined = `${base}${p}`.replace(/\/{2,}/g, "/") || "/"
+    return joined.startsWith("/") ? joined : `/${joined}`
+}
+
+/** CSS paths (manifest-relative) previously deferred on this route — for <head> inlining. */
+export const getCachedDeferredCssPathsForRoute = (routeKey) => {
+    if (!routeKey) return []
+    const rec = process.deferredAssetsByRoute.get(routeKey)
+    return rec ? [...rec.css] : []
+}
+
+/**
+ * Record deferred asset paths/URLs for this route. Returns CSS paths not yet on the route so they
+ * can be inlined after </body> only once; on later visits those paths are inlined in <head> instead.
+ * JS URLs are always emitted in HTML on every navigation — skipping "cached" scripts would omit modules.
+ * @returns {{ newCssPaths: string[] }}
+ */
+export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } = {}) => {
+    const rec = routeRecord(routeKey)
+    const newCssPaths = []
+    for (const p of css) {
+        if (!p) continue
+        if (!rec.css.has(p)) newCssPaths.push(p)
+        rec.css.add(p)
+    }
+    for (const url of js) {
+        if (url) rec.js.add(url)
+    }
+    return { newCssPaths }
+}
+
 /**
  * Record deferred chunk URLs after render so future responses can preload them in <head>.
  * @param {object} opts
