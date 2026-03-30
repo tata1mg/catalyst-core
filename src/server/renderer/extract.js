@@ -7,6 +7,49 @@ import fs from "fs"
 // Process-level cache — survives across requests, reset on deploy.
 if (!process.cssFileCache) process.cssFileCache = {}
 
+// Deferred JS URLs seen after SSR completes — used to emit <link rel="modulepreload">
+// on the *next* requests (head streams before deferred chunks are known on first paint).
+if (!process.deferredAssetJsPreloadCache) process.deferredAssetJsPreloadCache = new Set()
+
+/**
+ * Record deferred chunk URLs after render so future responses can preload them in <head>.
+ * @param {object} opts
+ * @param {string[]} [opts.js] - Full script URLs (same as deferredAssets.js).
+ */
+export const registerDeferredAssetUrls = ({ js = [] } = {}) => {
+    for (const url of js) {
+        if (url && typeof url === "string") process.deferredAssetJsPreloadCache.add(url)
+    }
+}
+
+/**
+ * Cached deferred script URLs for early fetch, excluding URLs already loaded as critical scripts.
+ * @param {Iterable<string>} excludeUrls - Critical / head script src URLs.
+ * @returns {string[]}
+ */
+export const getDeferredPreloadScriptUrls = (excludeUrls = []) => {
+    const exclude = new Set(excludeUrls)
+    const out = []
+    for (const url of process.deferredAssetJsPreloadCache) {
+        if (url && !exclude.has(url)) out.push(url)
+    }
+    return out
+}
+
+/**
+ * React <link rel="modulepreload"> elements for deferred chunks (deduped).
+ * fetchPriority hints the browser to prioritize these fetches.
+ */
+export const generateDeferredPreloadLinkElements = (jsUrls = []) =>
+    [...new Set(jsUrls)].map((url, i) =>
+        React.createElement("link", {
+            key: `deferred-modulepreload-${i}`,
+            rel: "modulepreload",
+            href: url,
+            fetchPriority: "high",
+        })
+    )
+
 /**
  * Read CSS files from disk and return concatenated CSS string for inlining.
  * @param {string[]} cssPaths - Relative CSS paths (from manifest).

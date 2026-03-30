@@ -8,7 +8,8 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
  * Deferred CSS is loaded via external <link> after body in onAllReady.
  */
 export function Head(props) {
-    const { inlineCss, jsScripts, metaTags, isBot, publicAssetPath, children } = props
+    const { inlineCss, jsScripts, deferredPreloadLinks, metaTags, isBot, publicAssetPath, children } =
+        props
 
     return (
         <head>
@@ -18,6 +19,8 @@ export function Head(props) {
 
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
+            {/* Warm-cache modulepreloads: deferred chunks from prior SSRs (deduped vs critical scripts below) */}
+            {!isBot && deferredPreloadLinks}
             {metaTags && metaTags}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
@@ -37,6 +40,7 @@ Head.propTypes = {
     isBot: PropTypes.bool,
     inlineCss: PropTypes.string,
     jsScripts: PropTypes.array,
+    deferredPreloadLinks: PropTypes.array,
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
     children: PropTypes.node,

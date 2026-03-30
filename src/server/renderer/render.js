@@ -1,7 +1,14 @@
 /**
  * Returns data used by the Head component for page rendering.
  */
-export const renderStart = ({ inlineCss, jsScripts, metaTags, isBot, fetcherData }) => {
+export const renderStart = ({
+    inlineCss,
+    jsScripts,
+    deferredPreloadLinks,
+    metaTags,
+    isBot,
+    fetcherData,
+}) => {
     const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
 
     let publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
@@ -13,6 +20,7 @@ export const renderStart = ({ inlineCss, jsScripts, metaTags, isBot, fetcherData
     return {
         inlineCss,
         jsScripts,
+        deferredPreloadLinks,
         metaTags,
         isBot,
         publicAssetPath,

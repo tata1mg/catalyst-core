@@ -16,6 +16,9 @@ import {
     generateScriptElements,
     generateCssLinkStrings,
     generateScriptStrings,
+    registerDeferredAssetUrls,
+    getDeferredPreloadScriptUrls,
+    generateDeferredPreloadLinkElements,
 } from "./extract.js"
 import path from "path"
 
@@ -101,9 +104,18 @@ const renderMarkUp = async (
     const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
     const jsScripts = generateScriptElements(criticalAssets.js)
+    const deferredPreloadUrls = getDeferredPreloadScriptUrls(criticalAssets.js)
+    const deferredPreloadLinks = generateDeferredPreloadLinkElements(deferredPreloadUrls)
 
     // Build Head props
-    const shellStart = renderStart({ inlineCss, jsScripts, metaTags, isBot, fetcherData })
+    const shellStart = renderStart({
+        inlineCss,
+        jsScripts,
+        deferredPreloadLinks,
+        metaTags,
+        isBot,
+        fetcherData,
+    })
 
     const state = store.getState()
     const jsx = getComponent(store, context, req, fetcherData)
@@ -121,6 +133,7 @@ const renderMarkUp = async (
                     isBot={finalProps.isBot}
                     inlineCss={finalProps.inlineCss}
                     jsScripts={finalProps.jsScripts}
+                    deferredPreloadLinks={finalProps.deferredPreloadLinks}
                     fetcherData={finalProps.fetcherData}
                     metaTags={finalProps.metaTags}
                     publicAssetPath={finalProps.publicAssetPath}
@@ -163,6 +176,7 @@ const renderMarkUp = async (
 
                 // Deferred CSS as external <link> (not inline <style>)
                 res.write(`<style>${readCssFromDisk(deferredAssets.css, buildDir)}</style>`)
+                registerDeferredAssetUrls({ js: deferredAssets.js })
                 res.write(generateScriptStrings(deferredAssets.js))
             },
         })
