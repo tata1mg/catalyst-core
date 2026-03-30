@@ -85,14 +85,27 @@ function packageKey(dependency) {
 
 function resolveManifestPath(pluginDir, relativePath, fieldName) {
     const resolvedPath = path.resolve(pluginDir, relativePath)
-    const normalizedPluginDir = path.resolve(pluginDir)
+    const normalizedPluginDir = fs.realpathSync(path.resolve(pluginDir))
     if (
         resolvedPath !== normalizedPluginDir &&
         !resolvedPath.startsWith(`${normalizedPluginDir}${path.sep}`)
     ) {
         throw new Error(`'${fieldName}' must stay within plugin directory: ${relativePath}`)
     }
-    return resolvedPath
+
+    if (!fs.existsSync(resolvedPath)) {
+        return resolvedPath
+    }
+
+    const realResolvedPath = fs.realpathSync(resolvedPath)
+    if (
+        realResolvedPath !== normalizedPluginDir &&
+        !realResolvedPath.startsWith(`${normalizedPluginDir}${path.sep}`)
+    ) {
+        throw new Error(`'${fieldName}' resolves outside plugin directory: ${relativePath}`)
+    }
+
+    return realResolvedPath
 }
 
 function parsePluginToggleConfig(pluginConfig) {
@@ -169,15 +182,20 @@ function validatePlugins(plugins) {
         }
         pluginIds.add(plugin.id)
 
-        if (configKeys.has(plugin.configKey)) {
-            throw new Error(`Duplicate configKey detected: ${plugin.configKey}`)
+        if (plugin.configKey) {
+            if (configKeys.has(plugin.configKey)) {
+                throw new Error(`Duplicate configKey detected: ${plugin.configKey}`)
+            }
+            configKeys.add(plugin.configKey)
         }
-        configKeys.add(plugin.configKey)
 
         for (const [field, selector] of [
             ["id", plugin.id],
             ["configKey", plugin.configKey],
         ]) {
+            if (!selector) {
+                continue
+            }
             const existing = selectorKeys.get(selector)
             if (existing && existing.pluginId !== plugin.id) {
                 throw new Error(
@@ -346,6 +364,27 @@ function normalizeResourceRelativePath(plugin, absolutePath) {
     return relativePath
 }
 
+function validateBundleRelativePath(pluginId, bundleRelativePath) {
+    const normalizedPath = path.posix.normalize(bundleRelativePath)
+    const expectedPrefix = `PluginResources/${sanitizeForPath(pluginId)}`
+
+    if (
+        path.posix.isAbsolute(normalizedPath) ||
+        normalizedPath === ".." ||
+        normalizedPath.startsWith("../")
+    ) {
+        throw new Error(`Invalid bundled resource path for plugin '${pluginId}': ${bundleRelativePath}`)
+    }
+
+    if (normalizedPath !== expectedPrefix && !normalizedPath.startsWith(`${expectedPrefix}/`)) {
+        throw new Error(
+            `Bundled resource path escaped managed directory for plugin '${pluginId}': ${bundleRelativePath}`
+        )
+    }
+
+    return normalizedPath
+}
+
 function collectIosResources(plugins) {
     const resources = []
 
@@ -362,10 +401,13 @@ function collectIosResources(plugins) {
 
             for (const entryPath of entries) {
                 const normalizedRelativePath = normalizeResourceRelativePath(plugin, entryPath)
-                const bundleRelativePath = path
-                    .join("PluginResources", sanitizeForPath(plugin.id), normalizedRelativePath)
-                    .split(path.sep)
-                    .join("/")
+                const bundleRelativePath = validateBundleRelativePath(
+                    plugin.id,
+                    path
+                        .join("PluginResources", sanitizeForPath(plugin.id), normalizedRelativePath)
+                        .split(path.sep)
+                        .join("/")
+                )
 
                 resources.push({
                     pluginId: plugin.id,

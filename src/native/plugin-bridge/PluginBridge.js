@@ -3,6 +3,7 @@ class PluginNativeBridge {
         this.handlers = new Map()
         this.requestCount = 0
         this.isInitialized = false
+        this.wildcardScope = Symbol("pluginBridgeWildcard")
     }
 
     createRequestId = () => {
@@ -78,19 +79,71 @@ class PluginNativeBridge {
         }
     }
 
-    handlerKey = (pluginId, eventName, command = "*", requestId = "*") =>
-        `${pluginId}:${eventName}:${command}:${requestId}`
-
-    getHandlers = (pluginId, eventName, command = "*", requestId = "*") => {
-        const key = this.handlerKey(pluginId, eventName, command, requestId)
-        const existing = this.handlers.get(key)
-        if (existing) {
-            return existing
+    getHandlerSet = (pluginId, eventName, commandScope, requestScope, create = false) => {
+        let pluginScopes = this.handlers.get(pluginId)
+        if (!pluginScopes && create) {
+            pluginScopes = new Map()
+            this.handlers.set(pluginId, pluginScopes)
+        }
+        if (!pluginScopes) {
+            return null
         }
 
-        const next = new Set()
-        this.handlers.set(key, next)
-        return next
+        let eventScopes = pluginScopes.get(eventName)
+        if (!eventScopes && create) {
+            eventScopes = new Map()
+            pluginScopes.set(eventName, eventScopes)
+        }
+        if (!eventScopes) {
+            return null
+        }
+
+        let commandScopes = eventScopes.get(commandScope)
+        if (!commandScopes && create) {
+            commandScopes = new Map()
+            eventScopes.set(commandScope, commandScopes)
+        }
+        if (!commandScopes) {
+            return null
+        }
+
+        let requestScopes = commandScopes.get(requestScope)
+        if (!requestScopes && create) {
+            requestScopes = new Set()
+            commandScopes.set(requestScope, requestScopes)
+        }
+        return requestScopes || null
+    }
+
+    pruneEmptyScopes = (pluginId, eventName, commandScope, requestScope) => {
+        const pluginScopes = this.handlers.get(pluginId)
+        const eventScopes = pluginScopes?.get(eventName)
+        const commandScopes = eventScopes?.get(commandScope)
+
+        if (commandScopes?.has(requestScope) && commandScopes.get(requestScope)?.size === 0) {
+            commandScopes.delete(requestScope)
+        }
+        if (commandScopes?.size === 0) {
+            eventScopes.delete(commandScope)
+        }
+        if (eventScopes?.size === 0) {
+            pluginScopes.delete(eventName)
+        }
+        if (pluginScopes?.size === 0) {
+            this.handlers.delete(pluginId)
+        }
+    }
+
+    reportHandlerError = (error) => {
+        if (typeof queueMicrotask === "function") {
+            queueMicrotask(() => {
+                throw error
+            })
+            return
+        }
+        setTimeout(() => {
+            throw error
+        }, 0)
     }
 
     emit = ({ pluginId, command, data = null, requestId } = {}) => {
@@ -135,9 +188,9 @@ class PluginNativeBridge {
 
         this.assertInitialized()
 
-        const normalizedCommand = this.normalizeCommand(command) || "*"
-        const normalizedRequestId = this.normalizeRequestId(requestId) || "*"
-        this.getHandlers(pluginId, eventName, normalizedCommand, normalizedRequestId).add(handler)
+        const normalizedCommand = this.normalizeCommand(command) || this.wildcardScope
+        const normalizedRequestId = this.normalizeRequestId(requestId) || this.wildcardScope
+        this.getHandlerSet(pluginId, eventName, normalizedCommand, normalizedRequestId, true).add(handler)
     }
 
     unregister = ({ pluginId, eventName, command, handler, requestId } = {}) => {
@@ -151,23 +204,27 @@ class PluginNativeBridge {
             throw new Error("handler must be a function when provided")
         }
 
-        const normalizedCommand = this.normalizeCommand(command) || "*"
-        const normalizedRequestId = this.normalizeRequestId(requestId) || "*"
-        const key = this.handlerKey(pluginId, eventName, normalizedCommand, normalizedRequestId)
-        const handlers = this.handlers.get(key)
+        const normalizedCommand = this.normalizeCommand(command) || this.wildcardScope
+        const normalizedRequestId = this.normalizeRequestId(requestId) || this.wildcardScope
+        const handlers = this.getHandlerSet(
+            pluginId,
+            eventName,
+            normalizedCommand,
+            normalizedRequestId,
+            false
+        )
         if (!handlers) {
             return false
         }
 
         if (handler == null) {
-            this.handlers.delete(key)
+            handlers.clear()
+            this.pruneEmptyScopes(pluginId, eventName, normalizedCommand, normalizedRequestId)
             return true
         }
 
         const removed = handlers.delete(handler)
-        if (handlers.size === 0) {
-            this.handlers.delete(key)
-        }
+        this.pruneEmptyScopes(pluginId, eventName, normalizedCommand, normalizedRequestId)
         return removed
     }
 
@@ -184,9 +241,7 @@ class PluginNativeBridge {
         const normalizedCommand = typeof command === "string" && command.trim() ? command.trim() : null
         const toCall = new Set()
         const collectHandlers = (commandScope, requestScope) => {
-            const handlers = this.handlers.get(
-                this.handlerKey(pluginId, eventName, commandScope, requestScope)
-            )
+            const handlers = this.getHandlerSet(pluginId, eventName, commandScope, requestScope, false)
             if (!handlers) {
                 return
             }
@@ -199,12 +254,12 @@ class PluginNativeBridge {
             collectHandlers(normalizedCommand, normalizedRequestId)
         }
         if (normalizedCommand != null) {
-            collectHandlers(normalizedCommand, "*")
+            collectHandlers(normalizedCommand, this.wildcardScope)
         }
         if (normalizedRequestId != null) {
-            collectHandlers("*", normalizedRequestId)
+            collectHandlers(this.wildcardScope, normalizedRequestId)
         }
-        collectHandlers("*", "*")
+        collectHandlers(this.wildcardScope, this.wildcardScope)
 
         if (toCall.size === 0) {
             return false
@@ -217,7 +272,11 @@ class PluginNativeBridge {
             requestId: normalizedRequestId,
         }
         toCall.forEach((handler) => {
-            handler(payload, meta)
+            try {
+                handler(payload, meta)
+            } catch (error) {
+                this.reportHandlerError(error)
+            }
         })
         return true
     }

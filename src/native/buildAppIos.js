@@ -823,7 +823,26 @@ async function syncPluginResources(pluginComposition = {}) {
         }
 
         for (const resource of resources) {
-            const targetPath = path.join(PROJECT_DIR, PROJECT_NAME, resource.bundleRelativePath)
+            const normalizedBundleRelativePath = path.posix.normalize(resource.bundleRelativePath || "")
+            const expectedPrefix = `${PLUGIN_RESOURCE_ROOT}/`
+            if (
+                !normalizedBundleRelativePath.startsWith(expectedPrefix) ||
+                normalizedBundleRelativePath.includes("../") ||
+                path.posix.isAbsolute(normalizedBundleRelativePath)
+            ) {
+                throw new Error(`Invalid managed plugin resource path: ${resource.bundleRelativePath}`)
+            }
+
+            const targetPath = path.resolve(PROJECT_DIR, PROJECT_NAME, normalizedBundleRelativePath)
+            if (
+                targetPath !== pluginResourceDir &&
+                !targetPath.startsWith(`${pluginResourceDir}${path.sep}`)
+            ) {
+                throw new Error(
+                    `Managed plugin resource escaped bundle directory: ${resource.bundleRelativePath}`
+                )
+            }
+
             fs.mkdirSync(path.dirname(targetPath), { recursive: true })
             fs.copyFileSync(resource.sourcePath, targetPath)
         }

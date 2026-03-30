@@ -131,6 +131,9 @@ function validatePlugins(plugins) {
             ["id", plugin.id],
             ["configKey", plugin.configKey],
         ]) {
+            if (!selector) {
+                continue
+            }
             const existing = selectorKeys.get(selector)
             if (existing && existing.pluginId !== plugin.id) {
                 throw new Error(
@@ -485,8 +488,8 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
     )
     updateProguardKeepRules(
         proguardPath,
-        selected.map((plugin) => plugin.android.className),
-        discovered.flatMap((plugin) => plugin.android?.className || [])
+        selected.map((plugin) => plugin.android?.className).filter(Boolean),
+        discovered.map((plugin) => plugin.android?.className).filter(Boolean)
     )
 
     log(`Plugin composition complete (${selected.length} enabled plugin(s))`, "success")

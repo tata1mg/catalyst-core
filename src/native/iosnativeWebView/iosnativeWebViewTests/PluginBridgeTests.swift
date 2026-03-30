@@ -38,7 +38,7 @@ final class PluginBridgeTests: XCTestCase {
             }
         }
 
-        let message = PluginMockWKScriptMessage(
+        let message = PluginMockScriptMessage(
             name: "NativeBridge",
             body: [
                 "pluginId": "device-info-plugin",
@@ -46,7 +46,7 @@ final class PluginBridgeTests: XCTestCase {
             ]
         )
 
-        bridge.userContentController(mockWebView.configuration.userContentController, didReceive: message)
+        bridge.handleMessage(message)
 
         await fulfillment(of: [testExpectation], timeout: 2.0)
     }
@@ -60,7 +60,7 @@ final class PluginBridgeTests: XCTestCase {
             }
         }
 
-        let message = PluginMockWKScriptMessage(
+        let message = PluginMockScriptMessage(
             name: "PluginBridge",
             body: [
                 "pluginId": "missing-plugin",
@@ -69,7 +69,7 @@ final class PluginBridgeTests: XCTestCase {
             ]
         )
 
-        bridge.userContentController(mockWebView.configuration.userContentController, didReceive: message)
+        bridge.handleMessage(message)
 
         await fulfillment(of: [testExpectation], timeout: 2.0)
     }
@@ -155,20 +155,7 @@ private final class PluginMockWKWebView: WKWebView {
     }
 }
 
-private final class PluginMockWKScriptMessage: WKScriptMessage {
-    private let messageName: String
-    private let messageBody: Any
-
-    init(name: String, body: Any) {
-        self.messageName = name
-        self.messageBody = body
-    }
-
-    override var name: String {
-        messageName
-    }
-
-    override var body: Any {
-        messageBody
-    }
+private struct PluginMockScriptMessage: PluginBridgeMessage {
+    let name: String
+    let body: Any
 }

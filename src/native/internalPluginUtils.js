@@ -149,7 +149,20 @@ function parsePluginManifest(pluginDir) {
         return null
     }
 
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    let manifestContent
+    try {
+        manifestContent = fs.readFileSync(manifestPath, "utf8")
+    } catch (error) {
+        throw new Error(`Failed to read plugin manifest at ${manifestPath}: ${error.message}`)
+    }
+
+    let manifest
+    try {
+        manifest = JSON.parse(manifestContent)
+    } catch (error) {
+        throw new Error(`Invalid JSON in plugin manifest ${manifestPath}: ${error.message}`)
+    }
+
     const id = mustBeNonEmptyString(manifest.id, "id", manifestPath)
     const configKey = mustBeNonEmptyString(manifest.configKey, "configKey", manifestPath)
     const platforms = readStringArray(manifest.platforms, "platforms", manifestPath, {

@@ -21,9 +21,18 @@ private struct PluginRequest {
     let requestId: String?
 }
 
+protocol PluginBridgeMessage {
+    var name: String { get }
+    var body: Any { get }
+}
+
+extension WKScriptMessage: PluginBridgeMessage {}
+
 final class PluginBridge: NSObject {
     private weak var webView: WKWebView?
     private weak var viewController: UIViewController?
+    private var messageHandlerProxy: WeakScriptMessageHandler?
+    private var isRegistered = false
 
     private let pluginFactories = GeneratedPluginIndex.pluginFactories
     private let pluginToCommands = GeneratedPluginIndex.pluginToCommands
@@ -40,31 +49,55 @@ final class PluginBridge: NSObject {
     }
 
     func register() {
-        webView?.configuration.userContentController.add(self, name: bridgeName)
+        guard !isRegistered else { return }
+        guard let userContentController = webView?.configuration.userContentController else {
+            return
+        }
+        let proxy = WeakScriptMessageHandler(delegate: self)
+        userContentController.add(proxy, name: bridgeName)
+        messageHandlerProxy = proxy
+        isRegistered = true
     }
 
     func unregister() {
+        guard isRegistered else { return }
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: bridgeName)
+        messageHandlerProxy = nil
+        isRegistered = false
     }
 
-    private func parseRequest(_ message: WKScriptMessage) throws -> PluginRequest {
+    deinit {
+        unregister()
+    }
+
+    private func parseRequest(_ message: PluginBridgeMessage) throws -> PluginRequest {
         guard message.name == bridgeName else {
             throw PluginBridgeValidationError(message: "Invalid message handler", code: "INVALID_PAYLOAD")
-        }
-
-        if JSONSerialization.isValidJSONObject(message.body),
-           let data = try? JSONSerialization.data(withJSONObject: message.body),
-           data.count > CatalystConstants.Bridge.maxMessageSize {
-            throw PluginBridgeValidationError(message: "Payload exceeds maximum size", code: "INVALID_PAYLOAD")
         }
 
         let body: [String: Any]
         if let dictionary = message.body as? [String: Any] {
             body = dictionary
-        } else if let dictionary = message.body as? NSDictionary {
-            body = dictionary as? [String: Any] ?? [:]
+        } else if let dictionary = message.body as? NSDictionary,
+                  let castedBody = dictionary as? [String: Any] {
+            body = castedBody
         } else {
             throw PluginBridgeValidationError(message: "Payload must be an object", code: "INVALID_PAYLOAD")
+        }
+
+        guard JSONSerialization.isValidJSONObject(body) else {
+            throw PluginBridgeValidationError(message: "Payload must be JSON-serializable", code: "INVALID_PAYLOAD")
+        }
+
+        let payloadData: Data
+        do {
+            payloadData = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            throw PluginBridgeValidationError(message: "Invalid payload", code: "INVALID_PAYLOAD")
+        }
+
+        if payloadData.count > CatalystConstants.Bridge.maxMessageSize {
+            throw PluginBridgeValidationError(message: "Payload exceeds maximum size", code: "INVALID_PAYLOAD")
         }
 
         let pluginId = (body["pluginId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -109,10 +142,8 @@ final class PluginBridge: NSObject {
         }
         bridge.callback(eventName: errorEvent, data: payload)
     }
-}
 
-extension PluginBridge: WKScriptMessageHandler {
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+    func handleMessage(_ message: PluginBridgeMessage) {
         var request: PluginRequest?
 
         do {
@@ -175,6 +206,12 @@ extension PluginBridge: WKScriptMessageHandler {
                 request: request
             )
         }
+    }
+}
+
+extension PluginBridge: WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        handleMessage(message)
     }
 }
 

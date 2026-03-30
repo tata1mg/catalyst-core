@@ -3,7 +3,7 @@
     "configKey": "deviceInfo",
     "version": "1.0.0",
     "displayName": "Device Info",
-    "description": "Provides device metadata, screen metrics, app info, and latest security results.",
+    "description": "Provides device metadata, screen metrics, app info, and platform-specific diagnostics.",
     "category": "device",
     "platforms": ["android", "ios"],
     "commands": ["getDeviceInfo"],

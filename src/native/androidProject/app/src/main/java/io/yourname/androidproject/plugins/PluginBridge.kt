@@ -18,6 +18,12 @@ internal data class PluginRequest(
     val requestId: String?
 )
 
+private class PluginBridgeRuntimeError(
+    override val message: String,
+    val code: String,
+    cause: Throwable? = null
+) : Exception(message, cause)
+
 class PluginBridge(
     private val activity: Activity,
     private val webView: WebView,
@@ -31,6 +37,7 @@ class PluginBridge(
         private const val ERROR_CODE_PLUGIN_NOT_FOUND = "PLUGIN_NOT_FOUND"
         private const val ERROR_CODE_COMMAND_NOT_SUPPORTED = "COMMAND_NOT_SUPPORTED"
         private const val ERROR_CODE_PLUGIN_NOT_REGISTERED = "PLUGIN_NOT_REGISTERED"
+        private const val ERROR_CODE_PLUGIN_INSTANTIATION_FAILED = "PLUGIN_INSTANTIATION_FAILED"
         private const val ERROR_CODE_PLUGIN_EXECUTION_FAILED = "PLUGIN_EXECUTION_FAILED"
 
         private fun readRequiredString(body: JSONObject, key: String): String {
@@ -112,9 +119,10 @@ class PluginBridge(
                 return
             }
 
-            val plugin = getPluginForId(request.pluginId)
-            if (plugin == null) {
-                sendBridgeError("No plugin registered for id: ${request.pluginId}", ERROR_CODE_PLUGIN_NOT_REGISTERED, request)
+            val plugin = try {
+                getPluginForId(request.pluginId)
+            } catch (error: PluginBridgeRuntimeError) {
+                sendBridgeError(error.message, error.code, request)
                 return
             }
 
@@ -168,8 +176,12 @@ class PluginBridge(
         return pluginToCommands[pluginId]?.contains(command) ?: false
     }
 
-    private fun getPluginForId(pluginId: String): CatalystPlugin? {
-        val className = pluginIdToClassName[pluginId] ?: return null
+    private fun getPluginForId(pluginId: String): CatalystPlugin {
+        val className = pluginIdToClassName[pluginId]
+            ?: throw PluginBridgeRuntimeError(
+                "No plugin registered for id: $pluginId",
+                ERROR_CODE_PLUGIN_NOT_REGISTERED
+            )
 
         return try {
             val clazz = Class.forName(className)
@@ -178,7 +190,11 @@ class PluginBridge(
                 ?: throw IllegalStateException("Plugin class '$className' must implement CatalystPlugin")
         } catch (error: Exception) {
             Log.e(TAG, "Failed to instantiate plugin class $className for plugin $pluginId", error)
-            null
+            throw PluginBridgeRuntimeError(
+                "Failed to instantiate plugin class '$className' for plugin '$pluginId': ${error.message ?: error.javaClass.simpleName}",
+                ERROR_CODE_PLUGIN_INSTANTIATION_FAILED,
+                error
+            )
         }
     }
 }

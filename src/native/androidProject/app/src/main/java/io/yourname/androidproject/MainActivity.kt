@@ -455,11 +455,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         if (::keyboardUtil.isInitialized) {
             keyboardUtil.cleanup()
         }
-        if (::nativeBridge.isInitialized) {
-            nativeBridge.cleanup()
+        if (::customWebView.isInitialized) {
+            if (::pluginBridge.isInitialized) {
+                customWebView.removeJavascriptInterface("PluginBridge")
+            }
+            if (::nativeBridge.isInitialized) {
+                customWebView.removeJavascriptInterface("NativeBridge")
+            }
+            customWebView.destroy()
         }
         coroutineContext.cancelChildren()
-        customWebView.destroy()
         super.onDestroy()
     }
 

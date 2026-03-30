@@ -246,6 +246,17 @@ class CustomWebView(
         }
     }
 
+    fun removeJavascriptInterface(name: String) {
+        try {
+            webView.removeJavascriptInterface(name)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🔌 Removed JavaScript interface: $name")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Failed to remove JavaScript interface '$name': ${e.message}")
+        }
+    }
+
     fun destroy() {
         job.cancel()
         webView.destroy()
