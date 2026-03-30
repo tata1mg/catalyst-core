@@ -37,13 +37,14 @@ export const getDeferredPreloadScriptUrls = (excludeUrls = []) => {
 }
 
 /**
- * React <link rel="modulepreload"> elements for deferred chunks (deduped).
- * fetchPriority hints the browser to prioritize these fetches.
+ * React <link rel="modulepreload"> elements (deduped). Use before matching <script type="module">.
+ * @param {string[]} jsUrls
+ * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
  */
-export const generateDeferredPreloadLinkElements = (jsUrls = []) =>
+export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload") =>
     [...new Set(jsUrls)].map((url, i) =>
         React.createElement("link", {
-            key: `deferred-modulepreload-${i}`,
+            key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
             href: url,
             fetchPriority: "high",

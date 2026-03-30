@@ -4,6 +4,7 @@
 export const renderStart = ({
     inlineCss,
     jsScripts,
+    criticalPreloadLinks,
     deferredPreloadLinks,
     metaTags,
     isBot,
@@ -20,6 +21,7 @@ export const renderStart = ({
     return {
         inlineCss,
         jsScripts,
+        criticalPreloadLinks,
         deferredPreloadLinks,
         metaTags,
         isBot,

@@ -18,7 +18,7 @@ import {
     generateScriptStrings,
     registerDeferredAssetUrls,
     getDeferredPreloadScriptUrls,
-    generateDeferredPreloadLinkElements,
+    generateModulePreloadLinkElements,
 } from "./extract.js"
 import path from "path"
 
@@ -104,13 +104,15 @@ const renderMarkUp = async (
     const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
     const jsScripts = generateScriptElements(criticalAssets.js)
+    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(criticalAssets.js)
-    const deferredPreloadLinks = generateDeferredPreloadLinkElements(deferredPreloadUrls)
+    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
 
     // Build Head props
     const shellStart = renderStart({
         inlineCss,
         jsScripts,
+        criticalPreloadLinks,
         deferredPreloadLinks,
         metaTags,
         isBot,
@@ -133,6 +135,7 @@ const renderMarkUp = async (
                     isBot={finalProps.isBot}
                     inlineCss={finalProps.inlineCss}
                     jsScripts={finalProps.jsScripts}
+                    criticalPreloadLinks={finalProps.criticalPreloadLinks}
                     deferredPreloadLinks={finalProps.deferredPreloadLinks}
                     fetcherData={finalProps.fetcherData}
                     metaTags={finalProps.metaTags}
