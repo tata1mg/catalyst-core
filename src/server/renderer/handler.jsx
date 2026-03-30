@@ -162,7 +162,7 @@ const renderMarkUp = async (
                 }
 
                 // Deferred CSS as external <link> (not inline <style>)
-                res.write(generateCssLinkStrings(deferredAssets.css))
+                res.write(`<style>${readCssFromDisk(deferredAssets.css, buildDir)}</style>`)
                 res.write(generateScriptStrings(deferredAssets.js))
             },
         })

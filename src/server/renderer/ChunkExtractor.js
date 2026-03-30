@@ -83,10 +83,7 @@ export class ChunkExtractor {
         bucket.js.add(jsUrl)
 
         // Collect direct + transitive CSS as relative file paths (not URLs)
-        const cssFiles = [
-            ...(manifestEntry.css || []),
-            ...(manifestEntry.allCss || []),
-        ]
+        const cssFiles = [...(manifestEntry.css || []), ...(manifestEntry.allCss || [])]
         for (const cssFile of cssFiles) {
             if (!this._allCssPaths.has(cssFile)) {
                 this._allCssPaths.add(cssFile)
@@ -118,7 +115,7 @@ export class ChunkExtractor {
     getDeferredAssets() {
         return {
             js: Array.from(this.deferred.js),
-            css: Array.from(this.deferred.css).map((f) => this._toCssUrl(f)),
+            css: Array.from(this.deferred.css),
         }
     }
 

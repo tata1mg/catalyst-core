@@ -24,9 +24,7 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
         seen.add(asset)
         if (asset.startsWith("http")) continue
 
-        const filePath = path.isAbsolute(asset)
-            ? asset
-            : path.join(basePath, asset.replace(/^\/+/, ""))
+        const filePath = path.isAbsolute(asset) ? asset : path.join(basePath, asset.replace(/^\/+/, ""))
 
         try {
             if (!process.cssFileCache[filePath]) {
@@ -59,17 +57,10 @@ export const generateScriptElements = (jsUrls = []) =>
  * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body).
  */
 export const generateCssLinkStrings = (cssUrls = []) =>
-    [...new Set(cssUrls)]
-        .map((url) => `<link rel="stylesheet" href="${url}">`)
-        .join("")
+    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}">`).join("")
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
  */
 export const generateScriptStrings = (jsUrls = []) =>
-    [...new Set(jsUrls)]
-        .map(
-            (url) =>
-                `<link rel="modulepreload" href="${url}" as="script"><script type="module" src="${url}"></script>`
-        )
-        .join("")
+    [...new Set(jsUrls)].map((url) => `<script type="module" src="${url}"></script>`).join("")
