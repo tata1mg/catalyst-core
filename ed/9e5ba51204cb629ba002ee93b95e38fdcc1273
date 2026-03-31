@@ -1,0 +1,23 @@
+src/native/bridge/WebBridge.js
+  93b89863e4384b5d 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.23",
+  "base_commit_sha": "ed9e5ba51204cb629ba002ee93b95e38fdcc1273",
+  "prompts": {
+    "93b89863e4384b5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cc093c7-8c17-40d3-89d6-bc13b73e9ad4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
