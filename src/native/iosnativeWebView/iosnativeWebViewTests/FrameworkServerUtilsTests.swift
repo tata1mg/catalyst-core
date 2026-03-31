@@ -47,12 +47,16 @@ final class FrameworkServerUtilsTests: XCTestCase {
     // CATEGORY 1: HTTPS Server Setup (2 tests)
     // ========================================
 
-    func testHTTPSServerSetup_ServerInitialization() {
+    func testHTTPSServerSetup_ServerInitialization() async {
         // Test server initialization
 
         // Note: Server may fail to start in test environment due to network restrictions
-        // This test verifies the API works without crashing
-        let started = frameworkServer.startServer()
+        // This test verifies the API works without crashing.
+        // Run startServer() off the main thread to avoid UI-responsiveness warnings
+        // (NWListener setup must not block the main thread).
+        let started = await Task.detached(priority: .userInitiated) {
+            self.frameworkServer.startServer()
+        }.value
 
         // If server starts successfully, verify state
         if started {
@@ -143,8 +147,14 @@ final class FrameworkServerUtilsTests: XCTestCase {
         // Start server first
         let started = frameworkServer.startServer()
 
-        // Only test file serving if server started
+        // Wait briefly for NWListener stateUpdateHandler to fire (it's async on a background queue).
+        // The listener can flip isServerRunning back to false if it fails after startServer() returns.
         if started {
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+
+        // Only test file serving if server is still running after NWListener settled
+        if started && frameworkServer.isRunning() {
             // Create a temporary test file
             let testData = "Test file content".data(using: .utf8)!
             let tempURL = FileManager.default.temporaryDirectory

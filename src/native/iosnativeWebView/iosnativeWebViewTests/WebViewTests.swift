@@ -38,7 +38,7 @@ final class WebViewTests: XCTestCase {
         viewModel = WebViewModel()
 
         // Create navigation delegate
-        navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel)
+        navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel, initialURL: nil)
 
         // Create a basic WKWebView for testing
         let config = WKWebViewConfiguration()
@@ -124,7 +124,7 @@ final class WebViewTests: XCTestCase {
     // ========================================
 
     @MainActor
-    func testNavigationHandling_AllowedURLLoading() {
+    func testNavigationHandling_AllowedURLLoading() async {
         // Test that allowed URLs are permitted for navigation
 
         let allowedURL = URL(string: "https://example.com")!
@@ -138,29 +138,23 @@ final class WebViewTests: XCTestCase {
         #endif
 
         let navigationAction = createNavigationAction(url: allowedURL)
-        var decisionReceived = false
+        let expectation = XCTestExpectation(description: "Navigation decision received")
         var allowedDecision = false
 
         navigationDelegate.webView(mockWebView,
                                    decidePolicyFor: navigationAction) { policy in
-            decisionReceived = true
             allowedDecision = (policy == .allow)
-        }
-
-        // Wait briefly for async decision
-        let expectation = XCTestExpectation(description: "Navigation decision")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
 
-        XCTAssertTrue(decisionReceived, "Navigation decision should be received")
+        await fulfillment(of: [expectation], timeout: 2.0)
+
         XCTAssertTrue(allowedDecision || !URLWhitelistManager.shared.isAccessControlEnabled,
                      "Allowed URL should be permitted")
     }
 
     @MainActor
-    func testNavigationHandling_BlockedURLNavigation() {
+    func testNavigationHandling_BlockedURLNavigation() async {
         // Test that blocked URLs are rejected
 
         let blockedURL = URL(string: "https://blocked.com")!
@@ -174,23 +168,17 @@ final class WebViewTests: XCTestCase {
         #endif
 
         let navigationAction = createNavigationAction(url: blockedURL)
-        var decisionReceived = false
+        let expectation = XCTestExpectation(description: "Navigation decision received")
         var blockedDecision = false
 
         navigationDelegate.webView(mockWebView,
                                    decidePolicyFor: navigationAction) { policy in
-            decisionReceived = true
             blockedDecision = (policy == .cancel)
-        }
-
-        // Wait briefly for async decision
-        let expectation = XCTestExpectation(description: "Navigation decision")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
 
-        XCTAssertTrue(decisionReceived, "Navigation decision should be received")
+        await fulfillment(of: [expectation], timeout: 2.0)
+
         XCTAssertTrue(blockedDecision, "Blocked URL should be cancelled")
     }
 
