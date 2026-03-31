@@ -47,7 +47,7 @@ class WebBridge {
         const { platform } = nativeBridge.getEnvironmentInfo()
 
         console.log("🌉 WebBridge created and attached to window")
-        return { bridge, platform, getDeviceInfo: bridge.getDeviceInfo }
+        return { bridge, platform, getDeviceInfo: bridge.getDeviceInfo, setAndroidWebViewSettings: bridge.setAndroidWebViewSettings }
     }
 
     /**
