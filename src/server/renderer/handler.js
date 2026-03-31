@@ -350,7 +350,7 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
  * onAppServerSideSuccess, etc.) has already sent a response (e.g. a redirect), we
  * bail out early without attempting another render.
  */
-export default async function handler(req, res) {
+async function _handler(req, res) {
     try {
         let context = {}
         let fetcherData = {}
@@ -502,3 +502,7 @@ export default async function handler(req, res) {
         return Promise.reject(error)
     }
 }
+
+const handler = withObservability(SSR_SERVICE, _handler, "handler")
+
+export default handler
