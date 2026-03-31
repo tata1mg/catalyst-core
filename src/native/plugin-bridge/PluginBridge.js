@@ -3,7 +3,6 @@ class PluginNativeBridge {
         this.handlers = new Map()
         this.requestCount = 0
         this.isInitialized = false
-        this.wildcardScope = Symbol("pluginBridgeWildcard")
     }
 
     createRequestId = () => {
@@ -11,24 +10,64 @@ class PluginNativeBridge {
         return `plugin_${Date.now()}_${this.requestCount}`
     }
 
-    normalizeRequestId = (requestId) => {
-        if (requestId == null) {
-            return null
+    normalizeRequiredString = (value, fieldName) => {
+        if (typeof value !== "string" || !value.trim()) {
+            throw new Error(`${fieldName} must be a non-empty string`)
         }
-        if (typeof requestId !== "string" || !requestId.trim()) {
-            throw new Error("requestId must be a non-empty string")
-        }
-        return requestId.trim()
+        return value.trim()
     }
 
     normalizeCommand = (command) => {
         if (command == null) {
             return null
         }
-        if (typeof command !== "string" || !command.trim()) {
-            throw new Error("command must be a non-empty string when provided")
+        return this.normalizeRequiredString(command, "command")
+    }
+
+    getHandlerKey = ({ pluginId, eventName, command = null } = {}) => {
+        return JSON.stringify([
+            this.normalizeRequiredString(pluginId, "pluginId"),
+            this.normalizeRequiredString(eventName, "eventName"),
+            this.normalizeCommand(command),
+        ])
+    }
+
+    getHandlerSet = (key, create = false) => {
+        let handlers = this.handlers.get(key)
+        if (!handlers && create) {
+            handlers = new Set()
+            this.handlers.set(key, handlers)
         }
-        return command.trim()
+        return handlers || null
+    }
+
+    addHandler = ({ pluginId, eventName, command } = {}, handler) => {
+        if (typeof handler !== "function") {
+            throw new Error("handler must be a function")
+        }
+
+        this.getHandlerSet(this.getHandlerKey({ pluginId, eventName, command }), true).add(handler)
+    }
+
+    removeHandler = ({ pluginId, eventName, command } = {}, handler) => {
+        const key = this.getHandlerKey({ pluginId, eventName, command })
+        const handlers = this.getHandlerSet(key, false)
+
+        if (!handlers) {
+            return false
+        }
+
+        if (handler == null) {
+            handlers.clear()
+            this.handlers.delete(key)
+            return true
+        }
+
+        const removed = handlers.delete(handler)
+        if (handlers.size === 0) {
+            this.handlers.delete(key)
+        }
+        return removed
     }
 
     ensureInitialized = () => {
@@ -79,61 +118,6 @@ class PluginNativeBridge {
         }
     }
 
-    getHandlerSet = (pluginId, eventName, commandScope, requestScope, create = false) => {
-        let pluginScopes = this.handlers.get(pluginId)
-        if (!pluginScopes && create) {
-            pluginScopes = new Map()
-            this.handlers.set(pluginId, pluginScopes)
-        }
-        if (!pluginScopes) {
-            return null
-        }
-
-        let eventScopes = pluginScopes.get(eventName)
-        if (!eventScopes && create) {
-            eventScopes = new Map()
-            pluginScopes.set(eventName, eventScopes)
-        }
-        if (!eventScopes) {
-            return null
-        }
-
-        let commandScopes = eventScopes.get(commandScope)
-        if (!commandScopes && create) {
-            commandScopes = new Map()
-            eventScopes.set(commandScope, commandScopes)
-        }
-        if (!commandScopes) {
-            return null
-        }
-
-        let requestScopes = commandScopes.get(requestScope)
-        if (!requestScopes && create) {
-            requestScopes = new Set()
-            commandScopes.set(requestScope, requestScopes)
-        }
-        return requestScopes || null
-    }
-
-    pruneEmptyScopes = (pluginId, eventName, commandScope, requestScope) => {
-        const pluginScopes = this.handlers.get(pluginId)
-        const eventScopes = pluginScopes?.get(eventName)
-        const commandScopes = eventScopes?.get(commandScope)
-
-        if (commandScopes?.has(requestScope) && commandScopes.get(requestScope)?.size === 0) {
-            commandScopes.delete(requestScope)
-        }
-        if (commandScopes?.size === 0) {
-            eventScopes.delete(commandScope)
-        }
-        if (eventScopes?.size === 0) {
-            pluginScopes.delete(eventName)
-        }
-        if (pluginScopes?.size === 0) {
-            this.handlers.delete(pluginId)
-        }
-    }
-
     reportHandlerError = (error) => {
         if (typeof queueMicrotask === "function") {
             queueMicrotask(() => {
@@ -146,14 +130,9 @@ class PluginNativeBridge {
         }, 0)
     }
 
-    emit = ({ pluginId, command, data = null, requestId } = {}) => {
-        if (!pluginId || typeof pluginId !== "string") {
-            throw new Error("pluginId must be a non-empty string")
-        }
-
-        if (!command || typeof command !== "string") {
-            throw new Error("command must be a non-empty string")
-        }
+    emit = ({ pluginId, command, data = null } = {}) => {
+        const normalizedPluginId = this.normalizeRequiredString(pluginId, "pluginId")
+        const normalizedCommand = this.normalizeRequiredString(command, "command")
 
         if (typeof window === "undefined") {
             throw new Error("PluginBridge is not available in this environment")
@@ -161,87 +140,58 @@ class PluginNativeBridge {
 
         this.assertInitialized()
 
-        const resolvedRequestId = this.normalizeRequestId(requestId) || this.createRequestId()
-        const payload = { pluginId, command, data, requestId: resolvedRequestId }
+        const payload = {
+            pluginId: normalizedPluginId,
+            command: normalizedCommand,
+            data,
+            requestId: this.createRequestId(),
+        }
 
         if (this.hasAndroidBridge()) {
             window.PluginBridge.emit(JSON.stringify(payload))
-        } else if (this.hasIOSBridge()) {
-            window.webkit.messageHandlers.PluginBridge.postMessage(payload)
-        } else {
-            throw new Error("PluginBridge is not available in this environment")
+            return
         }
 
-        return resolvedRequestId
+        if (this.hasIOSBridge()) {
+            window.webkit.messageHandlers.PluginBridge.postMessage(payload)
+            return
+        }
+
+        throw new Error("PluginBridge is not available in this environment")
     }
 
-    register = ({ pluginId, eventName, command, handler, requestId } = {}) => {
-        if (!pluginId || typeof pluginId !== "string") {
-            throw new Error("pluginId must be a non-empty string")
-        }
-        if (!eventName || typeof eventName !== "string") {
-            throw new Error("eventName must be a non-empty string")
-        }
+    register = ({ pluginId, eventName, command, handler } = {}) => {
+        this.assertInitialized()
+        this.addHandler({ pluginId, eventName, command }, handler)
+        return () => this.removeHandler({ pluginId, eventName, command }, handler)
+    }
+
+    unregister = ({ pluginId, eventName, command, handler } = {}) => {
         if (typeof handler !== "function") {
             throw new Error("handler must be a function")
         }
 
-        this.assertInitialized()
-
-        const normalizedCommand = this.normalizeCommand(command) || this.wildcardScope
-        const normalizedRequestId = this.normalizeRequestId(requestId) || this.wildcardScope
-        this.getHandlerSet(pluginId, eventName, normalizedCommand, normalizedRequestId, true).add(handler)
-    }
-
-    unregister = ({ pluginId, eventName, command, handler, requestId } = {}) => {
-        if (!pluginId || typeof pluginId !== "string") {
-            throw new Error("pluginId must be a non-empty string")
-        }
-        if (!eventName || typeof eventName !== "string") {
-            throw new Error("eventName must be a non-empty string")
-        }
-        if (handler != null && typeof handler !== "function") {
-            throw new Error("handler must be a function when provided")
-        }
-
-        const normalizedCommand = this.normalizeCommand(command) || this.wildcardScope
-        const normalizedRequestId = this.normalizeRequestId(requestId) || this.wildcardScope
-        const handlers = this.getHandlerSet(
-            pluginId,
-            eventName,
-            normalizedCommand,
-            normalizedRequestId,
-            false
-        )
-        if (!handlers) {
-            return false
-        }
-
-        if (handler == null) {
-            handlers.clear()
-            this.pruneEmptyScopes(pluginId, eventName, normalizedCommand, normalizedRequestId)
-            return true
-        }
-
-        const removed = handlers.delete(handler)
-        this.pruneEmptyScopes(pluginId, eventName, normalizedCommand, normalizedRequestId)
-        return removed
+        return this.removeHandler({ pluginId, eventName, command }, handler)
     }
 
     dispatchCallback = (pluginId, eventName, payload, requestId = null, command = null) => {
-        if (!pluginId || typeof pluginId !== "string") {
-            return false
-        }
-        if (!eventName || typeof eventName !== "string") {
+        void requestId
+
+        const normalizedPluginId = typeof pluginId === "string" && pluginId.trim() ? pluginId.trim() : null
+        const normalizedEventName =
+            typeof eventName === "string" && eventName.trim() ? eventName.trim() : null
+
+        if (normalizedPluginId == null || normalizedEventName == null) {
             return false
         }
 
-        const normalizedRequestId =
-            typeof requestId === "string" && requestId.trim() ? requestId.trim() : null
         const normalizedCommand = typeof command === "string" && command.trim() ? command.trim() : null
         const toCall = new Set()
-        const collectHandlers = (commandScope, requestScope) => {
-            const handlers = this.getHandlerSet(pluginId, eventName, commandScope, requestScope, false)
+        const collectHandlers = (commandScope) => {
+            const handlers = this.getHandlerSet(
+                JSON.stringify([normalizedPluginId, normalizedEventName, commandScope]),
+                false
+            )
             if (!handlers) {
                 return
             }
@@ -250,26 +200,19 @@ class PluginNativeBridge {
             })
         }
 
-        if (normalizedCommand != null && normalizedRequestId != null) {
-            collectHandlers(normalizedCommand, normalizedRequestId)
-        }
         if (normalizedCommand != null) {
-            collectHandlers(normalizedCommand, this.wildcardScope)
+            collectHandlers(normalizedCommand)
         }
-        if (normalizedRequestId != null) {
-            collectHandlers(this.wildcardScope, normalizedRequestId)
-        }
-        collectHandlers(this.wildcardScope, this.wildcardScope)
+        collectHandlers(null)
 
         if (toCall.size === 0) {
             return false
         }
 
         const meta = {
-            pluginId,
-            eventName,
+            pluginId: normalizedPluginId,
+            eventName: normalizedEventName,
             command: normalizedCommand,
-            requestId: normalizedRequestId,
         }
         toCall.forEach((handler) => {
             try {
@@ -285,4 +228,3 @@ class PluginNativeBridge {
 const pluginNativeBridge = new PluginNativeBridge()
 
 export default pluginNativeBridge
-export { PluginNativeBridge }

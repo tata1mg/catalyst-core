@@ -209,10 +209,6 @@ function validatePlugins(plugins) {
             throw new Error(`Duplicate command(s) detected within plugin '${plugin.id}'`)
         }
 
-        if (new Set(plugin.callbacks).size !== plugin.callbacks.length) {
-            throw new Error(`Duplicate callback(s) detected within plugin '${plugin.id}'`)
-        }
-
         if (Object.prototype.hasOwnProperty.call(plugin.ios?.infoPlist || {}, "CFBundleURLTypes")) {
             throw new Error(
                 `Plugin '${plugin.id}' must use 'ios.urlSchemes' instead of 'ios.infoPlist.CFBundleURLTypes'`
@@ -490,12 +486,10 @@ function formatSwiftDictionary(entries, emptyLiteral = "[:]") {
 function generatePluginRegistryFiles(plugins, iosProjectPath) {
     const pluginFactories = {}
     const pluginToCommands = {}
-    const pluginToCallbacks = {}
 
     for (const plugin of plugins) {
         pluginFactories[plugin.id] = plugin.ios.className
         pluginToCommands[plugin.id] = asUniqueSorted(plugin.commands)
-        pluginToCallbacks[plugin.id] = asUniqueSorted(plugin.callbacks)
     }
 
     const factoryEntries = Object.keys(pluginFactories)
@@ -512,22 +506,11 @@ function generatePluginRegistryFiles(plugins, iosProjectPath) {
             return `        ${JSON.stringify(pluginId)}: ${commandSet}`
         })
 
-    const callbackEntries = Object.keys(pluginToCallbacks)
-        .sort()
-        .map((pluginId) => {
-            const callbacks = pluginToCallbacks[pluginId]
-            const callbackSet = callbacks.length
-                ? `Set([${callbacks.map((value) => JSON.stringify(value)).join(", ")}])`
-                : "[]"
-            return `        ${JSON.stringify(pluginId)}: ${callbackSet}`
-        })
-
     const indexContent = `import Foundation
 
 enum GeneratedPluginIndex {
     static let pluginFactories: [String: () -> CatalystPlugin] = ${formatSwiftDictionary(factoryEntries)}
     static let pluginToCommands: [String: Set<String>] = ${formatSwiftDictionary(commandEntries)}
-    static let pluginToCallbacks: [String: Set<String>] = ${formatSwiftDictionary(callbackEntries)}
 }
 `
 

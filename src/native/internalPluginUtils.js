@@ -193,7 +193,6 @@ function parsePluginManifest(pluginDir) {
             required: true,
             nonEmpty: true,
         }),
-        callbacks: readStringArray(manifest.callbacks, "callbacks", manifestPath),
         android: androidConfig
             ? {
                   sourceDir: path.join(pluginDir, "android"),

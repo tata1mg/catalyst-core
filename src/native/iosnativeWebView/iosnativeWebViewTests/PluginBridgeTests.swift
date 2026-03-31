@@ -75,11 +75,12 @@ final class PluginBridgeTests: XCTestCase {
     }
 
     @MainActor
-    func testCallbackHandling_UndeclaredCallback_EmitsBridgeErrorEnvelope() async {
-        testExpectation = expectation(description: "Undeclared callback should emit bridge error")
+    func testCallbackHandling_ArbitraryCallback_DispatchesPluginEnvelope() async {
+        testExpectation = expectation(description: "Arbitrary callback should dispatch plugin envelope")
         mockWebView.onEvaluateJavaScript = { script in
-            if script.contains("PLUGIN_BRIDGE_ERROR") &&
-                script.contains("INVALID_CALLBACK") &&
+            if script.contains("PluginBridgeWeb.dispatch") &&
+                script.contains("sync-plugin") &&
+                script.contains("ON_FAILURE") &&
                 script.contains("req-9") &&
                 script.contains("syncData") {
                 self.testExpectation.fulfill()
@@ -91,8 +92,7 @@ final class PluginBridgeTests: XCTestCase {
             viewController: mockViewController,
             pluginId: "sync-plugin",
             command: "syncData",
-            requestId: "req-9",
-            allowedCallbacks: ["ON_SUCCESS"]
+            requestId: "req-9"
         )
 
         context.callback(eventName: "ON_FAILURE", data: ["reason": "network"])
@@ -117,8 +117,7 @@ final class PluginBridgeTests: XCTestCase {
             viewController: mockViewController,
             pluginId: "sync-plugin",
             command: "syncData",
-            requestId: "req-10",
-            allowedCallbacks: ["ON_SUCCESS"]
+            requestId: "req-10"
         )
 
         context.callback(eventName: "ON_SUCCESS", data: ["status": "ok"])

@@ -36,7 +36,6 @@ final class PluginBridge: NSObject {
 
     private let pluginFactories = GeneratedPluginIndex.pluginFactories
     private let pluginToCommands = GeneratedPluginIndex.pluginToCommands
-    private let pluginToCallbacks = GeneratedPluginIndex.pluginToCallbacks
 
     private let bridgeName = "PluginBridge"
     private let errorEvent = "PLUGIN_BRIDGE_ERROR"
@@ -126,8 +125,7 @@ final class PluginBridge: NSObject {
             viewController: viewController,
             pluginId: systemPluginId,
             command: request?.command,
-            requestId: request?.requestId,
-            allowedCallbacks: Set([errorEvent])
+            requestId: request?.requestId
         )
         var payload: [String: Any] = [
             "message": message,
@@ -136,9 +134,6 @@ final class PluginBridge: NSObject {
         ]
         if let command = request?.command, !command.isEmpty {
             payload["command"] = command
-        }
-        if let requestId = request?.requestId, !requestId.isEmpty {
-            payload["requestId"] = requestId
         }
         bridge.callback(eventName: errorEvent, data: payload)
     }
@@ -192,8 +187,7 @@ final class PluginBridge: NSObject {
                 viewController: viewController,
                 pluginId: parsedRequest.pluginId,
                 command: parsedRequest.command,
-                requestId: parsedRequest.requestId,
-                allowedCallbacks: pluginToCallbacks[parsedRequest.pluginId] ?? []
+                requestId: parsedRequest.requestId
             )
             plugin.handle(command: parsedRequest.command, data: parsedRequest.data, bridge: bridge)
         } catch let error as PluginBridgeValidationError {
@@ -225,45 +219,32 @@ final class PluginBridgeContext {
     let pluginId: String
     let command: String?
     let requestId: String?
-    private let allowedCallbacks: Set<String>
 
     init(
         webView: WKWebView?,
         viewController: UIViewController?,
         pluginId: String,
         command: String?,
-        requestId: String?,
-        allowedCallbacks: Set<String>
+        requestId: String?
     ) {
         self.webView = webView
         self.viewController = viewController
         self.pluginId = pluginId
         self.command = command
         self.requestId = requestId
-        self.allowedCallbacks = allowedCallbacks
     }
 
     func callback(
         eventName: String,
         data: Any?,
-        requestId: String? = nil,
         command: String? = nil
     ) {
-        let resolvedRequestId = requestId ?? self.requestId
+        let resolvedRequestId = self.requestId
         let resolvedCommand = command ?? self.command
         let trimmedEventName = eventName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEventName.isEmpty else {
             emitBridgeError(
                 message: "Rejected callback with blank event name for plugin \(self.pluginId)",
-                code: "INVALID_CALLBACK",
-                requestId: resolvedRequestId,
-                command: resolvedCommand
-            )
-            return
-        }
-        guard allowedCallbacks.contains(trimmedEventName) else {
-            emitBridgeError(
-                message: "Rejected undeclared callback \(trimmedEventName) for plugin \(self.pluginId)",
                 code: "INVALID_CALLBACK",
                 requestId: resolvedRequestId,
                 command: resolvedCommand
@@ -305,10 +286,6 @@ final class PluginBridgeContext {
 
         if let command = command, !command.isEmpty {
             payload["command"] = command
-        }
-
-        if let requestId = requestId, !requestId.isEmpty {
-            payload["requestId"] = requestId
         }
 
         if !dispatchEnvelope(

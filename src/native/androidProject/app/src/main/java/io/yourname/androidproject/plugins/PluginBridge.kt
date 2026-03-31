@@ -87,7 +87,6 @@ class PluginBridge(
 
     private val pluginIdToClassName = GeneratedPluginIndex.pluginIdToClassName
     private val pluginToCommands = GeneratedPluginIndex.pluginToCommands
-    private val pluginToCallbacks = GeneratedPluginIndex.pluginToCallbacks
 
     @JavascriptInterface
     fun emit(payload: String?) {
@@ -132,8 +131,7 @@ class PluginBridge(
                 properties = properties,
                 pluginId = request.pluginId,
                 command = request.command,
-                requestId = request.requestId,
-                allowedCallbacks = pluginToCallbacks[request.pluginId] ?: emptySet()
+                requestId = request.requestId
             )
 
             plugin.handle(request.command, request.data, callbackContext)
@@ -154,8 +152,7 @@ class PluginBridge(
             properties = properties,
             pluginId = SYSTEM_PLUGIN_ID,
             command = request?.command,
-            requestId = request?.requestId,
-            allowedCallbacks = setOf(ERROR_EVENT)
+            requestId = request?.requestId
         ).callback(
             ERROR_EVENT,
             JSONObject().apply {
@@ -163,7 +160,6 @@ class PluginBridge(
                 put("code", code)
                 put("pluginId", request?.pluginId ?: SYSTEM_PLUGIN_ID)
                 request?.command?.takeIf { it.isNotEmpty() }?.let { put("command", it) }
-                request?.requestId?.let { put("requestId", it) }
             }
         )
     }
@@ -205,8 +201,7 @@ class PluginBridgeContext(
     val properties: Properties,
     val pluginId: String,
     val command: String?,
-    val requestId: String?,
-    private val allowedCallbacks: Set<String>
+    val requestId: String?
 ) {
     val context: Context
         get() = activity
@@ -214,13 +209,9 @@ class PluginBridgeContext(
     fun callback(
         eventName: String,
         data: Any?,
-        requestId: String? = this.requestId,
         command: String? = this.command
     ) {
         require(eventName.isNotBlank()) { "Callback eventName is required" }
-        require(allowedCallbacks.contains(eventName)) {
-            "Undeclared callback '$eventName' for plugin '$pluginId'"
-        }
 
         val pluginLiteral = JSONObject.quote(pluginId)
         val eventLiteral = JSONObject.quote(eventName)

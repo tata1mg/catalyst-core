@@ -7,7 +7,6 @@
     "category": "device",
     "platforms": ["android", "ios"],
     "commands": ["getDeviceInfo"],
-    "callbacks": ["onSuccess", "onError"],
     "android": {
         "className": "io.yourname.androidproject.plugins.internal.deviceinfo.DeviceInfoPlugin",
         "permissions": [],

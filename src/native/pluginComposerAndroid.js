@@ -147,10 +147,6 @@ function validatePlugins(plugins) {
             throw new Error(`Duplicate command(s) detected within plugin '${plugin.id}'`)
         }
 
-        if (new Set(plugin.callbacks).size !== plugin.callbacks.length) {
-            throw new Error(`Duplicate callback(s) detected within plugin '${plugin.id}'`)
-        }
-
         for (const dependency of plugin.android?.dependencies || []) {
             const parsed = parseDependency(dependency, plugin.id)
             const existing = dependencies.get(parsed.key)
@@ -296,12 +292,10 @@ function formatKotlinMap(entries, emptyLiteral = "emptyMap()") {
 function generatePluginRegistryFiles(plugins, javaRoot) {
     const pluginIdToClassName = {}
     const pluginToCommands = {}
-    const pluginToCallbacks = {}
 
     for (const plugin of plugins) {
         pluginIdToClassName[plugin.id] = plugin.android.className
         pluginToCommands[plugin.id] = asUniqueSorted(plugin.commands)
-        pluginToCallbacks[plugin.id] = asUniqueSorted(plugin.callbacks)
     }
 
     const classEntries = Object.keys(pluginIdToClassName)
@@ -321,22 +315,11 @@ function generatePluginRegistryFiles(plugins, javaRoot) {
             return `        ${JSON.stringify(pluginId)} to ${commandSet}`
         })
 
-    const callbackEntries = Object.keys(pluginToCallbacks)
-        .sort()
-        .map((pluginId) => {
-            const callbacks = pluginToCallbacks[pluginId]
-            const callbackSet = callbacks.length
-                ? `setOf(${callbacks.map((value) => JSON.stringify(value)).join(", ")})`
-                : "emptySet()"
-            return `        ${JSON.stringify(pluginId)} to ${callbackSet}`
-        })
-
     const indexContent = `package io.yourname.androidproject.plugins
 
 object GeneratedPluginIndex {
     val pluginIdToClassName: Map<String, String> = ${formatKotlinMap(classEntries)}
     val pluginToCommands: Map<String, Set<String>> = ${formatKotlinMap(commandEntries)}
-    val pluginToCallbacks: Map<String, Set<String>> = ${formatKotlinMap(callbackEntries)}
 }
 `
 
