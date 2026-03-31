@@ -1,0 +1,23 @@
+CLAUDE.md
+  77a8ef5e80a38e26 1-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "3fb86ceab2be49ea116f530224d8b0ab656a6f54",
+  "prompts": {
+    "77a8ef5e80a38e26": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a9fc0dd-583b-410a-8c02-f4e8051f1283",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>",
+      "messages": [],
+      "total_additions": 114,
+      "total_deletions": 0,
+      "accepted_lines": 114,
+      "overriden_lines": 0
+    }
+  }
+}
