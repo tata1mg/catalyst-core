@@ -23,13 +23,13 @@ import {
 import CustomDocument from "@catalyst/template/server/document.js"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.js"
 import {
-    onRouteMatch,
-    onFetcherSuccess,
-    onFetcherError,
-    onAppServerSideSuccess,
-    onAppServerSideError,
-    onRenderError,
-    onRequestError,
+    onRouteMatch as _onRouteMatch,
+    onFetcherSuccess as _onFetcherSuccess,
+    onFetcherError as _onFetcherError,
+    onAppServerSideSuccess as _onAppServerSideSuccess,
+    onAppServerSideError as _onAppServerSideError,
+    onRenderError as _onRenderError,
+    onRequestError as _onRequestError,
 } from "@catalyst/template/server/index.js"
 
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
@@ -112,6 +112,17 @@ const getCachedRoutes = () => {
 }
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
+
+const traceHandlerHook = (fn, spanName) =>
+    typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
+
+const onRouteMatch = traceHandlerHook(_onRouteMatch, "onRouteMatch")
+const onFetcherSuccess = traceHandlerHook(_onFetcherSuccess, "onFetcherSuccess")
+const onFetcherError = traceHandlerHook(_onFetcherError, "onFetcherError")
+const onAppServerSideSuccess = traceHandlerHook(_onAppServerSideSuccess, "onAppServerSideSuccess")
+const onAppServerSideError = traceHandlerHook(_onAppServerSideError, "onAppServerSideError")
+const onRenderError = traceHandlerHook(_onRenderError, "onRenderError")
+const onRequestError = traceHandlerHook(_onRequestError, "onRequestError")
 
 // Phase 1b dry-run: wrapped separately so it appears as a distinct span inside getMatchRoutes.
 const renderToStringWithObservability = withSyncObservability(
@@ -212,7 +223,7 @@ const renderMarkUp = async (
     webExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
+    const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
 
     let state = store.getState()
     // collectChunks wraps the component tree so the extractor can track which loadable
@@ -313,6 +324,7 @@ const tracedAppServerSideFunction = withObservability(
 )
 const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
 const tracedRenderMarkUp = withObservability(SSR_SERVICE, renderMarkUp, "renderMarkUp")
+const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
 
 /**
  * SSR request handler. Execution pipeline per request:
@@ -369,7 +381,7 @@ export default async function handler(req, res) {
                 // Check if serverDataFetcher returned an error in the response
                 const err = fetcherData?.[req.originalUrl]?.error
 
-                allTags = getMetaData(allMatches, fetcherData)
+                allTags = tracedGetMetaData(allMatches, fetcherData)
 
                 if (err) {
                     safeCall(onFetcherError, { req, res, store, error: err })
