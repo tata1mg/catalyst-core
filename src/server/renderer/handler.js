@@ -211,6 +211,19 @@ const getComponent = (store, context, req, fetcherData) => {
         </div>
     )
 }
+
+const tracedResWriteFirstFoldCss = withSyncObservability(
+    SSR_SERVICE,
+    (res, chunk) => res.write(chunk),
+    "res.write.firstFoldCss"
+)
+const tracedResWriteFirstFoldJS = withSyncObservability(
+    SSR_SERVICE,
+    (res, chunk) => res.write(chunk),
+    "res.write.firstFoldJS"
+)
+const tracedResEnd = withSyncObservability(SSR_SERVICE, (res) => res.end(), "res.end")
+
 const renderMarkUp = async (
     errorCode,
     req,
@@ -292,9 +305,9 @@ const renderMarkUp = async (
                     // All Suspense boundaries have resolved. Append inline CSS and script
                     // tags at the end of the stream so the browser can start executing JS.
                     const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
-                    res.write(firstFoldCss)
-                    res.write(firstFoldJS)
-                    res.end()
+                    tracedResWriteFirstFoldCss(res, firstFoldCss)
+                    tracedResWriteFirstFoldJS(res, firstFoldJS)
+                    tracedResEnd(res)
                     resolve()
                 },
                 onError(error) {
