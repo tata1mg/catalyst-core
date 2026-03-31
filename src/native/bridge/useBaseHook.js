@@ -13,10 +13,7 @@ export const useBaseHook = (hookName) => {
     // Environment detection — live check at call time, never stale from SSR
     const isNative = useCallback(() => {
         if (typeof window === "undefined") return false
-        return !!(
-            window.WebBridge &&
-            (window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge)
-        )
+        return !!(window.WebBridge && (window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge))
     }, [])
 
     const isWeb = useCallback(() => {
@@ -184,7 +181,7 @@ export const useBaseHook = (hookName) => {
                 console.error(`❌ ${hookName} ${operationName} failed:`, err)
             }
         },
-        [hookName, isWeb, startProgress, handleNativeError]
+        [hookName, isWeb, startProgress, handleNativeError, isNative]
     )
 
     // Environment flags (computed values, not functions)

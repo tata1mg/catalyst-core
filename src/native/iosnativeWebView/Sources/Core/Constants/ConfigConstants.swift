@@ -33,6 +33,7 @@ public enum ConfigConstants {
     }
 
     public static let useHttps = false
+    public static let inlineMediaPlaybackEnabled = false
 
     // iOS-specific configuration
     public static let appBundleId = "com.example.app"

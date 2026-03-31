@@ -682,6 +682,7 @@ public enum ConfigConstants {
                 if (addedKeys.has(key)) continue
 
                 configContent += "\n" + generateSwiftProperty(key, value)
+                addedKeys.add(key)
             }
         }
 
@@ -788,6 +789,13 @@ public enum ConfigConstants {
             addedKeys.add("edgeToEdge")
         } else {
             progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
+        }
+
+        // Ensure inlineMediaPlaybackEnabled always exists (default to false if not configured)
+        if (!addedKeys.has("inlineMediaPlaybackEnabled")) {
+            progress.log("inlineMediaPlaybackEnabled not found in config, adding default (false)", "info")
+            configContent += "\n    public static let inlineMediaPlaybackEnabled = false"
+            addedKeys.add("inlineMediaPlaybackEnabled")
         }
 
         // Close the enum

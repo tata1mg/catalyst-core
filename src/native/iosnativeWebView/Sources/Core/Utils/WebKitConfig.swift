@@ -45,6 +45,10 @@ public enum WebKitConfig {
     /// Keep camera previews inline inside WKWebView instead of letting iOS treat
     /// them like regular media playback with native transport controls.
     public static func applyMediaPlaybackConfiguration(to configuration: WKWebViewConfiguration) {
+        guard ConfigConstants.inlineMediaPlaybackEnabled else {
+            return
+        }
+
         configuration.allowsInlineMediaPlayback = true
         configuration.allowsPictureInPictureMediaPlayback = false
         configuration.allowsAirPlayForMediaPlayback = false
