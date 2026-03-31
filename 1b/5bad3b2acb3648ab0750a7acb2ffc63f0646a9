@@ -1,0 +1,94 @@
+src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  1ca94ec459747b4a 128,190,228,242
+src/native/plugin-bridge/PluginBridge.js
+  1ca94ec459747b4a 13-15,17,24-44,48-55,59-63,65-68,70,133-135,143-145,147,152-154,157,160,163,165-166,169-171,174,178-184,191-193,214
+src/native/iosnativeWebView/iosnativeWebViewTests/PluginBridgeTests.swift
+  1ca94ec459747b4a 78-79,81-83,95,120
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/plugins/PluginBridge.kt
+  1ca94ec459747b4a 134,155,204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "1b5bad3b2acb3648ab0750a7acb2ffc63f0646a9",
+  "prompts": {
+    "19bf5b06d8ab1014": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1ea0-3eac-7023-a1fe-aa1e36d8c31c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1620,
+      "overriden_lines": 0
+    },
+    "1ca94ec459747b4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d3ee7-28c4-7330-9a38-d689d7e271ff",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 199,
+      "total_deletions": 351,
+      "accepted_lines": 166,
+      "overriden_lines": 0
+    },
+    "2cee5ab257b58123": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2a0d-0bee-7213-9359-33eb8459747a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 51,
+      "overriden_lines": 0
+    },
+    "57cd3362fcf85b62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2f60-3e01-7d12-a541-cf4931762819",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "96c0ec85b51e08b5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d3ebc-7556-7050-af46-87995e5620f9",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 98,
+      "total_deletions": 149,
+      "accepted_lines": 19,
+      "overriden_lines": 0
+    },
+    "e9175dde7890f694": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2e39-395f-7aa3-a3a4-7437e3ff979d",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
