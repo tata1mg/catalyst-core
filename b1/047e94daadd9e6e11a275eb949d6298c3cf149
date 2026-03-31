@@ -1,0 +1,23 @@
+src/native/pluginComposerAndroid.js
+  19bf5b06d8ab1014 437-460
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "b1047e94daadd9e6e11a275eb949d6298c3cf149",
+  "prompts": {
+    "19bf5b06d8ab1014": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1ea0-3eac-7023-a1fe-aa1e36d8c31c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1842,
+      "total_deletions": 0,
+      "accepted_lines": 1842,
+      "overriden_lines": 0
+    }
+  }
+}
