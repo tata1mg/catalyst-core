@@ -1,0 +1,13 @@
+{
+  "name": "catalyst-mcp",
+  "version": "2.0.0",
+  "description": "Catalyst MCP v2 — developer workflow tools for catalyst-core projects",
+  "main": "mcp.js",
+  "scripts": {
+    "setup": "node setup.js",
+    "start": "node mcp.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3"
+  }
+}
