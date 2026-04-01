@@ -1,5 +1,6 @@
 import { defineConfig, transformWithEsbuild } from "vite"
 import react from "@vitejs/plugin-react"
+import svgr from "vite-plugin-svgr"
 
 /**
  * Treat all .scss imports as CSS modules (webpack compat).
@@ -137,7 +138,8 @@ export const getClientEnvVariables = () => {
 
 const isProduction = process.env.NODE_ENV === "production"
 
-// Mirrors the production vendor chunk regex in vite.config.client.js
+// Pre-bundling upfront avoids Vite discovering deps at runtime which causes
+// cascading full-page reloads and "stuck in loading" on dev server.
 const browserOptimizeDeps = [
     "react",
     "react-dom",
@@ -156,6 +158,23 @@ const browserOptimizeDeps = [
     // Pre-bundle alongside React so esbuild marks react/react-router as external
     // and avoids a duplicate React instance (which causes useContext null errors)
     "@tata1mg/slowboi-react",
+    "invariant",
+    "shallowequal",
+    "prop-types",
+    "redux-logger",
+    "framer-motion",
+    "recharts",
+    "react-modal",
+    "react-datepicker",
+    "react-intersection-observer",
+    "react-markdown",
+    "react-lottie",
+    "isomorphic-dompurify",
+    "ua-parser-js",
+    "qrcode.react",
+    "fast-average-color",
+    "react-dfp",
+    "web-vitals",
 ]
 
 // Node-only / instrumentation dependencies that should remain external in SSR
@@ -208,7 +227,7 @@ export default defineConfig({
             },
         },
     },
-    plugins: [scssModulesPlugin(), jsxInJsPlugin(), react()],
+    plugins: [scssModulesPlugin(), jsxInJsPlugin(), react(), svgr()],
     resolve: {
         alias: alias(),
         // Ensure only one copy of React-related packages is used (prevents
@@ -226,7 +245,6 @@ export default defineConfig({
     optimizeDeps: {
         include: browserOptimizeDeps,
         exclude: ["catalyst-core/router/ClientRouter"],
-        force: true,
         esbuildOptions: {
             format: "esm",
             target: "node2022",
