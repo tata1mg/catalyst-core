@@ -7,8 +7,8 @@
 
 ## Table of Contents
 
--   Overview
--   Installation
+- Overview
+- Installation
 
 ## Overview
 
@@ -20,8 +20,8 @@ This version adds support for Universal app for both Android and iOS. Please che
 
 **System Requirements**
 
--   Node version 20.4.0 or later
--   Compatible with **macOS** and **Linux**
+- Node version 20.4.0 or later
+- Compatible with **macOS** and **Linux**
 
 **Automatic Installation**
 
