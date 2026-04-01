@@ -638,16 +638,6 @@ async function handleGoogleServicesJson() {
     }
 }
 
-async function writeFirebaseMessagingBuildState(enabled) {
-    try {
-        const buildStatePath = `${pwd}/androidProject/app/firebase-build.properties`
-        const buildStateContent = `firebase.messaging.enabled=${enabled ? "true" : "false"}\n`
-        _fs.default.writeFileSync(buildStatePath, buildStateContent)
-    } catch (error) {
-        progress.log(`Warning: Error writing Firebase build state: ${error.message}`, "warning")
-    }
-}
-
 async function processNotifications(WEBVIEW_CONFIG) {
     const hasNotificationConfig = !!WEBVIEW_CONFIG.notifications?.enabled
 
@@ -657,7 +647,6 @@ async function processNotifications(WEBVIEW_CONFIG) {
         await cleanupNotificationResources()
         await cleanupNotificationMetadata()
         await cleanupNotificationAssets()
-        await writeFirebaseMessagingBuildState(false)
 
         if (!hasNotificationConfig) {
             progress.log("Notifications disabled - cleaned up notification configurations", "info")
@@ -666,7 +655,6 @@ async function processNotifications(WEBVIEW_CONFIG) {
 
         // Handle google-services.json file for Firebase
         const hasGoogleServices = await handleGoogleServicesJson()
-        await writeFirebaseMessagingBuildState(hasGoogleServices)
         if (!hasGoogleServices) {
             progress.log("Continuing without Firebase - only local notifications will work", "warning")
         }
@@ -674,7 +662,7 @@ async function processNotifications(WEBVIEW_CONFIG) {
         // Only add configurations if notifications are enabled
         await addNotificationPermissions()
         await generateNotificationResources(WEBVIEW_CONFIG.notifications)
-        await addNotificationMetadata(hasGoogleServices)
+        await addNotificationMetadata()
         await processNotificationAssets()
         progress.log("Notification configuration completed successfully!", "success")
     } catch (error) {
@@ -721,12 +709,12 @@ async function generateNotificationResources(notificationConfig) {
     }
 }
 
-async function addNotificationMetadata(hasFirebaseMessaging = false) {
+async function addNotificationMetadata() {
     try {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
         let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
 
-        const defaultMetadataXml = `
+        const metadataXml = `
         <!-- Default notification configuration -->
         <meta-data
             android:name="default_notification_channel_id"
@@ -736,10 +724,8 @@ async function addNotificationMetadata(hasFirebaseMessaging = false) {
             android:resource="@drawable/ic_notification" />
         <meta-data
             android:name="default_notification_color"
-            android:resource="@color/notification_color" />`
+            android:resource="@color/notification_color" />
 
-        const firebaseMetadataXml = hasFirebaseMessaging
-            ? `
         <!-- Firebase default notification configuration -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
@@ -759,16 +745,13 @@ async function addNotificationMetadata(hasFirebaseMessaging = false) {
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>`
-            : ""
-
-        const metadataXml = `${defaultMetadataXml}${firebaseMetadataXml}`
 
         manifestContent = manifestContent.replace(/(\s*<\/application>)/, `${metadataXml}\n$1`)
         _fs.default.writeFileSync(manifestPath, manifestContent)
-        const logMessage = hasFirebaseMessaging
-            ? "Added notification metadata and Firebase messaging service to AndroidManifest.xml"
-            : "Added local notification metadata to AndroidManifest.xml"
-        progress.log(logMessage, "success")
+        progress.log(
+            "Added notification metadata and push notification service to AndroidManifest.xml",
+            "success"
+        )
     } catch (error) {
         throw new Error(`Failed to add notification metadata: ${error.message}`)
     }

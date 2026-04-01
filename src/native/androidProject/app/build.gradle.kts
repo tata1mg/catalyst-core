@@ -29,34 +29,27 @@ fun isAllowBackupEnabled(): Boolean {
 
 fun isNotificationsEnabled(): Boolean {
     return try {
-        if (configPath == null) return false
-        val configFile = File(configPath!!)
-        if (!configFile.exists()) return false
+        if (configPath != null) {
+            val configFile = File(configPath!!)
+            if (configFile.exists()) {
+                val json = JSONObject(configFile.readText())
+                if (!json.has("WEBVIEW_CONFIG")) return false
 
-        val json = JSONObject(configFile.readText())
-        if (!json.has("WEBVIEW_CONFIG")) return false
+                val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
+                return webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+            }
+        }
 
-        val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
-        webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
-    } catch (e: Exception) {
-        false
-    }
-}
+        val propsFile = File("${project.projectDir}/src/main/assets/webview_config.properties")
+        if (!propsFile.exists()) return false
 
-fun isFirebaseMessagingEnabled(): Boolean {
-    val buildStateFile = File(project.projectDir, "firebase-build.properties")
-    if (!buildStateFile.exists()) return false
-
-    return try {
         val props = Properties()
-        props.load(buildStateFile.inputStream())
-        props.getProperty("firebase.messaging.enabled", "false").trim().lowercase() == "true"
+        props.load(propsFile.inputStream())
+        props.getProperty("notifications.enabled", "false").trim().lowercase() == "true"
     } catch (e: Exception) {
         false
     }
 }
-
-val firebaseMessagingEnabled = isFirebaseMessagingEnabled()
 
 fun getLocalIpAddress(): String {
     return NetworkInterface.getNetworkInterfaces().toList()
@@ -186,11 +179,11 @@ android {
     // Conditional source sets based on notifications config
     sourceSets {
         getByName("main") {
-            if (firebaseMessagingEnabled) {
-                logger.info("SourceSet selected: withFcm (Firebase enabled for this generated build)")
+            if (isNotificationsEnabled()) {
+                logger.info("SourceSet selected: withFcm (notifications enabled)")
                 java.srcDirs("src/withFcm/java")
             } else {
-                logger.info("SourceSet selected: noFcm (Firebase disabled for this generated build)")
+                logger.info("SourceSet selected: noFcm (notifications disabled)")
                 java.srcDirs("src/noFcm/java")
             }
         }
@@ -224,7 +217,7 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
     // Notification dependencies - conditional based on config
-    if (firebaseMessagingEnabled) {
+    if (isNotificationsEnabled()) {
         implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
         implementation("com.google.firebase:firebase-messaging:23.4.0")
         implementation("com.google.firebase:firebase-analytics:21.5.0")
@@ -398,7 +391,7 @@ tasks.register("generateWebViewConfig") {
     }
 }
 
-if (firebaseMessagingEnabled) {
+if (isNotificationsEnabled()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
