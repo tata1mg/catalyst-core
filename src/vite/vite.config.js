@@ -227,7 +227,17 @@ export default defineConfig({
             },
         },
     },
-    plugins: [scssModulesPlugin(), jsxInJsPlugin(), react(), svgr()],
+    plugins: [
+        scssModulesPlugin(),
+        jsxInJsPlugin(),
+        react(),
+        // Default: SVG → React component. Use `*.svg?url` (or `?raw`) for asset URL / raw source.
+        // Keep `*.svg?react` so explicit imports still work. Exclude node_modules so deps keep normal asset handling.
+        svgr({
+            include: ["**/*.svg", "**/*.svg?react"],
+            exclude: "**/node_modules/**",
+        }),
+    ],
     resolve: {
         alias: alias(),
         // Ensure only one copy of React-related packages is used (prevents
