@@ -734,8 +734,9 @@ async function removePluginResourcesFromXcodeProject() {
 
         let modified = false
         for (const pattern of patterns) {
-            if (pattern.test(projectContent)) {
-                projectContent = projectContent.replace(pattern, "")
+            const nextContent = projectContent.replace(pattern, "")
+            if (nextContent !== projectContent) {
+                projectContent = nextContent
                 modified = true
             }
         }

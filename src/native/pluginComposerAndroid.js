@@ -461,12 +461,12 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
     generatePluginRegistryFiles(selected, javaRoot)
     updateAndroidManifestPermissions(
         manifestPath,
-        selected.flatMap((plugin) => plugin.android.permissions),
+        selected.flatMap((plugin) => plugin.android?.permissions || []),
         discovered.flatMap((plugin) => plugin.android?.permissions || [])
     )
     updateGradleDependencies(
         gradlePath,
-        selected.flatMap((plugin) => plugin.android.dependencies),
+        selected.flatMap((plugin) => plugin.android?.dependencies || []),
         discovered.flatMap((plugin) => plugin.android?.dependencies || [])
     )
     updateProguardKeepRules(

@@ -14,7 +14,7 @@ class DeviceInfoPlugin : CatalystPlugin {
         private const val CALLBACK_ERROR = "onError"
     }
 
-    override fun handle(command: String, data: Any?, bridge: PluginBridgeContext) {
+    override fun handle(command: String, data: JSONObject?, bridge: PluginBridgeContext) {
         if (command != COMMAND_GET_DEVICE_INFO) {
             bridge.callback(
                 CALLBACK_ERROR,

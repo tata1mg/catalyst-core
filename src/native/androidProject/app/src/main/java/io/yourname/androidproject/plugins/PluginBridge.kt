@@ -14,15 +14,15 @@ import java.util.Properties
 internal data class PluginRequest(
     val pluginId: String,
     val command: String,
-    val data: Any?,
+    val data: JSONObject?,
     val requestId: String?
 )
 
 private class PluginBridgeRuntimeError(
-    override val message: String,
+    val publicMessage: String,
     val code: String,
     cause: Throwable? = null
-) : Exception(message, cause)
+) : Exception(publicMessage, cause)
 
 class PluginBridge(
     private val activity: Activity,
@@ -66,6 +66,19 @@ class PluginBridge(
             return rawValue.trim().ifEmpty { null }
         }
 
+        private fun readOptionalObject(body: JSONObject, key: String): JSONObject? {
+            if (!body.has(key) || body.isNull(key)) {
+                return null
+            }
+
+            val rawValue = body.get(key)
+            if (rawValue !is JSONObject) {
+                throw IllegalArgumentException("$key must be an object when provided")
+            }
+
+            return rawValue
+        }
+
         internal fun parseRequest(payload: String?): PluginRequest {
             if (payload.isNullOrBlank()) {
                 throw IllegalArgumentException("Payload is required")
@@ -79,7 +92,7 @@ class PluginBridge(
             return PluginRequest(
                 pluginId = readRequiredString(body, "pluginId"),
                 command = readRequiredString(body, "command"),
-                data = if (body.has("data") && !body.isNull("data")) body.get("data") else null,
+                data = readOptionalObject(body, "data"),
                 requestId = readOptionalString(body, "requestId")
             )
         }
@@ -121,7 +134,7 @@ class PluginBridge(
             val plugin = try {
                 getPluginForId(request.pluginId)
             } catch (error: PluginBridgeRuntimeError) {
-                sendBridgeError(error.message, error.code, request)
+                sendBridgeError(error.publicMessage, error.code, request)
                 return
             }
 
@@ -138,10 +151,10 @@ class PluginBridge(
         } catch (error: IllegalArgumentException) {
             sendBridgeError(error.message ?: "Invalid payload", ERROR_CODE_INVALID_PAYLOAD, request)
         } catch (error: JSONException) {
-            sendBridgeError("Invalid JSON payload: ${error.message}", ERROR_CODE_INVALID_PAYLOAD, request)
+            sendBridgeError("Invalid JSON payload", ERROR_CODE_INVALID_PAYLOAD, request)
         } catch (error: Exception) {
             Log.e(TAG, "Plugin command failed for ${request?.pluginId ?: "<unknown>"}.${request?.command ?: "<unknown>"}", error)
-            sendBridgeError("Plugin execution failed: ${error.message}", ERROR_CODE_PLUGIN_EXECUTION_FAILED, request)
+            sendBridgeError("Plugin execution failed", ERROR_CODE_PLUGIN_EXECUTION_FAILED, request)
         }
     }
 
@@ -175,7 +188,7 @@ class PluginBridge(
     private fun getPluginForId(pluginId: String): CatalystPlugin {
         val className = pluginIdToClassName[pluginId]
             ?: throw PluginBridgeRuntimeError(
-                "No plugin registered for id: $pluginId",
+                "Plugin is not registered",
                 ERROR_CODE_PLUGIN_NOT_REGISTERED
             )
 
@@ -187,7 +200,7 @@ class PluginBridge(
         } catch (error: Exception) {
             Log.e(TAG, "Failed to instantiate plugin class $className for plugin $pluginId", error)
             throw PluginBridgeRuntimeError(
-                "Failed to instantiate plugin class '$className' for plugin '$pluginId': ${error.message ?: error.javaClass.simpleName}",
+                "Plugin could not be initialized",
                 ERROR_CODE_PLUGIN_INSTANTIATION_FAILED,
                 error
             )

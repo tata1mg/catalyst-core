@@ -118,4 +118,22 @@ class PluginBridgeTest {
             assertTrue(error.message?.isNotBlank() == true)
         }
     }
+
+    @Test
+    fun `parseRequest rejects non object data`() {
+        try {
+            PluginBridge.parseRequest(
+                """
+                    {
+                        "pluginId": "device-info-plugin",
+                        "command": "getDeviceInfo",
+                        "data": "unsafe"
+                    }
+                """.trimIndent()
+            )
+            fail("Expected non-object data to throw")
+        } catch (error: IllegalArgumentException) {
+            assertEquals("data must be an object when provided", error.message)
+        }
+    }
 }

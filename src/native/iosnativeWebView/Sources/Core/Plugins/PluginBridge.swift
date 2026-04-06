@@ -209,16 +209,16 @@ extension PluginBridge: WKScriptMessageHandler {
     }
 }
 
-final class PluginBridgeContext {
-    weak var webView: WKWebView?
-    weak var viewController: UIViewController?
+public final class PluginBridgeContext {
+    public weak var webView: WKWebView?
+    public weak var viewController: UIViewController?
 
     private let systemPluginId = "__bridge__"
     private let bridgeErrorEvent = "PLUGIN_BRIDGE_ERROR"
 
-    let pluginId: String
-    let command: String?
-    let requestId: String?
+    public let pluginId: String
+    public let command: String?
+    public let requestId: String?
 
     init(
         webView: WKWebView?,
@@ -234,7 +234,7 @@ final class PluginBridgeContext {
         self.requestId = requestId
     }
 
-    func callback(
+    public func callback(
         eventName: String,
         data: Any?,
         command: String? = nil
