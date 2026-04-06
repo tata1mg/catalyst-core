@@ -142,6 +142,22 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Video stream methods
+     */
+    videoStream = {
+        /**
+         * Start native camera video stream
+         * @param {Object} options - Stream options (facing, width, height, x, y, formats, fps, detection, nativeUI)
+         */
+        start: (options = {}) => this.call(NATIVE_COMMANDS.START_VIDEO_STREAM, JSON.stringify(options)),
+
+        /**
+         * Stop native camera video stream
+         */
+        stop: () => this.call(NATIVE_COMMANDS.STOP_VIDEO_STREAM),
+    }
+
+    /**
      * Camera-specific methods for easier usage
      */
     camera = {

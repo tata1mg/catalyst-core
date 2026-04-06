@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -324,6 +325,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         try {
             nativeBridge = NativeBridge(this, customWebView.getWebView(), properties)
             customWebView.addJavascriptInterface(nativeBridge, "NativeBridge")
+
+            // Wire NativeCameraManager
+            val cameraManager = NativeCameraManager(this, binding.cameraPreview, customWebView.getWebView(), binding.debugViewfinderOverlay, binding.debugViewfinderOverlay.findViewById(R.id.debug_qr_status), binding.debugBarcodeOverlay)
+            nativeBridge.setCameraManager(cameraManager)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")
         }
@@ -419,6 +424,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     override fun onResume() {
         super.onResume()
         customWebView.onResume()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.getCameraManager()?.onTouchEvent(ev)
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {

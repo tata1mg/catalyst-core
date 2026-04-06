@@ -151,6 +151,9 @@ class NativeBridge(
     
     private var networkMonitor: NetworkMonitor? = null
 
+    // Video stream manager
+    private var nativeCameraManager: NativeCameraManager? = null
+
     // Unified notification manager
     private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
 
@@ -235,6 +238,37 @@ class NativeBridge(
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "logger") {
             mainActivity.runOnUiThread {
                 BridgeUtils.logDebug(TAG, "Message from native")
+            }
+        }
+    }
+
+    fun setCameraManager(manager: NativeCameraManager) {
+        nativeCameraManager = manager
+    }
+
+    fun getCameraManager(): NativeCameraManager? = nativeCameraManager
+
+    @JavascriptInterface
+    fun startVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "start video stream") {
+            android.util.Log.d("NativeBridge", "startVideoStream raw options: $optionsRaw")
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val facing = options.optString("facing", "back")
+            val viewfinderRect = options.optJSONObject("viewfinderRect")
+            android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing viewfinderRect=$viewfinderRect")
+            mainActivity.runOnUiThread {
+                webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                nativeCameraManager?.start(facing, viewfinderRect)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun stopVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "stop video stream") {
+            mainActivity.runOnUiThread {
+                webView.setBackgroundColor(android.graphics.Color.WHITE)
+                nativeCameraManager?.stop()
             }
         }
     }
@@ -1023,6 +1057,12 @@ class NativeBridge(
      * Handle permission request results
      */
     fun handlePermissionResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        if (requestCode == NativeCameraManager.PERMISSION_REQUEST_CODE) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            nativeCameraManager?.onPermissionResult(granted)
+            return
+        }
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "handle permission result") {
             // Delegate to notification manager which handles notification permissions
             notificationManager.getNotificationUtils().handlePermissionResult(requestCode, permissions, grantResults)
@@ -1163,6 +1203,10 @@ class NativeBridge(
         try {
             // Cleanup NotificationManager
             notificationManager.cleanup()
+
+            // Stop video stream
+            nativeCameraManager?.cleanup()
+            nativeCameraManager = null
 
             // Stop network monitoring
             networkMonitor?.stop()

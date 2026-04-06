@@ -76,6 +76,11 @@ object BridgeUtils {
         // Safe area events
         ON_SAFE_AREA_INSETS_UPDATED("ON_SAFE_AREA_INSETS_UPDATED"),
 
+        // Video stream events
+        ON_VIDEO_STREAM_READY("ON_VIDEO_STREAM_READY"),
+        ON_VIDEO_STREAM_STOPPED("ON_VIDEO_STREAM_STOPPED"),
+        ON_QR_DETECTED("ON_QR_DETECTED"),
+
         // Security events
         ON_SCREEN_SECURE_SET("ON_SCREEN_SECURE_SET"),
         ON_SCREEN_SECURE_STATUS("ON_SCREEN_SECURE_STATUS"),

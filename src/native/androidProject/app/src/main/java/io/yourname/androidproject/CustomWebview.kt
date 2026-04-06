@@ -606,6 +606,9 @@ class CustomWebView(
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
 
             // TODO: Enable these when build optimization feature is implemented
             // These are deprecated but may be needed for local file access in development

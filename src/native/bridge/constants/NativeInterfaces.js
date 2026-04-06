@@ -7,6 +7,10 @@ export const NATIVE_COMMANDS = {
     OPEN_CAMERA: "openCamera",
     REQUEST_CAMERA_PERMISSION: "requestCameraPermission",
 
+    // Video stream commands
+    START_VIDEO_STREAM: "startVideoStream",
+    STOP_VIDEO_STREAM: "stopVideoStream",
+
     // File commands
     PICK_FILE: "pickFile",
     OPEN_FILE_WITH_INTENT: "openFileWithIntent",
@@ -48,6 +52,11 @@ export const NATIVE_CALLBACKS = {
     CAMERA_PERMISSION_STATUS: "CAMERA_PERMISSION_STATUS",
     ON_CAMERA_CAPTURE: "ON_CAMERA_CAPTURE",
     ON_CAMERA_ERROR: "ON_CAMERA_ERROR",
+
+    // Video stream callbacks
+    ON_VIDEO_STREAM_READY: "ON_VIDEO_STREAM_READY",
+    ON_VIDEO_STREAM_STOPPED: "ON_VIDEO_STREAM_STOPPED",
+    ON_QR_DETECTED: "ON_QR_DETECTED",
 
     // File picker callbacks
     ON_FILE_PICKED: "ON_FILE_PICKED",

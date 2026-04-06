@@ -1661,3 +1661,91 @@ export const useSafeArea = () => {
 
     return insets
 }
+
+export const useVideoStream = ({ onQRDetected } = {}) => {
+    const base = useBaseHook("useVideoStream")
+    const [isStreaming, setIsStreaming] = useState(false)
+    const viewfinderRef = useRef(null)
+    const onQRDetectedRef = useRef(onQRDetected)
+    onQRDetectedRef.current = onQRDetected
+
+    if (typeof window === "undefined") {
+        return {
+            isStreaming: false,
+            error: null,
+            isNative: false,
+            viewfinderRef,
+            start: () => {},
+            stop: () => {},
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_VIDEO_STREAM_READY, () => {
+            console.log("📹 Video stream ready")
+            setIsStreaming(true)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_VIDEO_STREAM_STOPPED, () => {
+            console.log("📹 Video stream stopped")
+            setIsStreaming(false)
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_QR_DETECTED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                console.log("📹 QR detected:", result)
+                onQRDetectedRef.current?.(result)
+            } catch (e) {
+                base.handleNativeError("Failed to parse QR data")
+            }
+        })
+
+        return () => {
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_VIDEO_STREAM_READY)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_VIDEO_STREAM_STOPPED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_QR_DETECTED)
+        }
+    }, [base.handleNativeError])
+
+    const start = useCallback((options = {}) => {
+        base.executeOperation(() => {
+            let viewfinderRect = null
+            if (viewfinderRef.current) {
+                const rect = viewfinderRef.current.getBoundingClientRect()
+                const dpr = window.devicePixelRatio || 1
+                viewfinderRect = {
+                    x: Math.round(rect.left * dpr),
+                    y: Math.round(rect.top * dpr),
+                    width: Math.round(rect.width * dpr),
+                    height: Math.round(rect.height * dpr),
+                }
+                console.log("[useVideoStream] viewfinder getBoundingClientRect:", JSON.stringify({ left: rect.left, top: rect.top, width: rect.width, height: rect.height }))
+                console.log("[useVideoStream] devicePixelRatio:", dpr)
+                console.log("[useVideoStream] viewfinderRect (px sent to native):", JSON.stringify(viewfinderRect))
+            } else {
+                console.warn("[useVideoStream] viewfinderRef.current is null — no viewfinderRect sent")
+            }
+            nativeBridge.videoStream.start({ ...options, viewfinderRect })
+        }, "start video stream")
+    }, [base.executeOperation])
+
+    const stop = useCallback(() => {
+        nativeBridge.videoStream.stop()
+        setIsStreaming(false)
+    }, [])
+
+    return {
+        isStreaming,
+        error: base.error,
+        isNative: base.isNative,
+        viewfinderRef,
+        start,
+        stop,
+        clearError: base.clearError,
+    }
+}
