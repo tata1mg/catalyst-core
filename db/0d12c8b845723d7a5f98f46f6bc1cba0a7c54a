@@ -1,0 +1,161 @@
+src/native/bridge/constants/NativeInterfaces.js
+  2d84b09f7d377158 10-13,56-60
+src/native/androidProject/app/src/main/res/layout/activity_main.xml
+  21574dc50d024a38 16-21
+  9c7dffecf92e2c07 33,35-38
+  d37a479d1868bd72 34,39-63
+src/native/bridge/utils/NativeBridge.js
+  2d84b09f7d377158 145-159
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  4b1e6f4892059e34 249-250,255-257,261
+  2d84b09f7d377158 260,270
+  3b5d00f5cf13f1e5 254,258
+  21574dc50d024a38 154-156,245-248,251-253,259,262-269,271-275,1060-1065,1207-1210
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  21574dc50d024a38 79-83
+src/native/androidProject/app/build.gradle.kts
+  21574dc50d024a38 211-219
+src/native/androidProject/app/src/main/res/drawable/debug_viewfinder_border.xml
+  9c7dffecf92e2c07 1-8
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  4b1e6f4892059e34 7,429-435
+  d37a479d1868bd72 330
+  21574dc50d024a38 328-329,331
+src/native/bridge/hooks.js
+  22e45bd3d0b3e23c 1665,1669-1670,1702
+  2d84b09f7d377158 1664,1666-1667,1671-1676,1678-1701,1703-1716,1734-1745,1747-1751
+  4b1e6f4892059e34 1668,1677,1717-1719,1721,1726,1732-1733,1746
+  3b5d00f5cf13f1e5 1720,1722-1725,1727-1731
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeCameraManager.kt
+  9c7dffecf92e2c07 33,113-116,118-122,124-127,148
+  3b5d00f5cf13f1e5 49,75-76,99,104-107,185-187,246-264,295,299,323-324,330,332-333
+  21574dc50d024a38 1-6,8,11-12,15-32,37-44,46-47,70-71,73,109,128-143,145-147,149-184,193-196,198-213,215-239,241-242,336-337,339-341,343-363
+  8eef4bd7b4e1c4fe 77-81,88-98,110-112,265-282,292-294,296-298,317-318,325
+  d289f72658c5b980 117,123,283-291
+  d37a479d1868bd72 13,34-36,188-192,300-316,319-322,326-329
+  4b1e6f4892059e34 7,9-10,14,45,48,50-69,72,74,82-87,100-103,108,144,197,214,240,243-245,331,334-335,338,342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "db0d12c8b845723d7a5f98f46f6bc1cba0a7c54a",
+  "prompts": {
+    "21574dc50d024a38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "88cbef04-12a0-43b7-97ec-7fe1ab6dbb92",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 253,
+      "total_deletions": 8,
+      "accepted_lines": 226,
+      "overriden_lines": 0
+    },
+    "22e45bd3d0b3e23c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9fe452c2-0d77-4619-b4c8-b2108dbc262e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 5,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "2d84b09f7d377158": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9146c77d-c6b4-4513-9d59-505be9971420",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 97,
+      "total_deletions": 0,
+      "accepted_lines": 91,
+      "overriden_lines": 0
+    },
+    "3b5d00f5cf13f1e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a40ebd7a-dc92-4931-96f9-e24eb6f600d8",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 81,
+      "total_deletions": 35,
+      "accepted_lines": 49,
+      "overriden_lines": 0
+    },
+    "4b1e6f4892059e34": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "88a2bdf7-e8e5-48a9-90d0-880c96e8bfd2",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 106,
+      "total_deletions": 16,
+      "accepted_lines": 75,
+      "overriden_lines": 0
+    },
+    "8eef4bd7b4e1c4fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "86536430-076d-4eed-8259-2bd9394d6a69",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 105,
+      "total_deletions": 63,
+      "accepted_lines": 46,
+      "overriden_lines": 0
+    },
+    "9c7dffecf92e2c07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b4fadb78-ff03-41b1-9634-da74df4a66a5",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 36,
+      "total_deletions": 2,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    },
+    "d289f72658c5b980": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a4c223e-23ee-4acd-a396-40f87582cd3f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 11,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    },
+    "d37a479d1868bd72": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9b0f6825-f7be-4639-b167-0f9f8dbbe084",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 75,
+      "total_deletions": 37,
+      "accepted_lines": 61,
+      "overriden_lines": 0
+    }
+  }
+}
