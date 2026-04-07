@@ -34,14 +34,10 @@ export function Head(props) {
             {metaTags && metaTags}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
-            {!isBot && inlineCss && (
-                <style dangerouslySetInnerHTML={{ __html: inlineCss }} />
-            )}
+            {inlineCss && <style dangerouslySetInnerHTML={{ __html: inlineCss }} />}
 
             {/* Deferred CSS from prior SSRs on this route — avoids late layout from post-body <style> */}
-            {!isBot && deferredRouteInlineCss && (
-                <style dangerouslySetInnerHTML={{ __html: deferredRouteInlineCss }} />
-            )}
+            {deferredRouteInlineCss && <style dangerouslySetInnerHTML={{ __html: deferredRouteInlineCss }} />}
 
             {/* JS modules */}
             {!isBot && jsScripts}

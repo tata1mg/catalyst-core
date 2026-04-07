@@ -101,21 +101,21 @@ export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
 const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
     const routeData = { ...INITIAL_DATA_STATE }
     const { route } = routerProps
-    const component = route.component || route.Component || route.element
-
+    const routeComponent = route.component || route.Component || route.element
+    let component = null
     // If component is imported through loadable
-    if (typeof component?.load === "function") {
+    if (typeof routeComponent?.load === "function") {
         try {
-            await component.load()
+            component = await routeComponent.load()
         } catch (err) {
             console.error("Error loading component", err)
         }
     }
 
-    let fetcher = component?.clientFetcher
+    let fetcher = component?.default?.clientFetcher
 
     if (typeof window === "undefined") {
-        fetcher = component?.serverFetcher
+        fetcher = component?.default?.serverFetcher
     }
 
     if (fetcher && typeof fetcher === "function") {

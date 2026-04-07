@@ -30,6 +30,7 @@ import CustomDocument from "@catalyst/template/server/document"
 import App from "@catalyst/template/src/js/containers/App/index"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
+import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
 
 // ── Route matching ─────────────────────────────────────────────────────
 const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
@@ -74,13 +75,15 @@ const collectAssets = (req, allMatches) => {
 }
 
 // ── JSX tree ───────────────────────────────────────────────────────────
-const getComponent = (store, context, req, fetcherData) => (
+const getComponent = (store, context, req, fetcherData, isBot) => (
     <div id="app">
-        <Provider store={store}>
-            <StaticRouter context={context} location={req.originalUrl}>
-                <ServerRouter store={store} intialData={fetcherData} />
-            </StaticRouter>
-        </Provider>
+        <SsrRequestProvider value={{ isBot }}>
+            <Provider store={store}>
+                <StaticRouter context={context} location={req.originalUrl}>
+                    <ServerRouter store={store} intialData={fetcherData} />
+                </StaticRouter>
+            </Provider>
+        </SsrRequestProvider>
     </div>
 )
 
@@ -130,7 +133,7 @@ const renderMarkUp = async (
     })
 
     const state = store.getState()
-    const jsx = getComponent(store, context, req, fetcherData)
+    const jsx = getComponent(store, context, req, fetcherData, isBot)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
     const finalProps = { ...shellStart, ...shellEnd, jsx, req, res }
@@ -181,6 +184,7 @@ const renderMarkUp = async (
 
                 // Tell client which components were SSR'd so split() can
                 // eagerly import them (prevents Suspense fallback flash)
+                res.write(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
                 if (chunkExtractor) {
                     const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                     res.write(
@@ -193,7 +197,9 @@ const renderMarkUp = async (
                 if (newCssPaths.length) {
                     res.write(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                 }
-                res.write(generateScriptStrings(deferredAssets.js))
+                if (!isBot) {
+                    res.write(generateScriptStrings(deferredAssets.js))
+                }
             },
         })
     } catch (error) {

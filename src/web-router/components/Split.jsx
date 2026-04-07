@@ -1,4 +1,5 @@
-import React, { Suspense, lazy } from "react"
+import React, { Suspense, lazy, useContext } from "react"
+import { SsrRequestContext } from "./SsrRequestContext.jsx"
 
 // Synchronous module cache: importFn → resolved module.
 // Populated by the eager importFn().then() calls at split() invocation time.
@@ -58,21 +59,69 @@ const Split = ({ ssr = true, fallback = null, cacheKey, children, ...props }) =>
     }
 }
 
+// /**
+//  * Higher-order function to create a split component
+//  * @param {Function} importFn - Function that returns a dynamic import
+//  * @param {Object} options - Configuration options
+//  * @param {boolean} options.ssr - Whether to enable SSR for this component
+//  * @param {React.ComponentType|React.ReactElement} options.fallback - Fallback component
+//  * @param {string} cacheKey - Resolved path for better asset tracking (injected by plugin)
+//  */
+// export const split = (importFn, { ssr = true, fallback = null, key } = {}, cacheKey) => {
+//     if (ssr && typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
+//         // Only eagerly re-import modules that were actually rendered on the server.
+//         // The server injects window.__SSR_RENDERED_COMPONENTS__ (a Set of cacheKeys)
+//         // as a plain inline <script> so it is available before any deferred module
+//         // scripts run.  Limiting eager loading to this set avoids fetching chunks
+//         // for ssr:true components that were not part of the current server response.
+//         const prefetch = importFn().then((mod) => {
+//             moduleCache.set(importFn, mod)
+//         })
+//         prefetchPromises.push(prefetch)
+//     }
+
+//     const LazyComponent = lazy(importFn)
+
+//     const wrapper = (props) => {
+//         // On the client, for SSR-enabled components, check if the module has
+//         // already resolved into moduleCache.  If it has, render the real
+//         // component directly — bypassing React.lazy entirely.
+//         //
+//         // React.lazy ALWAYS suspends on the very first render because
+//         // import() returns a new Promise and its .then() is only fired as a
+//         // microtask (never in the same synchronous render tick).  If we don't
+//         // bypass it here, the Suspense fallback (e.g. HomeSkeleton) is briefly
+//         // shown even though the server already rendered the full component,
+//         // causing a visible flash and a hydration mismatch.
+//         const mod = moduleCache.get(importFn)
+//         if (mod) {
+//             const Component = mod.default || mod
+//             return <Component {...props} />
+//         }
+
+//         return (
+//             <Split ssr={ssr} fallback={fallback} cacheKey={cacheKey} {...props}>
+//                 <LazyComponent {...props} />
+//             </Split>
+//         )
+//     }
+
+//     // Expose cacheKey so preloadRouteCss() can read it directly from the route's
+//     // component reference — no manual cacheKey config needed on route objects.
+//     wrapper.__cacheKey = cacheKey
+
+//     return wrapper
+// }
+
 /**
- * Higher-order function to create a split component
- * @param {Function} importFn - Function that returns a dynamic import
- * @param {Object} options - Configuration options
- * @param {boolean} options.ssr - Whether to enable SSR for this component
- * @param {React.ComponentType|React.ReactElement} options.fallback - Fallback component
- * @param {string} cacheKey - Resolved path for better asset tracking (injected by plugin)
+ * Like {@link split}, but forces SSR when the request is a known Google crawler (same UA rules as Head).
+ * Use for widgets that are `ssr: false` for humans but must be fully rendered for bots.
+ *
+ * Prefetch follows `window.__SSR_RENDERED_COMPONENTS__` only (not the `ssr` option) so bot-forced SSR
+ * still hydrates without a Suspense flash.
  */
 export const split = (importFn, { ssr = true, fallback = null, key } = {}, cacheKey) => {
-    if (ssr && typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
-        // Only eagerly re-import modules that were actually rendered on the server.
-        // The server injects window.__SSR_RENDERED_COMPONENTS__ (a Set of cacheKeys)
-        // as a plain inline <script> so it is available before any deferred module
-        // scripts run.  Limiting eager loading to this set avoids fetching chunks
-        // for ssr:true components that were not part of the current server response.
+    if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
         const prefetch = importFn().then((mod) => {
             moduleCache.set(importFn, mod)
         })
@@ -80,18 +129,14 @@ export const split = (importFn, { ssr = true, fallback = null, key } = {}, cache
     }
 
     const LazyComponent = lazy(importFn)
+    let loadInFlight = null
 
     const wrapper = (props) => {
-        // On the client, for SSR-enabled components, check if the module has
-        // already resolved into moduleCache.  If it has, render the real
-        // component directly — bypassing React.lazy entirely.
-        //
-        // React.lazy ALWAYS suspends on the very first render because
-        // import() returns a new Promise and its .then() is only fired as a
-        // microtask (never in the same synchronous render tick).  If we don't
-        // bypass it here, the Suspense fallback (e.g. HomeSkeleton) is briefly
-        // shown even though the server already rendered the full component,
-        // causing a visible flash and a hydration mismatch.
+        const { isBot: isBotFromContext } = useContext(SsrRequestContext)
+        const isBotFromWindow = typeof window !== "undefined" && window.__CATALYST_IS_BOT__ === true
+        const isBot = Boolean(isBotFromContext || isBotFromWindow)
+        const effectiveSsr = ssr || isBot
+
         const mod = moduleCache.get(importFn)
         if (mod) {
             const Component = mod.default || mod
@@ -99,15 +144,34 @@ export const split = (importFn, { ssr = true, fallback = null, key } = {}, cache
         }
 
         return (
-            <Split ssr={ssr} fallback={fallback} cacheKey={cacheKey} {...props}>
+            <Split ssr={effectiveSsr} fallback={fallback} cacheKey={cacheKey} {...props}>
                 <LazyComponent {...props} />
             </Split>
         )
     }
 
-    // Expose cacheKey so preloadRouteCss() can read it directly from the route's
-    // component reference — no manual cacheKey config needed on route objects.
     wrapper.__cacheKey = cacheKey
+
+    /** Same contract as loadable components: RouterDataProvider awaits this before reading serverFetcher/clientFetcher. */
+    wrapper.load = () => {
+        const cached = moduleCache.get(importFn)
+        if (cached) return Promise.resolve(cached)
+        if (!loadInFlight) {
+            loadInFlight = importFn()
+                .then((mod) => {
+                    if (typeof window !== "undefined") {
+                        moduleCache.set(importFn, mod)
+                    }
+                    loadInFlight = null
+                    return mod
+                })
+                .catch((err) => {
+                    loadInFlight = null
+                    throw err
+                })
+        }
+        return loadInFlight
+    }
 
     return wrapper
 }
