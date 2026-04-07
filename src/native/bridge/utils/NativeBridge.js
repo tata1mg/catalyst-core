@@ -147,7 +147,9 @@ class NativeBridgeUtil {
     videoStream = {
         /**
          * Start native camera video stream
-         * @param {Object} options - Stream options (facing, width, height, x, y, formats, fps, detection, nativeUI)
+         * @param {Object} options - Stream options (facing, width, height, x, y, formats, zoom, detection, nativeUI)
+         *   zoom: { auto: true, initial: 0 }  — auto-zoom via ML Kit, initial is 0-100%
+         *   zoom: { auto: false, initial: 50 } — manual, starts at 50%
          */
         start: (options = {}) => this.call(NATIVE_COMMANDS.START_VIDEO_STREAM, JSON.stringify(options)),
 
@@ -155,6 +157,25 @@ class NativeBridgeUtil {
          * Stop native camera video stream
          */
         stop: () => this.call(NATIVE_COMMANDS.STOP_VIDEO_STREAM),
+
+        /**
+         * Set zoom level — 0 to 100 (percentage of device's zoom range)
+         * When auto-zoom is enabled, this is a temporary override; ML Kit resumes on next detection.
+         * @param {number} zoomPct - 0 (min) to 100 (max device zoom)
+         */
+        setZoom: (zoomPct) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_ZOOM, String(zoomPct)),
+
+        /**
+         * Enable or disable torch (back camera only)
+         * @param {boolean} on
+         */
+        setTorch: (on) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_TORCH, JSON.stringify({ on })),
+
+        /**
+         * Flip between front and back camera — restarts the native session internally
+         * Torch resets to off after flip; ON_TORCH_CHANGED(false) fires automatically.
+         */
+        flip: () => this.call(NATIVE_COMMANDS.FLIP_VIDEO_STREAM),
     }
 
     /**

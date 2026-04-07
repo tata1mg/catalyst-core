@@ -1665,6 +1665,7 @@ export const useSafeArea = () => {
 export const useVideoStream = ({ onQRDetected } = {}) => {
     const base = useBaseHook("useVideoStream")
     const [isStreaming, setIsStreaming] = useState(false)
+    const [streamState, setStreamState] = useState({ zoom: null, minZoom: null, maxZoom: null, torchOn: false })
     const viewfinderRef = useRef(null)
     const onQRDetectedRef = useRef(onQRDetected)
     onQRDetectedRef.current = onQRDetected
@@ -1672,11 +1673,14 @@ export const useVideoStream = ({ onQRDetected } = {}) => {
     if (typeof window === "undefined") {
         return {
             isStreaming: false,
+            streamState: { zoom: null, minZoom: null, maxZoom: null, torchOn: false },
             error: null,
             isNative: false,
             viewfinderRef,
             start: () => {},
             stop: () => {},
+            sendCommand: () => {},
+            flip: () => {},
         }
     }
 
@@ -1705,10 +1709,36 @@ export const useVideoStream = ({ onQRDetected } = {}) => {
             }
         })
 
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_TORCH_CHANGED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                const enabled = result?.enabled ?? false
+                console.log("📹 Torch changed:", enabled)
+                setStreamState((prev) => ({ ...prev, torchOn: enabled }))
+            } catch (e) {
+                console.warn("[useVideoStream] Failed to parse ON_TORCH_CHANGED data:", e)
+            }
+        })
+
+        window.WebBridge.register(NATIVE_CALLBACKS.ON_ZOOM_CHANGED, (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                const zoom = result?.zoomLevel ?? null
+                const minZoom = result?.minZoom ?? null
+                const maxZoom = result?.maxZoom ?? null
+                console.log("📹 Zoom changed:", zoom, `(min=${minZoom} max=${maxZoom})`)
+                setStreamState((prev) => ({ ...prev, zoom, minZoom, maxZoom }))
+            } catch (e) {
+                console.warn("[useVideoStream] Failed to parse ON_ZOOM_CHANGED data:", e)
+            }
+        })
+
         return () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_VIDEO_STREAM_READY)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_VIDEO_STREAM_STOPPED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_QR_DETECTED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_TORCH_CHANGED)
+            window.WebBridge.unregister(NATIVE_CALLBACKS.ON_ZOOM_CHANGED)
         }
     }, [base.handleNativeError])
 
@@ -1730,22 +1760,69 @@ export const useVideoStream = ({ onQRDetected } = {}) => {
             } else {
                 console.warn("[useVideoStream] viewfinderRef.current is null — no viewfinderRect sent")
             }
+            console.log("[useVideoStream] start() options:", JSON.stringify(options))
             nativeBridge.videoStream.start({ ...options, viewfinderRect })
         }, "start video stream")
     }, [base.executeOperation])
 
     const stop = useCallback(() => {
+        console.log("[useVideoStream] stop()")
         nativeBridge.videoStream.stop()
         setIsStreaming(false)
     }, [])
 
+    // Flip front/back — native restarts session internally.
+    // Torch resets to off; ON_TORCH_CHANGED(false) fires automatically.
+    const flip = useCallback(() => {
+        console.log("[useVideoStream] flip()")
+        nativeBridge.videoStream.flip()
+    }, [])
+
+    /**
+     * sendCommand(type, value) — unified write API for stream state.
+     * Native is source of truth: command fires, native validates + applies,
+     * streamState updates only when native confirms via event.
+     *
+     * Supported types: 'zoom' (Float multiplier, e.g. 1.0=1x, 2.0=2x), 'torch' (boolean)
+     */
+    const sendCommand = useCallback((type, value) => {
+        if (!isStreaming) {
+            base.setError({ message: `sendCommand('${type}') called but stream is not active` })
+            return
+        }
+        console.log(`[useVideoStream] sendCommand(${type}, ${value})`)
+        switch (type) {
+            case "zoom": {
+                if (typeof value !== "number" || value < 1.0) {
+                    base.setError({ message: `sendCommand zoom: value must be a multiplier >= 1.0 (e.g. 1.0=1x, 2.0=2x), got ${value}` })
+                    return
+                }
+                nativeBridge.videoStream.setZoom(value)
+                break
+            }
+            case "torch": {
+                if (typeof value !== "boolean") {
+                    base.setError({ message: `sendCommand torch: value must be boolean, got ${value}` })
+                    return
+                }
+                nativeBridge.videoStream.setTorch(value)
+                break
+            }
+            default:
+                base.setError({ message: `sendCommand: unknown type '${type}'` })
+        }
+    }, [isStreaming, base.setError])
+
     return {
         isStreaming,
+        streamState,
         error: base.error,
         isNative: base.isNative,
         viewfinderRef,
         start,
         stop,
+        sendCommand,
+        flip,
         clearError: base.clearError,
     }
 }

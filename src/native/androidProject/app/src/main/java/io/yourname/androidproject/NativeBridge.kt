@@ -255,10 +255,11 @@ class NativeBridge(
             val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
             val facing = options.optString("facing", "back")
             val viewfinderRect = options.optJSONObject("viewfinderRect")
-            android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing viewfinderRect=$viewfinderRect")
+            val zoomOptions = options.optJSONObject("zoom")
+            android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing zoom=$zoomOptions viewfinderRect=$viewfinderRect")
             mainActivity.runOnUiThread {
                 webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                nativeCameraManager?.start(facing, viewfinderRect)
+                nativeCameraManager?.start(facing, viewfinderRect, zoomOptions)
             }
         }
     }
@@ -269,6 +270,38 @@ class NativeBridge(
             mainActivity.runOnUiThread {
                 webView.setBackgroundColor(android.graphics.Color.WHITE)
                 nativeCameraManager?.stop()
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamZoom(multiplierRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream zoom") {
+            val multiplier = multiplierRaw?.trim()?.toFloatOrNull() ?: run {
+                android.util.Log.w("NativeBridge", "setVideoStreamZoom — invalid value: $multiplierRaw, ignoring")
+                return@safeExecute
+            }
+            android.util.Log.d("NativeBridge", "setVideoStreamZoom — multiplier=${multiplier}x")
+            nativeCameraManager?.setZoom(multiplier)
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamTorch(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream torch") {
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val on = options.optBoolean("on", false)
+            android.util.Log.d("NativeBridge", "setVideoStreamTorch — on=$on")
+            nativeCameraManager?.setTorch(on)
+        }
+    }
+
+    @JavascriptInterface
+    fun flipVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "flip video stream") {
+            android.util.Log.d("NativeBridge", "flipVideoStream called")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.flip()
             }
         }
     }

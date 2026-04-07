@@ -10,6 +10,9 @@ export const NATIVE_COMMANDS = {
     // Video stream commands
     START_VIDEO_STREAM: "startVideoStream",
     STOP_VIDEO_STREAM: "stopVideoStream",
+    SET_VIDEO_STREAM_ZOOM: "setVideoStreamZoom",
+    SET_VIDEO_STREAM_TORCH: "setVideoStreamTorch",
+    FLIP_VIDEO_STREAM: "flipVideoStream",
 
     // File commands
     PICK_FILE: "pickFile",
@@ -57,6 +60,8 @@ export const NATIVE_CALLBACKS = {
     ON_VIDEO_STREAM_READY: "ON_VIDEO_STREAM_READY",
     ON_VIDEO_STREAM_STOPPED: "ON_VIDEO_STREAM_STOPPED",
     ON_QR_DETECTED: "ON_QR_DETECTED",
+    ON_TORCH_CHANGED: "ON_TORCH_CHANGED",
+    ON_ZOOM_CHANGED: "ON_ZOOM_CHANGED",
 
     // File picker callbacks
     ON_FILE_PICKED: "ON_FILE_PICKED",

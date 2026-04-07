@@ -80,6 +80,8 @@ object BridgeUtils {
         ON_VIDEO_STREAM_READY("ON_VIDEO_STREAM_READY"),
         ON_VIDEO_STREAM_STOPPED("ON_VIDEO_STREAM_STOPPED"),
         ON_QR_DETECTED("ON_QR_DETECTED"),
+        ON_TORCH_CHANGED("ON_TORCH_CHANGED"),
+        ON_ZOOM_CHANGED("ON_ZOOM_CHANGED"),
 
         // Security events
         ON_SCREEN_SECURE_SET("ON_SCREEN_SECURE_SET"),
@@ -104,13 +106,16 @@ object BridgeUtils {
         }
 
         try {
-            val safeData = data?.replace("'", "\\'") ?: ""
+            // Encode data as a JSON string literal so any character (backslash, quote,
+            // newline, unicode) survives the JS eval boundary without corruption.
+            // JSONObject.quote() wraps the value in double-quotes with proper escaping.
             val jsCode = if (data != null) {
-                "window.WebBridge.callback('${event.eventName}', '$safeData')"
+                val quotedData = org.json.JSONObject.quote(data)
+                "window.WebBridge.callback('${event.eventName}', JSON.parse($quotedData))"
             } else {
                 "window.WebBridge.callback('${event.eventName}', null)"
             }
-            
+
             webView.evaluateJavascript(jsCode, null)
             Log.d(TAG, "✅ Web notification sent: ${event.eventName}")
         } catch (e: Exception) {
@@ -151,9 +156,18 @@ object BridgeUtils {
      * @param jsonData The JSON object to send
      */
     fun notifyWebJson(webView: WebView, event: WebEvents, jsonData: JSONObject) {
+        // Ensure WebView interactions happen on the main thread
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            webView.post { notifyWebJson(webView, event, jsonData) }
+            return
+        }
+
         try {
-            val jsonString = jsonData.toString().replace("'", "\\'")
-            notifyWeb(webView, event, jsonString)
+            // Inject JSON directly into the JS call — no string embedding, no escaping needed.
+            // The JSON object is dropped inline so WebBridge.callback receives a real JS object.
+            val jsCode = "window.WebBridge.callback('${event.eventName}', ${jsonData})"
+            webView.evaluateJavascript(jsCode, null)
+            Log.d(TAG, "✅ Web JSON notification sent: ${event.eventName}")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to send JSON to web: ${e.message}")
             notifyWebError(webView, event, "Error processing data: ${e.message}")
