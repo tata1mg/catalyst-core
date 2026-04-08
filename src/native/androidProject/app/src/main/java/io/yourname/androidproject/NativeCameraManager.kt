@@ -1,6 +1,9 @@
 package io.yourname.androidproject
 
+import android.graphics.Color
 import android.graphics.RectF
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -28,6 +31,11 @@ class NativeCameraManager(
     companion object {
         private const val TAG = "NativeCameraManager"
         const val PERMISSION_REQUEST_CODE = CameraSessionManager.PERMISSION_REQUEST_CODE
+
+        // QR overlay colors — change here to update both states
+        private const val COLOR_QR_IN_FRAME = "#5500FF00"  // green, semi-transparent
+        private const val COLOR_QR_DETECTED  = "#55FF6600"  // orange, semi-transparent
+        private const val OVERLAY_HIDE_DELAY_MS = 200L
     }
 
     private val stateMachine = VideoStreamStateMachine()
@@ -43,6 +51,10 @@ class NativeCameraManager(
                 put("maxZoom", Math.round(maxZoom * 10.0) / 10.0)
             }
             BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_ZOOM_CHANGED, payload)
+            // Repaint overlay at new zoom level — barcode rect shifts as camera zooms
+            if (showQrDetected && overlayVisible) {
+                lastBarcodeScreenRect?.let { repaintQrOverlay(it, overlayIsOrange) }
+            }
         }
     )
 
@@ -79,16 +91,44 @@ class NativeCameraManager(
 
     private val holdController = HoldController(
         stateMachine = stateMachine,
-        analyzerController = sessionManager
+        barcodeDetector = barcodeDetector
     )
 
     // Viewfinder state
     private var viewfinderScreenRect: RectF? = null
 
+    // QR detected overlay state
+    private var showQrDetected: Boolean = false
+    private var overlayIsOrange: Boolean = false       // logical state — set before showQrOverlay
+    private var overlayPaintedOrange: Boolean = false  // what color was last painted
+    private var overlayVisible: Boolean = false
+    private var lastBarcodeScreenRect: RectF? = null
+    private val overlayHideHandler = Handler(Looper.getMainLooper())
+    private var overlayHideRunnable: Runnable? = null
+
+    init {
+        stateMachine.addListener(object : VideoStreamStateListener {
+            override fun onStateChanged(prev: VideoStreamState, next: VideoStreamState) {
+                // Reset overlay when hold ends (new scan cycle) or stream stops
+                if ((prev == VideoStreamState.HOLD && next == VideoStreamState.STREAMING) ||
+                    next == VideoStreamState.IDLE || next == VideoStreamState.STOPPING
+                ) {
+                    hideQrOverlay()
+                }
+            }
+        })
+    }
+
     // ---- Public API (called from NativeBridge) ----
 
-    fun start(facing: String = "back", viewfinderRectJson: JSONObject? = null, zoomOptions: JSONObject? = null, scanFormat: String = "qr", fpsMin: Int? = null, fpsMax: Int? = null) {
+    fun start(facing: String = "back", viewfinderRectJson: JSONObject? = null, zoomOptions: JSONObject? = null, scanFormat: String = "all", fpsMin: Int? = null, fpsMax: Int? = null, showQrDetected: Boolean = false) {
         if (stateMachine.isActive) return
+
+        this.showQrDetected = showQrDetected
+        this.overlayIsOrange = false
+        this.overlayPaintedOrange = false
+        this.overlayVisible = false
+        this.lastBarcodeScreenRect = null
 
         val autoZoom = zoomOptions?.optBoolean("auto", false) ?: false
         val initialZoomPct = zoomOptions?.optDouble("initial", 1.0)?.toFloat() ?: 1.0f
@@ -154,24 +194,27 @@ class NativeCameraManager(
             return
         }
 
+        // QR overlay — show green immediately (QR in frame), update position each frame
+        val barcodeScreenRect = barcode.boundingBox?.let { box ->
+            ViewfinderMapper.mapBarcodeToScreen(
+                box.left, box.top, box.right, box.bottom,
+                imageWidth, imageHeight,
+                previewView.width.toFloat(), previewView.height.toFloat()
+            )
+        }
+        if (showQrDetected && barcodeScreenRect != null) {
+            showQrOverlay(barcodeScreenRect, orange = overlayIsOrange)
+        }
+
         // Viewfinder region filter
         val regionRect = viewfinderScreenRect
         if (regionRect != null) {
-            val box = barcode.boundingBox
-            if (box != null) {
-                val screenRect = ViewfinderMapper.mapBarcodeToScreen(
-                    box.left, box.top, box.right, box.bottom,
-                    imageWidth, imageHeight,
-                    previewView.width.toFloat(), previewView.height.toFloat()
-                )
-                if (screenRect != null) {
-                    updateDebugBarcodeOverlay(screenRect)
-                    if (!regionRect.contains(screenRect)) {
-                        updateDebugQrStatus(inside = false)
-                        return
-                    }
-                    updateDebugQrStatus(inside = true)
+            if (barcodeScreenRect != null) {
+                if (!regionRect.contains(barcodeScreenRect)) {
+                    updateDebugQrStatus(inside = false)
+                    return
                 }
+                updateDebugQrStatus(inside = true)
             }
         }
 
@@ -182,6 +225,12 @@ class NativeCameraManager(
             return
         }
 
+        // New value confirmed — flip overlay to orange before firing event
+        if (showQrDetected && barcodeScreenRect != null) {
+            overlayIsOrange = true
+            showQrOverlay(barcodeScreenRect, orange = true)
+        }
+
         holdController.startHold()
 
         val payload = JSONObject().apply {
@@ -190,6 +239,66 @@ class NativeCameraManager(
         }
         BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_QR_DETECTED, payload)
         Log.d(TAG, "QR detected (new): $value")
+    }
+
+    // ---- QR detected overlay ----
+
+    /**
+     * Called on every ML Kit frame that has a barcode.
+     * If overlay is already visible: only reschedule the hide — no layout/color update (prevents flicker).
+     * If overlay is not visible: position it, set color, show it.
+     * lastBarcodeScreenRect is always updated so zoom repaints use the freshest position.
+     */
+    private fun showQrOverlay(screenRect: RectF, orange: Boolean) {
+        lastBarcodeScreenRect = screenRect
+
+        // Reschedule hide regardless
+        overlayHideRunnable?.let { overlayHideHandler.removeCallbacks(it) }
+        val hideRunnable = Runnable { hideQrOverlayOnUiThread() }
+        overlayHideRunnable = hideRunnable
+        overlayHideHandler.postDelayed(hideRunnable, OVERLAY_HIDE_DELAY_MS)
+
+        if (overlayVisible && orange == overlayPaintedOrange) return  // already painted at correct color — skip to prevent flicker
+
+        repaintQrOverlay(screenRect, orange)
+    }
+
+    /**
+     * Force-reposition and repaint the overlay. Called on first show and on zoom change.
+     * screenRect is in PreviewView/RelativeLayout space — no offset adjustment needed.
+     */
+    private fun repaintQrOverlay(screenRect: RectF, orange: Boolean) {
+        val color = Color.parseColor(if (orange) COLOR_QR_DETECTED else COLOR_QR_IN_FRAME)
+        overlayVisible = true
+        overlayPaintedOrange = orange
+        activity.runOnUiThread {
+            debugBarcodeOverlay?.let { overlay ->
+                val lp = overlay.layoutParams as android.widget.RelativeLayout.LayoutParams
+                lp.leftMargin = screenRect.left.toInt()
+                lp.topMargin  = screenRect.top.toInt()
+                lp.width      = screenRect.width().toInt()
+                lp.height     = screenRect.height().toInt()
+                overlay.layoutParams = lp
+                overlay.setBackgroundColor(color)
+                overlay.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun hideQrOverlay() {
+        overlayHideRunnable?.let { overlayHideHandler.removeCallbacks(it) }
+        overlayHideRunnable = null
+        overlayIsOrange = false
+        overlayPaintedOrange = false
+        lastBarcodeScreenRect = null
+        hideQrOverlayOnUiThread()
+    }
+
+    private fun hideQrOverlayOnUiThread() {
+        overlayVisible = false
+        activity.runOnUiThread {
+            debugBarcodeOverlay?.visibility = View.GONE
+        }
     }
 
     // ---- Debug overlay helpers ----
@@ -209,29 +318,13 @@ class NativeCameraManager(
         }
     }
 
-    private fun updateDebugBarcodeOverlay(screenRect: RectF) {
-        val loc = IntArray(2)
-        webView.getLocationOnScreen(loc)
-        activity.runOnUiThread {
-            debugBarcodeOverlay?.let { bOverlay ->
-                val lp = bOverlay.layoutParams as android.widget.RelativeLayout.LayoutParams
-                lp.leftMargin = (screenRect.left - loc[0]).toInt()
-                lp.topMargin = (screenRect.top - loc[1]).toInt()
-                lp.width = screenRect.width().toInt()
-                lp.height = screenRect.height().toInt()
-                bOverlay.layoutParams = lp
-                bOverlay.visibility = View.VISIBLE
-            }
-        }
-    }
-
     private fun updateDebugQrStatus(inside: Boolean) {
         activity.runOnUiThread {
             if (inside) {
-                debugQrStatus?.setTextColor(android.graphics.Color.parseColor("#34C759"))
+                debugQrStatus?.setTextColor(Color.parseColor("#34C759"))
                 debugQrStatus?.text = "⬤ QR inside"
             } else {
-                debugQrStatus?.setTextColor(android.graphics.Color.parseColor("#FF3B30"))
+                debugQrStatus?.setTextColor(Color.parseColor("#FF3B30"))
                 debugQrStatus?.text = "⬤ QR outside"
             }
         }

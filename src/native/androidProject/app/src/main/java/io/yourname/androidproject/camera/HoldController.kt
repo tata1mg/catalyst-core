@@ -5,24 +5,19 @@ import android.os.Looper
 import android.util.Log
 
 /**
- * Manages the QR hold state — after each detection, analysis is paused for HOLD_DURATION_MS
+ * Manages the QR hold state — after each detection, results are suppressed for HOLD_DURATION_MS
  * to prevent the same QR from firing repeatedly and to let auto-zoom relax.
  *
- * Talks to the state machine for STREAMING ↔ HOLD transitions.
- * Delegates actual analyzer unbind/rebind to [AnalyzerController].
+ * Uses a suppress flag in BarcodeDetector instead of unbind/rebind — camera pipeline
+ * stays bound the whole time, so there is no flicker.
  */
 class HoldController(
     private val stateMachine: VideoStreamStateMachine,
-    private val analyzerController: AnalyzerController
+    private val barcodeDetector: BarcodeDetector
 ) {
 
-    interface AnalyzerController {
-        fun unbindAnalyzer()
-        fun rebindAnalyzer()
-    }
-
     private val TAG = "HoldController"
-    private val HOLD_DURATION_MS = 500L
+    private val HOLD_DURATION_MS = 200L
 
     private val handler = Handler(Looper.getMainLooper())
     private var resumeRunnable: Runnable? = null
@@ -31,20 +26,20 @@ class HoldController(
         private set
 
     /**
-     * Call after a new QR value is confirmed. Unbinds analyzer for HOLD_DURATION_MS,
-     * then rebinds and transitions back to STREAMING.
+     * Call after a new QR value is confirmed. Suppresses results for HOLD_DURATION_MS,
+     * then re-enables and transitions back to STREAMING.
      */
     fun startHold() {
         if (!stateMachine.transition(VideoStreamState.HOLD)) return
 
-        analyzerController.unbindAnalyzer()
-        Log.d(TAG, "Hold started — analyzer unbound for ${HOLD_DURATION_MS}ms")
+        barcodeDetector.suppressResults = true
+        Log.d(TAG, "Hold started — results suppressed for ${HOLD_DURATION_MS}ms")
 
         val runnable = Runnable {
             if (!stateMachine.state.isActive) return@Runnable
-            analyzerController.rebindAnalyzer()
+            barcodeDetector.suppressResults = false
             stateMachine.transition(VideoStreamState.STREAMING)
-            Log.d(TAG, "Hold ended — analyzer rebound")
+            Log.d(TAG, "Hold ended — results resumed")
         }
         resumeRunnable = runnable
         handler.postDelayed(runnable, HOLD_DURATION_MS)
@@ -56,6 +51,7 @@ class HoldController(
     fun reset() {
         resumeRunnable?.let { handler.removeCallbacks(it) }
         resumeRunnable = null
+        barcodeDetector.suppressResults = false
         lastDetectedValue = null
         Log.d(TAG, "Hold state reset")
     }

@@ -12,6 +12,7 @@ export const NATIVE_COMMANDS = {
     STOP_VIDEO_STREAM: "stopVideoStream",
     SET_VIDEO_STREAM_ZOOM: "setVideoStreamZoom",
     SET_VIDEO_STREAM_TORCH: "setVideoStreamTorch",
+    SET_VIDEO_STREAM_FPS: "setVideoStreamFps",
     FLIP_VIDEO_STREAM: "flipVideoStream",
 
     // File commands

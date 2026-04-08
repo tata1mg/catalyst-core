@@ -256,10 +256,12 @@ class NativeBridge(
             val facing = options.optString("facing", "back")
             val viewfinderRect = options.optJSONObject("viewfinderRect")
             val zoomOptions = options.optJSONObject("zoom")
-            android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing zoom=$zoomOptions viewfinderRect=$viewfinderRect")
+            val scanFormat = options.optString("format", "all")
+            val showQrDetected = options.optBoolean("showQrDetected", false)
+            android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing zoom=$zoomOptions scanFormat=$scanFormat viewfinderRect=$viewfinderRect showQrDetected=$showQrDetected")
             mainActivity.runOnUiThread {
                 webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                nativeCameraManager?.start(facing, viewfinderRect, zoomOptions)
+                nativeCameraManager?.start(facing, viewfinderRect, zoomOptions, scanFormat, showQrDetected = showQrDetected)
             }
         }
     }
@@ -293,6 +295,19 @@ class NativeBridge(
             val on = options.optBoolean("on", false)
             android.util.Log.d("NativeBridge", "setVideoStreamTorch — on=$on")
             nativeCameraManager?.setTorch(on)
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamFps(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream fps") {
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val min = if (options.isNull("min")) null else options.optInt("min")
+            val max = if (options.isNull("max")) null else options.optInt("max")
+            android.util.Log.d("NativeBridge", "setVideoStreamFps — min=$min max=$max")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setFps(min, max)
+            }
         }
     }
 

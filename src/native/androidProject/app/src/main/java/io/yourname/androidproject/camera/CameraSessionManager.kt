@@ -5,6 +5,9 @@ import android.content.pm.PackageManager
 import android.util.Log
 import android.util.Size
 import android.view.View
+import android.hardware.camera2.CaptureRequest
+import android.util.Range
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -22,8 +25,6 @@ import java.util.concurrent.Executors
 
 /**
  * Owns the CameraX session lifecycle: bind, stop, flip, setFps.
- * Implements HoldController.AnalyzerController so HoldController can
- * unbind/rebind the analysis use-case independently of preview.
  */
 class CameraSessionManager(
     private val activity: MainActivity,
@@ -35,7 +36,7 @@ class CameraSessionManager(
     private val onReady: () -> Unit,
     private val onStopped: () -> Unit,
     private val onError: (message: String) -> Unit
-) : HoldController.AnalyzerController {
+) {
 
     companion object {
         private const val TAG = "CameraSessionManager"
@@ -46,7 +47,6 @@ class CameraSessionManager(
     private var camera: Camera? = null
     val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
-    // Use-case refs held at class level so hold can unbind/rebind analyzer independently
     private var previewUseCase: Preview? = null
     private var imageAnalysisUseCase: ImageAnalysis? = null
 
@@ -54,7 +54,7 @@ class CameraSessionManager(
     private var currentFacing: String = "back"
     private var currentFpsMin: Int? = null
     private var currentFpsMax: Int? = null
-    private var currentScanFormat: String = "qr"
+    private var currentScanFormat: String = "all"
     private var currentAutoZoom: Boolean = false
     private var currentInitialZoom: Float = 1.0f
 
@@ -93,7 +93,9 @@ class CameraSessionManager(
         barcodeDetector.close()
         zoomController.detachCamera()
         torchController.detachCamera()
-        activity.runOnUiThread { previewView.visibility = View.INVISIBLE }
+        activity.runOnUiThread {
+            previewView.visibility = View.INVISIBLE
+        }
         stateMachine.transition(VideoStreamState.IDLE)
         onStopped()
         Log.d(TAG, "Camera stopped")
@@ -103,6 +105,7 @@ class CameraSessionManager(
         val newFacing = if (currentFacing == "back") "front" else "back"
         Log.d(TAG, "flip() — $currentFacing → $newFacing")
         currentFacing = newFacing
+
         cameraProvider?.unbindAll()
         camera = null
         previewUseCase = null
@@ -141,27 +144,6 @@ class CameraSessionManager(
         cameraExecutor.shutdown()
     }
 
-    // ---- HoldController.AnalyzerController ----
-
-    override fun unbindAnalyzer() {
-        val provider = cameraProvider
-        val analysis = imageAnalysisUseCase
-        if (provider != null && analysis != null) {
-            activity.runOnUiThread { provider.unbind(analysis) }
-        }
-    }
-
-    override fun rebindAnalyzer() {
-        val prov = cameraProvider ?: return
-        val analysisUC = imageAnalysisUseCase ?: return
-        val selector = cameraSelector(currentFacing)
-        try {
-            prov.bindToLifecycle(activity as LifecycleOwner, selector, analysisUC)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to rebind analyzer after hold: ${e.message}")
-        }
-    }
-
     // ---- Internal ----
 
     private fun bindCamera() {
@@ -170,7 +152,17 @@ class CameraSessionManager(
             try {
                 cameraProvider = future.get()
 
-                previewUseCase = Preview.Builder().build().also {
+                val previewBuilder = Preview.Builder()
+                val fpsMin = currentFpsMin
+                val fpsMax = currentFpsMax
+                if (fpsMin != null && fpsMax != null) {
+                    Camera2Interop.Extender(previewBuilder)
+                        .setCaptureRequestOption(
+                            CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                            Range(fpsMin, fpsMax)
+                        )
+                }
+                previewUseCase = previewBuilder.build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
@@ -207,8 +199,10 @@ class CameraSessionManager(
 
                 stateMachine.transition(VideoStreamState.STREAMING)
 
-                activity.runOnUiThread { previewView.visibility = View.VISIBLE }
-                onReady()
+                activity.runOnUiThread {
+                    previewView.visibility = View.VISIBLE
+                    onReady()
+                }
                 Log.d(TAG, "Camera bound — facing=$currentFacing autoZoom=$currentAutoZoom")
 
             } catch (e: Exception) {

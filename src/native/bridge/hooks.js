@@ -1665,18 +1665,17 @@ export const useSafeArea = () => {
 export const useVideoStream = ({ onQRDetected } = {}) => {
     const base = useBaseHook("useVideoStream")
     const [isStreaming, setIsStreaming] = useState(false)
-    const [streamState, setStreamState] = useState({ zoom: null, minZoom: null, maxZoom: null, torchOn: false })
-    const viewfinderRef = useRef(null)
+    const [streamState, setStreamState] = useState({ zoom: null, minZoom: null, maxZoom: null, torchOn: false, fpsMin: null, fpsMax: null })
     const onQRDetectedRef = useRef(onQRDetected)
     onQRDetectedRef.current = onQRDetected
+    const viewfinderRef = useRef(null)
 
     if (typeof window === "undefined") {
         return {
             isStreaming: false,
-            streamState: { zoom: null, minZoom: null, maxZoom: null, torchOn: false },
+            streamState: { zoom: null, minZoom: null, maxZoom: null, torchOn: false, fpsMin: null, fpsMax: null },
             error: null,
             isNative: false,
-            viewfinderRef,
             start: () => {},
             stop: () => {},
             sendCommand: () => {},
@@ -1733,35 +1732,43 @@ export const useVideoStream = ({ onQRDetected } = {}) => {
             }
         })
 
+        const handleBeforeUnload = () => {
+            nativeBridge.videoStream.stop()
+        }
+        window.addEventListener("beforeunload", handleBeforeUnload)
+
         return () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_VIDEO_STREAM_READY)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_VIDEO_STREAM_STOPPED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_QR_DETECTED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_TORCH_CHANGED)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_ZOOM_CHANGED)
+            window.removeEventListener("beforeunload", handleBeforeUnload)
+            nativeBridge.videoStream.stop()
         }
     }, [base.handleNativeError])
 
     const start = useCallback((options = {}) => {
         base.executeOperation(() => {
-            let viewfinderRect = null
-            if (viewfinderRef.current) {
-                const rect = viewfinderRef.current.getBoundingClientRect()
-                const dpr = window.devicePixelRatio || 1
-                viewfinderRect = {
-                    x: Math.round(rect.left * dpr),
-                    y: Math.round(rect.top * dpr),
-                    width: Math.round(rect.width * dpr),
-                    height: Math.round(rect.height * dpr),
-                }
-                console.log("[useVideoStream] viewfinder getBoundingClientRect:", JSON.stringify({ left: rect.left, top: rect.top, width: rect.width, height: rect.height }))
-                console.log("[useVideoStream] devicePixelRatio:", dpr)
-                console.log("[useVideoStream] viewfinderRect (px sent to native):", JSON.stringify(viewfinderRect))
-            } else {
-                console.warn("[useVideoStream] viewfinderRef.current is null — no viewfinderRect sent")
-            }
+            // viewfinderRef disabled — re-enable when viewfinder region filtering is needed
+            // let viewfinderRect = null
+            // if (viewfinderRef.current) {
+            //     const rect = viewfinderRef.current.getBoundingClientRect()
+            //     const dpr = window.devicePixelRatio || 1
+            //     viewfinderRect = {
+            //         x: Math.round(rect.left * dpr),
+            //         y: Math.round(rect.top * dpr),
+            //         width: Math.round(rect.width * dpr),
+            //         height: Math.round(rect.height * dpr),
+            //     }
+            //     console.log("[useVideoStream] viewfinder getBoundingClientRect:", JSON.stringify({ left: rect.left, top: rect.top, width: rect.width, height: rect.height }))
+            //     console.log("[useVideoStream] devicePixelRatio:", dpr)
+            //     console.log("[useVideoStream] viewfinderRect (px sent to native):", JSON.stringify(viewfinderRect))
+            // } else {
+            //     console.warn("[useVideoStream] viewfinderRef.current is null — no viewfinderRect sent")
+            // }
             console.log("[useVideoStream] start() options:", JSON.stringify(options))
-            nativeBridge.videoStream.start({ ...options, viewfinderRect })
+            nativeBridge.videoStream.start(options)
         }, "start video stream")
     }, [base.executeOperation])
 
@@ -1783,7 +1790,7 @@ export const useVideoStream = ({ onQRDetected } = {}) => {
      * Native is source of truth: command fires, native validates + applies,
      * streamState updates only when native confirms via event.
      *
-     * Supported types: 'zoom' (Float multiplier, e.g. 1.0=1x, 2.0=2x), 'torch' (boolean)
+     * Supported types: 'zoom' (Float multiplier, e.g. 1.0=1x, 2.0=2x), 'torch' (boolean), 'fps' ({ min, max } — triggers session restart)
      */
     const sendCommand = useCallback((type, value) => {
         if (!isStreaming) {
@@ -1806,6 +1813,24 @@ export const useVideoStream = ({ onQRDetected } = {}) => {
                     return
                 }
                 nativeBridge.videoStream.setTorch(value)
+                break
+            }
+            case "fps": {
+                if (typeof value !== "object" || value === null) {
+                    base.setError({ message: `sendCommand fps: value must be { min, max }, got ${value}` })
+                    return
+                }
+                const { min = null, max = null } = value
+                if (min !== null && (typeof min !== "number" || min < 1)) {
+                    base.setError({ message: `sendCommand fps: min must be a positive number, got ${min}` })
+                    return
+                }
+                if (max !== null && (typeof max !== "number" || max < 1)) {
+                    base.setError({ message: `sendCommand fps: max must be a positive number, got ${max}` })
+                    return
+                }
+                nativeBridge.videoStream.setFps(min, max)
+                setStreamState(prev => ({ ...prev, fpsMin: min, fpsMax: max }))
                 break
             }
             default:

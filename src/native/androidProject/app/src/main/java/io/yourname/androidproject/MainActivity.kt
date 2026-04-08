@@ -329,6 +329,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             // Wire NativeCameraManager
             val cameraManager = NativeCameraManager(this, binding.cameraPreview, customWebView.getWebView(), binding.debugViewfinderOverlay, binding.debugViewfinderOverlay.findViewById(R.id.debug_qr_status), binding.debugBarcodeOverlay)
             nativeBridge.setCameraManager(cameraManager)
+            customWebView.onPageStarted = { cameraManager.stop() }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")
         }

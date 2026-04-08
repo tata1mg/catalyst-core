@@ -51,6 +51,7 @@ class CustomWebView(
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
     private var defaultRequestHeaders: Map<String, String> = emptyMap()
+    var onPageStarted: (() -> Unit)? = null
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -885,6 +886,7 @@ class CustomWebView(
                 super.onPageStarted(view, url, favicon)
                 if (url != null && url != offlineAssetUrl) {
                     offlinePageVisible = false
+                    onPageStarted?.invoke()
                 }
                 progressBar.visibility = View.VISIBLE
                 val startTime = System.currentTimeMillis()

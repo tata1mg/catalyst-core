@@ -25,6 +25,9 @@ class BarcodeDetector(
 
     private var scanner: BarcodeScanner? = null
 
+    /** When true, frames are still analyzed (no flicker) but results are not forwarded. */
+    var suppressResults = false
+
     /** scan: "qr" | "barcode" | "all" */
     fun buildImageAnalysis(
         executor: ExecutorService,
@@ -80,7 +83,9 @@ class BarcodeDetector(
 
         activeScanner.process(image)
             .addOnSuccessListener { barcodes ->
-                barcodes.forEach { onDetected(it, imgW, imgH) }
+                if (!suppressResults) {
+                    barcodes.forEach { onDetected(it, imgW, imgH) }
+                }
             }
             .addOnCompleteListener { imageProxy.close() }
     }
