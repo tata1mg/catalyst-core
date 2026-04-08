@@ -1,0 +1,208 @@
+name: Prepare Release
+
+on:
+    workflow_dispatch:
+        inputs:
+            release_tag:
+                description: "Release channel to prepare on main"
+                required: true
+                type: choice
+                options:
+                    - beta
+                    - latest
+                default: beta
+            version_bump:
+                description: "Version bump type"
+                required: true
+                type: choice
+                options:
+                    - patch
+                    - minor
+                    - major
+                    - release
+                    - custom
+                default: patch
+            custom_version:
+                description: 'Custom version (only if version_bump is "custom", e.g., 2.0.0 or 2.0.0-beta.1)'
+                required: false
+                type: string
+            dry_run:
+                description: "Validate and compute the release, but skip PR creation"
+                required: true
+                type: boolean
+                default: false
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    prepare:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Validate branch
+              run: |
+                  BRANCH="${{ github.ref_name }}"
+
+                  if [ "$BRANCH" != "main" ]; then
+                    echo "::error::prepare-release must run from 'main' (current: $BRANCH)"
+                    exit 1
+                  fi
+
+            - name: Validate custom inputs
+              run: |
+                  RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
+                  CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+
+                  if [ "$VERSION_BUMP" == "custom" ] && [ -z "$CUSTOM_VERSION" ]; then
+                    echo "::error::Custom version selected but 'custom_version' is empty"
+                    exit 1
+                  fi
+
+                  if [ "$VERSION_BUMP" == "custom" ]; then
+                    if ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+                      echo "::error::Invalid version format '$CUSTOM_VERSION'. Expected: X.Y.Z or X.Y.Z-prerelease"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "beta" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'; then
+                      echo "::error::Beta releases require a custom version in the format X.Y.Z-beta.N"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "latest" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'; then
+                      echo "::error::Latest releases require either a stable version or a beta version in the format X.Y.Z-beta.N"
+                      exit 1
+                    fi
+                  fi
+
+                  if [ "$RELEASE_TAG" == "beta" ] && [ "$VERSION_BUMP" == "release" ]; then
+                    echo "::error::'release' bump is only valid when preparing a stable release"
+                    exit 1
+                  fi
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Bump version
+              id: version
+              run: |
+                  RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
+                  PACKAGE_NAME="catalyst-core"
+
+                  if [ "$VERSION_BUMP" == "custom" ]; then
+                    npm version "${{ github.event.inputs.custom_version }}" --no-git-tag-version
+                  elif [ "$RELEASE_TAG" == "beta" ]; then
+                    CURRENT_VERSION=$(node -p "require('./package.json').version")
+                    CURRENT_BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
+
+                    if [ "$VERSION_BUMP" == "patch" ] && echo "$CURRENT_VERSION" | grep -q -- '-beta\.'; then
+                      TARGET_BASE_VERSION="$CURRENT_BASE_VERSION"
+                    else
+                      npm version "$VERSION_BUMP" --no-git-tag-version
+                      TARGET_BASE_VERSION=$(node -p "require('./package.json').version" | sed 's/-.*//')
+                    fi
+
+                    LATEST_PRERELEASE=$(npm view "$PACKAGE_NAME@>=${TARGET_BASE_VERSION}-beta.0 <${TARGET_BASE_VERSION}-beta.9999" version 2>/dev/null | tail -1 | sed 's/.*-beta\.\([0-9]*\).*/\1/' || echo "-1")
+
+                    if [ -z "$LATEST_PRERELEASE" ]; then
+                      LATEST_PRERELEASE=-1
+                    fi
+
+                    NEXT_PRERELEASE=$((LATEST_PRERELEASE + 1))
+                    npm version "${TARGET_BASE_VERSION}-beta.${NEXT_PRERELEASE}" --no-git-tag-version
+                  else
+                    CURRENT_VERSION=$(node -p "require('./package.json').version")
+                    BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
+
+                    if [ "$VERSION_BUMP" == "release" ]; then
+                      if [ "$CURRENT_VERSION" == "$BASE_VERSION" ]; then
+                        echo "::error::Current version '$CURRENT_VERSION' is already stable"
+                        exit 1
+                      fi
+
+                      npm version "$BASE_VERSION" --no-git-tag-version
+                    else
+                      npm version "$VERSION_BUMP" --no-git-tag-version
+                    fi
+                  fi
+
+                  NEW_VERSION=$(node -p "require('./package.json').version")
+                  echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+            - name: Check version availability on npm
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+
+                  if npm view "catalyst-core@$VERSION" version 2>/dev/null; then
+                    echo "::error::Version $VERSION already exists on npm for catalyst-core"
+                    exit 1
+                  fi
+
+            - name: Configure Git
+              if: ${{ !inputs.dry_run }}
+              run: |
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+                  git config --global user.name "github-actions[bot]"
+
+            - name: Create release PR
+              id: create_pr
+              if: ${{ !inputs.dry_run }}
+              uses: peter-evans/create-pull-request@v7
+              with:
+                  token: ${{ github.token }}
+                  commit-message: "chore: prepare release v${{ steps.version.outputs.version }} [skip ci]"
+                  branch: "chore/release-v${{ steps.version.outputs.version }}"
+                  delete-branch: true
+                  title: "chore: prepare release v${{ steps.version.outputs.version }}"
+                  body: |
+                      Prepared `${{ steps.version.outputs.version }}` for the `${{ github.event.inputs.release_tag }}` release channel.
+                  base: main
+                  add-paths: |
+                      package.json
+                      package-lock.json
+
+            - name: Final summary
+              if: always()
+              run: |
+                  STATUS="${{ job.status }}"
+                  RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
+                  CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+                  DRY_RUN="${{ inputs.dry_run }}"
+                  VERSION="${{ steps.version.outputs.version }}"
+                  PR_OUTCOME="${{ steps.create_pr.outcome }}"
+
+                  if [ -n "$CUSTOM_VERSION" ]; then
+                    REQUESTED_VERSION="$CUSTOM_VERSION"
+                  else
+                    REQUESTED_VERSION="-"
+                  fi
+
+                  if [ "$DRY_RUN" == "true" ]; then
+                    PR_ACTION="skipped (dry_run=true)"
+                  elif [ "$PR_OUTCOME" == "success" ]; then
+                    PR_ACTION="created or updated branch chore/release-v$VERSION"
+                  elif [ "$PR_OUTCOME" == "failure" ]; then
+                    PR_ACTION="failed"
+                  else
+                    PR_ACTION="not run"
+                  fi
+
+                  {
+                    echo "prepare-release summary"
+                    echo "- status: $STATUS"
+                    echo "- branch: ${{ github.ref_name }}"
+                    echo "- release_tag: $RELEASE_TAG"
+                    echo "- version_bump: $VERSION_BUMP"
+                    echo "- custom_version: $REQUESTED_VERSION"
+                    echo "- computed_version: ${VERSION:-not computed}"
+                    echo "- dry_run: $DRY_RUN"
+                    echo "- pr_action: $PR_ACTION"
+                  } | tee -a "$GITHUB_STEP_SUMMARY"
