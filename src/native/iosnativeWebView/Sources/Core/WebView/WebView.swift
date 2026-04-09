@@ -39,6 +39,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         // Hook kept for legacy behavior; currently a no-op on iOS 15+.
         WebKitConfig.applySharedProcessPoolIfNeeded(to: configuration)
+        WebKitConfig.applyMediaPlaybackConfiguration(to: configuration)
 
         #if DEBUG
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
