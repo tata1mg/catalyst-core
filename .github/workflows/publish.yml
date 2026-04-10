@@ -3,14 +3,6 @@ name: Publish
 on:
     workflow_dispatch:
         inputs:
-            package:
-                description: "Which package to publish"
-                required: true
-                type: choice
-                options:
-                    - catalyst-core
-                    - catalyst-core-internal
-                default: catalyst-core
             publish_channel:
                 description: "Publish channel"
                 required: true
@@ -20,29 +12,23 @@ on:
                     - latest
                     - canary
                 default: beta
-            version_bump:
-                description: "Version bump type for canary publishes"
-                required: false
-                type: choice
-                options:
-                    - patch
-                    - minor
-                    - major
-                    - custom
-                default: patch
-            custom_version:
-                description: 'Custom version for canary publishes (only if version_bump is "custom", e.g., 2.0.0-canary.1)'
-                required: false
-                type: string
             dry_run:
-                description: "Validate and build the release, but skip publish, tag, push, and notification"
+                description: "Dry run"
                 required: true
                 type: boolean
                 default: false
+    push:
+        branches:
+            - main
+            - canary
 
 permissions:
     contents: write
     id-token: write
+
+concurrency:
+    group: publish-${{ github.ref_name }}
+    cancel-in-progress: false
 
 jobs:
     publish:
@@ -52,197 +38,155 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - name: Validate inputs and branch
+            - name: Resolve release context
+              id: context
               run: |
-                  CHANNEL="${{ github.event.inputs.publish_channel }}"
+                  EVENT_NAME="${{ github.event_name }}"
                   BRANCH="${{ github.ref_name }}"
-                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
-                  CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+                  BEFORE_SHA="${{ github.event.before }}"
+                  AFTER_SHA="${{ github.sha }}"
+                  SHOULD_RUN=false
+                  PACKAGE_NAME=""
+                  CHANNEL=""
+                  DRY_RUN=false
+                  REASON=""
+                  METADATA_VERSION=""
 
-                  if [ "$CHANNEL" == "canary" ]; then
-                    if [ "$BRANCH" != "canary" ]; then
-                      echo "::error::Canary publishes must run from 'canary' (current: $BRANCH)"
-                      exit 1
+                  if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+                    SHOULD_RUN=true
+                    PACKAGE_NAME="catalyst-core"
+                    CHANNEL="${{ github.event.inputs.publish_channel }}"
+                    DRY_RUN="${{ inputs.dry_run }}"
+                    REASON="manual dispatch"
+                  elif [ "$BRANCH" == "canary" ]; then
+                    if [ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]; then
+                      CHANGED_FILES=$(git show --pretty='' --name-only "$AFTER_SHA" 2>/dev/null || true)
+                    else
+                      CHANGED_FILES=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null || true)
                     fi
 
-                    if [ "$VERSION_BUMP" == "custom" ] && [ -z "$CUSTOM_VERSION" ]; then
-                      echo "::error::Custom version selected but 'custom_version' is empty"
-                      exit 1
+                    if ! echo "$CHANGED_FILES" | grep -qx '.release-meta.json'; then
+                      REASON="push to canary without release metadata change"
+                    elif [ ! -f .release-meta.json ]; then
+                      REASON="release metadata missing at branch head"
+                    else
+                      CHANNEL=$(node -p "const meta=require('./.release-meta.json'); meta.tag || ''")
+                      METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.version || ''")
+                      SHOULD_RUN=true
+                      PACKAGE_NAME="catalyst-core"
+                      DRY_RUN=false
+                      REASON="auto publish on push to canary via release metadata"
+                    fi
+                  elif [ "$BRANCH" == "main" ]; then
+                    if [ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]; then
+                      CHANGED_FILES=$(git show --pretty='' --name-only "$AFTER_SHA" 2>/dev/null || true)
+                    else
+                      CHANGED_FILES=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null || true)
                     fi
 
-                    if [ "$VERSION_BUMP" == "custom" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
-                      echo "::error::Invalid canary version '$CUSTOM_VERSION'. Expected: X.Y.Z-canary.N"
-                      exit 1
+                    if ! echo "$CHANGED_FILES" | grep -qx '.release-meta.json'; then
+                      REASON="push to main without release metadata change"
+                    elif [ ! -f .release-meta.json ]; then
+                      REASON="release metadata missing at branch head"
+                    else
+                      CHANNEL=$(node -p "const meta=require('./.release-meta.json'); meta.tag || ''")
+                      METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.version || ''")
+                      SHOULD_RUN=true
+                      PACKAGE_NAME="catalyst-core"
+                      DRY_RUN=false
+                      REASON="auto publish on push to main via release metadata"
                     fi
+                  else
+                    REASON="unsupported trigger context"
                   fi
 
-                  if [ "$CHANNEL" == "beta" ] || [ "$CHANNEL" == "latest" ]; then
-                    if [ "$BRANCH" != "main" ]; then
-                      echo "::error::$CHANNEL publishes must run from 'main' (current: $BRANCH)"
-                      exit 1
-                    fi
+                  echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+                  echo "package=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+                  echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+                  echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+                  echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+                  echo "metadata_version=$METADATA_VERSION" >> "$GITHUB_OUTPUT"
+
+            - name: Validate branch
+              if: steps.context.outputs.should_run == 'true'
+              run: |
+                  CHANNEL="${{ steps.context.outputs.channel }}"
+                  BRANCH="${{ github.ref_name }}"
+
+                  if [ "$CHANNEL" == "canary" ] && [ "$BRANCH" != "canary" ]; then
+                    echo "::error::Canary publishes must run from 'canary' (current: $BRANCH)"
+                    exit 1
+                  fi
+
+                  if { [ "$CHANNEL" == "beta" ] || [ "$CHANNEL" == "latest" ]; } && [ "$BRANCH" != "main" ]; then
+                    echo "::error::$CHANNEL publishes must run from 'main' (current: $BRANCH)"
+                    exit 1
                   fi
 
             - name: Setup Node.js
+              if: steps.context.outputs.should_run == 'true'
               uses: actions/setup-node@v4
               with:
                   node-version: "20"
                   registry-url: "https://registry.npmjs.org"
 
-            - name: Determine npm tag
-              id: npm_tag
-              run: echo "tag=${{ github.event.inputs.publish_channel }}" >> "$GITHUB_OUTPUT"
-
             - name: Read current version
-              id: current_version
+              id: version
+              if: steps.context.outputs.should_run == 'true'
               run: |
                   VERSION=$(node -p "require('./package.json').version")
-                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+                  echo "value=$VERSION" >> "$GITHUB_OUTPUT"
 
-            - name: Check current release state
-              id: current_release_state
+            - name: Validate release metadata
+              if: steps.context.outputs.should_run == 'true' && github.event_name == 'push'
               run: |
-                  PACKAGE_NAME="${{ github.event.inputs.package }}"
-                  VERSION="${{ steps.current_version.outputs.version }}"
-                  NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
-                  VERSION_EXISTS=false
-                  TAG_EXISTS=false
-                  DIST_TAG_MATCHES=false
-                  RECOVER_MISSING_TAG=false
-                  RECOVER_UNPUBLISHED_VERSION=false
-                  RECOVER_EXISTING_DIST_TAG=false
-                  DIST_TAG_VERSION=$(npm view "$PACKAGE_NAME@$NPM_TAG" version 2>/dev/null || true)
+                  CHANNEL="${{ steps.context.outputs.channel }}"
+                  VERSION="${{ steps.version.outputs.value }}"
+                  METADATA_VERSION="${{ steps.context.outputs.metadata_version }}"
 
-                  if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
-                    VERSION_EXISTS=true
+                  if [ -z "$CHANNEL" ]; then
+                    echo "::error::Release metadata is missing a tag"
+                    exit 1
                   fi
 
-                  if [ "$PACKAGE_NAME" == "catalyst-core" ] && git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
-                    TAG_EXISTS=true
+                  if [ -z "$METADATA_VERSION" ]; then
+                    echo "::error::Release metadata is missing a version"
+                    exit 1
                   fi
 
-                  if [ "$DIST_TAG_VERSION" == "$VERSION" ]; then
-                    DIST_TAG_MATCHES=true
+                  if [ "$VERSION" != "$METADATA_VERSION" ]; then
+                    echo "::error::Release metadata version '$METADATA_VERSION' does not match package.json version '$VERSION'"
+                    exit 1
                   fi
 
-                  if [ "$PACKAGE_NAME" == "catalyst-core" ] && [ "$VERSION_EXISTS" == "true" ] && [ "$TAG_EXISTS" != "true" ]; then
-                    RECOVER_MISSING_TAG=true
-                  fi
-
-                  if [ "${{ github.event.inputs.publish_channel }}" == "canary" ] && [ "$VERSION_EXISTS" != "true" ] && echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
-                    RECOVER_UNPUBLISHED_VERSION=true
-                  fi
-
-                  if [ "${{ github.event.inputs.publish_channel }}" == "canary" ] && [ "$VERSION_EXISTS" == "true" ] && [ "$DIST_TAG_MATCHES" != "true" ] && echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
-                    RECOVER_EXISTING_DIST_TAG=true
-                  fi
-
-                  echo "version_exists=$VERSION_EXISTS" >> "$GITHUB_OUTPUT"
-                  echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
-                  echo "dist_tag_matches=$DIST_TAG_MATCHES" >> "$GITHUB_OUTPUT"
-                  echo "recover_missing_tag=$RECOVER_MISSING_TAG" >> "$GITHUB_OUTPUT"
-                  echo "recover_unpublished_version=$RECOVER_UNPUBLISHED_VERSION" >> "$GITHUB_OUTPUT"
-                  echo "recover_existing_dist_tag=$RECOVER_EXISTING_DIST_TAG" >> "$GITHUB_OUTPUT"
-
-            - name: Validate current release state
+            - name: Validate version against channel
+              if: steps.context.outputs.should_run == 'true'
               run: |
-                  VERSION="${{ steps.current_version.outputs.version }}"
-                  VERSION_EXISTS="${{ steps.current_release_state.outputs.version_exists }}"
-                  TAG_EXISTS="${{ steps.current_release_state.outputs.tag_exists }}"
-                  DIST_TAG_MATCHES="${{ steps.current_release_state.outputs.dist_tag_matches }}"
-                  RECOVER_UNPUBLISHED_VERSION="${{ steps.current_release_state.outputs.recover_unpublished_version }}"
-                  RECOVER_EXISTING_DIST_TAG="${{ steps.current_release_state.outputs.recover_existing_dist_tag }}"
-
-                  if [ "$VERSION_EXISTS" == "true" ] && [ "$TAG_EXISTS" != "true" ]; then
-                    echo "::warning::Version $VERSION is already published on npm; this run will create the missing git tag"
-                  fi
-
-                  if [ "$VERSION_EXISTS" == "true" ] && [ "$DIST_TAG_MATCHES" != "true" ]; then
-                    echo "::warning::Version $VERSION is already published on npm; this run will update the dist-tag"
-                  fi
-
-                  if [ "$RECOVER_UNPUBLISHED_VERSION" == "true" ]; then
-                    echo "::warning::Version $VERSION is already bumped in git but not published on npm; this run will publish that exact version"
-                  fi
-
-                  if [ "$RECOVER_EXISTING_DIST_TAG" == "true" ]; then
-                    echo "::warning::Version $VERSION is already published and tagged; this run will repair the canary dist-tag"
-                  fi
-
-            - name: Bump version for canary
-              id: version
-              if: github.event.inputs.publish_channel == 'canary' && steps.current_release_state.outputs.recover_missing_tag != 'true' && steps.current_release_state.outputs.recover_unpublished_version != 'true' && steps.current_release_state.outputs.recover_existing_dist_tag != 'true'
-              run: |
-                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
-                  PACKAGE_NAME="${{ github.event.inputs.package }}"
-
-                  if [ "$VERSION_BUMP" == "custom" ]; then
-                    npm version "${{ github.event.inputs.custom_version }}" --no-git-tag-version
-                  else
-                    CURRENT_VERSION=$(node -p "require('./package.json').version")
-                    CURRENT_BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
-
-                    if [ "$VERSION_BUMP" == "patch" ] && echo "$CURRENT_VERSION" | grep -q -- '-canary\.'; then
-                      TARGET_BASE_VERSION="$CURRENT_BASE_VERSION"
-                    else
-                      npm version "$VERSION_BUMP" --no-git-tag-version
-                      TARGET_BASE_VERSION=$(node -p "require('./package.json').version" | sed 's/-.*//')
-                    fi
-
-                    LATEST_PRERELEASE=$(npm view "$PACKAGE_NAME@>=${TARGET_BASE_VERSION}-canary.0 <${TARGET_BASE_VERSION}-canary.9999" version 2>/dev/null | tail -1 | sed 's/.*-canary\.\([0-9]*\).*/\1/' || echo "-1")
-
-                    if [ -z "$LATEST_PRERELEASE" ]; then
-                      LATEST_PRERELEASE=-1
-                    fi
-
-                    NEXT_PRERELEASE=$((LATEST_PRERELEASE + 1))
-                    npm version "${TARGET_BASE_VERSION}-canary.${NEXT_PRERELEASE}" --no-git-tag-version
-                  fi
-
-                  NEW_VERSION=$(node -p "require('./package.json').version")
-                  echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-
-            - name: Resolve target version
-              id: target_version
-              run: |
-                  CHANNEL="${{ github.event.inputs.publish_channel }}"
-
-                  if [ "$CHANNEL" != "canary" ]; then
-                    VERSION="${{ steps.current_version.outputs.version }}"
-                  elif [ "${{ steps.current_release_state.outputs.recover_missing_tag }}" == "true" ] || [ "${{ steps.current_release_state.outputs.recover_unpublished_version }}" == "true" ] || [ "${{ steps.current_release_state.outputs.recover_existing_dist_tag }}" == "true" ]; then
-                    VERSION="${{ steps.current_version.outputs.version }}"
-                  else
-                    VERSION="${{ steps.version.outputs.version }}"
-                  fi
-
-                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-            - name: Validate target version against channel
-              run: |
-                  CHANNEL="${{ github.event.inputs.publish_channel }}"
-                  VERSION="${{ steps.target_version.outputs.version }}"
+                  CHANNEL="${{ steps.context.outputs.channel }}"
+                  VERSION="${{ steps.version.outputs.value }}"
 
                   if [ "$CHANNEL" == "beta" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'; then
-                    echo "::error::Beta publishes require a version with a '-beta.N' suffix (current: $VERSION)"
+                    echo "::error::Beta publishes require X.Y.Z-beta.N (current: $VERSION)"
                     exit 1
                   fi
 
                   if [ "$CHANNEL" == "latest" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'; then
-                    echo "::error::Latest publishes require either a stable version or a '-beta.N' version (current: $VERSION)"
+                    echo "::error::Latest publishes require either X.Y.Z or X.Y.Z-beta.N (current: $VERSION)"
                     exit 1
                   fi
 
-                  if [ "$CHANNEL" == "canary" ] && ! echo "$VERSION" | grep -q -- '-canary\.'; then
-                    echo "::error::Canary publishes require a version with a '-canary.N' suffix (current: $VERSION)"
+                  if [ "$CHANNEL" == "canary" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
+                    echo "::error::Canary publishes require X.Y.Z-canary.N (current: $VERSION)"
                     exit 1
                   fi
 
-            - name: Check target release state
-              id: target_release_state
+            - name: Check release state
+              id: release_state
+              if: steps.context.outputs.should_run == 'true'
               run: |
-                  PACKAGE_NAME="${{ github.event.inputs.package }}"
-                  VERSION="${{ steps.target_version.outputs.version }}"
-                  NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
+                  PACKAGE_NAME="${{ steps.context.outputs.package }}"
+                  VERSION="${{ steps.version.outputs.value }}"
+                  NPM_TAG="${{ steps.context.outputs.channel }}"
                   VERSION_EXISTS=false
                   TAG_EXISTS=false
                   DIST_TAG_MATCHES=false
@@ -264,93 +208,67 @@ jobs:
                   echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
                   echo "dist_tag_matches=$DIST_TAG_MATCHES" >> "$GITHUB_OUTPUT"
 
-            - name: Validate target release state
+            - name: Validate release state
+              if: steps.context.outputs.should_run == 'true'
               run: |
-                  PACKAGE_NAME="${{ github.event.inputs.package }}"
-                  VERSION="${{ steps.target_version.outputs.version }}"
-                  VERSION_EXISTS="${{ steps.target_release_state.outputs.version_exists }}"
-                  TAG_EXISTS="${{ steps.target_release_state.outputs.tag_exists }}"
-                  DIST_TAG_MATCHES="${{ steps.target_release_state.outputs.dist_tag_matches }}"
+                  PACKAGE_NAME="${{ steps.context.outputs.package }}"
+                  VERSION="${{ steps.version.outputs.value }}"
+                  VERSION_EXISTS="${{ steps.release_state.outputs.version_exists }}"
+                  TAG_EXISTS="${{ steps.release_state.outputs.tag_exists }}"
+                  DIST_TAG_MATCHES="${{ steps.release_state.outputs.dist_tag_matches }}"
 
-                  if [ "$VERSION_EXISTS" == "true" ] && [ "$PACKAGE_NAME" == "catalyst-core" ] && [ "$TAG_EXISTS" == "true" ] && [ "$DIST_TAG_MATCHES" == "true" ]; then
-                    echo "::error::Version $VERSION is already fully published, tagged, and assigned to the requested dist-tag"
-                    exit 1
-                  fi
-
-                  if [ "$VERSION_EXISTS" == "true" ] && [ "$PACKAGE_NAME" != "catalyst-core" ] && [ "$DIST_TAG_MATCHES" == "true" ]; then
+                  if [ "$VERSION_EXISTS" == "true" ] && [ "$TAG_EXISTS" == "true" ] && [ "$DIST_TAG_MATCHES" == "true" ]; then
                     echo "::error::Version $VERSION is already published and assigned to the requested dist-tag"
                     exit 1
                   fi
 
             - name: Configure Git
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
               run: |
                   git config --global user.email "github-actions[bot]@users.noreply.github.com"
                   git config --global user.name "github-actions[bot]"
 
-            - name: Rename package (if internal)
-              if: github.event.inputs.package == 'catalyst-core-internal' && steps.target_release_state.outputs.version_exists != 'true'
-              run: npm pkg set name=catalyst-core-internal
-
-            - name: Replace in source files (if internal)
-              if: github.event.inputs.package == 'catalyst-core-internal' && steps.target_release_state.outputs.version_exists != 'true'
-              run: |
-                  echo "Files containing 'catalyst-core' in source:"
-                  grep -rl "catalyst-core" ./src --include="*.js" --include="*.ts" || echo "No matches found"
-
-                  echo ""
-                  echo "Replacing 'catalyst-core' with 'catalyst-core-internal' in source files..."
-                  find ./src -type f \( -name "*.js" -o -name "*.ts" \) -exec sed -i 's/catalyst-core/catalyst-core-internal/g' {} \;
-
             - name: Install dependencies
-              if: steps.target_release_state.outputs.version_exists != 'true'
+              if: steps.context.outputs.should_run == 'true' && steps.release_state.outputs.version_exists != 'true'
               run: npm install
 
             - name: Build package
-              if: steps.target_release_state.outputs.version_exists != 'true'
+              if: steps.context.outputs.should_run == 'true' && steps.release_state.outputs.version_exists != 'true'
               run: npm run prepare
 
-            - name: Commit version bump
-              id: commit_canary
-              if: github.event.inputs.publish_channel == 'canary' && github.event.inputs.package == 'catalyst-core' && steps.current_release_state.outputs.recover_missing_tag != 'true' && steps.current_release_state.outputs.recover_unpublished_version != 'true' && steps.current_release_state.outputs.recover_existing_dist_tag != 'true' && !inputs.dry_run
-              run: |
-                  VERSION="${{ steps.target_version.outputs.version }}"
-                  git add package.json package-lock.json
-                  git commit -m "chore: release v$VERSION [skip ci]"
-                  git push
-
             - name: Update npm for OIDC support
-              if: ${{ !inputs.dry_run }}
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
               run: npm install -g npm@latest
 
             - name: Publish to npm
               id: publish_npm
-              if: steps.target_release_state.outputs.version_exists != 'true' && !inputs.dry_run
-              run: npm publish --tag ${{ steps.npm_tag.outputs.tag }} --access public
+              if: steps.context.outputs.should_run == 'true' && steps.release_state.outputs.version_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              run: npm publish --tag ${{ steps.context.outputs.channel }} --access public
 
             - name: Update dist-tag
               id: update_dist_tag
-              if: steps.target_release_state.outputs.version_exists == 'true' && steps.target_release_state.outputs.dist_tag_matches != 'true' && !inputs.dry_run
+              if: steps.context.outputs.should_run == 'true' && steps.release_state.outputs.version_exists == 'true' && steps.release_state.outputs.dist_tag_matches != 'true' && steps.context.outputs.dry_run != 'true'
               run: |
-                  PACKAGE_NAME="${{ github.event.inputs.package }}"
-                  VERSION="${{ steps.target_version.outputs.version }}"
-                  NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
+                  PACKAGE_NAME="${{ steps.context.outputs.package }}"
+                  VERSION="${{ steps.version.outputs.value }}"
+                  NPM_TAG="${{ steps.context.outputs.channel }}"
                   npm dist-tag add "$PACKAGE_NAME@$VERSION" "$NPM_TAG"
 
             - name: Create git tag
               id: create_git_tag
-              if: github.event.inputs.package == 'catalyst-core' && steps.target_release_state.outputs.tag_exists != 'true' && !inputs.dry_run
+              if: steps.context.outputs.should_run == 'true' && steps.release_state.outputs.tag_exists != 'true' && steps.context.outputs.dry_run != 'true'
               run: |
-                  VERSION="${{ steps.target_version.outputs.version }}"
+                  VERSION="${{ steps.version.outputs.value }}"
                   git tag "v$VERSION"
                   git push origin "v$VERSION"
 
             - name: Send Flock notification
               id: notify
-              if: success() && !inputs.dry_run
+              if: success() && steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
               run: |
-                  PACKAGE_NAME="${{ github.event.inputs.package }}"
-                  VERSION="${{ steps.target_version.outputs.version }}"
-                  NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
+                  PACKAGE_NAME="${{ steps.context.outputs.package }}"
+                  VERSION="${{ steps.version.outputs.value }}"
+                  NPM_TAG="${{ steps.context.outputs.channel }}"
                   NPM_URL="https://www.npmjs.com/package/$PACKAGE_NAME/v/$VERSION"
 
                   curl -X POST "${{ secrets.FLOCK_WEBHOOK_URL }}" \
@@ -368,61 +286,30 @@ jobs:
               if: always()
               run: |
                   STATUS="${{ job.status }}"
-                  PACKAGE_NAME="${{ github.event.inputs.package }}"
-                  CHANNEL="${{ github.event.inputs.publish_channel }}"
-                  VERSION_BUMP="${{ github.event.inputs.version_bump }}"
-                  CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
-                  DRY_RUN="${{ inputs.dry_run }}"
-                  CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
-                  TARGET_VERSION="${{ steps.target_version.outputs.version }}"
-                  NPM_TAG="${{ steps.npm_tag.outputs.tag }}"
-                  VERSION_EXISTS="${{ steps.target_release_state.outputs.version_exists }}"
-                  TAG_EXISTS="${{ steps.target_release_state.outputs.tag_exists }}"
-                  DIST_TAG_MATCHES="${{ steps.target_release_state.outputs.dist_tag_matches }}"
-                  RECOVER_MISSING_TAG="${{ steps.current_release_state.outputs.recover_missing_tag }}"
-                  RECOVER_UNPUBLISHED_VERSION="${{ steps.current_release_state.outputs.recover_unpublished_version }}"
-                  RECOVER_EXISTING_DIST_TAG="${{ steps.current_release_state.outputs.recover_existing_dist_tag }}"
-                  COMMIT_OUTCOME="${{ steps.commit_canary.outcome }}"
+                  EVENT_NAME="${{ github.event_name }}"
+                  SHOULD_RUN="${{ steps.context.outputs.should_run }}"
+                  PACKAGE_NAME="${{ steps.context.outputs.package }}"
+                  CHANNEL="${{ steps.context.outputs.channel }}"
+                  DRY_RUN="${{ steps.context.outputs.dry_run }}"
+                  REASON="${{ steps.context.outputs.reason }}"
+                  VERSION="${{ steps.version.outputs.value }}"
+                  VERSION_EXISTS="${{ steps.release_state.outputs.version_exists }}"
+                  TAG_EXISTS="${{ steps.release_state.outputs.tag_exists }}"
+                  DIST_TAG_MATCHES="${{ steps.release_state.outputs.dist_tag_matches }}"
                   PUBLISH_OUTCOME="${{ steps.publish_npm.outcome }}"
                   DIST_TAG_OUTCOME="${{ steps.update_dist_tag.outcome }}"
                   TAG_OUTCOME="${{ steps.create_git_tag.outcome }}"
                   NOTIFY_OUTCOME="${{ steps.notify.outcome }}"
 
-                  if [ -n "$CUSTOM_VERSION" ]; then
-                    REQUESTED_VERSION="$CUSTOM_VERSION"
-                  else
-                    REQUESTED_VERSION="-"
-                  fi
-
-                  if [ "$RECOVER_MISSING_TAG" == "true" ]; then
-                    RECOVERY_MODE="repair missing git tag"
-                  elif [ "$RECOVER_UNPUBLISHED_VERSION" == "true" ]; then
-                    RECOVERY_MODE="publish already-bumped canary version"
-                  elif [ "$RECOVER_EXISTING_DIST_TAG" == "true" ]; then
-                    RECOVERY_MODE="repair existing canary dist-tag"
-                  else
-                    RECOVERY_MODE="none"
-                  fi
-
-                  if [ "$CHANNEL" == "canary" ] && [ "$PACKAGE_NAME" == "catalyst-core" ] && [ "$RECOVER_MISSING_TAG" != "true" ] && [ "$RECOVER_UNPUBLISHED_VERSION" != "true" ] && [ "$RECOVER_EXISTING_DIST_TAG" != "true" ]; then
+                  if [ "$SHOULD_RUN" != "true" ]; then
+                    NPM_ACTION="skipped"
+                    TAG_ACTION="skipped"
+                    NOTIFICATION_ACTION="skipped"
+                  elif [ "$VERSION_EXISTS" != "true" ]; then
                     if [ "$DRY_RUN" == "true" ]; then
-                      COMMIT_ACTION="would commit and push canary bump"
-                    elif [ "$COMMIT_OUTCOME" == "success" ]; then
-                      COMMIT_ACTION="committed and pushed canary bump"
-                    elif [ "$COMMIT_OUTCOME" == "failure" ]; then
-                      COMMIT_ACTION="failed"
-                    else
-                      COMMIT_ACTION="not run"
-                    fi
-                  else
-                    COMMIT_ACTION="not needed"
-                  fi
-
-                  if [ "$VERSION_EXISTS" != "true" ]; then
-                    if [ "$DRY_RUN" == "true" ]; then
-                      NPM_ACTION="would publish $PACKAGE_NAME@$TARGET_VERSION with dist-tag $NPM_TAG"
+                      NPM_ACTION="would publish $PACKAGE_NAME@$VERSION with dist-tag $CHANNEL"
                     elif [ "$PUBLISH_OUTCOME" == "success" ]; then
-                      NPM_ACTION="published $PACKAGE_NAME@$TARGET_VERSION with dist-tag $NPM_TAG"
+                      NPM_ACTION="published $PACKAGE_NAME@$VERSION with dist-tag $CHANNEL"
                     elif [ "$PUBLISH_OUTCOME" == "failure" ]; then
                       NPM_ACTION="publish failed"
                     else
@@ -430,9 +317,9 @@ jobs:
                     fi
                   elif [ "$DIST_TAG_MATCHES" != "true" ]; then
                     if [ "$DRY_RUN" == "true" ]; then
-                      NPM_ACTION="would update dist-tag $NPM_TAG -> $TARGET_VERSION"
+                      NPM_ACTION="would update dist-tag $CHANNEL -> $VERSION"
                     elif [ "$DIST_TAG_OUTCOME" == "success" ]; then
-                      NPM_ACTION="updated dist-tag $NPM_TAG -> $TARGET_VERSION"
+                      NPM_ACTION="updated dist-tag $CHANNEL -> $VERSION"
                     elif [ "$DIST_TAG_OUTCOME" == "failure" ]; then
                       NPM_ACTION="dist-tag update failed"
                     else
@@ -442,13 +329,13 @@ jobs:
                     NPM_ACTION="no npm write needed"
                   fi
 
-                  if [ "$PACKAGE_NAME" != "catalyst-core" ]; then
-                    TAG_ACTION="not applicable"
+                  if [ "$SHOULD_RUN" != "true" ]; then
+                    TAG_ACTION="skipped"
                   elif [ "$TAG_EXISTS" != "true" ]; then
                     if [ "$DRY_RUN" == "true" ]; then
-                      TAG_ACTION="would create git tag v$TARGET_VERSION"
+                      TAG_ACTION="would create git tag v$VERSION"
                     elif [ "$TAG_OUTCOME" == "success" ]; then
-                      TAG_ACTION="created git tag v$TARGET_VERSION"
+                      TAG_ACTION="created git tag v$VERSION"
                     elif [ "$TAG_OUTCOME" == "failure" ]; then
                       TAG_ACTION="git tag creation failed"
                     else
@@ -458,7 +345,9 @@ jobs:
                     TAG_ACTION="git tag already present"
                   fi
 
-                  if [ "$DRY_RUN" == "true" ]; then
+                  if [ "$SHOULD_RUN" != "true" ]; then
+                    NOTIFICATION_ACTION="skipped"
+                  elif [ "$DRY_RUN" == "true" ]; then
                     NOTIFICATION_ACTION="skipped (dry_run=true)"
                   elif [ "$NOTIFY_OUTCOME" == "success" ]; then
                     NOTIFICATION_ACTION="sent"
@@ -471,17 +360,15 @@ jobs:
                   {
                     echo "publish summary"
                     echo "- status: $STATUS"
+                    echo "- trigger: $EVENT_NAME"
                     echo "- branch: ${{ github.ref_name }}"
+                    echo "- should_run: $SHOULD_RUN"
+                    echo "- reason: $REASON"
                     echo "- package: $PACKAGE_NAME"
                     echo "- channel: $CHANNEL"
-                    echo "- version_bump: $VERSION_BUMP"
-                    echo "- custom_version: $REQUESTED_VERSION"
-                    echo "- current_version: ${CURRENT_VERSION:-not read}"
-                    echo "- target_version: ${TARGET_VERSION:-not resolved}"
+                    echo "- version: ${VERSION:-not read}"
                     echo "- dry_run: $DRY_RUN"
-                    echo "- recovery_mode: $RECOVERY_MODE"
                     echo "- npm_state: version_exists=${VERSION_EXISTS:-unknown}, tag_matches=${DIST_TAG_MATCHES:-unknown}"
-                    echo "- canary_commit: $COMMIT_ACTION"
                     echo "- npm_action: $NPM_ACTION"
                     echo "- git_tag: $TAG_ACTION"
                     echo "- notification: $NOTIFICATION_ACTION"
