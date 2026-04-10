@@ -15,6 +15,8 @@ const googleBots = {
     "Web Light": "googleweblight",
     "Amp crawler": "Google-AMPHTM",
     Googlebot: "Googlebot",
+    "Google Inspection Tool": "Google-InspectionTool",
+    "Google Agent": "Google-Agent"
 }
 
 /**
