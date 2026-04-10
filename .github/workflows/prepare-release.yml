@@ -4,12 +4,13 @@ on:
     workflow_dispatch:
         inputs:
             release_tag:
-                description: "Release channel to prepare on main"
+                description: "Release channel to prepare"
                 required: true
                 type: choice
                 options:
                     - beta
                     - latest
+                    - canary
                 default: beta
             version_bump:
                 description: "Version bump type"
@@ -21,41 +22,46 @@ on:
                     - major
                     - release
                     - custom
-                default: patch
+                default: custom
             custom_version:
-                description: 'Custom version (only if version_bump is "custom", e.g., 2.0.0 or 2.0.0-beta.1)'
+                description: "Custom version"
                 required: false
                 type: string
             dry_run:
-                description: "Validate and compute the release, but skip PR creation"
+                description: "Dry run"
+                required: true
+                type: boolean
+                default: false
+            publish_internal:
+                description: "Publish internal"
                 required: true
                 type: boolean
                 default: false
 
 permissions:
     contents: write
-    pull-requests: write
+    id-token: write
 
 jobs:
     prepare:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
-            - name: Validate branch
+            - name: Validate branch and inputs
               run: |
                   BRANCH="${{ github.ref_name }}"
-
-                  if [ "$BRANCH" != "main" ]; then
-                    echo "::error::prepare-release must run from 'main' (current: $BRANCH)"
-                    exit 1
-                  fi
-
-            - name: Validate custom inputs
-              run: |
                   RELEASE_TAG="${{ github.event.inputs.release_tag }}"
                   VERSION_BUMP="${{ github.event.inputs.version_bump }}"
                   CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+                  PUBLISH_INTERNAL="${{ inputs.publish_internal }}"
+
+                  if [ "$PUBLISH_INTERNAL" != "true" ] && { [ "$BRANCH" == "main" ] || [ "$BRANCH" == "canary" ]; }; then
+                    echo "::error::prepare-release must run from a working branch, not '$BRANCH'"
+                    exit 1
+                  fi
 
                   if [ "$VERSION_BUMP" == "custom" ] && [ -z "$CUSTOM_VERSION" ]; then
                     echo "::error::Custom version selected but 'custom_version' is empty"
@@ -69,18 +75,23 @@ jobs:
                     fi
 
                     if [ "$RELEASE_TAG" == "beta" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'; then
-                      echo "::error::Beta releases require a custom version in the format X.Y.Z-beta.N"
+                      echo "::error::Beta releases require X.Y.Z-beta.N"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "canary" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
+                      echo "::error::Canary releases require X.Y.Z-canary.N"
                       exit 1
                     fi
 
                     if [ "$RELEASE_TAG" == "latest" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'; then
-                      echo "::error::Latest releases require either a stable version or a beta version in the format X.Y.Z-beta.N"
+                      echo "::error::Latest releases require either X.Y.Z or X.Y.Z-beta.N"
                       exit 1
                     fi
                   fi
 
-                  if [ "$RELEASE_TAG" == "beta" ] && [ "$VERSION_BUMP" == "release" ]; then
-                    echo "::error::'release' bump is only valid when preparing a stable release"
+                  if [ "$RELEASE_TAG" != "latest" ] && [ "$VERSION_BUMP" == "release" ]; then
+                    echo "::error::'release' bump is only valid for latest releases"
                     exit 1
                   fi
 
@@ -88,85 +99,128 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: "20"
+                  registry-url: "https://registry.npmjs.org"
 
-            - name: Bump version
+            - name: Read current version
+              id: current_version
+              run: |
+                  VERSION=$(node -p "require('./package.json').version")
+                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+            - name: Compute target version
               id: version
               run: |
                   RELEASE_TAG="${{ github.event.inputs.release_tag }}"
                   VERSION_BUMP="${{ github.event.inputs.version_bump }}"
                   PACKAGE_NAME="catalyst-core"
+                  CURRENT_VERSION=$(node -p "require('./package.json').version")
+                  CURRENT_BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
 
                   if [ "$VERSION_BUMP" == "custom" ]; then
-                    npm version "${{ github.event.inputs.custom_version }}" --no-git-tag-version
-                  elif [ "$RELEASE_TAG" == "beta" ]; then
-                    CURRENT_VERSION=$(node -p "require('./package.json').version")
-                    CURRENT_BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
-
-                    if [ "$VERSION_BUMP" == "patch" ] && echo "$CURRENT_VERSION" | grep -q -- '-beta\.'; then
+                    TARGET_VERSION="${{ github.event.inputs.custom_version }}"
+                  elif [ "$RELEASE_TAG" == "beta" ] || [ "$RELEASE_TAG" == "canary" ]; then
+                    if [ "$VERSION_BUMP" == "patch" ] && echo "$CURRENT_VERSION" | grep -q -- "-${RELEASE_TAG}\."; then
                       TARGET_BASE_VERSION="$CURRENT_BASE_VERSION"
                     else
                       npm version "$VERSION_BUMP" --no-git-tag-version
                       TARGET_BASE_VERSION=$(node -p "require('./package.json').version" | sed 's/-.*//')
                     fi
 
-                    LATEST_PRERELEASE=$(npm view "$PACKAGE_NAME@>=${TARGET_BASE_VERSION}-beta.0 <${TARGET_BASE_VERSION}-beta.9999" version 2>/dev/null | tail -1 | sed 's/.*-beta\.\([0-9]*\).*/\1/' || echo "-1")
-
+                    LATEST_PRERELEASE=$(npm view "$PACKAGE_NAME@>=${TARGET_BASE_VERSION}-${RELEASE_TAG}.0 <${TARGET_BASE_VERSION}-${RELEASE_TAG}.9999" version --json 2>/dev/null | node -e 'let data="";process.stdin.on("data",c=>data+=c);process.stdin.on("end",()=>{if(!data.trim()) return; const value=JSON.parse(data); const versions=Array.isArray(value)?value:[value]; versions.forEach(v=>console.log(v));});' | sort -V | tail -1 | sed "s/.*-${RELEASE_TAG}\.\([0-9]*\).*/\1/" || echo "-1")
                     if [ -z "$LATEST_PRERELEASE" ]; then
                       LATEST_PRERELEASE=-1
                     fi
 
                     NEXT_PRERELEASE=$((LATEST_PRERELEASE + 1))
-                    npm version "${TARGET_BASE_VERSION}-beta.${NEXT_PRERELEASE}" --no-git-tag-version
+                    TARGET_VERSION="${TARGET_BASE_VERSION}-${RELEASE_TAG}.${NEXT_PRERELEASE}"
                   else
-                    CURRENT_VERSION=$(node -p "require('./package.json').version")
-                    BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
-
                     if [ "$VERSION_BUMP" == "release" ]; then
-                      if [ "$CURRENT_VERSION" == "$BASE_VERSION" ]; then
+                      if [ "$CURRENT_VERSION" == "$CURRENT_BASE_VERSION" ]; then
                         echo "::error::Current version '$CURRENT_VERSION' is already stable"
                         exit 1
                       fi
-
-                      npm version "$BASE_VERSION" --no-git-tag-version
+                      TARGET_VERSION="$CURRENT_BASE_VERSION"
                     else
                       npm version "$VERSION_BUMP" --no-git-tag-version
+                      TARGET_VERSION=$(node -p "require('./package.json').version")
                     fi
                   fi
 
-                  NEW_VERSION=$(node -p "require('./package.json').version")
-                  echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+                  npm version "$TARGET_VERSION" --no-git-tag-version --allow-same-version
+                  echo "version=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
 
             - name: Check version availability on npm
               run: |
                   VERSION="${{ steps.version.outputs.version }}"
+                  PACKAGE_NAME="catalyst-core"
 
-                  if npm view "catalyst-core@$VERSION" version 2>/dev/null; then
-                    echo "::error::Version $VERSION already exists on npm for catalyst-core"
+                  if [ "${{ inputs.publish_internal }}" == "true" ]; then
+                    PACKAGE_NAME="catalyst-core-internal"
+                  fi
+
+                  if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+                    echo "::error::Version $VERSION already exists on npm for $PACKAGE_NAME"
                     exit 1
                   fi
 
+            - name: Write release metadata
+              if: ${{ !inputs.publish_internal }}
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  TAG="${{ github.event.inputs.release_tag }}"
+                  printf '{\n  "tag": "%s",\n  "version": "%s"\n}\n' "$TAG" "$VERSION" > .release-meta.json
+
             - name: Configure Git
-              if: ${{ !inputs.dry_run }}
+              if: ${{ !inputs.dry_run && !inputs.publish_internal }}
               run: |
                   git config --global user.email "github-actions[bot]@users.noreply.github.com"
                   git config --global user.name "github-actions[bot]"
 
-            - name: Create release PR
-              id: create_pr
-              if: ${{ !inputs.dry_run }}
-              uses: peter-evans/create-pull-request@v7
-              with:
-                  token: ${{ github.token }}
-                  commit-message: "chore: prepare release v${{ steps.version.outputs.version }} [skip ci]"
-                  branch: "chore/release-v${{ steps.version.outputs.version }}"
-                  delete-branch: true
-                  title: "chore: prepare release v${{ steps.version.outputs.version }}"
-                  body: |
-                      Prepared `${{ steps.version.outputs.version }}` for the `${{ github.event.inputs.release_tag }}` release channel.
-                  base: main
-                  add-paths: |
-                      package.json
-                      package-lock.json
+            - name: Commit prepared version
+              id: commit_prepare
+              if: ${{ !inputs.dry_run && !inputs.publish_internal }}
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  git add package.json package-lock.json .release-meta.json
+
+                  if git diff --cached --quiet; then
+                    echo "::error::No version changes to commit"
+                    exit 1
+                  fi
+
+                  git commit -m "chore: prepare release v$VERSION [skip ci]"
+                  git push
+
+            - name: Rename package (internal)
+              if: inputs.publish_internal
+              run: npm pkg set name=catalyst-core-internal
+
+            - name: Replace in source files (internal)
+              if: inputs.publish_internal
+              run: |
+                  echo "Files containing 'catalyst-core' in source:"
+                  grep -rl "catalyst-core" ./src --include="*.js" --include="*.ts" || echo "No matches found"
+
+                  echo ""
+                  echo "Replacing 'catalyst-core' with 'catalyst-core-internal' in source files..."
+                  find ./src -type f \( -name "*.js" -o -name "*.ts" \) -exec perl -0pi -e 's/catalyst-core(?!-internal)(?![[:alnum:]_-])/catalyst-core-internal/g' {} \;
+
+            - name: Install dependencies for internal publish
+              if: inputs.publish_internal
+              run: npm install
+
+            - name: Build package for internal publish
+              if: inputs.publish_internal
+              run: npm run prepare
+
+            - name: Update npm for OIDC support
+              if: ${{ inputs.publish_internal && !inputs.dry_run }}
+              run: npm install -g npm@latest
+
+            - name: Publish internal package
+              id: publish_internal
+              if: ${{ inputs.publish_internal && !inputs.dry_run }}
+              run: npm publish --tag ${{ github.event.inputs.release_tag }} --access public
 
             - name: Final summary
               if: always()
@@ -176,8 +230,11 @@ jobs:
                   VERSION_BUMP="${{ github.event.inputs.version_bump }}"
                   CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
                   DRY_RUN="${{ inputs.dry_run }}"
-                  VERSION="${{ steps.version.outputs.version }}"
-                  PR_OUTCOME="${{ steps.create_pr.outcome }}"
+                  PUBLISH_INTERNAL="${{ inputs.publish_internal }}"
+                  CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+                  TARGET_VERSION="${{ steps.version.outputs.version }}"
+                  COMMIT_OUTCOME="${{ steps.commit_prepare.outcome }}"
+                  INTERNAL_PUBLISH_OUTCOME="${{ steps.publish_internal.outcome }}"
 
                   if [ -n "$CUSTOM_VERSION" ]; then
                     REQUESTED_VERSION="$CUSTOM_VERSION"
@@ -185,14 +242,36 @@ jobs:
                     REQUESTED_VERSION="-"
                   fi
 
-                  if [ "$DRY_RUN" == "true" ]; then
-                    PR_ACTION="skipped (dry_run=true)"
-                  elif [ "$PR_OUTCOME" == "success" ]; then
-                    PR_ACTION="created or updated branch chore/release-v$VERSION"
-                  elif [ "$PR_OUTCOME" == "failure" ]; then
-                    PR_ACTION="failed"
+                  if [ "$PUBLISH_INTERNAL" == "true" ]; then
+                    COMMIT_ACTION="not applicable"
+                  elif [ "$DRY_RUN" == "true" ]; then
+                    COMMIT_ACTION="skipped (dry_run=true)"
+                  elif [ "$COMMIT_OUTCOME" == "success" ]; then
+                    COMMIT_ACTION="committed and pushed version files"
+                  elif [ "$COMMIT_OUTCOME" == "failure" ]; then
+                    COMMIT_ACTION="failed"
                   else
-                    PR_ACTION="not run"
+                    COMMIT_ACTION="not run"
+                  fi
+
+                  if [ "$PUBLISH_INTERNAL" != "true" ]; then
+                    INTERNAL_ACTION="not requested"
+                  elif [ "$DRY_RUN" == "true" ]; then
+                    INTERNAL_ACTION="would publish catalyst-core-internal@$TARGET_VERSION with dist-tag $RELEASE_TAG"
+                  elif [ "$INTERNAL_PUBLISH_OUTCOME" == "success" ]; then
+                    INTERNAL_ACTION="published catalyst-core-internal@$TARGET_VERSION with dist-tag $RELEASE_TAG"
+                  elif [ "$INTERNAL_PUBLISH_OUTCOME" == "failure" ]; then
+                    INTERNAL_ACTION="internal publish failed"
+                  else
+                    INTERNAL_ACTION="not run"
+                  fi
+
+                  if [ "$PUBLISH_INTERNAL" == "true" ]; then
+                    METADATA_ACTION="not written"
+                  elif [ "$DRY_RUN" == "true" ]; then
+                    METADATA_ACTION="would write .release-meta.json for $RELEASE_TAG"
+                  else
+                    METADATA_ACTION="wrote .release-meta.json for $RELEASE_TAG"
                   fi
 
                   {
@@ -202,7 +281,11 @@ jobs:
                     echo "- release_tag: $RELEASE_TAG"
                     echo "- version_bump: $VERSION_BUMP"
                     echo "- custom_version: $REQUESTED_VERSION"
-                    echo "- computed_version: ${VERSION:-not computed}"
+                    echo "- current_version: ${CURRENT_VERSION:-not read}"
+                    echo "- target_version: ${TARGET_VERSION:-not computed}"
                     echo "- dry_run: $DRY_RUN"
-                    echo "- pr_action: $PR_ACTION"
+                    echo "- publish_internal: $PUBLISH_INTERNAL"
+                    echo "- metadata_action: $METADATA_ACTION"
+                    echo "- commit_action: $COMMIT_ACTION"
+                    echo "- internal_publish_action: $INTERNAL_ACTION"
                   } | tee -a "$GITHUB_STEP_SUMMARY"
