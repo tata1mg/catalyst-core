@@ -155,150 +155,110 @@ function resolveImportPath(importPath, importerId) {
 }
 
 /**
- * Vite plugin to add cacheKey to split calls with manifest keys
+ * Walk an AST node and invoke the visitor for every node.
+ */
+function walk(node, visitor) {
+    if (!node || typeof node !== "object") return
+
+    visitor(node)
+
+    for (const key of Object.keys(node)) {
+        const child = node[key]
+        if (Array.isArray(child)) {
+            for (const item of child) {
+                if (item && typeof item.type === "string") {
+                    walk(item, visitor)
+                }
+            }
+        } else if (child && typeof child.type === "string") {
+            walk(child, visitor)
+        }
+    }
+}
+
+/**
+ * Vite plugin to add cacheKey to split calls with manifest keys.
+ * Uses Rollup's this.parse() for robust AST-based detection instead of regex.
  */
 export function injectCacheKeyPlugin() {
     return {
         name: "split-cache-key",
 
         async transform(code, id) {
-            // Only process JS/JSX/TS/TSX files
-            if (!/\.(js|jsx|ts|tsx)$/.test(id)) {
+            if (!/\.(js|jsx|ts|tsx)$/.test(id)) return null
+            if (id.includes("node_modules")) return null
+            if (!code.includes("split")) return null
+
+            let ast
+            try {
+                ast = this.parse(code)
+            } catch {
                 return null
             }
 
-            // Skip node_modules
-            if (id.includes("node_modules")) {
-                return null
-            }
+            // Collect split() call sites that need a cacheKey injected.
+            // Process in reverse source order so earlier indices stay valid after splicing.
+            const sites = []
 
-            // Skip if no split calls
-            if (!code.includes("split")) {
-                return null
-            }
+            walk(ast, (node) => {
+                // Match: split(<arrow>, <options?>, <cacheKey?>)
+                if (node.type !== "CallExpression") return
+                if (node.callee.type !== "Identifier" || node.callee.name !== "split") return
 
-            let transformedCode = code
-            let hasTransforms = false
+                const args = node.arguments
+                if (args.length === 0) return
 
-            // Regex to match split calls with import path
-            // Matches: split(() => import("path"), {options})
-            // Also handles cases without options: split(() => import("path"))
-            // Handles various whitespace/newline combinations
-            const splitRegex = /split\s*\(\s*\(\s*\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g
+                // First arg must be a function that returns import("...")
+                // Supports both: () => import("...") and function() { return import("...") }
+                const loader = args[0]
+                let importExpr
 
-            let match
-            const matches = []
-
-            // Collect all matches first
-            while ((match = splitRegex.exec(code)) !== null) {
-                matches.push({
-                    index: match.index,
-                    importPath: match[1],
-                    fullMatch: match[0],
-                })
-            }
-
-            // Process matches in reverse order to preserve indices
-            for (let i = matches.length - 1; i >= 0; i--) {
-                const { index, importPath, fullMatch } = matches[i]
-
-                try {
-                    // Find the end of the function call
-                    let pos = index + fullMatch.length
-                    let braceCount = 0
-                    let parenCount = 1 // We're already inside the split() call
-                    let optionsStart = -1
-                    let optionsEnd = -1
-                    let callEnd = -1
-
-                    // Skip whitespace and comma
-                    while (pos < code.length && (/\s/.test(code[pos]) || code[pos] === ",")) {
-                        pos++
-                    }
-
-                    // Check if there's an options object
-                    if (code[pos] === "{") {
-                        optionsStart = pos
-                        braceCount = 1
-                        pos++
-
-                        // Find the closing brace
-                        while (pos < code.length && braceCount > 0) {
-                            if (code[pos] === "{") braceCount++
-                            else if (code[pos] === "}") braceCount--
-                            pos++
-                        }
-                        optionsEnd = pos - 1
-                    }
-
-                    // Find the closing parenthesis of the split call
-                    while (pos < code.length && parenCount > 0) {
-                        if (code[pos] === "(") parenCount++
-                        else if (code[pos] === ")") {
-                            parenCount--
-                            if (parenCount === 0) {
-                                callEnd = pos
-                                break
-                            }
-                        }
-                        pos++
-                    }
-
-                    if (callEnd !== -1) {
-                        // Check if cacheKey is already present
-                        // Count top-level commas after the options object (not inside it)
-                        const afterOptions =
-                            optionsEnd !== -1
-                                ? code.slice(optionsEnd + 1, callEnd).trim()
-                                : code.slice(index + fullMatch.length, callEnd).trim()
-
-                        // If there's content after the options (besides whitespace and closing paren),
-                        // it means there's already a third parameter (cacheKey)
-                        const hasThirdParam = afterOptions.replace(/^,/, "").trim().length > 0
-
-                        if (hasThirdParam) {
-                            // Already has cacheKey, skip
-                            continue
-                        }
-
-                        // Resolve the import path
-                        let manifestKey = resolveImportPath(importPath, id)
-                        if (manifestKey && !manifestKey.endsWith(".js")) {
-                            manifestKey = manifestKey + ".js"
-                        }
-
-                        // Build the replacement
-                        let replacement
-                        if (optionsStart !== -1 && optionsEnd !== -1) {
-                            // Has options object, add cacheKey as third parameter
-                            const beforeCall = code.slice(index, optionsEnd + 1)
-                            const afterOptions = code.slice(optionsEnd + 1, callEnd)
-                            // Clean up any trailing whitespace/comma
-                            const cleanedAfter = afterOptions.trim().replace(/^,/, "").trim()
-                            replacement =
-                                beforeCall +
-                                (cleanedAfter ? `, ${cleanedAfter}, ` : `, `) +
-                                `"${manifestKey}")`
-                        } else {
-                            // No options object, add empty options and cacheKey
-                            const beforeCall = code.slice(index, callEnd)
-                            replacement = beforeCall + `, {}, "${manifestKey}")`
-                        }
-
-                        // Replace in the code
-                        transformedCode =
-                            transformedCode.slice(0, index) + replacement + transformedCode.slice(callEnd + 1)
-                        hasTransforms = true
-                    }
-                } catch (error) {
-                    console.warn(
-                        `Could not process split call with import path: ${importPath}`,
-                        error.message
-                    )
+                if (loader.type === "ArrowFunctionExpression") {
+                    // () => import("...")
+                    importExpr = loader.body
+                } else if (loader.type === "FunctionExpression") {
+                    // function() { return import("...") }
+                    const stmts = loader.body.body
+                    if (stmts.length !== 1 || stmts[0].type !== "ReturnStatement") return
+                    importExpr = stmts[0].argument
+                } else {
+                    return
                 }
+
+                if (!importExpr || importExpr.type !== "ImportExpression") return
+                if (importExpr.source.type !== "Literal" || typeof importExpr.source.value !== "string") return
+
+                const importPath = importExpr.source.value
+
+                // Already has a third argument (cacheKey) → skip
+                if (args.length >= 3) return
+
+                sites.push({
+                    importPath,
+                    callEnd: node.end, // position of the closing )
+                    hasOptions: args.length === 2,
+                })
+            })
+
+            if (sites.length === 0) return null
+
+            // Sort descending by position so splicing doesn't shift earlier indices
+            sites.sort((a, b) => b.callEnd - a.callEnd)
+
+            let transformed = code
+            for (const { importPath, callEnd, hasOptions } of sites) {
+                let manifestKey = resolveImportPath(importPath, id)
+                if (manifestKey && !manifestKey.endsWith(".js")) {
+                    manifestKey = manifestKey + ".js"
+                }
+
+                // Insert just before the closing ) of the split() call
+                const insertion = hasOptions ? `, "${manifestKey}"` : `, {}, "${manifestKey}"`
+
+                transformed = transformed.slice(0, callEnd - 1) + insertion + transformed.slice(callEnd - 1)
             }
 
-            return hasTransforms ? { code: transformedCode, map: null } : null
+            return { code: transformed, map: null }
         },
     }
 }

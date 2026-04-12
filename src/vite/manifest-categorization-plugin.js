@@ -1,17 +1,36 @@
 /**
  * Vite Plugin for Categorizing Assets by SSR Split Configuration
  *
- * This plugin categorizes build assets into three groups:
+ * This plugin categorizes build assets into four groups:
  * - essential: Entry chunks + their transitive STATIC import closure (not dynamic)
  * - ssrTrue: Assets loaded via split with ssr: true
  * - ssrFalse: Assets loaded via split with ssr: false
+ * - orphan: Non-entry chunks with zero static importers (not split targets)
  **/
 import path from "path"
 import fs from "fs"
 
-// Compiled once at module load — not inside transform to avoid per-file recompilation
-const SPLIT_REGEX =
-    /split\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*(?:,\s*\{([^}]*)\})?\s*\)/g
+/**
+ * Walk an AST node and invoke the visitor for every node.
+ */
+function walk(node, visitor) {
+    if (!node || typeof node !== "object") return
+
+    visitor(node)
+
+    for (const key of Object.keys(node)) {
+        const child = node[key]
+        if (Array.isArray(child)) {
+            for (const item of child) {
+                if (item && typeof item.type === "string") {
+                    walk(item, visitor)
+                }
+            }
+        } else if (child && typeof child.type === "string") {
+            walk(child, visitor)
+        }
+    }
+}
 
 export function manifestCategorizationPlugin(options = {}) {
     const { outputFile = "asset-categories.json", publicPath = "/client/assets/" } = options
@@ -61,11 +80,24 @@ export function manifestCategorizationPlugin(options = {}) {
             }
         }
 
-        // Orphan chunks (no importers at all) are NOT split-only — they should be essential
         const isChunkOnlyUsedBySplits = (chunkName) => {
             const importers = importedBy.get(chunkName)
             if (!importers || importers.size === 0) return false
             return [...importers].every((imp) => splitChunkNames.has(imp))
+        }
+
+        // Orphan chunks: no static importers, not an entry chunk, and not a split target.
+        // Split targets have zero static importers (they're dynamically imported) but
+        // are already categorized as ssrTrue/ssrFalse — they're not true orphans.
+        const orphanChunkNames = new Set()
+        for (const [fileName, chunk] of Object.entries(bundle)) {
+            if (chunk.type !== "chunk") continue
+            if (chunk.isEntry) continue
+            if (splitChunkNames.has(fileName)) continue
+            const importers = importedBy.get(fileName)
+            if (!importers || importers.size === 0) {
+                orphanChunkNames.add(fileName)
+            }
         }
 
         // BFS over STATIC imports from entry chunks only.
@@ -83,7 +115,8 @@ export function manifestCategorizationPlugin(options = {}) {
                 if (
                     !essentialChunkNames.has(dep) &&
                     !splitChunkNames.has(dep) &&
-                    !isChunkOnlyUsedBySplits(dep)
+                    !isChunkOnlyUsedBySplits(dep) &&
+                    !orphanChunkNames.has(dep)
                 ) {
                     essentialChunkNames.add(dep)
                     queue.push(dep)
@@ -100,7 +133,7 @@ export function manifestCategorizationPlugin(options = {}) {
             dynamicImports: chunk.dynamicImports || [],
         })
 
-        const categorizedChunks = { essential: {}, ssrTrue: {}, ssrFalse: {} }
+        const categorizedChunks = { essential: {}, ssrTrue: {}, ssrFalse: {}, orphan: {} }
 
         for (const fileName of essentialChunkNames) {
             if (bundle[fileName]?.type === "chunk") {
@@ -118,6 +151,12 @@ export function manifestCategorizationPlugin(options = {}) {
             }
         }
 
+        for (const fileName of orphanChunkNames) {
+            if (bundle[fileName]?.type === "chunk") {
+                categorizedChunks.orphan[fileName] = toEntry(fileName, bundle[fileName])
+            }
+        }
+
         processedManifest = {
             ...categorizedChunks,
             metadata: {
@@ -127,6 +166,7 @@ export function manifestCategorizationPlugin(options = {}) {
                     ssrTrueModules: Object.keys(categorizedChunks.ssrTrue).length,
                     ssrFalseModules: Object.keys(categorizedChunks.ssrFalse).length,
                     essentialModules: Object.keys(categorizedChunks.essential).length,
+                    orphanModules: Object.keys(categorizedChunks.orphan).length,
                 },
             },
         }
@@ -140,9 +180,10 @@ export function manifestCategorizationPlugin(options = {}) {
             essential: {},
             ssrTrue: {},
             ssrFalse: {},
+            orphan: {},
         }
 
-        for (const category of ["essential", "ssrTrue", "ssrFalse"]) {
+        for (const category of ["essential", "ssrTrue", "ssrFalse", "orphan"]) {
             for (const [chunkName, chunkData] of Object.entries(categorizedManifest[category])) {
                 let matchedViteKey = null
                 let matchedViteEntry = null
@@ -170,7 +211,8 @@ export function manifestCategorizationPlugin(options = {}) {
                 viteEntry.isEntry &&
                 !newCategorizedChunks.essential[viteKey] &&
                 !newCategorizedChunks.ssrTrue[viteKey] &&
-                !newCategorizedChunks.ssrFalse[viteKey]
+                !newCategorizedChunks.ssrFalse[viteKey] &&
+                !newCategorizedChunks.orphan[viteKey]
             ) {
                 newCategorizedChunks.essential[viteKey] = { ...viteEntry }
             }
@@ -200,7 +242,7 @@ export function manifestCategorizationPlugin(options = {}) {
 
     // Attach allCss (transitive) to every chunk in all categories
     function enrichWithTransitiveCss(categorizedManifest, viteManifest) {
-        for (const category of ["essential", "ssrTrue", "ssrFalse"]) {
+        for (const category of ["essential", "ssrTrue", "ssrFalse", "orphan"]) {
             for (const [key, chunk] of Object.entries(categorizedManifest[category])) {
                 const transitiveCss = collectTransitiveCss(key, viteManifest)
                 chunk.allCss = [...new Set(transitiveCss)]
@@ -220,16 +262,56 @@ export function manifestCategorizationPlugin(options = {}) {
             if (id.includes("node_modules")) return null
             if (!code.includes("split")) return null
 
-            SPLIT_REGEX.lastIndex = 0 // reset /g flag since the regex is reused across files
-
-            let match
-            while ((match = SPLIT_REGEX.exec(code)) !== null) {
-                const importPath = match[1]
-                const optionsStr = match[2] || ""
-                const ssrMatch = optionsStr.match(/ssr\s*:\s*(true|false)/)
-                const ssrValue = ssrMatch ? ssrMatch[1] === "true" : true
-                pendingSplitPaths.push({ importPath, importer: id, ssrValue })
+            let ast
+            try {
+                ast = this.parse(code)
+            } catch {
+                return null
             }
+
+            walk(ast, (node) => {
+                if (node.type !== "CallExpression") return
+                if (node.callee.type !== "Identifier" || node.callee.name !== "split") return
+
+                const args = node.arguments
+                if (args.length === 0) return
+
+                // First arg must be a function that returns import("...")
+                const loader = args[0]
+                let importExpr
+
+                if (loader.type === "ArrowFunctionExpression") {
+                    importExpr = loader.body
+                } else if (loader.type === "FunctionExpression") {
+                    const stmts = loader.body.body
+                    if (stmts.length !== 1 || stmts[0].type !== "ReturnStatement") return
+                    importExpr = stmts[0].argument
+                } else {
+                    return
+                }
+
+                if (!importExpr || importExpr.type !== "ImportExpression") return
+                if (importExpr.source.type !== "Literal" || typeof importExpr.source.value !== "string") return
+
+                const importPath = importExpr.source.value
+
+                // Extract ssr value from options object (second arg) if present
+                let ssrValue = true // default
+                if (args.length >= 2 && args[1].type === "ObjectExpression") {
+                    const ssrProp = args[1].properties.find(
+                        (p) =>
+                            p.type === "Property" &&
+                            p.key.type === "Identifier" &&
+                            p.key.name === "ssr" &&
+                            p.value.type === "Literal"
+                    )
+                    if (ssrProp) {
+                        ssrValue = ssrProp.value.value === true
+                    }
+                }
+
+                pendingSplitPaths.push({ importPath, importer: id, ssrValue })
+            })
 
             return null
         },
