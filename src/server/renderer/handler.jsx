@@ -228,6 +228,7 @@ export default async function (req, res) {
                         return collectAssets(req, allMatches)
                     })
                     .then(
+                        
                         async (chunkExtractor) =>
                             await renderMarkUp(
                                 null,

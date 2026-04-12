@@ -66,8 +66,15 @@ export class ChunkExtractor {
                 ? cacheKey
                 : Object.keys(this.manifest).find((k) => k.startsWith(cacheKey + "."))
 
-        if (resolvedKey && this.manifest[resolvedKey]) {
-            this._addAssets(this.manifest[resolvedKey], this.deferred)
+        if (resolvedKey) {
+            const entry =
+                this.assetManifest.ssrTrue?.[resolvedKey] ||
+                this.assetManifest.ssrFalse?.[resolvedKey] ||
+                this.manifest[resolvedKey]
+
+            if (entry) {
+                this._addAssets(entry, this.deferred)
+            }
         }
     }
 
