@@ -1,0 +1,49 @@
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  f0d6e626b9558726 109-110,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "b3ae81dbe4621d18fae16d39f9ca03f74a75c49d",
+  "prompts": {
+    "33c5d49edd2fffa1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5673e3bf-b5bc-47a8-bf7d-6205a64864d5",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "47e68369e05065c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1ab9bfa-5acf-4ea1-91ac-4bb93cb25e5a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "f0d6e626b9558726": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7e86f7b3-fb97-4bba-8933-4279ef0529fd",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 4,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
