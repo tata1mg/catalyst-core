@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0-beta.1] - 2026-04-15
+
+- Promoted `0.1.0-canary.7` to the first proper beta release after stabilization.
+- No code changes from `0.1.0-canary.7`; this release marks the same build as production-ready beta.
+
+## [0.1.0-canary.7] - 2026-03-31
+
+- Introduced Catalyst MCP v2 with a new setup flow, database schema, knowledge base, and source-aware migration tooling for stronger project guidance and conversion workflows.
+- Expanded MCP/framework knowledge coverage across SEO, observability, webpack, React Compiler, CLI, file conventions, and native hooks, while improving setup and verification messaging across supported MCP clients.
+
+## [0.1.0-canary.6] - 2026-03-09
+
+- Hardened URL whitelisting with thread-safety improvements, broader test coverage, and related iOS build fixes to make access-control behavior more reliable.
+- Improved compatibility and runtime resilience by softening bridge environment mismatch failures and preserving backward compatibility for `useDataProtection` on older native binaries.
+
+## [0.1.0-canary.5] - 2026-02-27
+
+- Strengthened native app security with backup restrictions, screen-capture protection, web data clearing, and related Android/iOS test coverage.
+- Improved universal app runtime behavior with safe-area inset support, edge-to-edge rendering, and notification permission override fixes.
+- Expanded platform support with offline fallback handling, notification/access-control refinements, localhost HTTP allowances for local development, and file-picker/HTTPS server improvements.
+
 ## [0.1.0-canary.4] - 2026-02-12
 
 - Added Google Sign-In support for both Android and iOS in Catalyst, enabling a unified native authentication experience for apps built on the framework.
