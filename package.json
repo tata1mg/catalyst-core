@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "0.1.0-canary.7",
+    "version": "0.1.0-canary.8",
     "main": "index.js",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
@@ -31,6 +31,7 @@
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
         "./WebBridge": "./dist/native/bridge/WebBridge.js",
+        "./PluginBridge": "./dist/native/plugin-bridge/PluginBridge.js",
         "./hooks": "./dist/native/bridge/hooks.js",
         "./sentry": "./dist/sentry.js",
         "./otel": "./dist/otel.js"
@@ -39,7 +40,7 @@
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "prepare": "babel src --out-dir ./dist --ignore '**/.build/**' && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift src/native/assets dist/native/ && mkdir -p dist/native/iosnativeWebView && tar -C src/native/iosnativeWebView --exclude='.build' --exclude='.package-config-hash' -cf - . | tar -C dist/native/iosnativeWebView -xf -",
+        "prepare": "babel src --out-dir ./dist --ignore '**/.build/**' && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift src/native/assets src/native/internal-plugins dist/native/ && mkdir -p dist/native/iosnativeWebView && tar -C src/native/iosnativeWebView --exclude='.build' --exclude='.package-config-hash' -cf - . | tar -C dist/native/iosnativeWebView -xf -",
         "prepublishOnly": "npm i && npm run prepare"
     },
     "license": "MIT",

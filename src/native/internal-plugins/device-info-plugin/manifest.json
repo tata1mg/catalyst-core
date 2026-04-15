@@ -1,0 +1,19 @@
+{
+    "id": "io.catalyst.device_info",
+    "configKey": "deviceInfo",
+    "version": "1.0.0",
+    "displayName": "Device Info",
+    "description": "Provides device metadata, screen metrics, app info, and platform-specific diagnostics.",
+    "category": "device",
+    "platforms": ["android", "ios"],
+    "commands": ["getDeviceInfo"],
+    "android": {
+        "className": "io.yourname.androidproject.plugins.internal.deviceinfo.DeviceInfoPlugin",
+        "permissions": [],
+        "dependencies": []
+    },
+    "ios": {
+        "className": "DeviceInfoPlugin",
+        "dependencies": []
+    }
+}

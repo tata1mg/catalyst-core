@@ -13,6 +13,8 @@ const validCommands = [
     "serve",
     "devBuild",
     "devServe",
+    "plugin",
+    "plugins",
     "buildApp",
     "buildApp:ios",
     "buildApp:android",
@@ -67,11 +69,14 @@ const scriptIndex = args.findIndex(
         x === "serve" ||
         x === "devBuild" ||
         x === "devServe" ||
+        x === "plugin" ||
+        x === "plugins" ||
         isPlatformCommand(x, "buildApp") ||
         isPlatformCommand(x, "setupEmulator")
 )
 const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
 const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
+const resolvedScript = script === "plugin" ? "plugins" : script
 
 if (validCommands.includes(script)) {
     // Handle platform-specific or combined commands
@@ -90,7 +95,9 @@ if (validCommands.includes(script)) {
         // Original commands
         const result = spawnSync(
             process.execPath,
-            nodeArgs.concat(require.resolve("../dist/scripts/" + script)).concat(args.slice(scriptIndex + 1)),
+            nodeArgs
+                .concat(require.resolve("../dist/scripts/" + resolvedScript))
+                .concat(args.slice(scriptIndex + 1)),
             { stdio: "inherit" }
         )
         handleProcessResult(result)

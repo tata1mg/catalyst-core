@@ -17,6 +17,8 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     weak var webView: WKWebView?
     private weak var viewController: UIViewController?
     private weak var webViewModel: WebViewModel?
+    private var messageHandlerProxy: WeakScriptMessageHandler?
+    private var isRegistered = false
 
     // Protocol-based notification handler (injected at runtime)
     private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
@@ -133,10 +135,16 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
 
     // Register the JavaScript interface with the WebView
     func register() {
+        guard !isRegistered else { return }
         let registerStart = CFAbsoluteTimeGetCurrent()
 
-        let userContentController = webView?.configuration.userContentController
-        userContentController?.add(self, name: "NativeBridge")
+        guard let userContentController = webView?.configuration.userContentController else {
+            return
+        }
+        let proxy = WeakScriptMessageHandler(delegate: self)
+        userContentController.add(proxy, name: "NativeBridge")
+        messageHandlerProxy = proxy
+        isRegistered = true
 
         let registerTime = (CFAbsoluteTimeGetCurrent() - registerStart) * 1000
         logWithTimestamp("✅ NativeBridge registered (took \(String(format: "%.2f", registerTime))ms)")
@@ -144,7 +152,10 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     
     // Unregister to prevent memory leaks
     func unregister() {
+        guard isRegistered else { return }
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "NativeBridge")
+        messageHandlerProxy = nil
+        isRegistered = false
         
         if let listenerId = networkStatusListenerId {
             NetworkMonitor.shared.removeListener(listenerId)

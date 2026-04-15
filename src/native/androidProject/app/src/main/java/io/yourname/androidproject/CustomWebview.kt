@@ -233,7 +233,7 @@ class CustomWebView(
         }
 
         // Additional security check: only allow whitelisted interface names
-        val allowedInterfaces = setOf("NativeBridge", "AndroidBridge")
+        val allowedInterfaces = setOf("NativeBridge", "AndroidBridge", "PluginBridge")
         if (name !in allowedInterfaces) {
             Log.e(TAG, "❌ Security: Interface name '$name' is not in whitelist. Refusing to add interface.")
             return
@@ -243,6 +243,17 @@ class CustomWebView(
         webView.addJavascriptInterface(obj, name)
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🔗 Added JavaScript interface: $name")
+        }
+    }
+
+    fun removeJavascriptInterface(name: String) {
+        try {
+            webView.removeJavascriptInterface(name)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🔌 Removed JavaScript interface: $name")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Failed to remove JavaScript interface '$name': ${e.message}")
         }
     }
 
