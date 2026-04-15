@@ -9,8 +9,9 @@ import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
-import { validateConfigureStore, validateGetRoutes } from "../utils/validator.js"
+import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
+import { withObservability, withSyncObservability } from "../../otel.js"
 import {
     readCssFromDisk,
     generateScriptElements,
@@ -32,8 +33,38 @@ import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
 
+// Try to import user-defined hooks. These are optional — apps that don't export them
+// will get undefined, and safeCall is a no-op for non-functions.
+let _onRouteMatch, _onFetcherSuccess, _onFetcherError, _onAppServerSideSuccess,
+    _onAppServerSideError, _onRenderError, _onRequestError
+try {
+    const hooks = await import("@catalyst/template/server/index.js")
+    _onRouteMatch = hooks.onRouteMatch
+    _onFetcherSuccess = hooks.onFetcherSuccess
+    _onFetcherError = hooks.onFetcherError
+    _onAppServerSideSuccess = hooks.onAppServerSideSuccess
+    _onAppServerSideError = hooks.onAppServerSideError
+    _onRenderError = hooks.onRenderError
+    _onRequestError = hooks.onRequestError
+} catch {
+    // No hooks file — all hooks remain undefined, safeCall will skip them
+}
+
+const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
+
+const traceHook = (fn, spanName) =>
+    typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
+
+const onRouteMatch = traceHook(_onRouteMatch, "onRouteMatch")
+const onFetcherSuccess = traceHook(_onFetcherSuccess, "onFetcherSuccess")
+const onFetcherError = traceHook(_onFetcherError, "onFetcherError")
+const onAppServerSideSuccess = traceHook(_onAppServerSideSuccess, "onAppServerSideSuccess")
+const onAppServerSideError = traceHook(_onAppServerSideError, "onAppServerSideError")
+const onRenderError = traceHook(_onRenderError, "onRenderError")
+const onRequestError = traceHook(_onRequestError, "onRequestError")
+
 // ── Route matching ─────────────────────────────────────────────────────
-const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
+const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
     return routes.reduce((matches, route) => {
         const { path } = route
         const match = matchPath(
@@ -42,7 +73,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         )
 
         if (!match && route.children) {
-            const nested = getMatchRoutes(
+            const nested = _getMatchRoutes(
                 route.children,
                 req,
                 res,
@@ -60,8 +91,10 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
     }, [])
 }
 
+const getMatchRoutes = withSyncObservability(SSR_SERVICE, _getMatchRoutes, "getMatchRoutes")
+
 // ── Asset collection ───────────────────────────────────────────────────
-const collectAssets = (req, allMatches) => {
+const _collectAssets = (req, allMatches) => {
     const chunkExtractor = new ChunkExtractor({
         manifest: req.manifest || {},
         ssrManifest: req.ssrManifest || {},
@@ -73,6 +106,8 @@ const collectAssets = (req, allMatches) => {
 
     return chunkExtractor
 }
+
+const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collectAssets")
 
 // ── JSX tree ───────────────────────────────────────────────────────────
 const getComponent = (store, context, req, fetcherData, isBot) => (
@@ -88,7 +123,7 @@ const getComponent = (store, context, req, fetcherData, isBot) => (
 )
 
 // ── Render and stream ──────────────────────────────────────────────────
-const renderMarkUp = async (
+const _renderMarkUp = async (
     errorCode,
     req,
     res,
@@ -166,49 +201,82 @@ const renderMarkUp = async (
     }
 
     try {
-        const status = matches.length && matches[0].match.path === "*" ? 404 : 200
+        const status = errorCode || (matches.length && matches[0].match.path === "*" ? 404 : 200)
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
 
-        const { pipe } = renderToPipeableStream(<CompleteDocument />, {
-            onShellReady() {
-                res.setHeader("content-type", "text/html")
-                pipe(res)
-            },
+        return new Promise((resolve, reject) => {
+            const { pipe } = renderToPipeableStream(<CompleteDocument />, {
+                onShellReady() {
+                    res.setHeader("content-type", "text/html")
+                    pipe(res)
+                },
 
-            onAllReady() {
-                // Deferred assets — injected after body (non-blocking)
-                const deferredAssets = chunkExtractor
-                    ? chunkExtractor.getDeferredAssets()
-                    : { js: [], css: [] }
+                onAllReady() {
+                    // Deferred assets — injected after body (non-blocking)
+                    const deferredAssets = chunkExtractor
+                        ? chunkExtractor.getDeferredAssets()
+                        : { js: [], css: [] }
 
-                // Tell client which components were SSR'd so split() can
-                // eagerly import them (prevents Suspense fallback flash)
-                res.write(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
-                if (chunkExtractor) {
-                    const renderedKeys = chunkExtractor.getRenderedComponentKeys()
-                    res.write(
-                        `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
-                    )
-                }
+                    // Tell client which components were SSR'd so split() can
+                    // eagerly import them (prevents Suspense fallback flash)
+                    res.write(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
+                    if (chunkExtractor) {
+                        const renderedKeys = chunkExtractor.getRenderedComponentKeys()
+                        res.write(
+                            `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
+                        )
+                    }
 
-                const { newCssPaths } = registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets)
-                registerDeferredAssetUrls({ js: deferredAssets.js })
-                if (newCssPaths.length) {
-                    res.write(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
-                }
-                if (!isBot) {
-                    res.write(generateScriptStrings(deferredAssets.js))
-                }
-            },
+                    const { newCssPaths } = registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets)
+                    registerDeferredAssetUrls({ js: deferredAssets.js })
+                    if (newCssPaths.length) {
+                        res.write(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                    }
+                    if (!isBot) {
+                        res.write(generateScriptStrings(deferredAssets.js))
+                    }
+
+                    res.end()
+                    resolve()
+                },
+
+                onError(error) {
+                    console.error("Error in renderToPipeableStream:", error)
+                    safeCall(onRenderError, { req, res, store, error })
+                    reject(error)
+                },
+            })
         })
     } catch (error) {
-        console.error("Error in rendering document on server:" + error)
+        console.error("Error in rendering document on server:", error)
+        safeCall(onRenderError, { req, res, store, error })
+        return Promise.reject(error)
     }
 }
 
+const tracedRenderMarkUp = withObservability(SSR_SERVICE, _renderMarkUp, "renderMarkUp")
+const tracedAppServerSideFunction = withObservability(
+    SSR_SERVICE,
+    (args) => App.serverSideFunction(args),
+    "App.serverSideFunction"
+)
+const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
+const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
+
 // ── Express middleware ──────────────────────────────────────────────────
-export default async function (req, res) {
+/**
+ * SSR request handler. Execution pipeline per request:
+ *   1. Match route → collect assets
+ *   2. App.serverSideFunction (app-level server hook)
+ *   3. serverDataFetcher (route-level data fetching)
+ *   4. renderMarkUp → renderToPipeableStream (stream to client)
+ *
+ * res.headersSent is checked after each async step: if a user hook
+ * (onRouteMatch, onFetcherSuccess, etc.) has already sent a response
+ * (e.g. a redirect), we bail out early without attempting another render.
+ */
+async function _handler(req, res) {
     try {
         let context = {}
         let fetcherData = {}
@@ -219,39 +287,78 @@ export default async function (req, res) {
         const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
         let allTags = []
 
-        App.serverSideFunction({ store, req, res })
-            .then(() => {
-                serverDataFetcher({ routes, req, res, url: req.originalUrl }, { store })
-                    .then((res) => {
-                        fetcherData = res
-                        allTags = getMetaData(allMatches, fetcherData)
-                        return collectAssets(req, allMatches)
-                    })
-                    .then(
-                        
-                        async (chunkExtractor) =>
-                            await renderMarkUp(
-                                null,
-                                req,
-                                res,
-                                allTags,
-                                fetcherData,
-                                store,
-                                matches,
-                                context,
-                                chunkExtractor
-                            )
+        safeCall(onRouteMatch, { req, res, matches, store })
+
+        if (res.headersSent) return
+
+        try {
+            await tracedAppServerSideFunction({ store, req, res })
+            safeCall(onAppServerSideSuccess, { req, res, store })
+
+            if (res.headersSent) return
+
+            try {
+                fetcherData = await tracedServerDataFetcher(
+                    { routes, req, res, url: req.originalUrl },
+                    { store }
+                )
+
+                if (res.headersSent) return
+
+                const err = fetcherData?.[req.originalUrl]?.error
+                allTags = tracedGetMetaData(allMatches, fetcherData)
+                const chunkExtractor = collectAssets(req, allMatches)
+
+                if (err) {
+                    safeCall(onFetcherError, { req, res, store, error: err })
+
+                    if (res.headersSent) return
+
+                    const statusCode = err.status_code || 404
+                    await tracedRenderMarkUp(
+                        statusCode, req, res, allTags, fetcherData,
+                        store, matches, context, chunkExtractor
                     )
-                    .catch(async (error) => {
-                        console.error("Error in executing serverFetcher functions: " + error)
-                        await renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, null)
-                    })
-            })
-            .catch((error) => {
-                console.error("Error in executing serverSideFunction inside App: " + error)
-                renderMarkUp(error.status_code, req, res, allTags, fetcherData, store, matches, context, null)
-            })
+                } else {
+                    safeCall(onFetcherSuccess, { req, res, store })
+
+                    if (res.headersSent) return
+
+                    await tracedRenderMarkUp(
+                        null, req, res, allTags, fetcherData,
+                        store, matches, context, chunkExtractor
+                    )
+                }
+            } catch (error) {
+                console.error("Error in executing serverFetcher functions:", error)
+                safeCall(onFetcherError, { req, res, store, error })
+
+                if (res.headersSent) return
+
+                const chunkExtractor = collectAssets(req, allMatches)
+                await tracedRenderMarkUp(
+                    404, req, res, allTags, fetcherData,
+                    store, matches, context, chunkExtractor
+                )
+            }
+        } catch (error) {
+            console.error("Error in executing serverSideFunction inside App:", error)
+            safeCall(onAppServerSideError, { req, res, store, error })
+
+            if (res.headersSent) return
+
+            const chunkExtractor = collectAssets(req, allMatches)
+            await tracedRenderMarkUp(
+                error.status_code, req, res, allTags, fetcherData,
+                store, matches, context, chunkExtractor
+            )
+        }
     } catch (error) {
-        console.error("Error in handling document request: " + error.toString())
+        console.error("Error in handling document request:", error)
+        safeCall(onRequestError, { req, res, error })
     }
 }
+
+const handler = withObservability(SSR_SERVICE, _handler, "handler")
+
+export default handler

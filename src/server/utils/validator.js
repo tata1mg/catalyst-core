@@ -136,6 +136,20 @@ const validateCustomDocument = (fn) => {
     }
 }
 
+/**
+ * Safely call a function, catching and logging any errors.
+ * Used for user-defined hooks (onRouteMatch, onFetcherError, etc.)
+ * that should never crash the SSR pipeline.
+ */
+const safeCall = (fn, ...args) => {
+    if (typeof fn !== "function") return
+    try {
+        return fn(...args)
+    } catch (e) {
+        console.error("Error in user hook:", e)
+    }
+}
+
 export {
     validateConfigFile,
     validateConfigureStore,
@@ -146,4 +160,5 @@ export {
     validateModuleAlias,
     validatePreInitServer,
     validateMiddleware,
+    safeCall,
 }

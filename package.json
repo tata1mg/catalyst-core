@@ -12,6 +12,7 @@
     "exports": {
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
+        "./otel": "./dist/otel.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
         "./document": "./dist/server/renderer/document/index.js",
         ".": "./dist/index.jsx"
