@@ -202,6 +202,7 @@ export function injectCacheKeyPlugin() {
 
             walk(ast, (node) => {
                 // Match: split(<arrow>, <options?>, <cacheKey?>)
+                // Also supports: split(<arrow>, <options?>, <rootOptions>, <cacheKey?>)
                 if (node.type !== "CallExpression") return
                 if (node.callee.type !== "Identifier" || node.callee.name !== "split") return
 
@@ -226,17 +227,25 @@ export function injectCacheKeyPlugin() {
                 }
 
                 if (!importExpr || importExpr.type !== "ImportExpression") return
-                if (importExpr.source.type !== "Literal" || typeof importExpr.source.value !== "string") return
+                if (importExpr.source.type !== "Literal" || typeof importExpr.source.value !== "string")
+                    return
 
                 const importPath = importExpr.source.value
 
-                // Already has a third argument (cacheKey) → skip
-                if (args.length >= 3) return
+                // Already has a cacheKey (3rd or 4th arg) -> skip
+                if (args.length >= 4) {
+                    const fourth = args[3]
+                    if (fourth?.type === "Literal" && typeof fourth.value === "string") return
+                }
+                if (args.length >= 3) {
+                    const third = args[2]
+                    if (third?.type === "Literal" && typeof third.value === "string") return
+                }
 
                 sites.push({
                     importPath,
                     callEnd: node.end, // position of the closing )
-                    hasOptions: args.length === 2,
+                    argCount: args.length,
                 })
             })
 
@@ -246,14 +255,17 @@ export function injectCacheKeyPlugin() {
             sites.sort((a, b) => b.callEnd - a.callEnd)
 
             let transformed = code
-            for (const { importPath, callEnd, hasOptions } of sites) {
+            for (const { importPath, callEnd, argCount } of sites) {
                 let manifestKey = resolveImportPath(importPath, id)
                 if (manifestKey && !manifestKey.endsWith(".js")) {
                     manifestKey = manifestKey + ".js"
                 }
 
                 // Insert just before the closing ) of the split() call
-                const insertion = hasOptions ? `, "${manifestKey}"` : `, {}, "${manifestKey}"`
+                let insertion = `, "${manifestKey}"`
+                if (argCount === 1) {
+                    insertion = `, {}, "${manifestKey}"`
+                }
 
                 transformed = transformed.slice(0, callEnd - 1) + insertion + transformed.slice(callEnd - 1)
             }

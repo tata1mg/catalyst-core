@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useContext } from "react"
+import React, { Suspense, lazy, useContext, useEffect, useReducer } from "react"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import SplitInview from "./SplitInview.jsx"
 
@@ -34,7 +34,16 @@ export const hydrationReady = () => Promise.all(prefetchPromises)
  * @param {Function} props.children - Function that returns the lazy component import
  * @param {string} props.cacheKey - Resolved path for better asset tracking
  */
-const Split = ({ ssr = true, fallback = null, cacheKey, children, ...props }) => {
+const Split = ({
+    ssr = true,
+    fallback = null,
+    cacheKey,
+    rootOptions,
+    onVisible,
+    skipVisibility,
+    children,
+    ...props
+}) => {
     // Check if we're on the server
     const isServer = typeof window === "undefined"
     if (isServer) {
@@ -56,8 +65,11 @@ const Split = ({ ssr = true, fallback = null, cacheKey, children, ...props }) =>
             return fallback
         }
     } else {
+        if (skipVisibility) {
+            return <Suspense fallback={fallback}>{children}</Suspense>
+        }
         return (
-            <SplitInview fallback={fallback}>
+            <SplitInview fallback={fallback} rootOptions={rootOptions} onVisible={onVisible}>
                 <Suspense fallback={fallback}>{children}</Suspense>
             </SplitInview>
         )
@@ -71,7 +83,18 @@ const Split = ({ ssr = true, fallback = null, cacheKey, children, ...props }) =>
  * Prefetch follows `window.__SSR_RENDERED_COMPONENTS__` only (not the `ssr` option) so bot-forced SSR
  * still hydrates without a Suspense flash.
  */
-export const split = (importFn, { ssr = true, fallback = null, key } = {}, cacheKey) => {
+export const split = (importFn, options = {}, thirdArg, fourthArg) => {
+    const { ssr = true, fallback = null, key } = options || {}
+    const hasThirdArg = typeof thirdArg !== "undefined"
+    const hasFourthArg = typeof fourthArg !== "undefined"
+    const cacheKey =
+        typeof fourthArg === "string" ? fourthArg : typeof thirdArg === "string" ? thirdArg : undefined
+    const rootOptions = hasFourthArg
+        ? thirdArg
+        : hasThirdArg && typeof thirdArg !== "string"
+          ? thirdArg
+          : undefined
+
     if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
         const prefetch = importFn().then((mod) => {
             moduleCache.set(importFn, mod)
@@ -82,11 +105,30 @@ export const split = (importFn, { ssr = true, fallback = null, key } = {}, cache
     const LazyComponent = lazy(importFn)
     let loadInFlight = null
 
+    // Per-split instance subscribers. Pending wrapper instances register their
+    // forceUpdate here; notifyAll() wakes them when load() resolves or any
+    // sibling becomes visible, so they can re-render against the now-hot cache
+    // or skip their own observer setup.
+    const subscribers = new Set()
+    let anyVisible = false
+    const notifyAll = () => {
+        anyVisible = true
+        subscribers.forEach((fn) => fn())
+    }
+
     const wrapper = (props) => {
         const { isBot: isBotFromContext } = useContext(SsrRequestContext)
         const isBotFromWindow = typeof window !== "undefined" && window.__CATALYST_IS_BOT__ === true
         const isBot = Boolean(isBotFromContext || isBotFromWindow)
         const effectiveSsr = ssr || isBot
+
+        const [, forceUpdate] = useReducer((x) => x + 1, 0)
+        useEffect(() => {
+            subscribers.add(forceUpdate)
+            return () => {
+                subscribers.delete(forceUpdate)
+            }
+        }, [])
 
         const mod = moduleCache.get(importFn)
         if (mod) {
@@ -95,7 +137,16 @@ export const split = (importFn, { ssr = true, fallback = null, key } = {}, cache
         }
 
         return (
-            <Split ssr={effectiveSsr} fallback={fallback} cacheKey={cacheKey} {...props} isBot={isBot}>
+            <Split
+                ssr={effectiveSsr}
+                fallback={fallback}
+                cacheKey={cacheKey}
+                rootOptions={rootOptions}
+                onVisible={notifyAll}
+                skipVisibility={anyVisible}
+                {...props}
+                isBot={isBot}
+            >
                 <LazyComponent {...props} />
             </Split>
         )
@@ -114,6 +165,7 @@ export const split = (importFn, { ssr = true, fallback = null, key } = {}, cache
                         moduleCache.set(importFn, mod)
                     }
                     loadInFlight = null
+                    notifyAll()
                     return mod
                 })
                 .catch((err) => {
