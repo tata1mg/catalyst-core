@@ -250,6 +250,45 @@ export function manifestCategorizationPlugin(options = {}) {
         }
     }
 
+    // Guard against silent CSS loss: every CSS file emitted to disk should be referenced
+    // by at least one bucket's css or allCss. If enrichWithTransitiveCss ever misses a
+    // branch of the import graph, the affected CSS would vanish from server responses
+    // with no runtime error — this check surfaces that as a build-time warning.
+    function validateCssCoverage(categorizedManifest, buildDir) {
+        const cssDir = path.join(buildDir, "client", "assets", "css")
+        if (!fs.existsSync(cssDir)) return
+
+        const emitted = new Set(
+            fs
+                .readdirSync(cssDir)
+                .filter((f) => f.endsWith(".css"))
+                .map((f) => `client/assets/css/${f}`)
+        )
+
+        const covered = new Set()
+        for (const category of ["essential", "ssrTrue", "ssrFalse", "orphan"]) {
+            for (const chunk of Object.values(categorizedManifest[category])) {
+                for (const c of chunk.css || []) covered.add(c)
+                for (const c of chunk.allCss || []) covered.add(c)
+            }
+        }
+
+        const missing = [...emitted].filter((c) => !covered.has(c))
+        if (missing.length > 0) {
+            console.warn(
+                `\n⚠️  [manifest-categorization] ${missing.length} emitted CSS file(s) are not ` +
+                    `referenced by any bucket's css/allCss.\n` +
+                    `At request time the ChunkExtractor may silently drop them, causing unstyled ` +
+                    `content on affected routes. Likely cause: a regression in enrichWithTransitiveCss, ` +
+                    `a new chunk shape Vite emits that the walker doesn't follow, or a categorization ` +
+                    `gap that leaves some chunk unreachable from every bucket.\n\n` +
+                    `Unreferenced files:\n${missing.map((m) => "  " + m).join("\n")}\n\n` +
+                    `Please raise an issue at https://github.com/tata1mg/catalyst-core/issues so the ` +
+                    `maintainers can investigate.\n`
+            )
+        }
+    }
+
     return {
         name: "manifest-categorization",
 
@@ -370,12 +409,10 @@ export function manifestCategorizationPlugin(options = {}) {
             applyViteManifestStructure(processedManifest, viteManifest)
             enrichWithTransitiveCss(processedManifest, viteManifest)
 
-            const outputPath = path.join(
-                process.env.src_path,
-                process.env.BUILD_OUTPUT_PATH || "build",
-                ".vite",
-                outputFile
-            )
+            const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
+            validateCssCoverage(processedManifest, buildDir)
+
+            const outputPath = path.join(buildDir, ".vite", outputFile)
             fs.writeFileSync(outputPath, JSON.stringify(processedManifest, null, 2))
         },
     }
