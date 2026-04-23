@@ -10,13 +10,10 @@ import { translateError, isDevelopment } from "./errors"
  * @returns {Object} Base hook interface with common functionality
  */
 export const useBaseHook = (hookName) => {
-    // Environment detection
+    // Environment detection — live check at call time, never stale from SSR
     const isNative = useCallback(() => {
-        // Server-side rendering safety
         if (typeof window === "undefined") return false
-
-        // Check for WebBridge and verify it's functional
-        return !!(window.WebBridge && nativeBridge.isAvailable())
+        return !!(window.WebBridge && (window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge))
     }, [])
 
     const isWeb = useCallback(() => {
@@ -135,6 +132,26 @@ export const useBaseHook = (hookName) => {
         }
     }, [hookName, resetProgress])
 
+    // Fire-and-forget native call — no-ops silently on web, routes errors through handleNativeError on native
+    const callNative = useCallback(
+        (fn) => {
+            if (!isNative()) {
+                if (isDevelopment()) {
+                    console.warn(`${hookName} callNative skipped — not in native environment`)
+                }
+                return
+            }
+            try {
+                fn()
+            } catch (err) {
+                if (isDevelopment()) {
+                    console.warn(`${hookName} callNative failed silently:`, err)
+                }
+            }
+        },
+        [hookName, isNative]
+    )
+
     // Operation wrapper that handles common patterns
     const executeOperation = useCallback(
         (operationCallback, operationName = "operation") => {
@@ -144,8 +161,9 @@ export const useBaseHook = (hookName) => {
                     return
                 }
 
-                if (!nativeBridge.isAvailable()) {
-                    throw new Error("Native bridge not available")
+                if (!isNative()) {
+                    console.error(`${hookName} executeOperation: Native bridge not available`)
+                    return
                 }
 
                 setLoading(true)
@@ -163,7 +181,7 @@ export const useBaseHook = (hookName) => {
                 console.error(`❌ ${hookName} ${operationName} failed:`, err)
             }
         },
-        [hookName, isWeb, startProgress, handleNativeError]
+        [hookName, isWeb, isNative, startProgress, handleNativeError]
     )
 
     // Environment flags (computed values, not functions)
@@ -203,6 +221,7 @@ export const useBaseHook = (hookName) => {
         errorProgress,
         setDataAndComplete,
         handleNativeError,
+        callNative,
         executeOperation,
     }
 }

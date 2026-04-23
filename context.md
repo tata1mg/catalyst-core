@@ -1,1606 +1,476 @@
-sCatalyst Context
+# Catalyst Core — Claude Context Reference
 
--   Catalyst is a framework over react to build UIs
-
----
-
-TITLE: Creating a new catalyst application
-
-DESCRIPTION: A new catalyst app can be created using the create-catalyst-app CLI command
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/installation
-
-LANGUAGE: bash
-CODE:
-
-```
-npx create-catalyst-app@latest -y
-```
-
-Catalyst has native support for typescript, tailwind, redux, and a local MCP server
-To configure these options, a new catalyst app can be created without using the default "-y" flag
-Creating an app using this will ask for prompts from the user to configure specific options
-
-LANGUAGE: bash
-CODE:
-
-```
-npx create-catalyst-app@latest
-```
+> Machine-first. Dense. No prose filler. Read this when MCP is unavailable.
+> Source: https://github.com/tata1mg/catalyst-core | Version: 0.1.0-canary.4
 
 ---
 
----
+## 1. What Catalyst Is
 
-TITLE: Starting the catalyst application
+React SSR framework + universal native app builder (Android/iOS via WebView).
+**Not** a bare React app. **Not** Next.js. Opinionated SSR lifecycle, static route array, server/client fetcher pattern.
 
-DESCRIPTION: This snippet starts the catalyst development application, The application supports hot reloading
-the application is typically served on `http://localhost:3005`
+Key exports from `catalyst-core` package:
 
-SOURCE: https://catalyst.1mg.com/public_docs/content/installation
+- `catalyst-core` — SSR engine, `<Head>`, `<Body>`, `<Outlet>`
+- `@tata1mg/router` — router package (react-router-v6 wrapper), `useNavigate`, `Link`, `useCurrentRouteData`, `RouterDataProvider`
+- `catalyst-core/hooks` — native bridge hooks: `useCamera`, `useFilePicker`, `useHapticFeedback`, `useDeviceInfo`, `useIntent`
+- `catalyst-core/WebBridge` — low-level WebBridge (JS↔native), prefer hooks over this
+- `catalyst-core/caching` — server-side caching utilities
 
-LANGUAGE: bash
-CODE:
-
-```
-npm run start
-```
-
----
-
----
-
-TITLE: Building and serving the production version
-
-DESCRIPTION:
-
--   To create an optimized production build of your Catalyst application, use the following command. This will generate the production-ready assets in the build directory.
-
-LANGUAGE: bash
-CODE:
-
-```
-npm run build
-```
-
--   To serve the production build locally (for testing or preview), use the following command. This will start a server that serves your built application, typically on `http://localhost:3005`.
-
-LANGUAGE: bash
-CODE:
-
-```
-npm run serve
-```
+**GitHub:** `https://github.com/tata1mg/catalyst-core` (MIT, public)
+**Hooks source:** `src/native/bridge/hooks.js`
+**Entry point:** `dist/index.js`
 
 ---
 
----
-
-TITLE: Adding routes in catalyst
-
-DESCRIPTION:
-
--   Catalyst uses @tata1mg/router package for routing, which is a wrapper around react-router
--   Catalyst uses react-router-v6 based routing
--   Routes are defined in "src/js/routes/index.js" file
--   Pages are imported at top of this file
--   A new entry in the routes array is added like this
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Core%20Concepts/Routing/routing/index
-
-LANGUAGE: js
-CODE:
+## 2. Project File Structure (Required)
 
 ```
+<project-root>/
+├── config/
+│   └── config.json          ← required. env vars + WEBVIEW_CONFIG
+├── src/
+│   └── js/
+│       ├── routes/
+│       │   └── index.js     ← required. exports default route array
+│       ├── containers/
+│       │   └── App/
+│       │       └── index.js ← required. App shell with <Outlet />
+│       └── store/
+│           └── index.js     ← optional. configureStore(initialState, request)
+├── server/
+│   ├── index.js             ← required. lifecycle hooks (preServerInit etc)
+│   ├── server.js            ← required. addMiddlewares(app)
+│   └── document.js          ← required. Document component
+├── client/
+│   ├── index.js             ← required. client hydration entry
+│   └── styles.js            ← required. global CSS imports
+├── public/
+│   ├── offline.html         ← required for native. shown when device offline
+│   ├── android/
+│   │   ├── splashscreen.png ← required for native Android
+│   │   └── appIcons/        ← mdpi hdpi xhdpi xxhdpi xxxhdpi .png
+│   └── ios/
+│       ├── splashscreen.png ← required for native iOS
+│       └── appIcons/        ← 20 29 40 58 60 80 87 120 1024 .png
+└── package.json             ← anchor. must have catalyst-core in deps
+```
+
+**MCP anchor rule:** Every MCP tool hard-fails if `package.json` has no `catalyst-core` dependency.
+
+---
+
+## 3. config/config.json — Full Schema
+
+```json
 {
-    path: "", // path of the page
-    end: false,
-    component: Page, // name of the page
-},
-```
+    "NODE_SERVER_PORT": 3005,
+    "API_URL": "https://api.example.com",
+    "CLIENT_ENV_KEYS": ["API_URL"],
 
----
+    "splashScreen": {
+        "duration": 1000,
+        "backgroundColor": "#ffffff"
+    },
 
----
+    "WEBVIEW_CONFIG": {
+        "useHttps": false,
 
-TITLE: Navigation in catalyst
+        "android": {
+            "buildType": "debug",
+            "sdkPath": "/path/to/android/sdk",
+            "emulatorName": "Pixel_6_API_33",
+            "appName": "MyApp",
+            "appBundleId": "com.example.myapp",
+            "buildOptimisation": false,
+            "cachePattern": "*.css,*.js"
+        },
 
-DESCRIPTION:
+        "ios": {
+            "buildType": "Debug",
+            "simulatorName": "iPhone 15",
+            "appName": "MyApp",
+            "appBundleId": "com.example.myapp"
+        },
 
--   Navigation in @tata1mg/router is based on react-router-v6, and client side navigation can be achieved through components like <Navigate> or <Link> or through hooks like useNavigate
+        "accessControl": {
+            "enabled": true,
+            "allowedUrls": ["https://api.example.com/*", "*.example.com"]
+        },
 
-LANGUAGE: js
-CODE:
-
-```
-import { useNavigate } from "@tata1mg/router"
-const Page = () => {
-    const navigate = useNavigate()
-    return (
-        <div onClick={() => navigate("/about")}>Click to navigate</div>
-    )
+        "notifications": {
+            "enabled": false
+        }
+    }
 }
 ```
 
-LANGUAGE: js
-CODE:
+**Field rules:**
 
-```
-import { Link } from "@tata1mg/router"
-const Page = () => {
-    const navigate = useNavigate()
-    return (
-        <Link to="/about">Click to navigate</Link>
-    )
-}
-```
-
--   Navigation inside clientFetcher function can be achieved through the navigate property which is available as an argument in clientFetcher.
-
-LANGUAGE: js
-CODE:
-
-```
-Page.clientFetcher = async ({ navigate }) => {
-  navigate("/about")
-}
-```
-
--   Navigation inside serverFetcher function can also be achieved through the navigate property which is available as an argument in serverFetcher.
-    navigate available inside server fetcher is a wrapper around response.send() so it would result it server side navigation.
-
-LANGUAGE: js
-CODE:
-
-```
-Page.serverFetcher = async ({ navigate }) => {
-  navigate("/about") // will be navigated to /about on the server
-}
-```
+- `splashScreen` is top-level, NOT inside `WEBVIEW_CONFIG`
+- `android.buildType`: lowercase `"debug"` | `"release"` — debug disables caching (required for HMR)
+- `ios.buildType`: PascalCase `"Debug"` | `"Release"` — case-sensitive
+- `appBundleId`: reverse-DNS format `com.org.appname`
+- `CLIENT_ENV_KEYS`: only listed keys are sent to browser bundle — security boundary
+- `accessControl.enabled: false` → all URLs allowed; `true` → only allowedUrls pass
 
 ---
 
----
+## 4. SSR Lifecycle & Data Fetching
 
-TITLE: Data fetching in catalyst
+### Execution order on first page load:
 
-DESCRIPTION:
+1. `preServerInit()` → server starts
+2. `App.serverSideFunction({ store, req, res })` → runs on every request
+3. `Page.serverFetcher({ route, location, params, searchParams, navigate }, { store })` → runs for matched route
+4. React SSR renders HTML → sent to client
+5. Client hydrates → `Page.clientFetcher` runs on next client navigation
 
--   Routes can fetch data using two primary functions:
+### serverFetcher vs clientFetcher:
 
-1. **Client Fetcher**: Executes during client-side navigation or absence of **_server fetcher_**.
-2. **Server Fetcher**: Executes during server-side rendering (SSR)
+|            | serverFetcher                              | clientFetcher                           |
+| ---------- | ------------------------------------------ | --------------------------------------- |
+| Runs on    | Server only                                | Client only (on navigation)             |
+| When       | First request / `window.location.href` nav | `<Link>`, `useNavigate()`, `<Navigate>` |
+| Bundle     | Excluded from client bundle                | Included                                |
+| navigate() | Server redirect (response.send)            | Client-side redirect                    |
+| Safe for   | Server secrets, DB calls                   | User interactions                       |
 
-LANGUAGE: js
-CODE:
+### Patterns:
 
-```
-const Page = ()=> <div>Some Page</div>
+```js
+// Page component
+const Page = () => <div>{data}</div>
 
-// Client-side data fetching
-Page.clientFetcher = (routerProps,fetcherArgs) => { return new Promise()}
+Page.serverFetcher = async ({ route, params, navigate }, { store }) => {
+    return await fetch("/api/data").then((r) => r.json())
+}
 
-// Server-side data fetching
-Page.serverFetcher = (serverRouterProps,fetcherArgs) => { return new Promise()}
-```
-
-clientFetcher will be called during client side navigation, when navigating through <Link/> or <Navigate> components or by using hooks like useNavigate provided by router.
-
-LANGUAGE: js
-CODE:
-
-```
-Page.clientFetcher = async ({ route, location, params, searchParams, navigate }, { store }) => {
-  const res = await fetch('<https://api.example.com/data>');
-  const json = await res.json();
-  return json;
-};
+Page.clientFetcher = async ({ route, params, navigate }, { store }, customArg) => {
+    return await fetch("/api/data").then((r) => r.json())
+}
 ```
 
-serverFetcher will be called during the first fold request or when navigation is done by window.location.href or similar methods. It will only be called on the server and will not be included in the client bundle, so it is safe to use server only secrets in this function
-
-LANGUAGE: js
-CODE:
-
-```
-Page.serverFetcher = async ({ route, location, params, searchParams, navigate },{ store }) => {
-  const res = await fetch('<https://api.example.com/data>');
-  const json = await res.json();
-  return json;
-};
-```
-
-useCurrentRouteData hook from @tata1mg/router returns the current router context object with data, error, isFetching, isFetched, refetch and clear properties.
-
-LANGUAGE: js
-CODE:
-
-```
+```js
+// Consuming fetcher data
 import { useCurrentRouteData } from "@tata1mg/router"
-const Home = () => {
-  const { isFetching, isFetched, error, data, refetch, clear } = useCurrentRouteData()
-}
-
-Home.clientFetcher = async () => {
-  return {status:200}
+const Page = () => {
+    const { data, isFetching, error, refetch, clear } = useCurrentRouteData()
 }
 ```
 
-The useRouterData hook returns a router context object with data of all the fetchers in the current route tree.
+### Lifecycle hooks (server/index.js):
 
-refetch executes the client loader. A custom argument can be passed while calling it through refetch in client loader to handle use cases where the fetch function needs to access the application state like for pagination, infinite scroll, etc.
-
-LANGUAGE: js
-CODE:
-
-```
-const Home = () => {
-  ...
-  useEffect(()=>{
-    refetch({pageNo})
-  },[pageNo])
-}
-Home.clientFetcher = async ({},{},{pageNo}) => {
-  const res = await fetch(`some_url/${pageNo}`)
-  const json = await res.json()
-  return json
-}
-```
-
-The clear function clears the data for the particular route from where it is called.
-
-LANGUAGE: js
-CODE:
-
-```
-const Home = () => {
-  ...
-  useEffect(()=>{
-    clear()
-  },[pathname])
-
-  //will clear data for this particular route on navigation
-}
+```js
+export const preServerInit = () => {} // before server starts
+export const onServerError = (err) => {} // server failed to start
+export const onRouteMatch = (ctx) => {} // after route matching (hit or miss)
+export const onFetcherSuccess = (ctx) => {} // after serverFetcher runs
+export const onRenderError = (err, ctx) => {} // render failed
+export const onRequestError = (err, ctx) => {} // outermost catch
 ```
 
 ---
 
----
+## 5. Routing
 
-TITLE: Environment variables in catalyst
+```js
+// src/js/routes/index.js
+import HomePage from "@containers/HomePage"
+import AboutPage from "@containers/AboutPage"
 
-DESCRIPTION:
+const routes = [
+    { path: "/", end: true, component: HomePage },
+    { path: "/about", end: false, component: AboutPage },
+]
 
--   Catalyst can be configured through a config/config.json file in the root of your project directory. You can define your keys to access them inside the project.
--   These variables will be accessible through process.env[variable_name].
--   Out of the complete contents of config/config.json, keys listed in CLIENT_ENV_KEYS are filtered and made available for the client side code.
--   Any key that is listed in CLIENT_ENV_KEYS will be exposed on the client and can become a security issue. Be careful while adding keys
-
----
-
----
-
-TITLE: App shell in catalyst
-
-DESCRIPTION:
-
--   Catalyst offers an app shell, which serves as a wrapper around your page code, enabling you to perform common operations required for all pages. You can access the app shell inside the src/js/containers/App directory under the src folder.
--   All your pages will be rendered in this app shell. It will be the parent component for all your apps.
--   The app shell provides you with a function called serverSideFunction, which you can use to perform any operations while rendering your page on the server. This function is similar to serverFetcher, which we define in the page component. The key distinction lies in the fact that serverSideFunction runs on each page request, whereas serverFetcher runs only when that specific page is requested.
-
-LANGUAGE: js
-CODE:
-
+export default routes
 ```
+
+```js
+// src/js/routes/utils.js — must export RouterDataProvider
+import { RouterDataProvider } from "@tata1mg/router"
+export { RouterDataProvider }
+```
+
+```js
+// App shell — src/js/containers/App/index.js
 import React from "react"
 import { Outlet } from "@tata1mg/router"
 
-const App = () => {
-    return (
-        <>
-            <Outlet />
-        </>
-    )
-}
+const App = () => (
+    <>
+        <Outlet />
+    </>
+)
 
-App.serverSideFunction = ({store, req, res}) => {
-    return new Promise((resolve) => resolve())
-}
+App.serverSideFunction = ({ store, req, res }) => new Promise((resolve) => resolve())
 
 export default App
 ```
 
----
+**Navigation:**
+
+- `useNavigate()` from `@tata1mg/router` — client nav
+- `<Link to="/path">` — client nav
+- `navigate()` inside `serverFetcher` — server redirect
+- `navigate()` inside `clientFetcher` — client redirect
 
 ---
 
-TITLE: Lifecycle methods in catalyst
+## 6. Native Hooks — Full API Reference
 
-DESCRIPTION:
+All hooks live in `catalyst-core/hooks`. All hooks expose `isNative` (bool) and `isWeb` (bool).
+Hooks throw if `window.WebBridge` is not initialized (native-only context).
 
--   Catalyst provides several methods to handle different stages of the SSR lifecycle, allowing for more fine grain control over the flow
--   Functions
-    1. preServerInit - Triggers before starting the server.
-    2. onServerError - Triggered if the SSR server fails to start or encounters a critical error. Useful for handling server initialization issues.
-    3. onRouteMatch - Called after route matching attempts, regardless of whether a match was found or not. This method enables you to handle both successful and failed route matches
-    4. onFetcherSuccess - Triggered after running a container's serverFetcher (currently running for both success and failure case)
-    5. onRenderError - Executes when the rendering process encounters an error. This allows you to handle any failures during component rendering.
-    6. onRequestError - Executes if any error occurs while handling the document request (think of it like the outer most catch block)
--   All these functions can be defined in and exported from server/index.js
+### useCamera
 
-LANGUAGE: js
-CODE:
-
-```
-export const preServerInit = () => {}
+```js
+import { useCamera } from "catalyst-core/hooks"
+const { data, loading, isNative, isWeb, execute, takePhoto, permission } = useCamera()
+// data: { fileSrc, fileName, size, mimeType, transport }
+// execute() / takePhoto() — triggers camera
+// permission: permission state object
 ```
 
----
+### useFilePicker
 
----
-
-TITLE: Adding middlewares on the server
-
-DESCRIPTION:
-
--   Catalyst offers a flexible approach to defining server-side code, granting you greater control and customization over server operations.
--   To modify the server behavior, create a file named server.js within the server directory of your app.
--   Define a function named addMiddlewares, which receives the app server instance as a parameter. Catalyst - provides this instance when executing the function on the server.
--   Use the app parameter to configure middleware for your application.
-
-LANGUAGE: js
-File: server/server.js
-CODE:
-
-```
-export function addMiddlewares(app) {
-  // server code
-}
+```js
+import { useFilePicker } from "catalyst-core/hooks"
+const { data, isNative, isWeb, execute, pickFile, getFileObject, getAsBase64 } = useFilePicker()
+// execute(mimeType?) / pickFile(mimeType?)
+// data: { fileSrc, fileName, size, mimeType, transport }
+// getFileObject(idx) — returns File-like object
+// getAsBase64(idx) — returns base64 string
 ```
 
----
+### useHapticFeedback
 
----
-
-TITLE: Styling in catalyst
-
-DESCRIPTION:
-
--   Catalyst offers a variety of methods for styling your application
-
-Global CSS
-
--   Global styles can be imported into any layout, page, or component.
--   Place all your global css in "/src/static/css/base"
--   Placing css in "/src/static/css/base" would prevent it from being modularized as css-module is enabled by default in Catalyst
--   Import these global css file in client/styles.js so that it can be available globally.
-
-LANGUAGE: js
-File: Home.js
-CODE:
-
-```
-const Home = () => {
-    return <section className="marginTop-4">Home</section>
-}
+```js
+import { useHapticFeedback } from "catalyst-core/hooks"
+const { execute, trigger, isSupported, isNative, isWeb } = useHapticFeedback()
+// execute(type) / trigger(type)
+// type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error'
+// isSupported: bool — false on web or unsupported devices
 ```
 
-LANGUAGE: js
-File: client/styles.js
-CODE:
+### useDeviceInfo
 
-```
-import "src/static/css/base/layout.css"
-```
-
-LANGUAGE: css
-File: src/static/css/base/layout.css
-CODE:
-
-```
-.marginTop-4 {
-    margin-top: 4px;
-}
+```js
+import { useDeviceInfo } from "catalyst-core/hooks"
+const { data, isNative, isWeb } = useDeviceInfo()
+// data: { model, manufacturer, platform, screenWidth, screenHeight, screenDensity }
+// platform: 'android' | 'ios'
 ```
 
-CSS modules
+### useIntent
 
--   Catalyst enables support for css-module out-of-the-box. CSS-modules locally scope CSS by creating unique names. This allows you to use same classnames in different files without worrying about naming conflicts.
-
-LANGUAGE: js
-CODE:
-
-```
-import css from "./styles.css"
-
-const Home = () => {
-    return <section className={css.layout}>Home</section>
-}
+```js
+import { useIntent } from "catalyst-core/hooks"
+const { execute } = useIntent()
+// execute(url, mimeType) — opens file/URL in native app
 ```
 
-Sass
+### Platform detection (correct pattern):
 
--   Catalyst includes out-of-the-box support for Sass. Utilize Sass in Catalyst with the .scss file extension.
--   Place all mixins, variables, and other Sass resources in /src/static/css/resources. These will be automatically imported into your .scss files, allowing you to use these resources without manual imports.
+```js
+// CORRECT — works inside native WebView
+const isNative = window.__PLATFORM__ === "android" || window.__PLATFORM__ === "ios"
+const platform = window.__PLATFORM__ // 'android' | 'ios' | undefined
 
----
-
----
-
-TITLE: Code splitting in catalyst
-
-DESCRIPTION:
-
--   Catalyst utilizes loadable-components for efficient code splitting on both the client and server. It offers built-in support for code splitting, making it easy to split your code into smaller chunks.
-
-LANGUAGE: js
-CODE:
-
+// WRONG — unreliable inside WebView
+navigator.userAgent / // returns WebView UA string, NOT 'Android'/'iPhone'
+    Android /
+    i.test(navigator.userAgent) // may return false inside native WebView
 ```
-const Component = loadable(()=> import("@components/Component.js"),{
-    fallback: <div>Fallback</div>,
-    ssr:false
-})
 
-const App = () => {
-  return (
-      <Component />
-  );
-};
+### WebBridge (low-level):
+
+```js
+const { getDeviceInfo } = WebBridge.init() // init and destructure
+const { getDeviceInfo } = window.WebBridge // direct access
+const info = await getDeviceInfo()
+// Returns: { model, manufacturer, platform, screenWidth, screenHeight, screenDensity }
 ```
 
 ---
 
----
+## 7. Universal App — Conversion Checklist
 
-TITLE: Module aliases in catalyst
+20 conversion tasks across 3 tiers. Use MCP `get_conversion_status` to auto-detect state.
 
-DESCRIPTION:
+### Tier 1 — Critical (app won't start without these)
 
--   Catalyst supports module aliases to create shorter and more descriptive import paths for modules. This practice can make the codebase cleaner and more maintainable. Some module aliases come pre-configured when setting up Catalyst, making imports cleaner.
--   To create module aliases, add \_moduleAliases key to package.json
+| ID                      | Task                                                              | Key check                         |
+| ----------------------- | ----------------------------------------------------------------- | --------------------------------- |
+| T1_CONFIG               | config/config.json with NODE_SERVER_PORT, WEBVIEW_CONFIG, API_URL | file exists + fields present      |
+| T2_ROUTER_DEP           | @tata1mg/router in package.json deps                              | not react-router-dom              |
+| T3_ROUTES_FILE          | src/js/routes/index.js exports route array                        | exports default [...]             |
+| T4_DATA_FETCHING        | Page data via serverFetcher/clientFetcher, not useEffect+fetch    | no page-level useEffect fetch     |
+| T5_ROUTER_DATA_PROVIDER | RouterDataProvider wired in routes/utils.js                       | file + RouterDataProvider present |
+| T6_APP_SHELL            | App/index.js renders `<Outlet />`                                 | Outlet present                    |
+| T7_SERVER_FILES         | server/index.js, server/server.js, server/document.js             | all 3 exist                       |
+| T8_CLIENT_ENTRY         | client/index.js, client/styles.js                                 | both exist                        |
 
-LANGUAGE: JSON
-CODE:
+### Tier 2 — Native Build (first native build won't run without these)
 
-```
-{
-  "_moduleAliases": {
-    "@api": "api.js",
-    "@containers": "src/js/containers",
-    "@server": "server",
-    "@config": "config",
-    "@css": "src/static/css",
-    "@routes": "src/js/routes/",
-    "@store": "src/js/store/index.js"
-  }
-}
-```
+| ID                 | Task                                                                                      | Key check      |
+| ------------------ | ----------------------------------------------------------------------------------------- | -------------- |
+| T9_WEBVIEW_ANDROID | WEBVIEW_CONFIG.android with buildType, sdkPath, emulatorName, appName                     | all 4 fields   |
+| T10_WEBVIEW_IOS    | WEBVIEW_CONFIG.ios with buildType, appBundleId, simulatorName, appName                    | all 4 fields   |
+| T11_ACCESS_CONTROL | WEBVIEW_CONFIG.accessControl.enabled=true + allowedUrls non-empty                         | both set       |
+| T12_SPLASH_SCREEN  | splashScreen at top level + public/android/splashscreen.png + public/ios/splashscreen.png | config + files |
+| T13_ANDROID_ICONS  | public/android/appIcons/{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}.png                              | all 5          |
+| T14_IOS_ICONS      | public/ios/appIcons/{20,29,40,58,60,80,87,120,1024}.png                                   | all 9          |
+| T15_OFFLINE_HTML   | public/offline.html                                                                       | file exists    |
 
----
+### Tier 3 — Enhancements (feature-gated, only if feature is used)
 
----
+| ID                    | Task                               | Trigger                                     | Correct pattern |
+| --------------------- | ---------------------------------- | ------------------------------------------- | --------------- |
+| T17a_USE_FILEPICKER   | `<input type="file">` found        | useFilePicker from catalyst-core/hooks      |
+| T17b_USE_CAMERA       | `<input capture>` found            | useCamera from catalyst-core/hooks          |
+| T18_USE_HAPTIC        | navigator.vibrate() found          | useHapticFeedback from catalyst-core/hooks  |
+| T19_USE_NOTIFICATIONS | push notification code found       | notifications.enabled=true + Firebase files |
+| T20_USE_DEVICE_INFO   | navigator.userAgent sniffing found | window.**PLATFORM**                         |
 
-TITLE: Custom document
-
-DESCRIPTION:
-
--   The document is an HTML file served by the Node server whenever a page request is made. It contains the head, body, and all HTML tags.
--   Custom Document enables ability to update these tags and render the data according to the needs.
--   Head and Body tags are required and the application won't work without it. It is mandatory to pass props because they are used in Head and Body tags.
--   Custom tags should be added between the Head and Body tags.
-
-LANGUAGE: js
-FILE: server/document.js
-CODE:
+**depends_on graph:**
 
 ```
-import { Head, Body } from "catalyst"
-
-function Document(props) {
-    return (
-        <html lang={props.lang}>
-            <Head {...props} />
-            <Body {...props} />
-        </html>
-    )
-}
-export default Document
+T1 → T2 → T3 → T4
+                T3 → T5 → T6 → T8 → T17a, T17b, T18, T20
+T1 → T7
+T1 → T9 → T13
+T1 → T10 → T14
+T1 → T11, T12, T15
+T9 + T10 → T19
 ```
 
 ---
 
----
+## 8. Native App Build Flows
 
-TITLE: Webpack customization
+### Commands:
 
-DESCRIPTION:
-
--   Catalyst provides ways to customize webpack configuration for specific needs through the webpackConfig.js file.
-
-Catalyst allows customizing webpack's chunk splitting behavior through the splitChunksConfig option
-LANGUAGE: js
-CODE:
-
-```
-module.exports = {
-  splitChunksConfig: {
-    chunks: 'all',
-    minSize: 20000,
-    minChunks: 1,
-  }
-};
+```bash
+npm run start                    # dev server — port 3005
+npm run build                    # production build
+npm run serve                    # serve production build
+npm run setupEmulator:android    # configure Android emulator
+npm run setupEmulator:ios        # configure iOS simulator
+npm run buildApp:android         # build + install on Android emulator
+npm run buildApp:ios             # build + install on iOS simulator
 ```
 
-Some packages are distributed as ESM-only (ECMAScript Modules) and cannot be directly imported in Catalyst's CommonJS environment. To handle these packages, you can use the transpileModules option:
+### Android build sequence:
 
-```
-module.exports = {
-  transpileModules: [
-    'esm-only-package',
-    /@scope/another-esm-package/
-  ]
-};
-```
+1. `npm run start` (keep running)
+2. `npm run buildApp:android`
+    - Reads `WEBVIEW_CONFIG.android` from config.json
+    - Requires: `sdkPath`, `emulatorName`, `appName`, `buildType`
+    - For release: requires keystore + `appBundleId` → produces `.aab`
+    - For debug: HMR works, no caching (`buildType: "debug"`)
 
----
+### iOS build sequence:
 
----
+1. `npm run start` (keep running)
+2. `npm run buildApp:ios`
+    - Reads `WEBVIEW_CONFIG.ios` from config.json
+    - Requires: `buildType` (PascalCase), `simulatorName`, `appName`, `appBundleId`
+    - Requires Xcode + `xcode-select --install`
 
-TITLE: State management
+### buildOptimisation (Android only):
 
-DESCRIPTION:
+- `buildOptimisation: true` → static assets bundled into APK, loaded from device storage
+- ~90% faster initial load, near-zero network requests for JS/CSS
+- Disable during development (`buildOptimisation: false`, `buildType: "debug"`)
 
--   To address use cases where a global store is needed and must be accessible on both the client and server, Catalyst provides built-in support for Redux and Redux Toolkit
--   The Redux store should be defined in src/js/store/index.js
+### Cache behaviour:
 
-Redux integration demo
-
-LANGUAGE: js
-FILE: src/js/store/index.js
-CODE:
-
-```
-import { compose, createStore, applyMiddleware } from "redux"
-import homeReducer from "@reducers/homeReducer.js"
-
-export default function configureStore(initialState,request) {
-  // request object is available when the store is initialized on the server
-  // creating store with homeReducer and initialData recieved from server
-    const store = createStore(
-        homeReducer
-        initialState,
-    )
-    return store
-}
-```
-
-RTK integration demo
-
-LANGUAGE: js
-FILE: src/js/store/index.js
-CODE:
-
-```
-import { configureStore as createStore } from "@reduxjs/toolkit"
-import { combineReducers } from "redux"
-import { shellReducer } from "@containers/App/reducer.js"
-import fetchInstance from "@api"
-
-const configureStore = (initialState) => {
-    const api = fetchInstance
-    const store = createStore({
-        reducer: combineReducers({ shellReducer }),
-        middleware: (getDefaultMiddleware) =>
-            getDefaultMiddleware({
-                thunk: {
-                    extraArgument: { api },
-                },
-            }),
-        preloadedState: initialState,
-    })
-    return store
-}
-
-export default configureStore
-
-```
-
--   This store is available in both clientFetcher and serverFetcher
-
-LANGUAGE: js
-CODE:
-
-```
-HomePage.serverFetcher = async ({ req }, { store }) => {
-  dispatch(isLoading())
-  // returning async action
-  return dispatch(getHomePageData())
-}
-HomePage.clientFetcher = async ({ req }, { store }) => {
-  dispatch(isLoading())
-  // returning async action
-  return dispatch(getHomePageData())
-}
-```
+- Fresh (< 24h): served from cache, no network
+- Stale (24–25h): served from cache + background revalidation
+- Expired (> 25h): network fetch, cache updated
 
 ---
 
----
+## 9. Known Errors & Debugging
 
-TITLE: Universal App Setup
+Use MCP `debug_issue` with symptom text. Matches via keyword scoring against known_errors table.
 
-DESCRIPTION:
+### Most common native build errors:
 
--   Catalyst also provides support to build native iOS/android applications
--   This feature is currently only available in the canary version, setup the application using `npx create-catalyst-app@0.0.3-canary.10`
+**`sdkPath not found` / Android SDK error**
 
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/universal-app
+- Check `WEBVIEW_CONFIG.android.sdkPath` points to actual SDK dir (not Studio install dir)
+- Find it: Android Studio → SDK Manager → SDK Location at top
 
-To install the android simulator
+**`appBundleId invalid`**
 
-1. Download and install Android Studio
-2. Launch Android Studio
-3. From the welcome screen, click More Actions and select SDK Manager
-4. Navigate to Settings > Languages & Frameworks > Android SDK
-5. In the SDK Platforms tab:
-    - Select the latest Android version (API level)
-    - Make sure the box next to the selected version is checked
-6. Switch to the SDK Tools tab and ensure these components are installed:
-    - At least one version of Android SDK Build-Tools
-    - Android Emulator
-    - Android SDK Platform-Tools
-7. Important: Note down the Android SDK Location path displayed at the top
-    - You'll need this path for environment variables or other development tools
-8. Click Apply and then OK to begin the installation
-    - Wait for all selected components to download and install
-    - This may take several minutes depending on your internet connection
+- Must be reverse-DNS: `com.org.app` — no uppercase, no spaces, 3+ segments
 
-To install the ios simulator
+**`buildType case error`**
 
-1. Install Xcode
-2. Install Xcode Command Line Tools
+- Android: lowercase `"debug"` / `"release"`
+- iOS: PascalCase `"Debug"` / `"Release"`
 
-```
-# Check if already installed
-xcode-select -p
+**Blank page on native / hydration mismatch**
 
-# If not installed, run:
-xcode-select --install
-```
+- `<Outlet />` missing from App/index.js
+- RouterDataProvider not in routes/utils.js
+- serverFetcher not returning data (check server logs)
 
--   To configure the android / iOS simulators, run `npm run setupEmulator:android` or `npm run setupEmulator:ios`
--   To run the application, first start the development server `npm run start`
--   Then in a new terminal, build the app using `npm run buildApp:android` or `npm run buildApp:ios`
+**Push notifications silent failure**
 
----
+- `notifications.enabled` not set to `true` in WEBVIEW_CONFIG
+- `google-services.json` (Android) or `GoogleService-Info.plist` (iOS) missing from project root
 
----
+**useEffect+fetch data not loading on native**
 
-TITLE: Universal App Cache Management
+- Page-level data must use `serverFetcher` / `clientFetcher`
+- `useEffect` + `fetch` works on web, fails SSR hydration → blank page on native first load
 
-DESCRIPTION:
+**navigator.vibrate() does nothing on device**
 
-The cache manager implementation provides efficient caching mechanisms for web resources in both Android and iOS WebView applications. It supports configurable caching patterns, revalidation strategies, and automatic cache cleanup.
+- Native WebView ignores Web Vibration API silently
+- Replace with `useHapticFeedback().execute('medium')`
 
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/UniversalCacheManagement
+**File picker / camera silently does nothing on Android**
 
-## Configuration
+- `<input type="file">` / `<input capture>` unreliable in WebView
+- Replace with `useFilePicker().execute()` / `useCamera().execute()`
 
-### Android Configuration
+**`window.WebBridge is not defined`**
 
-Configure caching through the `config.json` file:
-
-```json
-{
-    "WEBVIEW_CONFIG": {
-        "android": {
-            "buildType": "debug",
-            "cachePattern": "*.css,*.js"
-        }
-    }
-}
-```
-
-Configuration options:
-
--   `buildType`: Set to "debug" to bypass caching. This is crucial for development with Hot Module Replacement (HMR), ensuring that WebView receives real-time updates without cache interference
--   `cachePattern`: Comma-separated list of file patterns to cache (e.g., "_.css,_.js")
-
-### iOS Configuration
-
-Configure caching by setting cache patterns in constants:
-
--   Define patterns for files to be cached (e.g., CSS and JS files)
--   Multiple patterns can be specified in an array
-
-## Cache Pattern Format
-
-Both platforms support wildcard patterns for cache matching:
-
--   `*.css`: Matches all CSS files
--   `*.js`: Matches all JavaScript files
--   Multiple patterns can be specified
--   File extensions are case-insensitive
-
-## Internal Implementation
-
-### Android Cache Manager
-
-The Android implementation features:
-
-1. Two-Level Caching:
-    - Memory cache using LruCache for fast access
-    - Disk cache for persistence
-2. Cache Entry Management:
-
-    - Cache entries include:
-        - Response data
-        - Timestamp
-        - ETag
-        - Last-Modified headers
-
-3. Cache Validation Strategy:
-
-    - Implements stale-while-revalidate pattern
-    - Handles cache expiration
-    - Supports background revalidation
-
-4. Automatic Cache Maintenance:
-    - Maximum cache size: 100MB
-    - Automatic cleanup of expired entries
-    - LRU (Least Recently Used) eviction policy
-
-### iOS Cache Manager
-
-The iOS implementation uses a custom URL protocol :
-
-1. Request Interception:
-
-    - Intercepts WebView requests matching cache patterns
-    - Handles both HTTP and HTTPS schemes
-
-2. Caching Strategy:
-
-    - Checks cache before network requests
-    - Supports conditional requests (ETag, Last-Modified)
-    - Automatic cache invalidation
-
-3. Resource Handling:
-    - MIME type preservation
-    - Content validation
-    - Error handling
-
-## Cache Lifecycle
-
-The cache implements a sophisticated lifecycle management strategy that balances performance with data freshness:
-
-### Content States
-
-1. Fresh Content (< 24 hours)
-
-    - Content is served directly from cache
-    - No network requests made
-    - Fastest possible response time
-
-2. Stale Content (24-25 hours)
-
-    - Content is served from cache immediately
-    - Background revalidation is triggered
-    - User sees cached content while fresh data is fetched
-    - Updates cache if content has changed
-
-3. Expired Content (> 25 hours)
-    - Cache entry is considered invalid
-    - Fresh content is fetched from network
-    - New cache entry is created
-    - User waits for network response
-
-This stale-while-revalidate pattern provides:
-
--   Optimal user experience with immediate responses
--   Efficient network usage
--   Up-to-date content without sacrificing performance
--   Graceful handling of network issues
-
-### Production vs Development
-
-```json
-{
-    "WEBVIEW_CONFIG": {
-        "android": {
-            "buildType": "debug", // Development: enables HMR
-            "cachePattern": "*.css,*.js"
-        }
-    }
-}
-```
-
-```json
-{
-    "WEBVIEW_CONFIG": {
-        "android": {
-            "buildType": "release", // Production: enables caching
-            "cachePattern": "*.css,*.js"
-        }
-    }
-}
-```
+- Hook called outside native context, or before bridge initialised
+- Add `isNative` guard: `const { isNative, execute } = useCamera(); if (isNative) execute()`
 
 ---
 
----
-
-TITLE: Universal App Build Optimization
-
-DESCRIPTION:
-
-The Build Optimization feature significantly enhances performance by preloading static assets directly from device storage rather than retrieving them over the network. This approach reduces page load times by approximately 90%, especially for the initial app launch.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/BuildOptimisation
-
-## Configuration
-
-Configure the build optimization through the `config.json` file:
-
-```json
-{
-    "WEBVIEW_CONFIG": {
-        "android": {
-            "sdkPath": "/path/to/android/sdk",
-            "emulatorName": "your_emulator_name",
-            "buildOptimisation": true,
-            "cachePattern": "*.png,*.jpg,*.css,*.js",
-            "buildType": "debug"
-        }
-    }
-}
-```
-
-Configuration options:
-
--   `buildOptimisation`: Enable/disable the feature (set to `true` to enable)
-
-## Asset Loading Process
-
-The optimized asset loading follows this sequence:
-
-1. **Initial Route Request**:
-
-    - Intercepts the first GET request
-    - Serves `index.html` from assets regardless of URL
-    - Sets flags to track initial page load status
-
-2. **Static Resource Loading**:
-
-    - Checks if requested resources match static file patterns
-    - Extracts asset path from URL
-    - Loads resource directly from device storage
-    - Logs asset loading statistics
-
-3. **Fallback Mechanism**:
-    - If assets can't be loaded locally, falls back to network
-    - For cacheable network requests, utilizes the WebCacheManager
-    - Maintains loading statistics for monitoring
-
-## Load Time Impact
-
-With Build Optimization enabled:
-
--   **Load Time Reduction**: ~90% faster page loading
--   **Network Requests**: Near-zero network requests for static assets
--   **Asset Success Rate**: 100% for bundled resources
--   **Initial Page Loading**: Directly from device storage, eliminating network latency
-
-## Best Practices
-
-1. **Asset Selection**:
-
-    - Include critical JS, CSS, and images in your build folder
-    - Keep bundle size reasonable to avoid large APK sizes
-    - Consider excluding rarely used resources to optimize size
-
-2. **Development vs. Production**:
-
-    ```json
-    {
-        "WEBVIEW_CONFIG": {
-            "android": {
-                "buildOptimisation": true, // Enable for production
-                "buildType": "release", // Use release for production
-                "cachePattern": "*.png,*.jpg,*.css,*.js"
-            }
-        }
-    }
-    ```
-
-    For development:
-
-    ```json
-    {
-        "WEBVIEW_CONFIG": {
-            "android": {
-                "buildOptimisation": false, // Disable for faster development builds
-                "buildType": "debug", // Use debug for development
-                "cachePattern": "*.png,*.jpg,*.css,*.js"
-            }
-        }
-    }
-    ```
-
-3. **Performance Monitoring**:
-    - Check asset loading statistics in logs
-    - Monitor cache hit rates
-    - Track page load times between versions
-
-## Troubleshooting
-
-If you encounter issues with asset loading:
-
-1. **Check Logs**:
-
-    - Look for "Asset loading stats" in logs
-    - Check for failed asset loading attempts
-    - Verify MIME type assignment
-
-2. **Configuration Issues**:
-
-    - Ensure `buildOptimisation` is correctly set
-    - Verify build assets were copied successfully
-
-3. **Loading Failures**:
-
-    - Asset paths may be incorrect
-    - Assets might be missing from the build
-    - Check for file permission issues
-
-4. **Rebuild When Required**:
-    - Update your app when static assets change significantly
-    - Clear cache when troubleshooting loading issues
-
----
-
----
-
-TITLE: Universal App Whitelisting
-
-DESCRIPTION:
-
-Network access control and navigation management for universal apps. Control URL access through the access control toggle and allowedUrls configuration.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/Whitelisting
-
-## Configuration
-
-The whitelisting system is configured through the `WEBVIEW_CONFIG.accessControl` object:
-
-```json
-{
-    "WEBVIEW_CONFIG": {
-        "accessControl": {
-            "enabled": true,
-            "allowedUrls": ["https://api.example.com/users", "*.example.com", "subdomain.*.example.com"]
-        }
-    }
-}
-```
-
-## Access Control Toggle
-
-Control URL access restrictions through the `accessControl.enabled` setting.
-
-### Properties
-
-#### enabled
-
--   **Type**: Boolean
--   **Default**: `false`
--   **Description**: Enables or disables access control whitelisting
--   **Behavior**:
-    -   `true`: Only URLs in `allowedUrls` array can be accessed (default deny)
-    -   `false`: All URLs are accessible (no restrictions)
-
-#### allowedUrls
-
--   **Type**: Array of strings
--   **Default**: `[]`
--   **Description**: List of URLs that are permitted when access control is enabled
--   **Format**: Supports exact URLs, wildcard patterns, and subdomain matching
-
-## Whitelisting Behavior
-
-All network calls are blocked by default when access control is enabled, and all links are considered external by default and will open in the browser. To allow network calls or internal navigation, URLs must be added to the "allowedUrls" configuration.
-
-## URL Matching Patterns
-
-### Exact Match
-
-Match specific URLs exactly as they appear:
-
-```json
-{
-    "accessControl": {
-        "allowedUrls": ["https://api.example.com/users", "https://cdn.example.com/assets/logo.png"]
-    }
-}
-```
-
-### Wildcard Match
-
-Use `*` to match any characters within a URL segment:
-
-```json
-{
-    "accessControl": {
-        "allowedUrls": ["https://api.example.com/*", "https://*.example.com/api/v1/*"]
-    }
-}
-```
-
-### Subdomain Match
-
-Match all subdomains of a domain:
-
-```json
-{
-    "accessControl": {
-        "allowedUrls": ["*.example.com", "subdomain.*.example.com"]
-    }
-}
-```
-
-## Security Benefits
-
--   **Default Deny**: All network requests are blocked by default, providing a secure baseline
--   **Explicit Allow**: Only explicitly whitelisted URLs can be accessed
--   **Pattern Flexibility**: Support for exact, wildcard, and subdomain matching patterns
--   **Navigation Control**: External links are automatically handled by the system browser
-
-## Use Cases
-
-### API Endpoints
-
-Whitelist specific API endpoints your app needs to access:
-
-```json
-{
-    "accessControl": {
-        "allowedUrls": [
-            "https://api.myapp.com/auth/*",
-            "https://api.myapp.com/users/*",
-            "https://api.myapp.com/data/*"
-        ]
-    }
-}
-```
-
-### CDN Resources
-
-Allow access to content delivery networks:
-
-```json
-{
-    "accessControl": {
-        "allowedUrls": ["https://cdn.jsdelivr.net/*", "https://unpkg.com/*", "*.cloudfront.net"]
-    }
-}
-```
-
-### Third-party Services
-
-Whitelist external services and APIs:
-
-```json
-{
-    "accessControl": {
-        "allowedUrls": ["https://maps.googleapis.com/*", "https://api.stripe.com/*", "*.analytics.google.com"]
-    }
-}
-```
-
-## Implementation Notes
-
--   URLs are matched against the patterns in the order they appear in the array
--   The first matching pattern allows the request
--   If no patterns match, the request is blocked
--   Subdomain patterns support multiple levels (e.g., `*.*.example.com`)
--   Wildcard patterns are greedy and match everything within the segment
-
----
-
----
-
-TITLE: Universal App Splashscreen
-
-DESCRIPTION:
-
-Custom splashscreen configuration for universal apps. Control the duration, background color, and custom icon to provide a branded app launch experience.
-The splashscreen is configured through the `splashScreen` object in your app configuration:
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/Splashscreen
-
-```json
-{
-    "splashScreen": {
-        "duration": 1000,
-        "backgroundColor": "#ffffff"
-    }
-}
-```
-
-## Custom Icon
-
-Place your custom splashscreen icon at `public/splashscreen.jpg`. Supported file extensions:
-
--   `.png`
--   `.jpg`
--   `.jpeg`
--   `.gif`
--   `.bmp`
--   `.svg`
--   `.webp`
-
-## Behavior
-
-### Default Behavior
-
--   **No Configuration**: Default Android splashscreen is shown
--   **No Custom Icon**: Fallback Catalyst logo is displayed
--   **With Configuration**: Custom splashscreen with specified duration and background
-
-### Configuration Options
-
-#### Duration
-
-Controls how long the splashscreen is displayed:
-
-```json
-{
-    "splashScreen": {
-        "duration": 2000
-    }
-}
-```
-
--   **Range**: 500ms - 5000ms
--   **Default**: 1000ms (1 second)
--   **Unit**: Milliseconds
-
-#### Background Color
-
-Sets the background color of the splashscreen:
-
-```json
-{
-    "splashScreen": {
-        "backgroundColor": "#2196F3"
-    }
-}
-```
-
--   **Format**: Hex color code (e.g., `#ffffff`, `#2196F3`)
--   **Default**: `#ffffff` (white)
--   **Transparency**: Not supported, use solid colors only
-
-## Implementation Notes
-
--   Configuration is required to enable custom splashscreen
--   Without configuration, the default Android splashscreen is used
--   Custom icon at `public/splashscreen.jpg` is automatically detected
--   Fallback Catalyst logo is shown if configuration exists but no custom icon is found
--   Background color applies to the entire screen, not just behind the icon
-
----
-
----
-
-TITLE: Universal App Icon
-
-DESCRIPTION:
-Custom app icon configuration for universal apps. Replace the default Android icon with your branded app icon for a professional appearance in device launchers and app stores.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/App-Icon
-
-## Configuration
-
-App icons are automatically detected and applied when placed in the correct location. No additional configuration is required in your app settings.
-
-## Custom Icon Setup
-
-### File Location
-
-Place your custom app icon at `public/icon.jpg`
-
-## File Structure
-
-```
-your-project/
-├── public/
-│   └── icon.jpg          # Your custom app icon
-├── src/
-└── package.json
-```
-
-### Supported File Extensions
-
--   `.png`
--   `.jpg`
--   `.jpeg`
--   `.gif`
--   `.bmp`
--   `.svg`
--   `.webp`
-
-## Behavior
-
-### Default Behavior
-
--   **No Custom Icon**: Default Android icon is displayed
--   **With Custom Icon**: Automatically uses `public/icon.jpg` as the app icon
-
-## Important Notes
-
--   Icon replacement is automatic - no code changes required
--   Changes take effect on the next app build
--   Default Android icon is used as fallback if custom icon is not found
--   Icon appears in device launchers, app stores, and system settings
-
----
-
----
-
-TITLE: Universal App Native APIs
-
-DESCRIPTION:
-Catalyst Core provides a comprehensive set of native APIs through React hooks that enable seamless integration between web and native platforms in universal apps.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Available-APIs
-
-## Camera API
-
-Comprehensive camera functionality for universal apps with photo capture, permission management, and error handling.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Camera-APIs
-
-LANGUAGE: js
-CODE:
-
-```
-import React from 'react';
-import { useCamera } from "catalyst-core/hooks";
-
-function CameraApp() {
-  const {
-    // New standardized interface
-    data: photoData,
-    execute: executeCamera
-  } = useCamera();
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
-
-  return (
-    <div style={{ padding: '20px' }}>
-      <h2>📷 Camera Demo</h2>
-
-      {/* Camera Controls */}
-
-        <button onClick={executeCamera} >
-          "Take Photo"
-        </button>
-        </div>
-
-        {photoData && (
-          <div>
-            <h3>Photo Captured!</h3>
-            <p>Name: {photoData.fileName}</p>
-            <p>Size: {formatFileSize(photoData.size)}</p>
-            <img src={photoData.fileSrc} alt="Captured" style={{ maxWidth: '300px' }} />
-
-          </div>
-        )}
-    </div>
-  );
-}
-
-export default CameraApp;
-```
-
-## File management API
-
-Comprehensive file management functionality for selecting files and opening them with external applications in universal apps.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/File-APIs
-
-LANGUAGE: js
-CODE:
-
-```
-import React from 'react';
-import { useFilePicker, useIntent } from "catalyst-core/hooks";
-
-function FileManagementApp() {
-  const {
-    data: fileData,
-    execute: executeFilePicker
-  } = useFilePicker();
-  const {
-    execute: executeIntent
-  } = useIntent();
-
-  return (
-    <div style={{ padding: '20px', maxWidth: '600px' }}>
-      <h2>📁 File Management Demo</h2>
-
-      {/* File Picker Section */}
-      <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-        <h3>📂 File Picker</h3>
-
-        <div style={{ marginBottom: '15px' }}>
-          <button
-            onClick={() => executeFilePicker('image/*')}
-
-            style={{ padding: '10px 15px', marginRight: '10px', fontSize: '14px' }}
-          >
-            '📁 Pick Image'
-          </button>
-
-          <button
-            onClick={() => executeFilePicker('application/pdf')}
-
-            style={{ padding: '10px 15px', marginRight: '10px', fontSize: '14px' }}
-          >
-            '📄 Pick PDF'
-          </button>
-
-          <button
-            onClick={() => executeFilePicker()}
-
-            style={{ padding: '10px 15px', fontSize: '14px' }}
-          >
-            '📋 Pick Any File'
-          </button>
-        </div>
-
-        {fileData && (
-          <div style={{
-            padding: '10px',
-            backgroundColor: '#e8f5e8',
-            borderRadius: '4px',
-            marginBottom: '10px'
-          }}>
-            <p><strong>Selected File:</strong></p>
-            <p>📄 Name: {fileData.fileName}</p>
-            <p>📏 Size: {(fileData.size / 1024).toFixed(2)} KB</p>
-            <p>🔗 Type: {fileData.mimeType || 'Unknown'}</p>
-            <p>📏 Transport: {fileData.transport}</p>
-
-          </div>
-        )}
-      </div>
-
-      {/* Intent Section */}
-      <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f0f8ff', borderRadius: '8px' }}>
-        <h3>🔗 Open with External App</h3>
-
-        <div style={{ marginBottom: '15px' }}>
-          <button
-            onClick={() => executeIntent('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 'application/pdf')}
-
-            style={{ padding: '10px 15px', marginRight: '10px', fontSize: '14px' }}
-          >
-            '📄 Open Sample PDF'
-          </button>
-
-          <button
-            onClick={() => executeIntent('https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4', 'video/mp4')}
-
-            style={{ padding: '10px 15px', fontSize: '14px' }}
-          >
-            '🎥 Open Sample Video'
-          </button>
-        </div>
-      </div>
-
-      {/* Combined Actions */}
-      {fileData && (
-        <div style={{ padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px' }}>
-          <h3>🔄 File Actions</h3>
-          <p>Selected file: <strong>{fileData.fileName}</strong></p>
-
-          <button
-            onClick={() => executeIntent(fileData.fileSrc, fileData.mimeType)}
-
-            style={{
-              padding: '10px 15px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              marginRight: '10px'
-            }}
-          >
-            '🔗 Open Selected File'
-          </button>
-
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default FileManagementApp;
-```
-
-## Haptic Feedback API
-
-Enhanced user experience through haptic feedback with multiple intensity levels and contextual feedback types for universal apps.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Haptic-APIs
-
-LANGUAGE: js
-CODE:
-
-```
-import React from 'react';
-import { useHapticFeedback } from "catalyst-core/hooks";
-
-function ButtonFeedbackDemo() {
-  const {
-    // New standardized interface
-    execute: executeHaptic,
-    isSupported
-  } = useHapticFeedback();
-
-  return (
-    <div style={{ padding: '20px', maxWidth: '500px' }}>
-      <h2>🔘 Button Feedback Demo</h2>
-
-      {/* Device availability check */}
-      {isSupported ? (
-        <p style={{ color: 'green', marginBottom: '20px' }}>
-          ✅ Haptic feedback is available on this device
-        </p>
-      ) : (
-        <p style={{ color: 'red', marginBottom: '20px' }}>
-          ❌ Haptic feedback is not available on this device
-        </p>
-      )}
-
-      {/* Haptic feedback buttons */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '1rem',
-        marginBottom: '20px'
-      }}>
-        <button onClick={() => executeHaptic('light')}>🔹 Light</button>
-        <button onClick={() => executeHaptic('medium')}>🔸 Medium</button>
-        <button onClick={() => executeHaptic('heavy')}>🔶 Heavy</button>
-        <button onClick={() => executeHaptic('success')}>✅ Success</button>
-        <button onClick={() => executeHaptic('warning')}>⚠️ Warning</button>
-        <button onClick={() => executeHaptic('error')}>❌ Error</button>
-      </div>
-    </div>
-  );
-}
-
-export default HapticFeedbackApp;
-```
-
-## Universal Storage API
-
-Standard web storage APIs for client-side data persistence in Catalyst Core universal apps.
-
-SOURCE: https://catalyst.1mg.com/public_docs/content/Universal%20App/API/Storage-API
-
-Available Storage APIs:
-
--   localStorage
--   sessionStorage
--   document.cookie
-
----
-
----
-
-TITLE: App name configuration
-
-DESCRIPTION:
-
-Custom app name configuration for universal apps. Control the display name of your application that appears in device launchers, app stores, and system settings.
-
-## Configuration
-
-The app name is configured through the `WEBVIEW_CONFIG` object in your app configuration:
-
-```json
-{
-    "WEBVIEW_CONFIG": {
-        "android": {
-            "appName": "My Awesome App"
-        }
-    }
-}
-```
-
----
-
----
-
-TITLE: Device Info API
-
-DESCRIPTION:
-
-# Device Information API
-
-Access basic device details in your universal app using the Device Information API. This API provides essential device characteristics including hardware specifications and display properties.
-
-## API Usage
-
-### Initialization Method
-
-```javascript
-const { getDeviceInfo } = WebBridge.init()
-const deviceInfo = await getDeviceInfo()
-```
-
-### Direct Access Method
-
-```javascript
-const { getDeviceInfo } = window.WebBridge
-const deviceInfo = await getDeviceInfo()
-```
-
-## Response Format
-
-The `getDeviceInfo()` method returns an object with the following keys:
-
-```javascript
-{
-  model: "Pixel 10",           // Device model name
-  manufacturer: "Google",            // Device manufacturer
-  platform: "android",                 // Operating system platform
-  screenWidth: 393,                // Screen width in pixels
-  screenHeight: 852,               // Screen height in pixels
-  screenDensity: 3.0               // Screen pixel density
-}
-```
-
----
-
----
-
----
-
-TITLE: Protocol Configuration
-
-DESCRIPTION:
-
-# Protocol Configuration
-
-Configure webview protocol settings for your universal app. Control whether the webview uses HTTP or HTTPS protocol to customize app behavior and security.
-
-## Configuration
-
-The protocol setting is configured through the `WEBVIEW_CONFIG.useHttps` property:
-
-```json
-{
-    "WEBVIEW_CONFIG": {
-        "useHttps": true
-    }
-}
-```
-
--   **Type**: Boolean
--   **Default**: `false`
--   **Description**: Controls the protocol used for webview URLs
--   **Behavior**:
-    -   `true`: Uses HTTPS protocol
-    -   `false`: Uses HTTP protocol
+## 10. MCP Tools Reference
+
+MCP server lives at `mcp_v2/mcp.js`. Reads `context.db` (SQLite). Requires catalyst-core project root.
+
+| Tool                       | When to call                                             | Key params                                    |
+| -------------------------- | -------------------------------------------------------- | --------------------------------------------- |
+| `get_conversion_status`    | Full project scan — gaps / done / needs_review / blocked | `include_not_applicable`                      |
+| `get_conversion_tasks`     | Filtered actionable task list                            | `filter: all\|critical\|native\|enhancements` |
+| `check_config`             | Validate config/config.json against schema               | `platform: android\|ios\|both`                |
+| `debug_issue`              | "Why is X failing?" — keyword matches known errors       | `symptom: string`                             |
+| `get_build_flow`           | Step-by-step build instructions                          | `platform`, `mode`, `symptom?`                |
+| `get_architecture_diagram` | ASCII architecture diagram                               | `feature: string (free text)`                 |
+| `create_task_plan`         | Start tracked conversion plan from live scan             | `goal: string`                                |
+| `update_task_step`         | Mark step done/blocked/in_progress                       | `step_index`, `status`, `note?`               |
+| `get_active_task`          | Resume after context reset — show current step           | `include_all_steps?`                          |
+| `sync_catalyst_docs`       | Sync latest docs from GitHub                             | (no params)                                   |
+
+**MCP design rules:**
+
+- No tool re-reads package.json — it's loaded once at startup
+- `create_task_plan` runs live `get_conversion_status` scan before writing plan
+- `needs_review` tasks are resolved inline (signal_files read from disk) before plan is written
+- Final plan has no `needs_review` steps — only `pending`, `done`, `blocked`
+- `bare_minimum` in plan output = Tier 1 + Tier 2 gaps, topologically sorted = first native build checklist
+- `get_active_task` is the cold-start resume tool — call this first after any context reset
+
+**Task plan step statuses:** `pending` → `in_progress` → `done` | `blocked` | `skipped`

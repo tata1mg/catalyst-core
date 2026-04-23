@@ -1030,6 +1030,110 @@ class NativeBridge(
     }
 
     @JavascriptInterface
+    fun setScreenSecure(params: String?) {
+        mainActivity.runOnUiThread {
+            try {
+                val enable = try {
+                    org.json.JSONObject(params ?: "{}").optBoolean("enable", true)
+                } catch (e: Exception) {
+                    true
+                }
+                mainActivity.setScreenSecure(enable)
+                BridgeUtils.notifyWeb(
+                    webView,
+                    BridgeUtils.WebEvents.ON_SCREEN_SECURE_SET,
+                    """{"secure": $enable, "success": true}"""
+                )
+            } catch (e: Exception) {
+                // Use notifyWebJson to prevent JSON injection from e.message
+                BridgeUtils.notifyWebJson(
+                    webView,
+                    BridgeUtils.WebEvents.ON_SCREEN_SECURE_ERROR,
+                    org.json.JSONObject().apply {
+                        put("success", false)
+                        put("error", e.message ?: "setScreenSecure failed")
+                    }
+                )
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun getScreenSecure(params: String?) {
+        mainActivity.runOnUiThread {
+            try {
+                val isSecure = mainActivity.isScreenSecure()
+                BridgeUtils.notifyWebJson(
+                    webView,
+                    BridgeUtils.WebEvents.ON_SCREEN_SECURE_STATUS,
+                    org.json.JSONObject().apply {
+                        put("secure", isSecure)
+                        put("success", true)
+                    }
+                )
+            } catch (e: Exception) {
+                BridgeUtils.notifyWebJson(
+                    webView,
+                    BridgeUtils.WebEvents.ON_SCREEN_SECURE_ERROR,
+                    org.json.JSONObject().apply {
+                        put("success", false)
+                        put("error", e.message ?: "getScreenSecure failed")
+                    }
+                )
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun clearWebData(params: String?) {
+        mainActivity.runOnUiThread {
+            try {
+                webView.clearCache(true)
+                webView.clearHistory()
+                android.webkit.WebStorage.getInstance().deleteAllData()
+                mainActivity.clearWebCache()
+                // CookieManager.removeAllCookies is async — fire success only from its callback
+                android.webkit.CookieManager.getInstance().removeAllCookies { cookiesRemoved ->
+                    android.webkit.CookieManager.getInstance().flush()
+                    mainActivity.runOnUiThread {
+                        try {
+                            // Use notifyWebJson to prevent JSON injection; cookiesRemoved is a
+                            // Boolean so string interpolation is safe, but keep consistent pattern
+                            BridgeUtils.notifyWebJson(
+                                webView,
+                                BridgeUtils.WebEvents.ON_WEB_DATA_CLEARED,
+                                org.json.JSONObject().apply {
+                                    put("success", true)
+                                    put("cookiesRemoved", cookiesRemoved)
+                                }
+                            )
+                        } catch (e: Exception) {
+                            BridgeUtils.notifyWebJson(
+                                webView,
+                                BridgeUtils.WebEvents.ON_WEB_DATA_CLEAR_ERROR,
+                                org.json.JSONObject().apply {
+                                    put("success", false)
+                                    put("error", e.message ?: "clearWebData cookie flush failed")
+                                }
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Use notifyWebJson to prevent JSON injection from e.message
+                BridgeUtils.notifyWebJson(
+                    webView,
+                    BridgeUtils.WebEvents.ON_WEB_DATA_CLEAR_ERROR,
+                    org.json.JSONObject().apply {
+                        put("success", false)
+                        put("error", e.message ?: "clearWebData failed")
+                    }
+                )
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun getSafeArea(data: String? = null) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED, "get safe area") {
             mainActivity.runOnUiThread {

@@ -1372,7 +1372,7 @@ export const useNotification = () => {
     }
 
     const updateBadge = (count) => {
-        nativeBridge.notification.updateBadge(count)
+        base.callNative(() => nativeBridge.notification.updateBadge(count))
         setBadges(count)
     }
 
@@ -1431,7 +1431,7 @@ export const useNetworkStatus = () => {
         type: null,
     })
     const [error, setError] = useState(null)
-    const isNative = nativeBridge.isNativeEnvironment
+    const isNative = nativeBridge.isAvailable()
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -1468,6 +1468,157 @@ export const useNetworkStatus = () => {
     return {
         ...status,
         error,
+    }
+}
+
+/**
+ * React hook for data protection primitives.
+ *
+ * Exposes screen-capture prevention and web data clearing as
+ * composable building blocks — the web layer decides when to call them
+ * (e.g. on sensitive screen mount/unmount, on logout).
+ *
+ * Extensible: add future security bridge commands here.
+ *
+ * @returns {{
+ *   screenSecure: boolean,
+ *   setScreenSecure: (enable: boolean) => void,
+ *   clearWebData: () => void,
+ *   data: Object|null,
+ *   loading: boolean,
+ *   error: Object|null,
+ *   isWeb: boolean,
+ *   isNative: boolean,
+ *   clear: () => void,
+ *   clearError: () => void,
+ * }}
+ */
+export const useDataProtection = () => {
+    const base = useBaseHook("useDataProtection")
+    const [screenSecure, setScreenSecureState] = useState(false)
+
+    // Server-side rendering safety
+    if (typeof window === "undefined") {
+        return {
+            screenSecure: false,
+            setScreenSecure: () => {},
+            clearWebData: () => {},
+            data: null,
+            loading: false,
+            progress: null,
+            error: null,
+            isWeb: true,
+            isNative: false,
+            clear: () => {},
+            clearError: () => {},
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
+    useEffect(() => {
+        const handleScreenSecureSet = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                setScreenSecureState(Boolean(result?.secure))
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleScreenSecureError = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                base.handleNativeError(result?.error || "setScreenSecure failed")
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleWebDataCleared = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                base.setDataAndComplete(result)
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleWebDataClearError = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                base.handleNativeError(result?.error || "clearWebData failed")
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const handleScreenSecureStatus = (data) => {
+            try {
+                const result = typeof data === "string" ? JSON.parse(data) : data
+                if (result?.error) {
+                    base.handleNativeError(result.error)
+                    return
+                }
+                setScreenSecureState(Boolean(result?.secure))
+            } catch (error) {
+                base.handleNativeError(error)
+            }
+        }
+
+        const cleanup = registerNativeHandlers([
+            [NATIVE_CALLBACKS.ON_SCREEN_SECURE_SET, handleScreenSecureSet],
+            [NATIVE_CALLBACKS.ON_SCREEN_SECURE_STATUS, handleScreenSecureStatus],
+            [NATIVE_CALLBACKS.ON_SCREEN_SECURE_ERROR, handleScreenSecureError],
+            [NATIVE_CALLBACKS.ON_WEB_DATA_CLEARED, handleWebDataCleared],
+            [NATIVE_CALLBACKS.ON_WEB_DATA_CLEAR_ERROR, handleWebDataClearError],
+        ])
+
+        // Initialize screenSecure state from native on mount (native env only)
+        base.callNative(() => nativeBridge.security.getScreenSecure())
+
+        return cleanup
+    }, [base.setDataAndComplete, base.handleNativeError])
+
+    const setScreenSecure = useCallback(
+        (enable) => {
+            base.callNative(() => nativeBridge.security.setScreenSecure(enable))
+        },
+        [base.callNative]
+    )
+
+    const clearWebData = useCallback(() => {
+        base.callNative(() => nativeBridge.security.clearWebData())
+    }, [base.callNative])
+
+    return {
+        // Standardized base interface
+        data: base.data,
+        loading: base.loading,
+        progress: base.progress,
+        error: base.error,
+        isWeb: base.isWeb,
+        isNative: base.isNative,
+        clear: base.clear,
+        clearError: base.clearError,
+
+        // Security state
+        screenSecure,
+
+        // Security actions
+        setScreenSecure,
+        clearWebData,
     }
 }
 

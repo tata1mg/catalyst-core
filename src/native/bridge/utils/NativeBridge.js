@@ -59,7 +59,7 @@ class NativeBridgeUtil {
             )
         }
 
-        if (!this.isNativeEnvironment) {
+        if (!this.isAvailable()) {
             throw new Error(
                 "Native bridge not available. Ensure you are running in a native WebView environment."
             )
@@ -77,11 +77,12 @@ class NativeBridgeUtil {
                 window.NativeBridge[command](data)
                 return true
             } else {
-                throw new Error(`Android bridge method '${command}' not found`)
+                console.error(`Android bridge method '${command}' not found`)
+                return false
             }
         } catch (error) {
             console.error(`Error executing Android command '${command}':`, error)
-            throw error
+            return false
         }
     }
 
@@ -306,6 +307,29 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Security methods
+     */
+    security = {
+        /**
+         * Enable or disable FLAG_SECURE (prevents screenshots / app-switcher caching)
+         * @param {boolean} enable - true to secure, false to unsecure
+         */
+        setScreenSecure: (enable) => this.call(NATIVE_COMMANDS.SET_SCREEN_SECURE, JSON.stringify({ enable })),
+
+        /**
+         * Query current FLAG_SECURE status
+         * Returns result through ON_SCREEN_SECURE_SET callback
+         */
+        getScreenSecure: () => this.call(NATIVE_COMMANDS.GET_SCREEN_SECURE),
+
+        /**
+         * Clear all WebView data (cache, history, cookies, WebStorage)
+         * Returns result through ON_WEB_DATA_CLEARED / ON_WEB_DATA_CLEAR_ERROR callback
+         */
+        clearWebData: () => this.call(NATIVE_COMMANDS.CLEAR_WEB_DATA),
+    }
+
+    /**
      * Get environment info
      */
     getEnvironmentInfo() {
@@ -318,10 +342,10 @@ class NativeBridgeUtil {
     }
 
     /**
-     * Check if native bridge is available
+     * Check if native bridge is available — live check, never stale
      */
     isAvailable() {
-        return this.isNativeEnvironment
+        return this._detectAndroid() || this._detectIOS()
     }
 
     /**
