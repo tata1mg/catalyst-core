@@ -35,8 +35,13 @@ import { SsrRequestProvider } from "../../web-router/components/SsrRequestContex
 
 // Try to import user-defined hooks. These are optional — apps that don't export them
 // will get undefined, and safeCall is a no-op for non-functions.
-let _onRouteMatch, _onFetcherSuccess, _onFetcherError, _onAppServerSideSuccess,
-    _onAppServerSideError, _onRenderError, _onRequestError
+let _onRouteMatch,
+    _onFetcherSuccess,
+    _onFetcherError,
+    _onAppServerSideSuccess,
+    _onAppServerSideError,
+    _onRenderError,
+    _onRequestError
 try {
     const hooks = await import("@catalyst/template/server/index.js")
     _onRouteMatch = hooks.onRouteMatch
@@ -316,8 +321,15 @@ async function _handler(req, res) {
 
                     const statusCode = err.status_code || 404
                     await tracedRenderMarkUp(
-                        statusCode, req, res, allTags, fetcherData,
-                        store, matches, context, chunkExtractor
+                        statusCode,
+                        req,
+                        res,
+                        allTags,
+                        fetcherData,
+                        store,
+                        matches,
+                        context,
+                        chunkExtractor
                     )
                 } else {
                     safeCall(onFetcherSuccess, { req, res, store })
@@ -325,8 +337,15 @@ async function _handler(req, res) {
                     if (res.headersSent) return
 
                     await tracedRenderMarkUp(
-                        null, req, res, allTags, fetcherData,
-                        store, matches, context, chunkExtractor
+                        null,
+                        req,
+                        res,
+                        allTags,
+                        fetcherData,
+                        store,
+                        matches,
+                        context,
+                        chunkExtractor
                     )
                 }
             } catch (error) {
@@ -337,8 +356,15 @@ async function _handler(req, res) {
 
                 const chunkExtractor = collectAssets(req, allMatches)
                 await tracedRenderMarkUp(
-                    404, req, res, allTags, fetcherData,
-                    store, matches, context, chunkExtractor
+                    404,
+                    req,
+                    res,
+                    allTags,
+                    fetcherData,
+                    store,
+                    matches,
+                    context,
+                    chunkExtractor
                 )
             }
         } catch (error) {
@@ -349,8 +375,15 @@ async function _handler(req, res) {
 
             const chunkExtractor = collectAssets(req, allMatches)
             await tracedRenderMarkUp(
-                error.status_code, req, res, allTags, fetcherData,
-                store, matches, context, chunkExtractor
+                error.status_code,
+                req,
+                res,
+                allTags,
+                fetcherData,
+                store,
+                matches,
+                context,
+                chunkExtractor
             )
         }
     } catch (error) {

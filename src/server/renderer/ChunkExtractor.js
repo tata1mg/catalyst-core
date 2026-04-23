@@ -38,7 +38,8 @@ export class ChunkExtractor {
 
     // ── Route-matched split chunks → critical (blocks first paint) ─────
     preloadRouteCss(allMatches = []) {
-        for (const match of allMatches) {
+        const list = allMatches == null ? [] : Array.isArray(allMatches) ? allMatches : []
+        for (const match of list) {
             const route = match?.route
             if (!route) continue
 
@@ -90,7 +91,9 @@ export class ChunkExtractor {
         bucket.js.add(jsUrl)
 
         // Collect direct + transitive CSS as relative file paths (not URLs)
-        const cssFiles = [...(manifestEntry.css || []), ...(manifestEntry.allCss || [])]
+        const cssPart = Array.isArray(manifestEntry.css) ? manifestEntry.css : []
+        const allCssPart = Array.isArray(manifestEntry.allCss) ? manifestEntry.allCss : []
+        const cssFiles = [...cssPart, ...allCssPart]
         for (const cssFile of cssFiles) {
             if (!this._allCssPaths.has(cssFile)) {
                 this._allCssPaths.add(cssFile)
