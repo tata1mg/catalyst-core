@@ -1,0 +1,28 @@
+{
+    "name": "create-catalyst-app",
+    "bin": "scripts/cli.cjs",
+    "version": "0.1.0-beta.1",
+    "description": "cli package to scaffold Catalyst application",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/create-catalyst-app"
+    },
+    "scripts": {
+        "prettify": "prettier . --write"
+    },
+    "dependencies": {
+        "commander": "^8.2.0",
+        "fs": "^0.0.1-security",
+        "https": "^1.0.0",
+        "picocolors": "^0.1.0",
+        "prompts": "^2.4.0",
+        "tar": "^6.2.1",
+        "validate-npm-package-name": "^5.0.0",
+        "jscodeshift": "^0.16.0"
+    },
+    "devDependencies": {
+        "prettier": "^3.2.5"
+    },
+    "license": "MIT"
+}

@@ -5,7 +5,7 @@ on:
         branches: ["main"]
 
 jobs:
-    build:
+    catalyst-core:
         runs-on: ubuntu-latest
         container:
             image: mcr.microsoft.com/playwright:v1.52.0-noble
@@ -14,4 +14,15 @@ jobs:
             - uses: actions/checkout@v4
 
             - name: Build and Test
-              run: node -v && chmod +x ./test.sh && ./test.sh
+              run: node -v && chmod +x ./scripts/test-catalyst-core.sh && ./scripts/test-catalyst-core.sh
+
+    create-catalyst-app:
+        runs-on: ubuntu-latest
+        container:
+            image: mcr.microsoft.com/playwright:v1.52.0-noble
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Scaffold and Build Smoke Test
+              run: node -v && chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
