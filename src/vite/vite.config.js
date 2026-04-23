@@ -175,6 +175,13 @@ const browserOptimizeDeps = [
     "fast-average-color",
     "react-dfp",
     "web-vitals",
+    // Referenced by manualChunks in vite.config.client.js — pre-bundle so the
+    // first navigation that pulls them in doesn't trigger a full-page reload.
+    "react-loadable-visibility",
+    "react-detect-offline",
+    "react-side-effect",
+    "react-async-script",
+    "normalize.css",
 ]
 
 // Node-only / instrumentation dependencies that should remain external in SSR
@@ -230,7 +237,9 @@ export default defineConfig({
     plugins: [
         scssModulesPlugin(),
         jsxInJsPlugin(),
-        react(),
+        // `include` extends the default regex so Fast Refresh also wraps .js
+        // files (their JSX has already been transformed by jsxInJsPlugin above).
+        react({ include: /\.(mdx|js|jsx|ts|tsx)$/ }),
         // Default: SVG → React component. Use `*.svg?url` (or `?raw`) for asset URL / raw source.
         // Keep `*.svg?react` so explicit imports still work. Exclude node_modules so deps keep normal asset handling.
         svgr({
@@ -253,6 +262,14 @@ export default defineConfig({
     },
 
     optimizeDeps: {
+        // Explicit entries so the dep scanner crawls the app's real import
+        // graph. Without this (SSR middleware mode has no index.html), Vite
+        // can't see dynamic `import()` chunks produced by split(), so every
+        // first-navigation discovers new deps and triggers a full reload.
+        entries: [
+            path.join(process.env.src_path, "client/index.js"),
+            path.join(process.env.src_path, "src/**/*.{js,jsx,ts,tsx}"),
+        ],
         include: browserOptimizeDeps,
         exclude: ["catalyst-core/router/ClientRouter"],
         esbuildOptions: {
