@@ -140,7 +140,10 @@ const _renderMarkUp = async (
     chunkExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    const isBot = !!deviceDetails.googleBot
+    // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
+    // also need the bot code path — no JS, and split(... ssr: false ...) widgets that
+    // previously read state.shellReducer.isBot now read this via SsrRequestContext.
+    const isBot = !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
 
     // Critical assets → <head>
     const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
