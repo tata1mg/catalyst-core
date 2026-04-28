@@ -163,9 +163,12 @@ object BridgeUtils {
         }
 
         try {
-            // Inject JSON directly into the JS call — no string embedding, no escaping needed.
-            // The JSON object is dropped inline so WebBridge.callback receives a real JS object.
-            val jsCode = "window.WebBridge.callback('${event.eventName}', ${jsonData})"
+            // Inject JSON directly into the JS call. U+2028/U+2029 are valid JSON whitespace but
+            // are treated as line terminators by V8, causing a SyntaxError — escape them first.
+            val safeJson = jsonData.toString()
+                .replace(" ", "\\u2028")
+                .replace(" ", "\\u2029")
+            val jsCode = "window.WebBridge.callback('${event.eventName}', $safeJson)"
             webView.evaluateJavascript(jsCode, null)
             Log.d(TAG, "✅ Web JSON notification sent: ${event.eventName}")
         } catch (e: Exception) {

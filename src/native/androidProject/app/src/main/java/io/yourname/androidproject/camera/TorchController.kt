@@ -2,6 +2,7 @@ package io.yourname.androidproject.camera
 
 import android.util.Log
 import androidx.camera.core.Camera
+import androidx.core.util.Consumer
 
 /**
  * Manages torch (flashlight) state.
@@ -36,8 +37,10 @@ class TorchController(
             return
         }
         Log.d(TAG, "setTorch($on)")
-        cam.cameraControl.enableTorch(on)
-        onTorchChanged(on)
+        cam.cameraControl.enableTorch(on).addListener(
+            { onTorchChanged(on) },
+            { runnable -> runnable.run() }
+        )
     }
 
     /** Called after every bindCamera — torch always resets to off on session start. */

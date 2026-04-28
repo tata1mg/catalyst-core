@@ -20,9 +20,9 @@ class HoldController(
     private val HOLD_DURATION_MS = 200L
 
     private val handler = Handler(Looper.getMainLooper())
-    private var resumeRunnable: Runnable? = null
+    @Volatile private var resumeRunnable: Runnable? = null
 
-    var lastDetectedValue: String? = null
+    @Volatile var lastDetectedValue: String? = null
         private set
 
     /**
@@ -35,6 +35,7 @@ class HoldController(
         barcodeDetector.suppressResults = true
         Log.d(TAG, "Hold started — results suppressed for ${HOLD_DURATION_MS}ms")
 
+        resumeRunnable?.let { handler.removeCallbacks(it) }
         val runnable = Runnable {
             if (!stateMachine.state.isActive) return@Runnable
             barcodeDetector.suppressResults = false

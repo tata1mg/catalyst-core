@@ -153,6 +153,7 @@ class NativeBridge(
 
     // Video stream manager
     private var nativeCameraManager: NativeCameraManager? = null
+    private var webViewOriginalBackground: Int = android.graphics.Color.WHITE
 
     // Unified notification manager
     private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
@@ -260,6 +261,7 @@ class NativeBridge(
             val showQrDetected = options.optBoolean("showQrDetected", false)
             android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing zoom=$zoomOptions scanFormat=$scanFormat viewfinderRect=$viewfinderRect showQrDetected=$showQrDetected")
             mainActivity.runOnUiThread {
+                webViewOriginalBackground = webView.solidColor.takeIf { it != 0 } ?: android.graphics.Color.WHITE
                 webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 nativeCameraManager?.start(facing, viewfinderRect, zoomOptions, scanFormat, showQrDetected = showQrDetected)
             }
@@ -270,7 +272,7 @@ class NativeBridge(
     fun stopVideoStream(optionsRaw: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "stop video stream") {
             mainActivity.runOnUiThread {
-                webView.setBackgroundColor(android.graphics.Color.WHITE)
+                webView.setBackgroundColor(webViewOriginalBackground)
                 nativeCameraManager?.stop()
             }
         }
@@ -284,7 +286,9 @@ class NativeBridge(
                 return@safeExecute
             }
             android.util.Log.d("NativeBridge", "setVideoStreamZoom — multiplier=${multiplier}x")
-            nativeCameraManager?.setZoom(multiplier)
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setZoom(multiplier)
+            }
         }
     }
 
@@ -294,7 +298,9 @@ class NativeBridge(
             val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
             val on = options.optBoolean("on", false)
             android.util.Log.d("NativeBridge", "setVideoStreamTorch — on=$on")
-            nativeCameraManager?.setTorch(on)
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setTorch(on)
+            }
         }
     }
 

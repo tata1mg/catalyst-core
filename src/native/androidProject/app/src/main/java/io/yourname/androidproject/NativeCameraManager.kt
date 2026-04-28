@@ -94,17 +94,17 @@ class NativeCameraManager(
         barcodeDetector = barcodeDetector
     )
 
-    // Viewfinder state
-    private var viewfinderScreenRect: RectF? = null
+    // Viewfinder state — written on main thread, read on analyzer thread
+    @Volatile private var viewfinderScreenRect: RectF? = null
 
-    // QR detected overlay state
-    private var showQrDetected: Boolean = false
-    private var overlayIsOrange: Boolean = false       // logical state — set before showQrOverlay
-    private var overlayPaintedOrange: Boolean = false  // what color was last painted
-    private var overlayVisible: Boolean = false
-    private var lastBarcodeScreenRect: RectF? = null
+    // QR detected overlay state — written on analyzer thread, read on main thread and vice versa
+    @Volatile private var showQrDetected: Boolean = false
+    @Volatile private var overlayIsOrange: Boolean = false       // logical state — set before showQrOverlay
+    @Volatile private var overlayPaintedOrange: Boolean = false  // what color was last painted
+    @Volatile private var overlayVisible: Boolean = false
+    @Volatile private var lastBarcodeScreenRect: RectF? = null
     private val overlayHideHandler = Handler(Looper.getMainLooper())
-    private var overlayHideRunnable: Runnable? = null
+    @Volatile private var overlayHideRunnable: Runnable? = null
 
     init {
         stateMachine.addListener(object : VideoStreamStateListener {
@@ -181,7 +181,11 @@ class NativeCameraManager(
 
     fun onPermissionResult(granted: Boolean) = sessionManager.onPermissionResult(granted)
 
-    fun cleanup() = sessionManager.cleanup()
+    fun cleanup() {
+        overlayHideRunnable?.let { overlayHideHandler.removeCallbacks(it) }
+        overlayHideRunnable = null
+        sessionManager.cleanup()
+    }
 
     // ---- Detection handler ----
 

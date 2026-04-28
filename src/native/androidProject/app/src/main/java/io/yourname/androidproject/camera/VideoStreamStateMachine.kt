@@ -1,6 +1,7 @@
 package io.yourname.androidproject.camera
 
 import android.util.Log
+import java.util.concurrent.CopyOnWriteArrayList
 
 class VideoStreamStateMachine {
 
@@ -10,12 +11,17 @@ class VideoStreamStateMachine {
     var state: VideoStreamState = VideoStreamState.IDLE
         private set
 
-    private val listeners = mutableListOf<VideoStreamStateListener>()
+    private val listeners = CopyOnWriteArrayList<VideoStreamStateListener>()
 
     fun addListener(listener: VideoStreamStateListener) {
         listeners.add(listener)
     }
 
+    fun removeListener(listener: VideoStreamStateListener) {
+        listeners.remove(listener)
+    }
+
+    @Synchronized
     fun transition(next: VideoStreamState): Boolean {
         val prev = state
         if (!prev.canTransitionTo(next)) {

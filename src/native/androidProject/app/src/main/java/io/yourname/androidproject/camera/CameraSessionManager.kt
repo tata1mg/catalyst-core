@@ -69,6 +69,10 @@ class CameraSessionManager(
         fpsMin: Int?,
         fpsMax: Int?
     ) {
+        if (cameraProvider != null) {
+            Log.w(TAG, "start() called while already streaming — ignoring")
+            return
+        }
         currentFacing = facing
         currentAutoZoom = autoZoom
         currentInitialZoom = initialZoomPct
@@ -96,9 +100,9 @@ class CameraSessionManager(
         torchController.detachCamera()
         activity.runOnUiThread {
             previewView.visibility = View.INVISIBLE
+            stateMachine.transition(VideoStreamState.IDLE)
+            onStopped()
         }
-        stateMachine.transition(VideoStreamState.IDLE)
-        onStopped()
         Log.d(TAG, "Camera stopped")
     }
 

@@ -26,7 +26,7 @@ class BarcodeDetector(
     private var scanner: BarcodeScanner? = null
 
     /** When true, frames are still analyzed (no flicker) but results are not forwarded. */
-    var suppressResults = false
+    @Volatile var suppressResults = false
 
     /** scan: "qr" | "barcode" | "all" */
     fun buildImageAnalysis(
@@ -50,6 +50,7 @@ class BarcodeDetector(
             )
         }
 
+        scanner?.close()
         scanner = BarcodeScanning.getClient(optionsBuilder.build())
         val activeScanner = scanner!!
 
@@ -87,6 +88,7 @@ class BarcodeDetector(
                     barcodes.forEach { onDetected(it, imgW, imgH) }
                 }
             }
+            .addOnFailureListener { e -> Log.w(TAG, "Barcode processing failed", e) }
             .addOnCompleteListener { imageProxy.close() }
     }
 
