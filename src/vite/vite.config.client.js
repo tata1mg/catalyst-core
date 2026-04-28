@@ -67,7 +67,30 @@ const clientConfig = defineConfig({
                     if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
                         return undefined
                     }
+                    if (!/[\\/]node_modules[\\/]/.test(id)) {
+                        return undefined
+                    }
+                    if (
+                        /[\\/]node_modules[\\/](react|react-dom|scheduler|react-fast-compare|react-side-effect|react-helmet-async|react-router|react-router-dom)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor-react"
+                    }
+                    if (/[\\/]node_modules[\\/](react-redux|redux|redux-thunk)[\\/]/.test(id)) {
+                        return "vendor-redux"
+                    }
 
+                    if (/[\\/]node_modules[\\/]lottie[^\\/]*[\\/]/.test(id)) {
+                        return "vendor-lottie"
+                    }
+                    if (
+                        /[\\/]node_modules[\\/](react-google-recaptcha|react-async-script|react-dfp)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor-ads"
+                    }
                     // Other node_modules → let Vite pack them with the chunks that use them.
                     return undefined
                 },

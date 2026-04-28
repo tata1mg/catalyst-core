@@ -199,6 +199,12 @@ const nodeOnlyExternalDeps = [
 ]
 
 export default defineConfig({
+    // Parallel `vite build` (SSR + client) must use separate dirs or Vite will block on shared `node_modules/.vite`.
+    cacheDir: path.join(
+        process.env.src_path,
+        "node_modules",
+        process.env.CATALYST_VITE_CACHE_ID ? `.vite-${process.env.CATALYST_VITE_CACHE_ID}` : ".vite",
+    ),
     ssr: {
         // Keep selected React-side packages bundled for SSR (transformed by Vite, NOT pre-bundled)
         // noExternal: ["@tata1mg/slowboi-react"],

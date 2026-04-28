@@ -1,5 +1,5 @@
 import path from "path"
-import { spawnSync } from "child_process"
+import { spawn } from "child_process"
 import { arrayToObject } from "./scriptUtils.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
@@ -12,9 +12,30 @@ const configPath = path.join(process.env.PWD, "config/config.json")
 const configJSON = JSON.parse(readFileSync(configPath), "utf-8")
 
 /**
+ * @param {string} command
+ * @param {import('child_process').SpawnOptions} options
+ */
+function runBuildStep(command, options) {
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, [], {
+            ...options,
+            shell: true,
+        })
+        child.on("close", (code) => {
+            if (code === 0) {
+                resolve()
+            } else {
+                reject(Object.assign(new Error(`Build step failed with exit code ${code}`), { code }))
+            }
+        })
+        child.on("error", reject)
+    })
+}
+
+/**
  * @description - builds the application for production
  */
-function build() {
+async function build() {
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
@@ -48,46 +69,39 @@ function build() {
         ]),
     }
 
-    // Build server bundle
-    console.log("🔧 Building server bundle...")
     const serverBuildCommand = `vite build --config ./dist/vite/vite.config.server.js --ssr`
-
-    const serverBuildResult = spawnSync(serverBuildCommand, [], {
-        cwd: dirname,
-        stdio: "inherit",
-        shell: true,
-        env: baseEnv,
-    })
-
-    if (serverBuildResult.status !== 0) {
-        console.log(serverBuildResult)
-        console.error("❌ Server build failed!")
-        process.exit(1)
-    }
-
-    console.log("✅ Server build completed!")
-
-    // Build client bundle
-    console.log("📦 Building client bundle...")
     const clientBuildCommand = `vite build --config ./dist/vite/vite.config.client.js`
-
-    const clientBuildResult = spawnSync(clientBuildCommand, [], {
+    const spawnBase = {
         cwd: dirname,
         stdio: "inherit",
-        shell: true,
-        env: baseEnv,
-    })
+    }
 
-    if (clientBuildResult.status !== 0) {
-        console.error("❌ Client build failed!")
+    console.log("🔧📦 Building server and client bundles in parallel...")
+
+    try {
+        await Promise.all([
+            runBuildStep(serverBuildCommand, {
+                ...spawnBase,
+                env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "ssr" },
+            }),
+            runBuildStep(clientBuildCommand, {
+                ...spawnBase,
+                env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "client" },
+            }),
+        ])
+    } catch {
+        console.error("❌ Build failed!")
         process.exit(1)
     }
 
-    console.log("✅ Client build completed!")
+    console.log("✅ Server and client builds completed!")
 
     console.log("🎉 Build completed successfully!")
     console.log("📁 Built files are located in the 'build' directory")
     console.log("🚀 Run 'npm run serve' to start the production server")
 }
 
-build()
+build().catch((err) => {
+    console.error(err)
+    process.exit(1)
+})
