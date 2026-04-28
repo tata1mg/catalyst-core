@@ -60,23 +60,58 @@ const clientConfig = defineConfig({
                     return "client/assets/[name]-[hash][extname]"
                 },
 
-                // Simple chunk strategy:
-                //   vendor — core framework deps (cacheable across deploys)
-                //   <natural> — Vite/Rollup decides everything else
-                //
-                // CSS files are never forced into a manual chunk — they stay
-                // with the chunk that imports them so cssCodeSplit works correctly.
+                // Each manual chunk gets its own [hash] from chunkFileNames,
+                // so a change in one group does not bust caches for the others.
+                // Keep CSS out of manual chunks so cssCodeSplit works correctly.
                 manualChunks(id) {
                     if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
                         return undefined
                     }
+                    if (!/[\\/]node_modules[\\/]/.test(id)) {
+                        return undefined
+                    }
                     if (
-                        /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|catalyst-core|redux|redux-thunk|axios|react-loadable-visibility|react-helmet-async|react-google-recaptcha|normalize\.css|react-detect-offline|react-side-effect|react-fast-compare|react-async-script|babel|history|react-dfp|@tata1mg[\\/]router|lottie)[\\/]/.test(
+                        /[\\/]node_modules[\\/](react|react-dom|scheduler|react-fast-compare|react-side-effect|react-helmet-async)[\\/]/.test(
                             id
                         )
                     ) {
-                        return "vendor"
+                        return "vendor-react"
                     }
+                    if (/[\\/]node_modules[\\/](react-redux|redux|redux-thunk)[\\/]/.test(id)) {
+                        return "vendor-redux"
+                    }
+                    if (
+                        /[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history|@tata1mg[\\/]router)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor-router"
+                    }
+                    if (/[\\/]node_modules[\\/]axios[\\/]/.test(id)) {
+                        return "vendor-network"
+                    }
+                    if (/[\\/]node_modules[\\/]lottie[^\\/]*[\\/]/.test(id)) {
+                        return "vendor-lottie"
+                    }
+                    if (
+                        /[\\/]node_modules[\\/](react-google-recaptcha|react-async-script|react-dfp)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor-ads"
+                    }
+                    if (
+                        /[\\/]node_modules[\\/](react-loadable-visibility|react-detect-offline|normalize\.css)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor-ui"
+                    }
+                    if (/[\\/]node_modules[\\/]catalyst-core[\\/]/.test(id)) {
+                        return "vendor-catalyst"
+                    }
+                    // Other node_modules → let Vite pack them with the chunks that use them.
+                    return undefined
                 },
             },
         },
