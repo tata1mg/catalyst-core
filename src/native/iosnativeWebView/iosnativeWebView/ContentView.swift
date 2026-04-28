@@ -7,21 +7,31 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 
 public struct ContentView: View {
     @StateObject private var webViewModel = WebViewModel()
-    
+    // Shared camera manager — owned here, injected into WebView/NativeBridge
+    let cameraManager = NativeCameraManager(
+        onEvent: { _, _ in },   // placeholder; real handler set in NativeBridge
+        onError: { _ in }
+    )
+
     public init() {}
 
     public var body: some View {
         ZStack {
+            // Camera preview layer — sits behind the WebView (index 0)
+            CameraPreviewView(cameraManager: cameraManager)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)   // touches pass through to WebView
+
             // Normal remote URL - isolated from state changes
             // Conditionally apply edge-to-edge based on config (matches Android behavior)
             if ConfigConstants.EdgeToEdge.enabled {
-                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
+                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel, cameraManager: cameraManager)
                     .ignoresSafeArea()
                     .onAppear {
                         logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: enabled]")
                     }
             } else {
-                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
+                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel, cameraManager: cameraManager)
                     .onAppear {
                         logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: disabled, respecting safe areas]")
                     }
@@ -62,9 +72,10 @@ public struct ContentView: View {
 struct WebViewContainer: View {
     let urlString: String
     @ObservedObject var viewModel: WebViewModel
+    let cameraManager: NativeCameraManager
 
     var body: some View {
-        WebView(urlString: urlString, viewModel: viewModel)
+        WebView(urlString: urlString, viewModel: viewModel, cameraManager: cameraManager)
             .onAppear {
                 logWithTimestamp("🌐 WebView appeared with URL: \(urlString)")
             }
