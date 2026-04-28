@@ -153,7 +153,7 @@ class NativeBridgeUtil {
          *   zoom: { auto: true, initial: 1.0 }  — auto-zoom via ML Kit, initial is multiplier (1.0=1x)
          *   zoom: { auto: false, initial: 2.0 } — manual, starts at 2x
          */
-        start: (options = {}) => this.call(NATIVE_COMMANDS.START_VIDEO_STREAM, JSON.stringify(options)),
+        start: (options = {}) => this.call(NATIVE_COMMANDS.START_VIDEO_STREAM, options),
 
         /**
          * Stop native camera video stream

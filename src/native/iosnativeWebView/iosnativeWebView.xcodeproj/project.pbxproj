@@ -55,7 +55,7 @@
 		C99974382E97D69E00C25611 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C9DAB6492E950DDC00A02A44 /* iosnativeWebView.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iosnativeWebView.entitlements; sourceTree = "<group>"; };
 		E90872B32E8D00D80076627C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		E9F699CF2EDEFCF3005E972E /* iosnativeWebView.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = file; path = iosnativeWebView.xctestplan; sourceTree = "<group>"; };
+		E9F699CF2EDEFCF3005E972E /* iosnativeWebView.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = iosnativeWebView.xctestplan; sourceTree = "<group>"; };
 		E9F699D02EDEFEF2005E972E /* URLWhitelistManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLWhitelistManagerTests.swift; sourceTree = "<group>"; };
 		E9F699D32EE05984005E972E /* ConfigMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigMappingTests.swift; sourceTree = "<group>"; };
 		E9F699D52EE05D74005E972E /* BridgeMessageValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeMessageValidatorTests.swift; sourceTree = "<group>"; };
@@ -478,6 +478,7 @@
 			baseConfigurationReference = XCCONFIG001000000001 /* Debug.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = iosnativeWebView/iosnativeWebView.entitlements;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BHQQRZ69D3;
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires camera access to capture images";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Debug web content in Safari Web Inspector";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires photo library access to select images from your gallery";
@@ -486,8 +487,9 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				PRODUCT_BUNDLE_IDENTIFIER = com.1mg.pos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Pfizer Development Profile";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = Tata1mgPos;
 			};
 			name = Debug;
 		};
