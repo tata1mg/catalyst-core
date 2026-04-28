@@ -177,9 +177,55 @@ jobs:
                         TARGET_BASE_VERSION=$(node -p "require('${PACKAGE_FILE}').version" | sed 's/-.*//')
                       fi
 
-                      LATEST_PRERELEASE=$(npm view "$PACKAGE_NAME@>=${TARGET_BASE_VERSION}-${RELEASE_TAG}.0 <${TARGET_BASE_VERSION}-${RELEASE_TAG}.9999" version --json 2>/dev/null | node -e 'let data="";process.stdin.on("data",c=>data+=c);process.stdin.on("end",()=>{if(!data.trim()) return; const value=JSON.parse(data); const versions=Array.isArray(value)?value:[value]; versions.forEach(v=>console.log(v));});' | sort -V | tail -1 | sed "s/.*-${RELEASE_TAG}\.\([0-9]*\).*/\1/" || echo "-1")
-                      if [ -z "$LATEST_PRERELEASE" ]; then
+                      NPM_VIEW_OUTPUT=$(mktemp)
+                      NPM_VIEW_ERROR=$(mktemp)
+                      NODE_PARSE_ERROR=$(mktemp)
+                      NPM_VIEW_QUERY="$PACKAGE_NAME@>=${TARGET_BASE_VERSION}-${RELEASE_TAG}.0 <${TARGET_BASE_VERSION}-${RELEASE_TAG}.9999"
+
+                      if npm view "$NPM_VIEW_QUERY" version --json > "$NPM_VIEW_OUTPUT" 2> "$NPM_VIEW_ERROR"; then
+                        if ! LATEST_PRERELEASE=$(node -e '
+                          const tag = process.argv[1]
+                          let data = ""
+                          process.stdin.on("data", (chunk) => (data += chunk))
+                          process.stdin.on("end", () => {
+                            try {
+                              if (!data.trim()) {
+                                console.log("-1")
+                                return
+                              }
+
+                              const value = JSON.parse(data)
+                              const versions = (Array.isArray(value) ? value : [value]).filter(Boolean)
+                              const prereleasePattern = new RegExp(`-${tag}\\.(\\d+)$`)
+                              const prereleaseNumbers = versions
+                                .map((version) => String(version).match(prereleasePattern))
+                                .filter(Boolean)
+                                .map((match) => Number(match[1]))
+
+                              console.log(prereleaseNumbers.length ? Math.max(...prereleaseNumbers) : -1)
+                            } catch (error) {
+                              console.error(error.message)
+                              process.exit(1)
+                            }
+                          })
+                        ' "$RELEASE_TAG" < "$NPM_VIEW_OUTPUT" 2> "$NODE_PARSE_ERROR"); then
+                          echo "::error::Failed to parse npm prerelease response for $NPM_VIEW_QUERY"
+                          cat "$NODE_PARSE_ERROR"
+                          exit 1
+                        fi
+                      elif grep -qiE 'E404|No match found|not in this registry' "$NPM_VIEW_ERROR"; then
                         LATEST_PRERELEASE=-1
+                      else
+                        echo "::error::Failed to query npm prereleases for $NPM_VIEW_QUERY"
+                        cat "$NPM_VIEW_ERROR"
+                        exit 1
+                      fi
+
+                      rm -f "$NPM_VIEW_OUTPUT" "$NPM_VIEW_ERROR" "$NODE_PARSE_ERROR"
+
+                      if ! echo "$LATEST_PRERELEASE" | grep -qE '^-?[0-9]+$'; then
+                        echo "::error::Invalid latest prerelease number '$LATEST_PRERELEASE' for $NPM_VIEW_QUERY"
+                        exit 1
                       fi
 
                       NEXT_PRERELEASE=$((LATEST_PRERELEASE + 1))

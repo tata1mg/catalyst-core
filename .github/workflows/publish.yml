@@ -95,7 +95,9 @@ jobs:
                       CCA_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['create-catalyst-app']?.version || ''")
                       REASON="auto publish on push via release metadata"
 
-                      if [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
+                      if [ -z "$CHANNEL" ]; then
+                        REASON="release metadata missing channel"
+                      elif [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
                         SHOULD_RUN=true
                       else
                         REASON="release metadata selected no packages"
@@ -370,17 +372,16 @@ jobs:
                   fi
 
                   SUMMARY=$(printf '%s\n' "${SUMMARY_LINES[@]}")
+                  DESCRIPTION=$(printf '%s\n\nPublished by: %s\nBranch: %s' "$SUMMARY" "${{ github.actor }}" "${{ github.ref_name }}")
+                  PAYLOAD=$(jq -n \
+                    --arg text "✅ Package Publish Completed" \
+                    --arg title "${{ github.repository }}" \
+                    --arg description "$DESCRIPTION" \
+                    '{text: $text, attachments: [{title: $title, description: $description, color: "#00C851"}]}')
 
                   curl -X POST "${{ secrets.FLOCK_WEBHOOK_URL }}" \
                     -H "Content-Type: application/json" \
-                    -d "{
-                      \"text\": \"✅ Package Publish Completed\",
-                      \"attachments\": [{
-                        \"title\": \"${{ github.repository }}\",
-                        \"description\": \"$SUMMARY\n\nPublished by: ${{ github.actor }}\nBranch: ${{ github.ref_name }}\",
-                        \"color\": \"#00C851\"
-                      }]
-                    }"
+                    -d "$PAYLOAD"
 
             - name: Final summary
               if: always()
