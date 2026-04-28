@@ -67,49 +67,7 @@ const clientConfig = defineConfig({
                     if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
                         return undefined
                     }
-                    if (!/[\\/]node_modules[\\/]/.test(id)) {
-                        return undefined
-                    }
-                    if (
-                        /[\\/]node_modules[\\/](react|react-dom|scheduler|react-fast-compare|react-side-effect|react-helmet-async)[\\/]/.test(
-                            id
-                        )
-                    ) {
-                        return "vendor-react"
-                    }
-                    if (/[\\/]node_modules[\\/](react-redux|redux|redux-thunk)[\\/]/.test(id)) {
-                        return "vendor-redux"
-                    }
-                    if (
-                        /[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history|@tata1mg[\\/]router)[\\/]/.test(
-                            id
-                        )
-                    ) {
-                        return "vendor-router"
-                    }
-                    if (/[\\/]node_modules[\\/]axios[\\/]/.test(id)) {
-                        return "vendor-network"
-                    }
-                    if (/[\\/]node_modules[\\/]lottie[^\\/]*[\\/]/.test(id)) {
-                        return "vendor-lottie"
-                    }
-                    if (
-                        /[\\/]node_modules[\\/](react-google-recaptcha|react-async-script|react-dfp)[\\/]/.test(
-                            id
-                        )
-                    ) {
-                        return "vendor-ads"
-                    }
-                    if (
-                        /[\\/]node_modules[\\/](react-loadable-visibility|react-detect-offline|normalize\.css)[\\/]/.test(
-                            id
-                        )
-                    ) {
-                        return "vendor-ui"
-                    }
-                    if (/[\\/]node_modules[\\/]catalyst-core[\\/]/.test(id)) {
-                        return "vendor-catalyst"
-                    }
+
                     // Other node_modules → let Vite pack them with the chunks that use them.
                     return undefined
                 },
