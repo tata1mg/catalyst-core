@@ -1,0 +1,67 @@
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/VideoStreamStateMachine.kt
+  72dded49f61cea83 4,14,20-24
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/CameraSessionManager.kt
+  dfe79093f19be9dc 72-75
+  72dded49f61cea83 103-104
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  72dded49f61cea83 289-291,301-303
+  dfe79093f19be9dc 156,264,275
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/BarcodeDetector.kt
+  eb321d703fff7003 29
+  dfe79093f19be9dc 53,91
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  dfe79093f19be9dc 166-171
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeCameraManager.kt
+  dfe79093f19be9dc 184-188
+  eb321d703fff7003 97-105,107
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/TorchController.kt
+  dfe79093f19be9dc 5,40-43
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/HoldController.kt
+  72dded49f61cea83 23,25,38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "587ccf1220e9f90bfd22d5343c4a5fe30c3cfc44",
+  "prompts": {
+    "72dded49f61cea83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14c4b3cf-ad85-4454-b108-63e64d9852f7",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 3448,
+      "total_deletions": 7,
+      "accepted_lines": 3448,
+      "overriden_lines": 0
+    },
+    "dfe79093f19be9dc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71470414-c3b8-41ac-9f4e-0bd18a769e99",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 7,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    },
+    "eb321d703fff7003": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "66566061-8a8b-4f6a-87d2-3054e00a924e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 10,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}
