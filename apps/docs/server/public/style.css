@@ -1,0 +1,48 @@
+body {
+    font-family: 'Arial', sans-serif;
+}
+
+.container {
+    max-width: 1120px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+}
+
+.section-title.aos-init.aos-animate {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+h1.error-page-title {
+    font-size: 80px;
+    margin: 0 !important;
+}
+
+.section-title.aos-init.aos-animate h3 {
+    font-size: 28px;
+    margin: 0 !important;
+}
+
+a {
+    margin: 20px 0;
+    text-decoration: none;
+    color: #3498db;
+    font-weight: bold;
+    transition: color 0.3s ease;
+    font-size: large;
+}
+
+a:hover {
+    color: #e74c3c;
+}
+
+a:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.5);
+}

@@ -1,0 +1,30 @@
+.row-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: normal;
+    padding: 10px !important;
+    border-radius: 5px;
+    background: var(--ifm-card-background-color) !important;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    justify-content: space-between;
+}
+
+.ant-checkbox-group {
+    margin: 20px 0;
+}
+
+.service-name {
+    font-weight: bold;
+    font-size: 25px !important;
+    text-transform: capitalize;
+    margin-bottom: 5px;
+}
+
+.check-box-group div label {
+    margin-bottom: 12px;
+}
+
+.public-wrapper {
+    margin: 10px 0;
+}

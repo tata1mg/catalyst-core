@@ -26,3 +26,21 @@ jobs:
 
             - name: Scaffold and Build Smoke Test
               run: node -v && chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
+
+    docs:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18"
+
+            - name: Build Docs
+              run: |
+                  node -v
+                  npm --prefix apps/docs ci
+                  cp apps/docs/config_template.json apps/docs/config.json
+                  npm run docs:build

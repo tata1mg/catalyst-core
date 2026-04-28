@@ -1,0 +1,441 @@
+.lifecycleDemo {
+    padding: 2rem 0;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.demoContent h2 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.demoContent p {
+    color: var(--text-color);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    font-size: 1rem;
+}
+
+.controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.primaryButton,
+.errorButton,
+.resetButton {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    min-width: 140px;
+}
+
+.primaryButton {
+    background: var(--ifm-color-primary);
+    color: white;
+}
+
+.primaryButton:hover:not(:disabled) {
+    background: #1a5f3a;
+    transform: translateY(-1px);
+}
+
+.primaryButton:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.errorButton {
+    background: #dc3545;
+    color: white;
+}
+
+.errorButton:hover:not(:disabled) {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.errorButton:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.resetButton {
+    background: #6c757d;
+    color: white;
+}
+
+.resetButton:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.lifecycleFlow {
+    margin-bottom: 3rem;
+}
+
+.lifecycleFlow h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.flowDiagram {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 2rem;
+    gap: 1rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    flex: 1;
+}
+
+.stageNumber {
+    width: 50px;
+    height: 50px;
+    background: var(--ifm-color-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.stageContent h4 {
+    color: var(--ifm-color-primary);
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.stageContent p {
+    color: var(--text-color);
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.arrow {
+    font-size: 2rem;
+    color: var(--ifm-color-primary);
+    font-weight: bold;
+    margin: 0 0.5rem;
+}
+
+.eventsLog {
+    margin-bottom: 3rem;
+}
+
+.eventsLog h3 {
+    background: linear-gradient(
+        135deg,
+        var(--ifm-color-primary) 0%,
+        #1a5f3a 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.logContainer {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.emptyLog {
+    text-align: center;
+    color: var(--text-color);
+    font-style: italic;
+    padding: 2rem;
+}
+
+.emptyLog p {
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
+}
+
+.eventEntry {
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    background: var(--ifm-card-background-color);
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.eventEntry:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.eventEntry:last-child {
+    margin-bottom: 0;
+}
+
+.eventEntry.error {
+    background: #f8d7da;
+    border-left: 4px solid #dc3545;
+    border-color: #dc3545;
+}
+
+.eventHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.eventStage {
+    font-weight: bold;
+    color: var(--ifm-color-primary);
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+}
+
+.eventTime {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.eventDescription {
+    color: var(--text-color);
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+.eventStatus {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ifm-color-primary);
+}
+
+.eventEntry.error .eventStatus {
+    color: #dc3545;
+}
+
+.codeExample {
+    margin-top: 3rem;
+}
+
+.codeExample h3 {
+    background: linear-gradient(
+        135deg,
+        var(--ifm-color-primary) 0%,
+        #1a5f3a 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.codeBlock {
+    margin-bottom: 2rem;
+}
+
+.codeHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.codeHeader h4 {
+    color: var(--text-color);
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.copyButton {
+    background: var(--ifm-color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.copyButton:hover {
+    background: #1a5f3a;
+    transform: translateY(-1px);
+}
+
+.copyButton.copied {
+    background: #28a745;
+}
+
+.codeBlock h4 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.codeBlock pre {
+    background: #f8f9fa;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+    color: #2c3e50;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.benefits {
+    margin-top: 0;
+    margin-bottom: 3rem;
+}
+
+.benefits h3 {
+    background: linear-gradient(
+        135deg,
+        var(--ifm-color-primary) 0%,
+        #1a5f3a 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.benefitsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.benefit {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.benefit:hover {
+    transform: translateY(-2px);
+}
+
+.benefit h4 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.benefit p {
+    color: var(--text-color);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .lifecycleDemo {
+        padding: 1rem;
+    }
+
+    .controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .flowDiagram {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .arrow {
+        transform: rotate(90deg);
+        margin: 0;
+    }
+
+    .benefitsGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .lifecycleDemo {
+    color: var(--text-color);
+}
+
+[data-theme='dark'] .flowDiagram {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .logContainer {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .eventEntry {
+    background: var(--ifm-card-background-color);
+    border-color: #4a5568;
+}
+
+[data-theme='dark'] .eventEntry.error {
+    background: #2d1b1b;
+    border-color: #dc3545;
+}
+
+[data-theme='dark'] .codeBlock pre {
+    background: #2b2b2b;
+    border-color: #404040;
+    color: #e8e8e8;
+}
+
+[data-theme='dark'] .benefit {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}

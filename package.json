@@ -5,11 +5,14 @@
         "packages/*"
     ],
     "scripts": {
-        "build:catalyst-core": "npm run prepare --workspace packages/catalyst-core",
+        "core:build": "npm run prepare --workspace packages/catalyst-core",
+        "core:test": "sh ./scripts/test-catalyst-core.sh",
+        "cca:test": "sh ./scripts/test-cca-smoke.sh",
+        "cca:sync-templates": "node scripts/release/sync-cca-templates.js",
+        "docs:build": "npm --prefix apps/docs run build",
+        "docs:start": "npm --prefix apps/docs run start",
         "lint": "npm run lint --workspaces --if-present",
-        "lint-staged": "lint-staged",
-        "sync-cca-templates": "node scripts/release/sync-cca-templates.js",
-        "test": "sh ./scripts/test-catalyst-core.sh"
+        "lint-staged": "lint-staged"
     },
     "devDependencies": {
         "husky": "^9.0.11",

@@ -29,6 +29,26 @@ function toPrettierCommand(files) {
     return files.length ? `npx prettier --write ${files.map(quote).join(" ")}` : null
 }
 
+const docsPrettierIgnoredPrefixes = [
+    "apps/docs/.docusaurus/",
+    "apps/docs/api/",
+    "apps/docs/build/",
+    "apps/docs/content/",
+    "apps/docs/docs/",
+    "apps/docs/login-page/build/",
+    "apps/docs/login-page/public/",
+    "apps/docs/public-docs/",
+    "apps/docs/static/",
+]
+
+function isDocsPrettierIgnored(file) {
+    return docsPrettierIgnoredPrefixes.some((prefix) => file.startsWith(prefix))
+}
+
+function toPrettierCommandWithoutIgnoredDocs(files) {
+    return toPrettierCommand(files.map(normalize).filter((file) => !isDocsPrettierIgnored(file)))
+}
+
 module.exports = {
     "packages/catalyst-core/**/*.{js,jsx}": (files) => {
         const normalizedFiles = files.map(normalize)
@@ -54,6 +74,7 @@ module.exports = {
     },
     "packages/create-catalyst-app/**/*.{js,jsx,cjs,mjs}": (files) =>
         toPrettierCommand(files.map(normalize)) || [],
+    "apps/docs/**/*.{js,jsx,cjs,mjs,css,html}": (files) => toPrettierCommandWithoutIgnoredDocs(files) || [],
     "scripts/**/*.{js,cjs,mjs}": (files) => toPrettierCommand(files.map(normalize)) || [],
-    "*.{json,md,yml,yaml}": (files) => toPrettierCommand(files.map(normalize)) || [],
+    "*.{json,md,yml,yaml}": (files) => toPrettierCommandWithoutIgnoredDocs(files) || [],
 }
