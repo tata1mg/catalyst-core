@@ -24,6 +24,9 @@ apps/docs/hyperframes/
 caching.js
 router.js
 logger.js
+!packages/catalyst-core/src/caching.js
+!packages/catalyst-core/src/router.js
+!packages/catalyst-core/src/logger.js
 
 /logs
 /loadable-stats.json
@@ -119,6 +122,8 @@ loadable-stats.json
 .claude
 n8n*
 *.sh
+!scripts/test-catalyst-core.sh
+!scripts/test-cca-smoke.sh
 openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
