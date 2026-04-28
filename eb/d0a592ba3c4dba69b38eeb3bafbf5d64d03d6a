@@ -1,0 +1,36 @@
+src/native/bridge/WebBridge.js
+  9561a53fcbfa0658 9-61,63-64,314-324,329,334-347,351-444,448-464,475,480,522-523
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "ebd0a592ba3c4dba69b38eeb3bafbf5d64d03d6a",
+  "prompts": {
+    "9561a53fcbfa0658": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d9088-640a-7970-bd68-9415ac81674d",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 229,
+      "total_deletions": 33,
+      "accepted_lines": 210,
+      "overriden_lines": 0
+    },
+    "e56291f67ece1b64": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d8fdc-a994-7542-a0c7-11ebe60bfb03",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1849,
+      "total_deletions": 0,
+      "accepted_lines": 1849,
+      "overriden_lines": 0
+    }
+  }
+}
