@@ -1,0 +1,162 @@
+src/native/iosnativeWebView/iosnativeWebView.xcodeproj/project.pbxproj
+  72dded49f61cea83 58,481,490,492
+src/native/iosnativeWebView/Sources/Core/Camera/HoldController.swift
+  336321fc56d78921 1-57
+src/native/iosnativeWebView/Sources/Core/Constants/CatalystConstants.swift
+  b64002ce278186e2 76-79
+  f6ebd40616bc18e4 80-83
+src/native/iosnativeWebView/Sources/Core/Camera/NativeCameraManager.swift
+  68c0b1f6e61e3d11 8-9,11,28-29,46-47,52,59-62,66-72,75,95,104,107-112,114-115,182,188
+  6095f6a3880827d3 10,12-27,30-45,82,88,99-101,113,184,190
+  336321fc56d78921 1-7,48-49,51,53-58,63,73-74,76-81,83-87,89-94,96-98,102-103,105-106,116-120,122-124,131-141,143-148,150-155,157-159,161-163,165-168,170-172,174-176,178-180,194
+  b64002ce278186e2 50,64-65,121,125-130,142,149,156,160,164,169,173,177,181,183,185-187,189,191-193
+src/native/iosnativeWebView/Sources/Core/Camera/CameraPreviewView.swift
+  336321fc56d78921 1-8,10,16,18,20-28,30-37,39-41,43-44,46-60
+  f6ebd40616bc18e4 19
+  b64002ce278186e2 9,11-15,17,29,38,42,45
+src/native/iosnativeWebView/Sources/Core/Camera/BarcodeDetector.swift
+  336321fc56d78921 1-113
+src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  68c0b1f6e61e3d11 332-345,359,361-368,373-374,384,426-428,441-443
+  336321fc56d78921 72,77,84-95,299-302,304-305,307-309,330-331,346,352-357,369-372,375-376,378-383,385-405
+  405b29ed0379636e 20
+  f6ebd40616bc18e4 303,306,310-315,347-351,358,360,377,406-425,429-440,444-451
+src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  336321fc56d78921 14-16,20,204-205
+src/native/iosnativeWebView/Sources/Core/Camera/ZoomController.swift
+  68c0b1f6e61e3d11 61,63-64,67-70,80,83-84,87-89,91,105
+  6095f6a3880827d3 17,25,35-36,40-43,45-56,81-82,85-86
+  336321fc56d78921 1-16,18-24,26-34,37-39,44,57-60,62,65-66,71-79,90,92-104,106-115
+src/native/iosnativeWebView/Sources/Core/Camera/TorchController.swift
+  336321fc56d78921 1-59
+src/native/iosnativeWebView/Sources/Core/Camera/CameraSessionManager.swift
+  405b29ed0379636e 189-193,195-199
+  6095f6a3880827d3 25-54
+  68c0b1f6e61e3d11 107,111,237-283
+  336321fc56d78921 1-24,55-106,108-110,112-188,194,200-236,284-308
+src/native/bridge/utils/NativeBridge.js
+  f6ebd40616bc18e4 156
+src/native/iosnativeWebView/Sources/Core/Camera/VideoStreamState.swift
+  336321fc56d78921 1-44
+src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  336321fc56d78921 10-15,20-24,28,34,75,78
+src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  405b29ed0379636e 65-67,173,176-185
+  76dd01a7e46b7627 59-61
+  68c0b1f6e61e3d11 63-64,174-175
+  336321fc56d78921 10,18,22,24,159
+src/native/iosnativeWebView/Sources/Core/Camera/VideoStreamStateMachine.swift
+  336321fc56d78921 1-5,11-12,28-30,32-34,41-43,45-49,54-58,60
+  6095f6a3880827d3 6-10,13-27,31,35-40,44,50-53,59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "01353338da37be1fccde8fee6f95bc84864d1968",
+  "prompts": {
+    "336321fc56d78921": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1a2886c8-ade1-4703-854b-2380b516aca8",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 943,
+      "total_deletions": 23,
+      "accepted_lines": 828,
+      "overriden_lines": 0
+    },
+    "405b29ed0379636e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "99eead31-d370-4dad-bdd1-aa00c6e395c4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 5,
+      "accepted_lines": 26,
+      "overriden_lines": 0
+    },
+    "6095f6a3880827d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43571220-3358-4ad0-bc6b-f9d344d79405",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 132,
+      "total_deletions": 36,
+      "accepted_lines": 128,
+      "overriden_lines": 0
+    },
+    "68c0b1f6e61e3d11": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c0e6968-c141-40e5-a5ee-558de9f3b741",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 146,
+      "total_deletions": 76,
+      "accepted_lines": 132,
+      "overriden_lines": 0
+    },
+    "72dded49f61cea83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14c4b3cf-ad85-4454-b108-63e64d9852f7",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 2,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "76dd01a7e46b7627": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb522db-cc59-493e-a154-5fe7186240d8",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "b64002ce278186e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d96d70a-b9f7-4a35-bec9-7e9e83e64f7c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 49,
+      "total_deletions": 31,
+      "accepted_lines": 42,
+      "overriden_lines": 0
+    },
+    "f6ebd40616bc18e4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "171bbed6-f543-4ac5-a142-a1d881c5e432",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 89,
+      "total_deletions": 12,
+      "accepted_lines": 62,
+      "overriden_lines": 0
+    }
+  }
+}
