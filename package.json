@@ -5,6 +5,7 @@
         "packages/*"
     ],
     "scripts": {
+        "setup": "npm install --ignore-scripts && npm --prefix docs install --ignore-scripts",
         "core:build": "npm run prepare --workspace packages/catalyst-core",
         "core:test": "sh ./scripts/test-catalyst-core.sh",
         "cca:test": "sh ./scripts/test-cca-smoke.sh",
