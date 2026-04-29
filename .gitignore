@@ -17,6 +17,10 @@ docs/.claude/
 docs/hyperframes/
 /webpack
 /router
+/scripts
+!/scripts/
+!/scripts/release/
+!/scripts/release/sync-cca-templates.js
 /server
 /types
 /dist
@@ -32,6 +36,9 @@ logger.js
 /loadable-stats.json
 /index.js
 packages/*/dist
+apps/catalyst-core-test/logs/
+apps/catalyst-core-test/playwright-report/
+apps/catalyst-core-test/test-results/
 
 build/
 **/iosnativeWebView/build/
