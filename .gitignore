@@ -1,7 +1,27 @@
 **/node_modules
+
+# Monorepo app local config and generated output
+apps/docs/config.json
+apps/docs/server/config.json
+apps/docs/login-page/src/config.json
+apps/docs/static/js/config.js
+apps/docs/build/
+apps/docs/.docusaurus/
+apps/docs/public-docs/
+apps/docs/docs/
+apps/docs/api/
+apps/docs/temp/
+apps/docs/server/collection-files/
+apps/docs/login-page/build/
+apps/docs/.claude/
+apps/docs/hyperframes/
+
 /webpack
 /router
 /scripts
+!/scripts/
+!/scripts/release/
+!/scripts/release/sync-cca-templates.js
 /server
 /types
 /dist
@@ -13,6 +33,10 @@ logger.js
 /logs
 /loadable-stats.json
 /index.js
+packages/*/dist
+packages/catalyst-core/template/logs/
+packages/catalyst-core/template/playwright-report/
+packages/catalyst-core/template/test-results/
 
 build/
 **/iosnativeWebView/build/
