@@ -48,10 +48,6 @@
         "BITBUCKET_REPO_TOKEN": "",
         "BITBUCKET_PARENT_BRANCH": "",
         "BUILD_USING_BITBUCKET": false,
-        "AWS_ACCESS_KEY_ID": "",
-        "AWS_SECRET_ACCESS_KEY": "",
-        "S3_REGION": "",
-        "S3_BUCKET": "",
         "private_docs_mount_url": "",
         "public_docs_mount_url": ""
     }
