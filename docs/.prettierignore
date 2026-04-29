@@ -1,0 +1,10 @@
+.docusaurus/
+/node_modules
+build/
+api/
+content/
+docs/
+login-page/build/
+login-page/public/
+public-docs/
+static/

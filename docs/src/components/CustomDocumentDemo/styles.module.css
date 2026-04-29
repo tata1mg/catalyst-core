@@ -1,0 +1,300 @@
+.customDocumentDemo {
+    --background-color: var(--ifm-background-color);
+    --text-color: var(--ifm-color-content);
+    --text-color-secondary: var(--ifm-color-content-secondary);
+
+    padding: 2rem 0;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.customDocumentDemo h2 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.customDocumentDemo > p {
+    color: var(--text-color);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    font-size: 1rem;
+}
+
+.featureSelector {
+    margin-bottom: 2rem;
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.featureSelector h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.featureGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.featureItem {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition:
+        background 0.2s,
+        border 0.2s,
+        box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.featureItem:hover {
+    background: var(--ifm-card-background-color);
+    border-color: var(--ifm-color-primary);
+}
+
+.featureItem input[type='checkbox'] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--ifm-color-primary);
+    border-radius: 4px;
+    border: 2px solid var(--ifm-color-primary);
+    background: var(--background-color);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    margin-right: 0.5rem;
+}
+
+.featureItem span {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+}
+
+.codeSection,
+.htmlSection {
+    margin-bottom: 2rem;
+}
+
+.codeSection h3,
+.htmlSection h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.codeCard,
+.htmlCard {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+}
+
+.codeHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--background-color);
+    border-bottom: 1px solid var(--ifm-color-primary);
+}
+
+.codeHeader span {
+    color: var(--ifm-color-primary);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.copyButton {
+    background: var(--ifm-color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.copyButton:hover {
+    background: #1a5f3a;
+    transform: translateY(-1px);
+}
+
+.copyButton.copied {
+    background: #28a745;
+}
+
+.codeCard pre,
+.htmlCard pre {
+    background: var(--catalyst-code-bg-light);
+    border: 1px solid var(--catalyst-code-border-light);
+    border-radius: 6px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-size: var(--catalyst-code-font-size);
+    line-height: var(--catalyst-code-line-height);
+    margin: 0;
+    font-family: var(--catalyst-code-font-family);
+    color: var(--catalyst-code-text-light);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.featuresInfo {
+    margin-bottom: 2rem;
+}
+
+.featuresInfo h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.featuresGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.featureInfo {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.featureInfo h4 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.featureInfo p {
+    color: var(--text-color);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.importantNotes {
+    margin-bottom: 2rem;
+}
+
+.importantNotes h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.importantNotes ul {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+    padding: 1.5rem;
+    list-style: none;
+}
+
+.importantNotes li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: #856404;
+    font-size: 1rem;
+}
+
+.importantNotes li:last-child {
+    margin-bottom: 0;
+}
+
+.importantNotes li:before {
+    content: '⚠️';
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.importantNotes strong {
+    color: #856404;
+}
+
+@media (max-width: 900px) {
+    .featureGrid {
+        grid-template-columns: 1fr;
+    }
+    .featuresGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark Mode Styles */
+[data-theme='dark'] .customDocumentDemo {
+    color: var(--text-color);
+}
+[data-theme='dark'] .featureSelector,
+[data-theme='dark'] .codeCard,
+[data-theme='dark'] .htmlCard,
+[data-theme='dark'] .featureInfo,
+[data-theme='dark'] .importantNotes ul {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}
+[data-theme='dark'] .featureItem {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+}
+[data-theme='dark'] .featureItem:hover {
+    background: var(--ifm-card-background-color);
+    border-color: var(--ifm-color-primary);
+}
+[data-theme='dark'] .featureItem input[type='checkbox'] {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+    accent-color: var(--ifm-color-primary);
+}
+[data-theme='dark'] .featureItem span {
+    color: var(--text-color);
+}
+[data-theme='dark'] .codeCard pre,
+[data-theme='dark'] .htmlCard pre {
+    background: var(--catalyst-code-bg-dark);
+    border-color: var(--catalyst-code-border-dark);
+    color: var(--catalyst-code-text-dark);
+}
+[data-theme='dark'] .featureInfo {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}
+[data-theme='dark'] .importantNotes ul {
+    background: #3a2e1a;
+    border-color: #ffeaa7;
+}
+[data-theme='dark'] .importantNotes li,
+[data-theme='dark'] .importantNotes strong {
+    color: #ffeaa7;
+}

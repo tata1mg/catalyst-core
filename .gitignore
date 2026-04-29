@@ -1,21 +1,20 @@
 **/node_modules
 
-# Monorepo app local config and generated output
-apps/docs/config.json
-apps/docs/server/config.json
-apps/docs/login-page/src/config.json
-apps/docs/static/js/config.js
-apps/docs/build/
-apps/docs/.docusaurus/
-apps/docs/public-docs/
-apps/docs/docs/
-apps/docs/api/
-apps/docs/temp/
-apps/docs/server/collection-files/
-apps/docs/login-page/build/
-apps/docs/.claude/
-apps/docs/hyperframes/
-
+# Docs app local config and generated output
+docs/config.json
+docs/server/config.json
+docs/login-page/src/config.json
+docs/static/js/config.js
+docs/build/
+docs/.docusaurus/
+docs/public-docs/
+docs/docs/
+docs/api/
+docs/temp/
+docs/server/collection-files/
+docs/login-page/build/
+docs/.claude/
+docs/hyperframes/
 /webpack
 /router
 /scripts
@@ -29,14 +28,17 @@ apps/docs/hyperframes/
 caching.js
 router.js
 logger.js
+!packages/catalyst-core/src/caching.js
+!packages/catalyst-core/src/router.js
+!packages/catalyst-core/src/logger.js
 
 /logs
 /loadable-stats.json
 /index.js
 packages/*/dist
-packages/catalyst-core/template/logs/
-packages/catalyst-core/template/playwright-report/
-packages/catalyst-core/template/test-results/
+apps/catalyst-core-test/logs/
+apps/catalyst-core-test/playwright-report/
+apps/catalyst-core-test/test-results/
 
 build/
 **/iosnativeWebView/build/
@@ -127,6 +129,8 @@ loadable-stats.json
 .claude
 n8n*
 *.sh
+!scripts/test-catalyst-core.sh
+!scripts/test-cca-smoke.sh
 openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift

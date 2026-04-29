@@ -1,0 +1,54 @@
+{
+    "login": {
+        "google_client_id": "",
+        "server_url": "http://localhost:3000",
+        "proxy_url": "http://localhost:3000",
+        "public_docs_url": "http://localhost:3000/public_docs",
+        "private_docs_url": "http://localhost:3000/private_docs"
+    },
+    "docs": {
+        "server_url": "http://localhost:3000",
+        "google_client_id": "",
+        "private_docs_site_url": "http://localhost:3000",
+        "public_docs_site_url": "http://localhost:3000",
+        "theme": [
+            {
+                "background_color": {
+                    "body": "#000000",
+                    "footer": "#000000",
+                    "header": "#000000",
+                    "sidebar": "#000000"
+                },
+                "font": {
+                    "font_family": "",
+                    "font_weight": "",
+                    "import_url": ""
+                },
+                "highlight": {
+                    "background_color": "#B2B2B2",
+                    "text_color": "#000000"
+                },
+                "mode": "dark",
+                "primary_color": "#7171FF",
+                "secondary_color": "#8282fa",
+                "text_color": "#FFFFFF"
+            }
+        ],
+        "show_api_docs_button": false,
+        "show_documentation_button": false
+    },
+    "server": {
+        "env": "dev",
+        "port": "3000",
+        "auth_api_url": "http://localhost:3000/auth",
+        "jwt_secret": "",
+        "JWT_EXPIRE_TIME": "10h",
+        "BITBUCKET_REPO": "",
+        "BITBUCKET_WORKSPACE": "",
+        "BITBUCKET_REPO_TOKEN": "",
+        "BITBUCKET_PARENT_BRANCH": "",
+        "BUILD_USING_BITBUCKET": false,
+        "private_docs_mount_url": "",
+        "public_docs_mount_url": ""
+    }
+}

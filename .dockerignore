@@ -1,0 +1,21 @@
+.git/
+**/node_modules/
+
+# Local tooling
+.claude/
+docs/.claude/
+docs/hyperframes/
+
+# Build output
+docs/.docusaurus/
+docs/build/
+docs/docs/
+docs/public-docs/
+docs/server/collection-files/
+docs/login-page/build/
+packages/*/dist/
+
+# Generated from docs/config.json during docs prebuild
+docs/server/config.json
+docs/login-page/src/config.json
+docs/static/js/config.js

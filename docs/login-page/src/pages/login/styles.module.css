@@ -1,0 +1,101 @@
+.login-container {
+    align-items: center;
+    background-color: #fff;
+    border-radius: 0.75rem;
+    display: flex;
+    justify-content: center;
+    left: 50%;
+    overflow: hidden;
+    padding: 6rem 1rem 4rem;
+    position: absolute;
+    text-align: center;
+    top: 50%;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+    width: min(100%, 1140px);
+}
+
+.svg-container {
+    transform: translate(-110px, 10px);
+}
+
+.image-container {
+    display: flex;
+    align-items: center;
+    width: 50%;
+}
+
+.login-container h1 {
+    text-align: center;
+    margin-bottom: 2px;
+}
+
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 2px;
+}
+
+.login-container h3 {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-container label {
+    margin-bottom: 8px;
+}
+
+.login-container input {
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 16px;
+    width: 100%;
+}
+
+.login-container input:focus {
+    outline: none;
+    border-color: #2e8533;
+}
+
+/* .login-container button {
+    background-color:#fff;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    width: 100%;
+    padding: 10px;
+    font-weight: 500;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .login-container button:hover {
+    background-color:#fff;
+  } */
+
+@media (max-width: 767px) {
+    .login-container {
+        align-items: center;
+        background-color: #fff;
+        border-radius: 0.75rem;
+        display: flex;
+        justify-content: center;
+        left: 50%;
+        overflow: hidden;
+        padding: 6rem 1rem 4rem;
+        position: absolute;
+        text-align: center;
+        top: 50%;
+        -webkit-transform: translate(-50%, -50%);
+        transform: translate(-50%, -50%);
+        width: 80%;
+    }
+    .image-container {
+        display: none;
+    }
+    .login-logos {
+        flex-direction: column;
+    }
+}

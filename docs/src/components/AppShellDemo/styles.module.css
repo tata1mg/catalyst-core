@@ -1,0 +1,370 @@
+.appShellDemo {
+    padding: 2rem 0;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.demoContent h2 {
+    background: linear-gradient(
+        135deg,
+        var(--ifm-color-primary) 0%,
+        #1a5f3a 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.demoContent p {
+    color: var(--text-color);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    font-size: 1rem;
+}
+
+.appShellExample {
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--background-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 3rem;
+}
+
+.shellHeader {
+    background: var(--ifm-color-primary);
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: white;
+}
+
+.nav {
+    display: flex;
+    gap: 1rem;
+}
+
+.navLink {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.navLink:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.navLink.active {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: white;
+}
+
+.shellContent {
+    min-height: 300px;
+    padding: 2rem;
+    background: #ffffff;
+    border-top: 1px solid #e1e5e9;
+}
+
+.contentPlaceholder {
+    text-align: center;
+    color: #495057;
+}
+
+.loadingSkeleton {
+    margin-bottom: 1rem;
+}
+
+.skeletonLine {
+    height: 20px;
+    background: linear-gradient(
+        90deg,
+        var(--ifm-card-background-color) 25%,
+        #e0e0e0 50%,
+        var(--ifm-card-background-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+}
+
+.skeletonLine:nth-child(1) {
+    width: 80%;
+    margin: 0 auto 0.5rem;
+}
+
+.skeletonLine:nth-child(2) {
+    width: 60%;
+    margin: 0 auto 0.5rem;
+}
+
+.skeletonLine:nth-child(3) {
+    width: 40%;
+    margin: 0 auto 0.5rem;
+}
+
+.pageContent {
+    text-align: center;
+    color: var(--text-color);
+}
+
+.pageContent h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.pageContent p {
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.contentInfo {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid #e1e5e9;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9rem;
+    text-align: left;
+    margin-top: 1rem;
+    color: #2c3e50;
+}
+
+.shellFooter {
+    background: var(--ifm-card-background-color);
+    padding: 1rem 2rem;
+    text-align: center;
+    color: var(--text-color);
+    border-top: 1px solid #e9ecef;
+}
+
+.codeExample {
+    margin-top: 3rem;
+}
+
+.codeExample h3 {
+    background: linear-gradient(
+        135deg,
+        var(--ifm-color-primary) 0%,
+        #1a5f3a 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.codeBlock {
+    margin-bottom: 2rem;
+}
+
+.codeHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.codeHeader h4 {
+    color: var(--text-color);
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.copyButton {
+    background: var(--ifm-color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.copyButton:hover {
+    background: #1a5f3a;
+    transform: translateY(-1px);
+}
+
+.copyButton.copied {
+    background: #28a745;
+}
+
+.codeBlock h4 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.codeBlock pre {
+    background: #f8f9fa;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+    color: #2c3e50;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.benefits {
+    margin-bottom: 3rem;
+}
+
+.benefits h3 {
+    background: linear-gradient(
+        135deg,
+        var(--ifm-color-primary) 0%,
+        #1a5f3a 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.benefitsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.benefit {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.benefit h4 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.benefit p {
+    color: var(--text-color);
+    margin: 0;
+    line-height: 1.5;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .appShellDemo {
+        padding: 1rem;
+    }
+
+    .shellHeader {
+        padding: 1rem;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .nav {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .shellContent {
+        padding: 1rem;
+    }
+
+    .benefitsGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .appShellDemo {
+    color: var(--text-color);
+}
+
+[data-theme='dark'] .appShellExample {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .shellContent {
+    background: #1e1e1e;
+    border-top-color: #404040;
+}
+
+[data-theme='dark'] .shellFooter {
+    background: var(--ifm-card-background-color);
+    border-color: #4a5568;
+}
+
+[data-theme='dark'] .contentInfo {
+    background: #2b2b2b;
+    border-color: #404040;
+    color: #e8e8e8;
+}
+
+[data-theme='dark'] .contentPlaceholder {
+    color: #b3b3b3;
+}
+
+[data-theme='dark'] .codeBlock pre {
+    background: #2b2b2b;
+    border-color: #404040;
+    color: #e8e8e8;
+}
+
+[data-theme='dark'] .benefit {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .skeletonLine {
+    background: linear-gradient(
+        90deg,
+        var(--ifm-card-background-color) 25%,
+        #4a5568 50%,
+        var(--ifm-card-background-color) 75%
+    );
+}

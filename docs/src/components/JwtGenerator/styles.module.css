@@ -1,0 +1,79 @@
+.login-container {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    width: 90%;
+}
+
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.login-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-container label {
+    margin-bottom: 8px;
+}
+
+.login-container textarea {
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 16px;
+    width: 100%;
+}
+
+.login-container input:focus {
+    outline: none;
+    border-color: #2e8533;
+}
+
+.login-container button {
+    background-color: #2e8555;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    width: 100%;
+    padding: 10px;
+    font-weight: 500;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.login-container button:hover {
+    background-color: #2e8533;
+}
+
+.jwt-wrapper {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 3rem;
+}
+
+.column-1 {
+    width: 50%;
+}
+
+.login-container {
+    background-color: var(--background-color-light);
+    border: 1px solid var(--border-color-light);
+    color: var(--text-color-light);
+    /* ... other styles ... */
+}
+
+/* Define dark theme styles */
+.dark-theme .login-container {
+    background-color: var(--background-color-dark);
+    border: 1px solid var(--border-color-dark);
+    color: var(--text-color-dark);
+    /* ... other dark theme styles ... */
+}

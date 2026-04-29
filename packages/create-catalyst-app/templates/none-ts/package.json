@@ -1,0 +1,40 @@
+{
+    "name": "create-catalyst-app-starter",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "catalyst start",
+        "build": "npm run typecheck && catalyst build",
+        "serve": "catalyst serve",
+        "lint": "eslint .",
+        "devBuild": "catalyst devBuild",
+        "devServe": "catalyst devServe",
+        "buildApp": "catalyst buildApp",
+        "buildApp:ios": "catalyst buildApp:ios",
+        "buildApp:android": "catalyst buildApp:android",
+        "setupEmulator": "catalyst setupEmulator",
+        "setupEmulator:ios": "catalyst setupEmulator:ios",
+        "setupEmulator:android": "catalyst setupEmulator:android",
+        "typecheck": "tsc --noEmit"
+    },
+    "_moduleAliases": {
+        "@api": "api.js",
+        "@containers": "src/js/containers",
+        "@server": "server",
+        "@config": "config",
+        "@css": "src/static/css",
+        "@routes": "src/js/routes/"
+    },
+    "dependencies": {
+        "@loadable/component": "^5.16.3",
+        "@tata1mg/router": "0.0.1-beta.7",
+        "catalyst-core": "0.1.0-beta.1"
+    },
+    "devDependencies": {
+        "eslint": "^8.26.0",
+        "typescript": "^5.8.3",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "eslint-plugin-react": "^7.34.1",
+        "eslint-plugin-react-hooks": "^4.6.0"
+    }
+}
