@@ -5,31 +5,39 @@ import config from '../../config.json'
 
 export const GoogleSignInWidget = ({ signInCallback }) => {
     const signInWrapper = useRef()
-    const handleGoogleSignIn = (res) => {
-        signInCallback(res)
-    }
 
     useEffect(() => {
         var myScript = document.createElement('script')
+        const signInButton = signInWrapper.current
         myScript.src = 'https://accounts.google.com/gsi/client'
         myScript.onload = function () {
             if (
                 typeof window !== 'undefined' &&
-                typeof window.google !== 'undefined'
+                typeof window.google !== 'undefined' &&
+                signInButton
             ) {
                 var client_1 = window.google.accounts.oauth2.initCodeClient({
                     client_id: config.login.google_client_id,
                     scope: 'profile email',
-                    callback: handleGoogleSignIn,
+                    callback: signInCallback,
                 })
-                signInWrapper.current.onclick = function (event) {
+                signInButton.onclick = function (event) {
                     event.preventDefault()
                     client_1.requestCode()
                 }
             }
         }
         document.body.appendChild(myScript)
-    }, [])
+
+        return () => {
+            if (signInButton) {
+                signInButton.onclick = null
+            }
+            if (myScript.parentNode) {
+                myScript.parentNode.removeChild(myScript)
+            }
+        }
+    }, [signInCallback])
 
     return (
         <>
