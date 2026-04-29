@@ -11,7 +11,7 @@ Release preparation and publishing are managed from the repository root.
 
 ## Fresh Clone Setup
 
-Install dependencies before running build/test commands:
+Install dependencies and create local docs config before running build/test commands:
 
 ```sh
 npm run setup
