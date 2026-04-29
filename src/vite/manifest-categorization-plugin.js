@@ -250,6 +250,44 @@ export function manifestCategorizationPlugin(options = {}) {
         }
     }
 
+    // When Vite leaves facadeModuleId unset, the chunk lands in the manifest under
+    // `_<name>-<hash>.js` with no `src` field. The cacheKey baked into bundles by
+    // injectCacheKeyPlugin is the source-relative path (e.g. "../../src/js/pages/
+    // HealthRecords/HealthRecords.js"), so the runtime ChunkExtractor lookup misses
+    // and the route's CSS never reaches the inline <style>. Alias every split's
+    // entry under its source-path key so the existing direct lookup hits.
+    //
+    // Aliases share the same object as the canonical entry — safe because this runs
+    // after enrichWithTransitiveCss, so allCss is already populated.
+    function addSourcePathAliases(categorizedManifest) {
+        // Match injectCacheKeyPlugin's manifestDir convention exactly so the alias key
+        // equals the cacheKey string baked into chunks.
+        const manifestDir = path.join(process.env.src_path, "build", ".vite")
+
+        for (const [moduleId, splitInfo] of splitModules.entries()) {
+            const chunkFile = moduleToChunk.get(moduleId)
+            if (!chunkFile) continue
+
+            let sourcePathKey = path.relative(manifestDir, moduleId).replace(/\\/g, "/")
+            if (!sourcePathKey.endsWith(".js")) sourcePathKey += ".js"
+
+            const bucket = splitInfo.ssr ? "ssrTrue" : "ssrFalse"
+            // Already keyed by source path (non-anonymous chunk) — nothing to do.
+            if (categorizedManifest[bucket][sourcePathKey]) continue
+
+            let aliasTarget = null
+            for (const entry of Object.values(categorizedManifest[bucket])) {
+                if (entry?.file === chunkFile) {
+                    aliasTarget = entry
+                    break
+                }
+            }
+            if (aliasTarget) {
+                categorizedManifest[bucket][sourcePathKey] = aliasTarget
+            }
+        }
+    }
+
     // Guard against silent CSS loss: every CSS file emitted to disk should be referenced
     // by at least one bucket's css or allCss. If enrichWithTransitiveCss ever misses a
     // branch of the import graph, the affected CSS would vanish from server responses
@@ -330,7 +368,8 @@ export function manifestCategorizationPlugin(options = {}) {
                 }
 
                 if (!importExpr || importExpr.type !== "ImportExpression") return
-                if (importExpr.source.type !== "Literal" || typeof importExpr.source.value !== "string") return
+                if (importExpr.source.type !== "Literal" || typeof importExpr.source.value !== "string")
+                    return
 
                 const importPath = importExpr.source.value
 
@@ -408,6 +447,7 @@ export function manifestCategorizationPlugin(options = {}) {
 
             applyViteManifestStructure(processedManifest, viteManifest)
             enrichWithTransitiveCss(processedManifest, viteManifest)
+            addSourcePathAliases(processedManifest)
 
             const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
             validateCssCoverage(processedManifest, buildDir)
