@@ -3,7 +3,7 @@
 set -e
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-FIXTURE_DIR="$ROOT_DIR/packages/catalyst-core/template"
+FIXTURE_DIR="$ROOT_DIR/apps/catalyst-core-test"
 PACKAGE_DIR="$ROOT_DIR/packages/catalyst-core"
 
 # Install workspace dependencies

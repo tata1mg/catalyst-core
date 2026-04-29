@@ -15,13 +15,13 @@ RUN apk add --no-cache \
 RUN pip3 install --no-cache-dir awscli
 
 WORKDIR /opt/1mg/web
-COPY apps/docs/package.json apps/docs/package-lock.json ./apps/docs/
-COPY apps/docs/server/package.json ./apps/docs/server/
-COPY apps/docs/login-page/package.json ./apps/docs/login-page/
-RUN npm --prefix apps/docs ci
+COPY docs/package.json docs/package-lock.json ./docs/
+COPY docs/server/package.json ./docs/server/
+COPY docs/login-page/package.json ./docs/login-page/
+RUN npm --prefix docs ci
 
-COPY apps/docs ./apps/docs
-WORKDIR /opt/1mg/web/apps/docs
+COPY docs ./docs
+WORKDIR /opt/1mg/web/docs
 
 ARG SERVICE_NAME
 RUN npm -v

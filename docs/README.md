@@ -4,12 +4,12 @@ This workspace contains the Catalyst documentation app. It builds the public doc
 
 ## Development Setup
 
-Create `apps/docs/config.json` from `apps/docs/config_template.json`. Real local and CI config files are intentionally ignored by Git.
+Create `docs/config.json` from `docs/config_template.json`. Real local and CI config files are intentionally ignored by Git.
 
 Install docs dependencies from the monorepo root:
 
 ```sh
-npm --prefix apps/docs install
+npm --prefix docs install
 ```
 
 Build the complete docs app from the monorepo root:
@@ -27,15 +27,15 @@ npm run docs:start
 Useful package-local commands:
 
 ```sh
-npm --prefix apps/docs run start-private
-npm --prefix apps/docs run start-public
-npm --prefix apps/docs run start-login-app
+npm --prefix docs run start-private
+npm --prefix docs run start-public
+npm --prefix docs run start-login-app
 ```
 
 The docs Dockerfile expects the monorepo root as its Docker build context:
 
 ```sh
-docker build -f apps/docs/Dockerfile .
+docker build -f docs/Dockerfile .
 ```
 
 ## Runtime Pieces

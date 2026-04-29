@@ -41,6 +41,6 @@ jobs:
             - name: Build Docs
               run: |
                   node -v
-                  npm --prefix apps/docs ci
-                  cp apps/docs/config_template.json apps/docs/config.json
+                  npm --prefix docs ci
+                  cp docs/config_template.json docs/config.json
                   npm run docs:build

@@ -1,12 +1,12 @@
 **/node_modules/
 
 # Docs generated output and migrated content/static assets
-apps/docs/.docusaurus/
-apps/docs/api/
-apps/docs/build/
-apps/docs/content/
-apps/docs/docs/
-apps/docs/login-page/build/
-apps/docs/login-page/public/
-apps/docs/public-docs/
-apps/docs/static/
+docs/.docusaurus/
+docs/api/
+docs/build/
+docs/content/
+docs/docs/
+docs/login-page/build/
+docs/login-page/public/
+docs/public-docs/
+docs/static/

@@ -9,8 +9,8 @@
         "core:test": "sh ./scripts/test-catalyst-core.sh",
         "cca:test": "sh ./scripts/test-cca-smoke.sh",
         "cca:sync-templates": "node scripts/release/sync-cca-templates.js",
-        "docs:build": "npm --prefix apps/docs run build",
-        "docs:start": "npm --prefix apps/docs run start",
+        "docs:build": "npm --prefix docs run build",
+        "docs:start": "npm --prefix docs run start",
         "lint": "npm run lint --workspaces --if-present",
         "lint-staged": "lint-staged"
     },

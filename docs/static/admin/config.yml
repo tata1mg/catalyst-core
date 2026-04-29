@@ -5,7 +5,7 @@ backend:
 
 logo_url: /img/logo-light.svg
 # These lines should *not* be indented
-media_folder: "apps/docs/static/img" # Media files will be stored in the monorepo docs app
+media_folder: "docs/static/img" # Media files will be stored in the monorepo docs app
 public_folder: "/img/" # The src attribute for uploaded media will begin with /images/uploads
 
 site_url: /
@@ -15,7 +15,7 @@ collections:
 
 - name: content
   label: "Content"
-  folder: apps/docs/content
+  folder: docs/content
   identifier_field: title
   extension: md
   widget: "list"

@@ -1,20 +1,20 @@
 **/node_modules
 
 # Docs app local config and generated output
-apps/docs/config.json
-apps/docs/server/config.json
-apps/docs/login-page/src/config.json
-apps/docs/static/js/config.js
-apps/docs/build/
-apps/docs/.docusaurus/
-apps/docs/public-docs/
-apps/docs/docs/
-apps/docs/api/
-apps/docs/temp/
-apps/docs/server/collection-files/
-apps/docs/login-page/build/
-apps/docs/.claude/
-apps/docs/hyperframes/
+docs/config.json
+docs/server/config.json
+docs/login-page/src/config.json
+docs/static/js/config.js
+docs/build/
+docs/.docusaurus/
+docs/public-docs/
+docs/docs/
+docs/api/
+docs/temp/
+docs/server/collection-files/
+docs/login-page/build/
+docs/.claude/
+docs/hyperframes/
 /webpack
 /router
 /server
