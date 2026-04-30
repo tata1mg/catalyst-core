@@ -236,7 +236,7 @@ const renderMarkUp = async (
     webExtractor
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    // Keep bot detection in source system and pass isBot through the request for reuse.
+    // For Bot detection - Check if 'isBot' is set by host app, otherwise use the 'deviceDetails'
     const isBot = req.isBot ?? deviceDetails.googleBot || deviceDetails.aiBot ? true : false
 
     let state = store.getState()
