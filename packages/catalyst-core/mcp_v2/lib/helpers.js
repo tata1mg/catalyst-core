@@ -1,7 +1,6 @@
 "use strict"
 const fs = require("fs")
 const path = require("path")
-const supportedCatalystPackages = ["catalyst-core", "catalyst-core-internal"]
 
 /**
  * Parse a semver-like version string into comparable parts.
@@ -56,11 +55,9 @@ function findCatalystRoot() {
                 try {
                     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
                     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-                    const catalystPackageName = supportedCatalystPackages.find(
-                        (packageName) => deps[packageName]
-                    )
-                    if (catalystPackageName) {
-                        const nmPath = path.join(dir, "node_modules", catalystPackageName)
+                    const declaredRef = deps["catalyst-core"]
+                    if (declaredRef) {
+                        const nmPath = path.join(dir, "node_modules", "catalyst-core")
                         const installed = fs.existsSync(nmPath)
                         // Read the actual installed version from node_modules
                         let installedVersion = null
@@ -74,12 +71,11 @@ function findCatalystRoot() {
                                 /* ignore */
                             }
                         }
-                        const declaredRef = deps[catalystPackageName]
                         const isGithubRef = declaredRef.startsWith("github:") || declaredRef.includes("#")
                         return {
                             dir,
                             pkg,
-                            catalystPackageName,
+                            catalystPackageName: "catalyst-core",
                             catalystVersion: declaredRef, // what package.json says (may be github ref)
                             installedVersion, // what's actually in node_modules e.g. "0.0.3-canary.3"
                             notInstalled: !installed,
@@ -166,5 +162,4 @@ module.exports = {
     makeProjectHelpers,
     versionOlderThan,
     parseVersion,
-    supportedCatalystPackages,
 }

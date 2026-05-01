@@ -25,3 +25,19 @@ npm run core:test
 npm run cca:test
 npm run docs:build
 ```
+
+## Release Sandbox
+
+Create a real scaffolded app from the current branch packages
+
+```sh
+npm run sandbox:create -- --name release-test
+```
+
+For non-interactive default scaffolding:
+
+```sh
+npm run sandbox:create -- --name release-test --yes --force
+```
+
+The app is created under `.sandbox/<name>` and uses a local packed `catalyst-core` from the current branch.

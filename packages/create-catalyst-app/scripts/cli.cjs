@@ -11,10 +11,6 @@ var validate = require("validate-npm-package-name")
 const packageJson = require("../package.json")
 const packageRoot = path.join(__dirname, "..")
 
-function getCatalystPackageName() {
-    return packageJson.name === "create-catalyst-app-internal" ? "catalyst-core-internal" : "catalyst-core"
-}
-
 let projectName = null
 const program = new Commander.Command()
     .version(packageJson.version)
@@ -146,12 +142,11 @@ const program = new Commander.Command()
                     console.log(` ${cyan("cd")} ${projectName} && ${cyan("npm start")} \n\n`)
 
                     if (mcpSupport) {
-                        const catalystPackageName = getCatalystPackageName()
                         const newMcpDir = path.join(
                             process.cwd(),
                             projectName,
                             "node_modules",
-                            catalystPackageName,
+                            "catalyst-core",
                             "mcp_v2"
                         )
                         runMcpSetup(newMcpDir, path.join(process.cwd(), projectName))
@@ -234,13 +229,12 @@ program
     .description("Set up MCP server in an existing catalyst project")
     .action(() => {
         try {
-            const catalystPackageName = getCatalystPackageName()
-            const mcpDir = path.join(process.cwd(), "node_modules", catalystPackageName, "mcp_v2")
+            const mcpDir = path.join(process.cwd(), "node_modules", "catalyst-core", "mcp_v2")
             const setupPath = path.join(mcpDir, "setup.js")
 
             if (!fs.existsSync(setupPath)) {
-                console.log(cyan(`mcp_v2 not found in ${catalystPackageName}. Downloading from GitHub...`))
-                const catalystCoreDir = path.join(process.cwd(), "node_modules", catalystPackageName)
+                console.log(cyan("mcp_v2 not found in catalyst-core. Downloading from GitHub..."))
+                const catalystCoreDir = path.join(process.cwd(), "node_modules", "catalyst-core")
                 const tarballUrl = "https://github.com/tata1mg/catalyst-core/archive/refs/heads/main.tar.gz"
                 const tarballPath = path.join(catalystCoreDir, "_mcp_v2_tarball.tar.gz")
                 const repoMcpDir = "catalyst-core-main/packages/catalyst-core/mcp_v2"

@@ -6,6 +6,7 @@
     ],
     "scripts": {
         "setup": "node scripts/setup.js",
+        "sandbox:create": "node scripts/create-release-sandbox.js",
         "core:build": "npm run prepare --workspace packages/catalyst-core",
         "core:test": "sh ./scripts/test-catalyst-core.sh",
         "cca:test": "sh ./scripts/test-cca-smoke.sh",

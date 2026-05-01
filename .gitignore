@@ -15,10 +15,13 @@ docs/server/collection-files/
 docs/login-page/build/
 docs/.claude/
 docs/hyperframes/
+.sandbox/
 /webpack
 /router
 /scripts
 !/scripts/
+!/scripts/setup.js
+!/scripts/create-release-sandbox.js
 !/scripts/release/
 !/scripts/release/sync-cca-templates.js
 /server

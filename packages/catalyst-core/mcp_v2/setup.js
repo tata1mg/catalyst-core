@@ -22,7 +22,6 @@ const DB_PATH = path.join(MCP_DIR, "context.db")
 const SCHEMA_PATH = path.join(MCP_DIR, "schema.sql")
 const KB_PATH = path.join(MCP_DIR, "knowledge-base.json")
 const SITEMAP_URL = "https://catalyst.1mg.com/public_docs/sitemap.xml"
-const supportedCatalystPackages = ["catalyst-core", "catalyst-core-internal"]
 
 // ── 1. Find & validate catalyst project ──────────────────────────────────────
 
@@ -33,9 +32,8 @@ function findCatalystRoot() {
         if (fs.existsSync(pkgPath)) {
             const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
             const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-            const catalystPackageName = supportedCatalystPackages.find((packageName) => deps[packageName])
-            if (catalystPackageName) {
-                return { dir, pkg, catalystPackageName, version: deps[catalystPackageName] }
+            if (deps["catalyst-core"]) {
+                return { dir, pkg, catalystPackageName: "catalyst-core", version: deps["catalyst-core"] }
             }
         }
         dir = path.dirname(dir)
@@ -236,9 +234,7 @@ async function main() {
     // 1. Validate catalyst project
     const projectInfo = findCatalystRoot()
     if (!projectInfo) {
-        console.error(
-            "✗ No catalyst-core or catalyst-core-internal dependency found in any package.json above this directory."
-        )
+        console.error("✗ No catalyst-core dependency found in any package.json above this directory.")
         console.error("  Run setup from inside your catalyst project.")
         process.exit(1)
     }
