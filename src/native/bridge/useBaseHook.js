@@ -184,7 +184,7 @@ export const useBaseHook = (hookName) => {
                 console.error(`❌ ${hookName} ${operationName} failed:`, err)
             }
         },
-        [hookName, isWeb, startProgress, handleNativeError]
+        [hookName, isWeb, isNative, startProgress, handleNativeError]
     )
 
     // Environment flags (computed values, not functions)

@@ -58,7 +58,7 @@ async function fetchFromGithub(files, installedVersion) {
     try {
       const content = await fetchRaw(`${base}/${file}`);
       if (content) return { file, tag, content: content.slice(0, 8000) };
-    } catch (_) {}
+    } catch (e) { /* ignore */ }
   }
 
   // Retry with main if versioned tag failed
@@ -67,27 +67,10 @@ async function fetchFromGithub(files, installedVersion) {
       try {
         const content = await fetchRaw(`https://raw.githubusercontent.com/tata1mg/catalyst-core/main/${file}`);
         if (content) return { file, tag: 'main', content: content.slice(0, 8000) };
-      } catch (_) {}
+      } catch (e) { /* ignore */ }
     }
   }
 
-  return null;
-}
-
-// Fetch a specific single file — used for intent-based narrowed fetch
-async function fetchOneFromGithub(file, installedVersion) {
-  const tag = installedVersion || 'main';
-  try {
-    const content = await fetchRaw(`https://raw.githubusercontent.com/tata1mg/catalyst-core/${tag}/${file}`);
-    if (content) return { file, tag, content: content.slice(0, 8000) };
-  } catch (_) {}
-  // Retry with main
-  if (tag !== 'main') {
-    try {
-      const content = await fetchRaw(`https://raw.githubusercontent.com/tata1mg/catalyst-core/main/${file}`);
-      if (content) return { file, tag: 'main', content: content.slice(0, 8000) };
-    } catch (_) {}
-  }
   return null;
 }
 
@@ -151,7 +134,7 @@ async function handle_query_knowledge({ query, keywords, section, github_files }
       try {
         const root = findCatalystRoot();
         installedVersion = root ? root.installedVersion : null;
-      } catch (_) {}
+      } catch (e) { /* ignore */ }
 
       // Narrow to the most relevant file based on query keywords
       const targetFiles = narrowGithubFile(parsedFiles, query);
@@ -160,7 +143,7 @@ async function handle_query_knowledge({ query, keywords, section, github_files }
       return {
         query,
         source: 'knowledge_base+github',
-        results: rows.map(({ github_files, ...r }) => r),
+        results: rows.map(({ github_files: _gf, ...r }) => r), /* eslint-disable-line no-unused-vars */
         github_file: github ? github.file : null,
         github_tag: github ? github.tag : null,
         github_content: github ? github.content : null,
@@ -173,7 +156,7 @@ async function handle_query_knowledge({ query, keywords, section, github_files }
     return {
       query,
       source: 'knowledge_base',
-      results: rows.map(({ github_files, ...r }) => r),
+      results: rows.map(({ github_files: _gf, ...r }) => r), /* eslint-disable-line no-unused-vars */
       live_source_files: parsedFiles || null, // LLM can re-query with these if it needs fresher data
       note: `${rows.length} entries matched from local knowledge base.${parsedFiles ? ' Pass live_source_files as github_files in a follow-up query_knowledge call if you need the latest source.' : ''}`,
     };
@@ -184,7 +167,7 @@ async function handle_query_knowledge({ query, keywords, section, github_files }
   try {
     const root = findCatalystRoot();
     installedVersion = root ? root.installedVersion : null;
-  } catch (_) {}
+  } catch (e) { /* ignore */ }
 
   const github = await fetchFromGithub(github_files || [], installedVersion);
 

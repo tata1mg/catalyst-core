@@ -44,7 +44,7 @@ function resolveNeedsReview(task, projectRoot) {
   // Collect all file lists from signal_files object
   const oldFiles      = sf.old_pattern_files      || [];
   const hookFiles     = sf.hook_usage_files        || [];
-  const fetcherFiles  = sf.converted_files         || [];
+  // sf.converted_files intentionally unused — only old/hook/correct pattern files are evaluated
   const correctFiles  = sf.correct_pattern_files   || [];
 
   // Read a sample of the old-pattern files (up to 3) to check for hook presence
@@ -116,6 +116,7 @@ function resolveNeedsReview(task, projectRoot) {
 //   - files_to_touch: from signal_files.old_pattern_files
 //   - missing_items:  describe what needs to change in each file
 
+// eslint-disable-next-line no-unused-vars
 function deriveFilesTouched(task, projectRoot) {
   // task here is a raw gap/needs_review item from get_conversion_status output
   const out = { files_to_touch: [], missing_items: [] };

@@ -14,15 +14,11 @@
 const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
-const https = require('https');
-const crypto = require('crypto');
 
 const MCP_DIR = __dirname;
 const DB_PATH = path.join(MCP_DIR, 'context.db');
 const SCHEMA_PATH = path.join(MCP_DIR, 'schema.sql');
 const KB_PATH = path.join(MCP_DIR, 'knowledge-base.json');
-const SITEMAP_URL = 'https://catalyst.1mg.com/public_docs/sitemap.xml';
-
 // ── 1. Find & validate catalyst project ──────────────────────────────────────
 
 function findCatalystRoot() {
@@ -120,100 +116,6 @@ function seedKnowledgeBase(db, projectInfo) {
   console.log(`  ✓ Project context stored (${projectInfo.pkg.name}, catalyst-core@${projectInfo.version})`);
 }
 
-// ── 5. sync_catalyst_docs (initial run) ───────────────────────────────────────
-
-function fetchUrl(url) {
-  return new Promise((resolve, reject) => {
-    const mod = url.startsWith('https') ? https : require('http');
-    mod.get(url, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchUrl(res.headers.location).then(resolve).catch(reject);
-      }
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => resolve(data));
-    }).on('error', reject);
-  });
-}
-
-function parseSitemapUrls(xml) {
-  const matches = xml.match(/<loc>(.*?)<\/loc>/g) || [];
-  return matches.map((m) => m.replace(/<\/?loc>/g, '').trim());
-}
-
-function stripHtml(html) {
-  // Very simple strip — good enough for catalyst docs
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function contentHash(text) {
-  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
-}
-
-async function syncCatalystDocs(db) {
-  console.log('\n  Fetching sitemap...');
-  let xml;
-  try {
-    xml = await fetchUrl(SITEMAP_URL);
-  } catch (e) {
-    console.warn(`  ⚠ Could not fetch sitemap (${e.message}). Skipping live docs sync.`);
-    console.warn('    You can run sync later via the sync_catalyst_docs MCP tool.');
-    return;
-  }
-
-  const urls = parseSitemapUrls(xml);
-  console.log(`  Found ${urls.length} URLs in sitemap`);
-
-  const insertKnowledge = db.prepare(`
-    INSERT INTO framework_knowledge (section, title, content, layer, source, tags, url)
-    VALUES (@section, @title, @content, @layer, 'sitemap', '[]', @url)
-  `);
-
-  const insertSnapshot = db.prepare(`
-    INSERT INTO doc_snapshots (url, content_hash, slot) VALUES (@url, @hash, 'curr')
-  `);
-
-  const insertLink = db.prepare(`
-    INSERT INTO linkage_map (url, knowledge_id) VALUES (@url, @knowledge_id)
-  `);
-
-  let synced = 0;
-  let failed = 0;
-
-  for (const url of urls) {
-    try {
-      const html = await fetchUrl(url);
-      const text = stripHtml(html);
-      const hash = contentHash(text);
-
-      // Extract a title from <title> tag if present
-      const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
-      const title = titleMatch ? titleMatch[1].trim() : url.split('/').pop() || url;
-
-      // Truncate content to 2000 chars to keep DB lean
-      const content = text.slice(0, 2000);
-
-      const result = db.transaction(() => {
-        const row = insertKnowledge.run({ section: 'sitemap', title, content, layer: 'Component', url });
-        insertSnapshot.run({ url, hash });
-        insertLink.run({ url, knowledge_id: row.lastInsertRowid });
-      })();
-
-      synced++;
-      process.stdout.write(`\r  Synced ${synced}/${urls.length} pages...`);
-    } catch (e) {
-      failed++;
-    }
-  }
-
-  console.log(`\n  ✓ Synced ${synced} pages (${failed} failed)`);
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -239,8 +141,6 @@ async function main() {
   seedKnowledgeBase(db, projectInfo);
 
   // 5. Initial sitemap sync — disabled (slow, use sync_catalyst_docs MCP tool manually)
-  // console.log('\nRunning initial sync_catalyst_docs...');
-  // await syncCatalystDocs(db);
 
   db.close();
   console.log('\n✓ Setup complete. MCP is ready.\n');
