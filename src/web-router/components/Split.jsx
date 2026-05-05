@@ -143,7 +143,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
                 cacheKey={cacheKey}
                 rootOptions={rootOptions}
                 onVisible={notifyAll}
-                skipVisibility={anyVisible}
+                skipVisibility={effectiveSsr || anyVisible}
                 {...props}
                 isBot={isBot}
             >

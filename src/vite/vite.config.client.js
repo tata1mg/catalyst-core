@@ -77,14 +77,7 @@ const clientConfig = defineConfig({
                     ) {
                         return "vendor-react"
                     }
-                    if (/[\\/]node_modules[\\/](react-redux|redux|redux-thunk)[\\/]/.test(id)) {
-                        return "vendor-redux"
-                    }
-                    if (
-                        /[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history|@tata1mg[\\/]router)[\\/]/.test(
-                            id
-                        )
-                    ) {
+                    if (/[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history)[\\/]/.test(id)) {
                         return "vendor-router"
                     }
                     if (/[\\/]node_modules[\\/]axios[\\/]/.test(id)) {
