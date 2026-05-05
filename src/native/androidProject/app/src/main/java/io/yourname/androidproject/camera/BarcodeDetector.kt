@@ -51,16 +51,18 @@ class BarcodeDetector(
         }
 
         scanner?.close()
-        scanner = BarcodeScanning.getClient(optionsBuilder.build())
-        val activeScanner = scanner!!
+        val newScanner = BarcodeScanning.getClient(optionsBuilder.build())
+        scanner = newScanner
 
         return ImageAnalysis.Builder()
             .setResolutionSelector(resolutionSelector)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .also { analysis ->
+                // Capture newScanner (not the field) so this analyzer always uses
+                // the scanner instance that was live when buildImageAnalysis() ran.
                 analysis.setAnalyzer(executor) { imageProxy ->
-                    processFrame(imageProxy, activeScanner)
+                    processFrame(imageProxy, newScanner)
                 }
             }
     }

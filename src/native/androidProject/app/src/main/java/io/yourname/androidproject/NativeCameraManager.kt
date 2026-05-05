@@ -59,6 +59,7 @@ class NativeCameraManager(
     )
 
     private val torchController = TorchController(
+        context = activity,
         onTorchChanged = { enabled ->
             val payload = JSONObject().apply { put("enabled", enabled) }
             BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_TORCH_CHANGED, payload)
@@ -277,7 +278,7 @@ class NativeCameraManager(
         overlayPaintedOrange = orange
         activity.runOnUiThread {
             debugBarcodeOverlay?.let { overlay ->
-                val lp = overlay.layoutParams as android.widget.RelativeLayout.LayoutParams
+                val lp = overlay.layoutParams as? android.widget.RelativeLayout.LayoutParams ?: return@runOnUiThread
                 lp.leftMargin = screenRect.left.toInt()
                 lp.topMargin  = screenRect.top.toInt()
                 lp.width      = screenRect.width().toInt()
@@ -310,7 +311,7 @@ class NativeCameraManager(
     private fun positionDebugOverlay(jsRect: RectF) {
         activity.runOnUiThread {
             debugOverlay?.let { overlay ->
-                val lp = overlay.layoutParams as android.widget.RelativeLayout.LayoutParams
+                val lp = overlay.layoutParams as? android.widget.RelativeLayout.LayoutParams ?: return@runOnUiThread
                 lp.leftMargin = jsRect.left.toInt()
                 lp.topMargin = jsRect.top.toInt()
                 lp.width = jsRect.width().toInt()

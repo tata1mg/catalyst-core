@@ -1,15 +1,18 @@
 package io.yourname.androidproject.camera
 
+import android.content.Context
 import android.util.Log
 import androidx.camera.core.Camera
-import androidx.core.util.Consumer
+import androidx.core.content.ContextCompat
 
 /**
  * Manages torch (flashlight) state.
  * Guards against front-camera torch calls.
- * Fires ON_TORCH_CHANGED via [onTorchChanged] callback.
+ * Fires ON_TORCH_CHANGED via [onTorchChanged] callback only after the
+ * hardware operation succeeds (ListenableFuture resolved on main thread).
  */
 class TorchController(
+    private val context: Context,
     private val onTorchChanged: (enabled: Boolean) -> Unit
 ) {
 
@@ -38,8 +41,11 @@ class TorchController(
         }
         Log.d(TAG, "setTorch($on)")
         cam.cameraControl.enableTorch(on).addListener(
-            { onTorchChanged(on) },
-            { runnable -> runnable.run() }
+            {
+                Log.d(TAG, "enableTorch($on) resolved — notifying")
+                onTorchChanged(on)
+            },
+            ContextCompat.getMainExecutor(context)
         )
     }
 

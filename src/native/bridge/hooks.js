@@ -1829,6 +1829,10 @@ export const useVideoStream = ({ onQRDetected } = {}) => {
                     base.setError({ message: `sendCommand fps: max must be a positive number, got ${max}` })
                     return
                 }
+                if (min !== null && max !== null && min > max) {
+                    base.setError({ message: `sendCommand fps: min (${min}) must be <= max (${max})` })
+                    return
+                }
                 nativeBridge.videoStream.setFps(min, max)
                 setStreamState(prev => ({ ...prev, fpsMin: min, fpsMax: max }))
                 break

@@ -6,9 +6,9 @@ import android.webkit.WebView
 import org.json.JSONObject
 
 /**
- * Pure coordinate math — no Android views, no bridge deps.
- * Converts JS viewfinder rect → screen-absolute rect.
- * Maps ML Kit barcode bounding box from image space → screen space.
+ * Pure coordinate math — converts JS viewfinder rect → screen-absolute rect
+ * and maps ML Kit barcode bounding boxes from image space → screen space.
+ * Uses WebView for origin offset and PreviewView dimensions for scale.
  */
 object ViewfinderMapper {
 
@@ -56,6 +56,10 @@ object ViewfinderMapper {
     ): RectF? {
         if (previewWidth == 0f || previewHeight == 0f) {
             Log.w(TAG, "previewView has zero size — cannot map barcode to screen")
+            return null
+        }
+        if (imageWidth == 0 || imageHeight == 0) {
+            Log.w(TAG, "imageWidth/imageHeight is zero — cannot map barcode to screen")
             return null
         }
         val scale = maxOf(previewWidth / imageWidth.toFloat(), previewHeight / imageHeight.toFloat())

@@ -3,6 +3,7 @@ package io.yourname.androidproject.camera
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Manages the QR hold state — after each detection, results are suppressed for HOLD_DURATION_MS
@@ -22,8 +23,8 @@ class HoldController(
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var resumeRunnable: Runnable? = null
 
-    @Volatile var lastDetectedValue: String? = null
-        private set
+    private val lastDetectedValueRef = AtomicReference<String?>(null)
+    val lastDetectedValue: String? get() = lastDetectedValueRef.get()
 
     /**
      * Call after a new QR value is confirmed. Suppresses results for HOLD_DURATION_MS,
@@ -53,7 +54,7 @@ class HoldController(
         resumeRunnable?.let { handler.removeCallbacks(it) }
         resumeRunnable = null
         barcodeDetector.suppressResults = false
-        lastDetectedValue = null
+        lastDetectedValueRef.set(null)
         Log.d(TAG, "Hold state reset")
     }
 
@@ -62,8 +63,8 @@ class HoldController(
      * Also updates lastDetectedValue if it is new.
      */
     fun isNewValue(value: String): Boolean {
-        if (value == lastDetectedValue) return false
-        lastDetectedValue = value
-        return true
+        // compareAndSet atomically checks-and-updates — eliminates TOCTOU race
+        // between the read and the write on lastDetectedValue.
+        return lastDetectedValueRef.getAndSet(value) != value
     }
 }

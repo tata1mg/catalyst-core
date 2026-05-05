@@ -161,17 +161,22 @@ class NativeBridgeUtil {
         stop: () => this.call(NATIVE_COMMANDS.STOP_VIDEO_STREAM),
 
         /**
-         * Set zoom level — 0 to 100 (percentage of device's zoom range)
-         * When auto-zoom is enabled, this is a temporary override; ML Kit resumes on next detection.
-         * @param {number} zoomPct - 0 (min) to 100 (max device zoom)
+         * Set zoom level multiplier (e.g. 1.0 = 1x, 2.0 = 2x)
+         * @param {number} zoomPct - multiplier >= 1.0
          */
-        setZoom: (zoomPct) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_ZOOM, String(zoomPct)),
+        setZoom: (zoomPct) => {
+            if (zoomPct == null || typeof zoomPct !== "number" || isNaN(zoomPct)) {
+                console.warn("[NativeBridge] setZoom: invalid value, ignoring:", zoomPct)
+                return false
+            }
+            return this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_ZOOM, zoomPct.toString())
+        },
 
         /**
          * Enable or disable torch (back camera only)
          * @param {boolean} on
          */
-        setTorch: (on) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_TORCH, JSON.stringify({ on })),
+        setTorch: (on) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_TORCH, JSON.stringify({ on: !!on })),
 
         /**
          * Set target FPS range — triggers session restart

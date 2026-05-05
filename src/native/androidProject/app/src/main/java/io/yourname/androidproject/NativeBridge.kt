@@ -1114,7 +1114,12 @@ class NativeBridge(
         if (requestCode == NativeCameraManager.PERMISSION_REQUEST_CODE) {
             val granted = grantResults.isNotEmpty() &&
                 grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
-            nativeCameraManager?.onPermissionResult(granted)
+            val cam = nativeCameraManager
+            if (cam == null) {
+                Log.w(TAG, "handlePermissionResult — nativeCameraManager is null, ignoring camera permission result")
+                return
+            }
+            cam.onPermissionResult(granted)
             return
         }
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "handle permission result") {

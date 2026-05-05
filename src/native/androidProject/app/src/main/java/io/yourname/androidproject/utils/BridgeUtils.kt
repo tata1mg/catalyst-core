@@ -106,11 +106,21 @@ object BridgeUtils {
         }
 
         try {
-            // JSONObject.quote() wraps the value in double-quotes with proper JSON escaping,
-            // producing a valid JS string literal — backslash, quote, newline, unicode all safe.
             val jsCode = if (data != null) {
-                val quotedData = org.json.JSONObject.quote(data)
-                "window.WebBridge.callback('${event.eventName}', $quotedData)"
+                // If data looks like a JSON object or array, inject it raw (with U+2028/U+2029
+                // escaping) so the JS side receives a live value rather than a double-encoded string.
+                // Otherwise wrap with JSONObject.quote() to produce a safe JS string literal.
+                val trimmed = data.trimStart()
+                if ((trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+                    (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+                    val safeData = data
+                        .replace(" ", "\\u2028")
+                        .replace(" ", "\\u2029")
+                    "window.WebBridge.callback('${event.eventName}', $safeData)"
+                } else {
+                    val quotedData = org.json.JSONObject.quote(data)
+                    "window.WebBridge.callback('${event.eventName}', $quotedData)"
+                }
             } else {
                 "window.WebBridge.callback('${event.eventName}', null)"
             }

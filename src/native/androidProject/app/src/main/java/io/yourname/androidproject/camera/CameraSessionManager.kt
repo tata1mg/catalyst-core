@@ -110,29 +110,30 @@ class CameraSessionManager(
         val newFacing = if (currentFacing == "back") "front" else "back"
         Log.d(TAG, "flip() — $currentFacing → $newFacing")
         currentFacing = newFacing
-
-        cameraProvider?.unbindAll()
-        camera = null
-        previewUseCase = null
-        imageAnalysisUseCase = null
-        barcodeDetector.close()
-        zoomController.detachCamera()
-        torchController.detachCamera()
+        cleanupForRebind()
         bindCamera()
     }
 
     fun setFps(min: Int?, max: Int?) {
+        if (min != null && max != null && min > max) {
+            Log.w(TAG, "setFps() — invalid range min=$min > max=$max, ignoring")
+            return
+        }
         Log.d(TAG, "setFps($min, $max) — restarting session")
         currentFpsMin = min
         currentFpsMax = max
+        cleanupForRebind()
+        bindCamera()
+    }
+
+    private fun cleanupForRebind() {
+        barcodeDetector.close()
         cameraProvider?.unbindAll()
         camera = null
         previewUseCase = null
         imageAnalysisUseCase = null
-        barcodeDetector.close()
         zoomController.detachCamera()
         torchController.detachCamera()
-        bindCamera()
     }
 
     fun onPermissionResult(granted: Boolean) {
@@ -168,11 +169,15 @@ class CameraSessionManager(
                 val fpsMin = currentFpsMin
                 val fpsMax = currentFpsMax
                 if (fpsMin != null && fpsMax != null) {
-                    Camera2Interop.Extender(previewBuilder)
-                        .setCaptureRequestOption(
-                            CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                            Range(fpsMin, fpsMax)
-                        )
+                    if (fpsMin <= fpsMax) {
+                        Camera2Interop.Extender(previewBuilder)
+                            .setCaptureRequestOption(
+                                CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                                Range(fpsMin, fpsMax)
+                            )
+                    } else {
+                        Log.w(TAG, "bindCamera — invalid FPS range min=$fpsMin > max=$fpsMax, skipping FPS override")
+                    }
                 }
                 previewUseCase = previewBuilder.build().also {
                     it.setSurfaceProvider { request ->
@@ -198,16 +203,21 @@ class CameraSessionManager(
                 )
 
                 cameraProvider?.unbindAll()
-                camera = cameraProvider?.bindToLifecycle(
+                val boundCamera = cameraProvider?.bindToLifecycle(
                     activity as LifecycleOwner,
                     cameraSelector(currentFacing),
                     previewUseCase!!,
                     imageAnalysisUseCase!!
                 )
-
-                val cam = camera!!
-                zoomController.attachCamera(cam)
-                torchController.attachCamera(cam, currentFacing)
+                if (boundCamera == null) {
+                    Log.e(TAG, "bindToLifecycle returned null — aborting camera start")
+                    stateMachine.transition(VideoStreamState.IDLE)
+                    onError("Failed to bind camera to lifecycle")
+                    return@addListener
+                }
+                camera = boundCamera
+                zoomController.attachCamera(boundCamera)
+                torchController.attachCamera(boundCamera, currentFacing)
 
                 zoomController.applyZoomMultiplier(currentInitialZoom)
                 torchController.notifyReset()

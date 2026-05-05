@@ -14,7 +14,7 @@ class VideoStreamStateMachine {
     private val listeners = CopyOnWriteArrayList<VideoStreamStateListener>()
 
     fun addListener(listener: VideoStreamStateListener) {
-        listeners.add(listener)
+        if (!listeners.contains(listener)) listeners.add(listener)
     }
 
     fun removeListener(listener: VideoStreamStateListener) {
@@ -30,8 +30,10 @@ class VideoStreamStateMachine {
         }
         state = next
         Log.d(TAG, "State: $prev → $next")
-        listeners.forEach { it.onStateChanged(prev, next) }
-        return true
+        // Notify outside the synchronized block to prevent deadlock if a listener
+        // calls back into transition() on the same thread.
+        val snapshot = listeners.toList()
+        return true.also { snapshot.forEach { it.onStateChanged(prev, next) } }
     }
 
     val isActive: Boolean get() = state.isActive
