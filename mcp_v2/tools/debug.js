@@ -47,11 +47,11 @@ function handle_debug_issue({ symptom, layer } = {}) {
   const result = { symptom, tokens_used: tokens, layer: layer || 'auto' };
 
   if (matched.length > 0) {
-    result.matched_errors     = matched.map(({ _score: score, ...r }) => ({ ...r, match_score: score }));
+    result.matched_errors     = matched.map(({ _score, ...r }) => ({ ...r, match_score: _score }));
     result.relevant_knowledge = knowledge;
   } else {
     result.matched_errors     = [];
-    result.fallback_errors    = fallback.map(({ _score: __s, ...r }) => r); /* eslint-disable-line no-unused-vars */
+    result.fallback_errors    = fallback.map(({ _score, ...r }) => r);
     result.relevant_knowledge = knowledge;
     result.note = `No strong keyword matches for "${symptom}". Showing top known_errors entries as fallback. Try rephrasing with more specific terms (e.g. "android build sdkPath", "localhost blocked", "clearWebData cache").`;
   }

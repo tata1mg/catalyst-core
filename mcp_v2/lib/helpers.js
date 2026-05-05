@@ -131,7 +131,7 @@ function makeProjectHelpers(root) {
             if (re.test(fs.readFileSync(full, 'utf8'))) {
               matches.push(path.relative(root, full));
             }
-          } catch (e) { /* ignore */ }
+          } catch {}
         }
       }
     }

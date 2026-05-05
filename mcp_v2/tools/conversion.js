@@ -380,9 +380,9 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
   // ── Project context — raw signals for LLM to infer source framework ─────────
   let topLevelFiles = [];
-  try { topLevelFiles = fs.readdirSync(root).filter(f => !['node_modules', '.git', 'build', 'dist'].includes(f)); } catch (e) { /* ignore */ }
+  try { topLevelFiles = fs.readdirSync(root).filter(f => !['node_modules', '.git', 'build', 'dist'].includes(f)); } catch {}
   let srcStructure = [];
-  try { srcStructure = fs.readdirSync(path.join(root, 'src')); } catch (e) { /* ignore */ }
+  try { srcStructure = fs.readdirSync(path.join(root, 'src')); } catch {}
 
   const project_context = {
     top_level_files: topLevelFiles,

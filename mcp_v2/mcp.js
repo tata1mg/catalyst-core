@@ -332,12 +332,12 @@ rl.on('line', (line) => {
       return;
     }
 
-    const wrapWithIntent = (result) => {
+    function wrapWithIntent(result) {
       if (detectedIntent) {
         result._intent = { primary: detectedIntent.primary, next_action: detectedIntent.next_action };
       }
       return result;
-    };
+    }
 
     try {
       const maybePromise = handler(args || {});

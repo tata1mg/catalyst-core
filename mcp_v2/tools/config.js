@@ -237,7 +237,7 @@ function handle_check_config({ project_path, platform = 'both' } = {}) {
   return _buildResult({ root, configPath, platform, config, issues, warnings, passed });
 }
 
-function _buildResult({ root, configPath, platform, issues, warnings, passed }) {
+function _buildResult({ root, configPath, platform, config, issues, warnings, passed }) {
   const errorCount = issues.filter(i => i.severity === 'error').length;
   return {
     project_path: root,
