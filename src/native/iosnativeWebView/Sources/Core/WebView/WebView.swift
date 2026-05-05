@@ -7,6 +7,7 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 public struct WebView: UIViewRepresentable, Equatable {
     let urlString: String
     @ObservedObject var viewModel: WebViewModel
+    let cameraManager: NativeCameraManager
     private let navigationDelegate: WebViewNavigationDelegate
 
     // Equatable conformance - only recreate if URL changes
@@ -14,12 +15,13 @@ public struct WebView: UIViewRepresentable, Equatable {
         return lhs.urlString == rhs.urlString
     }
 
-    public init(urlString: String, viewModel: WebViewModel) {
+    public init(urlString: String, viewModel: WebViewModel, cameraManager: NativeCameraManager) {
         let start = CFAbsoluteTimeGetCurrent()
         self.urlString = urlString
         self.viewModel = viewModel
+        self.cameraManager = cameraManager
         let initialURL = URL(string: urlString)
-        self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel, initialURL: initialURL)
+        self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel, initialURL: initialURL, cameraManager: cameraManager)
 
         // Register our custom URL protocol for caching
         let protocolStart = CFAbsoluteTimeGetCurrent()
@@ -54,6 +56,15 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         webView.navigationDelegate = navigationDelegate
         webView.allowsBackForwardNavigationGestures = true
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
+
+        // Add our pinch recognizer to route camera zoom when streaming.
+        // Web page zoom is disabled via user-scalable=no in the viewport meta tag.
+        let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator,
+                                                    action: #selector(Coordinator.handleCameraPinch(_:)))
+        webView.addGestureRecognizer(pinchGesture)
 
         #if DEBUG
         // Enable Safari Web Inspector (only available in iOS 16.4+)
@@ -145,7 +156,7 @@ public struct WebView: UIViewRepresentable, Equatable {
             self.hostingController = hostingController
 
             // Create and register the native bridge
-            let bridge = NativeBridge(webView: webView, viewController: hostingController)
+            let bridge = NativeBridge(webView: webView, viewController: hostingController, cameraManager: parent.cameraManager)
 
             // Inject WebViewModel for safe area handling
             Task { @MainActor in
@@ -159,6 +170,19 @@ public struct WebView: UIViewRepresentable, Equatable {
             self.nativeBridge = bridge
         }
         
+        @objc func handleCameraPinch(_ gesture: UIPinchGestureRecognizer) {
+            // No-op when camera is not streaming — don't accidentally zoom the page
+            guard parent.cameraManager.isStreaming else { return }
+            switch gesture.state {
+            case .began:
+                parent.cameraManager.handlePinchBegan()
+            case .changed:
+                parent.cameraManager.handlePinchChanged(scale: gesture.scale)
+            default:
+                break
+            }
+        }
+
         override public func observeValue(forKeyPath keyPath: String?,
                                  of object: Any?,
                                  change: [NSKeyValueChangeKey : Any]?,

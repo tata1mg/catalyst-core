@@ -142,6 +142,57 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Video stream methods
+     */
+    videoStream = {
+        /**
+         * Start native camera video stream
+         * @param {Object} options - Stream options
+         *   facing: 'back' | 'front'
+         *   format: 'qr' | 'barcode' | 'all'  — format filter (default: 'all')
+         *   zoom: { auto: true, initial: 1.0 }  — auto-zoom via ML Kit, initial is multiplier (1.0=1x)
+         *   zoom: { auto: false, initial: 2.0 } — manual, starts at 2x
+         */
+        start: (options = {}) => this.call(NATIVE_COMMANDS.START_VIDEO_STREAM, options),
+
+        /**
+         * Stop native camera video stream
+         */
+        stop: () => this.call(NATIVE_COMMANDS.STOP_VIDEO_STREAM),
+
+        /**
+         * Set zoom level multiplier (e.g. 1.0 = 1x, 2.0 = 2x)
+         * @param {number} zoomPct - multiplier >= 1.0
+         */
+        setZoom: (zoomPct) => {
+            if (zoomPct == null || typeof zoomPct !== "number" || isNaN(zoomPct)) {
+                console.warn("[NativeBridge] setZoom: invalid value, ignoring:", zoomPct)
+                return false
+            }
+            return this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_ZOOM, zoomPct.toString())
+        },
+
+        /**
+         * Enable or disable torch (back camera only)
+         * @param {boolean} on
+         */
+        setTorch: (on) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_TORCH, JSON.stringify({ on: !!on })),
+
+        /**
+         * Set target FPS range — triggers session restart
+         * @param {number|null} min - minimum fps (e.g. 15), null to clear
+         * @param {number|null} max - maximum fps (e.g. 30), null to clear
+         */
+        setFps: (min, max) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_FPS, JSON.stringify({ min: min ?? null, max: max ?? null })),
+
+        /**
+         * Flip between front and back camera — restarts the native session internally
+         * Torch resets to off after flip; ON_TORCH_CHANGED(false) fires automatically.
+         */
+        flip: () => this.call(NATIVE_COMMANDS.FLIP_VIDEO_STREAM),
+    }
+
+    /**
      * Camera-specific methods for easier usage
      */
     camera = {

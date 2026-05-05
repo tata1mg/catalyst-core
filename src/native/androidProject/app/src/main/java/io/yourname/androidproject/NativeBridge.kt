@@ -151,6 +151,10 @@ class NativeBridge(
     
     private var networkMonitor: NetworkMonitor? = null
 
+    // Video stream manager
+    private var nativeCameraManager: NativeCameraManager? = null
+    private var webViewOriginalBackground: Int = android.graphics.Color.WHITE
+
     // Unified notification manager
     private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
 
@@ -235,6 +239,90 @@ class NativeBridge(
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "logger") {
             mainActivity.runOnUiThread {
                 BridgeUtils.logDebug(TAG, "Message from native")
+            }
+        }
+    }
+
+    fun setCameraManager(manager: NativeCameraManager) {
+        nativeCameraManager = manager
+    }
+
+    fun getCameraManager(): NativeCameraManager? = nativeCameraManager
+
+    @JavascriptInterface
+    fun startVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "start video stream") {
+            android.util.Log.d("NativeBridge", "startVideoStream raw options: $optionsRaw")
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val facing = options.optString("facing", "back")
+            val viewfinderRect = options.optJSONObject("viewfinderRect")
+            val zoomOptions = options.optJSONObject("zoom")
+            val scanFormat = options.optString("format", "all")
+            val showQrDetected = options.optBoolean("showQrDetected", false)
+            android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing zoom=$zoomOptions scanFormat=$scanFormat viewfinderRect=$viewfinderRect showQrDetected=$showQrDetected")
+            mainActivity.runOnUiThread {
+                webViewOriginalBackground = webView.solidColor.takeIf { it != 0 } ?: android.graphics.Color.WHITE
+                webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                nativeCameraManager?.start(facing, viewfinderRect, zoomOptions, scanFormat, showQrDetected = showQrDetected)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun stopVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "stop video stream") {
+            mainActivity.runOnUiThread {
+                webView.setBackgroundColor(webViewOriginalBackground)
+                nativeCameraManager?.stop()
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamZoom(multiplierRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream zoom") {
+            val multiplier = multiplierRaw?.trim()?.toFloatOrNull() ?: run {
+                android.util.Log.w("NativeBridge", "setVideoStreamZoom — invalid value: $multiplierRaw, ignoring")
+                return@safeExecute
+            }
+            android.util.Log.d("NativeBridge", "setVideoStreamZoom — multiplier=${multiplier}x")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setZoom(multiplier)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamTorch(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream torch") {
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val on = options.optBoolean("on", false)
+            android.util.Log.d("NativeBridge", "setVideoStreamTorch — on=$on")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setTorch(on)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamFps(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream fps") {
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val min = if (options.isNull("min")) null else options.optInt("min")
+            val max = if (options.isNull("max")) null else options.optInt("max")
+            android.util.Log.d("NativeBridge", "setVideoStreamFps — min=$min max=$max")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setFps(min, max)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun flipVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "flip video stream") {
+            android.util.Log.d("NativeBridge", "flipVideoStream called")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.flip()
             }
         }
     }
@@ -1023,6 +1111,17 @@ class NativeBridge(
      * Handle permission request results
      */
     fun handlePermissionResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        if (requestCode == NativeCameraManager.PERMISSION_REQUEST_CODE) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val cam = nativeCameraManager
+            if (cam == null) {
+                Log.w(TAG, "handlePermissionResult — nativeCameraManager is null, ignoring camera permission result")
+                return
+            }
+            cam.onPermissionResult(granted)
+            return
+        }
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "handle permission result") {
             // Delegate to notification manager which handles notification permissions
             notificationManager.getNotificationUtils().handlePermissionResult(requestCode, permissions, grantResults)
@@ -1163,6 +1262,10 @@ class NativeBridge(
         try {
             // Cleanup NotificationManager
             notificationManager.cleanup()
+
+            // Stop video stream
+            nativeCameraManager?.cleanup()
+            nativeCameraManager = null
 
             // Stop network monitoring
             networkMonitor?.stop()

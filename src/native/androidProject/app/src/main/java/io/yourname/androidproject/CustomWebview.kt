@@ -51,6 +51,7 @@ class CustomWebView(
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
     private var defaultRequestHeaders: Map<String, String> = emptyMap()
+    var onPageStarted: (() -> Unit)? = null
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -606,6 +607,9 @@ class CustomWebView(
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
 
             // TODO: Enable these when build optimization feature is implemented
             // These are deprecated but may be needed for local file access in development
@@ -882,6 +886,7 @@ class CustomWebView(
                 super.onPageStarted(view, url, favicon)
                 if (url != null && url != offlineAssetUrl) {
                     offlinePageVisible = false
+                    onPageStarted?.invoke()
                 }
                 progressBar.visibility = View.VISIBLE
                 val startTime = System.currentTimeMillis()

@@ -17,6 +17,7 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     weak var webView: WKWebView?
     private weak var viewController: UIViewController?
     private weak var webViewModel: WebViewModel?
+    private var cameraManager: NativeCameraManager?
 
     // Protocol-based notification handler (injected at runtime)
     private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
@@ -68,16 +69,29 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         return handler
     }()
 
-    init(webView: WKWebView, viewController: UIViewController) {
+    init(webView: WKWebView, viewController: UIViewController, cameraManager: NativeCameraManager? = nil) {
         let initStart = CFAbsoluteTimeGetCurrent()
 
         self.webView = webView
         self.viewController = viewController
+        self.cameraManager = cameraManager
 
         // Only initialize critical JS interface immediately
         self.jsInterface = BridgeJavaScriptInterface(webView: webView)
 
         super.init()
+
+        // Wire camera events back through the bridge
+        cameraManager?.rewireEvents { [weak self] eventName, payload in
+            if let payload {
+                self?.sendJSONCallback(eventName: eventName, data: payload)
+            } else {
+                self?.sendCallback(eventName: eventName)
+            }
+        }
+        cameraManager?.rewireError { [weak self] message in
+            self?.sendErrorCallback(eventName: "ON_CAMERA_ERROR", error: message, code: "CAMERA_ERROR")
+        }
 
         setupNotificationNavigationHandler()
 
@@ -282,6 +296,25 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.unsubscribeFromTopic(config)
         case "getSubscribedTopics":
             commandHandler.getSubscribedTopics()
+        // Video stream commands
+        case "startVideoStream":
+            handleStartVideoStream(params: params)
+        case "stopVideoStream":
+            logger.info("📹 stopVideoStream received")
+            if cameraManager == nil { logger.error("📹 stopVideoStream — cameraManager is nil") }
+            cameraManager?.stop()
+        case "flipVideoStream":
+            logger.info("📹 flipVideoStream received")
+            if cameraManager == nil { logger.error("📹 flipVideoStream — cameraManager is nil") }
+            cameraManager?.flip()
+        case "sendVideoStreamCommand":
+            handleVideoStreamCommand(params: params)
+        case "setVideoStreamZoom":
+            handleSetVideoStreamZoom(params: params)
+        case "setVideoStreamTorch":
+            handleSetVideoStreamTorch(params: params)
+        case "setVideoStreamFps":
+            handleSetVideoStreamFps(params: params)
         case "getSafeArea":
             getSafeArea()
         case "setScreenSecure":
@@ -294,6 +327,131 @@ extension NativeBridge: WKScriptMessageHandler {
             // This should never happen due to validation, but keeping for safety
             logger.error("Unexpected command reached execution: \(command)")
         }
+    }
+
+    // MARK: - Video Stream Helpers
+
+    /// JS always sends params as JSON.stringify(options) — a String — because Android requires it.
+    /// Parse it into a dictionary here rather than removing the stringify on the JS side.
+    private func jsonStringToDict(_ params: Any?) -> [String: Any]? {
+        // Fast path: WKWebView decoded it already (unlikely for video stream commands but handle gracefully)
+        if let d = params as? [String: Any] { return d }
+        if let d = (params as? NSDictionary) as? [String: Any] { return d }
+        // Normal path: params is a JSON string from JSON.stringify()
+        guard let str = params as? String,
+              let data = str.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data),
+              let dict = obj as? [String: Any] else { return nil }
+        return dict
+    }
+
+    private func handleStartVideoStream(params: Any?) {
+        logger.info("📹 startVideoStream received — raw params type: \(type(of: params))")
+        guard let cam = cameraManager else {
+            logger.error("📹 startVideoStream — cameraManager is nil")
+            return
+        }
+        var facing = "back"
+        var autoZoom = false
+        var initialZoom: Float = 1.0
+        var scanFormat = "all"
+        var fpsMin: Int? = nil
+        var fpsMax: Int? = nil
+
+        if let dict = jsonStringToDict(params) {
+            logger.info("📹 startVideoStream — dict keys: \(dict.keys.sorted().joined(separator: ", "))")
+            facing     = dict["facing"]   as? String ?? facing
+            autoZoom   = dict["autoZoom"] as? Bool   ?? autoZoom
+            scanFormat = dict["format"]   as? String ?? scanFormat
+            // zoom options are nested under 'zoom' key: { auto: Bool, initial: Float }
+            if let zoomDict = dict["zoom"] as? [String: Any] {
+                autoZoom    = (zoomDict["auto"]    as? NSNumber)?.boolValue  ?? autoZoom
+                initialZoom = (zoomDict["initial"] as? NSNumber)?.floatValue ?? initialZoom
+            }
+            if let fps = dict["fps"] as? [String: Any] {
+                fpsMin = fps["min"] as? Int
+                fpsMax = fps["max"] as? Int
+            }
+        } else {
+            logger.warning("📹 startVideoStream — could not parse params (type=\(type(of: params))), using defaults")
+        }
+
+        logger.info("📹 startVideoStream — starting with facing=\(facing) autoZoom=\(autoZoom) initialZoom=\(initialZoom) format=\(scanFormat) fpsMin=\(String(describing: fpsMin)) fpsMax=\(String(describing: fpsMax))")
+        cam.start(facing: facing, autoZoom: autoZoom, initialZoom: initialZoom,
+                  scanFormat: scanFormat, fpsMin: fpsMin, fpsMax: fpsMax)
+    }
+
+    private func handleVideoStreamCommand(params: Any?) {
+        guard let cam = cameraManager,
+              let dict = jsonStringToDict(params),
+              let type = dict["type"] as? String else {
+            logger.error("📹 handleVideoStreamCommand — guard failed: cameraManager=\(self.cameraManager != nil) params=\(String(describing: params))")
+            return
+        }
+
+        switch type {
+        case "zoom":
+            if let value = dict["value"] as? NSNumber {
+                cam.setZoom(multiplier: value.floatValue)
+            }
+        case "torch":
+            if let value = dict["value"] as? Bool {
+                cam.setTorch(value)
+            }
+        case "fps":
+            let fpsDict = dict["value"] as? [String: Any]
+            let min = fpsDict?["min"] as? Int
+            let max = fpsDict?["max"] as? Int
+            cam.setFps(min: min, max: max)
+        default:
+            logger.warning("Unknown videoStream command type: \(type)")
+        }
+    }
+
+    private func handleSetVideoStreamZoom(params: Any?) {
+        logger.info("📹 setVideoStreamZoom received — raw params: \(String(describing: params))")
+        guard let cam = cameraManager else {
+            logger.error("📹 setVideoStreamZoom — cameraManager is nil")
+            return
+        }
+        guard let raw = params as? String, let multiplier = Float(raw) else {
+            logger.error("📹 setVideoStreamZoom — expected String number, got: \(String(describing: params))")
+            return
+        }
+        logger.info("📹 setVideoStreamZoom — multiplier=\(multiplier)x")
+        cam.setZoom(multiplier: multiplier)
+    }
+
+    private func handleSetVideoStreamTorch(params: Any?) {
+        logger.info("📹 setVideoStreamTorch received — raw params: \(String(describing: params))")
+        guard let cam = cameraManager else {
+            logger.error("📹 setVideoStreamTorch — cameraManager is nil")
+            return
+        }
+        // JS sends JSON.stringify({on: bool})
+        guard let dict = jsonStringToDict(params), let on = dict["on"] as? Bool else {
+            logger.error("📹 setVideoStreamTorch — expected JSON string {on: Bool}, got: \(String(describing: params))")
+            return
+        }
+        logger.info("📹 setVideoStreamTorch — on=\(on)")
+        cam.setTorch(on)
+    }
+
+    private func handleSetVideoStreamFps(params: Any?) {
+        logger.info("📹 setVideoStreamFps received — raw params: \(String(describing: params))")
+        guard let cam = cameraManager else {
+            logger.error("📹 setVideoStreamFps — cameraManager is nil")
+            return
+        }
+        // JS sends JSON.stringify({min, max})
+        guard let dict = jsonStringToDict(params) else {
+            logger.error("📹 setVideoStreamFps — expected JSON string {min, max}, got: \(String(describing: params))")
+            return
+        }
+        let min = dict["min"] as? Int
+        let max = dict["max"] as? Int
+        logger.info("📹 setVideoStreamFps — min=\(String(describing: min)) max=\(String(describing: max))")
+        cam.setFps(min: min, max: max)
     }
 
     // MARK: - Safe Area Methods
