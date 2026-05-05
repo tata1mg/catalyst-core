@@ -1,0 +1,56 @@
+src/native/bridge/utils/NativeBridge.js
+  c6b85f77a1b8e75b 164-165,167-173,179
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/TorchController.kt
+  c6b85f77a1b8e75b 3,6,11-12,15,44-48
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/VideoStreamStateMachine.kt
+  c6b85f77a1b8e75b 17,33-36
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeCameraManager.kt
+  c6b85f77a1b8e75b 62,281,314
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/HoldController.kt
+  c6b85f77a1b8e75b 6,26-27,57,66-68
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  c6b85f77a1b8e75b 1117-1122
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/BarcodeDetector.kt
+  c6b85f77a1b8e75b 54-55,62-63,65
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/CameraSessionManager.kt
+  c6b85f77a1b8e75b 113,118-121,125-130,172-180,206,212-220
+src/native/bridge/hooks.js
+  c6b85f77a1b8e75b 1832-1835
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  c6b85f77a1b8e75b 110-123
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/ViewfinderMapper.kt
+  c6b85f77a1b8e75b 9-11,61-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1bc37b43007ff26db13675a7a5da33e8400f9358",
+  "prompts": {
+    "8177c1a73c2f2949": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "849b59c9-35a2-4533-a3bc-fbe848e3bbcc",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 71,
+      "total_deletions": 43,
+      "accepted_lines": 67,
+      "overriden_lines": 0
+    },
+    "c6b85f77a1b8e75b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5916feac-fae9-4550-9020-9ad082a491e4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 101,
+      "total_deletions": 51,
+      "accepted_lines": 101,
+      "overriden_lines": 0
+    }
+  }
+}
