@@ -27,12 +27,10 @@ public struct CameraPreviewView: UIViewRepresentable {
     }
 
     public func updateUIView(_ uiView: UIView, context: Context) {
-        // Keep preview layer frame in sync when SwiftUI resizes the view
-        DispatchQueue.main.async {
-            uiView.layer.sublayers?
-                .compactMap { $0 as? AVCaptureVideoPreviewLayer }
-                .forEach { $0.frame = uiView.bounds }
-        }
+        // updateUIView is always called on the main thread — update frame directly.
+        uiView.layer.sublayers?
+            .compactMap { $0 as? AVCaptureVideoPreviewLayer }
+            .forEach { $0.frame = uiView.bounds }
     }
 
     public func makeCoordinator() -> Coordinator {

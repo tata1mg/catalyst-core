@@ -227,9 +227,10 @@ class CameraSessionManager: NSObject {
         zoomController.detachDevice()
         torchController.detachDevice()
         self.session = nil
-        DispatchQueue.main.async { [weak self] in
-            self?.previewLayer?.removeFromSuperlayer()
-            self?.previewLayer = nil
+        let oldPreview = self.previewLayer
+        self.previewLayer = nil
+        DispatchQueue.main.async {
+            oldPreview?.removeFromSuperlayer()
         }
         bindSession()
     }
@@ -240,8 +241,7 @@ class CameraSessionManager: NSObject {
     private func applyFpsToLiveDevice() {
         guard let session,
               let input = session.inputs.first as? AVCaptureDeviceInput else {
-            logger.warning("applyFpsToLiveDevice — no active session, falling back to rebind")
-            rebindSession()
+            logger.warning("applyFpsToLiveDevice — no active session or input, skipping (stream not yet started)")
             return
         }
         let device = input.device
@@ -268,8 +268,8 @@ class CameraSessionManager: NSObject {
         session.beginConfiguration()
         do {
             try device.lockForConfiguration()
-            device.activeVideoMinFrameDuration = targetMax  // min duration = max fps
-            device.activeVideoMaxFrameDuration = targetMin  // max duration = min fps
+            device.activeVideoMinFrameDuration = targetMax  // fastest rate = 1/maxFps
+            device.activeVideoMaxFrameDuration = targetMin  // slowest rate = 1/minFps
             device.unlockForConfiguration()
         } catch {
             session.commitConfiguration()
@@ -297,8 +297,8 @@ class CameraSessionManager: NSObject {
         }
         do {
             try device.lockForConfiguration()
-            device.activeVideoMinFrameDuration = targetMax  // min duration = max fps
-            device.activeVideoMaxFrameDuration = targetMin  // max duration = min fps
+            device.activeVideoMinFrameDuration = targetMax  // fastest rate = 1/maxFps
+            device.activeVideoMaxFrameDuration = targetMin  // slowest rate = 1/minFps
             device.unlockForConfiguration()
             logger.debug("FPS set to \(fpsMin)-\(fpsMax)")
         } catch {

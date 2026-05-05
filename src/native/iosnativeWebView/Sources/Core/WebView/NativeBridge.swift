@@ -301,9 +301,11 @@ extension NativeBridge: WKScriptMessageHandler {
             handleStartVideoStream(params: params)
         case "stopVideoStream":
             logger.info("📹 stopVideoStream received")
+            if cameraManager == nil { logger.error("📹 stopVideoStream — cameraManager is nil") }
             cameraManager?.stop()
         case "flipVideoStream":
             logger.info("📹 flipVideoStream received")
+            if cameraManager == nil { logger.error("📹 flipVideoStream — cameraManager is nil") }
             cameraManager?.flip()
         case "sendVideoStreamCommand":
             handleVideoStreamCommand(params: params)
@@ -382,7 +384,10 @@ extension NativeBridge: WKScriptMessageHandler {
     private func handleVideoStreamCommand(params: Any?) {
         guard let cam = cameraManager,
               let dict = jsonStringToDict(params),
-              let type = dict["type"] as? String else { return }
+              let type = dict["type"] as? String else {
+            logger.error("📹 handleVideoStreamCommand — guard failed: cameraManager=\(self.cameraManager != nil) params=\(String(describing: params))")
+            return
+        }
 
         switch type {
         case "zoom":

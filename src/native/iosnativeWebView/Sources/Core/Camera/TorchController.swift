@@ -48,6 +48,7 @@ class TorchController {
             logger.debug("setTorch(\(on))")
         } catch {
             logger.error("setTorch(\(on)) failed: \(error.localizedDescription)")
+            onTorchChanged(false)
         }
     }
 

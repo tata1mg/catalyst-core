@@ -7,8 +7,8 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 
 public struct ContentView: View {
     @StateObject private var webViewModel = WebViewModel()
-    // Shared camera manager — owned here, injected into WebView/NativeBridge
-    let cameraManager = NativeCameraManager(
+    // @StateObject ensures cameraManager survives SwiftUI view rebuilds.
+    @StateObject private var cameraManager = NativeCameraManager(
         onEvent: { _, _ in },   // placeholder; real handler set in NativeBridge
         onError: { _ in }
     )

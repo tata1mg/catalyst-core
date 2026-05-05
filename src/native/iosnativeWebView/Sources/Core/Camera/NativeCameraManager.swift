@@ -47,7 +47,7 @@ private final class ErrorBox {
 
 /// Thin facade — wires all camera sub-components and exposes the public API
 /// that NativeBridge.swift calls. Mirrors Android's NativeCameraManager.kt.
-public class NativeCameraManager {
+public class NativeCameraManager: ObservableObject {
 
     private let stateMachine: VideoStreamStateMachine
     private let zoomController: ZoomController
@@ -106,13 +106,13 @@ public class NativeCameraManager {
         // Wire detection handler now that holdController exists
         barcodeDetector.detectionHandler = { [weak holdController, weak sm] value, type, bounds in
             guard sm?.state != .hold else { return }
-            holdController.map { hc in
-                if !hc.isNewValue(value) { hc.startHold(); return }
-                hc.startHold()
+            guard let hc = holdController else { return }
+            if hc.isNewValue(value) {
                 let payload: [String: Any] = ["value": value, "format": BarcodeDetector.formatName(type)]
                 eBox.call("ON_QR_DETECTED", payload)
                 logger.debug("QR detected (new): \(value)")
             }
+            hc.startHold()
         }
     }
 

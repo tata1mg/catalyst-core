@@ -40,7 +40,10 @@ class BarcodeDetector: NSObject {
         // Set types AFTER adding to session
         let supported = output.availableMetadataObjectTypes
         let filtered = activeFormats.filter { supported.contains($0) }
-        output.metadataObjectTypes = filtered.isEmpty ? [.qr] : filtered
+        let typesToSet = filtered.isEmpty
+            ? (supported.contains(.qr) ? [AVMetadataObject.ObjectType.qr] : Array(supported.prefix(1)))
+            : filtered
+        output.metadataObjectTypes = typesToSet
 
         self.metadataOutput = output
         logger.debug("BarcodeDetector attached — formats: \(filtered.map { $0.rawValue })")

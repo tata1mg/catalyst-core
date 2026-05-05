@@ -31,29 +31,44 @@ class ZoomController: NSObject {
     }
 
     func attachDevice(_ device: AVCaptureDevice) {
+        if isObservingZoom {
+            self.device?.removeObserver(self, forKeyPath: #keyPath(AVCaptureDevice.videoZoomFactor))
+            isObservingZoom = false
+        }
         self.device = device
-        device.addObserver(self, forKeyPath: "videoZoomFactor", options: [.new], context: nil)
+        device.addObserver(self, forKeyPath: #keyPath(AVCaptureDevice.videoZoomFactor), options: [.new], context: nil)
         isObservingZoom = true
     }
 
     func detachDevice() {
         if isObservingZoom {
-            device?.removeObserver(self, forKeyPath: "videoZoomFactor")
+            device?.removeObserver(self, forKeyPath: #keyPath(AVCaptureDevice.videoZoomFactor))
             isObservingZoom = false
         }
         device = nil
+    }
+
+    deinit {
+        if isObservingZoom {
+            device?.removeObserver(self, forKeyPath: #keyPath(AVCaptureDevice.videoZoomFactor))
+        }
     }
 
     override func observeValue(forKeyPath keyPath: String?,
                                of object: Any?,
                                change: [NSKeyValueChangeKey: Any]?,
                                context: UnsafeMutableRawPointer?) {
-        guard keyPath == "videoZoomFactor",
-              let device = object as? AVCaptureDevice else { return }
+        guard keyPath == #keyPath(AVCaptureDevice.videoZoomFactor),
+              let device = object as? AVCaptureDevice else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+            return
+        }
         let current = Float(device.videoZoomFactor)
         let minZ    = Float(device.minAvailableVideoZoomFactor)
         let maxZ    = Float(device.maxAvailableVideoZoomFactor)
-        onZoomChanged(current, minZ, maxZ)
+        DispatchQueue.main.async { [weak self] in
+            self?.onZoomChanged(current, minZ, maxZ)
+        }
     }
 
     // MARK: - Bridge API
