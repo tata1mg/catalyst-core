@@ -8,7 +8,7 @@ import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
-import { matchPath, serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
+import { serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import { withObservability, withSyncObservability } from "../../otel.js"
@@ -68,36 +68,6 @@ const onAppServerSideError = traceHook(_onAppServerSideError, "onAppServerSideEr
 const onRenderError = traceHook(_onRenderError, "onRenderError")
 const onRequestError = traceHook(_onRequestError, "onRequestError")
 
-// ── Route matching ─────────────────────────────────────────────────────
-const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "") => {
-    return routes.reduce((matches, route) => {
-        const { path } = route
-        const match = matchPath(
-            { path: `${basePath}/${path}`, caseSensitive: false, end: true },
-            req.baseUrl || "/"
-        )
-
-        if (!match && route.children) {
-            const nested = _getMatchRoutes(
-                route.children,
-                req,
-                res,
-                store,
-                context,
-                fetcherData,
-                `${basePath}/${path}`
-            )
-            if (nested.length) {
-                matches = matches.concat(nested)
-            }
-        }
-
-        return matches
-    }, [])
-}
-
-const getMatchRoutes = withSyncObservability(SSR_SERVICE, _getMatchRoutes, "getMatchRoutes")
-
 // ── Asset collection ───────────────────────────────────────────────────
 const _collectAssets = (req, allMatches) => {
     const chunkExtractor = new ChunkExtractor({
@@ -135,7 +105,7 @@ const _renderMarkUp = async (
     metaTags,
     fetcherData,
     store,
-    matches,
+    allMatches,
     context,
     chunkExtractor
 ) => {
@@ -209,7 +179,7 @@ const _renderMarkUp = async (
     }
 
     try {
-        const status = errorCode || (matches.length && matches[0].match.path === "*" ? 404 : 200)
+        const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
 
@@ -289,13 +259,11 @@ async function _handler(req, res) {
         let context = {}
         let fetcherData = {}
         const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
-        const routes = validateGetRoutes(getRoutes) ? getRoutes() : []
 
-        const matches = getMatchRoutes(routes, req, res, store, context, fetcherData, undefined)
-        const allMatches = NestedMatchRoutes(getRoutes(), req.baseUrl)
+        const allMatches = validateGetRoutes(getRoutes) ? NestedMatchRoutes(getRoutes(), req.baseUrl) : []
         let allTags = []
 
-        safeCall(onRouteMatch, { req, res, matches, store })
+        safeCall(onRouteMatch, { req, res, matches: allMatches, store })
 
         if (res.headersSent) return
 
@@ -307,7 +275,7 @@ async function _handler(req, res) {
 
             try {
                 fetcherData = await tracedServerDataFetcher(
-                    { routes, req, res, url: req.originalUrl },
+                    { routes: getRoutes(), req, res, url: req.originalUrl },
                     { store }
                 )
 
@@ -330,7 +298,7 @@ async function _handler(req, res) {
                         allTags,
                         fetcherData,
                         store,
-                        matches,
+                        allMatches,
                         context,
                         chunkExtractor
                     )
@@ -346,7 +314,7 @@ async function _handler(req, res) {
                         allTags,
                         fetcherData,
                         store,
-                        matches,
+                        allMatches,
                         context,
                         chunkExtractor
                     )
@@ -365,7 +333,7 @@ async function _handler(req, res) {
                     allTags,
                     fetcherData,
                     store,
-                    matches,
+                    allMatches,
                     context,
                     chunkExtractor
                 )
@@ -384,7 +352,7 @@ async function _handler(req, res) {
                 allTags,
                 fetcherData,
                 store,
-                matches,
+                allMatches,
                 context,
                 chunkExtractor
             )

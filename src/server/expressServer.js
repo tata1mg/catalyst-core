@@ -12,8 +12,55 @@ import pc from "picocolors"
 import fs from "fs"
 const { cyan, yellow, green } = pc
 
-import { validateMiddleware } from "./utils/validator.js"
+import { validateMiddleware, safeCall } from "./utils/validator.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
+
+// ─── Load app-defined server lifecycle hooks ──────────────────────────────────
+let preServerInit, onServerError
+try {
+    const hooks = await import(path.join(process.env.src_path, "server/index.js"))
+    preServerInit = hooks.preServerInit
+    onServerError = hooks.onServerError
+} catch {
+    // No hooks file — preServerInit / onServerError remain undefined
+}
+
+// ─── Process-level error handlers ─────────────────────────────────────────────
+
+function safeStringify(err) {
+    try {
+        return JSON.stringify(err)
+    } catch (e) {
+        console.log("error in safeStringify", e)
+        return err
+    }
+}
+
+process.on("uncaughtException", (err, origin) => {
+    console.log(process.stderr.fd)
+    console.log(`Caught exception: ${err}\n` + `Exception origin: ${origin}`)
+})
+
+process.on("uncaughtExceptionMonitor", (err, origin) => {
+    console.log(err, origin)
+})
+
+process.on("unhandledRejection", (err) => console.log("unhandledRejection in Catalyst", safeStringify(err)))
+
+process.on("SIGINT", function () {
+    console.log("SIGINT")
+    process.exit(0)
+})
+
+process.on("message", function (msg) {
+    if (msg == "shutdown") {
+        console.log("Closing all connections...")
+        setTimeout(function () {
+            console.log("Finished closing connections")
+            process.exit(0)
+        }, 1500)
+    }
+})
 
 import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
@@ -153,7 +200,11 @@ async function createServer() {
     app.listen({ port, host }, (error) => {
         const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
-        if (error) console.log("An error occured while starting the Application server : ", error)
+        if (error) {
+            console.log("An error occured while starting the Application server : ", error)
+            safeCall(onServerError)
+            return
+        }
 
         if (process.env.NODE_ENV === "development") console.log(green("Compiled successfully!"))
 
@@ -176,4 +227,5 @@ async function createServer() {
     })
 }
 
+safeCall(preServerInit)
 createServer()
