@@ -1,0 +1,100 @@
+.assets-demo {
+    --background-color: var(--ifm-background-color);
+    --text-color: var(--ifm-color-content);
+    --text-color-secondary: var(--ifm-color-content-secondary);
+}
+
+.assets-demo .demo-section {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.assets-demo .demo-section h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.assets-demo .demo-section p {
+    color: var(--text-color);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Code Blocks */
+.assets-demo .code-block {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+    margin-top: 1rem;
+}
+
+.assets-demo .code-header {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--background-color);
+    border-bottom: 1px solid var(--ifm-color-primary);
+    color: var(--ifm-color-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    min-height: 56px;
+    box-sizing: border-box;
+}
+
+.assets-demo .code-header button {
+    margin-left: auto;
+}
+
+.assets-demo .code-block pre {
+    background: var(--catalyst-code-bg-light);
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin: 0;
+    font-family: 'Courier New', monospace;
+    color: var(--text-color);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.assets-demo .code-block code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--text-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .assets-demo .demo-section {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .assets-demo .code-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+        padding: 0.75rem 0.5rem;
+        min-height: unset;
+    }
+    .assets-demo .code-header button {
+        margin-left: 0;
+        margin-top: 0.5rem;
+        align-self: flex-end;
+    }
+}

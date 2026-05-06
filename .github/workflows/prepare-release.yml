@@ -57,11 +57,6 @@ on:
                 required: true
                 type: boolean
                 default: false
-            publish_internal:
-                description: "Publish internal package(s) immediately"
-                required: true
-                type: boolean
-                default: false
 
 permissions:
     contents: write
@@ -120,7 +115,7 @@ jobs:
                     exit 1
                   fi
 
-                  if [ "${{ inputs.publish_internal }}" != "true" ] && { [ "$BRANCH" == "main" ] || [ "$BRANCH" == "canary" ]; }; then
+                  if [ "$BRANCH" == "main" ] || [ "$BRANCH" == "canary" ]; then
                     echo "::error::prepare-release must run from a working branch, not '$BRANCH'"
                     exit 1
                   fi
@@ -150,11 +145,6 @@ jobs:
                   RELEASE_TAG="${{ inputs.release_tag }}"
                   CORE_PACKAGE_NAME="catalyst-core"
                   CCA_PACKAGE_NAME="create-catalyst-app"
-
-                  if [ "${{ inputs.publish_internal }}" == "true" ]; then
-                    CORE_PACKAGE_NAME="catalyst-core-internal"
-                    CCA_PACKAGE_NAME="create-catalyst-app-internal"
-                  fi
 
                   set_target_version() {
                     WORKSPACE_NAME="$1"
@@ -256,24 +246,12 @@ jobs:
                     set_target_version "packages/create-catalyst-app" "$CCA_PACKAGE_NAME" "./packages/create-catalyst-app/package.json" "${{ inputs.cca_version_bump }}" "${{ inputs.cca_custom_version }}" "cca"
                   fi
 
-            - name: Apply internal package names
-              if: inputs.publish_internal
-              run: |
-                  if [ "${{ inputs.prepare_core }}" == "true" ]; then
-                    npm pkg set name=catalyst-core-internal --workspace packages/catalyst-core
-                  fi
-
-                  if [ "${{ inputs.prepare_cca }}" == "true" ]; then
-                    npm pkg set name=create-catalyst-app-internal --workspace packages/create-catalyst-app
-                  fi
-
             - name: Resolve create-catalyst-app template catalyst dependency
               id: template_core
               if: inputs.prepare_cca
               run: |
                   RELEASE_TAG="${{ inputs.release_tag }}"
                   PREPARE_CORE="${{ inputs.prepare_core }}"
-                  PUBLISH_INTERNAL="${{ inputs.publish_internal }}"
 
                   validate_template_dependency_version() {
                     PACKAGE_NAME="$1"
@@ -296,9 +274,6 @@ jobs:
                   }
 
                   PACKAGE_NAME="catalyst-core"
-                  if [ "$PUBLISH_INTERNAL" == "true" ]; then
-                    PACKAGE_NAME="catalyst-core-internal"
-                  fi
 
                   if [ "$PREPARE_CORE" == "true" ]; then
                     TARGET_VERSION="${{ steps.versions.outputs.core_version }}"
@@ -312,18 +287,17 @@ jobs:
 
                   validate_template_dependency_version "$PACKAGE_NAME" "$TARGET_VERSION"
 
-                  echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
                   echo "version=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
 
             - name: Sync create-catalyst-app template dependency versions
               if: inputs.prepare_cca
               run: |
-                  node scripts/release/sync-cca-templates.js --package-name="${{ steps.template_core.outputs.package_name }}" --package-version="${{ steps.template_core.outputs.version }}"
+                  node scripts/release/sync-cca-templates.js --package-version="${{ steps.template_core.outputs.version }}"
 
             - name: Validate create-catalyst-app template dependency versions
               if: inputs.prepare_cca
               run: |
-                  node scripts/release/sync-cca-templates.js --check --package-name="${{ steps.template_core.outputs.package_name }}" --package-version="${{ steps.template_core.outputs.version }}"
+                  node scripts/release/sync-cca-templates.js --check --package-version="${{ steps.template_core.outputs.version }}"
 
             - name: Update workspace lockfile
               run: npm install --package-lock-only --ignore-scripts
@@ -342,22 +316,15 @@ jobs:
 
                   if [ "${{ inputs.prepare_core }}" == "true" ]; then
                     PACKAGE_NAME="catalyst-core"
-                    if [ "${{ inputs.publish_internal }}" == "true" ]; then
-                      PACKAGE_NAME="catalyst-core-internal"
-                    fi
                     check_version_available "$PACKAGE_NAME" "${{ steps.versions.outputs.core_version }}"
                   fi
 
                   if [ "${{ inputs.prepare_cca }}" == "true" ]; then
                     PACKAGE_NAME="create-catalyst-app"
-                    if [ "${{ inputs.publish_internal }}" == "true" ]; then
-                      PACKAGE_NAME="create-catalyst-app-internal"
-                    fi
                     check_version_available "$PACKAGE_NAME" "${{ steps.versions.outputs.cca_version }}"
                   fi
 
             - name: Write release metadata
-              if: ${{ !inputs.publish_internal }}
               run: |
                   RELEASE_TAG="${{ inputs.release_tag }}"
                   PREPARE_CORE="${{ inputs.prepare_core }}"
@@ -394,14 +361,14 @@ jobs:
                   NODE
 
             - name: Configure Git
-              if: ${{ !inputs.dry_run && !inputs.publish_internal }}
+              if: ${{ !inputs.dry_run }}
               run: |
                   git config --global user.email "github-actions[bot]@users.noreply.github.com"
                   git config --global user.name "github-actions[bot]"
 
             - name: Commit prepared version
               id: commit_prepare
-              if: ${{ !inputs.dry_run && !inputs.publish_internal }}
+              if: ${{ !inputs.dry_run }}
               run: |
                   /usr/bin/git add .release-meta.json package-lock.json packages/catalyst-core/package.json packages/create-catalyst-app/package.json packages/create-catalyst-app/templates/*/package.json
 
@@ -421,56 +388,12 @@ jobs:
                   git commit -m "chore: prepare release ${PACKAGE_LABELS[*]} [skip ci]"
                   git push
 
-            - name: Replace in source files (internal)
-              if: inputs.publish_internal && inputs.prepare_core
-              run: |
-                  find ./packages/catalyst-core/src -type f \( -name "*.js" -o -name "*.ts" \) -exec perl -0pi -e 's/catalyst-core(?!-internal)(?![[:alnum:]_-])/catalyst-core-internal/g' {} \;
-
-            - name: Install dependencies for internal publish
-              if: inputs.publish_internal
-              run: npm install --ignore-scripts
-
-            - name: Build package for internal publish
-              if: inputs.publish_internal && inputs.prepare_core
-              run: npm run prepare --workspace packages/catalyst-core
-
-            - name: Update npm for OIDC support
-              if: ${{ inputs.publish_internal && !inputs.dry_run }}
-              run: npm install -g npm@latest
-
-            - name: Publish internal catalyst-core package
-              id: publish_internal_core
-              if: ${{ inputs.publish_internal && inputs.prepare_core && !inputs.dry_run }}
-              run: npm publish --workspace packages/catalyst-core --tag ${{ inputs.release_tag }} --access public
-
-            - name: Verify internal catalyst dependency for create-catalyst-app
-              if: ${{ inputs.publish_internal && inputs.prepare_cca && !inputs.dry_run }}
-              run: |
-                  if [ "${{ inputs.prepare_core }}" == "true" ]; then
-                    echo "catalyst-core-internal was published in this run"
-                    exit 0
-                  fi
-
-                  TEMPLATE_CORE_VERSION=$(node -p "const pk=require('./packages/create-catalyst-app/templates/none-js/package.json'); pk.dependencies['catalyst-core-internal']")
-                  if [ -z "$TEMPLATE_CORE_VERSION" ]; then
-                    echo "::error::create-catalyst-app internal templates are missing catalyst-core-internal"
-                    exit 1
-                  fi
-
-                  npm view "catalyst-core-internal@$TEMPLATE_CORE_VERSION" version
-
-            - name: Publish internal create-catalyst-app package
-              id: publish_internal_cca
-              if: ${{ inputs.publish_internal && inputs.prepare_cca && !inputs.dry_run }}
-              run: npm publish --workspace packages/create-catalyst-app --tag ${{ inputs.release_tag }} --access public
-
             - name: Final summary
               if: always()
               run: |
                   STATUS="${{ job.status }}"
                   RELEASE_TAG="${{ inputs.release_tag }}"
                   DRY_RUN="${{ inputs.dry_run }}"
-                  PUBLISH_INTERNAL="${{ inputs.publish_internal }}"
                   PREPARE_CORE="${{ inputs.prepare_core }}"
                   PREPARE_CCA="${{ inputs.prepare_cca }}"
                   CORE_CURRENT="${{ steps.versions.outputs.core_current }}"
@@ -478,13 +401,10 @@ jobs:
                   CCA_CURRENT="${{ steps.versions.outputs.cca_current }}"
                   CCA_TARGET="${{ steps.versions.outputs.cca_version }}"
                   COMMIT_OUTCOME="${{ steps.commit_prepare.outcome }}"
-                  INTERNAL_CORE_PUBLISH_OUTCOME="${{ steps.publish_internal_core.outcome }}"
-                  INTERNAL_CCA_PUBLISH_OUTCOME="${{ steps.publish_internal_cca.outcome }}"
 
                   echo "status=$STATUS"
                   echo "release_tag=$RELEASE_TAG"
                   echo "dry_run=$DRY_RUN"
-                  echo "publish_internal=$PUBLISH_INTERNAL"
 
                   if [ "$PREPARE_CORE" == "true" ]; then
                     echo "catalyst-core: $CORE_CURRENT -> $CORE_TARGET"
@@ -494,13 +414,4 @@ jobs:
                     echo "create-catalyst-app: $CCA_CURRENT -> $CCA_TARGET"
                   fi
 
-                  if [ "$PUBLISH_INTERNAL" == "true" ]; then
-                    if [ "$PREPARE_CORE" == "true" ]; then
-                      echo "internal_catalyst-core_publish=${INTERNAL_CORE_PUBLISH_OUTCOME:-not run}"
-                    fi
-                    if [ "$PREPARE_CCA" == "true" ]; then
-                      echo "internal_create-catalyst-app_publish=${INTERNAL_CCA_PUBLISH_OUTCOME:-not run}"
-                    fi
-                  else
-                    echo "commit_prepare=${COMMIT_OUTCOME:-not run}"
-                  fi
+                  echo "commit_prepare=${COMMIT_OUTCOME:-not run}"

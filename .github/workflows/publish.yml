@@ -179,7 +179,7 @@ jobs:
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true'
               run: |
                   TEMPLATE_CORE_VERSION=$(node -p "require('./packages/create-catalyst-app/templates/none-js/package.json').dependencies['catalyst-core']")
-                  node scripts/release/sync-cca-templates.js --check --package-name="catalyst-core" --package-version="$TEMPLATE_CORE_VERSION"
+                  node scripts/release/sync-cca-templates.js --check --package-version="$TEMPLATE_CORE_VERSION"
 
             - name: Validate package versions against channel
               if: steps.context.outputs.should_run == 'true'
