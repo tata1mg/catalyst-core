@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.0-beta.2] - 2026-05-06
+
+- Moved Catalyst into a monorepo structure with `catalyst-core`, `create-catalyst-app`, the Catalyst docs app, and the Catalyst core test app managed from one repository.
+- Replaced the internal-package pre-release flow with a local release sandbox that scaffolds a real app using current-branch CCA and a locally packed current-branch `catalyst-core`.
+
 ## [0.1.0-beta.1] - 2026-04-15
 
 - Promoted `0.1.0-canary.7` to the first proper beta release after stabilization.
