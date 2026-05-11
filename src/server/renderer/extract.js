@@ -96,6 +96,11 @@ export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modu
             key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
             href: url,
+            // crossorigin is required for cross-origin ES modules: without it the preload
+            // is a no-cors fetch (no Origin header) while <script type="module"> always uses
+            // CORS mode — different cache partitions → second CORS fetch → CORS error on
+            // Android WebView (stricter about this mismatch than desktop/iOS).
+            crossOrigin: "anonymous",
             fetchPriority: "high",
         })
     )
@@ -141,7 +146,7 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
  */
 export const generateScriptElements = (jsUrls = []) =>
     [...new Set(jsUrls)].map((url, i) =>
-        React.createElement("script", { key: `js-${i}`, type: "module", src: url })
+        React.createElement("script", { key: `js-${i}`, type: "module", crossOrigin: "anonymous", src: url })
     )
 
 // ── HTML strings (for streaming injection after body via res.write) ────
@@ -156,4 +161,4 @@ export const generateCssLinkStrings = (cssUrls = []) =>
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
  */
 export const generateScriptStrings = (jsUrls = []) =>
-    [...new Set(jsUrls)].map((url) => `<script type="module" src="${url}"></script>`).join("")
+    [...new Set(jsUrls)].map((url) => `<script type="module" crossorigin src="${url}"></script>`).join("")
