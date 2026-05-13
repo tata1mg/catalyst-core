@@ -239,12 +239,22 @@ Here's a complete example configuration file:
   "CLIENT_ENV_VARIABLES": ["API_URL", "ANALYTICS_ID"],
 
   "WEBVIEW_CONFIG": {
+    "port": "3005",
+    "LOCAL_IP": "192.168.0.11",
+    "appInfo": "android-v2.1.0",
     "useHttps": true,
     "android": {
-      "appName": "My App"
+      "appName": "My App",
+      "packageName": "com.example.myapp",
+      "buildType": "debug",
+      "sdkPath": "/Users/yourname/Library/Android/sdk",
+      "emulatorName": "Pixel_5_API_30"
     },
     "ios": {
-      "appName": "My App"
+      "appName": "My App",
+      "appBundleId": "com.example.myapp",
+      "buildType": "Debug",
+      "simulatorName": "iPhone 17 Pro"
     },
     "accessControl": {
       "enabled": true,
@@ -252,7 +262,7 @@ Here's a complete example configuration file:
         "https://api.example.com/*",
         "*.cdn.example.com"
       ]
-    }
+    },
     "splashScreen": {
       "duration": 2000,
       "backgroundColor": "#ffffff",

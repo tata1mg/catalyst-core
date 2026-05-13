@@ -401,13 +401,25 @@ Control whether the webview uses HTTP or HTTPS protocol.
 ```json title="config/config.json"
 {
   "WEBVIEW_CONFIG": {
+    "port": "3005",
+    "LOCAL_IP": "192.168.0.11",
+    "appInfo": "android-v2.1.0",
+    "useHttps": true,
     "android": {
-      "appName": "My Awesome App"
+      "appName": "My Awesome App",
+      "packageName": "com.example.myawesomeapp",
+      "buildType": "debug",
+      "sdkPath": "/Users/yourname/Library/Android/sdk",
+      "emulatorName": "Pixel_5_API_30",
+      "cachePattern": "*.css,*.js"
     },
     "ios": {
-      "appName": "My Awesome App"
+      "appName": "My Awesome App",
+      "appBundleId": "com.example.myawesomeapp",
+      "buildType": "Debug",
+      "simulatorName": "iPhone 17 Pro",
+      "cachePattern": "*.css,*.js"
     },
-    "useHttps": true,
     "accessControl": {
       "enabled": true,
       "allowedUrls": [

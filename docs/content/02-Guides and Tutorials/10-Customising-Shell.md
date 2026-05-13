@@ -14,7 +14,7 @@ Create or edit `server/document.js` to customize:
 
 ```jsx title="server/document.js"
 import React from "react";
-import { Head, Body } from "catalyst";
+import { Head, Body } from "catalyst-core";
 
 function Document(props) {
   return (
@@ -32,7 +32,7 @@ export default Document;
 
 ```jsx title="server/document.js"
 import React from "react";
-import { Head, Body } from "catalyst";
+import { Head, Body } from "catalyst-core";
 
 function Document(props) {
   return (
@@ -54,7 +54,7 @@ export default Document;
 
 ```jsx title="server/document.js"
 import React from "react";
-import { Head, Body } from "catalyst";
+import { Head, Body } from "catalyst-core";
 
 function Document(props) {
   return (
@@ -84,7 +84,7 @@ The `props` object includes the request, allowing server-side customization:
 
 ```jsx title="server/document.js"
 import React from "react";
-import { Head, Body } from "catalyst";
+import { Head, Body } from "catalyst-core";
 
 function Document(props) {
   const { req } = props;

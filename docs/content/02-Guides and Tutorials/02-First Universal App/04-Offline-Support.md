@@ -20,7 +20,7 @@
 - Why use it: drive in-app banners, pause/resume live data, or disable actions while offline—while native still owns the full-screen offline fallback.
 - Example:
   ```jsx
-  import { useNetworkStatus } from "catalyst-core/native"
+  import { useNetworkStatus } from "catalyst-core/hooks"
 
   export function ConnectivityBanner() {
       const { online, type } = useNetworkStatus()
