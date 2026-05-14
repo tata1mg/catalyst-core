@@ -1,0 +1,23 @@
+.github/workflows/docs-tag.yml
+  0038c75e8faf33e8 1-40,56-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "f430f84b8e72c33473611f1674b870f4dfec7054",
+  "prompts": {
+    "0038c75e8faf33e8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e20c5-5a2e-7190-ac94-aa4dc84693be",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 45,
+      "total_deletions": 0,
+      "accepted_lines": 43,
+      "overriden_lines": 2
+    }
+  }
+}
