@@ -62,20 +62,27 @@ export class ChunkExtractor {
     addComponent(cacheKey) {
         this.components.add(cacheKey)
 
-        const resolvedKey =
-            this.manifest[cacheKey] != null
-                ? cacheKey
-                : Object.keys(this.manifest).find((k) => k.startsWith(cacheKey + "."))
+        // Try assetManifest first by raw cacheKey — addSourcePathAliases writes
+        // source-path entries here even when the chunk is anonymous in manifest.json
+        // (shared / multi-importer dynamic chunks). Falling back to manifest.json
+        // last keeps the existing prefix-match behavior intact.
+        let entry =
+            this.assetManifest.ssrTrue?.[cacheKey] ||
+            this.assetManifest.ssrFalse?.[cacheKey] ||
+            this.manifest[cacheKey]
 
-        if (resolvedKey) {
-            const entry =
-                this.assetManifest.ssrTrue?.[resolvedKey] ||
-                this.assetManifest.ssrFalse?.[resolvedKey] ||
-                this.manifest[resolvedKey]
-
-            if (entry) {
-                this._addAssets(entry, this.deferred)
+        if (!entry) {
+            const resolvedKey = Object.keys(this.manifest).find((k) => k.startsWith(cacheKey + "."))
+            if (resolvedKey) {
+                entry =
+                    this.assetManifest.ssrTrue?.[resolvedKey] ||
+                    this.assetManifest.ssrFalse?.[resolvedKey] ||
+                    this.manifest[resolvedKey]
             }
+        }
+
+        if (entry) {
+            this._addAssets(entry, this.deferred)
         }
     }
 
