@@ -122,7 +122,7 @@ const _renderMarkUp = async (
     const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
     const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
-    const deferredRouteKey = getDeferredRouteKey(req)
+    const deferredRouteKey = getDeferredRouteKey(req, allMatches)
     const deferredRouteInlineCss = readCssFromDisk(
         getCachedDeferredCssPathsForRoute(deferredRouteKey),
         buildDir

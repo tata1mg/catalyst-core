@@ -25,12 +25,10 @@ const routeRecord = (routeKey) => {
     return rec
 }
 
-/** Stable key for caching deferred chunks (Express baseUrl + path, no query). */
-export const getDeferredRouteKey = (req) => {
-    const base = req.baseUrl || ""
-    const p = req.path != null ? req.path : "/"
-    const joined = `${base}${p}`.replace(/\/{2,}/g, "/") || "/"
-    return joined.startsWith("/") ? joined : `/${joined}`
+/** Stable key for caching deferred chunks — uses the matched route pattern (e.g. "/product/:name/:id")
+ *  so all pages on the same route share one entry regardless of their actual URL parameters. */
+export const getDeferredRouteKey = (req, allMatches = []) => {
+    return allMatches?.length ? allMatches[allMatches.length - 1]?.route?.path ?? null : null
 }
 
 /** CSS paths (manifest-relative) previously deferred on this route — for <head> inlining. */
@@ -47,6 +45,7 @@ export const getCachedDeferredCssPathsForRoute = (routeKey) => {
  * @returns {{ newCssPaths: string[] }}
  */
 export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } = {}) => {
+    if (!routeKey) return { newCssPaths: [] }
     const rec = routeRecord(routeKey)
     const newCssPaths = []
     for (const p of css) {
