@@ -205,7 +205,11 @@ const _renderMarkUp = async (
                         )
                     }
 
-                    const { newCssPaths } = registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets)
+                    const { newCssPaths } = registerDeferredAssetsForRoute(
+                        deferredRouteKey,
+                        deferredAssets,
+                        isBot
+                    )
                     if (newCssPaths.length) {
                         res.write(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }

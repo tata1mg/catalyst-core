@@ -40,7 +40,7 @@ export const getCachedDeferredCssPathsForRoute = (routeKey) => {
  * JS URLs are always emitted in HTML on every navigation — skipping "cached" scripts would omit modules.
  * @returns {{ newCssPaths: string[] }}
  */
-export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } = {}) => {
+export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } = {}, isBot = false) => {
     if (!routeKey) return { newCssPaths: [] }
     const rec = routeRecord(routeKey)
     const newCssPaths = []
@@ -49,8 +49,10 @@ export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } =
         if (!rec.css.has(p)) newCssPaths.push(p)
         rec.css.add(p)
     }
-    for (const url of js) {
-        if (url) rec.js.add(url)
+    if (!isBot) {
+        for (const url of js) {
+            if (url) rec.js.add(url)
+        }
     }
     return { newCssPaths }
 }
