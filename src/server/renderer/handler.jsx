@@ -17,7 +17,6 @@ import {
     generateScriptElements,
     generateCssLinkStrings,
     generateScriptStrings,
-    registerDeferredAssetUrls,
     getDeferredRouteKey,
     getCachedDeferredCssPathsForRoute,
     registerDeferredAssetsForRoute,
@@ -130,7 +129,7 @@ const _renderMarkUp = async (
 
     const jsScripts = generateScriptElements(criticalAssets.js)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
-    const deferredPreloadUrls = getDeferredPreloadScriptUrls(criticalAssets.js)
+    const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
 
     // Build Head props
@@ -207,7 +206,6 @@ const _renderMarkUp = async (
                     }
 
                     const { newCssPaths } = registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets)
-                    registerDeferredAssetUrls({ js: deferredAssets.js })
                     if (newCssPaths.length) {
                         res.write(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }

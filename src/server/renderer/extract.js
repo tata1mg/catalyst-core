@@ -7,10 +7,6 @@ import fs from "fs"
 // Process-level cache — survives across requests, reset on deploy.
 if (!process.cssFileCache) process.cssFileCache = {}
 
-// Deferred JS URLs seen after SSR completes — used to emit <link rel="modulepreload">
-// on the *next* requests (head streams before deferred chunks are known on first paint).
-if (!process.deferredAssetJsPreloadCache) process.deferredAssetJsPreloadCache = new Set()
-
 // Per-route deferred asset paths/URLs learned from past SSRs — inlined in <head> on later visits
 // so late <style> after </body> does not re-layout already-painted content. CSS file bodies use
 // process.cssFileCache inside readCssFromDisk (no repeat disk read).
@@ -60,28 +56,17 @@ export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } =
 }
 
 /**
- * Record deferred chunk URLs after render so future responses can preload them in <head>.
- * @param {object} opts
- * @param {string[]} [opts.js] - Full script URLs (same as deferredAssets.js).
- */
-export const registerDeferredAssetUrls = ({ js = [] } = {}) => {
-    for (const url of js) {
-        if (url && typeof url === "string") process.deferredAssetJsPreloadCache.add(url)
-    }
-}
-
-/**
- * Cached deferred script URLs for early fetch, excluding URLs already loaded as critical scripts.
+ * Cached deferred script URLs for this route, excluding URLs already loaded as critical scripts.
+ * @param {string|null} routeKey - Matched route pattern.
  * @param {Iterable<string>} excludeUrls - Critical / head script src URLs.
  * @returns {string[]}
  */
-export const getDeferredPreloadScriptUrls = (excludeUrls = []) => {
+export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
+    if (!routeKey) return []
+    const rec = process.deferredAssetsByRoute.get(routeKey)
+    if (!rec) return []
     const exclude = new Set(excludeUrls)
-    const out = []
-    for (const url of process.deferredAssetJsPreloadCache) {
-        if (url && !exclude.has(url)) out.push(url)
-    }
-    return out
+    return [...rec.js].filter((url) => url && !exclude.has(url))
 }
 
 /**
