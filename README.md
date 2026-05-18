@@ -32,9 +32,9 @@ Read the full documentation at [catalyst.1mg.com](https://catalyst.1mg.com).
 
 Useful starting points:
 
-- [Getting Started](https://catalyst.1mg.com/content/Introduction/getting-started)
-- [First Catalyst App](https://catalyst.1mg.com/content/Guides%20and%20Tutorials/First%20Catalyst%20App/quick-start)
-- [Universal App Setup](https://catalyst.1mg.com/content/Guides%20and%20Tutorials/First%20Universal%20App/first-universal-app)
+- [Getting Started](https://catalyst.1mg.com/public_docs/content/Introduction/getting-started)
+- [First Catalyst App](https://catalyst.1mg.com/public_docs/content/Guides%20and%20Tutorials/First%20Catalyst%20App/quick-start)
+- [Universal App Setup](https://catalyst.1mg.com/public_docs/content/Guides%20and%20Tutorials/First%20Universal%20App/first-universal-app)
 
 ## Packages
 
