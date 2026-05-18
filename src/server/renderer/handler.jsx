@@ -31,6 +31,17 @@ import App from "@catalyst/template/src/js/containers/App/index"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
+import { getManifest, getAssetManifest } from "../manifestCache.js"
+
+// Routes are static for the lifetime of the server — resolve once and reuse
+// the same instance per request to avoid per-request allocation.
+let _cachedRoutes
+const getCachedRoutes = () => {
+    if (_cachedRoutes === undefined) {
+        _cachedRoutes = validateGetRoutes(getRoutes) ? getRoutes() : null
+    }
+    return _cachedRoutes
+}
 
 // Try to import user-defined hooks. These are optional — apps that don't export them
 // will get undefined, and safeCall is a no-op for non-functions.
@@ -70,9 +81,8 @@ const onRequestError = traceHook(_onRequestError, "onRequestError")
 // ── Asset collection ───────────────────────────────────────────────────
 const _collectAssets = (req, allMatches) => {
     const chunkExtractor = new ChunkExtractor({
-        manifest: req.manifest || {},
-        ssrManifest: req.ssrManifest || {},
-        assetManifest: req.assetManifest || {},
+        manifest: getManifest() || {},
+        assetManifest: getAssetManifest() || {},
     })
 
     // Add route-matched CSS/JS to critical bucket (loaded in <head>)
@@ -262,7 +272,8 @@ async function _handler(req, res) {
         let fetcherData = {}
         const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
 
-        const allMatches = validateGetRoutes(getRoutes) ? NestedMatchRoutes(getRoutes(), req.baseUrl) : []
+        const cachedRoutes = getCachedRoutes()
+        const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.baseUrl) : []
         let allTags = []
 
         safeCall(onRouteMatch, { req, res, matches: allMatches, store })
@@ -277,7 +288,7 @@ async function _handler(req, res) {
 
             try {
                 fetcherData = await tracedServerDataFetcher(
-                    { routes: getRoutes(), req, res, url: req.originalUrl },
+                    { routes: cachedRoutes, req, res, url: req.originalUrl },
                     { store }
                 )
 

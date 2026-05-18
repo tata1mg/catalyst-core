@@ -88,12 +88,11 @@ async function createServer() {
     app.use(compression())
 
     let vite
-    let manifest
-    let ssrManifest
-    let assetManifest
 
     if (isProduction) {
-        // In production, serve built assets
+        // In production, serve built assets. Build manifests themselves are
+        // loaded once at startup by ./manifestCache.js — handler reads from
+        // that singleton instead of attaching them to every `req`.
         const buildPath = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
         const publicPath = path.join(buildPath, "client")
         // Serve static assets — prefers pre-compressed .br / .gz files generated at build time
@@ -109,29 +108,6 @@ async function createServer() {
                 },
             })
         )
-
-        // Load build manifests
-        try {
-            const manifestPath = path.join(buildPath, ".vite", "manifest.json")
-            const ssrManifestPath = path.join(buildPath, ".vite", "ssr-manifest.json")
-            const assetManifestPath = path.join(buildPath, ".vite", "asset-categories.json")
-
-            if (fs.existsSync(manifestPath)) {
-                manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"))
-            }
-
-            if (fs.existsSync(ssrManifestPath)) {
-                ssrManifest = JSON.parse(fs.readFileSync(ssrManifestPath, "utf-8"))
-            }
-            if (fs.existsSync(assetManifestPath)) {
-                assetManifest = JSON.parse(fs.readFileSync(assetManifestPath, "utf-8"))
-
-                const cssLoadingStrategies = assetManifest.cssLoadingStrategies || {}
-                const cssLoadingStrategiesCount = Object.keys(cssLoadingStrategies).length
-            }
-        } catch (error) {
-            console.warn("Could not load build manifests:", error.message)
-        }
     } else {
         // In development, use Vite middleware
         vite = await createViteServer({
@@ -177,12 +153,6 @@ async function createServer() {
 
             // Render your app
             if (render && render.default) {
-                // Pass manifests to renderer in production
-                if (isProduction) {
-                    req.manifest = manifest
-                    req.ssrManifest = ssrManifest
-                    req.assetManifest = assetManifest
-                }
                 await render.default(req, res)
             } else {
                 console.error("Renderer not found or invalid")

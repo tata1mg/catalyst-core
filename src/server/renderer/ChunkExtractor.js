@@ -9,7 +9,7 @@
  * With natural Vite code-splitting (no mega "main" chunk), critical CSS stays small (~15-25KB).
  */
 export class ChunkExtractor {
-    constructor({ manifest = {}, assetManifest = {}, ssrManifest = {} } = {}) {
+    constructor({ manifest = {}, assetManifest = {} } = {}) {
         this.manifest = manifest
         this.assetManifest = assetManifest
         this.components = new Set()
