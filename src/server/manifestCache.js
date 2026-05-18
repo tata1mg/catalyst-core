@@ -9,7 +9,6 @@ const isProduction = process.env.NODE_ENV === "production"
 
 function loadManifests() {
     if (loaded) return
-    loaded = true
 
     if (!isProduction) return
 
@@ -24,7 +23,9 @@ function loadManifests() {
         if (fs.existsSync(assetManifestPath)) {
             assetManifest = JSON.parse(fs.readFileSync(assetManifestPath, "utf-8"))
         }
+        loaded = true
     } catch (error) {
+        loaded = false
         console.warn("Could not load build manifests:", error.message)
     }
 }
