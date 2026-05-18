@@ -8,6 +8,8 @@ const config = require('./config.json')
 const basePrivateDocsUrl = config.server.private_docs_mount_url
     ? `/${config.server.private_docs_mount_url}/`
     : '/private_docs/'
+const socialPreviewImageUrl =
+    'https://onemg.gumlet.io/staging/2fdb0975-8f51-4fd1-bd7d-6375d793f581.svg'
 
 /** @type {import('@docusaurus/types').Config} */
 const configObject = {
@@ -19,6 +21,43 @@ const configObject = {
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
     favicon: 'img/favicon.ico',
+    headTags: [
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:image',
+                content: socialPreviewImageUrl,
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:image:secure_url',
+                content: socialPreviewImageUrl,
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:image:type',
+                content: 'image/svg+xml',
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:card',
+                content: 'summary_large_image',
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:image',
+                content: socialPreviewImageUrl,
+            },
+        },
+    ],
 
     // GitHub pages deployment config.
     // If you aren't using GitHub pages, you don't need these.
