@@ -14,7 +14,7 @@
 
 Catalyst offers a comprehensive suite of features designed for modern web development. It includes isomorphic rendering for optimal performance, an extendable server with full-stack capabilities, and configurable state management. The framework employs smart prefetching of data and chunks, allows easy configuration of global styles and layouts, and provides SEO optimization at both global and page levels.
 
-This version adds support for Universal app for both Android and iOS. Please checkout [Universal App Documentaion](https://catalyst.1mg.com/public_docs/content/Universal%20App/RunUniversalApp)
+Catalyst also supports universal apps for Android and iOS. See the [Universal App guide](https://catalyst.1mg.com/content/Guides%20and%20Tutorials/First%20Universal%20App/first-universal-app) to get started.
 
 ## Installation
 
