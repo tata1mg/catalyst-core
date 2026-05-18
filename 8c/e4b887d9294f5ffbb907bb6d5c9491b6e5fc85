@@ -1,0 +1,25 @@
+README.md
+  1b3aa257e4a8e310 35-37
+packages/catalyst-core/README.md
+  1b3aa257e4a8e310 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "8ce4b887d9294f5ffbb907bb6d5c9491b6e5fc85",
+  "prompts": {
+    "1b3aa257e4a8e310": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d90b4-f222-72c1-b07a-8ce4229b5810",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
