@@ -13,10 +13,11 @@ Catalyst exposes two groups of hooks:
 
 ## Hooks Overview
 
-| Hook | Description | Web | iOS | Android |
-|------|-------------|-----|-----|---------|
+| Hook / API | Description | Web | iOS | Android |
+|------------|-------------|-----|-----|---------|
 | `useRouterData` | Access data for all matched routes | Yes | Yes | Yes |
 | `useCurrentRouteData` | Access current route fetcher state and data | Yes | Yes | Yes |
+| `getDeviceInfo` | Read device, screen, and app metadata from the bridge | Yes | Yes | Yes |
 | `useCamera` | Capture media via the bridge or web fallback | Partial | Yes | Yes |
 | `useFilePicker` | Select files and normalize results | Partial | Yes | Yes |
 | `useIntent` | Open files or URLs with external apps | No | Yes | Yes |
@@ -166,6 +167,44 @@ Most native hooks follow a common pattern:
 - `execute`
 - `clear`
 - `clearError`
+
+### `getDeviceInfo`
+
+Read device, screen, and app metadata from the native bridge. `getDeviceInfo` is exposed by `WebBridge.init()` and on `window.WebBridge`; it is not a React hook exported from `catalyst-core/hooks`.
+
+#### Import
+
+```javascript
+import WebBridge from "catalyst-core/WebBridge";
+```
+
+#### Returns
+
+Resolves to an object with normalized device metadata.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `model` | `string` | Device model, or the browser user agent on web |
+| `manufacturer` | `string` | Device manufacturer, or `browser` on web |
+| `platform` | `string` | `ios`, `android`, or `web` |
+| `screenWidth` | `number` | Screen width in pixels |
+| `screenHeight` | `number` | Screen height in pixels |
+| `screenDensity` | `number` | Screen scale or pixel density |
+| `appInfo` | `object \| string \| null` | App metadata provided by the native shell, when available |
+| `security` | `object` | Android security check state, when available |
+
+#### Usage
+
+```javascript
+const { getDeviceInfo } = WebBridge.init();
+
+async function logDeviceInfo() {
+  const deviceInfo = await getDeviceInfo();
+  console.log(deviceInfo.platform, deviceInfo.model);
+}
+```
+
+If the bridge is already initialized, you can also call `window.WebBridge.getDeviceInfo()`. On web, `getDeviceInfo()` resolves with browser and screen information instead of throwing.
 
 ### `useCamera`
 

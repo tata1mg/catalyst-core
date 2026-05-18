@@ -5,6 +5,8 @@ id: universal-app-configuration
 sidebar_position: 11
 ---
 
+import ConfigExample from '@site/src/components/ConfigExample'
+
 # Universal App Configuration
 
 Configure your universal app's appearance, behavior, and security settings through `config/config.json`.
@@ -398,49 +400,7 @@ Control whether the webview uses HTTP or HTTPS protocol.
 
 ## Complete Configuration Example
 
-```json title="config/config.json"
-{
-  "WEBVIEW_CONFIG": {
-    "port": "3005",
-    "LOCAL_IP": "192.168.0.11",
-    "appInfo": "android-v2.1.0",
-    "useHttps": true,
-    "android": {
-      "appName": "My Awesome App",
-      "packageName": "com.example.myawesomeapp",
-      "buildType": "debug",
-      "sdkPath": "/Users/yourname/Library/Android/sdk",
-      "emulatorName": "Pixel_5_API_30",
-      "cachePattern": "*.css,*.js"
-    },
-    "ios": {
-      "appName": "My Awesome App",
-      "appBundleId": "com.example.myawesomeapp",
-      "buildType": "Debug",
-      "simulatorName": "iPhone 17 Pro",
-      "cachePattern": "*.css,*.js"
-    },
-    "accessControl": {
-      "enabled": true,
-      "allowedUrls": [
-        "https://api.myapp.com/*",
-        "https://cdn.myapp.com/*",
-        "*.cloudfront.net"
-      ]
-    },
-    "splashScreen": {
-      "duration": 2000,
-      "backgroundColor": "#ffffff",
-      "imageWidth": 120,
-      "imageHeight": 120,
-      "cornerRadius": 20
-    },
-    "notifications": {
-      "enabled": true
-    }
-  }
-}
-```
+<ConfigExample type="universalAppConfig" />
 
 ---
 
