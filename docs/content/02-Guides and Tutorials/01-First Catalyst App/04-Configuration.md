@@ -4,6 +4,8 @@ slug: configuration
 id: configuration
 ---
 
+import ConfigExample from '@site/src/components/ConfigExample'
+
 # Configuration
 
 Catalyst uses `config/config.json` for all application configuration. This file controls server settings, environment variables, universal app settings, and more.
@@ -224,55 +226,7 @@ Configure webview protocol settings for your universal app. Control whether the 
 
 Here's a complete example configuration file:
 
-```json title="config/config.json"
-{
-  "NODE_SERVER_HOSTNAME": "localhost",
-  "NODE_SERVER_PORT": 3005,
-  "WEBPACK_DEV_SERVER_HOSTNAME": "localhost",
-  "WEBPACK_DEV_SERVER_PORT": 3006,
-  "BUILD_OUTPUT_PATH": "build",
-  "PUBLIC_STATIC_ASSET_PATH": "/assets/",
-  "PUBLIC_STATIC_ASSET_URL": "http://localhost:3006",
-  "NODE_ENV": "development",
-  "API_URL": "https://api.example.com",
-  "ANALYTICS_ID": "UA-123456",
-  "CLIENT_ENV_VARIABLES": ["API_URL", "ANALYTICS_ID"],
-
-  "WEBVIEW_CONFIG": {
-    "port": "3005",
-    "LOCAL_IP": "192.168.0.11",
-    "appInfo": "android-v2.1.0",
-    "useHttps": true,
-    "android": {
-      "appName": "My App",
-      "packageName": "com.example.myapp",
-      "buildType": "debug",
-      "sdkPath": "/Users/yourname/Library/Android/sdk",
-      "emulatorName": "Pixel_5_API_30"
-    },
-    "ios": {
-      "appName": "My App",
-      "appBundleId": "com.example.myapp",
-      "buildType": "Debug",
-      "simulatorName": "iPhone 17 Pro"
-    },
-    "accessControl": {
-      "enabled": true,
-      "allowedUrls": [
-        "https://api.example.com/*",
-        "*.cdn.example.com"
-      ]
-    },
-    "splashScreen": {
-      "duration": 2000,
-      "backgroundColor": "#ffffff",
-      "imageWidth": 120,
-      "imageHeight": 120,
-      "cornerRadius": 20
-    }
-  }
-}
-```
+<ConfigExample type="appConfig" />
 
 ---
 
