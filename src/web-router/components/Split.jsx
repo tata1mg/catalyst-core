@@ -61,8 +61,10 @@ const Split = ({
                 return fallback
             }
         } else {
-            // On server with SSR disabled: return fallback, don't track
-            return fallback
+            // Match SplitInview's client-side wrapper so hydration doesn't mismatch.
+            // SplitInview renders <div ref>{fallback}</div> until visible; without this
+            // wrap, server outputs `fallback` and client outputs `<div>{fallback}</div>`.
+            return <div>{fallback}</div>
         }
     } else {
         if (skipVisibility) {
@@ -133,7 +135,11 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         const mod = moduleCache.get(importFn)
         if (mod) {
             const Component = mod.default || mod
-            return <Component {...props} />
+            return (
+                <Suspense fallback={fallback}>
+                    <Component {...props} />
+                </Suspense>
+            )
         }
 
         return (
