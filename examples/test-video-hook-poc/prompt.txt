@@ -1,0 +1,219 @@
+You are helping a developer set up the `test-video-hook-poc` example app inside the catalyst-core repository.
+
+Your goal is to generate three gitignored config files that must exist locally before the app can build:
+  - config/config.json
+  - google-services.json
+  - GoogleService-Info.plist
+
+---
+
+## Step 1 — Discover the environment using shell commands
+
+Run these commands to collect environment info automatically. Do not ask the user for things you can discover yourself.
+
+```bash
+# Local machine IP (LAN address for emulator/simulator to reach dev server)
+ipconfig getifaddr en0 || ipconfig getifaddr en1
+
+# Android SDK path candidates
+ls ~/Android/ 2>/dev/null && echo "found: ~/Android/" || echo "not found"
+ls ~/Library/Android/sdk 2>/dev/null && echo "found: ~/Library/Android/sdk" || echo "not found"
+
+# Available Android emulators
+emulator -list-avds 2>/dev/null || echo "emulator not in PATH"
+
+# Available iOS simulators
+xcrun simctl list devices available 2>/dev/null | grep -E "iPhone|iPad" | head -10
+
+# Check if Firebase files already exist
+ls config/config.json google-services.json GoogleService-Info.plist 2>/dev/null
+```
+
+---
+
+## Step 2 — Ask only what you could not discover
+
+After running the above, ask the user only for values you couldn't determine:
+- Android package name (e.g. `com.yourname.videohookpoc`) — cannot be auto-detected
+- iOS bundle ID (e.g. `com.yourname.videohookpoc`) — cannot be auto-detected
+- App display name (e.g. "Video Hook POC") — cannot be auto-detected
+- Whether they have a real Firebase project (yes / skip)
+  - If yes: ask for the values from their existing `google-services.json` and `GoogleService-Info.plist` from Firebase Console
+
+---
+
+## Step 3 — Generate config/config.json
+
+Use the discovered LOCAL_IP, ports, SDK path, emulator name, simulator name, and user-provided bundle IDs/package names.
+
+Template:
+```json
+{
+  "NODE_SERVER_HOSTNAME": "<LOCAL_IP>",
+  "NODE_SERVER_PORT": 3005,
+  "WEBPACK_DEV_SERVER_HOSTNAME": "<LOCAL_IP>",
+  "WEBPACK_DEV_SERVER_PORT": 3006,
+  "BUILD_OUTPUT_PATH": "build",
+  "PUBLIC_STATIC_ASSET_PATH": "/assets/",
+  "PUBLIC_STATIC_ASSET_URL": "http://<LOCAL_IP>:3005",
+  "API_URL": "http://<LOCAL_IP>:3005",
+  "ANALYZE_BUNDLE": false,
+  "CLIENT_ENV_VARIABLES": ["API_URL"],
+  "splashScreen": {
+    "android": { "path": "public/android/splashscreen.png" },
+    "ios": { "path": "public/ios/splashscreen.png" }
+  },
+  "WEBVIEW_CONFIG": {
+    "accessControl": {
+      "enabled": true,
+      "allowedUrls": [
+        "http://<LOCAL_IP>:*",
+        "https://fonts.googleapis.com/*",
+        "https://fonts.gstatic.com/*",
+        "https://*.gstatic.com/*"
+      ]
+    },
+    "android": {
+      "appName": "<APP_NAME>",
+      "packageName": "<ANDROID_PACKAGE_NAME>",
+      "buildType": "debug",
+      "cachePattern": "*.css,*.png,*.jpg,*.jpeg",
+      "emulatorName": "<ANDROID_EMULATOR_NAME>",
+      "sdkPath": "<ANDROID_SDK_PATH>",
+      "security": {
+        "mode": "custom",
+        "allowBackup": false
+      }
+    },
+    "appInfo": "local-dev",
+    "ios": {
+      "appBundleId": "<IOS_BUNDLE_ID>",
+      "appName": "<APP_NAME>",
+      "buildType": "Debug",
+      "cachePattern": "*.css",
+      "simulatorName": "<IOS_SIMULATOR_NAME>",
+      "accessControl": {
+        "allowedUrls": [
+          "http://<LOCAL_IP>:*",
+          "https://fonts.googleapis.com/*",
+          "https://fonts.gstatic.com/*",
+          "https://*.gstatic.com/*"
+        ],
+        "enabled": true
+      }
+    },
+    "LOCAL_IP": "<LOCAL_IP>",
+    "port": 3005,
+    "splashScreen": {
+      "imageHeight": 200,
+      "imageWidth": 400
+    },
+    "useHttps": false,
+    "notifications": {
+      "enabled": false,
+      "color": "#007AFF"
+    },
+    "googleSignIn": {
+      "enabled": true,
+      "clientId": "<ANDROID_CLIENT_ID>",
+      "iosClientId": "<IOS_CLIENT_ID>"
+    },
+    "featureVariants": ["qr"]
+  }
+}
+```
+
+After writing the file, run the catalyst_mcp `check_config` tool against this project path to validate the config:
+```
+check_config({ project_path: "<path to this example folder>" })
+```
+Fix any errors it reports before moving on.
+
+---
+
+## Step 4 — Generate google-services.json
+
+If user provided real Firebase values, use them. Otherwise use these safe placeholders (notifications and Google Sign-In will not work, but the app will build and run):
+
+```json
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "example-placeholder",
+    "storage_bucket": "example-placeholder.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "<ANDROID_PACKAGE_NAME>"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "000000000000-placeholder.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [{ "current_key": "PLACEHOLDER_API_KEY" }],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+```
+
+---
+
+## Step 5 — Generate GoogleService-Info.plist
+
+If user provided real Firebase values, use them. Otherwise use placeholders:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CLIENT_ID</key>
+  <string>000000000000-placeholder.apps.googleusercontent.com</string>
+  <key>REVERSED_CLIENT_ID</key>
+  <string>com.googleusercontent.apps.000000000000-placeholder</string>
+  <key>API_KEY</key>
+  <string>PLACEHOLDER_API_KEY</string>
+  <key>GCM_SENDER_ID</key>
+  <string>000000000000</string>
+  <key>PLIST_VERSION</key>
+  <string>1</string>
+  <key>BUNDLE_ID</key>
+  <string><IOS_BUNDLE_ID></string>
+  <key>PROJECT_ID</key>
+  <string>example-placeholder</string>
+  <key>STORAGE_BUCKET</key>
+  <string>example-placeholder.appspot.com</string>
+  <key>IS_ADS_ENABLED</key>
+  <false/>
+  <key>IS_ANALYTICS_ENABLED</key>
+  <false/>
+  <key>IS_APPINVITE_ENABLED</key>
+  <true/>
+  <key>IS_GCM_ENABLED</key>
+  <true/>
+  <key>IS_SIGNIN_ENABLED</key>
+  <true/>
+  <key>GOOGLE_APP_ID</key>
+  <string>1:000000000000:ios:0000000000000000</string>
+</dict>
+</plist>
+```
+
+---
+
+## Done
+
+Once all three files are written, tell the developer:
+"Config files are ready. Now follow the README.md — run `npm install` then `npm run sync-core` to inject the local catalyst-core build, then `npm start` to launch the app."

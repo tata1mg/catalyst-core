@@ -1,5 +1,12 @@
 **/node_modules
 
+# Examples — generated config files (created via prompt.txt) and runtime artifacts
+examples/*/config/config.json
+examples/*/google-services.json
+examples/*/GoogleService-Info.plist
+examples/*/build/
+examples/*/logs/
+
 # Docs app local config and generated output
 docs/config.json
 docs/server/config.json

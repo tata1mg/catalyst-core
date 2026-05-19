@@ -1,0 +1,336 @@
+body {
+    margin: 0;
+    background: transparent;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ── Header ───────────────────────────────────────────── */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e5e5;
+    z-index: 10;
+}
+
+.headerTitle {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.statusDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #d1d1d1;
+    transition: background 0.3s ease;
+}
+
+.statusDot.active {
+    background: #34c759;
+}
+
+/* ── Camera zone ──────────────────────────────────────── */
+.cameraZone {
+    flex: 1;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 0;
+}
+
+.viewfinder {
+    position: relative;
+    width: 60vw;
+    height: 60vw;
+}
+
+.viewfinder::before,
+.viewfinder::after,
+.viewfinder .cornerBR,
+.viewfinder .cornerBL {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-color: #ffffff;
+    border-style: solid;
+}
+
+/* top-left */
+.viewfinder::before {
+    top: 0;
+    left: 0;
+    border-width: 3px 0 0 3px;
+}
+
+/* top-right */
+.viewfinder::after {
+    top: 0;
+    right: 0;
+    border-width: 3px 3px 0 0;
+}
+
+/* bottom-right */
+.viewfinder .cornerBR {
+    bottom: 0;
+    right: 0;
+    border-width: 0 3px 3px 0;
+}
+
+/* bottom-left */
+.viewfinder .cornerBL {
+    bottom: 0;
+    left: 0;
+    border-width: 0 0 3px 3px;
+}
+
+/* ── Result card ──────────────────────────────────────── */
+.resultCard {
+    margin: 12px 20px;
+    padding: 14px 16px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.resultScroll {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.resultPlaceholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    color: #c7c7cc;
+    font-size: 14px;
+}
+
+.resultLabel {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8e8e93;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.resultValue {
+    font-size: 15px;
+    color: #1a1a1a;
+    word-break: break-all;
+    margin: 0;
+}
+
+.resultType {
+    font-size: 12px;
+    color: #8e8e93;
+    margin-top: 4px;
+}
+
+/* ── Error toast ──────────────────────────────────────── */
+.errorToast {
+    position: absolute;
+    bottom: 12px;
+    left: 20px;
+    right: 20px;
+    padding: 12px 16px;
+    background: rgba(255, 59, 48, 0.1);
+    border: 1px solid rgba(255, 59, 48, 0.25);
+    border-radius: 12px;
+    font-size: 14px;
+    color: #c0392b;
+    z-index: 10;
+}
+
+/* ── Bottom bar ───────────────────────────────────────── */
+.bottomBar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px 32px;
+    background: transparent;
+}
+
+/* Start/Stop buttons row */
+.btnRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 32px;
+}
+
+/* Control sheet — zoom + torch/flip */
+.controlSheet {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 16px;
+}
+
+.controlRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.controlLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.75);
+    min-width: 36px;
+}
+
+.controlValue {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    min-width: 36px;
+    text-align: right;
+}
+
+.zoomSlider {
+    flex: 1;
+    height: 4px;
+    accent-color: #ffffff;
+    cursor: pointer;
+}
+
+.controlBtn {
+    flex: 1;
+    height: 38px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.controlBtn:active {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.controlBtnActive {
+    background: rgba(255, 214, 10, 0.25);
+    border-color: rgba(255, 214, 10, 0.6);
+    color: #ffd60a;
+}
+
+.fpsDisplay {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    min-width: 44px;
+    text-align: center;
+}
+
+.fpsBtn {
+    height: 30px;
+    min-width: 38px;
+    padding: 0 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.fpsBtn:active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.fpsBtnActive {
+    background: rgba(10, 132, 255, 0.3);
+    border-color: rgba(10, 132, 255, 0.7);
+    color: #0a84ff;
+}
+
+.iconBtn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease, transform 0.1s ease;
+}
+
+.iconBtn:active {
+    transform: scale(0.93);
+}
+
+.iconBtn:disabled {
+    opacity: 0.3;
+    cursor: default;
+    transform: none;
+}
+
+.btnStart {
+    background: #1a1a1a;
+}
+
+.btnStop {
+    background: #ff3b30;
+}
+
+.btnIcon {
+    display: block;
+    background: #ffffff;
+}
+
+/* start = circle */
+.btnStart .btnIcon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+}
+
+/* stop = square */
+.btnStop .btnIcon {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+}
+
+body.video-streaming {
+    background: transparent !important;
+}
+
+body.video-streaming .app-shell,
+body.video-streaming .content {
+    background: transparent !important;
+}
