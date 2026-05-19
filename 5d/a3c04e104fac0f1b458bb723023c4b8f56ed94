@@ -1,0 +1,57 @@
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/TransitionManager.kt
+  s_e630d5d6135fa0::t_d739cd6029cda2 3-4
+  s_d7b565570737b3::t_23589155531d70 12,15
+  s_e630d5d6135fa0::t_6d7d80be24e15b 1-2,5-11,13-14,16-147,150-163,166-202
+  s_e630d5d6135fa0::t_70a6cc635456ca 148-149,164-165
+src/native/bridge/utils/NativeBridge.js
+  s_e630d5d6135fa0::t_0e9b6d5d8a9174 383-404
+src/native/bridge/constants/NativeInterfaces.js
+  s_e630d5d6135fa0::t_36411c708120d7 44-48
+  s_e630d5d6135fa0::t_b0cd789c01ef98 112-116
+  s_e630d5d6135fa0::t_aabcbdbf05783e 208-219
+src/native/bridge/hooks/useNativeTransition.js
+  s_d7b565570737b3::t_8621fa408fdfb1 7
+  s_e630d5d6135fa0::t_4bcb20727b7e7a 1-6,8-205,207-220
+  s_237672e08390b3::t_07c2433bc020a4 206
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_e630d5d6135fa0::t_fa0e9f3aa3ac52 1239-1276
+  s_e630d5d6135fa0::t_d0939996e22607 161-163
+  s_e630d5d6135fa0::t_8919aab41a13ad 1308-1310
+src/native/bridge/hooks/index.js
+  s_e630d5d6135fa0::t_6bcb1067d30444 12
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  s_d7b565570737b3::t_960597517c5632 97
+  s_e630d5d6135fa0::t_018ecd714680af 92-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "5da3c04e104fac0f1b458bb723023c4b8f56ed94",
+  "prompts": {},
+  "sessions": {
+    "s_237672e08390b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3f7e17a2-6f15-4561-bc2b-c44c97b2b1a5",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": null
+    },
+    "s_d7b565570737b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4bed0e6f-dc80-4172-ac6e-6793516dfaad",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_e630d5d6135fa0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a24c4c3b-4288-40fd-8552-60f0b0621446",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
