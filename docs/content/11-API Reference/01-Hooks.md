@@ -13,16 +13,22 @@ Catalyst exposes two groups of hooks:
 
 ## Hooks Overview
 
-| Hook | Description | Web | iOS | Android |
-|------|-------------|-----|-----|---------|
+| Hook / API | Description | Web | iOS | Android |
+|------------|-------------|-----|-----|---------|
 | `useRouterData` | Access data for all matched routes | Yes | Yes | Yes |
 | `useCurrentRouteData` | Access current route fetcher state and data | Yes | Yes | Yes |
+| `getDeviceInfo` | Read device, screen, and app metadata from the bridge | Yes | Yes | Yes |
 | `useCamera` | Capture media via the bridge or web fallback | Partial | Yes | Yes |
 | `useFilePicker` | Select files and normalize results | Partial | Yes | Yes |
+| `useIntent` | Open files or URLs with external apps | No | Yes | Yes |
+| `useGoogleSignIn` | Trigger Google sign-in through the native shell | No | Yes | Yes |
+| `useCameraPermission` | Check and request camera permission | Partial | Yes | Yes |
+| `useNotificationPermission` | Check and request notification permission | No | Yes | Yes |
 | `useHapticFeedback` | Trigger haptic feedback with platform-aware behavior | No | Yes | Yes |
-| `useStorage` | Persist key-value data across platforms | Yes | Yes | Yes |
-| `useDeviceInfo` | Read platform and device details | Partial | Yes | Yes |
 | `useNotification` | Schedule local notifications and manage push setup | No | Yes | Yes |
+| `useNetworkStatus` | Read online status and network type | Yes | Yes | Yes |
+| `useDataProtection` | Use native data protection and encryption helpers | No | Yes | Yes |
+| `useSafeArea` | Read native safe-area insets | Yes | Yes | Yes |
 
 `Partial` means behavior depends on browser support or fallback behavior in the web environment.
 
@@ -138,10 +144,15 @@ Import universal hooks from `catalyst-core/hooks`:
 import {
   useCamera,
   useFilePicker,
+  useIntent,
+  useGoogleSignIn,
+  useCameraPermission,
+  useNotificationPermission,
   useHapticFeedback,
-  useStorage,
-  useDeviceInfo,
   useNotification,
+  useNetworkStatus,
+  useDataProtection,
+  useSafeArea,
 } from "catalyst-core/hooks";
 ```
 
@@ -156,6 +167,44 @@ Most native hooks follow a common pattern:
 - `execute`
 - `clear`
 - `clearError`
+
+### `getDeviceInfo`
+
+Read device, screen, and app metadata from the native bridge. `getDeviceInfo` is exposed by `WebBridge.init()` and on `window.WebBridge`; it is not a React hook exported from `catalyst-core/hooks`.
+
+#### Import
+
+```javascript
+import WebBridge from "catalyst-core/WebBridge";
+```
+
+#### Returns
+
+Resolves to an object with normalized device metadata.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `model` | `string` | Device model, or the browser user agent on web |
+| `manufacturer` | `string` | Device manufacturer, or `browser` on web |
+| `platform` | `string` | `ios`, `android`, or `web` |
+| `screenWidth` | `number` | Screen width in pixels |
+| `screenHeight` | `number` | Screen height in pixels |
+| `screenDensity` | `number` | Screen scale or pixel density |
+| `appInfo` | `object \| string \| null` | App metadata provided by the native shell, when available |
+| `security` | `object` | Android security check state, when available |
+
+#### Usage
+
+```javascript
+const { getDeviceInfo } = WebBridge.init();
+
+async function logDeviceInfo() {
+  const deviceInfo = await getDeviceInfo();
+  console.log(deviceInfo.platform, deviceInfo.model);
+}
+```
+
+If the bridge is already initialized, you can also call `window.WebBridge.getDeviceInfo()`. On web, `getDeviceInfo()` resolves with browser and screen information instead of throwing.
 
 ### `useCamera`
 
@@ -258,63 +307,56 @@ function FeedbackButton() {
 }
 ```
 
-### `useStorage`
+### `useIntent`
 
-Cross-platform key-value storage for universal apps.
-
-#### Returns
-
-| Method | Type | Description |
-|--------|------|-------------|
-| `getItem` | `(key) => Promise<string>` | Get value by key |
-| `setItem` | `(key, value) => Promise<void>` | Store value |
-| `removeItem` | `(key) => Promise<void>` | Delete value |
-| `clear` | `() => Promise<void>` | Clear all storage |
-| `getAllKeys` | `() => Promise<string[]>` | List all keys |
-
-#### Usage
-
-```javascript
-function UserPreferences() {
-  const { getItem, setItem, removeItem } = useStorage();
-
-  const saveTheme = async (theme) => {
-    await setItem("theme", theme);
-  };
-
-  return <button onClick={() => saveTheme("dark")}>Set Dark Theme</button>;
-}
-```
-
-### `useDeviceInfo`
-
-Read platform and device information in a normalized format.
+Open a file or URL with an external native app.
 
 #### Returns
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `platform` | `"web" \| "ios" \| "android"` | Current platform |
-| `model` | `string` | Device model name |
-| `manufacturer` | `string` | Device manufacturer |
-| `screenWidth` | `number` | Screen width in pixels |
-| `screenHeight` | `number` | Screen height in pixels |
-| `screenDensity` | `number` | Screen pixel density |
+| `execute` | `function` | Open the target URL with the provided MIME type |
+| `loading` | `boolean` | Intent flow in progress |
+| `error` | `object \| null` | Standardized error object |
+| `isNative` | `boolean` | Running inside the native shell |
+| `clear` | `function` | Clear result state |
+| `clearError` | `function` | Clear error state only |
 
 #### Usage
 
 ```javascript
-function DeviceDetails() {
-  const { platform, model, manufacturer, screenWidth, screenHeight, screenDensity } = useDeviceInfo();
+function OpenInvoiceButton({ url }) {
+  const { execute, loading } = useIntent();
 
   return (
-    <div>
-      <p>Platform: {platform}</p>
-      <p>Model: {model}</p>
-      <p>Manufacturer: {manufacturer}</p>
-      <p>Screen: {screenWidth} x {screenHeight} ({screenDensity}x)</p>
-    </div>
+    <button onClick={() => execute(url, "application/pdf")} disabled={loading}>
+      Open Invoice
+    </button>
   );
+}
+```
+
+### `useCameraPermission`
+
+Check or request camera permission through the native bridge.
+
+```javascript
+function CameraPermissionButton() {
+  const { permission, isLoading } = useCameraPermission();
+
+  return <button disabled={isLoading}>Camera permission: {permission || "checking"}</button>;
+}
+```
+
+### `useNotificationPermission`
+
+Check or request notification permission before registering for push notifications.
+
+```javascript
+function NotificationPermissionButton() {
+  const { permission, isLoading } = useNotificationPermission();
+
+  return <button disabled={isLoading}>Notification permission: {permission || "checking"}</button>;
 }
 ```
 
@@ -360,3 +402,65 @@ function NotificationExample() {
 #### Requirements
 
 Push-related notification features require `WEBVIEW_CONFIG.notifications.enabled = true` and the relevant Firebase platform files in the native projects.
+
+### `useGoogleSignIn`
+
+Trigger Google sign-in through the native shell.
+
+```javascript
+function GoogleLoginButton() {
+  const { signIn, loading, error } = useGoogleSignIn();
+
+  return <button onClick={signIn} disabled={loading}>Continue with Google</button>;
+}
+```
+
+### `useNetworkStatus`
+
+Read connectivity state from the native bridge, with a browser fallback.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `online` | `boolean` | Current connectivity state |
+| `type` | `string \| null` | Network type such as `wifi` or `cellular` |
+| `error` | `string \| null` | Connectivity error, if any |
+
+```javascript
+function ConnectivityBanner() {
+  const { online, type } = useNetworkStatus();
+
+  if (online) return null;
+  return <div>Offline{type ? ` (${type})` : ""}</div>;
+}
+```
+
+### `useDataProtection`
+
+Use native data protection and encryption helpers exposed through the bridge.
+
+```javascript
+function ProtectedAction() {
+  const { setScreenSecure, loading } = useDataProtection();
+
+  return <button onClick={() => setScreenSecure(true)} disabled={loading}>Protect Screen</button>;
+}
+```
+
+### `useSafeArea`
+
+Read safe-area insets in pixels. On web and SSR, all values are `0`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `top` | `number` | Top inset |
+| `right` | `number` | Right inset |
+| `bottom` | `number` | Bottom inset |
+| `left` | `number` | Left inset |
+
+```javascript
+function ScreenShell({ children }) {
+  const safeArea = useSafeArea();
+
+  return <main style={{ paddingTop: safeArea.top }}>{children}</main>;
+}
+```

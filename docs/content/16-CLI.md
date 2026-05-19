@@ -28,8 +28,8 @@ Most apps wrap the CLI in package scripts:
     "start": "catalyst start",
     "build": "catalyst build",
     "serve": "catalyst serve",
-    "devBuild": "BUILD_ENV=development catalyst build",
-    "devServe": "BUILD_ENV=development catalyst serve",
+    "devBuild": "catalyst devBuild",
+    "devServe": "catalyst devServe",
     "buildApp:android": "catalyst buildApp:android",
     "buildApp:ios": "catalyst buildApp:ios"
   }

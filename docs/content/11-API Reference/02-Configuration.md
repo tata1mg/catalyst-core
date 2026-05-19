@@ -4,6 +4,8 @@ slug: configuration-api
 id: configuration-api
 ---
 
+import ConfigExample from '@site/src/components/ConfigExample'
+
 # Configuration API
 
 Catalyst reads runtime and build configuration from `config/config.json`. This page covers the contract that the framework expects. For a guided walkthrough, see [Configuration](/content/02-Guides%20and%20Tutorials/01-First%20Catalyst%20App/04-Configuration.md).
@@ -51,40 +53,7 @@ Keep this list small. Any key included here becomes visible in the client bundle
 
 Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 
-```json title="config/config.json"
-{
-  "WEBVIEW_CONFIG": {
-    "port": "3005",
-    "LOCAL_IP": "192.168.0.11",
-    "appInfo": "android-5Feb2026-v2.1.0",
-    "useHttps": false,
-    "accessControl": {
-      "enabled": true,
-      "allowedUrls": ["*.yourdomain.com*", "http://localhost:*"]
-    },
-    "android": {
-      "appName": "My App",
-      "packageName": "com.example.myapp",
-      "buildType": "debug",
-      "sdkPath": "/Users/yourname/Library/Android/sdk",
-      "emulatorName": "Pixel_5_API_30"
-    },
-    "ios": {
-      "appName": "My App",
-      "appBundleId": "com.example.myapp",
-      "buildType": "Debug",
-      "simulatorName": "iPhone 17 Pro"
-    },
-    "splashScreen": {
-      "backgroundColor": "#ffffff",
-      "duration": 2000,
-      "imageWidth": 400,
-      "imageHeight": 200,
-      "cornerRadius": 20
-    }
-  }
-}
-```
+<ConfigExample type="webviewConfigApi" />
 
 ## Required Universal App Fields
 
