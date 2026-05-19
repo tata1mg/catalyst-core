@@ -1,3 +1,9 @@
+# Prerequisites
+# catalyst_mcp must be installed before running this prompt.
+# If not set up yet, run: npx create-catalyst-app@latest catalyst-mcp
+#
+# Then paste this entire file into Claude Code.
+
 You are helping a developer set up the `test-video-hook-poc` example app inside the catalyst-core repository.
 
 Your goal is to generate three gitignored config files that must exist locally before the app can build:

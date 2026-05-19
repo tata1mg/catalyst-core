@@ -6,6 +6,20 @@ This app lives inside `catalyst-core/examples/` and is **not published to npm**.
 
 ---
 
+## Prerequisites
+
+### catalyst_mcp
+
+This example uses `catalyst_mcp` to auto-generate your local config files via `prompt.txt`. Set it up once before running the setup steps below.
+
+```bash
+npx create-catalyst-app@latest catalyst-mcp
+```
+
+This installs and registers the Catalyst MCP server in Claude Code. Once done, Claude Code will have access to `check_config` and other catalyst tools needed by the setup prompt.
+
+---
+
 ## First-time setup
 
 ### 1. Generate your local config files
