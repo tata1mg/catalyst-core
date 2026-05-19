@@ -22,6 +22,9 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     private var notificationHandler: NotificationHandlerProtocol = NullNotificationHandler.shared
     private var networkStatusListenerId: UUID?
 
+    // Transition manager — snapshot overlay pattern for native page transitions
+    private var transitionManager: TransitionManager?
+
     // Lazy initialization for non-critical handlers
     private lazy var imageHandler: ImageHandler = {
         logWithTimestamp("🔧 ImageHandler initialized (lazy)")
@@ -78,6 +81,14 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         self.jsInterface = BridgeJavaScriptInterface(webView: webView)
 
         super.init()
+
+        // Wire transition manager
+        let tm = TransitionManager(webView: webView)
+        tm.onEvent = { [weak self] eventName in
+            self?.sendCallback(eventName: eventName)
+        }
+        self.transitionManager = tm
+
 
         setupNotificationNavigationHandler()
 
@@ -145,11 +156,14 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     // Unregister to prevent memory leaks
     func unregister() {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "NativeBridge")
-        
+
         if let listenerId = networkStatusListenerId {
             NetworkMonitor.shared.removeListener(listenerId)
             networkStatusListenerId = nil
         }
+
+        transitionManager?.cleanup()
+        transitionManager = nil
     }
 
     private func startNetworkMonitoringIfNeeded() {
@@ -290,11 +304,49 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.getScreenSecure()
         case "clearWebData":
             commandHandler.clearWebData()
+
+        // Transition commands
+        case "startTransition":
+            let optionsString = delegateHandler.extractStringParam(from: params)
+            handleStartTransition(optionsString: optionsString)
+        case "commitTransition":
+            DispatchQueue.main.async { [weak self] in self?.transitionManager?.commitTransition() }
+        case "cancelTransition":
+            DispatchQueue.main.async { [weak self] in self?.transitionManager?.cancelTransition() }
+
         default:
             // This should never happen due to validation, but keeping for safety
             logger.error("Unexpected command reached execution: \(command)")
         }
     }
+
+    // MARK: - Transition Helpers
+
+    private func handleStartTransition(optionsString: String?) {
+        let options: [String: Any]
+        if let str = optionsString,
+           let data = str.data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            options = obj
+        } else {
+            options = [:]
+        }
+
+        let type      = options["type"]      as? String ?? "slide"
+        let direction = options["direction"] as? String ?? "left"
+        let duration  = min(max((options["duration"] as? Int ?? 300), 0), 2000)
+        let timeout   = options["timeout"]   as? Int ?? max(duration * 3, 800)
+
+        DispatchQueue.main.async { [weak self] in
+            self?.transitionManager?.startTransition(
+                type: type,
+                direction: direction,
+                duration: duration,
+                timeout: timeout
+            )
+        }
+    }
+
 
     // MARK: - Safe Area Methods
 
