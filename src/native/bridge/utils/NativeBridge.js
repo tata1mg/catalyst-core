@@ -380,6 +380,28 @@ class NativeBridgeUtil {
         clearWebData: () => this.call(NATIVE_COMMANDS.CLEAR_WEB_DATA),
     }
 
+    transition = {
+        /**
+         * Begin a native transition — native takes a snapshot/overlay of the current screen.
+         * @param {Object} options
+         *   type: 'slide' | 'fade'
+         *   direction: 'left' | 'right' | 'up' | 'down'  (slide only)
+         *   duration: number (ms, default 300)
+         *   timeout: number (ms, safety timer — native force-fades overlay if commitTransition is never called)
+         */
+        start: (options = {}) => this.call(NATIVE_COMMANDS.START_TRANSITION, JSON.stringify(options)),
+
+        /**
+         * Commit the transition — native animates the snapshot overlay out, revealing the new page.
+         */
+        commit: () => this.call(NATIVE_COMMANDS.COMMIT_TRANSITION),
+
+        /**
+         * Cancel the transition — native removes the overlay immediately without animating.
+         */
+        cancel: () => this.call(NATIVE_COMMANDS.CANCEL_TRANSITION),
+    }
+
     /**
      * Get environment info
      */
