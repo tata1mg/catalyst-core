@@ -41,6 +41,11 @@ export const NATIVE_COMMANDS = {
     // Auth commands
     GOOGLE_SIGN_IN: "googleSignIn",
 
+    // Transition commands
+    START_TRANSITION: "startTransition",
+    COMMIT_TRANSITION: "commitTransition",
+    CANCEL_TRANSITION: "cancelTransition",
+
     // Safe area commands
     GET_SAFE_AREA: "getSafeArea",
 
@@ -103,6 +108,11 @@ export const NATIVE_CALLBACKS = {
 
     // Safe area callbacks
     ON_SAFE_AREA_INSETS_UPDATED: "ON_SAFE_AREA_INSETS_UPDATED",
+
+    // Transition callbacks
+    ON_TRANSITION_COMMITTED: "ON_TRANSITION_COMMITTED",
+    ON_TRANSITION_CANCELLED: "ON_TRANSITION_CANCELLED",
+    ON_TRANSITION_TIMEOUT: "ON_TRANSITION_TIMEOUT",
 
     // Security callbacks
     ON_SCREEN_SECURE_SET: "ON_SCREEN_SECURE_SET",
@@ -193,6 +203,18 @@ export const INTERFACE_CATEGORIES = {
             NATIVE_CALLBACKS.ON_SCREEN_SECURE_ERROR,
             NATIVE_CALLBACKS.ON_WEB_DATA_CLEARED,
             NATIVE_CALLBACKS.ON_WEB_DATA_CLEAR_ERROR,
+        ],
+    },
+    TRANSITION: {
+        commands: [
+            NATIVE_COMMANDS.START_TRANSITION,
+            NATIVE_COMMANDS.COMMIT_TRANSITION,
+            NATIVE_COMMANDS.CANCEL_TRANSITION,
+        ],
+        callbacks: [
+            NATIVE_CALLBACKS.ON_TRANSITION_COMMITTED,
+            NATIVE_CALLBACKS.ON_TRANSITION_CANCELLED,
+            NATIVE_CALLBACKS.ON_TRANSITION_TIMEOUT,
         ],
     },
 }
