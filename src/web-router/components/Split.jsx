@@ -118,11 +118,12 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         subscribers.forEach((fn) => fn())
     }
 
-    const wrapper = (props) => {
+    const wrapper = ({ fallback: fallbackProp, ...props }) => {
         const { isBot: isBotFromContext } = useContext(SsrRequestContext)
         const isBotFromWindow = typeof window !== "undefined" && window.__CATALYST_IS_BOT__ === true
         const isBot = Boolean(isBotFromContext || isBotFromWindow)
         const effectiveSsr = ssr || isBot
+        const effectiveFallback = fallbackProp !== undefined ? fallbackProp : fallback
 
         const [, forceUpdate] = useReducer((x) => x + 1, 0)
         useEffect(() => {
@@ -136,7 +137,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         if (mod) {
             const Component = mod.default || mod
             return (
-                <Suspense fallback={fallback}>
+                <Suspense fallback={effectiveFallback}>
                     <Component {...props} />
                 </Suspense>
             )
@@ -145,7 +146,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         return (
             <Split
                 ssr={effectiveSsr}
-                fallback={fallback}
+                fallback={effectiveFallback}
                 cacheKey={cacheKey}
                 rootOptions={rootOptions}
                 onVisible={notifyAll}
