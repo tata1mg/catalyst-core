@@ -1,5 +1,3 @@
-import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
-loadEnvironmentVariables()
 import path from "path"
 import express from "express"
 import bodyParser from "body-parser"
@@ -16,13 +14,12 @@ import { validateMiddleware, safeCall } from "./utils/validator.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
 
 // ─── Load app-defined server lifecycle hooks ──────────────────────────────────
-let preServerInit, onServerError
+let onServerError
 try {
     const hooks = await import(path.join(process.env.src_path, "server/index.js"))
-    preServerInit = hooks.preServerInit
     onServerError = hooks.onServerError
 } catch {
-    // No hooks file — preServerInit / onServerError remain undefined
+    // No hooks file — onServerError remains undefined
 }
 
 // ─── Process-level error handlers ─────────────────────────────────────────────
@@ -197,5 +194,4 @@ async function createServer() {
     })
 }
 
-safeCall(preServerInit)
 createServer()
