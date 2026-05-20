@@ -1,0 +1,26 @@
+.linkContainer {
+    margin-bottom: 10px;
+}
+
+.link {
+    color: inherit;
+    font-weight: 500;
+    margin-left: 1rem !important;
+    padding: 0 10px;
+    max-width: 420px !important;
+    font-size: 23px;
+    border-radius: 0.4rem !important;
+    width: 305px !important;
+    display: flex;
+    padding: 1rem !important;
+    box-shadow: 0 1.5px 3px 0 rgb(0 0 0 / 15%);
+    border: 1px solid var(--ifm-color-emphasis-200);
+    background-color: var(--ifm-card-background-color) !important;
+}
+
+.link:hover {
+    color: inherit;
+    border-color: var(--ifm-color-primary);
+    box-shadow: 0 3px 6px 0 rgb(0 0 0 / 20%);
+    text-decoration: none !important;
+}

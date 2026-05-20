@@ -1,0 +1,352 @@
+.whitelistingDemo {
+    --background-color: var(--ifm-background-color);
+    --text-color: var(--ifm-color-content);
+    --text-color-secondary: var(--ifm-color-content-secondary);
+    --primary-color: var(--ifm-color-primary);
+    --card-background: var(--prism-background-color);
+    --border-color: var(--ifm-toc-border-color);
+
+    padding: 2rem 0;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Main Sections */
+.patternReference,
+.urlSection,
+.configSection {
+    margin-bottom: 3rem;
+}
+
+.patternReference h3,
+.urlSection h3 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+/* Pattern Reference */
+.patternReference {
+    margin-bottom: 2rem;
+}
+
+.patternReference h3 {
+    margin-bottom: 1rem;
+}
+
+/* Pattern Grid */
+.patternGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.patternCard {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.patternCard h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--primary-color);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.patternCard p {
+    margin: 0 0 0.75rem 0;
+    color: var(--text-color-secondary);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.exampleCode {
+    display: block;
+    background: var(--ifm-code-background);
+    color: var(--ifm-code-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.8rem;
+    word-break: break-all;
+}
+
+/* URL Section */
+.urlSection {
+    margin-bottom: 2rem;
+}
+
+.urlSection h3 {
+    margin-bottom: 1rem;
+}
+
+.urlControls {
+    background: var(--card-background);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.urlEntry {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: flex-end;
+}
+
+.testControls {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.urlInput {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 1rem;
+    background: var(--background-color);
+    color: var(--text-color);
+}
+
+.urlInput:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(37, 194, 160, 0.2);
+}
+
+.addButton {
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.addButton:hover {
+    background: var(--ifm-color-primary-dark);
+}
+
+.testButton {
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.testButton:hover {
+    background: var(--ifm-color-primary-dark);
+}
+
+/* Test Result */
+.testResult {
+    background: var(--card-background);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.testResult.allowed {
+    border: 2px solid #4caf50;
+    background: #e8f5e8;
+}
+
+.testResult.blocked {
+    border: 2px solid #f44336;
+    background: #ffebee;
+}
+
+.resultHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.resultIcon {
+    font-size: 1.5rem;
+}
+
+.resultStatus {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.testResult.allowed .resultStatus {
+    color: #2e7d32;
+}
+
+.testResult.blocked .resultStatus {
+    color: #c62828;
+}
+
+.resultDetails p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.resultDetails code {
+    background: var(--ifm-code-background);
+    color: var(--ifm-code-color);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.85rem;
+}
+
+/* Config Section */
+.configSection {
+    background: var(--card-background);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.codeCard {
+    background: var(--card-background);
+}
+
+.codeHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--background-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.codeHeader span {
+    color: var(--primary-color);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.copyButton {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.copyButton:hover {
+    background: var(--ifm-color-primary-dark);
+}
+
+.copyButton.copied {
+    background: #28a745;
+}
+
+.codeCard pre {
+    background: var(--prism-background-color) !important;
+    border: none;
+    border-radius: 0;
+    padding: 1.5rem;
+    margin: 0;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow-x: auto;
+}
+
+/* Implementation Notes */
+.implementationNotes {
+    padding: 2rem;
+    background: var(--ifm-color-warning-lightest);
+    border-top: 1px solid var(--border-color);
+}
+
+.implementationNotes h4 {
+    margin: 0 0 1rem 0;
+    color: var(--ifm-color-warning-dark);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.implementationNotes ul {
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.implementationNotes li {
+    margin-bottom: 0.75rem;
+    color: var(--text-color);
+    line-height: 1.5;
+}
+
+.implementationNotes li:last-child {
+    margin-bottom: 0;
+}
+
+.implementationNotes strong {
+    color: var(--ifm-color-warning-dark);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .whitelistingDemo {
+        padding: 1rem 0;
+    }
+
+    .patternGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .urlEntry,
+    .testControls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .urlInput {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Dark Mode Styles */
+[data-theme='dark'] .whitelistingDemo {
+    color: var(--text-color);
+}
+
+[data-theme='dark'] .testResult.allowed {
+    background: #1b5e20;
+    border-color: #4caf50;
+}
+
+[data-theme='dark'] .testResult.blocked {
+    background: #b71c1c;
+    border-color: #f44336;
+}
+
+[data-theme='dark'] .implementationNotes {
+    background: #3a2e1a;
+    border-left-color: #ffc107;
+}
+
+[data-theme='dark'] .implementationNotes h4,
+[data-theme='dark'] .implementationNotes strong {
+    color: #ffc107;
+}
