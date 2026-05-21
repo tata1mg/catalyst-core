@@ -260,6 +260,16 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.requestHapticFeedback(feedbackType: feedbackType)
         case "googleSignIn":
             commandHandler.googleSignIn(params: params)
+        case "authenticateBiometric":
+            commandHandler.authenticateBiometric(params: params)
+        case "isBiometricAvailable":
+            commandHandler.isBiometricAvailable()
+        case "setBiometricCredential":
+            commandHandler.setBiometricCredential(params: params)
+        case "getBiometricCredential":
+            commandHandler.getBiometricCredential(params: params)
+        case "deleteBiometricCredential":
+            commandHandler.deleteBiometricCredential(params: params)
 
         // Notification commands (handled via protocol)
         case "requestNotificationPermission":

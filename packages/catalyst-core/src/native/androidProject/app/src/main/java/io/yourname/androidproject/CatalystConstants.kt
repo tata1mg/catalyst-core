@@ -73,7 +73,12 @@ object CatalystConstants {
             "requestHapticFeedback",
             "setScreenSecure",
             "getScreenSecure",
-            "clearWebData"
+            "clearWebData",
+            "authenticateBiometric",
+            "isBiometricAvailable",
+            "setBiometricCredential",
+            "getBiometricCredential",
+            "deleteBiometricCredential"
         )
     }
 

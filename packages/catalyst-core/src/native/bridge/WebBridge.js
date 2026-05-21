@@ -256,6 +256,121 @@ class WebBridge {
     }
 
     /**
+     * Internal: one-shot promise wrapper for a native command that resolves on a
+     * success callback and rejects on either an error or cancellation callback.
+     */
+    _oneShot = (invoke, { success, error, cancelled }) => {
+        return new Promise((resolve, reject) => {
+            const cleanup = () => {
+                this.unregister(success)
+                if (error) this.unregister(error)
+                if (cancelled) this.unregister(cancelled)
+            }
+
+            const parse = (data) => {
+                if (data == null) return data
+                if (typeof data !== "string") return data
+                try {
+                    return JSON.parse(data)
+                } catch {
+                    return data
+                }
+            }
+
+            this.register(success, (data) => {
+                cleanup()
+                resolve(parse(data))
+            })
+
+            if (error) {
+                this.register(error, (data) => {
+                    cleanup()
+                    const parsed = parse(data)
+                    const err = new Error(
+                        (parsed && parsed.error) || (typeof parsed === "string" ? parsed : "Native error")
+                    )
+                    if (parsed && typeof parsed === "object") {
+                        err.code = parsed.code
+                        err.details = parsed
+                    }
+                    reject(err)
+                })
+            }
+
+            if (cancelled) {
+                this.register(cancelled, (data) => {
+                    cleanup()
+                    const parsed = parse(data)
+                    const err = new Error("Cancelled")
+                    err.code = "USER_CANCELLED"
+                    err.cancelled = true
+                    err.details = parsed
+                    reject(err)
+                })
+            }
+
+            try {
+                invoke()
+            } catch (e) {
+                cleanup()
+                reject(e)
+            }
+        })
+    }
+
+    /**
+     * Prompt biometric authentication (Face ID / Touch ID / fingerprint).
+     * @param {Object|string} options - { reason, fallbackTitle?, cancelTitle? } or reason string
+     * @returns {Promise<Object>}
+     */
+    authenticateBiometric = (options = {}) =>
+        this._oneShot(() => nativeBridge.biometric.authenticate(options), {
+            success: NATIVE_CALLBACKS.ON_BIOMETRIC_AUTH_SUCCESS,
+            error: NATIVE_CALLBACKS.ON_BIOMETRIC_AUTH_ERROR,
+            cancelled: NATIVE_CALLBACKS.ON_BIOMETRIC_AUTH_CANCELLED,
+        })
+
+    /**
+     * Query whether biometric auth is available and what kind.
+     * @returns {Promise<{available: boolean, biometryType: string, enrolled: boolean}>}
+     */
+    isBiometricAvailable = () =>
+        this._oneShot(() => nativeBridge.biometric.isAvailable(), {
+            success: NATIVE_CALLBACKS.ON_BIOMETRIC_AVAILABILITY,
+        })
+
+    /**
+     * Store a credential (e.g. refresh token) behind biometric protection.
+     * @param {Object} options - { key, value, reason? }
+     */
+    setBiometricCredential = (options) =>
+        this._oneShot(() => nativeBridge.biometric.setCredential(options), {
+            success: NATIVE_CALLBACKS.ON_BIOMETRIC_CREDENTIAL_SET,
+            error: NATIVE_CALLBACKS.ON_BIOMETRIC_CREDENTIAL_ERROR,
+        })
+
+    /**
+     * Read a biometric-protected credential. Triggers the system biometric prompt.
+     * @param {Object|string} options - { key, reason? } or bare key string
+     * @returns {Promise<{key: string, value: string}>}
+     */
+    getBiometricCredential = (options) =>
+        this._oneShot(() => nativeBridge.biometric.getCredential(options), {
+            success: NATIVE_CALLBACKS.ON_BIOMETRIC_CREDENTIAL_GET,
+            error: NATIVE_CALLBACKS.ON_BIOMETRIC_CREDENTIAL_ERROR,
+            cancelled: NATIVE_CALLBACKS.ON_BIOMETRIC_AUTH_CANCELLED,
+        })
+
+    /**
+     * Delete a stored biometric credential. No biometric prompt.
+     */
+    deleteBiometricCredential = (options) =>
+        this._oneShot(() => nativeBridge.biometric.deleteCredential(options), {
+            success: NATIVE_CALLBACKS.ON_BIOMETRIC_CREDENTIAL_DELETED,
+            error: NATIVE_CALLBACKS.ON_BIOMETRIC_CREDENTIAL_ERROR,
+        })
+
+    /**
      * Get device information
      * @returns {Promise<Object>} - Promise that resolves with device info or rejects with error
      */

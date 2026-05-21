@@ -1236,4 +1236,59 @@ class NativeBridge(
     fun destroy() {
         supervisorJob.cancel()
     }
+
+    // MARK: - Biometric (stubs, Android implementation pending)
+    //
+    // Wire-level parity with iOS — emits the same callback events so JS code is identical.
+    // Replace these stubs with a real BiometricPrompt + EncryptedSharedPreferences / Keystore
+    // implementation when the Android side is implemented.
+
+    private fun emitBiometricNotImplemented(event: BridgeUtils.WebEvents) {
+        BridgeUtils.notifyWebJson(
+            webView,
+            event,
+            org.json.JSONObject().apply {
+                put("success", false)
+                put("error", "Biometric auth not yet implemented on Android")
+                put("code", "BIOMETRIC_NOT_IMPLEMENTED")
+            }
+        )
+    }
+
+    @JavascriptInterface
+    fun authenticateBiometric(params: String?) {
+        mainActivity.runOnUiThread { emitBiometricNotImplemented(BridgeUtils.WebEvents.ON_BIOMETRIC_AUTH_ERROR) }
+    }
+
+    @JavascriptInterface
+    fun isBiometricAvailable(params: String?) {
+        mainActivity.runOnUiThread {
+            BridgeUtils.notifyWebJson(
+                webView,
+                BridgeUtils.WebEvents.ON_BIOMETRIC_AVAILABILITY,
+                org.json.JSONObject().apply {
+                    put("available", false)
+                    put("enrolled", false)
+                    put("biometryType", "none")
+                    put("platform", "android")
+                    put("message", "Biometric auth not yet implemented on Android")
+                }
+            )
+        }
+    }
+
+    @JavascriptInterface
+    fun setBiometricCredential(params: String?) {
+        mainActivity.runOnUiThread { emitBiometricNotImplemented(BridgeUtils.WebEvents.ON_BIOMETRIC_CREDENTIAL_ERROR) }
+    }
+
+    @JavascriptInterface
+    fun getBiometricCredential(params: String?) {
+        mainActivity.runOnUiThread { emitBiometricNotImplemented(BridgeUtils.WebEvents.ON_BIOMETRIC_CREDENTIAL_ERROR) }
+    }
+
+    @JavascriptInterface
+    fun deleteBiometricCredential(params: String?) {
+        mainActivity.runOnUiThread { emitBiometricNotImplemented(BridgeUtils.WebEvents.ON_BIOMETRIC_CREDENTIAL_ERROR) }
+    }
 }

@@ -17,6 +17,8 @@
     <string>This app needs notification permission to send you important updates</string>
     <key>NSLocalNotificationUsageDescription</key>
     <string>This app uses notifications to alert you about important events</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>This app uses Face ID to authenticate you and unlock saved credentials</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>remote-notification</string>

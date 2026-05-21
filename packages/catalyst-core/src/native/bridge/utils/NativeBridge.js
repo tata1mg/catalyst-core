@@ -296,6 +296,60 @@ class NativeBridgeUtil {
         },
     }
 
+    /**
+     * Biometric authentication methods
+     */
+    biometric = {
+        /**
+         * Prompt biometric authentication.
+         * @param {Object|string} options - { reason, fallbackTitle?, cancelTitle? } or a plain reason string
+         */
+        authenticate: (options = {}) => {
+            const payload =
+                typeof options === "string"
+                    ? JSON.stringify({ reason: options })
+                    : JSON.stringify(options || {})
+            return this.call(NATIVE_COMMANDS.AUTHENTICATE_BIOMETRIC, payload)
+        },
+
+        /**
+         * Query biometric hardware availability + enrollment.
+         * Resolves through ON_BIOMETRIC_AVAILABILITY callback.
+         */
+        isAvailable: () => this.call(NATIVE_COMMANDS.IS_BIOMETRIC_AVAILABLE),
+
+        /**
+         * Store a credential behind biometric protection.
+         * @param {Object} options - { key, value, reason? }
+         */
+        setCredential: (options) =>
+            this.call(NATIVE_COMMANDS.SET_BIOMETRIC_CREDENTIAL, JSON.stringify(options || {})),
+
+        /**
+         * Retrieve a biometric-protected credential. Triggers a biometric prompt.
+         * @param {Object|string} options - { key, reason? } or a bare key string
+         */
+        getCredential: (options) => {
+            const payload =
+                typeof options === "string"
+                    ? JSON.stringify({ key: options })
+                    : JSON.stringify(options || {})
+            return this.call(NATIVE_COMMANDS.GET_BIOMETRIC_CREDENTIAL, payload)
+        },
+
+        /**
+         * Delete a stored biometric credential.
+         * @param {Object|string} options - { key } or a bare key string
+         */
+        deleteCredential: (options) => {
+            const payload =
+                typeof options === "string"
+                    ? JSON.stringify({ key: options })
+                    : JSON.stringify(options || {})
+            return this.call(NATIVE_COMMANDS.DELETE_BIOMETRIC_CREDENTIAL, payload)
+        },
+    }
+
     /** Safe area methods
      */
     safeArea = {
