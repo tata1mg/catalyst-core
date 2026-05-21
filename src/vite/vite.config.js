@@ -28,10 +28,21 @@ function scssModulesPlugin() {
             if (cleanId.endsWith(".module.scss") && !fs.existsSync(cleanId)) {
                 const originalPath = cleanId.replace(/\.module\.scss$/, ".scss")
                 if (fs.existsSync(originalPath)) {
+                    this.addWatchFile(originalPath)
                     return fs.readFileSync(originalPath, "utf-8")
                 }
             }
             return null
+        },
+        handleHotUpdate({ file, server }) {
+            if (file.endsWith(".scss") && !file.endsWith(".module.scss")) {
+                const virtualId = file.replace(/\.scss$/, ".module.scss")
+                const virtualMod = server.moduleGraph.getModuleById(virtualId)
+                if (virtualMod) {
+                    server.moduleGraph.invalidateModule(virtualMod)
+                    return [virtualMod]
+                }
+            }
         },
     }
 }
@@ -203,7 +214,7 @@ export default defineConfig({
     cacheDir: path.join(
         process.env.src_path,
         "node_modules",
-        process.env.CATALYST_VITE_CACHE_ID ? `.vite-${process.env.CATALYST_VITE_CACHE_ID}` : ".vite",
+        process.env.CATALYST_VITE_CACHE_ID ? `.vite-${process.env.CATALYST_VITE_CACHE_ID}` : ".vite"
     ),
     ssr: {
         // Keep selected React-side packages bundled for SSR (transformed by Vite, NOT pre-bundled)
