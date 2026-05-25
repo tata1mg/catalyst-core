@@ -1,0 +1,47 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "94a4191655b4b300f53e4beba8ca6a2db6e51d1a",
+  "prompts": {
+    "19bf5b06d8ab1014": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1ea0-3eac-7023-a1fe-aa1e36d8c31c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1784,
+      "overriden_lines": 0
+    },
+    "2cee5ab257b58123": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2a0d-0bee-7213-9359-33eb8459747a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 12,
+      "accepted_lines": 55,
+      "overriden_lines": 0
+    },
+    "e9175dde7890f694": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2e39-395f-7aa3-a3a4-7437e3ff979d",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 9,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

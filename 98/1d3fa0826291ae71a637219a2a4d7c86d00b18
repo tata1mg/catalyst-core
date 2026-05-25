@@ -1,0 +1,23 @@
+mcp_v2/.gitignore
+  a382de0f602680c4 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "981d3fa0826291ae71a637219a2a4d7c86d00b18",
+  "prompts": {
+    "a382de0f602680c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3451b689-12f2-47f7-824f-4da59c9d3d52",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,119 @@
+src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  336321fc56d78921 10,18,22,24,160
+  68c0b1f6e61e3d11 60-61,175-176
+  405b29ed0379636e 62-64,174,177-186
+  s_7954f0b8498825::t_81912b56fadf33 112-116
+  76dd01a7e46b7627 56-58
+src/native/buildAppIos.js
+  s_7954f0b8498825::t_5e9eb2e8485cf2 2065
+src/native/iosnativeWebView/Sources/Core/WebView/TransitionManager.swift
+  s_b657b26204a6c0::t_5bb83d85f8ed05 1-169
+src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_b657b26204a6c0::t_3b4c35f148a464 355-381
+  68c0b1f6e61e3d11 384-397,411,413-420,425-426,436,481-483,496-498
+  s_b657b26204a6c0::t_a96f5f1e788e62 87-93
+  s_b657b26204a6c0::t_5ab0a9b1d2f2ab 26-28
+  8177c1a73c2f2949 317,321,437-440
+  s_b657b26204a6c0::t_6dfd794727ea3f 172,177-179
+  f6ebd40616bc18e4 316,320,325-330,399-403,410,412,429,461-480,484-495,499-506
+  405b29ed0379636e 20
+  s_b657b26204a6c0::t_abc476a93f7fd4 339-348
+  336321fc56d78921 75,80,94-105,312-315,318-319,322-324,382-383,398,404-409,421-424,427-428,430-435,441-460
+src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_b657b26204a6c0::t_bd971cbcedbb5e 373-376
+src/native/iosnativeWebView/Sources/Core/Constants/CatalystConstants.swift
+  s_b657b26204a6c0::t_4f92fb2babf09a 83-86
+  b64002ce278186e2 76-79
+  f6ebd40616bc18e4 80-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "40dc5f96878686bd96f1bf50a7f3418634c13008",
+  "prompts": {
+    "336321fc56d78921": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1a2886c8-ade1-4703-854b-2380b516aca8",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 943,
+      "total_deletions": 23,
+      "accepted_lines": 69,
+      "overriden_lines": 0
+    },
+    "405b29ed0379636e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "99eead31-d370-4dad-bdd1-aa00c6e395c4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 30,
+      "total_deletions": 5,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    },
+    "68c0b1f6e61e3d11": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c0e6968-c141-40e5-a5ee-558de9f3b741",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 146,
+      "total_deletions": 76,
+      "accepted_lines": 36,
+      "overriden_lines": 0
+    },
+    "76dd01a7e46b7627": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb522db-cc59-493e-a154-5fe7186240d8",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 3,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "8177c1a73c2f2949": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "849b59c9-35a2-4533-a3bc-fbe848e3bbcc",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    },
+    "b64002ce278186e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d96d70a-b9f7-4a35-bec9-7e9e83e64f7c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 49,
+      "total_deletions": 31,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "f6ebd40616bc18e4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "171bbed6-f543-4ac5-a142-a1d881c5e432",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 89,
+      "total_deletions": 12,
+      "accepted_lines": 59,
+      "overriden_lines": 0
+    }
+  }
+}

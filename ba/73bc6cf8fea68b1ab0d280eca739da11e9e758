@@ -1,0 +1,37 @@
+mcp_v2/mcp.js
+  822f916a1db97145 335,340
+mcp_v2/lib/helpers.js
+  822f916a1db97145 134
+mcp_v2/tools/knowledge.js
+  822f916a1db97145 61,70,137,146,159,170
+src/native/bridge/useBaseHook.js
+  822f916a1db97145 187
+mcp_v2/tools/conversion.js
+  822f916a1db97145 383,385
+mcp_v2/tools/config.js
+  822f916a1db97145 240
+mcp_v2/tools/debug.js
+  822f916a1db97145 50,54
+mcp_v2/tools/tasks.js
+  822f916a1db97145 47,119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ba73bc6cf8fea68b1ab0d280eca739da11e9e758",
+  "prompts": {
+    "822f916a1db97145": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2bb92484-fb05-4df0-befa-d066a1524fbc",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 144,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}

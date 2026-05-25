@@ -1,0 +1,23 @@
+mcp_v2/setup.js
+  a382de0f602680c4 247-256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "b6a5c0bd7c4a85663989bb8346ad259bc26557b0",
+  "prompts": {
+    "a382de0f602680c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3451b689-12f2-47f7-824f-4da59c9d3d52",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 2,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}

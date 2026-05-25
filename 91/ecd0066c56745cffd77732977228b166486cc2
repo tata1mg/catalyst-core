@@ -1,0 +1,23 @@
+.github/workflows/prepare-release.yml
+  ff58559b1d791873 1-208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "91ecd0066c56745cffd77732977228b166486cc2",
+  "prompts": {
+    "ff58559b1d791873": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d66f8-f32a-7741-a75e-cf37fe131720",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 706,
+      "total_deletions": 273,
+      "accepted_lines": 655,
+      "overriden_lines": 0
+    }
+  }
+}

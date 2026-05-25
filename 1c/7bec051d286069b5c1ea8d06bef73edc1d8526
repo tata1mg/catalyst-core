@@ -1,0 +1,29 @@
+scripts/create-release-sandbox.js
+  1b3aa257e4a8e310 1-255
+README.md
+  1b3aa257e4a8e310 28-43
+package.json
+  1b3aa257e4a8e310 9
+.gitignore
+  1b3aa257e4a8e310 18,23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "1c7bec051d286069b5c1ea8d06bef73edc1d8526",
+  "prompts": {
+    "1b3aa257e4a8e310": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d90b4-f222-72c1-b07a-8ce4229b5810",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 277,
+      "total_deletions": 2,
+      "accepted_lines": 275,
+      "overriden_lines": 0
+    }
+  }
+}

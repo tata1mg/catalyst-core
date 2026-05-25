@@ -1,0 +1,36 @@
+docs/Dockerfile
+  1b3aa257e4a8e310 1,8,22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "bef2798ca6aeb72c68d81b4893f4f1e75c3ad5b7",
+  "prompts": {
+    "1b3aa257e4a8e310": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d90b4-f222-72c1-b07a-8ce4229b5810",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 47,
+      "total_deletions": 26,
+      "accepted_lines": 12,
+      "overriden_lines": 0
+    },
+    "d4969393e733f139": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0134-f6d9-7fa1-bfb4-814518b97ba3",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 25,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,99 @@
+src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  57cd3362fcf85b62 24-30,34-35,52-59,63,65-66,69-70,73,81-83,88-100,146,212-214
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  57cd3362fcf85b62 249-259
+src/native/iosnativeWebView/iosnativeWebViewTests/PluginBridgeTests.swift
+  57cd3362fcf85b62 41,49,63,72,158-160
+src/native/internalPluginUtils.js
+  57cd3362fcf85b62 152-165
+src/native/plugin-bridge/PluginBridge.js
+  57cd3362fcf85b62 6,82-121,123-130,132-133,135,137-141,143-146,191-193,207-209,213-214,221-222,227,244,257,260,262,275,277-279
+src/native/pluginComposerAndroid.js
+  57cd3362fcf85b62 134-136,491-492
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  57cd3362fcf85b62 458-465
+src/native/buildAppIos.js
+  57cd3362fcf85b62 826-843
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/plugins/PluginBridge.kt
+  57cd3362fcf85b62 21-26,40,122,124-125,179,181-184,193-197
+src/native/iosnativeWebView/Sources/Core/WebView/WeakScriptMessageHandler.swift
+  57cd3362fcf85b62 1-14
+src/native/pluginComposerIos.js
+  57cd3362fcf85b62 88,95-96,98-108,185-189,196-198,367-385,406
+src/native/internal-plugins/device-info-plugin/manifest.json
+  57cd3362fcf85b62 6
+src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  57cd3362fcf85b62 20-21,138,141-147,155,157-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "aff61833123c625ed299250683a479e24954dd83",
+  "prompts": {
+    "19bf5b06d8ab1014": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1ea0-3eac-7023-a1fe-aa1e36d8c31c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1784,
+      "overriden_lines": 0
+    },
+    "2cee5ab257b58123": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2a0d-0bee-7213-9359-33eb8459747a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 55,
+      "overriden_lines": 0
+    },
+    "57cd3362fcf85b62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2f60-3e01-7d12-a541-cf4931762819",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 298,
+      "total_deletions": 86,
+      "accepted_lines": 286,
+      "overriden_lines": 0
+    },
+    "d3033a19a225a94b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2f60-bc2b-73c0-9d81-68e00f78b832",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "e9175dde7890f694": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2e39-395f-7aa3-a3a4-7437e3ff979d",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
