@@ -40,18 +40,18 @@ jobs:
 
                   git fetch --tags origin
 
-                  LATEST_TAG=$(git tag --list "catalyst-docs@[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+                  LATEST_TAG=$(git tag --list "catalyst-docs-v[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
 
                   if [ -z "$LATEST_TAG" ]; then
-                    TAG_NAME="catalyst-docs@1.0.0"
+                    TAG_NAME="catalyst-docs-v1.0.0"
                   else
-                    VERSION="${LATEST_TAG#catalyst-docs@}"
+                    VERSION="${LATEST_TAG#catalyst-docs-v}"
                     MAJOR="${VERSION%%.*}"
                     REMAINDER="${VERSION#*.}"
                     MINOR="${REMAINDER%%.*}"
                     PATCH="${VERSION##*.}"
                     NEXT_PATCH=$((PATCH + 1))
-                    TAG_NAME="catalyst-docs@${MAJOR}.${MINOR}.${NEXT_PATCH}"
+                    TAG_NAME="catalyst-docs-v${MAJOR}.${MINOR}.${NEXT_PATCH}"
                   fi
 
                   git tag "$TAG_NAME"
