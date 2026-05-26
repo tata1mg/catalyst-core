@@ -332,7 +332,7 @@ export const useCameraPermission = ({ webFallback } = {}) => {
                     prompt: PERMISSION_STATUS.NOT_DETERMINED,
                 }
                 setPermission(PERM_MAP[result.state] ?? PERMISSION_STATUS.NOT_DETERMINED)
-            } catch (_) {}
+            } catch (_) { /* permission query not supported */ }
         }
         setIsLoading(false)
     }, [isWeb])
