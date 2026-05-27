@@ -91,7 +91,8 @@ public struct WebView: UIViewRepresentable, Equatable {
         if let url = URL(string: urlString) {
             let status = NetworkMonitor.shared.currentStatus
             if status.isOnline {
-                let request = URLRequest(url: url)
+                var request = URLRequest(url: url)
+                request.setValue(ConfigConstants.appInfo, forHTTPHeaderField: "X-App-Info")
                 logWithTimestamp("🚀 Calling webView.load()")
                 let loadStart = CFAbsoluteTimeGetCurrent()
                 webView.load(request)
