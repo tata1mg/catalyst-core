@@ -330,25 +330,27 @@ class WebCacheManager(private val context: Context, private val properties: java
                 val eTag = connection.getHeaderField("ETag")
                 val lastModified = connection.getHeaderField("Last-Modified")
 
+                // Capture all response headers for replay on cache hits
+                val savedHeaders = mutableMapOf<String, String>()
+                var i = 0
+                while (true) {
+                    val key = connection.getHeaderFieldKey(i) ?: break
+                    val value = connection.getHeaderField(i)
+                    if (key.isNotEmpty()) savedHeaders[key] = value
+                    i++
+                }
+
                 val responseBytes = connection.inputStream.use { it.readBytes() }
                 if (!isValidResponse(mimeType, responseBytes)) {
                     return@withContext null
                 }
 
                 // Create response for immediate use
-                val response = WebResourceResponse(
-                        mimeType,
-                        encoding,
-                        ByteArrayInputStream(responseBytes)
-                    )
+                val response = WebResourceResponse(mimeType, encoding, 200, "OK", savedHeaders, ByteArrayInputStream(responseBytes))
 
                 // Cache the response
                 val cacheEntry = CacheEntry(
-                    response = WebResourceResponse(
-                        mimeType,
-                        encoding,
-                        ByteArrayInputStream(responseBytes.copyOf())
-                    ),
+                    response = WebResourceResponse(mimeType, encoding, 200, "OK", savedHeaders, ByteArrayInputStream(responseBytes.copyOf())),
                     eTag = eTag,
                     lastModified = lastModified
                 )
@@ -363,7 +365,8 @@ class WebCacheManager(private val context: Context, private val properties: java
                             mimeType = mimeType,
                             encoding = encoding,
                             eTag = eTag,
-                            lastModified = lastModified
+                            lastModified = lastModified,
+                            responseHeaders = savedHeaders
                         ))
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "✅ Successfully cached response for: $url")
@@ -391,13 +394,17 @@ class WebCacheManager(private val context: Context, private val properties: java
         val mimeType: String,
         val encoding: String,
         val eTag: String? = null,
-        val lastModified: String? = null
+        val lastModified: String? = null,
+        val responseHeaders: Map<String, String> = emptyMap()
     ) : Serializable
 
     private fun createResponseFromCache(cacheFile: File, metadata: CacheMetadata): WebResourceResponse {
         return WebResourceResponse(
             metadata.mimeType,
             metadata.encoding,
+            200,
+            "OK",
+            metadata.responseHeaders.ifEmpty { null },
             BufferedInputStream(FileInputStream(cacheFile), BUFFER_SIZE)
         )
     }

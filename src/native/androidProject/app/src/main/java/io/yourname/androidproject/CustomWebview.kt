@@ -453,6 +453,18 @@ class CustomWebView(
         return "build/public/$fileName"
     }
 
+    private fun withCorsHeaders(response: WebResourceResponse): WebResourceResponse {
+        val responseHeaders = response.responseHeaders
+        if (responseHeaders.isNullOrEmpty()) {
+            response.responseHeaders = mutableMapOf(
+                "Access-Control-Allow-Origin" to "*",
+                "Access-Control-Allow-Methods" to "GET, OPTIONS",
+                "Access-Control-Allow-Headers" to "*"
+            )
+        }
+        return response
+    }
+
     private fun getMimeType(path: String): String {
         return when {
             path.endsWith(".html") -> "text/html"
@@ -521,7 +533,7 @@ class CustomWebView(
                                 if (BuildConfig.DEBUG) {
                                     Log.d(TAG, "✅ SERVICE_WORKER: Served from cache: $url")
                                 }
-                                response
+                                withCorsHeaders(response)
                             } else {
                                 if (BuildConfig.DEBUG) {
                                     Log.d(TAG, "❌ SERVICE_WORKER: Cache miss: $url")
@@ -812,7 +824,7 @@ class CustomWebView(
                                 Log.d(TAG, "✅ WEBVIEW_CLIENT: Served from cache in ${duration}ms: $url")
                             }
                             metricsMonitor.recordCacheHit(url)
-                            return response
+                            return withCorsHeaders(response)
                         } else {
                             if (BuildConfig.DEBUG) {
                                 Log.d(TAG, "❌ WEBVIEW_CLIENT: Cache miss, triggering async fetch: $url")

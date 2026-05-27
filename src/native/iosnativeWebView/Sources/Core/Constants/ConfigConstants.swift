@@ -26,6 +26,7 @@ public enum ConfigConstants {
     public static let cachePattern: [String] = []
     public static let LOCAL_IP = "localhost"
     public static let port = ""
+    public static let initial_url = ""
 
     public enum SplashScreen {
         public static let imageHeight = 200
