@@ -118,32 +118,37 @@ async function createServer() {
         app.use(vite.middlewares)
     }
 
+    // In production, resolve the render module once at startup so the ESM
+    // loader and lazy-chunk cache are not re-entered on every request.
+    let productionRender
+    if (isProduction) {
+        const serverPath = path.join(
+            process.env.src_path,
+            process.env.BUILD_OUTPUT_PATH || "build",
+            "server",
+            "server.js"
+        )
+        if (fs.existsSync(serverPath)) {
+            productionRender = await import(serverPath)
+        } else {
+            const rendererPath = path.join(
+                process.env.src_path,
+                process.env.BUILD_OUTPUT_PATH || "build",
+                "server",
+                "index.js"
+            )
+            productionRender = await import(rendererPath)
+        }
+    }
+
     app.use("*", async (req, res) => {
         try {
             let render
 
             if (isProduction) {
-                // In production, load the built server module
-                const serverPath = path.join(
-                    process.env.src_path,
-                    process.env.BUILD_OUTPUT_PATH || "build",
-                    "server",
-                    "server.js"
-                )
-                if (fs.existsSync(serverPath)) {
-                    render = await import(serverPath)
-                } else {
-                    // Fallback to renderer if server.js doesn't exist
-                    const rendererPath = path.join(
-                        process.env.src_path,
-                        process.env.BUILD_OUTPUT_PATH || "build",
-                        "server",
-                        "index.js"
-                    )
-                    render = await import(rendererPath)
-                }
+                render = productionRender
             } else {
-                // In development, load through Vite SSR
+                // In development, load through Vite SSR per-request to support HMR
                 const rendererPath = path.join(__dirname, "./renderer/index.js")
                 render = await vite.ssrLoadModule(rendererPath)
             }
