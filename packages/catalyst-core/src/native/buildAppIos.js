@@ -790,6 +790,18 @@ public enum ConfigConstants {
             progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
         }
 
+        // Ensure initial_url always exists (default to empty string if not configured)
+        if (!addedKeys.has("initial_url")) {
+            configContent += '\n    public static let initial_url = ""'
+            addedKeys.add("initial_url")
+        }
+
+        // Ensure appInfo always exists (default to empty string if not configured)
+        if (!addedKeys.has("appInfo")) {
+            configContent += '\n    public static let appInfo = ""'
+            addedKeys.add("appInfo")
+        }
+
         // Close the enum
         configContent += `
 }`
