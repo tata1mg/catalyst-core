@@ -1,11 +1,15 @@
-import fs from "fs"
-import path from "path"
-import { exec } from "child_process"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { exec } from "node:child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
 import { setupServer } from "./setupServer.js"
 
-const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const catalystCorePath = path.resolve(__dirname, "../..")
 const pwd = path.join(catalystCorePath, "dist/native")
 const configPath = `${process.env.PWD}/config/config.json`
 
