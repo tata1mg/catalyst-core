@@ -1,5 +1,5 @@
-const { exec, execSync } = require("child_process")
-const fs = require("fs")
+import { exec, execSync } from "node:child_process"
+import fs from "node:fs"
 
 /**
  * Get local IP address on macOS using ifconfig
@@ -164,4 +164,4 @@ async function setupServer(configPath) {
     }
 }
 
-module.exports = { setupServer }
+export { setupServer }

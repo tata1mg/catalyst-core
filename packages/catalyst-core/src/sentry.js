@@ -2,31 +2,17 @@ import React from "react"
 
 let sentryInitialized = false
 
-function getSentryInstance() {
-    let instance = null
-    const isServer = typeof window === "undefined"
-
+const isServer = typeof window === "undefined"
+let Sentry = null
+try {
     if (isServer) {
-        try {
-            const sentryNodeModule = "@sentry/node"
-            // eslint-disable-next-line security/detect-eval-with-expression, no-eval
-            instance = eval(`require("${sentryNodeModule}")`)
-        } catch (error) {
-            console.warn("Failed to load @sentry/node:", error.message)
-            return null
-        }
+        Sentry = await import("@sentry/node")
     } else {
-        try {
-            instance = require("@sentry/react")
-        } catch (error) {
-            console.warn("Failed to load @sentry/react:", error.message)
-            return null
-        }
+        Sentry = await import("@sentry/react")
     }
-    return instance
+} catch (error) {
+    console.warn("Failed to load Sentry:", error.message)
 }
-
-const Sentry = getSentryInstance()
 
 export function init() {
     if (sentryInitialized) {

@@ -1,12 +1,17 @@
 #!/usr/bin/env node
-"use strict"
 process.on("unhandledRejection", (err) => {
     throw err
 })
-const { spawnSync } = require("node:child_process")
+
+import { spawnSync } from "node:child_process"
+import { fileURLToPath } from "node:url"
+import { dirname, resolve } from "node:path"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
 const args = process.argv.slice(2)
 
-// Array of valid commands
 const validCommands = [
     "build",
     "start",
@@ -21,7 +26,6 @@ const validCommands = [
     "setupEmulator:android",
 ]
 
-// Map of platform-specific commands to their script paths
 const platformScripts = {
     "setupEmulator:ios": "../dist/native/setupEmulatorIos.js",
     "setupEmulator:android": "../dist/native/androidSetup.js",
@@ -29,25 +33,22 @@ const platformScripts = {
     "buildApp:android": "../dist/native/buildAppAndroid.js",
 }
 
-// Helper to check if arg is a platform command
 const isPlatformCommand = (arg, prefix) => {
     if (!arg.startsWith(`${prefix}:`)) return false
     const platform = arg.split(":")[1]
     return ["ios", "android"].includes(platform) || platform === undefined
 }
 
-// Helper function to run a platform command
 const runPlatformCommand = (baseCommand, platform) => {
     const command = `${baseCommand}:${platform}`
     const result = spawnSync(
         process.execPath,
-        nodeArgs.concat(require.resolve(platformScripts[command])).concat(args.slice(scriptIndex + 1)),
+        nodeArgs.concat(resolve(__dirname, platformScripts[command])).concat(args.slice(scriptIndex + 1)),
         { stdio: "inherit" }
     )
     return result
 }
 
-// Helper function to run commands for all platforms
 const runAllPlatforms = (baseCommand) => {
     const platforms = ["ios", "android"]
     for (const platform of platforms) {
@@ -74,23 +75,19 @@ const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
 const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
 
 if (validCommands.includes(script)) {
-    // Handle platform-specific or combined commands
     if (script === "buildApp" || script === "setupEmulator") {
-        // Run for all platforms if no specific platform is specified
         runAllPlatforms(script)
     } else if (script in platformScripts) {
-        // Run for specific platform
         const result = spawnSync(
             process.execPath,
-            nodeArgs.concat(require.resolve(platformScripts[script])).concat(args.slice(scriptIndex + 1)),
+            nodeArgs.concat(resolve(__dirname, platformScripts[script])).concat(args.slice(scriptIndex + 1)),
             { stdio: "inherit" }
         )
         handleProcessResult(result)
     } else {
-        // Original commands
         const result = spawnSync(
             process.execPath,
-            nodeArgs.concat(require.resolve("../dist/scripts/" + script)).concat(args.slice(scriptIndex + 1)),
+            nodeArgs.concat(resolve(__dirname, "../dist/scripts/" + script + ".js")).concat(args.slice(scriptIndex + 1)),
             { stdio: "inherit" }
         )
         handleProcessResult(result)
@@ -99,7 +96,6 @@ if (validCommands.includes(script)) {
     console.log('Unknown script "' + script + '".')
 }
 
-// Helper function to handle process results
 function handleProcessResult(result) {
     if (result.signal) {
         if (result.signal === "SIGKILL") {

@@ -1,12 +1,18 @@
-const { exec, execSync } = require("child_process")
-const fs = require("fs")
-const path = require("path")
-const TerminalProgress = require("./TerminalProgress.js").default
-const crypto = require("crypto")
+import { exec, execSync } from "node:child_process"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import crypto from "node:crypto"
+import TerminalProgress from "./TerminalProgress.js"
 
-const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const catalystCorePath = path.resolve(__dirname, "../..")
 const pwd = path.join(catalystCorePath, "dist/native")
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = JSON.parse(
+    fs.readFileSync(`${process.env.PWD}/config/config.json`, "utf8")
+)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
@@ -2078,7 +2084,7 @@ async function buildProjectForPhysicalDevice(scheme, bundleId, derivedDataPath, 
 
     // Check if we're in the right directory
     const projectPath = `${process.cwd()}/${projectName}.xcodeproj`
-    if (!require("fs").existsSync(projectPath)) {
+    if (!fs.existsSync(projectPath)) {
         throw new Error(`Xcode project not found at: ${projectPath}. Current directory: ${process.cwd()}`)
     }
 

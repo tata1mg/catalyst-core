@@ -1,23 +1,18 @@
-/* eslint-disable no-extra-semi */
-"use strict"
-
-var _child_process = require("child_process")
-var _fs = _interopRequireDefault(require("fs"))
-var _path = _interopRequireDefault(require("path"))
-var _utils = require("./utils.js")
-var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
-
-// Import the AAB builder
+import { exec } from "node:child_process"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { runCommand, runInteractiveCommand } from "./utils.js"
+import TerminalProgress from "./TerminalProgress.js"
 import { buildAndroidAAB } from "./renameAndroidProject.js"
 
-function _interopRequireDefault(e) {
-    return e && e.__esModule ? e : { default: e }
-}
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const configPath = `${process.env.PWD}/config/config.json`
 const publicPath = `${process.env.PWD}/public`
-const catalystCorePath = _path.default.dirname(require.resolve("catalyst-core/package.json"))
-const pwd = _path.default.join(catalystCorePath, "dist/native")
+const catalystCorePath = path.resolve(__dirname, "../..")
+const pwd = path.join(catalystCorePath, "dist/native")
 const ANDROID_PACKAGE = "io.yourname.androidproject"
 
 // Default values for AAB building
@@ -44,10 +39,10 @@ const progressConfig = {
     bottomMargin: 2,
 }
 
-const progress = new _TerminalProgress.default(steps, "Catalyst Android Build", progressConfig)
+const progress = new TerminalProgress(steps, "Catalyst Android Build", progressConfig)
 
 async function initializeConfig() {
-    const configFile = _fs.default.readFileSync(configPath, "utf8")
+    const configFile = fs.readFileSync(configPath, "utf8")
     const config = JSON.parse(configFile)
     const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
@@ -81,16 +76,16 @@ function validateAndroidTools(androidConfig) {
         throw new Error("Android SDK path is not configured")
     }
 
-    if (!_fs.default.existsSync(ANDROID_SDK)) {
+    if (!fs.existsSync(ANDROID_SDK)) {
         throw new Error(`Android SDK path does not exist: ${ANDROID_SDK}`)
     }
 
-    if (!_fs.default.existsSync(ADB_PATH)) {
+    if (!fs.existsSync(ADB_PATH)) {
         throw new Error(`ADB not found at: ${ADB_PATH}`)
     }
 
     try {
-        ;(0, _utils.runCommand)(`${ADB_PATH} version`)
+        runCommand(`${ADB_PATH} version`)
         progress.log("ADB validation successful", "success")
     } catch (error) {
         throw new Error(`ADB is not working properly: ${error.message}`)
@@ -99,19 +94,19 @@ function validateAndroidTools(androidConfig) {
     // Skip emulator validation for release builds
     const buildType = androidConfig.buildType || "debug"
     if (buildType !== "release") {
-        if (!_fs.default.existsSync(EMULATOR_PATH)) {
+        if (!fs.existsSync(EMULATOR_PATH)) {
             throw new Error(`Emulator not found at: ${EMULATOR_PATH}`)
         }
 
         try {
-            ;(0, _utils.runCommand)(`${EMULATOR_PATH} -version`)
+            runCommand(`${EMULATOR_PATH} -version`)
             progress.log("Emulator validation successful", "success")
         } catch (error) {
             throw new Error(`Emulator is not working properly: ${error.message}`)
         }
 
         try {
-            const avdOutput = (0, _utils.runCommand)(`${EMULATOR_PATH} -list-avds`)
+            const avdOutput = runCommand(`${EMULATOR_PATH} -list-avds`)
             if (!avdOutput.includes(androidConfig.emulatorName)) {
                 throw new Error(
                     `Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`
@@ -132,7 +127,7 @@ function validateAndroidTools(androidConfig) {
 async function detectPhysicalDevice(ADB_PATH) {
     try {
         progress.log("Detecting physical devices...", "info")
-        const devices = (0, _utils.runCommand)(`${ADB_PATH} devices -l`)
+        const devices = runCommand(`${ADB_PATH} devices -l`)
         const lines = devices.split("\n").filter((line) => line.trim() && !line.includes("List of devices"))
 
         for (const line of lines) {
@@ -144,7 +139,7 @@ async function detectPhysicalDevice(ADB_PATH) {
                 if (!deviceId.startsWith("emulator-")) {
                     try {
                         // Double-check it's not an emulator using device properties
-                        const qemuCheck = (0, _utils.runCommand)(
+                        const qemuCheck = runCommand(
                             `${ADB_PATH} -s ${deviceId} shell getprop ro.kernel.qemu`
                         )
                         if (!qemuCheck.trim()) {
@@ -154,7 +149,7 @@ async function detectPhysicalDevice(ADB_PATH) {
                             // Get device model/name for better logging
                             let deviceModel = "Unknown Device"
                             try {
-                                const model = (0, _utils.runCommand)(
+                                const model = runCommand(
                                     `${ADB_PATH} -s ${deviceId} shell getprop ro.product.model`
                                 )
                                 deviceModel = model.trim() || deviceModel
@@ -185,7 +180,7 @@ async function testPhysicalDeviceInstallation(ADB_PATH, deviceId) {
         progress.log(`Testing installation capability on device ${deviceId}...`, "info")
 
         // Test 1: Basic ADB connection
-        const connectionTest = (0, _utils.runCommand)(`${ADB_PATH} -s ${deviceId} shell echo "test"`)
+        const connectionTest = runCommand(`${ADB_PATH} -s ${deviceId} shell echo "test"`)
         if (!connectionTest.includes("test")) {
             progress.log("Device connection test failed", "error")
             return false
@@ -193,7 +188,7 @@ async function testPhysicalDeviceInstallation(ADB_PATH, deviceId) {
 
         // Test 2: Check if developer options are enabled
         try {
-            const developerOptions = (0, _utils.runCommand)(
+            const developerOptions = runCommand(
                 `${ADB_PATH} -s ${deviceId} shell settings get global development_settings_enabled`
             )
             if (developerOptions.trim() !== "1") {
@@ -206,7 +201,7 @@ async function testPhysicalDeviceInstallation(ADB_PATH, deviceId) {
 
         // Test 3: Check USB debugging status
         try {
-            const usbDebugging = (0, _utils.runCommand)(
+            const usbDebugging = runCommand(
                 `${ADB_PATH} -s ${deviceId} shell settings get global adb_enabled`
             )
             if (usbDebugging.trim() !== "1") {
@@ -219,7 +214,7 @@ async function testPhysicalDeviceInstallation(ADB_PATH, deviceId) {
 
         // Test 4: Check if we can access package manager
         try {
-            ;(0, _utils.runCommand)(`${ADB_PATH} -s ${deviceId} shell pm list packages -3 | head -1`)
+            runCommand(`${ADB_PATH} -s ${deviceId} shell pm list packages -3 | head -1`)
         } catch (error) {
             progress.log("Cannot access package manager on device", "error")
             return false
@@ -235,7 +230,7 @@ async function testPhysicalDeviceInstallation(ADB_PATH, deviceId) {
 
 async function checkEmulator(ADB_PATH) {
     try {
-        const devices = (0, _utils.runCommand)(`${ADB_PATH} devices`)
+        const devices = runCommand(`${ADB_PATH} devices`)
         return devices.includes("emulator")
     } catch (error) {
         progress.log("Error checking emulator status: " + error.message, "error")
@@ -259,7 +254,7 @@ async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
     return new Promise((resolve, reject) => {
-        ;(0, _child_process.exec)(
+        exec(
             `${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`,
             (error) => {
                 if (error) {
@@ -284,10 +279,10 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
         const destPath = `${pwd}/androidProject/app/src/main/assets/build/`
 
         // Create destination directory if it doesn't exist
-        ;(0, _utils.runCommand)(`mkdir -p ${destPath}`)
+        runCommand(`mkdir -p ${destPath}`)
 
         // Clear existing destination to avoid conflicts
-        ;(0, _utils.runCommand)(`rm -rf ${destPath}/*`)
+        runCommand(`rm -rf ${destPath}/*`)
 
         // Files to exclude from copying
         const excludePatterns = ["route-manifest.json.gz", "route-manifest.json.br"]
@@ -297,15 +292,15 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
             const excludeParams = excludePatterns.map((pattern) => `--exclude="${pattern}"`).join(" ")
             const rsyncCommand = `rsync -av ${excludeParams} ${sourcePath} ${destPath}`
             progress.log("Executing rsync command with exclusions...", "info")
-            ;(0, _utils.runCommand)(rsyncCommand)
+            runCommand(rsyncCommand)
 
             // Verify excluded files don't exist in destination
             for (const pattern of excludePatterns) {
                 const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`
-                const count = parseInt((0, _utils.runCommand)(checkCommand).trim(), 10)
+                const count = parseInt(runCommand(checkCommand).trim(), 10)
                 if (count > 0) {
                     progress.log(`Warning: Found ${count} instances of excluded file ${pattern}`, "warning")
-                    ;(0, _utils.runCommand)(`find ${destPath} -name "${pattern}" -delete`)
+                    runCommand(`find ${destPath} -name "${pattern}" -delete`)
                 }
             }
             progress.log(
@@ -317,7 +312,7 @@ async function copyBuildAssets(androidConfig, buildOptimisation = false) {
             const exclusions = excludePatterns.map((pattern) => `-not -name "${pattern}"`).join(" ")
             const copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`
             progress.log(`Executing copy command with exclusions...`, "info")
-            ;(0, _utils.runCommand)(copyCommand)
+            runCommand(copyCommand)
             progress.log("Build assets copied successfully!", "success")
         }
     } catch (error) {
@@ -339,7 +334,7 @@ async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice
             )
         }
 
-        await (0, _utils.runInteractiveCommand)("sh", ["-c", buildCommand], { "BUILD SUCCESSFUL": "" })
+        await runInteractiveCommand("sh", ["-c", buildCommand], { "BUILD SUCCESSFUL": "" })
         progress.log("App build and installation completed successfully!", "success")
     } catch (error) {
         throw new Error("Error building/installing app: " + error.message)
@@ -363,7 +358,7 @@ async function launchApp(ADB_PATH, buildType = "debug", targetDevice = null) {
         progress.log("Launching app on emulator...", "info")
         const packageName = `${ANDROID_PACKAGE}${buildType === "debug" ? ".debug" : ""}`
         const launchCommand = `${ADB_PATH} shell monkey -p ${packageName} 1`
-        await (0, _utils.runInteractiveCommand)("sh", ["-c", launchCommand], {})
+        await runInteractiveCommand("sh", ["-c", launchCommand], {})
         progress.log("App launched successfully on emulator!", "success")
     } catch (error) {
         progress.log(`Warning: Could not auto-launch app: ${error.message}`, "warning")
@@ -374,7 +369,7 @@ async function launchApp(ADB_PATH, buildType = "debug", targetDevice = null) {
 async function copySplashscreenAssets() {
     try {
         const destPath = `${pwd}/androidProject/app/src/main/res`
-        const configFile = _fs.default.readFileSync(configPath, "utf8")
+        const configFile = fs.readFileSync(configPath, "utf8")
         const config = JSON.parse(configFile)
         const { WEBVIEW_CONFIG = {} } = config
 
@@ -384,23 +379,23 @@ async function copySplashscreenAssets() {
         const imageFormats = ["png", "jpg", "jpeg", "gif", "bmp", "webp"]
 
         // Copy splash screen image if exists
-        if (_fs.default.existsSync(androidPublicPath)) {
+        if (fs.existsSync(androidPublicPath)) {
             const drawableDir = `${destPath}/drawable`
-            if (!_fs.default.existsSync(drawableDir)) {
-                _fs.default.mkdirSync(drawableDir, { recursive: true })
+            if (!fs.existsSync(drawableDir)) {
+                fs.mkdirSync(drawableDir, { recursive: true })
             }
 
             for (const format of imageFormats) {
                 const existingPath = `${destPath}/drawable/splashscreen.${format}`
-                if (_fs.default.existsSync(existingPath)) {
-                    _fs.default.unlinkSync(existingPath)
+                if (fs.existsSync(existingPath)) {
+                    fs.unlinkSync(existingPath)
                 }
             }
 
             for (const format of imageFormats) {
                 const sourcePath = `${androidPublicPath}/splashscreen.${format}`
-                if (_fs.default.existsSync(sourcePath)) {
-                    _fs.default.copyFileSync(sourcePath, `${destPath}/drawable/splashscreen.${format}`)
+                if (fs.existsSync(sourcePath)) {
+                    fs.copyFileSync(sourcePath, `${destPath}/drawable/splashscreen.${format}`)
                     break
                 }
             }
@@ -411,8 +406,8 @@ async function copySplashscreenAssets() {
         const themeFiles = [`${destPath}/values/themes.xml`, `${destPath}/values-night/themes.xml`]
 
         for (const themesFile of themeFiles) {
-            if (_fs.default.existsSync(themesFile)) {
-                let content = _fs.default.readFileSync(themesFile, "utf8")
+            if (fs.existsSync(themesFile)) {
+                let content = fs.readFileSync(themesFile, "utf8")
 
                 // Replace windowBackground - matches any color value
                 content = content.replace(
@@ -426,7 +421,7 @@ async function copySplashscreenAssets() {
                     `<item name="android:windowSplashScreenBackground" tools:targetApi="31">${backgroundColor}</item>`
                 )
 
-                _fs.default.writeFileSync(themesFile, content)
+                fs.writeFileSync(themesFile, content)
             }
         }
     } catch (error) {
@@ -440,15 +435,15 @@ async function copyOfflinePage() {
         const destDir = `${pwd}/androidProject/app/src/main/assets/offline`
         const destPath = `${destDir}/offline.html`
 
-        if (!_fs.default.existsSync(sourcePath)) {
+        if (!fs.existsSync(sourcePath)) {
             progress.log("offline.html not found in public/; skipping offline asset copy", "warning")
             return
         }
 
         // Ensure destination directory exists
-        ;(0, _utils.runCommand)(`mkdir -p ${destDir}`)
+        runCommand(`mkdir -p ${destDir}`)
 
-        _fs.default.copyFileSync(sourcePath, destPath)
+        fs.copyFileSync(sourcePath, destPath)
         progress.log("offline.html copied to Android assets", "success")
     } catch (error) {
         progress.log(`Warning: Error copying offline.html: ${error.message}`, "warning")
@@ -459,12 +454,12 @@ async function copyIconAssets() {
     try {
         const destPath = `${pwd}/androidProject/app/src/main/res`
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
-        const androidIconDir = _path.default.join(publicPath, "android", "appIcons")
-        const fallbackIconPath = _path.default.join(__dirname, "assets", "catalyst.png")
-        const fallbackExists = _fs.default.existsSync(fallbackIconPath)
+        const androidIconDir = path.join(publicPath, "android", "appIcons")
+        const fallbackIconPath = path.join(__dirname, "assets", "catalyst.png")
+        const fallbackExists = fs.existsSync(fallbackIconPath)
         const extensions = ["png", "jpg", "jpeg"]
 
-        if (!_fs.default.existsSync(publicPath)) {
+        if (!fs.existsSync(publicPath)) {
             progress.log(`Warning: Public directory not found at ${publicPath}`, "warning")
             return
         }
@@ -478,15 +473,15 @@ async function copyIconAssets() {
         ]
 
         const hasIconDirectory =
-            _fs.default.existsSync(androidIconDir) && _fs.default.lstatSync(androidIconDir).isDirectory()
+            fs.existsSync(androidIconDir) && fs.lstatSync(androidIconDir).isDirectory()
 
         const cleanDensityDir = (dir) => {
-            if (!_fs.default.existsSync(dir)) {
+            if (!fs.existsSync(dir)) {
                 return
             }
-            for (const file of _fs.default.readdirSync(dir)) {
+            for (const file of fs.readdirSync(dir)) {
                 if (file.startsWith("icon.")) {
-                    _fs.default.unlinkSync(_path.default.join(dir, file))
+                    fs.unlinkSync(path.join(dir, file))
                 }
             }
         }
@@ -497,8 +492,8 @@ async function copyIconAssets() {
             }
 
             for (const ext of extensions) {
-                const candidate = _path.default.join(androidIconDir, `icon-${densityKey}.${ext}`)
-                if (_fs.default.existsSync(candidate)) {
+                const candidate = path.join(androidIconDir, `icon-${densityKey}.${ext}`)
+                if (fs.existsSync(candidate)) {
                     return { path: candidate, ext }
                 }
             }
@@ -510,38 +505,38 @@ async function copyIconAssets() {
         let usedFallback = false
 
         for (const density of densities) {
-            const targetDir = _path.default.join(destPath, density.dir)
+            const targetDir = path.join(destPath, density.dir)
             const source = findIconForDensity(density.key)
 
             cleanDensityDir(targetDir)
 
             if (source) {
-                _fs.default.mkdirSync(targetDir, { recursive: true })
-                const destination = _path.default.join(targetDir, `icon.${source.ext}`)
-                _fs.default.copyFileSync(source.path, destination)
+                fs.mkdirSync(targetDir, { recursive: true })
+                const destination = path.join(targetDir, `icon.${source.ext}`)
+                fs.copyFileSync(source.path, destination)
                 hasCustomIcons = true
             }
         }
 
         if (!hasCustomIcons && fallbackExists) {
-            const targetDir = _path.default.join(destPath, "mipmap-xxxhdpi")
-            _fs.default.mkdirSync(targetDir, { recursive: true })
+            const targetDir = path.join(destPath, "mipmap-xxxhdpi")
+            fs.mkdirSync(targetDir, { recursive: true })
             cleanDensityDir(targetDir)
-            const destination = _path.default.join(targetDir, "icon.png")
-            _fs.default.copyFileSync(fallbackIconPath, destination)
+            const destination = path.join(targetDir, "icon.png")
+            fs.copyFileSync(fallbackIconPath, destination)
             usedFallback = true
         }
 
         const setManifestIcons = (iconValue, roundIconValue) => {
-            if (!_fs.default.existsSync(manifestPath)) return
+            if (!fs.existsSync(manifestPath)) return
 
-            const current = _fs.default.readFileSync(manifestPath, "utf8")
+            const current = fs.readFileSync(manifestPath, "utf8")
             const updated = current
                 .replace(/android:icon="[^"]*"/g, `android:icon="${iconValue}"`)
                 .replace(/android:roundIcon="[^"]*"/g, `android:roundIcon="${roundIconValue}"`)
 
             if (updated !== current) {
-                _fs.default.writeFileSync(manifestPath, updated)
+                fs.writeFileSync(manifestPath, updated)
             }
         }
 
@@ -572,7 +567,7 @@ async function configureAppName(androidConfig) {
         const destPath = `${pwd}/androidProject/app/src/main/res`
         const stringsFile = `${destPath}/values/strings.xml`
 
-        let stringsContent = _fs.default.readFileSync(stringsFile, "utf8")
+        let stringsContent = fs.readFileSync(stringsFile, "utf8")
 
         // Check if androidConfig.appName exists
         if (androidConfig.appName) {
@@ -581,7 +576,7 @@ async function configureAppName(androidConfig) {
                 `<string name="app_name">${androidConfig.appName}</string>`
             )
 
-            _fs.default.writeFileSync(stringsFile, stringsContent)
+            fs.writeFileSync(stringsFile, stringsContent)
             progress.log(`App display name configured: ${androidConfig.appName}`, "success")
         } else {
             // No appName configured, revert to default
@@ -590,7 +585,7 @@ async function configureAppName(androidConfig) {
                 `<string name="app_name">Catalyst Application</string>`
             )
 
-            _fs.default.writeFileSync(stringsFile, stringsContent)
+            fs.writeFileSync(stringsFile, stringsContent)
             progress.log("App display name reverted to default: Catalyst Application", "info")
         }
     } catch (error) {
@@ -604,21 +599,21 @@ async function handleGoogleServicesJson() {
         const androidGoogleServicesPath = `${pwd}/androidProject/app/google-services.json`
 
         // Check if google-services.json exists in the root directory
-        if (_fs.default.existsSync(rootGoogleServicesPath)) {
+        if (fs.existsSync(rootGoogleServicesPath)) {
             progress.log("Found google-services.json in root directory", "info")
 
             // Create the app directory if it doesn't exist
             const appDir = `${pwd}/androidProject/app`
-            if (!_fs.default.existsSync(appDir)) {
-                _fs.default.mkdirSync(appDir, { recursive: true })
+            if (!fs.existsSync(appDir)) {
+                fs.mkdirSync(appDir, { recursive: true })
             }
 
             // Copy the file to the Android project
-            _fs.default.copyFileSync(rootGoogleServicesPath, androidGoogleServicesPath)
+            fs.copyFileSync(rootGoogleServicesPath, androidGoogleServicesPath)
             progress.log("Copied google-services.json to androidProject/app/", "success")
 
             return true
-        } else if (_fs.default.existsSync(androidGoogleServicesPath)) {
+        } else if (fs.existsSync(androidGoogleServicesPath)) {
             progress.log("google-services.json already exists in androidProject/app/", "info")
             return true
         } else {
@@ -673,7 +668,7 @@ async function processNotifications(WEBVIEW_CONFIG) {
 async function addNotificationPermissions() {
     try {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
-        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+        let manifestContent = fs.readFileSync(manifestPath, "utf8")
 
         const permissionsXml = `    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -685,7 +680,7 @@ async function addNotificationPermissions() {
             `$1\n${permissionsXml}$2`
         )
 
-        _fs.default.writeFileSync(manifestPath, manifestContent)
+        fs.writeFileSync(manifestPath, manifestContent)
         progress.log("Added notification permissions to AndroidManifest.xml", "success")
     } catch (error) {
         throw new Error(`Failed to add notification permissions: ${error.message}`)
@@ -695,13 +690,13 @@ async function addNotificationPermissions() {
 async function generateNotificationResources(notificationConfig) {
     try {
         const colorsPath = `${pwd}/androidProject/app/src/main/res/values/colors.xml`
-        let colorsContent = _fs.default.readFileSync(colorsPath, "utf8")
+        let colorsContent = fs.readFileSync(colorsPath, "utf8")
 
         const notificationColorXml = `    <color name="notification_color">${notificationConfig.color || "#007AFF"}</color>`
 
         if (!colorsContent.includes('name="notification_color"')) {
             colorsContent = colorsContent.replace(/(<\/resources>)/, `${notificationColorXml}\n$1`)
-            _fs.default.writeFileSync(colorsPath, colorsContent)
+            fs.writeFileSync(colorsPath, colorsContent)
             progress.log("Added notification color to colors.xml", "success")
         }
     } catch (error) {
@@ -712,7 +707,7 @@ async function generateNotificationResources(notificationConfig) {
 async function addNotificationMetadata() {
     try {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
-        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+        let manifestContent = fs.readFileSync(manifestPath, "utf8")
 
         const metadataXml = `
         <!-- Default notification configuration -->
@@ -747,7 +742,7 @@ async function addNotificationMetadata() {
         </service>`
 
         manifestContent = manifestContent.replace(/(\s*<\/application>)/, `${metadataXml}\n$1`)
-        _fs.default.writeFileSync(manifestPath, manifestContent)
+        fs.writeFileSync(manifestPath, manifestContent)
         progress.log(
             "Added notification metadata and push notification service to AndroidManifest.xml",
             "success"
@@ -781,8 +776,8 @@ async function processNotificationAssets() {
         for (const icon of notificationIcons) {
             for (const format of imageFormats) {
                 const existingIconPath = `${destPath}/drawable/${icon.resourceName}.${format}`
-                if (_fs.default.existsSync(existingIconPath)) {
-                    _fs.default.unlinkSync(existingIconPath)
+                if (fs.existsSync(existingIconPath)) {
+                    fs.unlinkSync(existingIconPath)
                     progress.log(`Removed existing ${icon.resourceName}.${format}`, "info")
                 }
             }
@@ -792,8 +787,8 @@ async function processNotificationAssets() {
         for (const sound of notificationSounds) {
             for (const format of audioFormats) {
                 const existingSoundPath = `${destPath}/raw/${sound.resourceName}.${format}`
-                if (_fs.default.existsSync(existingSoundPath)) {
-                    _fs.default.unlinkSync(existingSoundPath)
+                if (fs.existsSync(existingSoundPath)) {
+                    fs.unlinkSync(existingSoundPath)
                     progress.log(`Removed existing ${sound.resourceName}.${format}`, "info")
                 }
             }
@@ -804,9 +799,9 @@ async function processNotificationAssets() {
         for (const icon of notificationIcons) {
             for (const format of imageFormats) {
                 const iconImagePath = `${publicPath}/${icon.sourceName}.${format}`
-                if (_fs.default.existsSync(iconImagePath)) {
+                if (fs.existsSync(iconImagePath)) {
                     const destImagePath = `${destPath}/drawable/${icon.resourceName}.${format}`
-                    _fs.default.copyFileSync(iconImagePath, destImagePath)
+                    fs.copyFileSync(iconImagePath, destImagePath)
                     progress.log(
                         `Notification icon copied: ${icon.sourceName}.${format} -> ${icon.resourceName}.${format}`,
                         "success"
@@ -830,17 +825,17 @@ async function processNotificationAssets() {
 
         // Create raw directory if it doesn't exist
         const rawDir = `${destPath}/raw`
-        if (!_fs.default.existsSync(rawDir)) {
-            _fs.default.mkdirSync(rawDir, { recursive: true })
+        if (!fs.existsSync(rawDir)) {
+            fs.mkdirSync(rawDir, { recursive: true })
         }
 
         // Process notification sounds
         for (const sound of notificationSounds) {
             for (const format of audioFormats) {
                 const soundImagePath = `${publicPath}/${sound.sourceName}.${format}`
-                if (_fs.default.existsSync(soundImagePath)) {
+                if (fs.existsSync(soundImagePath)) {
                     const destSoundPath = `${destPath}/raw/${sound.resourceName}.${format}`
-                    _fs.default.copyFileSync(soundImagePath, destSoundPath)
+                    fs.copyFileSync(soundImagePath, destSoundPath)
                     progress.log(
                         `Notification sound copied: ${sound.sourceName}.${format} -> ${sound.resourceName}.${format}`,
                         "success"
@@ -874,14 +869,14 @@ function generateNotificationIconDrawable(iconName, destPath) {
       android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2zM18,16v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"/>
 </vector>`
 
-    _fs.default.writeFileSync(`${destPath}/drawable/${iconName}.xml`, iconXml)
+    fs.writeFileSync(`${destPath}/drawable/${iconName}.xml`, iconXml)
 }
 
 // Cleanup functions to remove notification configurations
 async function cleanupNotificationPermissions() {
     try {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
-        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+        let manifestContent = fs.readFileSync(manifestPath, "utf8")
 
         // Remove notification permissions
         const notificationPermissions = [
@@ -899,7 +894,7 @@ async function cleanupNotificationPermissions() {
             manifestContent = manifestContent.replace(permissionRegex, "")
         })
 
-        _fs.default.writeFileSync(manifestPath, manifestContent)
+        fs.writeFileSync(manifestPath, manifestContent)
     } catch (error) {
         // Don't throw error for cleanup operations, just log
         progress.log(`Warning: Error cleaning notification permissions: ${error.message}`, "warning")
@@ -909,7 +904,7 @@ async function cleanupNotificationPermissions() {
 async function cleanupNotificationResources() {
     try {
         const colorsPath = `${pwd}/androidProject/app/src/main/res/values/colors.xml`
-        let colorsContent = _fs.default.readFileSync(colorsPath, "utf8")
+        let colorsContent = fs.readFileSync(colorsPath, "utf8")
 
         // Remove notification color
         const existingColorLine = colorsContent
@@ -918,7 +913,7 @@ async function cleanupNotificationResources() {
 
         if (existingColorLine) {
             colorsContent = colorsContent.replace(existingColorLine, "")
-            _fs.default.writeFileSync(colorsPath, colorsContent)
+            fs.writeFileSync(colorsPath, colorsContent)
         }
     } catch (error) {
         progress.log(`Warning: Error cleaning notification resources: ${error.message}`, "warning")
@@ -928,7 +923,7 @@ async function cleanupNotificationResources() {
 async function cleanupNotificationMetadata() {
     try {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
-        let manifestContent = _fs.default.readFileSync(manifestPath, "utf8")
+        let manifestContent = fs.readFileSync(manifestPath, "utf8")
 
         // Remove notification metadata entries
         const metadataNames = [
@@ -962,7 +957,7 @@ async function cleanupNotificationMetadata() {
         )
         manifestContent = manifestContent.replace(/\s*<!--\s*Push Notification Service\s*-->/gi, "")
 
-        _fs.default.writeFileSync(manifestPath, manifestContent)
+        fs.writeFileSync(manifestPath, manifestContent)
     } catch (error) {
         progress.log(`Warning: Error cleaning notification metadata: ${error.message}`, "warning")
     }
@@ -984,20 +979,20 @@ async function cleanupNotificationAssets() {
         for (const icon of notificationIcons) {
             for (const format of imageFormats) {
                 const iconPath = `${destPath}/drawable/${icon}.${format}`
-                if (_fs.default.existsSync(iconPath)) {
-                    _fs.default.unlinkSync(iconPath)
+                if (fs.existsSync(iconPath)) {
+                    fs.unlinkSync(iconPath)
                 }
             }
         }
 
         // Remove existing notification sounds
         const rawDir = `${destPath}/raw`
-        if (_fs.default.existsSync(rawDir)) {
+        if (fs.existsSync(rawDir)) {
             for (const sound of notificationSounds) {
                 for (const format of audioFormats) {
                     const soundPath = `${rawDir}/${sound}.${format}`
-                    if (_fs.default.existsSync(soundPath)) {
-                        _fs.default.unlinkSync(soundPath)
+                    if (fs.existsSync(soundPath)) {
+                        fs.unlinkSync(soundPath)
                     }
                 }
             }
@@ -1117,7 +1112,7 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
 
         const sourceApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
 
-        const sourceApkPath = _path.default.join(
+        const sourceApkPath = path.join(
             pwd,
             "androidProject",
             "app",
@@ -1127,7 +1122,7 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             buildType,
             sourceApkFileName
         )
-        const destinationDir = _path.default.join(
+        const destinationDir = path.join(
             process.env.PWD,
             BUILD_OUTPUT_PATH,
             "native",
@@ -1135,21 +1130,21 @@ async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
             currentDate,
             buildType
         )
-        const destinationApkPath = _path.default.join(destinationDir, destinationApkFileName)
+        const destinationApkPath = path.join(destinationDir, destinationApkFileName)
 
         // Check if source APK exists
-        if (!_fs.default.existsSync(sourceApkPath)) {
+        if (!fs.existsSync(sourceApkPath)) {
             progress.log(`APK not found at source path: ${sourceApkPath}`, "warning")
             return null
         }
 
         // Create destination directory if it doesn't exist
-        if (!_fs.default.existsSync(destinationDir)) {
-            _fs.default.mkdirSync(destinationDir, { recursive: true })
+        if (!fs.existsSync(destinationDir)) {
+            fs.mkdirSync(destinationDir, { recursive: true })
         }
 
         // Copy APK to destination
-        _fs.default.copyFileSync(sourceApkPath, destinationApkPath)
+        fs.copyFileSync(sourceApkPath, destinationApkPath)
         return destinationApkPath
     } catch (error) {
         progress.log(`Error moving APK: ${error.message}`, "error")
@@ -1165,7 +1160,7 @@ async function buildSignedAAB(androidConfig) {
         progress.log("Generating webview configuration for release...", "info")
         try {
             const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
-            await (0, _utils.runInteractiveCommand)("sh", ["-c", generateConfigCommand], {
+            await runInteractiveCommand("sh", ["-c", generateConfigCommand], {
                 "BUILD SUCCESSFUL": "",
             })
             progress.log("Webview config generated successfully", "success")

@@ -1,4 +1,4 @@
-const pc = require("picocolors")
+import pc from "picocolors"
 
 const handleError = (e) => {
     console.log(pc.red("Failed to start server: "), e)
@@ -136,7 +136,7 @@ const validateCustomDocument = (fn) => {
     }
 }
 
-module.exports = {
+export {
     validateConfigFile,
     validateConfigureStore,
     validateCustomDocument,

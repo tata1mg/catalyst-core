@@ -1,13 +1,10 @@
-/* eslint-disable no-extra-semi */
-"use strict"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { runCommand } from "./utils.js"
 
-var _fs = _interopRequireDefault(require("fs"))
-var _path = _interopRequireDefault(require("path"))
-var _utils = require("./utils.js")
-
-function _interopRequireDefault(e) {
-    return e && e.__esModule ? e : { default: e }
-}
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Simple progress logging without TerminalProgress dependency
 class SimpleProgress {
@@ -78,22 +75,22 @@ async function createKeystore(projectPaths, androidConfig) {
     }
 
     // Define keystore path
-    const keystorePath = _path.default.join(newProjectPath, "app", "keystore.jks")
+    const keystorePath = path.join(newProjectPath, "app", "keystore.jks")
 
     // Check if keystore already exists
-    if (_fs.default.existsSync(keystorePath)) {
+    if (fs.existsSync(keystorePath)) {
         progress.log("Keystore already exists, verifying accessibility...", "info")
 
         // Test keystore accessibility
         try {
             const testCommand = `keytool -list -keystore "${keystorePath}" -storepass "${keystoreConfig.storePassword}" -alias "${keystoreConfig.keyAlias}"`
-            ;(0, _utils.runCommand)(testCommand)
+            runCommand(testCommand)
             progress.log("Existing keystore verified successfully", "success")
             return keystorePath
         } catch (testError) {
             progress.log("Existing keystore verification failed, creating new one...", "warning")
             // Remove the faulty keystore
-            _fs.default.unlinkSync(keystorePath)
+            fs.unlinkSync(keystorePath)
         }
     }
 
@@ -117,9 +114,9 @@ async function createKeystore(projectPaths, androidConfig) {
         }
 
         // Create keystore directory if it doesn't exist
-        const keystoreDir = _path.default.dirname(keystorePath)
-        if (!_fs.default.existsSync(keystoreDir)) {
-            _fs.default.mkdirSync(keystoreDir, { recursive: true })
+        const keystoreDir = path.dirname(keystorePath)
+        if (!fs.existsSync(keystoreDir)) {
+            fs.mkdirSync(keystoreDir, { recursive: true })
         }
 
         // Build the distinguished name (DN) for the certificate
@@ -158,17 +155,17 @@ async function createKeystore(projectPaths, androidConfig) {
         ].join(" ")
 
         progress.log("Executing keytool command...", "info")
-        ;(0, _utils.runCommand)(keystoreCommand)
+        runCommand(keystoreCommand)
 
         // Verify keystore was created
-        if (!_fs.default.existsSync(keystorePath)) {
+        if (!fs.existsSync(keystorePath)) {
             throw new Error("Keystore file was not created successfully")
         }
 
         // Test the newly created keystore
         try {
             const testCommand = `keytool -list -keystore "${keystorePath}" -storepass "${keystoreConfig.storePassword}" -alias "${keystoreConfig.keyAlias}"`
-            ;(0, _utils.runCommand)(testCommand)
+            runCommand(testCommand)
             progress.log("New keystore verified successfully", "success")
         } catch (testError) {
             throw new Error(`Created keystore failed verification: ${testError.message}`)
@@ -197,12 +194,12 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
 
     try {
         // Verify keystore exists
-        if (!_fs.default.existsSync(keystorePath)) {
+        if (!fs.existsSync(keystorePath)) {
             throw new Error(`Keystore not found at: ${keystorePath}`)
         }
 
         // Get absolute path for the project directory
-        const absoluteProjectPath = _path.default.resolve(newProjectPath)
+        const absoluteProjectPath = path.resolve(newProjectPath)
 
         // Change to project directory
         const originalCwd = process.cwd()
@@ -211,13 +208,13 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
         progress.log(`Changed to project directory: ${absoluteProjectPath}`, "info")
 
         // Verify gradlew exists using absolute path
-        const gradlewPath = _path.default.join(absoluteProjectPath, "gradlew")
+        const gradlewPath = path.join(absoluteProjectPath, "gradlew")
         progress.log(`Looking for gradlew at: ${gradlewPath}`, "info")
 
-        if (!_fs.default.existsSync(gradlewPath)) {
+        if (!fs.existsSync(gradlewPath)) {
             // List files in the project directory for debugging
             try {
-                const files = _fs.default.readdirSync(absoluteProjectPath)
+                const files = fs.readdirSync(absoluteProjectPath)
                 progress.log(`Files in project directory: ${files.join(", ")}`, "info")
 
                 // Check if there's a gradlew file with different permissions or name
@@ -234,7 +231,7 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
 
         // Make gradlew executable
         try {
-            ;(0, _utils.runCommand)(`chmod +x ./gradlew`)
+            runCommand(`chmod +x ./gradlew`)
         } catch (chmodError) {
             progress.log(`Warning: Could not make gradlew executable: ${chmodError.message}`, "warning")
         }
@@ -243,7 +240,7 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             // Clean previous builds
             progress.log("Cleaning previous builds...", "info")
             try {
-                ;(0, _utils.runCommand)("./gradlew clean")
+                runCommand("./gradlew clean")
                 progress.log("Clean completed successfully", "success")
             } catch (cleanError) {
                 progress.log(`Warning: Clean failed: ${cleanError.message}`, "warning")
@@ -265,11 +262,11 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             ].join(" ")
 
             progress.log(`Executing: ${bundleCommand}`, "info")
-            ;(0, _utils.runCommand)(bundleCommand)
+            runCommand(bundleCommand)
             progress.log("Bundle build completed", "success")
 
             // Find the generated AAB file
-            const aabPath = _path.default.join(
+            const aabPath = path.join(
                 newProjectPath,
                 "app",
                 "build",
@@ -281,18 +278,18 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
 
             progress.log(`Looking for AAB file at: ${aabPath}`, "info")
 
-            if (!_fs.default.existsSync(aabPath)) {
+            if (!fs.existsSync(aabPath)) {
                 // Try to find AAB files in the build output directory
-                const bundleDir = _path.default.join(newProjectPath, "app", "build", "outputs", "bundle")
+                const bundleDir = path.join(newProjectPath, "app", "build", "outputs", "bundle")
                 progress.log(
                     `AAB not found at expected location. Checking bundle directory: ${bundleDir}`,
                     "warning"
                 )
 
-                if (_fs.default.existsSync(bundleDir)) {
+                if (fs.existsSync(bundleDir)) {
                     try {
                         const findAabCommand = `find "${bundleDir}" -name "*.aab" -type f`
-                        const foundAabs = (0, _utils.runCommand)(findAabCommand)
+                        const foundAabs = runCommand(findAabCommand)
                         if (foundAabs.trim()) {
                             progress.log(`Found AAB files: ${foundAabs.trim()}`, "info")
                         } else {
@@ -307,7 +304,7 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             }
 
             // Get file size
-            const stats = _fs.default.statSync(aabPath)
+            const stats = fs.statSync(aabPath)
             const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2)
 
             progress.log(`Signed AAB created successfully!`, "success")
@@ -315,13 +312,13 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             progress.log(`AAB size: ${fileSizeMB} MB`, "info")
 
             // Optionally copy AAB to a more accessible location
-            const outputDir = _path.default.join(newProjectPath, "release")
-            if (!_fs.default.existsSync(outputDir)) {
-                _fs.default.mkdirSync(outputDir, { recursive: true })
+            const outputDir = path.join(newProjectPath, "release")
+            if (!fs.existsSync(outputDir)) {
+                fs.mkdirSync(outputDir, { recursive: true })
             }
 
-            const outputAabPath = _path.default.join(outputDir, `${androidConfig.newProjectName}-release.aab`)
-            _fs.default.copyFileSync(aabPath, outputAabPath)
+            const outputAabPath = path.join(outputDir, `${androidConfig.newProjectName}-release.aab`)
+            fs.copyFileSync(aabPath, outputAabPath)
 
             progress.log(`AAB copied to: ${outputAabPath}`, "success")
 
@@ -344,13 +341,13 @@ async function initializeConfig(configPath) {
         throw new Error("Config path is required")
     }
 
-    if (!_fs.default.existsSync(configPath)) {
+    if (!fs.existsSync(configPath)) {
         throw new Error(`Config file not found at: ${configPath}`)
     }
 
     progress.log(`Reading config from: ${configPath}`, "info")
 
-    const configFile = _fs.default.readFileSync(configPath, "utf8")
+    const configFile = fs.readFileSync(configPath, "utf8")
     const config = JSON.parse(configFile)
 
     if (!config.android) {
@@ -371,8 +368,8 @@ async function initializeConfig(configPath) {
     if (android.outputPath) {
         progress.log(`Custom output path: ${android.outputPath}`, "info")
     } else {
-        const parentDir = _path.default.dirname(android.projectPath)
-        const defaultOutputPath = _path.default.join(parentDir, "build-output")
+        const parentDir = path.dirname(android.projectPath)
+        const defaultOutputPath = path.join(parentDir, "build-output")
         progress.log(`Default output path: ${defaultOutputPath}`, "info")
     }
 
@@ -407,7 +404,7 @@ async function initializeConfig(configPath) {
 async function diagnoseAndroidProject(projectPath) {
     progress.log("Diagnosing Android project structure...", "info")
 
-    if (!_fs.default.existsSync(projectPath)) {
+    if (!fs.existsSync(projectPath)) {
         throw new Error(`Project path does not exist: ${projectPath}`)
     }
 
@@ -469,8 +466,8 @@ async function diagnoseAndroidProject(projectPath) {
         if (pattern.type === "either") {
             // Check if either variant exists
             for (const file of pattern.files) {
-                const fullPath = _path.default.join(projectPath, file)
-                if (_fs.default.existsSync(fullPath)) {
+                const fullPath = path.join(projectPath, file)
+                if (fs.existsSync(fullPath)) {
                     found = true
                     foundFile = file
                     if (file.endsWith(".kts")) {
@@ -481,8 +478,8 @@ async function diagnoseAndroidProject(projectPath) {
             }
         } else {
             // Check single file
-            const fullPath = _path.default.join(projectPath, pattern.files[0])
-            if (_fs.default.existsSync(fullPath)) {
+            const fullPath = path.join(projectPath, pattern.files[0])
+            if (fs.existsSync(fullPath)) {
                 found = true
                 foundFile = pattern.files[0]
             }
@@ -524,7 +521,7 @@ async function diagnoseAndroidProject(projectPath) {
         progress.log("Searching for missing files in alternate locations...", "info")
         try {
             const findBuildFiles = `find "${projectPath}" \\( -name "build.gradle" -o -name "build.gradle.kts" -o -name "settings.gradle" -o -name "settings.gradle.kts" -o -name "AndroidManifest.xml" \\) -type f`
-            const foundFiles = (0, _utils.runCommand)(findBuildFiles)
+            const foundFiles = runCommand(findBuildFiles)
             if (foundFiles.trim()) {
                 progress.log("Found build files in unexpected locations:", "info")
                 foundFiles
@@ -547,7 +544,7 @@ async function validateProjectStructure(androidConfig) {
 
     progress.log("Validating project structure...", "info")
 
-    if (!_fs.default.existsSync(projectPath)) {
+    if (!fs.existsSync(projectPath)) {
         throw new Error(`Project path does not exist: ${projectPath}`)
     }
 
@@ -573,8 +570,8 @@ async function validateProjectStructure(androidConfig) {
     }
 
     // Get the parent directory
-    const parentDir = _path.default.dirname(projectPath)
-    const currentProjectDir = _path.default.basename(projectPath)
+    const parentDir = path.dirname(projectPath)
+    const currentProjectDir = path.basename(projectPath)
 
     if (currentProjectDir !== oldProjectName) {
         progress.log(
@@ -585,8 +582,8 @@ async function validateProjectStructure(androidConfig) {
 
     // Create output directory path - where final AAB will be saved
     const outputPath = androidConfig.outputPath
-        ? _path.default.resolve(androidConfig.outputPath)
-        : _path.default.resolve(parentDir, "build-output")
+        ? path.resolve(androidConfig.outputPath)
+        : path.resolve(parentDir, "build-output")
 
     progress.log(`Original project: ${projectPath}`, "info")
     progress.log(`Output directory: ${outputPath}`, "info")
@@ -613,7 +610,7 @@ async function createBackup(projectPaths, androidConfig) {
     const backupPath = `${projectPaths.oldProjectPath}_backup_${Date.now()}`
 
     try {
-        ;(0, _utils.runCommand)(`cp -r "${projectPaths.oldProjectPath}" "${backupPath}"`)
+        runCommand(`cp -r "${projectPaths.oldProjectPath}" "${backupPath}"`)
         progress.log(`Backup created at: ${backupPath}`, "success")
         return backupPath
     } catch (error) {
@@ -629,13 +626,13 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
 
     // Create a temporary directory based on package name (if available) or timestamp
     const tempDirSuffix = packageName ? packageName.replace(/\./g, "_") : Date.now().toString()
-    const tempDir = _path.default.join(_path.default.dirname(oldProjectPath), `temp_build_${tempDirSuffix}`)
+    const tempDir = path.join(path.dirname(oldProjectPath), `temp_build_${tempDirSuffix}`)
 
     // Remove existing temp directory with same name if it exists
-    if (_fs.default.existsSync(tempDir)) {
+    if (fs.existsSync(tempDir)) {
         progress.log(`Removing existing temp directory: ${tempDir}`, "info")
         try {
-            ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
+            runCommand(`rm -rf "${tempDir}"`)
         } catch (cleanupError) {
             progress.log(
                 `Warning: Could not remove existing temp directory: ${cleanupError.message}`,
@@ -647,11 +644,11 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
     try {
         // First, let's check what's actually in the source directory
         progress.log(`Inspecting source directory: ${oldProjectPath}`, "info")
-        if (!_fs.default.existsSync(oldProjectPath)) {
+        if (!fs.existsSync(oldProjectPath)) {
             throw new Error(`Source project path does not exist: ${oldProjectPath}`)
         }
 
-        const sourceFiles = _fs.default.readdirSync(oldProjectPath)
+        const sourceFiles = fs.readdirSync(oldProjectPath)
         progress.log(`Source directory contents: ${sourceFiles.join(", ")}`, "info")
 
         // Copy the entire project to the temporary location using rsync for better file preservation
@@ -660,12 +657,12 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         progress.log(`Temp destination: ${tempDir}`, "info")
 
         // Use rsync to preserve all file attributes and handle symlinks properly
-        ;(0, _utils.runCommand)(`rsync -av "${oldProjectPath}/" "${tempDir}/"`)
+        runCommand(`rsync -av "${oldProjectPath}/" "${tempDir}/"`)
         progress.log(`Created temporary copy for building`, "success")
 
         // Only check for gradlew which is absolutely essential for building
-        const gradlewPath = _path.default.join(tempDir, "gradlew")
-        if (!_fs.default.existsSync(gradlewPath)) {
+        const gradlewPath = path.join(tempDir, "gradlew")
+        if (!fs.existsSync(gradlewPath)) {
             throw new Error(
                 "Critical file missing: gradlew not found. This is required for building the project."
             )
@@ -685,8 +682,8 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         ]
 
         filesToCheck.forEach((file) => {
-            const fullPath = _path.default.join(tempDir, file.path)
-            const exists = _fs.default.existsSync(fullPath)
+            const fullPath = path.join(tempDir, file.path)
+            const exists = fs.existsSync(fullPath)
             progress.log(
                 `  ${file.desc}: ${exists ? "✅ Found" : "⚠️  Not found"}`,
                 exists ? "info" : "warning"
@@ -694,15 +691,15 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         })
 
         // List all files in temp directory for debugging
-        if (_fs.default.existsSync(tempDir)) {
-            const tempFiles = _fs.default.readdirSync(tempDir)
+        if (fs.existsSync(tempDir)) {
+            const tempFiles = fs.readdirSync(tempDir)
             progress.log(`Temp directory contents: ${tempFiles.join(", ")}`, "info")
         }
     } catch (error) {
         // Clean up on error
-        if (_fs.default.existsSync(tempDir)) {
+        if (fs.existsSync(tempDir)) {
             try {
-                ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
+                runCommand(`rm -rf "${tempDir}"`)
             } catch (cleanupError) {
                 progress.log(`Warning: Could not cleanup temp directory: ${cleanupError.message}`, "warning")
             }
@@ -713,7 +710,7 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
     // Find and rename any subdirectories that contain the old project name within the temp copy
     try {
         const findCommand = `find "${tempDir}" -type d -name "*${oldProjectName}*"`
-        const result = (0, _utils.runCommand)(findCommand)
+        const result = runCommand(findCommand)
 
         if (result.trim()) {
             const dirsToRename = result
@@ -724,9 +721,9 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
             for (const dir of dirsToRename) {
                 const newDirName = dir.replace(new RegExp(oldProjectName, "g"), newProjectName)
                 if (dir !== newDirName) {
-                    ;(0, _utils.runCommand)(`mv "${dir}" "${newDirName}"`)
+                    runCommand(`mv "${dir}" "${newDirName}"`)
                     progress.log(
-                        `Renamed subdirectory: ${_path.default.basename(dir)} → ${_path.default.basename(newDirName)}`,
+                        `Renamed subdirectory: ${path.basename(dir)} → ${path.basename(newDirName)}`,
                         "success"
                     )
                 }
@@ -749,28 +746,28 @@ async function finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tem
         // Create final output directory next to original project
         const outputDir =
             androidConfig.outputPath ||
-            _path.default.join(_path.default.dirname(oldProjectPath), "build-output")
-        if (!_fs.default.existsSync(outputDir)) {
-            _fs.default.mkdirSync(outputDir, { recursive: true })
+            path.join(path.dirname(oldProjectPath), "build-output")
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true })
             progress.log(`Created output directory: ${outputDir}`, "success")
         }
 
         // Copy AAB to final location with descriptive name
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0]
         const finalAabName = `${androidConfig.newProjectName}-release-${timestamp}.aab`
-        const finalAabPath = _path.default.join(outputDir, finalAabName)
+        const finalAabPath = path.join(outputDir, finalAabName)
 
-        _fs.default.copyFileSync(aabResult.outputAabPath, finalAabPath)
+        fs.copyFileSync(aabResult.outputAabPath, finalAabPath)
         progress.log(`AAB saved to final location: ${finalAabPath}`, "success")
 
         // Copy keystore to output directory for future use
-        const keystorePath = _path.default.join(tempDeploymentPath, "app", "keystore.jks")
-        if (_fs.default.existsSync(keystorePath)) {
-            const finalKeystorePath = _path.default.join(
+        const keystorePath = path.join(tempDeploymentPath, "app", "keystore.jks")
+        if (fs.existsSync(keystorePath)) {
+            const finalKeystorePath = path.join(
                 outputDir,
                 `${androidConfig.newProjectName}-keystore.jks`
             )
-            _fs.default.copyFileSync(keystorePath, finalKeystorePath)
+            fs.copyFileSync(keystorePath, finalKeystorePath)
             progress.log(`Keystore copied to: ${finalKeystorePath}`, "success")
         }
 
@@ -789,13 +786,13 @@ async function finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tem
 }
 
 async function cleanupTempDeployment(tempDeploymentPath) {
-    if (!tempDeploymentPath || !_fs.default.existsSync(tempDeploymentPath)) {
+    if (!tempDeploymentPath || !fs.existsSync(tempDeploymentPath)) {
         return
     }
 
     try {
         progress.log("Cleaning up temporary deployment files...", "info")
-        ;(0, _utils.runCommand)(`rm -rf "${tempDeploymentPath}"`)
+        runCommand(`rm -rf "${tempDeploymentPath}"`)
         progress.log("Temporary files cleaned up successfully", "success")
     } catch (error) {
         progress.log(`Warning: Could not cleanup temporary directory: ${error.message}`, "warning")
@@ -815,9 +812,9 @@ async function updateFileContents(projectPaths, androidConfig) {
             progress.log(`Replacing package name: ${OLD_PACKAGE} → ${packageName}`, "info")
 
             // Update build.gradle.kts
-            const buildGradlePath = _path.default.join(newProjectPath, "app", "build.gradle.kts")
-            if (_fs.default.existsSync(buildGradlePath)) {
-                let content = _fs.default.readFileSync(buildGradlePath, "utf8")
+            const buildGradlePath = path.join(newProjectPath, "app", "build.gradle.kts")
+            if (fs.existsSync(buildGradlePath)) {
+                let content = fs.readFileSync(buildGradlePath, "utf8")
                 content = content.replace(
                     /namespace = "io\.yourname\.androidproject"/g,
                     `namespace = "${packageName}"`
@@ -826,7 +823,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                     /applicationId = "io\.yourname\.androidproject"/g,
                     `applicationId = "${packageName}"`
                 )
-                _fs.default.writeFileSync(buildGradlePath, content, "utf8")
+                fs.writeFileSync(buildGradlePath, content, "utf8")
                 progress.log(`✅ Updated build.gradle.kts with package: ${packageName}`, "success")
             }
 
@@ -836,7 +833,7 @@ async function updateFileContents(projectPaths, androidConfig) {
             let totalUpdatedFiles = 0
 
             for (const sourceSet of sourceSets) {
-                const oldPackagePath = _path.default.join(
+                const oldPackagePath = path.join(
                     newProjectPath,
                     "app",
                     "src",
@@ -847,8 +844,8 @@ async function updateFileContents(projectPaths, androidConfig) {
                     "androidproject"
                 )
 
-                if (_fs.default.existsSync(oldPackagePath)) {
-                    const newPackagePath = _path.default.join(
+                if (fs.existsSync(oldPackagePath)) {
+                    const newPackagePath = path.join(
                         newProjectPath,
                         "app",
                         "src",
@@ -858,26 +855,26 @@ async function updateFileContents(projectPaths, androidConfig) {
                     )
 
                     // Create new package directory
-                    const newPackageDir = _path.default.dirname(newPackagePath)
-                    _fs.default.mkdirSync(newPackageDir, { recursive: true })
+                    const newPackageDir = path.dirname(newPackagePath)
+                    fs.mkdirSync(newPackageDir, { recursive: true })
 
                     // Move source files
-                    ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
+                    runCommand(`mv "${oldPackagePath}" "${newPackagePath}"`)
                     progress.log(`✅ Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
 
                     // Update package declarations in source files
                     const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`
-                    const sourceFiles = (0, _utils.runCommand)(findCommand)
+                    const sourceFiles = runCommand(findCommand)
                         .trim()
                         .split("\n")
                         .filter((f) => f.trim())
 
                     let updatedCount = 0
                     for (const file of sourceFiles) {
-                        let content = _fs.default.readFileSync(file, "utf8")
+                        let content = fs.readFileSync(file, "utf8")
                         if (content.includes(OLD_PACKAGE)) {
                             content = content.replace(new RegExp(OLD_PACKAGE, "g"), packageName)
-                            _fs.default.writeFileSync(file, content, "utf8")
+                            fs.writeFileSync(file, content, "utf8")
                             updatedCount++
                         }
                     }
@@ -889,8 +886,8 @@ async function updateFileContents(projectPaths, androidConfig) {
 
                     // Clean up old empty directories
                     try {
-                        ;(0, _utils.runCommand)(
-                            `find "${_path.default.join(newProjectPath, "app", "src", sourceSet, "java")}" -type d -empty -delete`
+                        runCommand(
+                            `find "${path.join(newProjectPath, "app", "src", sourceSet, "java")}" -type d -empty -delete`
                         )
                     } catch (err) {
                         // Ignore cleanup errors
@@ -903,29 +900,29 @@ async function updateFileContents(projectPaths, androidConfig) {
             }
 
             // Update AndroidManifest.xml
-            const manifestPath = _path.default.join(
+            const manifestPath = path.join(
                 newProjectPath,
                 "app",
                 "src",
                 "main",
                 "AndroidManifest.xml"
             )
-            if (_fs.default.existsSync(manifestPath)) {
-                let content = _fs.default.readFileSync(manifestPath, "utf8")
+            if (fs.existsSync(manifestPath)) {
+                let content = fs.readFileSync(manifestPath, "utf8")
                 if (content.includes(OLD_PACKAGE)) {
                     content = content.replace(new RegExp(OLD_PACKAGE, "g"), packageName)
-                    _fs.default.writeFileSync(manifestPath, content, "utf8")
+                    fs.writeFileSync(manifestPath, content, "utf8")
                     progress.log(`✅ Updated AndroidManifest.xml with package: ${packageName}`, "success")
                 }
             }
 
             // Update proguard-rules.pro
-            const proguardPath = _path.default.join(newProjectPath, "app", "proguard-rules.pro")
-            if (_fs.default.existsSync(proguardPath)) {
-                let content = _fs.default.readFileSync(proguardPath, "utf8")
+            const proguardPath = path.join(newProjectPath, "app", "proguard-rules.pro")
+            if (fs.existsSync(proguardPath)) {
+                let content = fs.readFileSync(proguardPath, "utf8")
                 if (content.includes(OLD_PACKAGE)) {
                     content = content.replace(new RegExp(OLD_PACKAGE.replace(/\./g, "\\."), "g"), packageName)
-                    _fs.default.writeFileSync(proguardPath, content, "utf8")
+                    fs.writeFileSync(proguardPath, content, "utf8")
                     progress.log(`✅ Updated proguard-rules.pro with package: ${packageName}`, "success")
                 }
             }
@@ -933,7 +930,7 @@ async function updateFileContents(projectPaths, androidConfig) {
 
         // STEP 2: Find and rename files that contain the old project name
         const findFilesCommand = `find "${newProjectPath}" -type f -name "*${oldProjectName}*"`
-        const fileResult = (0, _utils.runCommand)(findFilesCommand)
+        const fileResult = runCommand(findFilesCommand)
 
         if (fileResult.trim()) {
             const filesToRename = fileResult
@@ -944,9 +941,9 @@ async function updateFileContents(projectPaths, androidConfig) {
             for (const file of filesToRename) {
                 const newFileName = file.replace(new RegExp(oldProjectName, "g"), newProjectName)
                 if (file !== newFileName) {
-                    ;(0, _utils.runCommand)(`mv "${file}" "${newFileName}"`)
+                    runCommand(`mv "${file}" "${newFileName}"`)
                     progress.log(
-                        `Renamed file: ${_path.default.basename(file)} → ${_path.default.basename(newFileName)}`,
+                        `Renamed file: ${path.basename(file)} → ${path.basename(newFileName)}`,
                         "success"
                     )
                 }
@@ -971,7 +968,7 @@ async function updateFileContents(projectPaths, androidConfig) {
         for (const fileType of fileTypes) {
             try {
                 const findContentCommand = `find "${newProjectPath}" -name "${fileType}" -type f`
-                const files = (0, _utils.runCommand)(findContentCommand)
+                const files = runCommand(findContentCommand)
 
                 if (files.trim()) {
                     const fileList = files
@@ -981,15 +978,15 @@ async function updateFileContents(projectPaths, androidConfig) {
 
                     for (const file of fileList) {
                         try {
-                            const content = _fs.default.readFileSync(file, "utf8")
+                            const content = fs.readFileSync(file, "utf8")
                             if (content.includes(oldProjectName)) {
                                 const updatedContent = content.replace(
                                     new RegExp(oldProjectName, "g"),
                                     newProjectName
                                 )
-                                _fs.default.writeFileSync(file, updatedContent, "utf8")
+                                fs.writeFileSync(file, updatedContent, "utf8")
                                 progress.log(
-                                    `Updated content in: ${_path.default.relative(newProjectPath, file)}`,
+                                    `Updated content in: ${path.relative(newProjectPath, file)}`,
                                     "info"
                                 )
                             }
@@ -1277,14 +1274,12 @@ async function buildAndroidAAB(configPathOrConfig) {
     }
 }
 
-// Export functions for use as a module - using the same export pattern as buildAppAndroid.js
-// This allows the functions to be imported with ES6 import syntax from other modules
-exports.buildAndroidAAB = buildAndroidAAB
-exports.createAndroidDeployment = buildAndroidAAB
-exports.renameAndroidProject = buildAndroidAAB
+export { buildAndroidAAB }
+export { buildAndroidAAB as createAndroidDeployment }
+export { buildAndroidAAB as renameAndroidProject }
 
-// Execute if run directly
-if (require.main === module) {
+const isMain = process.argv[1] === fileURLToPath(import.meta.url)
+if (isMain) {
     const configPath = process.argv[2]
     if (!configPath) {
         console.error("Usage: node renameAndroidProject.js <config-path>")

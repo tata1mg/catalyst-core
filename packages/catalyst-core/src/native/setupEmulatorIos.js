@@ -4,7 +4,7 @@ import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
 
 const configPath = `${process.env.PWD}/config/config.json`
-const { setupServer } = require("./setupServer.js")
+import { setupServer } from "./setupServer.js"
 
 const ITEMS_PER_PAGE = 10
 
