@@ -1,0 +1,52 @@
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/CameraSessionManager.kt
+  33c5d49edd2fffa1 175
+  47e68369e05065c6 15,157-163,174,176-177
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/ZoomController.kt
+  3e2d727b0417cfe4 3,7,30-37,59,93-95,101-102,105-106,109-119,122-142,146-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "3960084c638bd75eb3d943ff7eb2a2605e3ebb0a",
+  "prompts": {
+    "33c5d49edd2fffa1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5673e3bf-b5bc-47a8-bf7d-6205a64864d5",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 12,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "3e2d727b0417cfe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "236d65d9-073b-4367-a01a-fdf5cfdb7bdf",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 59,
+      "total_deletions": 3,
+      "accepted_lines": 59,
+      "overriden_lines": 0
+    },
+    "47e68369e05065c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1ab9bfa-5acf-4ea1-91ac-4bb93cb25e5a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 47,
+      "total_deletions": 9,
+      "accepted_lines": 11,
+      "overriden_lines": 1
+    }
+  }
+}

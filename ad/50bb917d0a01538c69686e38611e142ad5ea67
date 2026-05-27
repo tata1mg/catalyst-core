@@ -1,0 +1,253 @@
+src/native/bridge/hooks/index.js
+  s_24497db92fb9a1::t_04f41c91f67b07 1-10
+  s_e630d5d6135fa0::t_6bcb1067d30444 11
+src/native/bridge/constants/NativeInterfaces.js
+  9c35173367a55da7 70
+  c9137a9845b6981c 15
+  s_e630d5d6135fa0::t_b0cd789c01ef98 112-116
+  2d84b09f7d377158 10-12,17,65-68,71
+  s_e630d5d6135fa0::t_aabcbdbf05783e 208-219
+  718bfc00e07bf870 13-14,16,69
+  s_e630d5d6135fa0::t_36411c708120d7 44-48
+src/native/bridge/utils/NativeBridge.js
+  718bfc00e07bf870 162-163,166,174-178,180,188-192
+  c9137a9845b6981c 182-187
+  f6ebd40616bc18e4 156
+  c6b85f77a1b8e75b 164-165,167-173,179
+  05a1e08640f2e2d6 150-154
+  2d84b09f7d377158 145-149,155,157-161,193-194
+  s_e630d5d6135fa0::t_0e9b6d5d8a9174 383-404
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/TransitionManager.kt
+  s_e630d5d6135fa0::t_6d7d80be24e15b 1-2,5-11,13-14,16-147,150-163,166-202
+  s_e630d5d6135fa0::t_d739cd6029cda2 3-4
+  s_d7b565570737b3::t_23589155531d70 12,15
+  s_e630d5d6135fa0::t_70a6cc635456ca 148-149,164-165
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  afe0729fecff0637 84
+  s_d7b565570737b3::t_960597517c5632 97
+  dfe79093f19be9dc 181-186
+  s_e630d5d6135fa0::t_018ecd714680af 92-96
+  21574dc50d024a38 79-82,85
+  718bfc00e07bf870 83
+  eee16dd8f8756a1b 133,174-179,187-188
+  c6b85f77a1b8e75b 116-129
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  718bfc00e07bf870 262,286,289-290,295-303,307-309,323-332
+  2d84b09f7d377158 268
+  05a1e08640f2e2d6 263
+  72dded49f61cea83 292-294,304-306
+  s_e630d5d6135fa0::t_d0939996e22607 161-163
+  s_e630d5d6135fa0::t_8919aab41a13ad 1308-1310
+  dfe79093f19be9dc 156,267,278
+  d98e1a31d59b4607 264-265,269
+  c9137a9845b6981c 311-322
+  s_e630d5d6135fa0::t_fa0e9f3aa3ac52 1239-1276
+  4b1e6f4892059e34 253-254,259-261
+  c6b85f77a1b8e75b 1120-1125
+  3b5d00f5cf13f1e5 258
+  cec6969608c0b7e6 285,287-288,291
+  21574dc50d024a38 154-155,157,249-252,255-257,266,270-277,279-283,1117-1119,1126-1127,1311-1314
+src/native/bridge/hooks/useNativeTransition.js
+  s_237672e08390b3::t_07c2433bc020a4 206
+  s_e630d5d6135fa0::t_4bcb20727b7e7a 1-6,8-205,207-220
+  s_d7b565570737b3::t_8621fa408fdfb1 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "ad50bb917d0a01538c69686e38611e142ad5ea67",
+  "prompts": {
+    "05a1e08640f2e2d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55ef874e-f048-4d53-ab61-bc604baffeb5",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 12,
+      "total_deletions": 9,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    },
+    "21574dc50d024a38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "88cbef04-12a0-43b7-97ec-7fe1ab6dbb92",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 253,
+      "total_deletions": 8,
+      "accepted_lines": 38,
+      "overriden_lines": 0
+    },
+    "2d84b09f7d377158": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9146c77d-c6b4-4513-9d59-505be9971420",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 97,
+      "total_deletions": 0,
+      "accepted_lines": 23,
+      "overriden_lines": 0
+    },
+    "3b5d00f5cf13f1e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a40ebd7a-dc92-4931-96f9-e24eb6f600d8",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 81,
+      "total_deletions": 35,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "4b1e6f4892059e34": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "88a2bdf7-e8e5-48a9-90d0-880c96e8bfd2",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 106,
+      "total_deletions": 16,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "718bfc00e07bf870": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3835bd29-28ad-4b7c-a95d-b9c2622aae28",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 246,
+      "total_deletions": 11,
+      "accepted_lines": 45,
+      "overriden_lines": 0
+    },
+    "72dded49f61cea83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14c4b3cf-ad85-4454-b108-63e64d9852f7",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 3448,
+      "total_deletions": 7,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    },
+    "9c35173367a55da7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ac6ba7dc-c6b7-4fef-9920-6797082b82dc",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 72,
+      "total_deletions": 32,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "afe0729fecff0637": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9edc516a-037a-4043-892b-ce953e34df3a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 860,
+      "total_deletions": 502,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "c6b85f77a1b8e75b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5916feac-fae9-4550-9020-9ad082a491e4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 101,
+      "total_deletions": 51,
+      "accepted_lines": 30,
+      "overriden_lines": 0
+    },
+    "c9137a9845b6981c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d23682d5-0f97-45e6-8899-f459c7ccee19",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 56,
+      "total_deletions": 4,
+      "accepted_lines": 19,
+      "overriden_lines": 0
+    },
+    "cec6969608c0b7e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "995b914e-9338-4b79-8435-45aafb526611",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 36,
+      "total_deletions": 38,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "d98e1a31d59b4607": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd582529-865c-4678-9c63-29aa87d38a17",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 115,
+      "total_deletions": 44,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "dfe79093f19be9dc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71470414-c3b8-41ac-9f4e-0bd18a769e99",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 25,
+      "total_deletions": 7,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    },
+    "eee16dd8f8756a1b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "19b05bf4-08f4-45f1-8a5f-a1a90e3eeb94",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 101,
+      "total_deletions": 10,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    },
+    "f6ebd40616bc18e4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "171bbed6-f543-4ac5-a142-a1d881c5e432",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "total_additions": 89,
+      "total_deletions": 12,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

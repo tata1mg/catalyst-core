@@ -1,0 +1,36 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  fc336703fdfdf604 58-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "e2fd0e011edeb362bd16f134face58d82e34d43f",
+  "prompts": {
+    "fb7636ac98eba817": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4937-62b0-7b02-9b7d-8dd38e89b41a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1572,
+      "total_deletions": 88,
+      "accepted_lines": 1503,
+      "overriden_lines": 0
+    },
+    "fc336703fdfdf604": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e67db-a6fd-7e03-91e9-c652a0676b13",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 45,
+      "total_deletions": 0,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,37 @@
+src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  108599a4ad168c6f 212-214,219-221,237
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/plugins/PluginBridge.kt
+  108599a4ad168c6f 17,22,25,69-81,95,137,154,157,191,203
+src/native/iosnativeWebView/Sources/Core/Plugins/CatalystPlugin.swift
+  108599a4ad168c6f 3
+src/native/pluginComposerAndroid.js
+  108599a4ad168c6f 464,469
+src/native/buildAppIos.js
+  108599a4ad168c6f 737-739
+src/native/internal-plugins/device-info-plugin/android/DeviceInfoPlugin.kt
+  108599a4ad168c6f 17
+src/native/androidProject/app/src/test/java/io/yourname/androidproject/plugins/PluginBridgeTest.kt
+  108599a4ad168c6f 121-138
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/plugins/CatalystPlugin.kt
+  108599a4ad168c6f 3-4,6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "70acaaf375085dbf9724416f9c8f107b0b8eb930",
+  "prompts": {
+    "108599a4ad168c6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d6244-f603-7c03-be0f-0d0240653bf4",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 57,
+      "total_deletions": 23,
+      "accepted_lines": 57,
+      "overriden_lines": 0
+    }
+  }
+}

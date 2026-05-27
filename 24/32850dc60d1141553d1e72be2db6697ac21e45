@@ -1,0 +1,36 @@
+changelog.md
+  d3fa588d64cbea35 3-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "2432850dc60d1141553d1e72be2db6697ac21e45",
+  "prompts": {
+    "1f9cdc71b8009f0d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d8f84-ae9c-7a63-a9c7-5666d5306ea5",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1849,
+      "total_deletions": 0,
+      "accepted_lines": 1849,
+      "overriden_lines": 0
+    },
+    "d3fa588d64cbea35": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d8f88-8eaf-7562-8d3a-82498d3826bc",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 2,
+      "accepted_lines": 21,
+      "overriden_lines": 0
+    }
+  }
+}

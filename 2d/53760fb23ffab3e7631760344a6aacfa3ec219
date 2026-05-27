@@ -1,0 +1,29 @@
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/04-Configuration.md"
+  8d9c7266fb860b47 7-8,229
+"docs/content/02-Guides and Tutorials/02-First Universal App/03-Configuration.md"
+  8d9c7266fb860b47 8-9,403
+"docs/content/11-API Reference/01-Hooks.md"
+  8d9c7266fb860b47 16-17,20,171-207
+"docs/content/11-API Reference/02-Configuration.md"
+  8d9c7266fb860b47 7-8,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "2d53760fb23ffab3e7631760344a6aacfa3ec219",
+  "prompts": {
+    "8d9c7266fb860b47": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3b37-d60b-7751-b807-a66d7a340151",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 50,
+      "total_deletions": 128,
+      "accepted_lines": 50,
+      "overriden_lines": 0
+    }
+  }
+}

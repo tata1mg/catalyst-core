@@ -1,0 +1,52 @@
+src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  8177c1a73c2f2949 10-11
+src/native/iosnativeWebView/Sources/Core/Camera/CameraSessionManager.swift
+  8177c1a73c2f2949 230-233,244,271-272,300-301
+src/native/iosnativeWebView/Sources/Core/Camera/HoldController.swift
+  8177c1a73c2f2949 12,17,31,40,45-52,57-61
+src/native/iosnativeWebView/Sources/Core/Camera/TorchController.swift
+  8177c1a73c2f2949 51
+src/native/iosnativeWebView/Sources/Core/Camera/ZoomController.swift
+  8177c1a73c2f2949 34-37,39,45,51-56,61-65,69-71
+src/native/iosnativeWebView/Sources/Core/Camera/BarcodeDetector.swift
+  8177c1a73c2f2949 43-46
+src/native/iosnativeWebView/Sources/Core/Camera/NativeCameraManager.swift
+  8177c1a73c2f2949 50,109-110,115
+src/native/iosnativeWebView/Sources/Core/Camera/CameraPreviewView.swift
+  8177c1a73c2f2949 30-33
+src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  8177c1a73c2f2949 304,308,387-390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7dd49d5c4363666d44c3d370bb9b1637617d89b7",
+  "prompts": {
+    "8177c1a73c2f2949": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "849b59c9-35a2-4533-a3bc-fbe848e3bbcc",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 67,
+      "overriden_lines": 0
+    },
+    "822f916a1db97145": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2bb92484-fb05-4df0-befa-d066a1524fbc",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 26,
+      "overriden_lines": 0
+    }
+  }
+}

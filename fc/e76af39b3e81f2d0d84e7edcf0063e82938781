@@ -1,0 +1,41 @@
+src/native/buildAppIos.js
+  s_7954f0b8498825::t_5e9eb2e8485cf2 2065
+src/native/iosnativeWebView/Sources/Core/WebView/TransitionManager.swift
+  s_b657b26204a6c0::t_5bb83d85f8ed05 1-169
+src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_7954f0b8498825::t_81912b56fadf33 112-116
+src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_b657b26204a6c0::t_bd971cbcedbb5e 373-376
+src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_b657b26204a6c0::t_abc476a93f7fd4 339-348
+  s_b657b26204a6c0::t_5ab0a9b1d2f2ab 26-28
+  s_b657b26204a6c0::t_a96f5f1e788e62 87-93
+  s_b657b26204a6c0::t_6dfd794727ea3f 172,177-179
+  s_b657b26204a6c0::t_3b4c35f148a464 355-381
+src/native/iosnativeWebView/Sources/Core/Constants/CatalystConstants.swift
+  s_b657b26204a6c0::t_4f92fb2babf09a 83-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "fce76af39b3e81f2d0d84e7edcf0063e82938781",
+  "prompts": {},
+  "sessions": {
+    "s_7954f0b8498825": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9238ce1b-2527-44e9-b91d-2231e418834a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_b657b26204a6c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5e6095ed-c201-475f-a89d-15dcb6c46ede",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

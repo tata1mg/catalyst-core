@@ -1,0 +1,21 @@
+examples/test-video-hook-poc/prompt.txt
+  s_1cacec90ff269a::t_ac47b6e354b4b4 1-6
+examples/test-video-hook-poc/README.md
+  s_1cacec90ff269a::t_6a4d06ebff8489 9-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "18551ae38b119731e16a980361679416b63965d0",
+  "prompts": {},
+  "sessions": {
+    "s_1cacec90ff269a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "25ecc573-736e-43aa-8c64-f704cff2fec9",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

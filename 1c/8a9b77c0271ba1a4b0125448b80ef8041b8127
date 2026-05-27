@@ -1,0 +1,27 @@
+package.json
+  1b3aa257e4a8e310 8
+scripts/setup.js
+  1b3aa257e4a8e310 1-33
+README.md
+  1b3aa257e4a8e310 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "1c8a9b77c0271ba1a4b0125448b80ef8041b8127",
+  "prompts": {
+    "1b3aa257e4a8e310": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d90b4-f222-72c1-b07a-8ce4229b5810",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 35,
+      "total_deletions": 2,
+      "accepted_lines": 35,
+      "overriden_lines": 0
+    }
+  }
+}
