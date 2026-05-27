@@ -138,7 +138,7 @@ const _renderMarkUp = async (
     )
 
     const jsScripts = generateScriptElements(criticalAssets.js)
-    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
+    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", "high")
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
 

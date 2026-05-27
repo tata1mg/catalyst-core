@@ -76,13 +76,13 @@ export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
  * @param {string[]} jsUrls
  * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
  */
-export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload") =>
+export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload", fetchPriority) =>
     [...new Set(jsUrls)].map((url, i) =>
         React.createElement("link", {
             key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
             href: url,
-            fetchPriority: "high",
+            fetchPriority: fetchPriority ? fetchPriority : "low",
         })
     )
 
