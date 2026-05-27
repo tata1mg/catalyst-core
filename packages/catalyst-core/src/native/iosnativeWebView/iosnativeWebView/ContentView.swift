@@ -7,7 +7,15 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 
 public struct ContentView: View {
     @StateObject private var webViewModel = WebViewModel()
-    
+
+    private static var startURL: String {
+        let base = ConfigConstants.url
+        let initial = ConfigConstants.initial_url
+        guard !initial.isEmpty else { return base }
+        let path = initial.hasPrefix("/") ? initial : "/\(initial)"
+        return base + path
+    }
+
     public init() {}
 
     public var body: some View {
@@ -15,15 +23,15 @@ public struct ContentView: View {
             // Normal remote URL - isolated from state changes
             // Conditionally apply edge-to-edge based on config (matches Android behavior)
             if ConfigConstants.EdgeToEdge.enabled {
-                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
+                WebViewContainer(urlString: ContentView.startURL, viewModel: webViewModel)
                     .ignoresSafeArea()
                     .onAppear {
-                        logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: enabled]")
+                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: enabled]")
                     }
             } else {
-                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel)
+                WebViewContainer(urlString: ContentView.startURL, viewModel: webViewModel)
                     .onAppear {
-                        logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: disabled, respecting safe areas]")
+                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: disabled, respecting safe areas]")
                     }
             }
             
