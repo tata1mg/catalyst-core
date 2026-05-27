@@ -1,8 +1,27 @@
+const fs = require("fs")
 const path = require("path")
 const { green, cyan, yellow } = require("picocolors")
 const { name } = require(`${process.cwd()}/package.json`)
-const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+const appConfig = require(`${process.cwd()}/config/config.json`)
+const { BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH } = appConfig
 const { arrayToObject, printBundleInformation, runBuildCommands } = require("./scriptUtils.js")
+
+const BUILD_META_FILENAME = "build-meta.json"
+
+/**
+ * @description - Persists the config values that webpack bakes into the bundle so
+ * that `serve` can detect when the build is stale relative to the current config.
+ * Only keys whose values get embedded into client assets at build time are tracked here.
+ */
+function writeBuildMeta() {
+    const meta = {
+        PUBLIC_STATIC_ASSET_URL,
+        PUBLIC_STATIC_ASSET_PATH,
+        builtAt: new Date().toISOString(),
+    }
+    const metaPath = path.join(process.cwd(), BUILD_OUTPUT_PATH, BUILD_META_FILENAME)
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2))
+}
 
 /**
  * @description - creates a production build of the application.
@@ -36,6 +55,8 @@ function build() {
             ...argumentsObject,
         },
     })
+
+    writeBuildMeta()
 
     console.log(green("Compiled successfully."))
     console.log("\nFile sizes after gzip:\n")
