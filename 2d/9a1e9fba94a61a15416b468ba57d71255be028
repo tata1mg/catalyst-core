@@ -1,0 +1,30 @@
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  s_5151114b7df05f::t_e6245ba6ca5e90 10-18,26,29,32,34
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Constants/ConfigConstants.swift
+  s_5151114b7df05f::t_a01eef2682596d 29
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_5151114b7df05f::t_ac109ddf7f587b 456,465-467
+  s_5151114b7df05f::t_e1ca130731847b 536
+  s_5151114b7df05f::t_00ac304a4a1762 827
+  s_5151114b7df05f::t_e3b42feb0d7584 457-464
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/WebCacheManager.kt
+  s_5151114b7df05f::t_c43a59571d13ce 405-407
+  s_5151114b7df05f::t_93263514c58704 333-342,349,353,368-369
+  s_5151114b7df05f::t_be512756d8f61d 397-398
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2d9a1e9fba94a61a15416b468ba57d71255be028",
+  "prompts": {},
+  "sessions": {
+    "s_5151114b7df05f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bceb712c-b729-4227-afbf-df1e0ee16bbb",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
