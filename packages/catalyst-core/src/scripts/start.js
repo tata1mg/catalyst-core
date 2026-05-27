@@ -1,77 +1,48 @@
-const path = require("path")
-const { spawnSync, spawn } = require("child_process")
-const { arrayToObject } = require("./scriptUtils")
-const { name } = require(`${process.cwd()}/package.json`)
-const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+import path from "path"
+import { spawnSync } from "child_process"
+import { arrayToObject } from "./scriptUtils.js"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { readFileSync } from "fs"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
+const preInitPath = path.resolve(__dirname, "preServerInit.js")
 
 /**
  * @description - starts webpack dev server and node server.
  */
 function start() {
-    const isWindows = process.platform === "win32"
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    const command = `
-    node ./dist/scripts/checkVersion
-    npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL & npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --extensions .js,.ts,.jsx,.tsx --watch-path=${process.env.PWD}/server --watch-path=${process.env.PWD}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL
-    `
+    // Read package.json
+    const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
+    const { name } = packageJson
 
-    if (isWindows) {
-        spawn(
-            `node ./dist/scripts/checkVersion && start /b npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
-            [],
-            {
-                cwd: dirname,
-                stdio: "inherit",
-                shell: true,
-                env: {
-                    ...process.env,
-                    src_path: process.cwd(),
-                    NODE_ENV: "development",
-                    IS_DEV_COMMAND: false,
-                    APPLICATION: name || "catalyst_app",
-                    BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
-                    ...argumentsObject,
-                },
-            }
-        )
-
-        spawn(
-            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
-            [],
-            {
-                cwd: dirname,
-                stdio: "inherit",
-                shell: true,
-                env: {
-                    ...process.env,
-                    src_path: process.cwd(),
-                    NODE_ENV: "development",
-                    IS_DEV_COMMAND: false,
-                    APPLICATION: name || "catalyst_app",
-                    BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
-                    ...argumentsObject,
-                },
-            }
-        )
-    } else {
-        spawnSync(command, [], {
-            cwd: dirname,
-            stdio: "inherit",
-            shell: true,
-            env: {
-                ...process.env,
-                src_path: process.cwd(),
-                NODE_ENV: "development",
-                IS_DEV_COMMAND: false,
-                APPLICATION: name || "catalyst_app",
-                BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
-                ...argumentsObject,
-            },
-        })
-    }
+    const command = `node --import ${preInitPath} --loader ${loaderPath} ./dist/server/expressServer.js`
+    spawnSync(command, [], {
+        cwd: dirname,
+        stdio: "inherit",
+        shell: true,
+        env: {
+            ...process.env,
+            src_path: process.env.PWD,
+            NODE_ENV: "development",
+            IS_DEV_COMMAND: false,
+            APPLICATION: name || "catalyst_app",
+            ...argumentsObject,
+            filterKeys: JSON.stringify([
+                "src_path",
+                "NODE_ENV",
+                "IS_DEV_COMMAND",
+                "APPLICATION",
+                ...Object.keys(argumentsObject),
+            ]),
+        },
+    })
 }
 
 start()

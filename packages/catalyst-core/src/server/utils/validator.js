@@ -1,20 +1,7 @@
-const pc = require("picocolors")
+import pc from "picocolors"
 
 const handleError = (e) => {
     console.log(pc.red("Failed to start server: "), e)
-}
-
-const safeCall = (fn, ...args) => {
-    try {
-        if (!fn) return
-        if (typeof fn !== "function") {
-            console.log(pc.red("Invalid lifecycle method defined in server/index.js"))
-            return
-        }
-        fn(...args)
-    } catch (e) {
-        console.log(pc.red(`Failed to execute ${fn.name}: `), e)
-    }
 }
 
 const validatePreInitServer = (fn) => {
@@ -149,8 +136,21 @@ const validateCustomDocument = (fn) => {
     }
 }
 
-module.exports = {
-    safeCall,
+/**
+ * Safely call a function, catching and logging any errors.
+ * Used for user-defined hooks (onRouteMatch, onFetcherError, etc.)
+ * that should never crash the SSR pipeline.
+ */
+const safeCall = (fn, ...args) => {
+    if (typeof fn !== "function") return
+    try {
+        return fn(...args)
+    } catch (e) {
+        console.error("Error in user hook:", e)
+    }
+}
+
+export {
     validateConfigFile,
     validateConfigureStore,
     validateCustomDocument,
@@ -160,4 +160,5 @@ module.exports = {
     validateModuleAlias,
     validatePreInitServer,
     validateMiddleware,
+    safeCall,
 }
