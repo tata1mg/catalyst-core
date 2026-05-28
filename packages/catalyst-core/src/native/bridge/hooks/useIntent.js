@@ -7,30 +7,9 @@ import { useBaseHook } from "../useBaseHook.js"
 export const useIntent = () => {
     const base = useBaseHook("useIntent")
 
-    if (typeof window === "undefined") {
-        return {
-            data: null,
-            loading: false,
-            progress: null,
-            error: null,
-            isWeb: true,
-            isNative: false,
-            execute: () => {},
-            clear: () => {},
-            clearError: () => {},
-            isLoading: false,
-            processingState: null,
-            openFile: () => {},
-            success: null,
-            reset: () => {},
-        }
-    }
-
-    if (!window.WebBridge) {
-        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
-    }
-
     useEffect(() => {
+        if (typeof window === "undefined" || !window.WebBridge) return
+
         window.WebBridge.register(NATIVE_CALLBACKS.ON_INTENT_SUCCESS, (data) => {
             console.log("📄 Intent completed successfully:", data)
             base.setDataAndComplete({ result: data, success: true })

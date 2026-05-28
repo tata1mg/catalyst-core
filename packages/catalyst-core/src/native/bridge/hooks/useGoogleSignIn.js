@@ -8,26 +8,8 @@ import { ERROR_CODES, createStandardError } from "../errors.js"
 export const useGoogleSignIn = (defaultOptions = {}) => {
     const base = useBaseHook("useGoogleSignIn")
 
-    if (typeof window === "undefined") {
-        return {
-            data: null,
-            loading: false,
-            error: null,
-            progress: null,
-            isWeb: true,
-            isNative: false,
-            signIn: () => {},
-            execute: () => {},
-            clear: () => {},
-            clearError: () => {},
-        }
-    }
-
-    if (!window.WebBridge) {
-        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
-    }
-
     useEffect(() => {
+        if (typeof window === "undefined" || !window.WebBridge) return
         const handleSuccess = (payload) => {
             try {
                 const parsed = typeof payload === "string" ? JSON.parse(payload) : payload

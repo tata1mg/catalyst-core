@@ -65,6 +65,21 @@ export const useHapticFeedback = ({ webFallback } = {}) => {
     const base = useBaseHook("useHapticFeedback", { hasWebFallback: true, webFallback })
     const [capabilities, setCapabilities] = useState(() => detectHapticCapabilities(base.isNative))
 
+    const HAPTIC_TYPES = {
+        LIGHT: "light",
+        MEDIUM: "medium",
+        HEAVY: "heavy",
+        SUCCESS: "success",
+        WARNING: "warning",
+        ERROR: "error",
+        SELECTION: "selection",
+        IMPACT: "impact",
+    }
+
+    useEffect(() => {
+        setCapabilities(detectHapticCapabilities(base.isNative))
+    }, [base.isNative])
+
     if (base.webFallbackDisabled) {
         return {
             data: null,
@@ -96,21 +111,6 @@ export const useHapticFeedback = ({ webFallback } = {}) => {
             HAPTIC_TYPES: {},
         }
     }
-
-    const HAPTIC_TYPES = {
-        LIGHT: "light",
-        MEDIUM: "medium",
-        HEAVY: "heavy",
-        SUCCESS: "success",
-        WARNING: "warning",
-        ERROR: "error",
-        SELECTION: "selection",
-        IMPACT: "impact",
-    }
-
-    useEffect(() => {
-        setCapabilities(detectHapticCapabilities(base.isNative))
-    }, [base.isNative])
 
     const handleWebHaptic = (type) => {
         if (!navigator.vibrate) return false
