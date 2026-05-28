@@ -333,6 +333,26 @@ class NativeBridge(
     }
 
     @JavascriptInterface
+    fun openInBrowser(url: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_INTENT_ERROR, "open in browser") {
+            mainActivity.runOnUiThread {
+                if (url.isNullOrBlank()) {
+                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_INTENT_ERROR, "URL is required")
+                    return@runOnUiThread
+                }
+                try {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    mainActivity.startActivity(intent)
+                    BridgeUtils.notifyWebSuccess(webView, BridgeUtils.WebEvents.ON_INTENT_SUCCESS)
+                } catch (e: Exception) {
+                    BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_INTENT_ERROR, "Failed to open URL: ${e.message}")
+                }
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun openFileWithIntent(params: String?) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_INTENT_ERROR, "open file with intent") {
             mainActivity.runOnUiThread {

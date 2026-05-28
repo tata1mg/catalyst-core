@@ -529,6 +529,19 @@ export const useIntent = () => {
         }, "intent file open")
     }
 
+    const openInBrowser = (url) => {
+        if (!url) {
+            base.handleNativeError("URL is required")
+            return
+        }
+
+        console.log("🌐 Open in browser requested:", url)
+
+        base.executeOperation(() => {
+            nativeBridge.file.openInBrowser(url)
+        }, "open in browser")
+    }
+
     // Standardized execute function (new interface)
     const execute = openFile
 
@@ -548,6 +561,7 @@ export const useIntent = () => {
         isLoading: base.loading,
         processingState: base.progress?.phase || null,
         openFile,
+        openInBrowser,
         success: base.data?.success || null,
         reset: base.clear,
     }

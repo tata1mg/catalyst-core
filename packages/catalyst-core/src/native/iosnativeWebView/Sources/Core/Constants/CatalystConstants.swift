@@ -73,7 +73,8 @@ public enum CatalystConstants {
                 "getSafeArea",
                 "setScreenSecure",
                 "getScreenSecure",
-                "clearWebData"
+                "clearWebData",
+                "openInBrowser"
             ]
 
             // Check if notifications are enabled via config

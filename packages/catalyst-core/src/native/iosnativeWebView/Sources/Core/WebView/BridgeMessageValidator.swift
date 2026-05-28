@@ -208,6 +208,13 @@ class BridgeMessageValidator {
             "type": "object",
             "properties": [:],
             "additionalProperties": false
+        ],
+        "openInBrowser": [
+            "type": "object",
+            "properties": [
+                "url": ["type": "string"]
+            ],
+            "additionalProperties": false
         ]
     ]
 
@@ -370,7 +377,8 @@ class BridgeMessageValidator {
             "cancelLocalNotification",
             "subscribeToTopic",
             "unsubscribeFromTopic",
-            "getSafeArea"
+            "getSafeArea",
+            "openInBrowser"
         ]
 
         if flexibleCommands.contains(command) {

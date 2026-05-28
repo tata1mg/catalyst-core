@@ -441,6 +441,33 @@ class BridgeCommandHandler {
         filePickerHandler.presentFilePicker(from: presentingVC, options: options)
     }
 
+    // Open a URL in the system browser
+    func openInBrowser(url urlString: String?) {
+        commandLogger.debug("openInBrowser called with url: \(urlString ?? "nil")")
+
+        guard let urlString = urlString, !urlString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            delegate?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "URL is required", code: "INVALID_URL")
+            return
+        }
+
+        guard let url = URL(string: urlString) else {
+            delegate?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Invalid URL: \(urlString)", code: "INVALID_URL")
+            return
+        }
+
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url, options: [:]) { success in
+                if success {
+                    commandLogger.debug("Opened URL in browser: \(urlString)")
+                    self.delegate?.sendStringCallback(eventName: "ON_INTENT_SUCCESS", data: "")
+                } else {
+                    commandLogger.error("Failed to open URL in browser: \(urlString)")
+                    self.delegate?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Failed to open URL", code: "OPEN_URL_FAILED")
+                }
+            }
+        }
+    }
+
     // MARK: - Security Methods
 
     /// Enable or disable screen-secure mode (app-switcher overlay).
