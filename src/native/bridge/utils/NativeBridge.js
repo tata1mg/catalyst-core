@@ -194,6 +194,12 @@ class NativeBridgeUtil {
             const params = mimeType ? `${fileUrl}|${mimeType}` : fileUrl
             return this.call(NATIVE_COMMANDS.OPEN_FILE_WITH_INTENT, params)
         },
+
+        /**
+         * Open a URL in the system browser
+         * @param {string} url - URL to open
+         */
+        openInBrowser: (url) => this.call(NATIVE_COMMANDS.OPEN_IN_BROWSER, url),
     }
 
     /**

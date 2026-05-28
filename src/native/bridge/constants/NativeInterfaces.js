@@ -10,6 +10,7 @@ export const NATIVE_COMMANDS = {
     // File commands
     PICK_FILE: "pickFile",
     OPEN_FILE_WITH_INTENT: "openFileWithIntent",
+    OPEN_IN_BROWSER: "openInBrowser",
 
     // Haptic feedback commands
     REQUEST_HAPTIC_FEEDBACK: "requestHapticFeedback",
@@ -117,7 +118,7 @@ export const INTERFACE_CATEGORIES = {
         ],
     },
     INTENT: {
-        commands: [NATIVE_COMMANDS.OPEN_FILE_WITH_INTENT],
+        commands: [NATIVE_COMMANDS.OPEN_FILE_WITH_INTENT, NATIVE_COMMANDS.OPEN_IN_BROWSER],
         callbacks: [
             NATIVE_CALLBACKS.ON_INTENT_SUCCESS,
             NATIVE_CALLBACKS.ON_INTENT_ERROR,

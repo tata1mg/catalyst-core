@@ -255,6 +255,9 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.pickFile(options: optionsString)
         case "openFileWithIntent":
             fileHandler.openFileWithIntent(params: params)
+        case "openInBrowser":
+            let urlString = delegateHandler.extractStringParam(from: params)
+            commandHandler.openInBrowser(url: urlString)
         case "requestHapticFeedback":
             let feedbackType = delegateHandler.extractFeedbackType(from: params)
             commandHandler.requestHapticFeedback(feedbackType: feedbackType)
