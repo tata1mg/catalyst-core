@@ -193,6 +193,12 @@ export const useFilePicker = ({ webFallback } = {}) => {
                 const fileList = Array.from(el.files || [])
                 if (!fileList.length) return
 
+                // Revoke any previous blob URLs before creating new ones
+                const prevFiles = base.data?.files ?? []
+                prevFiles.forEach((f) => {
+                    if (f.fileSrc?.startsWith("blob:")) URL.revokeObjectURL(f.fileSrc)
+                })
+
                 const files = fileList.map((f) => ({
                     fileName: f.name,
                     fileSrc: URL.createObjectURL(f),
@@ -415,6 +421,12 @@ export const useFilePicker = ({ webFallback } = {}) => {
                     fileObject = base64ToFile(fileSrc, fileName, mimeType)
                 } else if (transport === "FRAMEWORK_SERVER") {
                     fileObject = await urlToFile(fileSrc, fileName, mimeType)
+                } else {
+                    throw new Error(`Unhandled transport type: ${transport}`)
+                }
+
+                if (!fileObject) {
+                    throw new Error(`Failed to create file object for transport: ${transport}`)
                 }
 
                 fileObjectCache.current.set(targetIndex, fileObject)

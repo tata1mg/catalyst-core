@@ -29,12 +29,15 @@ const MIN_TIMEOUT = 800
  */
 export const useNativeTransition = (defaults = {}) => {
     const router = useNavigate()
-    const isNative = typeof window !== "undefined" && nativeBridge.isAvailable()
+    const [isNative, setIsNative] = useState(false)
 
     const [transitioning, setTransitioning] = useState(false)
     const overlayRef = useRef(null)
     const webTimeoutRef = useRef(null)
-    const pendingCommitRef = useRef(null)
+
+    useEffect(() => {
+        setIsNative(typeof window !== "undefined" && nativeBridge.isAvailable())
+    }, [])
 
     // Register native callbacks once
     useEffect(() => {
@@ -92,6 +95,8 @@ export const useNativeTransition = (defaults = {}) => {
 
         overlay.style.opacity = "0"
         const cleanup = () => {
+            clearTimeout(webTimeoutRef.current)
+            webTimeoutRef.current = null
             overlay.remove()
             overlayRef.current = null
             setTransitioning(false)
@@ -99,6 +104,7 @@ export const useNativeTransition = (defaults = {}) => {
 
         // Use transitionend when possible, fallback to setTimeout
         overlay.addEventListener("transitionend", cleanup, { once: true })
+        clearTimeout(webTimeoutRef.current)
         webTimeoutRef.current = setTimeout(cleanup, duration + 50)
     }, [])
 
@@ -168,7 +174,6 @@ export const useNativeTransition = (defaults = {}) => {
                 _showWebOverlay(duration)
 
                 const webSafetyTimeout = Math.max(duration * DEFAULT_TIMEOUT_MULTIPLIER, MIN_TIMEOUT)
-                pendingCommitRef.current = { duration, webSafetyTimeout }
 
                 // Route swap after overlay is visible
                 requestAnimationFrame(() => {
@@ -184,7 +189,8 @@ export const useNativeTransition = (defaults = {}) => {
                     })
                 })
 
-                // Web safety timeout
+                // Web safety timeout — clear any previous before setting new
+                clearTimeout(webTimeoutRef.current)
                 webTimeoutRef.current = setTimeout(() => {
                     console.warn("🔀 useNativeTransition: web safety timeout — removing overlay")
                     _cancelWebOverlay()

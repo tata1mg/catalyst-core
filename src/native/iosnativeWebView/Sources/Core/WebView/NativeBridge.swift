@@ -335,7 +335,8 @@ extension NativeBridge: WKScriptMessageHandler {
         let type      = options["type"]      as? String ?? "slide"
         let direction = options["direction"] as? String ?? "left"
         let duration  = min(max((options["duration"] as? Int ?? 300), 0), 2000)
-        let timeout   = options["timeout"]   as? Int ?? max(duration * 3, 800)
+        let defaultTimeout = max(duration * 3, 800)
+        let timeout   = min(max((options["timeout"] as? Int ?? defaultTimeout), 100), 10000)
 
         DispatchQueue.main.async { [weak self] in
             self?.transitionManager?.startTransition(

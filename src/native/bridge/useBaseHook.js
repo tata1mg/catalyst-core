@@ -26,7 +26,7 @@ export const useBaseHook = (hookName, { hasWebFallback = false, webFallback } = 
     const [webFallbackState, setWebFallback] = useState(true)
 
     // When prop is explicitly provided, use it directly (synchronous). When undefined, fall back to state.
-    const webFallbackResolved = webFallback !== undefined ? webFallback !== false : webFallbackState
+    const webFallbackResolved = webFallback !== undefined ? !!webFallback : webFallbackState
     const webFallbackActive = isWeb() && hasWebFallback && webFallbackResolved
     const webFallbackDisabled = isWeb() && hasWebFallback && !webFallbackResolved
 
