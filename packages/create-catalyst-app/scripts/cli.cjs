@@ -193,22 +193,20 @@ const program = new Commander.Command()
                     tar.extract({
                         file: packageFilePath,
                         sync: true,
-                        filter: (path, entry) => {
-                            return subDirectoriesToExtract.reduce((acc, item) => {
-                                return acc || path.startsWith(item)
-                            }, false)
-                        },
                         cwd: path.join(process.cwd()),
-                        onentry: (entry) => {
+                        filter: (entryPath, entry) => {
+                            const shouldExtract = subDirectoriesToExtract.reduce((acc, item) => {
+                                return acc || entryPath.startsWith(item)
+                            }, false)
+                            if (!shouldExtract) return false
                             if (entry.path.startsWith(commonCodeDirectory)) {
                                 entry.path = entry.path.replace(commonCodeDirectory, extractionDestination)
-                            }
-                            if (entry.path.startsWith(selectedTemplateCode)) {
+                            } else if (entry.path.startsWith(selectedTemplateCode)) {
                                 entry.path = entry.path.replace(selectedTemplateCode, extractionDestination)
-                            }
-                            if (entry.path.startsWith(tailwindCodeDirectory)) {
+                            } else if (entry.path.startsWith(tailwindCodeDirectory)) {
                                 entry.path = entry.path.replace(tailwindCodeDirectory, extractionDestination)
                             }
+                            return true
                         },
                     })
                 } catch (e) {
