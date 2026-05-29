@@ -14,8 +14,8 @@ function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e }
 }
 
-const configPath = `${process.env.PWD}/config/config.json`
-const publicPath = `${process.env.PWD}/public`
+const configPath = `${process.cwd()}/config/config.json`
+const publicPath = `${process.cwd()}/public`
 const catalystCorePath = _path.default.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = _path.default.join(catalystCorePath, "dist/native")
 const ANDROID_PACKAGE = "io.yourname.androidproject"
@@ -258,19 +258,15 @@ async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
 
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
-    return new Promise((resolve, reject) => {
-        ;(0, _child_process.exec)(
-            `${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`,
-            (error) => {
-                if (error) {
-                    progress.log("Error starting emulator: " + error.message, "error")
-                    reject(error)
-                } else {
-                    progress.log("Emulator started successfully", "success")
-                    resolve()
-                }
-            }
-        )
+    return (0, _utils.runInteractiveCommand)(
+        EMULATOR_PATH,
+        ["-avd", androidConfig.emulatorName, "-read-only"],
+        {}
+    ).then(() => {
+        progress.log("Emulator started successfully", "success")
+    }).catch((error) => {
+        progress.log("Error starting emulator: " + error.message, "error")
+        throw error
     })
 }
 

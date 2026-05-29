@@ -40,10 +40,6 @@ app.get('/docs', (req, res) => {
 })
 
 app.use(
-    '/login',
-    express.static(path.resolve(__dirname, '../login-page/build'))
-)
-app.use(
     privateDocsMountUrl,
     authChecker,
     checkPrivateDocsViewPermission,

@@ -4,16 +4,14 @@
     "author": "Animesh Singh",
     "private": true,
     "workspaces": [
-        "server",
-        "login-page"
+        "server"
     ],
     "scripts": {
         "start": "npm run start --workspace @catalyst/docs-server",
         "prebuild": "node scripts/copyConfig.js && node scripts/generateThemeCss.js && node scripts/createPublicDocStructure.js",
-        "build": "npm run build-private-docs && npm run build-public-docs && npm run build --workspace @catalyst/docs-login",
+        "build": "npm run build-private-docs && npm run build-public-docs",
         "build-private-docs": "docusaurus build --config=privateDocs.config.js --out-dir=build/private-docs",
         "build-public-docs": "docusaurus build --config=publicDocs.config.js --out-dir=build/public-docs",
-        "build-login-app": "npm run build --workspace @catalyst/docs-login",
         "swizzle-public": "docusaurus swizzle --config=publicDocs.config.js",
         "deploy": "docusaurus deploy",
         "clear": "docusaurus clear",
@@ -31,7 +29,6 @@
         "clean-private-api-docs:version": "set DOC_TYPE=private&& docusaurus clean-api-docs:version",
         "public-swizzle-list": "npm run swizzle -- --list --config=publicDocs.config.js",
         "format": "prettier . --write",
-        "start-login-app": "npm run start --workspace @catalyst/docs-login",
         "dev:style": "node scripts/generateThemeCss.js"
     },
     "browserslist": {
@@ -47,27 +44,28 @@
         ]
     },
     "dependencies": {
-        "@cmfcmf/docusaurus-search-local": "1.1.0",
-        "@docusaurus/core": "2.2.0",
-        "@docusaurus/preset-classic": "2.2.0",
-        "@docusaurus/utils-validation": "2.2.0",
-        "@mdx-js/react": "^1.6.22",
+        "@cmfcmf/docusaurus-search-local": "^2.0.1",
+        "@docusaurus/core": "^3.10.1",
+        "@docusaurus/preset-classic": "^3.10.1",
+        "@docusaurus/theme-classic": "^3.10.1",
+        "@docusaurus/utils-validation": "^3.10.1",
+        "@mdx-js/react": "^3.1.1",
         "antd": "^5.12.5",
         "axios": "^1.6.2",
         "clsx": "^1.1.1",
-        "docusaurus-plugin-openapi-docs": "1.7.0",
-        "docusaurus-theme-openapi-docs": "1.7.0",
         "jose": "^5.0.1",
-        "prism-react-renderer": "^1.3.1",
-        "react": "^17.0.2",
-        "react-dom": "^17.0.2",
-        "react-router": "5.3.4",
-        "react-router-dom": "5.3.4"
+        "prism-react-renderer": "^2.4.1",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
     },
     "engines": {
         "node": ">=16.14"
     },
     "devDependencies": {
         "prettier": "3.2.5"
+    },
+    "overrides": {
+        "serialize-javascript": "^7.0.3",
+        "uuid": "11.1.1"
     }
 }

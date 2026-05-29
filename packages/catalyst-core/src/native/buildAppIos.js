@@ -3,10 +3,11 @@ const fs = require("fs")
 const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 const crypto = require("crypto")
+const { runInteractiveCommand } = require("./utils.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.env.PWD}/config/config.json`)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
 
 // Configuration constants
 const iosConfig = WEBVIEW_CONFIG.ios
@@ -84,24 +85,33 @@ function runCommand(command, options = {}) {
 }
 
 async function getBootedSimulatorUUID(modelName) {
-    try {
-        // First try to find a booted simulator of the specified model
-        let command = `xcrun simctl list devices | grep "${modelName}" | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
-        let uuid = execSync(command).toString().trim()
+    const UUID_RE = /[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i
 
-        if (uuid) {
-            console.log(`Found booted simulator of model ${modelName}`)
-            return uuid
+    try {
+        const output = await runInteractiveCommand("xcrun", ["simctl", "list", "devices"], {})
+        const lines = output.split("\n")
+
+        // First pass: find a booted simulator matching modelName
+        for (const line of lines) {
+            if (line.includes(modelName) && line.includes("Booted")) {
+                const m = line.match(UUID_RE)
+                if (m) {
+                    console.log(`Found booted simulator of model ${modelName}`)
+                    return m[0]
+                }
+            }
         }
 
-        // If no booted simulator of the specified model is found, check any booted simulator
+        // Second pass: any booted simulator
         console.log(`No booted simulator of model ${modelName} found, checking for any booted simulator...`)
-        command = `xcrun simctl list devices | grep "Booted" | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})" | head -n 1`
-        uuid = execSync(command).toString().trim()
-
-        if (uuid) {
-            console.log("Found another booted simulator, will use it instead")
-            return uuid
+        for (const line of lines) {
+            if (line.includes("Booted")) {
+                const m = line.match(UUID_RE)
+                if (m) {
+                    console.log("Found another booted simulator, will use it instead")
+                    return m[0]
+                }
+            }
         }
 
         return null

@@ -7,7 +7,7 @@ import { setupServer } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
-const configPath = `${process.env.PWD}/config/config.json`
+const configPath = `${process.cwd()}/config/config.json`
 
 const steps = {
     java: "Check Java Environment",

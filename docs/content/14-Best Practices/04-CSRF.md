@@ -73,4 +73,4 @@ Important behavior:
 ## Related Docs
 
 - [Adding Express Middlewares](/content/Guides%20and%20Tutorials/adding-express-middlewares)
-- [Configuration API](/content/11-API%20Reference/02-Configuration.md)
+- [Configuration API](/content/11-API%20Reference/02-Configuration.mdx)
