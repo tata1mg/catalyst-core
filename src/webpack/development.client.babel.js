@@ -128,10 +128,16 @@ const checkPortAvailability = (port, host) => {
 
 checkPortAvailability(WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME)
     .then(() => {
-        devServer.startCallback(() => {
-            console.log("Catalyst is compiling your files.")
-            console.log("Please wait until bundling is finished.\n")
-        })
+        devServer
+            .start()
+            .then(() => {
+                console.log("Catalyst is compiling your files.")
+                console.log("Please wait until bundling is finished.\n")
+            })
+            .catch((err) => {
+                console.error("Failed to start webpack-dev-server:", err)
+                process.exit(1)
+            })
     })
     .catch((err) => {
         console.error(`\n[Catalyst] Dev server startup failed: ${err.message}\n`)
