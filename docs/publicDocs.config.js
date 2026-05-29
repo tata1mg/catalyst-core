@@ -75,7 +75,7 @@ const configObject = {
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     docLayoutComponent: '@theme/DocPage',
-                    docItemComponent: '@theme/ApiItem', // Derived from docusaurus-theme-openapi
+                    docItemComponent: '@theme/DocItem',
                     exclude: [],
                 },
                 pages: {
@@ -167,14 +167,6 @@ const configObject = {
 
     plugins: [
         [
-            'docusaurus-plugin-openapi-docs',
-            {
-                id: 'openapi',
-                docsPluginId: 'classic',
-                config: {},
-            },
-        ],
-        [
             '@docusaurus/plugin-content-docs',
             {
                 id: 'tutorialSidebar',
@@ -185,7 +177,7 @@ const configObject = {
         require.resolve('@cmfcmf/docusaurus-search-local'),
     ],
 
-    themes: ['docusaurus-theme-openapi-docs'],
+    themes: [],
     customFields: {
         public: {},
     },
