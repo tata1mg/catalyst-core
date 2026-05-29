@@ -1,7 +1,6 @@
 /* eslint-disable no-extra-semi */
 "use strict"
 
-var _child_process = require("child_process")
 var _fs = _interopRequireDefault(require("fs"))
 var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
