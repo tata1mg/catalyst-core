@@ -47,11 +47,20 @@ function fetchRaw(url) {
   });
 }
 
+// Only allow known tag shapes or "main" — guards against a tampered/malformed
+// installed version string being interpolated into the GitHub fetch URL.
+// Covers all observed formats:
+//   v0.1.0, v0.1.0-canary.8, v0.0.3-canary-18, v0.1.0-beta.2
+function sanitizeGithubTag(version) {
+    if (!version) return "main"
+    return /^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+([.\-]\d+)?)?$/.test(version) ? version : "main"
+}
+
 // Fetch first available file — used for KB-miss GitHub fallback
 async function fetchFromGithub(files, installedVersion) {
   if (!files || files.length === 0) return null;
 
-  const tag = installedVersion || 'main';
+  const tag = sanitizeGithubTag(installedVersion);
   const base = `https://raw.githubusercontent.com/tata1mg/catalyst-core/${tag}`;
 
   for (const file of files) {
@@ -76,7 +85,7 @@ async function fetchFromGithub(files, installedVersion) {
 
 // Fetch a specific single file — used for intent-based narrowed fetch
 async function fetchOneFromGithub(file, installedVersion) {
-  const tag = installedVersion || 'main';
+  const tag = sanitizeGithubTag(installedVersion);
   try {
     const content = await fetchRaw(`https://raw.githubusercontent.com/tata1mg/catalyst-core/${tag}/${file}`);
     if (content) return { file, tag, content: content.slice(0, 8000) };
@@ -91,11 +100,13 @@ async function fetchOneFromGithub(file, installedVersion) {
   return null;
 }
 
-// Build FTS5 query string from keywords array — each term ORed, quoted for safety
+// Build FTS5 query string from keywords array — each term ORed, quoted for safety.
+// Strip all FTS5 special characters before quoting so keywords are treated as literals.
 function buildFtsQuery(keywords) {
-  return keywords
-    .map(k => `"${k.replace(/"/g, '')}"`)
-    .join(' OR ');
+    return keywords
+        .map((k) => `"${k.replace(/[^a-zA-Z0-9 _\-]/g, " ").trim()}"`)
+        .filter((k) => k.length > 2) // drop empty/whitespace-only terms after stripping
+        .join(" OR ")
 }
 
 // Narrow down which github_file to fetch based on query keywords.
