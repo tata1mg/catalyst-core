@@ -26,6 +26,14 @@ function now() {
     return new Date().toISOString().replace("T", " ").slice(0, 19)
 }
 
+function projectPath(projectRoot, rel) {
+    const normalized = path.normalize(rel)
+    if (path.isAbsolute(normalized) || normalized === ".." || normalized.startsWith(`..${path.sep}`)) {
+        return null
+    }
+    return `${projectRoot}${path.sep}${normalized}`
+}
+
 // ─── Improvement 1: Resolve needs_review inline before plan write ─────────────
 //
 // Reads signal_files from disk for each needs_review task.
@@ -67,7 +75,8 @@ function resolveNeedsReview(task, projectRoot) {
         let nativeBranchFound = false
         for (const f of samplesToCheck) {
             try {
-                const absPath = path.isAbsolute(f) ? f : path.join(projectRoot, f)
+                const absPath = path.isAbsolute(f) ? f : projectPath(projectRoot, f)
+                if (!absPath) continue
                 const content = fs.readFileSync(absPath, "utf8")
                 if (hookRegex && hookRegex.test(content)) {
                     nativeBranchFound = true
@@ -411,12 +420,12 @@ function summarisePlan(plan) {
 // ─── MD file helpers ─────────────────────────────────────────────────────────
 
 function getMdPath(projectRoot, slug) {
-    return path.join(projectRoot, ".mcp_tasks", `${slug}.md`)
+    return `${projectRoot}${path.sep}.mcp_tasks${path.sep}${slug}.md`
 }
 
 function buildUserReviewWarnings(projectRoot) {
     const warnings = []
-    const configPath = path.join(projectRoot, "config", "config.json")
+    const configPath = `${projectRoot}${path.sep}config${path.sep}config.json`
     let config = null
     try {
         config = JSON.parse(fs.readFileSync(configPath, "utf8"))
@@ -463,7 +472,7 @@ function buildUserReviewWarnings(projectRoot) {
 }
 
 function writeMdFile(projectRoot, slug, goal, steps, bareMinimum, userReviewWarnings) {
-    const dir = path.join(projectRoot, ".mcp_tasks")
+    const dir = `${projectRoot}${path.sep}.mcp_tasks`
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
     const mdPath = getMdPath(projectRoot, slug)

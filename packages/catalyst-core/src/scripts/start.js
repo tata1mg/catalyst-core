@@ -3,6 +3,8 @@ const { spawnSync, spawn } = require("child_process")
 const { arrayToObject } = require("./scriptUtils")
 const { name } = require(`${process.cwd()}/package.json`)
 const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+const shellCommand = process.platform === "win32" ? "cmd.exe" : "sh"
+const shellArgs = (command) => (process.platform === "win32" ? ["/d", "/s", "/c", command] : ["-c", command])
 
 /**
  * @description - starts webpack dev server and node server.
@@ -20,8 +22,10 @@ function start() {
 
     if (isWindows) {
         spawn(
-            `node ./dist/scripts/checkVersion && start /b npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
-            [],
+            shellCommand,
+            shellArgs(
+                `node ./dist/scripts/checkVersion && start /b npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/webpack/development.client.babel --no-warnings=ExperimentalWarning --no-warnings=BABEL`
+            ),
             {
                 cwd: dirname,
                 stdio: "inherit",
@@ -39,8 +43,10 @@ function start() {
         )
 
         spawn(
-            `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`,
-            [],
+            shellCommand,
+            shellArgs(
+                `node ./dist/scripts/checkVersion && npx babel-node -r ./dist/scripts/loadScriptsBeforeServerStarts.js ./dist/server/startServer.js --watch-path=${process.cwd()}/server --watch-path=${process.cwd()}/src --ignore='__IGNORE__' --no-warnings=ExperimentalWarning --no-warnings=BABEL`
+            ),
             {
                 cwd: dirname,
                 stdio: "inherit",
@@ -57,7 +63,7 @@ function start() {
             }
         )
     } else {
-        spawnSync(command, [], {
+        spawnSync(shellCommand, shellArgs(command), {
             cwd: dirname,
             stdio: "inherit",
             shell: true,

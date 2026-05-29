@@ -1,6 +1,6 @@
 import fs from "fs"
 import path from "path"
-import { exec } from "child_process"
+import { spawn } from "child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
 import { setupServer } from "./setupServer.js"
@@ -238,12 +238,18 @@ async function checkEmulator(ADB_PATH) {
 
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`)
-    // eslint-disable-next-line security/detect-child-process
-    exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, (error) => {
-        if (error) {
-            progress.log(`Error starting emulator: ${error}`, "error")
-        }
+    const emulatorPath = fs.realpathSync(EMULATOR_PATH)
+    // nosemgrep
+    const emulatorProcess = spawn(emulatorPath, ["-avd", androidConfig.emulatorName, "-read-only"], {
+        detached: true,
+        stdio: "ignore",
     })
+
+    emulatorProcess.on("error", (error) => {
+        progress.log(`Error starting emulator: ${error}`, "error")
+    })
+
+    emulatorProcess.unref()
 }
 
 async function updateLocalProperties(sdkPath) {

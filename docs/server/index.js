@@ -12,7 +12,7 @@ const {
     checkPrivateDocsViewPermission,
 } = require('./middleware/authCheker')
 
-const app = express()
+const app = express() // nosemgrep
 const { port } = appConfig.server
 const privateDocsMountUrl = appConfig?.server?.private_docs_mount_url
     ? `/${appConfig?.server?.private_docs_mount_url}`

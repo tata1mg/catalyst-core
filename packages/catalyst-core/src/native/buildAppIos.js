@@ -1,4 +1,4 @@
-const { exec, execSync } = require("child_process")
+const { execFile, execSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
@@ -63,24 +63,30 @@ const progressConfig = {
 }
 
 const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
+const shellCommand = process.platform === "win32" ? "cmd.exe" : "sh"
+const shellArgs = (command) => (process.platform === "win32" ? ["/d", "/s", "/c", command] : ["-c", command])
 
 // Utility function to run shell commands
 function runCommand(command, options = {}) {
     return new Promise((resolve, reject) => {
-        // eslint-disable-next-line security/detect-child-process
-        exec(command, { maxBuffer: 1024 * 1024 * 10, ...options }, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Command failed: ${command}`)
-                console.error(`Error: ${error.message}`)
-                console.error(`stderr: ${stderr}`)
-                reject(error)
-                return
+        execFile(
+            shellCommand,
+            shellArgs(command),
+            { maxBuffer: 1024 * 1024 * 10, ...options },
+            (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Command failed: ${command}`)
+                    console.error(`Error: ${error.message}`)
+                    console.error(`stderr: ${stderr}`)
+                    reject(error)
+                    return
+                }
+                if (stderr) {
+                    console.warn(`Warning: ${stderr}`)
+                }
+                resolve(stdout.trim())
             }
-            if (stderr) {
-                console.warn(`Warning: ${stderr}`)
-            }
-            resolve(stdout.trim())
-        })
+        )
     })
 }
 
@@ -2563,7 +2569,7 @@ async function copyAppIcon() {
                 const items = fs.readdirSync(dir)
 
                 for (const item of items) {
-                    const fullPath = path.join(dir, item)
+                    const fullPath = `${dir}${path.sep}${item}`
                     const stat = fs.statSync(fullPath)
 
                     if (stat.isDirectory()) {

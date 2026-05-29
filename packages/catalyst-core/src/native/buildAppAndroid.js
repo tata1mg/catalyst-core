@@ -262,12 +262,14 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
         EMULATOR_PATH,
         ["-avd", androidConfig.emulatorName, "-read-only"],
         {}
-    ).then(() => {
-        progress.log("Emulator started successfully", "success")
-    }).catch((error) => {
-        progress.log("Error starting emulator: " + error.message, "error")
-        throw error
-    })
+    )
+        .then(() => {
+            progress.log("Emulator started successfully", "success")
+        })
+        .catch((error) => {
+            progress.log("Error starting emulator: " + error.message, "error")
+            throw error
+        })
 }
 
 async function copyBuildAssets(androidConfig, buildOptimisation = false) {
@@ -873,7 +875,6 @@ function generateNotificationIconDrawable(iconName, destPath) {
     _fs.default.writeFileSync(`${destPath}/drawable/${iconName}.xml`, iconXml)
 }
 
-// Cleanup functions to remove notification configurations
 async function cleanupNotificationPermissions() {
     try {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
@@ -887,13 +888,14 @@ async function cleanupNotificationPermissions() {
             "android.permission.RECEIVE_BOOT_COMPLETED",
         ]
 
-        notificationPermissions.forEach((permission) => {
-            const permissionRegex = new RegExp(
-                `\\s*<uses-permission android:name="${permission}"[^>]*/>`,
-                "g"
-            )
-            manifestContent = manifestContent.replace(permissionRegex, "")
-        })
+        manifestContent = manifestContent
+            .split("\n")
+            .filter((line) => {
+                return !notificationPermissions.some((permission) =>
+                    line.includes(`<uses-permission android:name="${permission}"`)
+                )
+            })
+            .join("\n")
 
         _fs.default.writeFileSync(manifestPath, manifestContent)
     } catch (error) {
@@ -936,14 +938,12 @@ async function cleanupNotificationMetadata() {
             "com.google.firebase.messaging.default_notification_sound",
         ]
 
-        metadataNames.forEach((metadataName) => {
-            // Remove the meta-data block including comments
-            const metadataRegex = new RegExp(
-                `\\s*<!--[^>]*notification[^>]*-->\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>|\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>`,
-                "gi"
-            )
-            manifestContent = manifestContent.replace(metadataRegex, "")
-        })
+        manifestContent = manifestContent
+            .split("\n")
+            .filter((line) => {
+                return !metadataNames.some((metadataName) => line.includes(`android:name="${metadataName}"`))
+            })
+            .join("\n")
 
         // Remove Push Notification Service
         const serviceRegex =

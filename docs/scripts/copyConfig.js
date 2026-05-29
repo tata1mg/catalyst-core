@@ -13,12 +13,23 @@ const configContent = fs.readFileSync(
 
 // Copy config.json to each target folder
 targetFolders.forEach((folder) => {
-    let targetPath = path.resolve(__dirname, '..', folder, 'config.json')
     if (folder === 'static') {
-        targetPath = path.resolve(__dirname, '..', folder, 'js', 'config.js')
+        const targetPath = path.resolve(
+            __dirname,
+            '..',
+            'static',
+            'js',
+            'config.js'
+        )
         const scriptContent = `const serverUrl = "${config.docs.server_url}"`
         fs.writeFileSync(targetPath, scriptContent, 'utf-8')
     } else {
+        const targetPath = path.resolve(
+            __dirname,
+            '..',
+            'server',
+            'config.json'
+        )
         fs.writeFileSync(targetPath, configContent, 'utf8')
     }
 })

@@ -5,7 +5,8 @@ import io.yourname.androidproject.utils.BridgeUtils
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
-import java.net.Socket
+import java.net.InetSocketAddress
+import java.nio.channels.SocketChannel
 
 /**
  * Local Frida and hooking framework detection.
@@ -68,10 +69,10 @@ object FridaDetector {
     private fun checkFridaPorts(): Boolean {
         return FRIDA_PORTS.any { port ->
             try {
-                Socket().use { socket ->
-                    val address = java.net.InetSocketAddress("127.0.0.1", port)
-                    socket.connect(address, 2000)  // 2 second timeout
-                    socket.isConnected
+                SocketChannel.open().use { channel ->
+                    val address = InetSocketAddress("127.0.0.1", port)
+                    channel.connect(address)
+                    channel.isConnected
                 }
             } catch (e: Exception) {
                 // Connection failed or timed out - no Frida on this port

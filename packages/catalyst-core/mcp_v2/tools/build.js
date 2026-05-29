@@ -658,7 +658,7 @@ function handle_get_architecture_diagram({ feature, symptom } = {}) {
 
     if (diagram_key === "routing") {
         const { grepSrc } = makeProjectHelpers(catalystRoot.dir)
-        const routeFiles = grepSrc("RouterDataProvider|createBrowserRouter|<Route")
+        const routeFiles = grepSrc(/RouterDataProvider|createBrowserRouter|<Route/)
         project_context.push(
             `RouterDataProvider found in: ${routeFiles.length ? routeFiles.slice(0, 3).join(", ") : "not detected"}`
         )

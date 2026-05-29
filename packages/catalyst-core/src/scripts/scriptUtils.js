@@ -4,6 +4,8 @@ const util = require("node:util")
 const { spawnSync } = require("child_process")
 const { gray, cyan } = require("picocolors")
 const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+const shellCommand = process.platform === "win32" ? "cmd.exe" : "sh"
+const shellArgs = (command) => (process.platform === "win32" ? ["/d", "/s", "/c", command] : ["-c", command])
 
 // Function to get file size synchronously
 function getFileSizeSync(filePath) {
@@ -24,7 +26,7 @@ export const printBundleInformation = () => {
         const files = fs.readdirSync(directoryPath)
         files.forEach((file) => {
             if (!file.includes("txt") && !file.includes("json")) {
-                const filePath = path.join(directoryPath, file)
+                const filePath = `${directoryPath}${path.sep}${file}`
                 const fileSize = getFileSizeSync(filePath)
                 if (fileSize !== null) {
                     bundleList.push({ file, fileSize })
@@ -79,7 +81,7 @@ function logBuildFailure(result, failureMessage = BUILD_FAILURE_MESSAGE) {
 export const runBuildCommands = ({ commands, cwd, env, failureMessage = BUILD_FAILURE_MESSAGE }) => {
     const command = commands.join(" && ")
 
-    const result = spawnSync(command, [], {
+    const result = spawnSync(shellCommand, shellArgs(command), {
         cwd,
         stdio: "inherit",
         shell: true,

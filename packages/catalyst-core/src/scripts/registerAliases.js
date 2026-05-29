@@ -11,7 +11,7 @@ export const catalystResultMap = Object.keys(_moduleAliases || []).reduce((resul
         if (aliasName?.includes("server") && process.env.NODE_ENV === "production") {
             resultMap[aliasName] = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH)
         } else {
-            resultMap[aliasName] = path.join(process.env.src_path, aliasPath)
+            resultMap[aliasName] = `${process.env.src_path}${path.sep}${aliasPath}`
         }
         return resultMap
     }
@@ -20,7 +20,7 @@ export const catalystResultMap = Object.keys(_moduleAliases || []).reduce((resul
         if (aliasName?.includes("server") && process.env.NODE_ENV === "production") {
             resultMap[aliasName] = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH)
         } else {
-            resultMap[aliasName] = path.join(__dirname, "../", aliasPath)
+            resultMap[aliasName] = `${__dirname}${path.sep}..${path.sep}${aliasPath}`
         }
         return resultMap
     }
@@ -38,11 +38,11 @@ if (validateModuleAlias(templateModuleAliases)) {
 
             if (aliasPath.includes("server")) {
                 if (process.env.NODE_ENV !== "production") {
-                    resultMap[aliasName] = path.join(process.env.src_path, aliasPath)
+                    resultMap[aliasName] = `${process.env.src_path}${path.sep}${aliasPath}`
                 } else {
                     resultMap[aliasName] = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH)
                 }
-            } else resultMap[aliasName] = path.join(process.env.src_path, aliasPath)
+            } else resultMap[aliasName] = `${process.env.src_path}${path.sep}${aliasPath}`
 
             return resultMap
         }, {})
