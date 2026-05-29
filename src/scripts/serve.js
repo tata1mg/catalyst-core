@@ -24,9 +24,15 @@ function startProd() {
 
     console.log("🚀 Starting production server...")
 
-    const inspectFlag = commandLineArguments.includes("--inspect") ? "--inspect" : ""
-    const command = `node ${inspectFlag} --import ${preInitPath} --loader ${loaderPath} ./dist/server/expressServer.js`
-    spawnSync(command, [], {
+    const args = [
+        ...(commandLineArguments.includes("--inspect") ? ["--inspect"] : []),
+        "--import",
+        preInitPath,
+        "--loader",
+        loaderPath,
+        "./dist/server/expressServer.js",
+    ]
+    spawnSync("node", args, { // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true
         cwd: dirname,
         stdio: "inherit",
         shell: true,

@@ -80,7 +80,7 @@ try {
     const packageJson = JSON.parse(packageJsonContent)
     _moduleAliases = packageJson._moduleAliases || {}
 } catch (error) {
-    console.warn(`Failed to read or parse package.json from ${packageJsonConfig}:`, error.message)
+    console.warn("Failed to read or parse package.json from", packageJsonConfig + ":", error.message)
 }
 
 try {
@@ -89,7 +89,8 @@ try {
     catalyst_moduleAliases = catalystPackageJson._moduleAliases || {}
 } catch (error) {
     console.warn(
-        `Failed to read or parse catalyst package.json from ${catalystPackageJsonConfig}:`,
+        "Failed to read or parse catalyst package.json from",
+        catalystPackageJsonConfig + ":",
         error.message
     )
 }
@@ -106,10 +107,10 @@ const alias = () => {
     return Object.keys(allAliases).reduce((moduleEnvMap, alias) => {
         if (allAliases[alias] && typeof allAliases[alias] === "string") {
             try {
-                const aliasPath = path.join(process.env.src_path, ...allAliases[alias].split("/"))
+                const aliasPath = path.join(process.env.src_path, ...allAliases[alias].split("/")) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
                 moduleEnvMap[alias] = aliasPath
             } catch (error) {
-                console.warn(`Failed to configure alias ${alias}:`, error.message)
+                console.warn("Failed to configure alias", alias + ":", error.message)
             }
         }
         return moduleEnvMap

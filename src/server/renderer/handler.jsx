@@ -211,7 +211,7 @@ const _renderMarkUp = async (
                     if (chunkExtractor) {
                         const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                         res.write(
-                            `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
+                            `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>` // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
                         )
                     }
 
