@@ -96,20 +96,11 @@
         "webpack": "^5.88.2",
         "webpack-bundle-analyzer": "^4.9.1",
         "webpack-cli": "^5.1.4",
-        "webpack-dev-server": "^4.15.2",
+        "webpack-dev-server": "^5.2.4",
         "webpack-merge": "^5.9.0",
         "webpack-node-externals": "^3.0.0",
         "winston": "^3.11.0",
         "winston-daily-rotate-file": "^5.0.0"
-    },
-    "peerDependencies": {
-        "@opentelemetry/auto-instrumentations-node": "^0.64.1",
-        "@opentelemetry/core": "^2.0.0",
-        "@opentelemetry/exporter-trace-otlp-grpc": "^0.208.0",
-        "@opentelemetry/instrumentation-express": "^0.54.0",
-        "@opentelemetry/instrumentation-http": "^0.205.0",
-        "@opentelemetry/resources": "^2.0.0",
-        "@opentelemetry/sdk-node": "^0.205.0"
     },
     "devDependencies": {
         "@babel/eslint-parser": "^7.19.1",
@@ -125,6 +116,11 @@
         "husky": "^9.0.11",
         "lint-staged": "^15.2.2",
         "prettier": "^3.2.5"
+    },
+    "overrides": {
+        "uuid": "11.1.1",
+        "file-type": "22.0.1",
+        "imagemin": "9.0.1"
     },
     "lint-staged": {
         "*.{js,jsx}": [

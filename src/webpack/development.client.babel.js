@@ -166,10 +166,16 @@ let devServer = new WebpackDevServer(
     webpack(webpackClientConfig)
 )
 
-devServer.startCallback(() => {
-    console.log("Catalyst is compiling your files.")
-    console.log("Please wait until bundling is finished.\n")
-})
+devServer
+    .start()
+    .then(() => {
+        console.log("Catalyst is compiling your files.")
+        console.log("Please wait until bundling is finished.\n")
+    })
+    .catch((err) => {
+        console.error("Failed to start webpack-dev-server:", err)
+        process.exit(1)
+    })
 
 // Cleanup on exit
 const cleanup = () => {
