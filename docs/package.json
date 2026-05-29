@@ -48,9 +48,9 @@
     },
     "dependencies": {
         "@cmfcmf/docusaurus-search-local": "1.1.0",
-        "@docusaurus/core": "2.2.0",
-        "@docusaurus/preset-classic": "2.2.0",
-        "@docusaurus/utils-validation": "2.2.0",
+        "@docusaurus/core": "2.4.3",
+        "@docusaurus/preset-classic": "2.4.3",
+        "@docusaurus/utils-validation": "2.4.3",
         "@mdx-js/react": "^1.6.22",
         "antd": "^5.12.5",
         "axios": "^1.6.2",
