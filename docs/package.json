@@ -47,6 +47,7 @@
         "@cmfcmf/docusaurus-search-local": "^2.0.1",
         "@docusaurus/core": "^3.10.1",
         "@docusaurus/preset-classic": "^3.10.1",
+        "@docusaurus/theme-classic": "^3.10.1",
         "@docusaurus/utils-validation": "^3.10.1",
         "@mdx-js/react": "^3.1.1",
         "antd": "^5.12.5",
