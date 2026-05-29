@@ -169,6 +169,6 @@ Keep this workflow consistent across local development, CI, and onboarding docs.
 ## Related Docs
 
 - [CLI Reference](/content/16-CLI.md)
-- [Configuration API](/content/11-API%20Reference/02-Configuration.md)
+- [Configuration API](/content/11-API%20Reference/02-Configuration.mdx)
 - [Universal App Setup](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp)
 - [Migrating from Next.js to Catalyst](/content/12-Migration/01-NextJS-to-Catalyst.md)

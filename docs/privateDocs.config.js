@@ -1,8 +1,9 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require('prism-react-renderer/themes/github')
-const darkCodeTheme = require('prism-react-renderer/themes/dracula')
+const { themes: prismThemes } = require('prism-react-renderer')
+const lightCodeTheme = prismThemes.github
+const darkCodeTheme = prismThemes.dracula
 const config = require('./config.json')
 
 const basePrivateDocsUrl = config.server.private_docs_mount_url
@@ -85,8 +86,6 @@ const configObject = {
                     sidebarPath: require.resolve('./privateSidebars.js'),
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
-                    docLayoutComponent: '@theme/DocPage',
-                    docItemComponent: '@theme/DocItem',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),

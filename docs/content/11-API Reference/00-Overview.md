@@ -11,6 +11,6 @@ Catalyst API Reference is organized into a single hooks page followed by the rem
 ## Sections
 
 - [Hooks](./01-Hooks.md)
-- [Configuration API](./02-Configuration.md)
+- [Configuration API](./02-Configuration.mdx)
 - [File Conventions](./03-File-Conventions.md)
 - [SSR Lifecycle](./04-SSR-Lifecycle.md)

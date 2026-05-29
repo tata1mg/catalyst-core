@@ -5,11 +5,11 @@ const { userRole } = require('../utils/constants')
 const authChecker = (req, res, next) => {
     const token = req.cookies.authToken
     if (!token) {
-        return res.redirect('/login')
+        return res.status(401).json({ is_success: false, status_code: 401, error: 'Unauthorized' })
     }
     jwt.verify(token, config.server.jwt_secret, (err, payload) => {
         if (err) {
-            return res.redirect('/login')
+            return res.status(401).json({ is_success: false, status_code: 401, error: 'Unauthorized' })
         } else {
             req.user_email = payload.user_email
             req.roles = payload?.roles
