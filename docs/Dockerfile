@@ -15,7 +15,6 @@ WORKDIR /opt/1mg/web
 
 COPY docs/package.json docs/package-lock.json ./docs/
 COPY docs/server/package.json ./docs/server/
-COPY docs/login-page/package.json ./docs/login-page/
 RUN npm --prefix docs ci
 
 COPY docs ./docs
