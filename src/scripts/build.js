@@ -12,13 +12,12 @@ const configPath = path.join(process.env.PWD, "config/config.json")
 const configJSON = JSON.parse(readFileSync(configPath), "utf-8")
 
 /**
- * @param {string} program
- * @param {string[]} args
+ * @param {string} command
  * @param {import('child_process').SpawnOptions} options
  */
-function runBuildStep(program, args, options) {
+function runBuildStep(command, options) {
     return new Promise((resolve, reject) => {
-        const child = spawn(program, args, { // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process, javascript.lang.security.audit.spawn-shell-true.spawn-shell-true
+        const child = spawn(command, [], {
             ...options,
             shell: true,
         })
@@ -70,6 +69,8 @@ async function build() {
         ]),
     }
 
+    const serverBuildCommand = `vite build --config ./dist/vite/vite.config.server.js --ssr`
+    const clientBuildCommand = `vite build --config ./dist/vite/vite.config.client.js`
     const spawnBase = {
         cwd: dirname,
         stdio: "inherit",
@@ -79,11 +80,11 @@ async function build() {
 
     try {
         await Promise.all([
-            runBuildStep("vite", ["build", "--config", "./dist/vite/vite.config.server.js", "--ssr"], {
+            runBuildStep(serverBuildCommand, {
                 ...spawnBase,
                 env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "ssr" },
             }),
-            runBuildStep("vite", ["build", "--config", "./dist/vite/vite.config.client.js"], {
+            runBuildStep(clientBuildCommand, {
                 ...spawnBase,
                 env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "client" },
             }),

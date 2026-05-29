@@ -34,11 +34,9 @@ export function Head(props) {
             {metaTags && metaTags}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
-            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
             {inlineCss && <style dangerouslySetInnerHTML={{ __html: inlineCss }} />}
 
             {/* Deferred CSS from prior SSRs on this route — avoids late layout from post-body <style> */}
-            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
             {deferredRouteInlineCss && <style dangerouslySetInnerHTML={{ __html: deferredRouteInlineCss }} />}
 
             {/* JS modules */}

@@ -23,7 +23,7 @@ export const printBundleInformation = () => {
         const files = fs.readdirSync(directoryPath)
         files.forEach((file) => {
             if (!file.includes("txt") && !file.includes("json")) {
-                const filePath = path.join(directoryPath, file) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+                const filePath = path.join(directoryPath, file)
                 const fileSize = getFileSizeSync(filePath)
                 if (fileSize !== null) {
                     bundleList.push({ file, fileSize })

@@ -293,7 +293,7 @@ export function manifestCategorizationPlugin(options = {}) {
     // branch of the import graph, the affected CSS would vanish from server responses
     // with no runtime error — this check surfaces that as a build-time warning.
     function validateCssCoverage(categorizedManifest, buildDir) {
-        const cssDir = path.join(buildDir, "client", "assets", "css") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+        const cssDir = path.join(buildDir, "client", "assets", "css")
         if (!fs.existsSync(cssDir)) return
 
         const emitted = new Set(
@@ -407,7 +407,7 @@ export function manifestCategorizationPlugin(options = {}) {
                             })
                         }
                     } catch (err) {
-                        console.log("❌ Error resolving", importPath + ":", err.message)
+                        console.log(`❌ Error resolving ${importPath}:`, err.message)
                     }
                 })
             )
