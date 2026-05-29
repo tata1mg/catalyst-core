@@ -1,0 +1,23 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  s_5a49e9a63c5da2::t_cb7611fa941d35 131-144
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_5a49e9a63c5da2::t_a2a8d3cbc47ad6 94-95
+packages/catalyst-core/src/native/buildAppIos.js
+  s_5a49e9a63c5da2::t_f74427d6ab191d 793-804
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e487a2f83e575614d5f68b61484630b7010eca85",
+  "prompts": {},
+  "sessions": {
+    "s_5a49e9a63c5da2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9d3850d-a0d7-4442-bfb0-e84a1adcc4ba",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
