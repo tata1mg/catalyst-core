@@ -1,8 +1,10 @@
-const { exec, execSync } = require("child_process")
+const { exec, execSync, execFileSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
 const TerminalProgress = require("./TerminalProgress.js").default
 const crypto = require("crypto")
+const { composeIosPlugins } = require("./pluginComposerIos.js")
+const { resolveInternalPluginsRoot, resolvePluginConfig } = require("./internalPluginUtils.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
@@ -24,6 +26,208 @@ const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
 const PROJECT_NAME = path.basename(PROJECT_DIR)
 const IPHONE_MODEL = iosConfig.simulatorName
 const GOOGLE_SERVICES_FILENAME = "GoogleService-Info.plist"
+const MANAGED_BASELINE_SUFFIX = ".catalyst-base"
+const PLUGIN_RESOURCE_ROOT = "PluginResources"
+
+function packageRequirementKey(dependency) {
+    return `${dependency.requirement.type}:${dependency.requirement.version}`
+}
+
+function mergePackageDependency(map, dependency, sourceLabel) {
+    const existing = map.get(dependency.url)
+    if (!existing) {
+        map.set(dependency.url, {
+            url: dependency.url,
+            package: dependency.package,
+            requirement: dependency.requirement,
+            products: [...new Set(dependency.products)],
+        })
+        return
+    }
+
+    if (packageRequirementKey(existing) !== packageRequirementKey(dependency)) {
+        throw new Error(
+            `iOS package dependency conflict for '${dependency.url}' while processing ${sourceLabel}: '${existing.requirement.type}:${existing.requirement.version}' vs '${dependency.requirement.type}:${dependency.requirement.version}'`
+        )
+    }
+    if (existing.package !== dependency.package) {
+        throw new Error(
+            `iOS package identity conflict for '${dependency.url}' while processing ${sourceLabel}: '${existing.package}' vs '${dependency.package}'`
+        )
+    }
+
+    existing.products = [...new Set([...existing.products, ...dependency.products])].sort()
+}
+
+function formatSwiftPackageRequirement(dependency) {
+    if (dependency.requirement.type === "from") {
+        return `from: "${dependency.requirement.version}"`
+    }
+    if (dependency.requirement.type === "exact") {
+        return `exact: "${dependency.requirement.version}"`
+    }
+    throw new Error(`Unsupported iOS package requirement type: ${dependency.requirement.type}`)
+}
+
+function formatSwiftPackageEntries(dependencies) {
+    return dependencies.map(
+        (dependency) =>
+            `        .package(url: "${dependency.url}", ${formatSwiftPackageRequirement(dependency)})`
+    )
+}
+
+function formatSwiftProductEntries(dependencies) {
+    return dependencies.flatMap((dependency) =>
+        dependency.products.map(
+            (product) => `                .product(name: "${product}", package: "${dependency.package}")`
+        )
+    )
+}
+
+function isPlainObject(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function deepEqual(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function mergeStructuredValues(existing, incoming, fieldName) {
+    if (existing === undefined) {
+        return JSON.parse(JSON.stringify(incoming))
+    }
+
+    if (Array.isArray(existing) && Array.isArray(incoming)) {
+        const merged = []
+        const seen = new Set()
+        for (const value of [...existing, ...incoming]) {
+            const key = JSON.stringify(value)
+            if (seen.has(key)) {
+                continue
+            }
+            seen.add(key)
+            merged.push(value)
+        }
+        return merged
+    }
+
+    if (isPlainObject(existing) && isPlainObject(incoming)) {
+        const merged = { ...existing }
+        for (const [key, value] of Object.entries(incoming)) {
+            merged[key] = mergeStructuredValues(merged[key], value, `${fieldName}.${key}`)
+        }
+        return merged
+    }
+
+    if (deepEqual(existing, incoming)) {
+        return existing
+    }
+
+    throw new Error(`Conflicting values for '${fieldName}' while composing iOS build metadata`)
+}
+
+function ensureManagedBaseline(filePath) {
+    const baselinePath = `${filePath}${MANAGED_BASELINE_SUFFIX}`
+    if (!fs.existsSync(baselinePath)) {
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`Managed baseline source file not found: ${filePath}`)
+        }
+        fs.copyFileSync(filePath, baselinePath)
+    }
+    return baselinePath
+}
+
+function restoreManagedFileFromBaseline(filePath) {
+    const baselinePath = ensureManagedBaseline(filePath)
+    fs.copyFileSync(baselinePath, filePath)
+}
+
+function readPlistObject(filePath) {
+    const output = execFileSync("plutil", ["-convert", "json", "-o", "-", filePath], { encoding: "utf8" })
+    return JSON.parse(output)
+}
+
+function writePlistObject(filePath, value) {
+    const tempPath = path.join(PROJECT_DIR, `.catalyst-${path.basename(filePath)}-${process.pid}.json`)
+    fs.writeFileSync(tempPath, JSON.stringify(value, null, 2), "utf8")
+    try {
+        execFileSync("plutil", ["-convert", "xml1", "-o", filePath, tempPath])
+    } finally {
+        fs.rmSync(tempPath, { force: true })
+    }
+}
+
+function mergeIntoTopLevelObject(target, source, fieldName) {
+    for (const [key, value] of Object.entries(source || {})) {
+        target[key] = mergeStructuredValues(target[key], value, `${fieldName}.${key}`)
+    }
+}
+
+function mergeUrlSchemes(plistObject, entries) {
+    const existing = Array.isArray(plistObject.CFBundleURLTypes) ? plistObject.CFBundleURLTypes : []
+    const merged = existing.map((entry) => ({
+        ...entry,
+        CFBundleURLSchemes: Array.isArray(entry?.CFBundleURLSchemes)
+            ? [...new Set(entry.CFBundleURLSchemes)]
+            : [],
+    }))
+
+    for (const entry of entries) {
+        const targetName = entry.name || null
+        let match = merged.find((item) => item.CFBundleURLName === targetName)
+
+        if (!match) {
+            match = {
+                CFBundleURLName: targetName,
+                CFBundleURLSchemes: [],
+            }
+            merged.push(match)
+        }
+
+        match.CFBundleURLSchemes = [...new Set([...match.CFBundleURLSchemes, ...entry.schemes])]
+    }
+
+    if (merged.length > 0) {
+        plistObject.CFBundleURLTypes = merged
+    }
+}
+
+function mergeQuerySchemes(plistObject, schemes) {
+    const existing = Array.isArray(plistObject.LSApplicationQueriesSchemes)
+        ? plistObject.LSApplicationQueriesSchemes
+        : []
+    const merged = [...new Set([...existing, ...schemes.filter(Boolean)])]
+    if (merged.length > 0) {
+        plistObject.LSApplicationQueriesSchemes = merged
+    }
+}
+
+function formatPbxprojPath(value) {
+    return /[^A-Za-z0-9_./-]/.test(value) ? `"${value}"` : value
+}
+
+function detectPbxprojFileType(filePath) {
+    const extension = path.extname(filePath).toLowerCase()
+    const fileTypes = {
+        ".json": "text.json",
+        ".plist": "text.plist.xml",
+        ".txt": "text",
+        ".html": "text.html",
+        ".js": "sourcecode.javascript",
+        ".css": "text.css",
+        ".png": "image.png",
+        ".jpg": "image.jpeg",
+        ".jpeg": "image.jpeg",
+        ".gif": "image.gif",
+        ".svg": "image.svg",
+        ".mp3": "audio.mp3",
+        ".wav": "audio.wav",
+        ".m4a": "audio.m4a",
+        ".caf": "audio.caf",
+        ".pdf": "image.pdf",
+    }
+    return fileTypes[extension] || "file"
+}
 
 function generateProjectObjectId(identifier, suffix = "") {
     return crypto
@@ -36,6 +240,13 @@ function generateProjectObjectId(identifier, suffix = "") {
 
 function getXcodeProjectFilePath() {
     return path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj")
+}
+
+function replaceRequired(content, pattern, replacement, errorMessage) {
+    if (!pattern.test(content)) {
+        throw new Error(errorMessage)
+    }
+    return content.replace(pattern, replacement)
 }
 
 // Define build steps for progress tracking
@@ -135,9 +346,55 @@ async function getBootedSimulatorInfo() {
     }
 }
 
-async function generatePackageSwift() {
+async function generatePackageSwift(pluginDependencies = []) {
     try {
         const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
+        const baseCoreDependencies = [
+            {
+                url: "https://github.com/kylef/JSONSchema.swift",
+                package: "JSONSchema.swift",
+                requirement: { type: "from", version: "0.6.0" },
+                products: ["JSONSchema"],
+            },
+            {
+                url: "https://github.com/google/GoogleSignIn-iOS",
+                package: "GoogleSignIn-iOS",
+                requirement: { type: "from", version: "7.0.0" },
+                products: ["GoogleSignIn"],
+            },
+        ]
+        const notificationsDependencies = isNotificationsEnabled
+            ? [
+                  {
+                      url: "https://github.com/firebase/firebase-ios-sdk",
+                      package: "firebase-ios-sdk",
+                      requirement: { type: "from", version: "12.3.0" },
+                      products: ["FirebaseCore", "FirebaseMessaging"],
+                  },
+              ]
+            : []
+
+        const coreDependencyMap = new Map()
+        baseCoreDependencies.forEach((dependency) =>
+            mergePackageDependency(coreDependencyMap, dependency, "base core")
+        )
+        pluginDependencies.forEach((dependency) =>
+            mergePackageDependency(coreDependencyMap, dependency, "plugin manifests")
+        )
+        const coreDependencies = [...coreDependencyMap.values()].sort((left, right) =>
+            left.url.localeCompare(right.url)
+        )
+
+        const packageDependencyMap = new Map()
+        coreDependencies.forEach((dependency) =>
+            mergePackageDependency(packageDependencyMap, dependency, "core target")
+        )
+        notificationsDependencies.forEach((dependency) =>
+            mergePackageDependency(packageDependencyMap, dependency, "notifications target")
+        )
+        const packageDependencies = [...packageDependencyMap.values()].sort((left, right) =>
+            left.url.localeCompare(right.url)
+        )
 
         progress.log(`🔧 Generating Package.swift (notifications: ${isNotificationsEnabled})`, "info")
 
@@ -145,7 +402,11 @@ async function generatePackageSwift() {
         const configHash = crypto
             .createHash("md5")
             .update(
-                JSON.stringify({ notifications: isNotificationsEnabled, googleSignIn: isGoogleSignInEnabled })
+                JSON.stringify({
+                    notifications: isNotificationsEnabled,
+                    googleSignIn: isGoogleSignInEnabled,
+                    pluginDependencies: coreDependencies,
+                })
             )
             .digest("hex")
 
@@ -192,14 +453,7 @@ let package = Package(
             packageContent += `
     ],
     dependencies: [
-        .package(url: "https://github.com/kylef/JSONSchema.swift", from: "0.6.0"),
-        .package(url: "https://github.com/google/GoogleSignIn-iOS", from: "7.0.0")`
-
-            // Add Firebase dependency only if notifications enabled
-            if (isNotificationsEnabled) {
-                packageContent += `,
-        .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "12.3.0")`
-            }
+${formatSwiftPackageEntries(packageDependencies).join(",\n")}`
 
             packageContent += `
     ],
@@ -209,8 +463,7 @@ let package = Package(
         .target(
             name: "CatalystCore",
             dependencies: [
-                .product(name: "JSONSchema", package: "JSONSchema.swift"),
-                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
+${formatSwiftProductEntries(coreDependencies).join(",\n")}
             ],
             path: "Sources/Core"
         )`
@@ -223,8 +476,7 @@ let package = Package(
             name: "CatalystNotifications",
             dependencies: [
                 "CatalystCore",
-                .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
-                .product(name: "FirebaseMessaging", package: "firebase-ios-sdk")
+${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
             ],
             path: "Sources/CatalystNotifications"
         )`
@@ -373,7 +625,7 @@ async function updateXcodeProjectPackageDependencies() {
     }
 }
 
-async function updateInfoPlist() {
+async function updateInfoPlist(pluginComposition = {}) {
     try {
         const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
         const infoReleasePlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info-Release.plist")
@@ -410,162 +662,197 @@ async function updateInfoPlist() {
         }
 
         const plistTargets = [infoPlistPath, infoReleasePlistPath]
-
-        const findMatchingArrayCloseTag = (content, arrayStartIndex) => {
-            if (arrayStartIndex < 0) return -1
-
-            const tokenRegex = /<array>|<\/array>/g
-            tokenRegex.lastIndex = arrayStartIndex
-            let depth = 0
-            let match
-
-            while ((match = tokenRegex.exec(content)) !== null) {
-                if (match[0] === "<array>") {
-                    depth += 1
-                } else {
-                    depth -= 1
-                    if (depth === 0) {
-                        return match.index
-                    }
-                }
-            }
-
-            return -1
-        }
-
-        const ensureGoogleUrlScheme = (plistPath) => {
-            if (!isGoogleSignInEnabled || !resolvedReversedClientId) {
-                return
-            }
-
-            if (!fs.existsSync(plistPath)) {
-                return
-            }
-
-            let plistContent = fs.readFileSync(plistPath, "utf8")
-
-            if (plistContent.includes(resolvedReversedClientId)) {
-                return
-            }
-
-            const urlTypeEntry = `\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>googleSignIn</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${resolvedReversedClientId}</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`
-            const urlTypeDictEntry = `\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>googleSignIn</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${resolvedReversedClientId}</string>\n\t\t\t</array>\n\t\t</dict>\n`
-
-            if (plistContent.includes("<key>CFBundleURLTypes</key>")) {
-                const urlTypesKeyIndex = plistContent.indexOf("<key>CFBundleURLTypes</key>")
-                const urlTypesArrayStart = plistContent.indexOf("<array>", urlTypesKeyIndex)
-                const urlTypesArrayClose = findMatchingArrayCloseTag(plistContent, urlTypesArrayStart)
-
-                if (urlTypesArrayStart >= 0 && urlTypesArrayClose >= 0) {
-                    plistContent =
-                        plistContent.slice(0, urlTypesArrayClose) +
-                        urlTypeDictEntry +
-                        plistContent.slice(urlTypesArrayClose)
-                } else {
-                    const insertPoint = plistContent.lastIndexOf("</dict>")
-                    plistContent =
-                        plistContent.slice(0, insertPoint) + urlTypeEntry + plistContent.slice(insertPoint)
-                    progress.log(
-                        `CFBundleURLTypes block could not be parsed in ${path.basename(plistPath)}; appended block instead`,
-                        "warning"
-                    )
-                }
-            } else {
-                const insertPoint = plistContent.lastIndexOf("</dict>")
-                plistContent =
-                    plistContent.slice(0, insertPoint) + urlTypeEntry + plistContent.slice(insertPoint)
-            }
-
-            fs.writeFileSync(plistPath, plistContent, "utf8")
-            progress.log(`Added Google Sign-In URL scheme to ${path.basename(plistPath)}`, "info")
-        }
-
-        const ensureLSApplicationQueriesSchemes = (plistPath) => {
-            if (!isGoogleSignInEnabled || !resolvedReversedClientId) {
-                return
-            }
-
-            if (!fs.existsSync(plistPath)) {
-                return
-            }
-
-            let plistContent = fs.readFileSync(plistPath, "utf8")
-            const matches = plistContent.match(
-                /<key>LSApplicationQueriesSchemes<\/key>\s*<array>([\s\S]*?)<\/array>/
-            )
-            const existingSchemes = new Set()
-
-            if (matches && matches[1]) {
-                const schemeRegex = /<string>([^<]+)<\/string>/g
-                let match
-                while ((match = schemeRegex.exec(matches[1])) !== null) {
-                    existingSchemes.add(match[1])
-                }
-            }
-
-            const targetSchemes = ["google", resolvedReversedClientId]
-            targetSchemes.forEach((scheme) => {
-                if (scheme && !existingSchemes.has(scheme)) {
-                    existingSchemes.add(scheme)
-                }
-            })
-
-            const schemesArrayContent = Array.from(existingSchemes)
-                .map((s) => `\n\t\t<string>${s}</string>`)
-                .join("")
-
-            const newLSBlock = `\n\t<key>LSApplicationQueriesSchemes</key>\n\t<array>${schemesArrayContent}\n\t</array>\n`
-
-            if (matches) {
-                plistContent = plistContent.replace(
-                    /<key>LSApplicationQueriesSchemes<\/key>\s*<array>[\s\S]*?<\/array>/,
-                    newLSBlock.trimEnd()
-                )
-            } else {
-                const insertPoint = plistContent.lastIndexOf("</dict>")
-                plistContent =
-                    plistContent.slice(0, insertPoint) + newLSBlock + plistContent.slice(insertPoint)
-            }
-
-            fs.writeFileSync(plistPath, plistContent, "utf8")
-            progress.log(
-                `Ensured LSApplicationQueriesSchemes for Google in ${path.basename(plistPath)}`,
-                "info"
-            )
-        }
-
-        const ensureDisplayName = (plistPath) => {
-            if (!fs.existsSync(plistPath)) return
-
-            let plistContent = fs.readFileSync(plistPath, "utf8")
-
-            // Add CFBundleDisplayName if it doesn't exist
-            if (!plistContent.includes("CFBundleDisplayName")) {
-                const insertPoint = plistContent.lastIndexOf("</dict>")
-                const newEntry = `\t<key>CFBundleDisplayName</key>\n\t<string>${iosConfig.appName || "Catalyst Application"}</string>\n`
-                plistContent = plistContent.slice(0, insertPoint) + newEntry + plistContent.slice(insertPoint)
-                fs.writeFileSync(plistPath, plistContent, "utf8")
-            } else {
-                // Update existing CFBundleDisplayName with new appName
-                const displayNameRegex = /(<key>CFBundleDisplayName<\/key>\s*<string>)([^<]*)(<\/string>)/
-                if (displayNameRegex.test(plistContent)) {
-                    plistContent = plistContent.replace(
-                        displayNameRegex,
-                        `$1${iosConfig.appName || "Catalyst Application"}$3`
-                    )
-                    fs.writeFileSync(plistPath, plistContent, "utf8")
-                }
-            }
-        }
+        const pluginUrlSchemes = pluginComposition.urlSchemes || []
+        const pluginQuerySchemes = pluginComposition.querySchemes || []
+        const pluginInfoPlist = pluginComposition.infoPlist || {}
 
         plistTargets.forEach((plistPath) => {
-            ensureDisplayName(plistPath)
-            ensureGoogleUrlScheme(plistPath)
-            ensureLSApplicationQueriesSchemes(plistPath)
+            if (!fs.existsSync(plistPath)) {
+                return
+            }
+
+            restoreManagedFileFromBaseline(plistPath)
+
+            const plistObject = readPlistObject(plistPath)
+            plistObject.CFBundleDisplayName = iosConfig.appName || "Catalyst Application"
+
+            mergeIntoTopLevelObject(plistObject, pluginInfoPlist, "ios.infoPlist")
+
+            if (isGoogleSignInEnabled && resolvedReversedClientId) {
+                mergeUrlSchemes(plistObject, [
+                    {
+                        name: "googleSignIn",
+                        schemes: [resolvedReversedClientId],
+                    },
+                ])
+                mergeQuerySchemes(plistObject, ["google", resolvedReversedClientId])
+            }
+
+            mergeUrlSchemes(plistObject, pluginUrlSchemes)
+            mergeQuerySchemes(plistObject, pluginQuerySchemes)
+
+            writePlistObject(plistPath, plistObject)
         })
     } catch (err) {
         progress.fail("config", err)
         process.exit(1)
+    }
+}
+
+async function updateEntitlements(pluginComposition = {}) {
+    try {
+        const entitlementsPath = path.join(PROJECT_DIR, PROJECT_NAME, `${PROJECT_NAME}.entitlements`)
+        if (!fs.existsSync(entitlementsPath)) {
+            return
+        }
+
+        restoreManagedFileFromBaseline(entitlementsPath)
+
+        const entitlementsObject = readPlistObject(entitlementsPath)
+        mergeIntoTopLevelObject(entitlementsObject, pluginComposition.entitlements || {}, "ios.entitlements")
+        writePlistObject(entitlementsPath, entitlementsObject)
+    } catch (error) {
+        progress.fail("config", error)
+        process.exit(1)
+    }
+}
+
+async function removePluginResourcesFromXcodeProject() {
+    try {
+        const projectFilePath = getXcodeProjectFilePath()
+        if (!fs.existsSync(projectFilePath)) {
+            return
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+        const patterns = [
+            /\t\t[A-F0-9]+ \/\* PluginResources\/[^*]+ \*\/ = \{isa = PBXFileReference;[^\n]*path = [^;]*PluginResources\/[^;]+; sourceTree = "<group>"; \};\n/g,
+            /\t\t[A-F0-9]+ \/\* PluginResources\/[^*]+ in Resources \*\/ = \{isa = PBXBuildFile;[^\n]*\};\n/g,
+            /\t\t\t\t[A-F0-9]+ \/\* PluginResources\/[^*]+ \*\/,\n/g,
+            /\t\t\t\t[A-F0-9]+ \/\* PluginResources\/[^*]+ in Resources \*\/,\n/g,
+        ]
+
+        let modified = false
+        for (const pattern of patterns) {
+            const nextContent = projectContent.replace(pattern, "")
+            if (nextContent !== projectContent) {
+                projectContent = nextContent
+                modified = true
+            }
+        }
+
+        if (modified) {
+            fs.writeFileSync(projectFilePath, projectContent, "utf8")
+            progress.log("Removed managed plugin resources from Xcode project", "info")
+        }
+    } catch (error) {
+        throw new Error(`Could not remove plugin resources from Xcode project: ${error.message}`)
+    }
+}
+
+async function addPluginResourcesToXcodeProject(resources) {
+    try {
+        if (resources.length === 0) {
+            return
+        }
+
+        const projectFilePath = getXcodeProjectFilePath()
+        if (!fs.existsSync(projectFilePath)) {
+            throw new Error(`Xcode project file not found at: ${projectFilePath}`)
+        }
+
+        let projectContent = fs.readFileSync(projectFilePath, "utf8")
+
+        for (const resource of resources) {
+            const label = resource.bundleRelativePath
+            const fileRefId = generateProjectObjectId(label, "_ref")
+            const buildFileId = generateProjectObjectId(label, "_build")
+            const pbxprojPath = formatPbxprojPath(label)
+            const fileType = detectPbxprojFileType(label)
+
+            const fileRefEntry = `\t\t${fileRefId} /* ${label} */ = {isa = PBXFileReference; lastKnownFileType = ${fileType}; path = ${pbxprojPath}; sourceTree = "<group>"; };`
+            projectContent = replaceRequired(
+                projectContent,
+                /(\/\* End PBXFileReference section \*\/)/,
+                `${fileRefEntry}\n$1`,
+                "PBXFileReference section not found while registering plugin resources"
+            )
+
+            const buildFileEntry = `\t\t${buildFileId} /* ${label} in Resources */ = {isa = PBXBuildFile; fileRef = ${fileRefId} /* ${label} */; };`
+            projectContent = replaceRequired(
+                projectContent,
+                /(\/\* End PBXBuildFile section \*\/)/,
+                `${buildFileEntry}\n$1`,
+                "PBXBuildFile section not found while registering plugin resources"
+            )
+
+            const groupPattern = /(\/\* iosnativeWebView \*\/ = \{[^}]*children = \([^)]*)/
+            projectContent = replaceRequired(
+                projectContent,
+                groupPattern,
+                `$1\n\t\t\t\t${fileRefId} /* ${label} */,`,
+                "iosnativeWebView group not found while registering plugin resources"
+            )
+
+            const resourcesPattern = /(\/\* Resources \*\/ = \{[^}]*files = \([^)]*)/
+            projectContent = replaceRequired(
+                projectContent,
+                resourcesPattern,
+                `$1\n\t\t\t\t${buildFileId} /* ${label} in Resources */,`,
+                "Resources build phase not found while registering plugin resources"
+            )
+        }
+
+        fs.writeFileSync(projectFilePath, projectContent, "utf8")
+        progress.log(`Registered ${resources.length} managed plugin resource(s) in Xcode project`, "success")
+    } catch (error) {
+        throw new Error(`Could not add plugin resources to Xcode project: ${error.message}`)
+    }
+}
+
+async function syncPluginResources(pluginComposition = {}) {
+    try {
+        const resources = pluginComposition.resources || []
+        const pluginResourceDir = path.join(PROJECT_DIR, PROJECT_NAME, PLUGIN_RESOURCE_ROOT)
+
+        fs.rmSync(pluginResourceDir, { recursive: true, force: true })
+        await removePluginResourcesFromXcodeProject()
+
+        if (resources.length === 0) {
+            progress.log("No managed plugin resources to sync", "info")
+            return
+        }
+
+        for (const resource of resources) {
+            const normalizedBundleRelativePath = path.posix.normalize(resource.bundleRelativePath || "")
+            const expectedPrefix = `${PLUGIN_RESOURCE_ROOT}/`
+            if (
+                !normalizedBundleRelativePath.startsWith(expectedPrefix) ||
+                normalizedBundleRelativePath.includes("../") ||
+                path.posix.isAbsolute(normalizedBundleRelativePath)
+            ) {
+                throw new Error(`Invalid managed plugin resource path: ${resource.bundleRelativePath}`)
+            }
+
+            const targetPath = path.resolve(PROJECT_DIR, PROJECT_NAME, normalizedBundleRelativePath)
+            if (
+                targetPath !== pluginResourceDir &&
+                !targetPath.startsWith(`${pluginResourceDir}${path.sep}`)
+            ) {
+                throw new Error(
+                    `Managed plugin resource escaped bundle directory: ${resource.bundleRelativePath}`
+                )
+            }
+
+            fs.mkdirSync(path.dirname(targetPath), { recursive: true })
+            fs.copyFileSync(resource.sourcePath, targetPath)
+        }
+
+        await addPluginResourcesToXcodeProject(resources)
+        progress.log(`Synced ${resources.length} managed plugin resource(s)`, "success")
+    } catch (error) {
+        progress.log(`❌ Failed to sync plugin resources: ${error.message}`, "error")
+        throw error
     }
 }
 
@@ -2331,11 +2618,11 @@ async function launchIOSSimulator(simulatorName) {
 }
 
 // Separate build function with proper device routing
-async function buildForIOS() {
+async function buildForIOS(pluginComposition = {}) {
     const originalDir = process.cwd()
 
     try {
-        await generatePackageSwift()
+        await generatePackageSwift(pluginComposition.iosDependencies)
         await updateXcodeProjectPackageDependencies()
 
         // Process notification assets
@@ -2669,9 +2956,18 @@ async function copyAppIcon() {
 async function main() {
     try {
         progress.log("Starting build process...", "info")
+        const pluginConfig = resolvePluginConfig(WEBVIEW_CONFIG)
+        const pluginComposition = composeIosPlugins({
+            corePluginsRoot: resolveInternalPluginsRoot(catalystCorePath),
+            iosProjectPath: PROJECT_DIR,
+            pluginConfig,
+            log: (message, status = "info") => progress.log(message, status),
+        })
         await generateConfigConstants()
-        await updateInfoPlist()
-        await buildForIOS()
+        await updateInfoPlist(pluginComposition)
+        await updateEntitlements(pluginComposition)
+        await syncPluginResources(pluginComposition)
+        await buildForIOS(pluginComposition)
     } catch (error) {
         progress.log("Build failed: " + error.message, "error")
         process.exit(1)

@@ -132,6 +132,8 @@ public struct WebView: UIViewRepresentable, Equatable {
         // Clean up native bridge
         coordinator.nativeBridge?.unregister()
         coordinator.nativeBridge = nil
+        coordinator.pluginBridge?.unregister()
+        coordinator.pluginBridge = nil
         coordinator.hostingController = nil
 
         // Unregister custom URL protocol
@@ -143,6 +145,7 @@ public struct WebView: UIViewRepresentable, Equatable {
     public class Coordinator: NSObject {
         var parent: WebView
         var nativeBridge: NativeBridge?
+        var pluginBridge: PluginBridge?
         var hostingController: UIViewController?
         var isObserverAdded = false
 
@@ -157,6 +160,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
             // Create and register the native bridge
             let bridge = NativeBridge(webView: webView, viewController: hostingController, cameraManager: parent.cameraManager)
+            let pluginBridge = PluginBridge(webView: webView, viewController: hostingController)
 
             // Inject WebViewModel for safe area handling
             Task { @MainActor in
@@ -167,7 +171,9 @@ public struct WebView: UIViewRepresentable, Equatable {
             bridge.setNotificationHandler(NotificationHandlerProvider.shared)
 
             bridge.register()
+            pluginBridge.register()
             self.nativeBridge = bridge
+            self.pluginBridge = pluginBridge
         }
         
         @objc func handleCameraPinch(_ gesture: UIPinchGestureRecognizer) {

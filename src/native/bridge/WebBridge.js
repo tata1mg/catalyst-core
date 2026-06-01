@@ -6,6 +6,62 @@ import {
 } from "./constants/NativeInterfaces.js"
 import nativeBridge from "./utils/NativeBridge.js"
 import CameraUtils from "./utils/CameraUtils.js"
+import pluginBridge from "../plugin-bridge/PluginBridge.js"
+
+const DEVICE_INFO_PLUGIN = {
+    pluginId: "io.catalyst.device_info",
+    command: "getDeviceInfo",
+    successEvent: "onSuccess",
+    errorEvent: "onError",
+}
+
+const DEVICE_INFO_REQUEST_TIMEOUT_MS = 5000
+
+const DEVICE_INFO_PLUGIN_FALLBACK_CODES = new Set([
+    "PLUGIN_NOT_FOUND",
+    "COMMAND_NOT_SUPPORTED",
+    "PLUGIN_NOT_REGISTERED",
+])
+
+const DEVICE_INFO_PLUGIN_FALLBACK_MESSAGES = [
+    "pluginbridge is not available in this environment",
+    "pluginbridge is not available",
+    "device info plugin request timed out",
+]
+
+const normalizeDeviceInfoPayload = (payload) => {
+    if (typeof payload !== "string") {
+        return payload
+    }
+
+    try {
+        return JSON.parse(payload)
+    } catch {
+        return {
+            message: payload,
+        }
+    }
+}
+
+const createDeviceInfoError = (payload, fallbackMessage) => {
+    const parsed = normalizeDeviceInfoPayload(payload)
+    const message = parsed?.message || parsed?.error || fallbackMessage
+    const error = new Error(message)
+
+    if (parsed?.code) {
+        error.code = parsed.code
+    }
+
+    if (parsed?.pluginId) {
+        error.pluginId = parsed.pluginId
+    }
+
+    if (parsed?.command) {
+        error.command = parsed.command
+    }
+
+    return error
+}
 
 class WebBridge {
     constructor() {
@@ -255,26 +311,174 @@ class WebBridge {
         return CameraUtils.requestCameraPermission(config, this.register, this.unregister)
     }
 
+    getDeviceInfoFromLegacyBridge = (parseDeviceInfo) => {
+        return new Promise((resolve, reject) => {
+            let timeoutId = null
+            const cleanup = () => {
+                if (timeoutId != null) {
+                    clearTimeout(timeoutId)
+                }
+                this.unregister(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS)
+                this.unregister(NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR)
+            }
+
+            this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, (data) => {
+                cleanup()
+                resolve(parseDeviceInfo(data))
+            })
+
+            this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR, (error) => {
+                cleanup()
+                reject(new Error(error))
+            })
+
+            try {
+                const dispatched = nativeBridge.device.getDeviceInfo()
+
+                if (dispatched === false) {
+                    cleanup()
+                    reject(new Error("Legacy device info bridge failed to dispatch"))
+                    return
+                }
+
+                timeoutId = setTimeout(() => {
+                    cleanup()
+                    reject(new Error("Legacy device info request timed out"))
+                }, DEVICE_INFO_REQUEST_TIMEOUT_MS)
+            } catch (error) {
+                cleanup()
+                reject(error)
+            }
+        })
+    }
+
+    getDeviceInfoFromPluginBridge = (parseDeviceInfo) => {
+        return new Promise((resolve, reject) => {
+            pluginBridge.init()
+
+            let isSettled = false
+            let timeoutId = null
+            const cleanups = []
+            const cleanup = () => {
+                if (timeoutId != null) {
+                    clearTimeout(timeoutId)
+                }
+                while (cleanups.length > 0) {
+                    const unregister = cleanups.pop()
+                    unregister()
+                }
+            }
+            const settle = (callback) => {
+                if (isSettled) {
+                    return
+                }
+
+                isSettled = true
+                cleanup()
+                callback()
+            }
+
+            cleanups.push(
+                pluginBridge.register({
+                    pluginId: DEVICE_INFO_PLUGIN.pluginId,
+                    eventName: DEVICE_INFO_PLUGIN.successEvent,
+                    command: DEVICE_INFO_PLUGIN.command,
+                    handler: (payload) => {
+                        settle(() => {
+                            try {
+                                resolve(parseDeviceInfo(payload))
+                            } catch (error) {
+                                reject(error)
+                            }
+                        })
+                    },
+                })
+            )
+
+            cleanups.push(
+                pluginBridge.register({
+                    pluginId: DEVICE_INFO_PLUGIN.pluginId,
+                    eventName: DEVICE_INFO_PLUGIN.errorEvent,
+                    command: DEVICE_INFO_PLUGIN.command,
+                    handler: (payload) => {
+                        settle(() => {
+                            reject(createDeviceInfoError(payload, "Device info plugin failed"))
+                        })
+                    },
+                })
+            )
+
+            cleanups.push(
+                pluginBridge.register({
+                    pluginId: "__bridge__",
+                    eventName: "PLUGIN_BRIDGE_ERROR",
+                    command: DEVICE_INFO_PLUGIN.command,
+                    handler: (payload) => {
+                        const pluginId = normalizeDeviceInfoPayload(payload)?.pluginId
+
+                        if (pluginId !== DEVICE_INFO_PLUGIN.pluginId) {
+                            return
+                        }
+
+                        settle(() => {
+                            reject(createDeviceInfoError(payload, "Device info plugin unavailable"))
+                        })
+                    },
+                })
+            )
+
+            try {
+                pluginBridge.emit({
+                    pluginId: DEVICE_INFO_PLUGIN.pluginId,
+                    command: DEVICE_INFO_PLUGIN.command,
+                })
+
+                timeoutId = setTimeout(() => {
+                    settle(() => {
+                        reject(new Error("Device info plugin request timed out"))
+                    })
+                }, DEVICE_INFO_REQUEST_TIMEOUT_MS)
+            } catch (error) {
+                cleanup()
+                reject(error)
+            }
+        })
+    }
+
+    shouldFallbackToLegacyDeviceInfo = (error) => {
+        if (!error) {
+            return false
+        }
+
+        if (DEVICE_INFO_PLUGIN_FALLBACK_CODES.has(error.code)) {
+            return true
+        }
+
+        if (typeof error.message !== "string") {
+            return false
+        }
+
+        const normalizedMessage = error.message.toLowerCase()
+        return DEVICE_INFO_PLUGIN_FALLBACK_MESSAGES.some((message) => normalizedMessage.includes(message))
+    }
+
     /**
      * Get device information
      * @returns {Promise<Object>} - Promise that resolves with device info or rejects with error
      */
-    getDeviceInfo = () => {
+    getDeviceInfo = async () => {
         const { platform, isNativeEnvironment } = nativeBridge.getEnvironmentInfo()
 
         // Handle web environment
         if (!isNativeEnvironment || platform === "web") {
-            return new Promise((resolve) => {
-                const webDeviceInfo = {
-                    model: navigator.userAgent,
-                    manufacturer: "browser",
-                    platform: "web",
-                    screenWidth: screen.width,
-                    screenHeight: screen.height,
-                    screenDensity: window.devicePixelRatio,
-                }
-                resolve(webDeviceInfo)
-            })
+            return {
+                model: navigator.userAgent,
+                manufacturer: "browser",
+                platform: "web",
+                screenWidth: screen.width,
+                screenHeight: screen.height,
+                screenDensity: window.devicePixelRatio,
+            }
         }
 
         // Key mapping from native to web keys
@@ -308,29 +512,15 @@ class WebBridge {
             )
         }
 
-        return new Promise((resolve, reject) => {
-            const cleanup = () => {
-                this.unregister(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS)
-                this.unregister(NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR)
+        try {
+            return await this.getDeviceInfoFromPluginBridge(parseDeviceInfo)
+        } catch (error) {
+            if (!this.shouldFallbackToLegacyDeviceInfo(error)) {
+                throw error
             }
 
-            this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_SUCCESS, (data) => {
-                cleanup()
-                resolve(parseDeviceInfo(data))
-            })
-
-            this.register(NATIVE_CALLBACKS.ON_DEVICE_INFO_ERROR, (error) => {
-                cleanup()
-                reject(new Error(error))
-            })
-
-            try {
-                nativeBridge.device.getDeviceInfo()
-            } catch (error) {
-                cleanup()
-                reject(error)
-            }
-        })
+            return this.getDeviceInfoFromLegacyBridge(parseDeviceInfo)
+        }
     }
 }
 

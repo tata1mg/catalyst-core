@@ -6,6 +6,8 @@ var _fs = _interopRequireDefault(require("fs"))
 var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
+var _pluginComposerAndroid = require("./pluginComposerAndroid.js")
+var _internalPluginUtils = require("./internalPluginUtils.js")
 
 // Import the AAB builder
 import { buildAndroidAAB } from "./renameAndroidProject.js"
@@ -1255,6 +1257,13 @@ async function buildAndroidApp() {
         await copyOfflinePage()
         await copyIconAssets()
         await configureAppName(androidConfig)
+        const pluginConfig = (0, _internalPluginUtils.resolvePluginConfig)(WEBVIEW_CONFIG)
+        ;(0, _pluginComposerAndroid.composeAndroidPlugins)({
+            corePluginsRoot: (0, _internalPluginUtils.resolveInternalPluginsRoot)(catalystCorePath),
+            androidProjectPath: `${pwd}/androidProject`,
+            pluginConfig,
+            log: (message, status = "info") => progress.log(message, status),
+        })
         await processNotifications(WEBVIEW_CONFIG)
         progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
         progress.complete("copyAssets")

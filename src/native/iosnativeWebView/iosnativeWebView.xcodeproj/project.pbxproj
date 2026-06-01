@@ -23,6 +23,7 @@
 		E9F699E02EE065B0005E972E /* NotificationHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699DF2EE065B0005E972E /* NotificationHandlerTests.swift */; };
 		E9F699E22EE06650005E972E /* FrameworkServerUtilsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699E12EE06650005E972E /* FrameworkServerUtilsTests.swift */; };
 		E9F699E42EE0696A005E972E /* BootTimingUtilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699E32EE0696A005E972E /* BootTimingUtilityTests.swift */; };
+		F2B100012F11111100AAA001 /* PluginBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B100022F11111100AAA001 /* PluginBridgeTests.swift */; };
 		F1234AC22E990180008C7F58 /* localhost.p12 in Resources */ = {isa = PBXBuildFile; fileRef = F1234AC32E990180008C7F58 /* localhost.p12 */; };
 /* End PBXBuildFile section */
 
@@ -66,6 +67,7 @@
 		E9F699DF2EE065B0005E972E /* NotificationHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationHandlerTests.swift; sourceTree = "<group>"; };
 		E9F699E12EE06650005E972E /* FrameworkServerUtilsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameworkServerUtilsTests.swift; sourceTree = "<group>"; };
 		E9F699E32EE0696A005E972E /* BootTimingUtilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootTimingUtilityTests.swift; sourceTree = "<group>"; };
+		F2B100022F11111100AAA001 /* PluginBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginBridgeTests.swift; sourceTree = "<group>"; };
 		F1234AC32E990180008C7F58 /* localhost.p12 */ = {isa = PBXFileReference; lastKnownFileType = file; path = localhost.p12; sourceTree = "<group>"; };
 		XCCONFIG001000000001 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		XCCONFIG001000000002 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 				E9F699DB2EE06482005E972E /* CacheManagerTests.swift */,
 				E9F699D92EE063D5005E972E /* WebViewTests.swift */,
 				E9F699D72EE06068005E972E /* NativeBridgeTests.swift */,
+				F2B100022F11111100AAA001 /* PluginBridgeTests.swift */,
 				E9F699D52EE05D74005E972E /* BridgeMessageValidatorTests.swift */,
 				E9F699D32EE05984005E972E /* ConfigMappingTests.swift */,
 				E9F699D02EDEFEF2005E972E /* URLWhitelistManagerTests.swift */,
@@ -321,6 +324,7 @@
 				E9F699DC2EE06483005E972E /* CacheManagerTests.swift in Sources */,
 				E9F699D42EE05984005E972E /* ConfigMappingTests.swift in Sources */,
 				E9F699D82EE06068005E972E /* NativeBridgeTests.swift in Sources */,
+				F2B100012F11111100AAA001 /* PluginBridgeTests.swift in Sources */,
 				E9F699DA2EE063D5005E972E /* WebViewTests.swift in Sources */,
 				E9F699E42EE0696A005E972E /* BootTimingUtilityTests.swift in Sources */,
 				E9F699E22EE06650005E972E /* FrameworkServerUtilsTests.swift in Sources */,

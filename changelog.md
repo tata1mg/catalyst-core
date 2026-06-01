@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.0-canary.8] - 2026-04-15
+
+- Introduced Catalyst’s internal plugin architecture, adding the `PluginBridge` web API, native plugin runtimes for Android and iOS, and manifest-driven build composition for modular native capabilities.
+- Added config-based plugin enablement through `WEBVIEW_CONFIG.plugins` and a `catalyst plugins` CLI for discovering and managing internal framework plugins from the app layer.
+- Shipped the first cross-platform migrated plugin, `device_info`
+
 ## [0.1.0-beta.1] - 2026-04-15
 
 - Promoted `0.1.0-canary.7` to the first proper beta release after stabilization.
