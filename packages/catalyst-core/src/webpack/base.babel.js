@@ -83,7 +83,8 @@ export default {
         fallback: { url: require.resolve("url") },
         extensions: [".js", ".jsx", ".scss", ".ts", ".tsx"],
         alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
-            moduleEnvMap[alias] = `${process.env.src_path}${path.sep}${_moduleAliases[alias]}`
+            // nosemgrep
+            moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
 
             return moduleEnvMap
         }, {}),

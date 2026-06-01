@@ -71,8 +71,18 @@ object FridaDetector {
             try {
                 SocketChannel.open().use { channel ->
                     val address = InetSocketAddress("127.0.0.1", port)
+                    val deadline = System.currentTimeMillis() + 2000
+                    channel.configureBlocking(false)
                     channel.connect(address)
-                    channel.isConnected
+
+                    while (!channel.finishConnect()) {
+                        if (System.currentTimeMillis() >= deadline) {
+                            return@use false
+                        }
+                        Thread.sleep(25)
+                    }
+
+                    true
                 }
             } catch (e: Exception) {
                 // Connection failed or timed out - no Frida on this port

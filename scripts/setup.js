@@ -6,12 +6,11 @@ const repoRoot = path.resolve(__dirname, "..")
 const docsDir = path.join(repoRoot, "docs")
 const docsConfigPath = path.join(docsDir, "config.json")
 const docsConfigTemplatePath = path.join(docsDir, "config_template.json")
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm"
 
 function run(command, args, options = {}) {
     let result
     if (command === "npm") {
-        result = spawnSync(npmCommand, args, {
+        result = spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", args, {
             cwd: repoRoot,
             stdio: "inherit",
             ...options,

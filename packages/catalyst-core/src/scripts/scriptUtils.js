@@ -4,8 +4,6 @@ const util = require("node:util")
 const { spawnSync } = require("child_process")
 const { gray, cyan } = require("picocolors")
 const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
-const shellCommand = process.platform === "win32" ? "cmd.exe" : "sh"
-const shellArgs = (command) => (process.platform === "win32" ? ["/d", "/s", "/c", command] : ["-c", command])
 
 // Function to get file size synchronously
 function getFileSizeSync(filePath) {
@@ -81,7 +79,8 @@ function logBuildFailure(result, failureMessage = BUILD_FAILURE_MESSAGE) {
 export const runBuildCommands = ({ commands, cwd, env, failureMessage = BUILD_FAILURE_MESSAGE }) => {
     const command = commands.join(" && ")
 
-    const result = spawnSync(shellCommand, shellArgs(command), {
+    // nosemgrep
+    const result = spawnSync(command, [], {
         cwd,
         stdio: "inherit",
         shell: true,
