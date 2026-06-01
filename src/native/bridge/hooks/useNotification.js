@@ -67,21 +67,18 @@ export const requestNotificationPermission = () => {
 }
 
 export const useNotificationPermission = () => {
+    if (typeof window === "undefined") {
+        return { permission: null, isLoading: false }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
     const [permission, setPermission] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        if (typeof window === "undefined") {
-            setIsLoading(false)
-            return
-        }
-
-        if (!window.WebBridge) {
-            setPermission(PERMISSION_STATUS.NOT_DETERMINED)
-            setIsLoading(false)
-            return
-        }
-
         const requestPermission = async () => {
             try {
                 if (!nativeBridge.isAvailable()) {
@@ -93,6 +90,7 @@ export const useNotificationPermission = () => {
                 window.WebBridge.register(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS, (data) => {
                     setPermission(data)
                     setIsLoading(false)
+                    console.log("🔔 Notification permission status updated:", data)
                 })
 
                 nativeBridge.notification.requestPermission()
@@ -106,9 +104,7 @@ export const useNotificationPermission = () => {
         requestPermission()
 
         return () => {
-            if (window.WebBridge) {
-                window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
-            }
+            window.WebBridge.unregister(NATIVE_CALLBACKS.NOTIFICATION_PERMISSION_STATUS)
         }
     }, [])
 
@@ -123,8 +119,31 @@ export const useNotification = () => {
     const [lastNotification, setLastNotification] = useState(null)
     const [subscribedTopics, setSubscribedTopics] = useState([])
 
+    if (typeof window === "undefined") {
+        return {
+            data: null,
+            loading: false,
+            error: null,
+            execute: () => {},
+            scheduleLocal: () => {},
+            cancelLocal: () => {},
+            registerForPush: () => {},
+            updateBadge: () => {},
+            subscribeToTopic: () => {},
+            unsubscribeFromTopic: () => {},
+            getSubscribedTopics: () => {},
+            permissionStatus: null,
+            pushToken: null,
+            badges: 0,
+            subscribedTopics: [],
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
     useEffect(() => {
-        if (typeof window === "undefined" || !window.WebBridge) return
         const unregister = registerPermissionStatusListener((data) => {
             setPermissionStatus(data)
         })

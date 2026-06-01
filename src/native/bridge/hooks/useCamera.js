@@ -8,33 +8,6 @@ export const useCamera = ({ webFallback } = {}) => {
     const base = useBaseHook("useCamera", { hasWebFallback: true, webFallback })
     const [permission, setPermission] = useState(null)
 
-    // Web fallback callback — always declared (Rules of Hooks)
-    const webTakePhoto = useCallback(() => {
-        const input = document.createElement("input")
-        input.type = "file"
-        input.accept = "image/*"
-        input.capture = "environment"
-
-        input.onchange = () => {
-            const file = input.files?.[0]
-            if (!file) return
-            if (base.data?.fileSrc?.startsWith("blob:")) {
-                URL.revokeObjectURL(base.data.fileSrc)
-            }
-            const fileSrc = URL.createObjectURL(file)
-            base.setDataAndComplete({
-                fileSrc,
-                fileName: file.name,
-                size: file.size,
-                mimeType: file.type,
-                transport: "OBJECT_URL",
-                source: "camera",
-            })
-        }
-
-        input.click()
-    }, [base])
-
     if (typeof window === "undefined") {
         return {
             data: null,
@@ -79,6 +52,30 @@ export const useCamera = ({ webFallback } = {}) => {
         }
     }
 
+    // Web fallback callback — always declared (Rules of Hooks)
+    const webTakePhoto = useCallback(() => {
+        const input = document.createElement("input")
+        input.type = "file"
+        input.accept = "image/*"
+        input.capture = "environment"
+
+        input.onchange = () => {
+            const file = input.files?.[0]
+            if (!file) return
+            const fileSrc = URL.createObjectURL(file)
+            base.setDataAndComplete({
+                fileSrc,
+                fileName: file.name,
+                size: file.size,
+                mimeType: file.type,
+                transport: "OBJECT_URL",
+                source: "camera",
+            })
+        }
+
+        input.click()
+    }, [base])
+
     if (base.webFallbackActive) {
         return {
             data: base.data,
@@ -102,8 +99,6 @@ export const useCamera = ({ webFallback } = {}) => {
     }
 
     useEffect(() => {
-        if (!window.WebBridge) return
-
         window.WebBridge.register(NATIVE_CALLBACKS.ON_CAMERA_CAPTURE, (data) => {
             try {
                 const result = typeof data === "string" ? JSON.parse(data) : data
@@ -214,8 +209,7 @@ export const requestCameraPermission = () => {
                 if (data === PERMISSION_STATUS.GRANTED) {
                     resolve(data)
                 } else {
-                    const status = typeof data === "string" ? data.toLowerCase() : String(data ?? "unknown")
-                    reject(new Error(`Camera permission ${status}`))
+                    reject(new Error(`Camera permission ${data.toLowerCase()}`))
                 }
             }
 
@@ -271,21 +265,15 @@ export const useCameraPermission = ({ webFallback } = {}) => {
                     permResultRef.current = result
                     setPermission(PERM_MAP[result.state] ?? PERMISSION_STATUS.NOT_DETERMINED)
                     setIsLoading(false)
-                    const handlePermChange = () => {
+                    result.onchange = () => {
                         setPermission(PERM_MAP[result.state] ?? PERMISSION_STATUS.NOT_DETERMINED)
                     }
-                    result.onchange = handlePermChange
                 })
                 .catch(() => {
                     setPermission(PERMISSION_STATUS.NOT_DETERMINED)
                     setIsLoading(false)
                 })
-            return () => {
-                if (permResultRef.current) {
-                    permResultRef.current.onchange = null
-                    permResultRef.current = null
-                }
-            }
+            return
         }
 
         // Native path
@@ -344,7 +332,7 @@ export const useCameraPermission = ({ webFallback } = {}) => {
                     prompt: PERMISSION_STATUS.NOT_DETERMINED,
                 }
                 setPermission(PERM_MAP[result.state] ?? PERMISSION_STATUS.NOT_DETERMINED)
-            } catch (_) { /* permission query not supported */ }
+            } catch (_) {}
         }
         setIsLoading(false)
     }, [isWeb])

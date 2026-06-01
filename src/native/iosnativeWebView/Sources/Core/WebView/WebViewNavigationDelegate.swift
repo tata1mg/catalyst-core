@@ -11,11 +11,13 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     private var offlinePageVisible = false
     private var lastTargetURL: URL?
     private let initialURL: URL?
-    
-    init(viewModel: WebViewModel, initialURL: URL?) {
+    private weak var cameraManager: NativeCameraManager?
+
+    init(viewModel: WebViewModel, initialURL: URL?, cameraManager: NativeCameraManager? = nil) {
         self.viewModel = viewModel
         self.initialURL = initialURL
         self.lastTargetURL = initialURL
+        self.cameraManager = cameraManager
         super.init()
     }
     
@@ -199,6 +201,8 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         logWithTimestamp("📡 didStartProvisionalNavigation - loading started")
+        // Stop camera on navigation — mirrors Android CustomWebview onPageStarted lambda
+        cameraManager?.stop()
         Task { @MainActor in
             if !isOfflinePageURL(webView.url) {
                 offlinePageVisible = false

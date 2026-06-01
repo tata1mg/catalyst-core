@@ -13,6 +13,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <androidx.camera.view.PreviewView
+            android:id="@+id/camera_preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="invisible" />
+
         <WebView
             android:id="@+id/webview"
             android:layout_width="match_parent"
@@ -23,6 +29,37 @@
             android:layout_centerInParent="true"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <RelativeLayout
+            android:id="@+id/debug_viewfinder_overlay"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@null"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/debug_qr_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginBottom="8dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:background="#CC000000"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:text="⬤ –" />
+
+        </RelativeLayout>
+
+        <!-- Debug: shows where native thinks the barcode box is in screen space -->
+        <View
+            android:id="@+id/debug_barcode_overlay"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="#5500FF00"
             android:visibility="gone" />
     </RelativeLayout>
 

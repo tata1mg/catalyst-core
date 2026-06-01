@@ -1,5 +1,5 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
-import { useEffect, useCallback, useRef, useMemo } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 import { useBaseHook } from "../useBaseHook.js"
@@ -192,12 +192,6 @@ export const useFilePicker = ({ webFallback } = {}) => {
             el.onchange = () => {
                 const fileList = Array.from(el.files || [])
                 if (!fileList.length) return
-
-                // Revoke any previous blob URLs before creating new ones
-                const prevFiles = base.data?.files ?? []
-                prevFiles.forEach((f) => {
-                    if (f.fileSrc?.startsWith("blob:")) URL.revokeObjectURL(f.fileSrc)
-                })
 
                 const files = fileList.map((f) => ({
                     fileName: f.name,
@@ -421,12 +415,6 @@ export const useFilePicker = ({ webFallback } = {}) => {
                     fileObject = base64ToFile(fileSrc, fileName, mimeType)
                 } else if (transport === "FRAMEWORK_SERVER") {
                     fileObject = await urlToFile(fileSrc, fileName, mimeType)
-                } else {
-                    throw new Error(`Unhandled transport type: ${transport}`)
-                }
-
-                if (!fileObject) {
-                    throw new Error(`Failed to create file object for transport: ${transport}`)
                 }
 
                 fileObjectCache.current.set(targetIndex, fileObject)

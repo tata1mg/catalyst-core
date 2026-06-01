@@ -74,6 +74,13 @@ public enum CatalystConstants {
                 "setScreenSecure",
                 "getScreenSecure",
                 "clearWebData",
+                "startVideoStream",
+                "stopVideoStream",
+                "flipVideoStream",
+                "sendVideoStreamCommand",
+                "setVideoStreamZoom",
+                "setVideoStreamTorch",
+                "setVideoStreamFps",
                 "startTransition",
                 "commitTransition",
                 "cancelTransition"

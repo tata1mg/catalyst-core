@@ -51,6 +51,7 @@ class CustomWebView(
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
     private var defaultRequestHeaders: Map<String, String> = emptyMap()
+    var onPageStarted: (() -> Unit)? = null
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -233,7 +234,7 @@ class CustomWebView(
         }
 
         // Additional security check: only allow whitelisted interface names
-        val allowedInterfaces = setOf("NativeBridge", "AndroidBridge")
+        val allowedInterfaces = setOf("NativeBridge", "AndroidBridge", "PluginBridge")
         if (name !in allowedInterfaces) {
             Log.e(TAG, "❌ Security: Interface name '$name' is not in whitelist. Refusing to add interface.")
             return
@@ -243,6 +244,17 @@ class CustomWebView(
         webView.addJavascriptInterface(obj, name)
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🔗 Added JavaScript interface: $name")
+        }
+    }
+
+    fun removeJavascriptInterface(name: String) {
+        try {
+            webView.removeJavascriptInterface(name)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "🔌 Removed JavaScript interface: $name")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Failed to remove JavaScript interface '$name': ${e.message}")
         }
     }
 
@@ -606,6 +618,9 @@ class CustomWebView(
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
 
             // TODO: Enable these when build optimization feature is implemented
             // These are deprecated but may be needed for local file access in development
@@ -882,6 +897,7 @@ class CustomWebView(
                 super.onPageStarted(view, url, favicon)
                 if (url != null && url != offlineAssetUrl) {
                     offlinePageVisible = false
+                    onPageStarted?.invoke()
                 }
                 progressBar.visibility = View.VISIBLE
                 val startTime = System.currentTimeMillis()
