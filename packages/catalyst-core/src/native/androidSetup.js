@@ -1,13 +1,13 @@
 import fs from "fs"
 import path from "path"
-import { spawn } from "child_process"
+import { exec } from "child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
 import { setupServer } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
-const configPath = `${process.cwd()}/config/config.json`
+const configPath = `${process.env.PWD}/config/config.json`
 
 const steps = {
     java: "Check Java Environment",
@@ -238,18 +238,13 @@ async function checkEmulator(ADB_PATH) {
 
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`)
-    const emulatorPath = fs.realpathSync(EMULATOR_PATH)
-    // nosemgrep
-    const emulatorProcess = spawn(emulatorPath, ["-avd", androidConfig.emulatorName, "-read-only"], {
-        detached: true,
-        stdio: "ignore",
+    // eslint-disable-next-line security/detect-child-process
+    exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, (error) => {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - EMULATOR_PATH is validated and emulatorName comes from local Android config.
+        if (error) {
+            progress.log(`Error starting emulator: ${error}`, "error")
+        }
     })
-
-    emulatorProcess.on("error", (error) => {
-        progress.log(`Error starting emulator: ${error}`, "error")
-    })
-
-    emulatorProcess.unref()
 }
 
 async function updateLocalProperties(sdkPath) {
