@@ -42,7 +42,7 @@ export const useDataProtection = ({ webFallback } = {}) => {
         try {
             localStorage.clear()
             sessionStorage.clear()
-        } catch (_) {}
+        } catch (_) { /* storage may be unavailable in restricted contexts */ }
 
         document.cookie.split(";").forEach((c) => {
             document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/"

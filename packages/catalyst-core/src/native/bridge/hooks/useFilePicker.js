@@ -1,5 +1,5 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
-import { useEffect, useState, useCallback, useRef, useMemo } from "react"
+import { useEffect, useCallback, useRef, useMemo } from "react"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 import { useBaseHook } from "../useBaseHook.js"
