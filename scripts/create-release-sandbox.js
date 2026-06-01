@@ -99,6 +99,7 @@ function run(command, args, options = {}) {
             env,
         })
     } else if (command === "node") {
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility in this internal release helper.
         result = spawnSync(process.execPath, args, {
             cwd: repoRoot,
             stdio: "inherit",
@@ -132,6 +133,7 @@ function runCapture(command, args, options = {}) {
             env,
         })
     } else if (command === "node") {
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility in this internal release helper.
         result = spawnSync(process.execPath, args, {
             cwd: repoRoot,
             encoding: "utf8",

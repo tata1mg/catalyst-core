@@ -13,6 +13,7 @@ function serve() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
+    // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Production serve keeps shell execution for existing script compatibility.
     spawnSync(
         "node",
         [

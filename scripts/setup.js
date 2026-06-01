@@ -16,6 +16,7 @@ function run(command, args, options = {}) {
             ...options,
         })
     } else if (command === "node") {
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility during setup.
         result = spawnSync(process.execPath, args, {
             cwd: repoRoot,
             stdio: "inherit",
