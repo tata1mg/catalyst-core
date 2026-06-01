@@ -11,7 +11,6 @@ import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
-import { withObservability, withSyncObservability } from "../../otel.js"
 import {
     readCssFromDisk,
     generateScriptElements,
@@ -63,6 +62,20 @@ try {
     _onRequestError = hooks.onRequestError
 } catch {
     // No hooks file — all hooks remain undefined, safeCall will skip them
+}
+
+// Passthrough no-ops used when OTEL_ENABLE is not set; replaced below if enabled.
+let withObservability = (_service, fn) => fn
+let withSyncObservability = (_service, fn) => fn
+
+if (process.env.OTEL_ENABLE === "true") {
+    try {
+        const otel = await import("../../otel.js")
+        withObservability = otel.withObservability
+        withSyncObservability = otel.withSyncObservability
+    } catch {
+        // otel packages not installed — continue without tracing
+    }
 }
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
