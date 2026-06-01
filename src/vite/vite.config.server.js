@@ -1,7 +1,7 @@
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
 import { defineConfig } from "vite"
-import baseConfig, { getClientEnvVariables } from "./vite.config.js"
+import baseConfig, { getClientEnvVariables, isNodeOnlyExternal } from "./vite.config.js"
 import path from "path"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
@@ -28,6 +28,10 @@ export default defineConfig({
         ssrManifest: false,
 
         rollupOptions: {
+            // Belt-and-suspenders with ssr.external: ensures the opt-in OTEL /
+            // node-only packages (and their transitive @opentelemetry/* deps) are
+            // never resolved/bundled, even though they may not be installed.
+            external: isNodeOnlyExternal,
             input: {
                 // Server entry point for SSR
                 server: path.join(__dirname, "../server/renderer/index.js"),

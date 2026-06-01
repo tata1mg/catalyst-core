@@ -195,19 +195,38 @@ const browserOptimizeDeps = [
     "normalize.css",
 ]
 
-// Node-only / instrumentation dependencies that should remain external in SSR
-const nodeOnlyExternalDeps = [
+// Node-only / instrumentation dependencies that must never be bundled into the
+// SSR output. OpenTelemetry is opt-in (enabled at runtime via OTEL_ENABLE), so
+// these packages may not be installed in the consuming app. They are imported
+// only by dist/otel.js, which is itself dynamically imported at runtime and only
+// when OTEL_ENABLE=true (see server/renderer/handler.jsx). Marking them external
+// lets the bundler skip resolving them; Node resolves them at runtime, but only
+// if/when the otel chunk is actually loaded.
+export const nodeOnlyExternalDeps = [
     "elastic-apm-node",
+    "@grpc/grpc-js",
     "@opentelemetry/api",
     "@opentelemetry/core",
-    "@opentelemetry/sdk-node",
-    "@opentelemetry/sdk-trace-base",
-    "@opentelemetry/sdk-metrics",
     "@opentelemetry/resources",
+    "@opentelemetry/semantic-conventions",
+    "@opentelemetry/sdk-node",
+    "@opentelemetry/sdk-metrics",
+    "@opentelemetry/sdk-trace-base",
+    "@opentelemetry/sdk-trace-node",
+    "@opentelemetry/exporter-trace-otlp-grpc",
+    "@opentelemetry/exporter-trace-otlp-http",
+    "@opentelemetry/exporter-metrics-otlp-grpc",
+    "@opentelemetry/exporter-metrics-otlp-http",
+    "@opentelemetry/auto-instrumentations-node",
     "@opentelemetry/instrumentation-http",
     "@opentelemetry/instrumentation-express",
-    "@grpc/grpc-js",
 ]
+
+// Predicate form for Rollup's `external`. Also matches the many transitive
+// @opentelemetry/instrumentation-* packages that auto-instrumentations-node pulls
+// in, without having to enumerate each one.
+export const isNodeOnlyExternal = (id) =>
+    id === "elastic-apm-node" || id === "@grpc/grpc-js" || id.startsWith("@opentelemetry/")
 
 export default defineConfig({
     // Parallel `vite build` (SSR + client) must use separate dirs or Vite will block on shared `node_modules/.vite`.
@@ -219,8 +238,9 @@ export default defineConfig({
     ssr: {
         // Keep selected React-side packages bundled for SSR (transformed by Vite, NOT pre-bundled)
         // noExternal: ["@tata1mg/slowboi-react"],
-        // Ensure Node-only instrumentation and low-level Node deps stay external
-        // external: [...nodeOnlyExternalDeps, "@tata1mg/prefetch-core", "@tata1mg/prefetch-core/react"],
+        // Ensure Node-only instrumentation and low-level Node deps stay external so
+        // the bundler never tries to resolve the optional (opt-in) OTEL packages.
+        external: nodeOnlyExternalDeps,
         optimizeDeps: {
             include: [
                 "invariant",
