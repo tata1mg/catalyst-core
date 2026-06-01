@@ -1,0 +1,46 @@
+packages/catalyst-core/src/scripts/start.js
+  7cc7242af962d373 22,24-25,42,44-45,62-63
+packages/catalyst-core/src/scripts/registerAliases.js
+  7cc7242af962d373 14-15,24-25,43-44,48-51
+packages/catalyst-core/src/scripts/scriptUtils.js
+  7cc7242af962d373 82-83
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/security/FridaDetector.kt
+  7cc7242af962d373 74-75,77-85
+packages/catalyst-core/src/webpack/base.babel.js
+  7cc7242af962d373 86-87
+scripts/setup.js
+  32a293826e9b7dda 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "41c2aa611b7e1483bf3e74d16ef043cf1b3fa564",
+  "prompts": {
+    "32a293826e9b7dda": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7480-9c24-7943-b2ee-49db6b03cebb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 6,
+      "accepted_lines": 14,
+      "overriden_lines": 0
+    },
+    "7cc7242af962d373": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c7-47ca-7260-a32a-2004d41587ce",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 49,
+      "total_deletions": 40,
+      "accepted_lines": 44,
+      "overriden_lines": 0
+    }
+  }
+}
