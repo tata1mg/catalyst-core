@@ -1,0 +1,29 @@
+.service-list {
+    display: flex;
+    padding: 20px;
+    flex-wrap: wrap;
+    min-height: 60vh;
+    justify-content: flex-start;
+    flex-direction: row;
+    max-width: 90vw;
+    margin: 20px auto;
+    background-color: inherit;
+    border-radius: 5px;
+    box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 767px) {
+    .service-list {
+        display: flex;
+        padding: 20px;
+        flex-wrap: wrap;
+        min-height: 29vh;
+        justify-content: flex-start;
+        flex-direction: row;
+        max-width: 90vw;
+        margin: 20px auto;
+        background-color: inherit;
+        border-radius: 5px;
+        box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+}
