@@ -1,0 +1,21 @@
+mcp_v2/tools/knowledge.js
+  s_235678773d95d6::t_2d3cac41177a4e 50-58,63
+  s_235678773d95d6::t_78a9c31a4de694 88
+  s_235678773d95d6::t_e97336cfc132b5 103-104,106-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "280d90f50d0ea12d09a9cd13a1d610dd0fcc3b93",
+  "prompts": {},
+  "sessions": {
+    "s_235678773d95d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "00a57c4f-0a7d-4f71-8085-ebf559076bda",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

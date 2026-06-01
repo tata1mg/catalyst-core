@@ -1,0 +1,21 @@
+packages/create-catalyst-app/package.json
+  s_05ab824369af6a::t_221137258a1f48 21
+packages/create-catalyst-app/scripts/cli.cjs
+  s_05ab824369af6a::t_c5b8bad3d9acef 197-201,204,206,209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9f5bb40907138999ceff8bbdf1e77a49448f5cdd",
+  "prompts": {},
+  "sessions": {
+    "s_05ab824369af6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b54e04e5-15fd-490d-a615-27b10f09c1f5",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

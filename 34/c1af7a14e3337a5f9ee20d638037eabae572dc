@@ -1,0 +1,25 @@
+packages/catalyst-core/src/native/bridge/hooks/useFilePicker.js
+  s_1a26cfab2428fa::t_7e0131d78f5366 2
+packages/catalyst-core/src/native/bridge/hooks/useCamera.js
+  s_1a26cfab2428fa::t_55f835e8ae74f0 335
+packages/catalyst-core/src/native/bridge/hooks/useDataProtection.js
+  s_1a26cfab2428fa::t_b6d0575dc825f0 45
+packages/catalyst-core/src/native/bridge/useBaseHook.js
+  s_1a26cfab2428fa::t_0ba8ac3f33e773 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "34c1af7a14e3337a5f9ee20d638037eabae572dc",
+  "prompts": {},
+  "sessions": {
+    "s_1a26cfab2428fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e44910c0-a5c6-4c37-a68c-6df2d01b5c47",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
