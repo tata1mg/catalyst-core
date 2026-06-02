@@ -3,6 +3,8 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 ARG env_name
 ARG env
 
+RUN npm install -g npm@latest
+
 RUN apk add --no-cache \
     make \
     g++ \
