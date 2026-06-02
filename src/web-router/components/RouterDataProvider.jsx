@@ -12,8 +12,8 @@ import { OneMgRouterContext } from "../context.jsx"
 // import sanitizeHtml from "sanitize-html"
 
 /**
- * @description  Router Data
- * @typedef {{data: any, error: any, isFetching: boolean, isFetched:boolean, refetch?:(args:any)=>Promise<void>}} RouteData
+ * @description Router Data
+ * @typedef {{data: any, error: any, isFetching: boolean, isFetched: boolean, refetch?:(args:any)=>Promise<void>}, , clear?:(wait?:number)=>void}} RouteData
  */
 
 /**
@@ -22,8 +22,16 @@ import { OneMgRouterContext } from "../context.jsx"
 export const RouterContext = createContext({})
 
 /**
+ * @typedef {'always' | 'stale-while-revalidate' | 'no-cache'} CacheMode
+ *
+ * always               — fetch once, cache for the lifetime of the provider (default)
+ * stale-while-revalidate — serve cached data immediately and refetch in background; update on arrival
+ * no-cache             — delete entry on unmount; next visit always starts from INITIAL_DATA_STATE
+ */
+
+/**
  * @typedef RouterDataProviderConfig
- * @property {boolean} [disableCaching=false] disableCaching disable caching of fetched data - default is false
+ @property {CacheMode} [cacheMode='always'] global cache mode, overridden per route
  */
 
 /**
@@ -41,23 +49,31 @@ const INITIAL_DATA_STATE = {
 /**
  * @typedef RouterFetcherProps
  * @property {any} route route object
- * @property {import("react-router-dom").Location} location the current location object, which represents the current URL in web browsers.
- * @property {import("react-router-dom").Params} params object of key/value pairs of the dynamic params from the current URL that were matched by the route path.
- * @property {URLSearchParams} searchParams search parameters via URLSearchParams interface.
- * @property {import("react-router-dom").NavigateFunction} navigate function to navigate to other pages based on response.
+ * @property {import("react-router-dom").Location} location the current location object
+ * @property {import("react-router-dom").Params} params params dynamic params from the current URL
+ * @property {URLSearchParams} searchParams search parameters
+ * @property {import("react-router-dom").NavigateFunction} navigate navigate function
  */
 
 /**
  * @typedef ServerFetchDataProps
- * @property {import("react-router-dom").RouteObject[]} routes routes Array
+ * @property {import("react-router-dom").RouteObject[]} routes routes array
  * @property {string} url current url
  * @property {import("express").Request} req Express request object
  */
 
 /**
- * @description call this function to fetch data using fetchers defined in routes
+ * Resolves the effective cache mode for a route, route-level takes priority over global config
+ * @param {import('react-router-dom').RouteObject} route
+ * @param {RouterDataProviderConfig} [config]
+ * @returns {CacheMode}
+ */
+const getCacheMode = (route, config) => route?.cacheMode ?? config?.cacheMode ?? "always"
+
+/**
+ * @description call this function to fetch data using fetchers defined in routes on the server
  * @param {ServerFetchDataProps} serverFetchDataProps
- * @param {Object.<string, any>} fetcherArgs anything passed in fetcherArgs prop of RouterProvider
+ * @param {Object.<string, any>} fetcherArgs
  * @returns RoutesData
  */
 export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
@@ -92,18 +108,46 @@ export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
 }
 
 /**
- * @description call this function to fetch data using fetchers defined in [page].fetcher.js
+ * @description call this function to fetch data using fetchers defined in the route config or on the component
  * @param {RouterFetcherProps} routerProps
- * @param {Object.<string, any>} fetcherArgs anything passed in fetcherArgs prop of RouterProvider
- * @param {Object.<string, any>=} refetchArgs anything passed in argument of refetch function
+ * @param {Object.<string, any>} fetcherArgs
+ * @param {Object.<string, any>=} refetchArgs
  * @returns {Promise<RouteData>}
  */
 const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
     const routeData = { ...INITIAL_DATA_STATE }
     const { route } = routerProps
     const routeComponent = route.component || route.Component || route.element
+
+    // ─── CLIENT-SIDE ─────────────────────────────────────────────────────────
+
+    /**
+     * route.clientFetcher fires immediately without waiting for the component bundle to load,
+     *  running in parallel with lazy loading to eliminate the data fetch waterfall
+     * load — because the fetcher reference is already available without waiting
+     * for component.load() to resolve.
+     *   navigate ──────────────── bundle loading ────────── render
+     *            │
+     *            └─▶ route.clientFetcher() starts immediately
+     *                        │
+     *                  data arrives (may already be ready by render time)
+     */
+    if (typeof window !== "undefined" && typeof route.clientFetcher === "function") {
+        routeData.fetcherNotAvailable = false
+        try {
+            const res = await route.clientFetcher(routerProps, fetcherArgs, refetchArgs)
+            routeData.data = res
+        } catch (error) {
+            // @ts-ignore
+            routeData.error = error
+        } finally {
+            routeData.isFetching = false
+            routeData.isFetched = true
+        }
+        return routeData
+    }
+
     let component = null
-    // If component is imported through loadable
     if (typeof routeComponent?.load === "function") {
         try {
             component = await routeComponent.load()
@@ -112,13 +156,9 @@ const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
         }
     }
 
-    let fetcher = component?.default?.clientFetcher
+    const fetcher = typeof window === "undefined" ? component?.serverFetcher : component?.clientFetcher
 
-    if (typeof window === "undefined") {
-        fetcher = component?.default?.serverFetcher
-    }
-
-    if (fetcher && typeof fetcher === "function") {
+    if (typeof fetcher === "function") {
         routeData.fetcherNotAvailable = false
         try {
             const res = await fetcher(routerProps, fetcherArgs, refetchArgs)
@@ -137,9 +177,8 @@ const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
 }
 
 /**
- *
- * @param {RouteContextObject} routeContext route context object
- * @returns {import('react-router-dom').RouteMatch[]} Array of matched routes
+ * @param {RouteContextObject} routeContext
+ * @returns {import('react-router-dom').RouteMatch[]}
  */
 const getMatchedRoutes = ({ matches, outlet }) => {
     if (outlet) {
@@ -149,10 +188,9 @@ const getMatchedRoutes = ({ matches, outlet }) => {
 }
 
 /**
- * Generates route key for given route using pathname and query params
- * @param {import('react-router-dom').RouteMatch} match Router Match Object
- * @param {string} searchParamsString Query params string
- * @returns {string} routerKey
+ * @param {import('react-router-dom').RouteMatch} match
+ * @param {string} searchParamsString
+ * @returns {string}
  */
 const generateRouteKey = (match, searchParamsString = "") => {
     const { pathname, route } = match
@@ -166,14 +204,14 @@ const generateRouteKey = (match, searchParamsString = "") => {
 
 /**
  * @typedef RouterDataProviderProps
- * @property {any} initialState Initial State of Data Provider - Mostly used to hydrate client with data from server
+ * @property {any} initialState initial state - used to hydrate the client with SSR data
  * @property {any} children
- * @property {Object.<string, any>} fetcherArgs anything passed in fetcherArgs is passed to all the fetcher functions
- * @property  {RouterDataProviderConfig} config Global router data provider config
+ * @property {Object.<string, any>} fetcherArgs passed through to all functions
+ * @property {RouterDataProviderConfig} config global config
  */
 
 /**
- * @description Render the child components with router context and execute data fetchers on path change
+ * @description Renders children with router context and executes data fetchers on path change
  * @param {RouterDataProviderProps} props
  * @returns React.JSX.Element
  */
@@ -189,11 +227,10 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
     const matchedRoutes = useMemo(() => getMatchedRoutes(routeContext), [routeContext])
 
     /**
-     * @description HOF which returns a function to refetch the route data
-     * @param {import("react-router-dom").RouteObject} route
-     * @param {string} routeKey
-     * @returns
+     * @type {[Object.<string, RouteData>, React.Dispatch<React.SetStateAction<Object.<string, RouteData>>>]}
      */
+    const [routeData, setRouteData] = useState(initialState)
+
     const refetchData = (route, routeKey) => {
         return async (/** @type {{ [x: string]: any; } | undefined} */ args) => {
             setRouteData((prevData) => ({
@@ -212,76 +249,74 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
         }
     }
 
-    /**
-     * @description HOF which returns a function to clear the route data immediately or after given time in ms
-     * @param {import("react-router-dom").RouteObject} route
-     * @param {string} routeKey
-     * @returns
-     */
     const clear =
         (routeKey) =>
         (wait = 0) => {
-            // TODO :: Need to think this use case
-            // eslint-disable-next-line no-unused-vars
-            const timeout = setTimeout(() => {
+            setTimeout(() => {
                 setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...INITIAL_DATA_STATE } }))
-            }, [wait])
+            }, wait)
         }
-
-    /**
-     * @type {[Object.<string, RouteData>,React.Dispatch<React.SetStateAction<Object.<string, RouteData>>>]}
-     */
-    const [routeData, setRouteData] = useState(initialState)
-
-    /**
-     * @description Check the config for refetching the data
-     * @param {import('react-router-dom').RouteObject} route
-     * @returns {boolean}
-     */
-    const shouldFetch = (route) => {
-        // do not refetch on first render if we get something in initialState
-        if (!isHydrated.current && initialState) return false
-
-        // config at route level over rides config at global level
-        if (typeof route.disableCaching === "boolean") {
-            return route.disableCaching
-        } else if (typeof config.disableCaching === "boolean") {
-            // refetch if caching is disabled at global level
-            return config.disableCaching
-        }
-        return false
-    }
 
     useEffect(() => {
         matchedRoutes.forEach(async (match) => {
             const route = match.route
             const routeKey = generateRouteKey(match, location.search)
-            if (routeData[routeKey]?.isFetched && !shouldFetch(route)) return
-            setRouteData((prevData) => ({
-                ...(prevData || {}),
-                [routeKey]: { ...INITIAL_DATA_STATE, isFetching: true },
-            }))
+            const mode = getCacheMode(route, config)
+            // On hydration (first client render), skip routes already fetched on the server
+            if (!isHydrated.current && initialState && routeData[routeKey]?.isFetched) return
+
+            // always: skip if already fetched
+            if (mode === "always" && routeData[routeKey]?.isFetched) return
+
+            // stale-while-revalidate: serve cached data immediately and refetch in background
+            if (mode === "stale-while-revalidate" && routeData[routeKey]?.isFetched) {
+                setRouteData((prevData) => ({
+                    ...prevData,
+                    [routeKey]: { ...prevData[routeKey], isFetching: true },
+                }))
+            } else {
+                // no-cache or first visit: start fresh
+                setRouteData((prevData) => ({
+                    ...(prevData || {}),
+                    [routeKey]: { ...INITIAL_DATA_STATE, isFetching: true },
+                }))
+            }
+
             const routerDataRes = await fetchRouteData(
                 { route, location, params, searchParams, navigate },
                 fetcherArgs
             )
             setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...routerDataRes } }))
         })
+        isHydrated.current = true
+
+        return () => {
+            // For no-cache routes, delete the entry on unmount so the next visit
+            // always starts from INITIAL_DATA_STATE with no stale data
+            matchedRoutes.forEach((match) => {
+                const routeKey = generateRouteKey(match, location.search)
+                if (getCacheMode(match.route, config) === "no-cache") {
+                    setRouteData((prev) => {
+                        const next = { ...prev }
+                        delete next[routeKey]
+                        return next
+                    })
+                }
+            })
+        }
     }, [match.pathname, match.params])
 
     return (
         <OneMgRouterContext.Provider value={{ matchedRoutes, refetchData, clear }}>
-            <RouterContext.Provider value={{ ...routeData, refetch: refetchData }}>
-                {children}
-            </RouterContext.Provider>
+            <RouterContext.Provider value={{ ...routeData }}>{children}</RouterContext.Provider>
         </OneMgRouterContext.Provider>
     )
 }
 
 /**
- * @description returns current router context object with three values: data, error, isFetching, isFetched
+ * @description returns current route data: {data, error, isFetching, isFetched, refetch, clear }
  * @returns {RouteData}
- * @throws If used outside RouterDataProvider Context
+ * @throws if used outside RouterDataProvider Context
  */
 export const useCurrentRouteData = () => {
     const routeContext = useContext(UNSAFE_RouteContext)
@@ -289,7 +324,6 @@ export const useCurrentRouteData = () => {
     const context = useContext(RouterContext)
     const { refetchData, clear } = useContext(OneMgRouterContext)
     const location = useLocation()
-    // Throw error if the hook is not used within a RouterProvider
     if (context === undefined) {
         throw new Error("useCurrentRouteData must be used within a RouterDataProvider")
     }
@@ -305,25 +339,21 @@ export const useCurrentRouteData = () => {
 
     if (!currentPageData) return { ...INITIAL_DATA_STATE }
 
-    if (currentPageData) {
-        delete currentPageData.fetcherNotAvailable
-        currentPageData = {
-            ...currentPageData,
-            refetch: refetchData(currentPageMatch.route, routeKey),
-            clear: clear(routeKey),
-        }
+    delete currentPageData.fetcherNotAvailable
+    return {
+        ...currentPageData,
+        refetch: refetchData(currentPageMatch.route, routeKey),
+        clear: clear(routeKey),
     }
-    return currentPageData
 }
 
 /**
- * @description returns a router context object with data of all the fetchers in current route tree
+ * @description returns the full route data map for all fetchers in the current route tree
  * @returns {Object.<string, RouteData>}
- * @throws If used outside RouterDataProvider Context
+ * @throws if used outside RouterDataProvider Context
  */
 export const useRouterData = () => {
     const context = useContext(RouterContext)
-    // Throw error if the hook is not used within a RouterProvider
     if (context === undefined) {
         throw new Error("useRouterData must be used within a RouterDataProvider")
     }
