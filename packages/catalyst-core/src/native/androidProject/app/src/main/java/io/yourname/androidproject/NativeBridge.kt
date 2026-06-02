@@ -154,6 +154,9 @@ class NativeBridge(
     // Unified notification manager
     private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
 
+    // Transition manager — snapshot overlay pattern for native page transitions
+    private val transitionManager = TransitionManager(mainActivity, webView)
+
     companion object {
         private const val TAG = "NativeBridge"
         private const val GOOGLE_SIGN_IN_SAFE_EXECUTE_ACTION = "start Google Sign-In"
@@ -1134,6 +1137,45 @@ class NativeBridge(
     }
 
     @JavascriptInterface
+    fun startTransition(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_TRANSITION_CANCELLED, "start transition") {
+            val options = try {
+                JSONObject(optionsRaw ?: "{}")
+            } catch (e: Exception) {
+                Log.w(TAG, "startTransition — malformed JSON, using defaults: $optionsRaw")
+                JSONObject()
+            }
+
+            val type = options.optString("type", "slide")
+            val direction = options.optString("direction", "left")
+            val duration = options.optInt("duration", 300).coerceIn(0, 2000)
+            val timeout = options.optInt("timeout", maxOf(duration * 3, 800))
+
+            mainActivity.runOnUiThread {
+                transitionManager.startTransition(type, direction, duration, timeout)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun commitTransition(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_TRANSITION_CANCELLED, "commit transition") {
+            mainActivity.runOnUiThread {
+                transitionManager.commitTransition()
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun cancelTransition(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_TRANSITION_CANCELLED, "cancel transition") {
+            mainActivity.runOnUiThread {
+                transitionManager.cancelTransition()
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun getSafeArea(data: String? = null) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED, "get safe area") {
             mainActivity.runOnUiThread {
@@ -1163,6 +1205,10 @@ class NativeBridge(
         try {
             // Cleanup NotificationManager
             notificationManager.cleanup()
+
+            // Cancel any in-flight transition and release overlay
+            transitionManager.cleanup()
+
 
             // Stop network monitoring
             networkMonitor?.stop()

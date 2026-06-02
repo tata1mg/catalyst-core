@@ -40,9 +40,6 @@ public struct WebView: UIViewRepresentable, Equatable {
         // Hook kept for legacy behavior; currently a no-op on iOS 15+.
         WebKitConfig.applySharedProcessPoolIfNeeded(to: configuration)
 
-        #if DEBUG
-        configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        #endif
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
@@ -101,7 +98,11 @@ public struct WebView: UIViewRepresentable, Equatable {
     }
     
     public func updateUIView(_ webView: WKWebView, context: Context) {
-        // Intentionally empty to prevent reloading
+        #if DEBUG
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
+        #endif
     }
     
     public func makeCoordinator() -> Coordinator {
