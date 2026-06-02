@@ -23,6 +23,8 @@ const { promisify } = require('util')
 const execAsync = promisify(exec)
 const { requireUncached } = require('../utils/constants.js')
 const validateRequest = require('../middleware/reqValidator.js')
+
+const readJsonFile = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'))
 const {
     apiAuthChecker,
     checkCreateNewDocPermission,
@@ -217,7 +219,7 @@ router.post(
                 __dirname,
                 `../collection-files/${fileName}.json`
             )
-            const postmanCollectionData = require(filePath)
+            const postmanCollectionData = readJsonFile(filePath)
             serviceVersion =
                 postmanCollectionData?.variable?.find(
                     (item) => item?.key === 'version'
@@ -451,7 +453,7 @@ router.post('/add_openapi_file', upload.single('file'), async (req, res) => {
             __dirname,
             `../collection-files/${fileName}.json`
         )
-        const openApiCollection = require(filePath)
+        const openApiCollection = readJsonFile(filePath)
         serviceVersion = openApiCollection?.info?.version ?? '1.0.0'
         const outputFileUrl = path.resolve(
             __dirname,
@@ -665,7 +667,7 @@ router.post(
                 __dirname,
                 `../collection-files/${fileName}.json`
             )
-            const openApiCollection = require(filePath)
+            const openApiCollection = readJsonFile(filePath)
             serviceVersion = openApiCollection?.info?.version ?? '1.0.0'
             const outputFileUrl = path.resolve(
                 __dirname,

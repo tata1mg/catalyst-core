@@ -3,7 +3,7 @@ const path = require('path')
 const config = require('../config.json')
 
 // Define the target folders
-const targetFolders = ['login-page', 'server', 'static']
+const targetFolders = ['server', 'static']
 
 // Read the content of config.json
 const configContent = fs.readFileSync(
@@ -13,15 +13,23 @@ const configContent = fs.readFileSync(
 
 // Copy config.json to each target folder
 targetFolders.forEach((folder) => {
-    let targetPath = path.resolve(__dirname, '..', folder, 'config.json')
-    if (folder === 'login-page') {
-        targetPath = path.resolve(__dirname, '..', folder, 'src', 'config.json')
-    }
     if (folder === 'static') {
-        targetPath = path.resolve(__dirname, '..', folder, 'js', 'config.js')
+        const targetPath = path.resolve(
+            __dirname,
+            '..',
+            'static',
+            'js',
+            'config.js'
+        )
         const scriptContent = `const serverUrl = "${config.docs.server_url}"`
         fs.writeFileSync(targetPath, scriptContent, 'utf-8')
     } else {
+        const targetPath = path.resolve(
+            __dirname,
+            '..',
+            'server',
+            'config.json'
+        )
         fs.writeFileSync(targetPath, configContent, 'utf8')
     }
 })

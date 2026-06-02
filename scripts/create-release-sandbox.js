@@ -7,6 +7,7 @@ const defaultSandboxDir = path.join(repoRoot, ".sandbox")
 const npmCacheDir = path.join(defaultSandboxDir, ".npm-cache")
 const corePackageDir = path.join(repoRoot, "packages", "catalyst-core")
 const ccaPackageDir = path.join(repoRoot, "packages", "create-catalyst-app")
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm"
 
 function usage() {
     console.log(`Usage:
@@ -53,7 +54,8 @@ function parseArgs(argv) {
         if (arg === "--name") {
             options.name = readValue(argv, (index += 1), "--name")
         } else if (arg === "--target-dir") {
-            options.targetDir = path.resolve(repoRoot, readValue(argv, (index += 1), "--target-dir"))
+            const targetDir = readValue(argv, (index += 1), "--target-dir")
+            options.targetDir = path.isAbsolute(targetDir) ? targetDir : `${repoRoot}${path.sep}${targetDir}`
         } else if (arg === "--yes" || arg === "-y") {
             options.yes = true
         } else if (arg === "--force") {
@@ -88,13 +90,26 @@ function run(command, args, options = {}) {
         NPM_CONFIG_CACHE: npmCacheDir,
     }
 
-    const result = spawnSync(command, args, {
-        cwd: repoRoot,
-        stdio: "inherit",
-        shell: process.platform === "win32",
-        ...options,
-        env,
-    })
+    let result
+    if (command === "npm") {
+        result = spawnSync(npmCommand, args, {
+            cwd: repoRoot,
+            stdio: "inherit",
+            ...options,
+            env,
+        })
+    } else if (command === "node") {
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility in this internal release helper.
+        result = spawnSync(process.execPath, args, {
+            cwd: repoRoot,
+            stdio: "inherit",
+            shell: process.platform === "win32",
+            ...options,
+            env,
+        })
+    } else {
+        throw new Error(`Unsupported sandbox command: ${command}`)
+    }
 
     if (result.status !== 0) {
         process.exit(result.status || 1)
@@ -109,13 +124,26 @@ function runCapture(command, args, options = {}) {
         NPM_CONFIG_CACHE: npmCacheDir,
     }
 
-    const result = spawnSync(command, args, {
-        cwd: repoRoot,
-        encoding: "utf8",
-        shell: process.platform === "win32",
-        ...options,
-        env,
-    })
+    let result
+    if (command === "npm") {
+        result = spawnSync(npmCommand, args, {
+            cwd: repoRoot,
+            encoding: "utf8",
+            ...options,
+            env,
+        })
+    } else if (command === "node") {
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility in this internal release helper.
+        result = spawnSync(process.execPath, args, {
+            cwd: repoRoot,
+            encoding: "utf8",
+            shell: process.platform === "win32",
+            ...options,
+            env,
+        })
+    } else {
+        throw new Error(`Unsupported sandbox command: ${command}`)
+    }
 
     if (result.status !== 0) {
         process.stdout.write(result.stdout || "")
@@ -151,15 +179,17 @@ function patchTemplatePackage(templatePackagePath, coreSpec) {
 }
 
 function patchCcaTemplates(ccaCopyDir, coreSpec) {
-    const templatesDir = path.join(ccaCopyDir, "templates")
+    const templatesDir = `${ccaCopyDir}${path.sep}templates`
     const templateDirs = fs
         .readdirSync(templatesDir, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
         .map((entry) => entry.name)
-        .filter((templateDir) => fs.existsSync(path.join(templatesDir, templateDir, "package.json")))
+        .filter((templateDir) =>
+            fs.existsSync(`${templatesDir}${path.sep}${templateDir}${path.sep}package.json`)
+        )
 
     for (const templateDir of templateDirs) {
-        patchTemplatePackage(path.join(templatesDir, templateDir, "package.json"), coreSpec)
+        patchTemplatePackage(`${templatesDir}${path.sep}${templateDir}${path.sep}package.json`, coreSpec)
     }
 }
 

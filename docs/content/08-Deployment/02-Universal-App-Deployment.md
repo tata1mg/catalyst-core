@@ -52,7 +52,7 @@ Required Android release fields:
 
 ## Related Docs
 
-- [Configuration API](/content/11-API%20Reference/02-Configuration.md)
+- [Configuration API](/content/11-API%20Reference/02-Configuration.mdx)
 - [Android Build Optimization](/content/Best%20Practices/android-build-optimization)
 - [Security](/content/Best%20Practices/security)
 - [Universal App Cache Management](/content/Core%20Concepts/universal-app-cache-management)

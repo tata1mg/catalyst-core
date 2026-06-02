@@ -51,28 +51,29 @@ export default function WhitelistingDemo() {
         if (!testUrl.trim()) return
 
         const urlPatterns = allowedUrls.map((u) => u.url)
+        const matchesPattern = (pattern) => {
+            const segments = pattern.split('*')
+            if (!testUrl.startsWith(segments[0])) return false
+            if (!testUrl.endsWith(segments[segments.length - 1])) return false
+
+            let offset = 0
+            return segments.every((segment) => {
+                const index = testUrl.indexOf(segment, offset)
+                if (index === -1) return false
+                offset = index + segment.length
+                return true
+            })
+        }
 
         const isAllowed = urlPatterns.some((pattern) => {
-            // Convert pattern to regex
-            const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            const regexPattern = escaped.replace(/\\\*/g, '.*')
-            const regex = new RegExp(`^${regexPattern}$`)
-            return regex.test(testUrl)
+            return matchesPattern(pattern)
         })
 
         setTestResult({
             url: testUrl,
             allowed: isAllowed,
             matchedPattern: isAllowed
-                ? urlPatterns.find((pattern) => {
-                      const escaped = pattern.replace(
-                          /[.*+?^${}()|[\]\\]/g,
-                          '\\$&'
-                      )
-                      const regexPattern = escaped.replace(/\\\*/g, '.*')
-                      const regex = new RegExp(`^${regexPattern}$`)
-                      return regex.test(testUrl)
-                  })
+                ? urlPatterns.find((pattern) => matchesPattern(pattern))
                 : null,
         })
     }
