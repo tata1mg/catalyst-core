@@ -404,12 +404,12 @@ class WebCacheManager(private val context: Context, private val properties: java
 
     private fun generateCacheKey(url: String): String {
         try {
-            val md = MessageDigest.getInstance("MD5")
+            val md = MessageDigest.getInstance("SHA-256")
             val digest = md.digest(url.toByteArray())
             return digest.joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Error generating cache key: ${e.message}")
-            // Fallback to a simple hash code if MD5 fails
+            // Fallback to a simple hash code if SHA-256 fails
             return url.hashCode().toString()
         }
     }

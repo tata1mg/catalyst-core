@@ -18,7 +18,7 @@
         "jscodeshift": "^0.16.0",
         "picocolors": "^0.1.0",
         "prompts": "^2.4.0",
-        "tar": "^6.2.1",
+        "tar": "^7.5.15",
         "validate-npm-package-name": "^5.0.0"
     },
     "devDependencies": {

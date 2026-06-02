@@ -71,10 +71,16 @@ jobs:
                   fetch-depth: 0
 
             - name: Validate branch and inputs
+              env:
+                  BRANCH: ${{ github.ref_name }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION_BUMP: ${{ inputs.core_version_bump }}
+                  CORE_CUSTOM_VERSION: ${{ inputs.core_custom_version }}
+                  CCA_VERSION_BUMP: ${{ inputs.cca_version_bump }}
+                  CCA_CUSTOM_VERSION: ${{ inputs.cca_custom_version }}
               run: |
-                  BRANCH="${{ github.ref_name }}"
-                  RELEASE_TAG="${{ inputs.release_tag }}"
-
                   validate_custom_version() {
                     PACKAGE_LABEL="$1"
                     VERSION_BUMP="$2"
@@ -110,7 +116,7 @@ jobs:
                     fi
                   }
 
-                  if [ "${{ inputs.prepare_core }}" != "true" ] && [ "${{ inputs.prepare_cca }}" != "true" ]; then
+                  if [ "$PREPARE_CORE" != "true" ] && [ "$PREPARE_CCA" != "true" ]; then
                     echo "::error::Select at least one package to prepare"
                     exit 1
                   fi
@@ -120,17 +126,17 @@ jobs:
                     exit 1
                   fi
 
-                  if [ "$RELEASE_TAG" != "latest" ] && { { [ "${{ inputs.prepare_core }}" == "true" ] && [ "${{ inputs.core_version_bump }}" == "release" ]; } || { [ "${{ inputs.prepare_cca }}" == "true" ] && [ "${{ inputs.cca_version_bump }}" == "release" ]; }; }; then
+                  if [ "$RELEASE_TAG" != "latest" ] && { { [ "$PREPARE_CORE" == "true" ] && [ "$CORE_VERSION_BUMP" == "release" ]; } || { [ "$PREPARE_CCA" == "true" ] && [ "$CCA_VERSION_BUMP" == "release" ]; }; }; then
                     echo "::error::'release' bump is only valid for latest releases"
                     exit 1
                   fi
 
-                  if [ "${{ inputs.prepare_core }}" == "true" ]; then
-                    validate_custom_version "catalyst-core" "${{ inputs.core_version_bump }}" "${{ inputs.core_custom_version }}"
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    validate_custom_version "catalyst-core" "$CORE_VERSION_BUMP" "$CORE_CUSTOM_VERSION"
                   fi
 
-                  if [ "${{ inputs.prepare_cca }}" == "true" ]; then
-                    validate_custom_version "create-catalyst-app" "${{ inputs.cca_version_bump }}" "${{ inputs.cca_custom_version }}"
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    validate_custom_version "create-catalyst-app" "$CCA_VERSION_BUMP" "$CCA_CUSTOM_VERSION"
                   fi
 
             - name: Setup Node.js
@@ -141,8 +147,15 @@ jobs:
 
             - name: Compute and apply target versions
               id: versions
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION_BUMP: ${{ inputs.core_version_bump }}
+                  CORE_CUSTOM_VERSION: ${{ inputs.core_custom_version }}
+                  CCA_VERSION_BUMP: ${{ inputs.cca_version_bump }}
+                  CCA_CUSTOM_VERSION: ${{ inputs.cca_custom_version }}
               run: |
-                  RELEASE_TAG="${{ inputs.release_tag }}"
                   CORE_PACKAGE_NAME="catalyst-core"
                   CCA_PACKAGE_NAME="create-catalyst-app"
 
@@ -238,21 +251,22 @@ jobs:
                     echo "${OUTPUT_PREFIX}_version=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
                   }
 
-                  if [ "${{ inputs.prepare_core }}" == "true" ]; then
-                    set_target_version "packages/catalyst-core" "$CORE_PACKAGE_NAME" "./packages/catalyst-core/package.json" "${{ inputs.core_version_bump }}" "${{ inputs.core_custom_version }}" "core"
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    set_target_version "packages/catalyst-core" "$CORE_PACKAGE_NAME" "./packages/catalyst-core/package.json" "$CORE_VERSION_BUMP" "$CORE_CUSTOM_VERSION" "core"
                   fi
 
-                  if [ "${{ inputs.prepare_cca }}" == "true" ]; then
-                    set_target_version "packages/create-catalyst-app" "$CCA_PACKAGE_NAME" "./packages/create-catalyst-app/package.json" "${{ inputs.cca_version_bump }}" "${{ inputs.cca_custom_version }}" "cca"
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    set_target_version "packages/create-catalyst-app" "$CCA_PACKAGE_NAME" "./packages/create-catalyst-app/package.json" "$CCA_VERSION_BUMP" "$CCA_CUSTOM_VERSION" "cca"
                   fi
 
             - name: Resolve create-catalyst-app template catalyst dependency
               id: template_core
               if: inputs.prepare_cca
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
               run: |
-                  RELEASE_TAG="${{ inputs.release_tag }}"
-                  PREPARE_CORE="${{ inputs.prepare_core }}"
-
                   validate_template_dependency_version() {
                     PACKAGE_NAME="$1"
                     VERSION="$2"
@@ -276,7 +290,7 @@ jobs:
                   PACKAGE_NAME="catalyst-core"
 
                   if [ "$PREPARE_CORE" == "true" ]; then
-                    TARGET_VERSION="${{ steps.versions.outputs.core_version }}"
+                    TARGET_VERSION="$CORE_VERSION"
                   else
                     TARGET_VERSION=$(npm view "$PACKAGE_NAME@$RELEASE_TAG" version 2>/dev/null || true)
                     if [ -z "$TARGET_VERSION" ]; then
@@ -291,18 +305,27 @@ jobs:
 
             - name: Sync create-catalyst-app template dependency versions
               if: inputs.prepare_cca
+              env:
+                  TEMPLATE_CORE_VERSION: ${{ steps.template_core.outputs.version }}
               run: |
-                  node scripts/release/sync-cca-templates.js --package-version="${{ steps.template_core.outputs.version }}"
+                  node scripts/release/sync-cca-templates.js --package-version="$TEMPLATE_CORE_VERSION"
 
             - name: Validate create-catalyst-app template dependency versions
               if: inputs.prepare_cca
+              env:
+                  TEMPLATE_CORE_VERSION: ${{ steps.template_core.outputs.version }}
               run: |
-                  node scripts/release/sync-cca-templates.js --check --package-version="${{ steps.template_core.outputs.version }}"
+                  node scripts/release/sync-cca-templates.js --check --package-version="$TEMPLATE_CORE_VERSION"
 
             - name: Update workspace lockfile
               run: npm install --package-lock-only --ignore-scripts
 
             - name: Check version availability on npm
+              env:
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
               run: |
                   check_version_available() {
                     PACKAGE_NAME="$1"
@@ -314,24 +337,25 @@ jobs:
                     fi
                   }
 
-                  if [ "${{ inputs.prepare_core }}" == "true" ]; then
+                  if [ "$PREPARE_CORE" == "true" ]; then
                     PACKAGE_NAME="catalyst-core"
-                    check_version_available "$PACKAGE_NAME" "${{ steps.versions.outputs.core_version }}"
+                    check_version_available "$PACKAGE_NAME" "$CORE_VERSION"
                   fi
 
-                  if [ "${{ inputs.prepare_cca }}" == "true" ]; then
+                  if [ "$PREPARE_CCA" == "true" ]; then
                     PACKAGE_NAME="create-catalyst-app"
-                    check_version_available "$PACKAGE_NAME" "${{ steps.versions.outputs.cca_version }}"
+                    check_version_available "$PACKAGE_NAME" "$CCA_VERSION"
                   fi
 
             - name: Write release metadata
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+                  TEMPLATE_CORE_VERSION: ${{ steps.template_core.outputs.version }}
               run: |
-                  RELEASE_TAG="${{ inputs.release_tag }}"
-                  PREPARE_CORE="${{ inputs.prepare_core }}"
-                  PREPARE_CCA="${{ inputs.prepare_cca }}"
-                  CORE_VERSION="${{ steps.versions.outputs.core_version }}"
-                  CCA_VERSION="${{ steps.versions.outputs.cca_version }}"
-                  TEMPLATE_CORE_VERSION="${{ steps.template_core.outputs.version }}"
                   export RELEASE_TAG PREPARE_CORE PREPARE_CCA CORE_VERSION CCA_VERSION TEMPLATE_CORE_VERSION
 
                   node - <<'NODE'
@@ -369,6 +393,11 @@ jobs:
             - name: Commit prepared version
               id: commit_prepare
               if: ${{ !inputs.dry_run }}
+              env:
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
               run: |
                   /usr/bin/git add .release-meta.json package-lock.json packages/catalyst-core/package.json packages/create-catalyst-app/package.json packages/create-catalyst-app/templates/*/package.json
 
@@ -378,11 +407,11 @@ jobs:
                   fi
 
                   PACKAGE_LABELS=()
-                  if [ "${{ inputs.prepare_core }}" == "true" ]; then
-                    PACKAGE_LABELS+=("catalyst-core@${{ steps.versions.outputs.core_version }}")
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    PACKAGE_LABELS+=("catalyst-core@$CORE_VERSION")
                   fi
-                  if [ "${{ inputs.prepare_cca }}" == "true" ]; then
-                    PACKAGE_LABELS+=("create-catalyst-app@${{ steps.versions.outputs.cca_version }}")
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    PACKAGE_LABELS+=("create-catalyst-app@$CCA_VERSION")
                   fi
 
                   git commit -m "chore: prepare release ${PACKAGE_LABELS[*]} [skip ci]"
@@ -390,18 +419,18 @@ jobs:
 
             - name: Final summary
               if: always()
+              env:
+                  STATUS: ${{ job.status }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  DRY_RUN: ${{ inputs.dry_run }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_CURRENT: ${{ steps.versions.outputs.core_current }}
+                  CORE_TARGET: ${{ steps.versions.outputs.core_version }}
+                  CCA_CURRENT: ${{ steps.versions.outputs.cca_current }}
+                  CCA_TARGET: ${{ steps.versions.outputs.cca_version }}
+                  COMMIT_OUTCOME: ${{ steps.commit_prepare.outcome }}
               run: |
-                  STATUS="${{ job.status }}"
-                  RELEASE_TAG="${{ inputs.release_tag }}"
-                  DRY_RUN="${{ inputs.dry_run }}"
-                  PREPARE_CORE="${{ inputs.prepare_core }}"
-                  PREPARE_CCA="${{ inputs.prepare_cca }}"
-                  CORE_CURRENT="${{ steps.versions.outputs.core_current }}"
-                  CORE_TARGET="${{ steps.versions.outputs.core_version }}"
-                  CCA_CURRENT="${{ steps.versions.outputs.cca_current }}"
-                  CCA_TARGET="${{ steps.versions.outputs.cca_version }}"
-                  COMMIT_OUTCOME="${{ steps.commit_prepare.outcome }}"
-
                   echo "status=$STATUS"
                   echo "release_tag=$RELEASE_TAG"
                   echo "dry_run=$DRY_RUN"

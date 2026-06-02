@@ -12,7 +12,7 @@ const {
     checkPrivateDocsViewPermission,
 } = require('./middleware/authCheker')
 
-const app = express()
+const app = express() // nosemgrep
 const { port } = appConfig.server
 const privateDocsMountUrl = appConfig?.server?.private_docs_mount_url
     ? `/${appConfig?.server?.private_docs_mount_url}`
@@ -39,10 +39,6 @@ app.get('/docs', (req, res) => {
     res.redirect('/public_docs')
 })
 
-app.use(
-    '/login',
-    express.static(path.resolve(__dirname, '../login-page/build'))
-)
 app.use(
     privateDocsMountUrl,
     authChecker,

@@ -257,7 +257,8 @@ export default function CameraAPIDemo() {
                 [property]: !prev[property],
             }
             console.log(
-                `Toggled ${property}:`,
+                'Toggled camera demo property:',
+                property,
                 newState[property],
                 'New state:',
                 newState
