@@ -1,7 +1,6 @@
 node_modules
 build
 logs
-package-lock.json
 
 # Playwright
 /test-results/
