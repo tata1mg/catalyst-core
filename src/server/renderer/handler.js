@@ -3,6 +3,7 @@ import path from "path"
 import React from "react"
 
 import extractAssets, { cacheAndFetchAssets } from "./extract"
+import { withObservability, withSyncObservability } from "../../otel"
 import { Provider } from "react-redux"
 import { Head, Body } from "./document"
 import { StaticRouter } from "react-router-dom/server"
@@ -22,12 +23,23 @@ import {
 import CustomDocument from "@catalyst/template/server/document.js"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils.js"
 import {
-    onRouteMatch,
-    onFetcherSuccess,
-    onFetcherError,
-    onRenderError,
-    onRequestError,
+    onRouteMatch as _onRouteMatch,
+    onFetcherSuccess as _onFetcherSuccess,
+    onFetcherError as _onFetcherError,
+    onRenderError as _onRenderError,
+    onRequestError as _onRequestError,
 } from "@catalyst/template/server/index.js"
+
+const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
+
+const traceHandlerHook = (fn, spanName) =>
+    typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
+
+const onRouteMatch = traceHandlerHook(_onRouteMatch, "onRouteMatch")
+const onFetcherSuccess = traceHandlerHook(_onFetcherSuccess, "onFetcherSuccess")
+const onFetcherError = traceHandlerHook(_onFetcherError, "onFetcherError")
+const onRenderError = traceHandlerHook(_onRenderError, "onRenderError")
+const onRequestError = traceHandlerHook(_onRequestError, "onRequestError")
 
 const storePath = path.resolve(`${process.env.src_path}/src/js/store/index.js`)
 
@@ -78,8 +90,25 @@ const parseSafeAreaFromHeaders = (req) => {
     }
 }
 
-// matches request route with routes defined in the application.
-const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "", webExtractor) => {
+// Dry-run render wrapped separately so it appears as a distinct span within getMatchRoutes.
+const renderToStringWithObservability = withSyncObservability(
+    SSR_SERVICE,
+    function dryRunRender(webExtractor, store, context, req, fetcherData) {
+        renderToString(
+            <ChunkExtractorManager extractor={webExtractor}>
+                <Provider store={store}>
+                    <StaticRouter context={context} location={req.originalUrl}>
+                        <ServerRouter store={store} intialData={fetcherData} />
+                    </StaticRouter>
+                </Provider>
+            </ChunkExtractorManager>
+        )
+    },
+    "renderToString"
+)
+
+// Internal recursive implementation — called directly to avoid creating a new span per recursion.
+const _getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath = "", webExtractor) => {
     return routes.reduce((matches, route) => {
         const { path } = route
         const match = matchPath(
@@ -94,15 +123,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
             }
             if (!res.locals.pageCss && !res.locals.preloadJSLinks) {
                 //moving routing logic outside of the App and using ServerRoutes for creating routes on server instead
-                renderToString(
-                    <ChunkExtractorManager extractor={webExtractor}>
-                        <Provider store={store}>
-                            <StaticRouter context={context} location={req.originalUrl}>
-                                <ServerRouter store={store} intialData={fetcherData} />
-                            </StaticRouter>
-                        </Provider>
-                    </ChunkExtractorManager>
-                )
+                renderToStringWithObservability(webExtractor, store, context, req, fetcherData)
             }
             const wc = route.component
             matches.push({
@@ -113,7 +134,7 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         }
         if (!match && route.children) {
             // recursively try to match nested routes
-            const nested = getMatchRoutes(
+            const nested = _getMatchRoutes(
                 route.children,
                 req,
                 res,
@@ -131,6 +152,20 @@ const getMatchRoutes = (routes, req, res, store, context, fetcherData, basePath 
         return matches
     }, [])
 }
+
+const getMatchRoutes = withSyncObservability(SSR_SERVICE, _getMatchRoutes, "getMatchRoutes")
+
+const tracedResWriteFirstFoldCss = withSyncObservability(
+    SSR_SERVICE,
+    (res, chunk) => res.write(chunk),
+    "res.write.firstFoldCss"
+)
+const tracedResWriteFirstFoldJS = withSyncObservability(
+    SSR_SERVICE,
+    (res, chunk) => res.write(chunk),
+    "res.write.firstFoldJS"
+)
+const tracedResEnd = withSyncObservability(SSR_SERVICE, (res) => res.end(), "res.end")
 
 // Preloads chunks required for rendering document
 const getComponent = (store, context, req, fetcherData) => {
@@ -242,9 +277,9 @@ const renderMarkUp = async (
                 },
                 onAllReady() {
                     const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
-                    res.write(firstFoldCss)
-                    res.write(firstFoldJS)
-                    res.end()
+                    tracedResWriteFirstFoldCss(res, firstFoldCss)
+                    tracedResWriteFirstFoldJS(res, firstFoldJS)
+                    tracedResEnd(res)
                     cleanupGlobalThis()
                     resolve()
                 },
@@ -270,12 +305,21 @@ const renderMarkUp = async (
     }
 }
 
+const tracedAppServerSideFunction = withObservability(
+    SSR_SERVICE,
+    (args) => App.serverSideFunction(args),
+    "App.serverSideFunction"
+)
+const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
+const tracedRenderMarkUp = withObservability(SSR_SERVICE, renderMarkUp, "renderMarkUp")
+const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
+
 /**
  * middleware for document handling
  * @param {object} req - request object
  * @param {object} res - response object
  */
-export default async function (req, res) {
+async function _handler(req, res) {
     try {
         let context = {}
         let fetcherData = {}
@@ -314,7 +358,7 @@ export default async function (req, res) {
 
         try {
             // Executing app server side function
-            await App.serverSideFunction({ store, req, res })
+            await tracedAppServerSideFunction({ store, req, res })
 
             if (res.headersSent) {
                 return Promise.resolve(res)
@@ -322,7 +366,7 @@ export default async function (req, res) {
 
             try {
                 // Executing serverFetcher functions with serverDataFetcher provided by router and returning document
-                fetcherData = await serverDataFetcher(
+                fetcherData = await tracedServerDataFetcher(
                     { routes: routes, req, res, url: req.originalUrl },
                     { store }
                 )
@@ -331,7 +375,7 @@ export default async function (req, res) {
                     return Promise.resolve(res)
                 }
 
-                allTags = getMetaData(allMatches, fetcherData)
+                allTags = tracedGetMetaData(allMatches, fetcherData)
 
                 // function defined by user which needs to run after SSR functions are executed
                 safeCall(onFetcherSuccess, { req, res, fetcherData })
@@ -341,7 +385,17 @@ export default async function (req, res) {
                 }
 
                 return new Promise((resolve, reject) => {
-                    renderMarkUp(null, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+                    tracedRenderMarkUp(
+                        null,
+                        req,
+                        res,
+                        allTags,
+                        fetcherData,
+                        store,
+                        matches,
+                        context,
+                        webExtractor
+                    )
                         .then(resolve)
                         .catch(reject)
                 })
@@ -355,7 +409,17 @@ export default async function (req, res) {
                 }
 
                 return new Promise((resolve, reject) => {
-                    renderMarkUp(404, req, res, allTags, fetcherData, store, matches, context, webExtractor)
+                    tracedRenderMarkUp(
+                        404,
+                        req,
+                        res,
+                        allTags,
+                        fetcherData,
+                        store,
+                        matches,
+                        context,
+                        webExtractor
+                    )
                         .then(resolve)
                         .catch(reject)
                 })
@@ -363,7 +427,7 @@ export default async function (req, res) {
         } catch (error) {
             logger.error("Error in executing serverSideFunction inside App: " + error)
             return new Promise((resolve, reject) => {
-                renderMarkUp(
+                tracedRenderMarkUp(
                     error.status_code,
                     req,
                     res,
@@ -385,3 +449,7 @@ export default async function (req, res) {
         return Promise.reject(error)
     }
 }
+
+const handler = withObservability(SSR_SERVICE, _handler, "handler")
+
+export default handler
