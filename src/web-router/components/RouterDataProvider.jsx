@@ -13,7 +13,7 @@ import { OneMgRouterContext } from "../context.jsx"
 
 /**
  * @description Router Data
- * @typedef {{data: any, error: any, isFetching: boolean, isFetched: boolean, refetch?:(args:any)=>Promise<void>}, , clear?:(wait?:number)=>void}} RouteData
+ * @typedef {{data: any, error: any, isFetching: boolean, isFetched: boolean, refetch?:(args:any)=>Promise<void>}, clear?:(wait?:number)=>void}} RouteData
  */
 
 /**
@@ -24,9 +24,9 @@ export const RouterContext = createContext({})
 /**
  * @typedef {'always' | 'stale-while-revalidate' | 'no-cache'} CacheMode
  *
- * always               — fetch once, cache for the lifetime of the provider (default)
- * stale-while-revalidate — serve cached data immediately and refetch in background; update on arrival
- * no-cache             — delete entry on unmount; next visit always starts from INITIAL_DATA_STATE
+ * always                   — fetch once, cache for the lifetime of the provider (default)
+ * stale-while-revalidate   — serve cached data immediately and refetch in background; update on arrival
+ * no-cache                 — delete entry on unmount; next visit always starts from INITIAL_DATA_STATE
  */
 
 /**
@@ -50,7 +50,7 @@ const INITIAL_DATA_STATE = {
  * @typedef RouterFetcherProps
  * @property {any} route route object
  * @property {import("react-router-dom").Location} location the current location object
- * @property {import("react-router-dom").Params} params params dynamic params from the current URL
+ * @property {import("react-router-dom").Params} params dynamic params from the current URL
  * @property {URLSearchParams} searchParams search parameters
  * @property {import("react-router-dom").NavigateFunction} navigate navigate function
  */
@@ -123,7 +123,7 @@ const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
 
     /**
      * route.clientFetcher fires immediately without waiting for the component bundle to load,
-     *  running in parallel with lazy loading to eliminate the data fetch waterfall
+     * running in parallel with lazy loading to eliminate the data fetch waterfall
      * load — because the fetcher reference is already available without waiting
      * for component.load() to resolve.
      *   navigate ──────────────── bundle loading ────────── render
@@ -156,7 +156,8 @@ const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
         }
     }
 
-    const fetcher = typeof window === "undefined" ? component?.serverFetcher : component?.clientFetcher
+    const fetcher =
+        typeof window === "undefined" ? component?.default?.serverFetcher : component?.default?.clientFetcher
 
     if (typeof fetcher === "function") {
         routeData.fetcherNotAvailable = false
