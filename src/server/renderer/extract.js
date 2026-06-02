@@ -33,7 +33,7 @@ export function cacheCSS(key, data) {
             if (process.env.NODE_ENV === "production") {
                 data.map((assetChunk) => {
                     const assetPathArr = assetChunk.key.split("/")
-                    const assetName = assetPathArr[assetPathArr.length - 1]
+                    const assetName = path.basename(assetPathArr[assetPathArr.length - 1])
                     const ext = path.extname(assetName)
 
                     if (ext === ".css") {
@@ -43,11 +43,7 @@ export function cacheCSS(key, data) {
                             !process.cssCache?.[key]?.listOfCachedAssets?.[assetName]
                         ) {
                             pageCss += fs.readFileSync(
-                                path.resolve(
-                                    process.env.src_path,
-                                    `${process.env.BUILD_OUTPUT_PATH}/public`,
-                                    assetName
-                                )
+                                `${process.env.src_path}${path.sep}${process.env.BUILD_OUTPUT_PATH}${path.sep}public${path.sep}${assetName}`
                             )
                             listOfCachedAssets[assetName] = true
                         }

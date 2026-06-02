@@ -113,9 +113,9 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
         T4_DATA_FETCHING: () => {
             const useEffectFiles = grepSrc(
-                "useEffect.*fetch|useEffect.*axios|useEffect.*\\.get\\(|useEffect.*\\.post\\("
+                /useEffect.*fetch|useEffect.*axios|useEffect.*\.get\(|useEffect.*\.post\(/
             )
-            const fetcherFiles = grepSrc("\\.serverFetcher\\s*=|\\.clientFetcher\\s*=")
+            const fetcherFiles = grepSrc(/\.serverFetcher\s*=|\.clientFetcher\s*=/)
             if (useEffectFiles.length === 0) return { status: "completed" }
             return {
                 status: "needs_review",
@@ -368,13 +368,13 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
         // ── Tier 3: Enhancements (feature-presence gated) ───────────────────────
 
         T17a_USE_FILEPICKER: () => {
-            const oldPatternFiles = grepSrc("<input[^>]*type=['\"]file['\"]")
+            const oldPatternFiles = grepSrc(/<input[^>]*type=['"]file['"]/)
             if (oldPatternFiles.length === 0)
                 return {
                     status: "not_applicable",
                     reason: 'No <input type="file"> found in project — file upload feature not used.',
                 }
-            const hookUsageFiles = grepSrc("useFilePicker")
+            const hookUsageFiles = grepSrc(/useFilePicker/)
             return {
                 status: "needs_review",
                 native_risk:
@@ -396,13 +396,13 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
         },
 
         T17b_USE_CAMERA: () => {
-            const oldPatternFiles = grepSrc("accept=['\"]image[^>]*capture|<input[^>]+capture")
+            const oldPatternFiles = grepSrc(/accept=['"]image[^>]*capture|<input[^>]+capture/)
             if (oldPatternFiles.length === 0)
                 return {
                     status: "not_applicable",
                     reason: "No camera capture inputs (<input capture>) found — camera feature not used.",
                 }
-            const hookUsageFiles = grepSrc("useCamera")
+            const hookUsageFiles = grepSrc(/useCamera/)
             return {
                 status: "needs_review",
                 native_risk:
@@ -424,13 +424,13 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
         },
 
         T18_USE_HAPTIC: () => {
-            const oldPatternFiles = grepSrc("navigator\\.vibrate")
+            const oldPatternFiles = grepSrc(/navigator\.vibrate/)
             if (oldPatternFiles.length === 0)
                 return {
                     status: "not_applicable",
                     reason: "No navigator.vibrate() calls found — haptic feedback not used.",
                 }
-            const hookUsageFiles = grepSrc("useHapticFeedback")
+            const hookUsageFiles = grepSrc(/useHapticFeedback/)
             return {
                 status: "needs_review",
                 native_risk:
@@ -453,7 +453,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
         T19_USE_NOTIFICATIONS: () => {
             if (!webviewConfig || !webviewConfig.notifications || !webviewConfig.notifications.enabled) {
-                const pushFiles = grepSrc("firebase|FCM|pushNotif|useNotification")
+                const pushFiles = grepSrc(/firebase|FCM|pushNotif|useNotification/)
                 if (pushFiles.length === 0)
                     return {
                         status: "not_applicable",
@@ -480,7 +480,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
         T20_USE_DEVICE_INFO: () => {
             const oldPatternFiles = grepSrc(
-                "navigator\\.userAgent|/Android/i\\.test|/iPhone/i\\.test|/iPad/i\\.test"
+                /navigator\.userAgent|\/Android\/i\.test|\/iPhone\/i\.test|\/iPad\/i\.test/
             )
             if (oldPatternFiles.length === 0)
                 return {
@@ -488,7 +488,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     reason: "No navigator.userAgent / UA-sniffing found — platform detection not used.",
                 }
             const correctPatternFiles = grepSrc(
-                "isNative|window\\.NativeBridge|nativeBridge\\.isAndroid|nativeBridge\\.isIOS"
+                /isNative|window\.NativeBridge|nativeBridge\.isAndroid|nativeBridge\.isIOS/
             )
             return {
                 status: "needs_review",
