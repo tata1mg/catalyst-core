@@ -24,7 +24,7 @@
         "catalyst-core": "0.1.0-beta.2"
     },
     "devDependencies": {
-        "@playwright/test": "^1.52.0",
+        "@playwright/test": "1.52.0",
         "@types/node": "^22.14.1",
         "eslint": "^8.26.0",
         "eslint-plugin-react": "^7.34.1",
