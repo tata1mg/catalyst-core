@@ -1,11 +1,10 @@
-FROM --platform=linux/amd64 node:16-alpine as build
+FROM --platform=linux/amd64 node:22-alpine as build
 ARG env_name
 ARG env
 
 RUN apk add --no-cache \
     make \
     g++ \
-    aws-cli \
     git \
     gcc \
     shared-mime-info \
