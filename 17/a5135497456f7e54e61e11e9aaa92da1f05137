@@ -1,0 +1,21 @@
+docs/Dockerfile
+  s_8985b0c4f1a231::t_195d54a03a81ab 6-7
+docs/package.json
+  s_8985b0c4f1a231::t_9e32dffeb332cb 69-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "17a5135497456f7e54e61e11e9aaa92da1f05137",
+  "prompts": {},
+  "sessions": {
+    "s_8985b0c4f1a231": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d7ec690-e930-49a9-9a7b-37725ab140ec",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
