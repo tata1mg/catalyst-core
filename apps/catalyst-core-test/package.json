@@ -29,8 +29,5 @@
         "eslint": "^8.26.0",
         "eslint-plugin-react": "^7.34.1",
         "eslint-plugin-react-hooks": "^4.6.0"
-    },
-    "overrides": {
-        "path-to-regexp": "0.1.13"
     }
 }

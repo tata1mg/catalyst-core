@@ -12,7 +12,7 @@ npm ci
 
 # Install template dependencies
 cd "$FIXTURE_DIR"
-npm ci
+npm install
 cd "$ROOT_DIR"
 
 # Build catalyst-core
