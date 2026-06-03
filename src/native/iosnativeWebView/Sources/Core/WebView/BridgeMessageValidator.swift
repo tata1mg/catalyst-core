@@ -370,7 +370,10 @@ class BridgeMessageValidator {
             "cancelLocalNotification",
             "subscribeToTopic",
             "unsubscribeFromTopic",
-            "getSafeArea"
+            "getSafeArea",
+            "startTransition",
+            "commitTransition",
+            "cancelTransition"
         ]
 
         if flexibleCommands.contains(command) {

@@ -5,6 +5,12 @@
 - Moved Catalyst into a monorepo structure with `catalyst-core`, `create-catalyst-app`, the Catalyst docs app, and the Catalyst core test app managed from one repository.
 - Replaced the internal-package pre-release flow with a local release sandbox that scaffolds a real app using current-branch CCA and a locally packed current-branch `catalyst-core`.
 
+## [0.1.0-canary.8] - 2026-04-15
+
+- Introduced Catalyst’s internal plugin architecture, adding the `PluginBridge` web API, native plugin runtimes for Android and iOS, and manifest-driven build composition for modular native capabilities.
+- Added config-based plugin enablement through `WEBVIEW_CONFIG.plugins` and a `catalyst plugins` CLI for discovering and managing internal framework plugins from the app layer.
+- Shipped the first cross-platform migrated plugin, `device_info`
+
 ## [0.1.0-beta.1] - 2026-04-15
 
 - Promoted `0.1.0-canary.7` to the first proper beta release after stabilization.

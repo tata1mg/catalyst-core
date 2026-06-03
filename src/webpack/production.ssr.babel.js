@@ -53,6 +53,12 @@ const ssrConfig = mergeWithCustomize({
         // images are handled by isomorphic webpack.
         // html files are required directly
         /\.(html|png|gif|jpg)$/,
+        // OpenTelemetry is an opt-in peer dependency that may not be installed.
+        // Always treat it (and @grpc/grpc-js, pulled in by the gRPC exporters) as
+        // external so the build never tries to resolve it; the lazy import() in
+        // src/otel.js then only requires it at runtime when OTEL_ENABLE=true.
+        /^@opentelemetry\//,
+        "@grpc/grpc-js",
         // treat all node modules as external to keep this bundle small
         nodeExternals({
             modulesDir: path.resolve(process.env.src_path, "./node_modules"),

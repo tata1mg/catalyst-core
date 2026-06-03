@@ -7,6 +7,14 @@ export const NATIVE_COMMANDS = {
     OPEN_CAMERA: "openCamera",
     REQUEST_CAMERA_PERMISSION: "requestCameraPermission",
 
+    // Video stream commands
+    START_VIDEO_STREAM: "startVideoStream",
+    STOP_VIDEO_STREAM: "stopVideoStream",
+    SET_VIDEO_STREAM_ZOOM: "setVideoStreamZoom",
+    SET_VIDEO_STREAM_TORCH: "setVideoStreamTorch",
+    SET_VIDEO_STREAM_FPS: "setVideoStreamFps",
+    FLIP_VIDEO_STREAM: "flipVideoStream",
+
     // File commands
     PICK_FILE: "pickFile",
     OPEN_FILE_WITH_INTENT: "openFileWithIntent",
@@ -33,6 +41,11 @@ export const NATIVE_COMMANDS = {
     // Auth commands
     GOOGLE_SIGN_IN: "googleSignIn",
 
+    // Transition commands
+    START_TRANSITION: "startTransition",
+    COMMIT_TRANSITION: "commitTransition",
+    CANCEL_TRANSITION: "cancelTransition",
+
     // Safe area commands
     GET_SAFE_AREA: "getSafeArea",
 
@@ -48,6 +61,13 @@ export const NATIVE_CALLBACKS = {
     CAMERA_PERMISSION_STATUS: "CAMERA_PERMISSION_STATUS",
     ON_CAMERA_CAPTURE: "ON_CAMERA_CAPTURE",
     ON_CAMERA_ERROR: "ON_CAMERA_ERROR",
+
+    // Video stream callbacks
+    ON_VIDEO_STREAM_READY: "ON_VIDEO_STREAM_READY",
+    ON_VIDEO_STREAM_STOPPED: "ON_VIDEO_STREAM_STOPPED",
+    ON_QR_DETECTED: "ON_QR_DETECTED",
+    ON_TORCH_CHANGED: "ON_TORCH_CHANGED",
+    ON_ZOOM_CHANGED: "ON_ZOOM_CHANGED",
 
     // File picker callbacks
     ON_FILE_PICKED: "ON_FILE_PICKED",
@@ -88,6 +108,11 @@ export const NATIVE_CALLBACKS = {
 
     // Safe area callbacks
     ON_SAFE_AREA_INSETS_UPDATED: "ON_SAFE_AREA_INSETS_UPDATED",
+
+    // Transition callbacks
+    ON_TRANSITION_COMMITTED: "ON_TRANSITION_COMMITTED",
+    ON_TRANSITION_CANCELLED: "ON_TRANSITION_CANCELLED",
+    ON_TRANSITION_TIMEOUT: "ON_TRANSITION_TIMEOUT",
 
     // Security callbacks
     ON_SCREEN_SECURE_SET: "ON_SCREEN_SECURE_SET",
@@ -178,6 +203,18 @@ export const INTERFACE_CATEGORIES = {
             NATIVE_CALLBACKS.ON_SCREEN_SECURE_ERROR,
             NATIVE_CALLBACKS.ON_WEB_DATA_CLEARED,
             NATIVE_CALLBACKS.ON_WEB_DATA_CLEAR_ERROR,
+        ],
+    },
+    TRANSITION: {
+        commands: [
+            NATIVE_COMMANDS.START_TRANSITION,
+            NATIVE_COMMANDS.COMMIT_TRANSITION,
+            NATIVE_COMMANDS.CANCEL_TRANSITION,
+        ],
+        callbacks: [
+            NATIVE_CALLBACKS.ON_TRANSITION_COMMITTED,
+            NATIVE_CALLBACKS.ON_TRANSITION_CANCELLED,
+            NATIVE_CALLBACKS.ON_TRANSITION_TIMEOUT,
         ],
     },
 }
