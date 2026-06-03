@@ -145,6 +145,9 @@ n8n*
 *.sh
 !scripts/test-catalyst-core.sh
 !scripts/test-cca-smoke.sh
+!scripts/test-all.sh
+!scripts/test-web.sh
+!scripts/test-native.sh
 openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
