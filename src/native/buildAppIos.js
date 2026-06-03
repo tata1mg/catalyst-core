@@ -720,11 +720,13 @@ async function updateEntitlements(pluginComposition = {}) {
 async function removePluginResourcesFromXcodeProject() {
     try {
         const projectFilePath = getXcodeProjectFilePath()
-        if (!fs.existsSync(projectFilePath)) {
-            return
+        let projectContent
+        try {
+            projectContent = fs.readFileSync(projectFilePath, "utf8")
+        } catch (err) {
+            if (err.code === "ENOENT") return
+            throw err
         }
-
-        let projectContent = fs.readFileSync(projectFilePath, "utf8")
         const patterns = [
             /\t\t[A-F0-9]+ \/\* PluginResources\/[^*]+ \*\/ = \{isa = PBXFileReference;[^\n]*path = [^;]*PluginResources\/[^;]+; sourceTree = "<group>"; \};\n/g,
             /\t\t[A-F0-9]+ \/\* PluginResources\/[^*]+ in Resources \*\/ = \{isa = PBXBuildFile;[^\n]*\};\n/g,
@@ -757,11 +759,15 @@ async function addPluginResourcesToXcodeProject(resources) {
         }
 
         const projectFilePath = getXcodeProjectFilePath()
-        if (!fs.existsSync(projectFilePath)) {
-            throw new Error(`Xcode project file not found at: ${projectFilePath}`)
+        let projectContent
+        try {
+            projectContent = fs.readFileSync(projectFilePath, "utf8")
+        } catch (err) {
+            if (err.code === "ENOENT") {
+                throw new Error(`Xcode project file not found at: ${projectFilePath}`)
+            }
+            throw err
         }
-
-        let projectContent = fs.readFileSync(projectFilePath, "utf8")
 
         for (const resource of resources) {
             const label = resource.bundleRelativePath
