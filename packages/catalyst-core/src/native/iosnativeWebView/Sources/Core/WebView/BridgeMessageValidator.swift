@@ -208,6 +208,47 @@ class BridgeMessageValidator {
             "type": "object",
             "properties": [:],
             "additionalProperties": false
+        ],
+        "authenticateBiometric": [
+            "type": "object",
+            "properties": [
+                "reason": ["type": "string"],
+                "fallbackTitle": ["type": "string"],
+                "cancelTitle": ["type": "string"]
+            ],
+            "additionalProperties": false
+        ],
+        "isBiometricAvailable": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
+        "setBiometricCredential": [
+            "type": "object",
+            "properties": [
+                "key": ["type": "string"],
+                "value": ["type": "string"],
+                "reason": ["type": "string"]
+            ],
+            "required": ["key", "value"],
+            "additionalProperties": false
+        ],
+        "getBiometricCredential": [
+            "type": "object",
+            "properties": [
+                "key": ["type": "string"],
+                "reason": ["type": "string"]
+            ],
+            "required": ["key"],
+            "additionalProperties": false
+        ],
+        "deleteBiometricCredential": [
+            "type": "object",
+            "properties": [
+                "key": ["type": "string"]
+            ],
+            "required": ["key"],
+            "additionalProperties": false
         ]
     ]
 
@@ -363,6 +404,11 @@ class BridgeMessageValidator {
             "getNetworkStatus",
             "logger",
             "googleSignIn",
+            "authenticateBiometric",
+            "isBiometricAvailable",
+            "setBiometricCredential",
+            "getBiometricCredential",
+            "deleteBiometricCredential",
             "getSubscribedTopics",
             "requestNotificationPermission",
             "registerForPushNotifications",

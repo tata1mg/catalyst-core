@@ -517,6 +517,139 @@ class BridgeCommandHandler {
         }
     }
 
+    // MARK: - Biometric Methods
+
+    func authenticateBiometric(params: Any?) {
+        let dict = parseDict(from: params)
+        let reason = (dict["reason"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            ?? "Authenticate to continue"
+        let fallback = dict["fallbackTitle"] as? String
+        let cancel = dict["cancelTitle"] as? String
+
+        BiometricAuthHandler.shared.authenticate(reason: reason,
+                                                 fallbackTitle: fallback,
+                                                 cancelTitle: cancel) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                self.delegate?.sendJSONCallback(eventName: "ON_BIOMETRIC_AUTH_SUCCESS", data: [
+                    "success": true
+                ])
+            case .failure(let err):
+                if err.isCancellation {
+                    self.delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_AUTH_CANCELLED",
+                                                    error: err.message,
+                                                    code: err.code)
+                } else {
+                    self.delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_AUTH_ERROR",
+                                                    error: err.message,
+                                                    code: err.code)
+                }
+            }
+        }
+    }
+
+    func isBiometricAvailable() {
+        let avail = BiometricAuthHandler.shared.availability()
+        var payload: [String: Any] = [
+            "available": avail.available,
+            "enrolled": avail.enrolled,
+            "biometryType": avail.biometryType.rawValue,
+            "platform": "ios"
+        ]
+        if let msg = avail.errorMessage { payload["message"] = msg }
+        delegate?.sendJSONCallback(eventName: "ON_BIOMETRIC_AVAILABILITY", data: payload)
+    }
+
+    func setBiometricCredential(params: Any?) {
+        let dict = parseDict(from: params)
+        guard let key = dict["key"] as? String, !key.isEmpty,
+              let value = dict["value"] as? String else {
+            delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_ERROR",
+                                        error: "key and value are required",
+                                        code: "BIOMETRIC_INVALID_PARAMS")
+            return
+        }
+
+        switch BiometricAuthHandler.shared.setCredential(key: key, value: value) {
+        case .success:
+            delegate?.sendJSONCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_SET", data: [
+                "success": true,
+                "key": key
+            ])
+        case .failure(let err):
+            delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_ERROR",
+                                        error: err.message,
+                                        code: err.code)
+        }
+    }
+
+    func getBiometricCredential(params: Any?) {
+        let dict = parseDict(from: params)
+        guard let key = dict["key"] as? String, !key.isEmpty else {
+            delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_ERROR",
+                                        error: "key is required",
+                                        code: "BIOMETRIC_INVALID_PARAMS")
+            return
+        }
+        let reason = (dict["reason"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            ?? "Unlock saved credential"
+
+        BiometricAuthHandler.shared.getCredential(key: key, reason: reason) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let value):
+                self.delegate?.sendJSONCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_GET", data: [
+                    "success": true,
+                    "key": key,
+                    "value": value
+                ])
+            case .failure(let err):
+                if err.isCancellation {
+                    self.delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_AUTH_CANCELLED",
+                                                    error: err.message,
+                                                    code: err.code)
+                } else {
+                    self.delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_ERROR",
+                                                    error: err.message,
+                                                    code: err.code)
+                }
+            }
+        }
+    }
+
+    func deleteBiometricCredential(params: Any?) {
+        let dict = parseDict(from: params)
+        guard let key = dict["key"] as? String, !key.isEmpty else {
+            delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_ERROR",
+                                        error: "key is required",
+                                        code: "BIOMETRIC_INVALID_PARAMS")
+            return
+        }
+        switch BiometricAuthHandler.shared.deleteCredential(key: key) {
+        case .success:
+            delegate?.sendJSONCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_DELETED", data: [
+                "success": true,
+                "key": key
+            ])
+        case .failure(let err):
+            delegate?.sendErrorCallback(eventName: "ON_BIOMETRIC_CREDENTIAL_ERROR",
+                                        error: err.message,
+                                        code: err.code)
+        }
+    }
+
+    // Accepts a [String:Any], or a JSON string that parses to one. Returns [:] otherwise.
+    private func parseDict(from params: Any?) -> [String: Any] {
+        if let dict = params as? [String: Any] { return dict }
+        if let str = params as? String,
+           let data = str.data(using: .utf8),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return dict
+        }
+        return [:]
+    }
+
     // MARK: - Helper Methods
 
     // Helper method to parse camera options from string parameter

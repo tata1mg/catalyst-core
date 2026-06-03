@@ -73,7 +73,12 @@ public enum CatalystConstants {
                 "getSafeArea",
                 "setScreenSecure",
                 "getScreenSecure",
-                "clearWebData"
+                "clearWebData",
+                "authenticateBiometric",
+                "isBiometricAvailable",
+                "setBiometricCredential",
+                "getBiometricCredential",
+                "deleteBiometricCredential"
             ]
 
             // Check if notifications are enabled via config
