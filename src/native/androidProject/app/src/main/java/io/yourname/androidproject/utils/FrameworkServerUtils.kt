@@ -12,7 +12,8 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.*
 import java.io.File
 import java.io.IOException
-import java.net.ServerSocket
+import java.net.InetSocketAddress
+import java.nio.channels.ServerSocketChannel
 import java.security.SecureRandom
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -279,7 +280,10 @@ object FrameworkServerUtils {
     
     private fun isPortAvailable(port: Int): Boolean {
         return try {
-            ServerSocket(port).use { true }
+            ServerSocketChannel.open().use { channel ->
+                channel.bind(InetSocketAddress("127.0.0.1", port))
+                true
+            }
         } catch (e: IOException) {
             false
         }

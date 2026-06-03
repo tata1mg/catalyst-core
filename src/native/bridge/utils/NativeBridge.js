@@ -72,7 +72,7 @@ class NativeBridgeUtil {
     _executeAndroidCommand(command, data) {
         try {
             if (typeof window.NativeBridge[command] === "function") {
-                console.log(`🌉 Calling Android method '${command}'`, data ? { data } : "(no data)")
+                console.log("🌉 Calling Android method", command, data ? { data } : "(no data)")
                 // Always pass data parameter to match Kotlin method signatures
                 window.NativeBridge[command](data)
                 return true
@@ -81,7 +81,7 @@ class NativeBridgeUtil {
                 return false
             }
         } catch (error) {
-            console.error(`Error executing Android command '${command}':`, error)
+            console.error("Error executing Android command:", command, error)
             return false
         }
     }
@@ -97,11 +97,11 @@ class NativeBridgeUtil {
                 data: data, // This can be null/undefined, iOS bridge should handle it
             }
 
-            console.log(`🌉 Calling iOS method '${command}'`, data ? { data } : "(no data)")
+            console.log("🌉 Calling iOS method", command, data ? { data } : "(no data)")
             window.webkit.messageHandlers.NativeBridge.postMessage(message)
             return true
         } catch (error) {
-            console.error(`Error executing iOS command '${command}':`, error)
+            console.error("Error executing iOS command:", command, error)
             throw error
         }
     }
@@ -117,7 +117,7 @@ class NativeBridgeUtil {
             // Validate environment and command
             this._validateCommand(command)
 
-            console.log(`🌉 Executing native command: ${command}`, data ? { data } : "")
+            console.log("🌉 Executing native command:", command, data ? { data } : "")
 
             // Execute on appropriate platform
             if (this.isAndroid) {
@@ -128,7 +128,7 @@ class NativeBridgeUtil {
 
             return false
         } catch (error) {
-            console.error(`🌉 Failed to execute command '${command}':`, error)
+            console.error("🌉 Failed to execute command:", command, error)
 
             // In development, we might want to show user-friendly errors
             if (process.env.NODE_ENV === "development") {

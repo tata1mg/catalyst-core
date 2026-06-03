@@ -126,7 +126,7 @@ export const useBaseHook = (hookName, { hasWebFallback = false, webFallback } = 
             setError(null)
 
             if (isDevelopment()) {
-                console.log(`✅ ${hookName} Success:`, newData)
+                console.log("✅ Native hook success:", hookName, newData)
             }
         },
         [hookName, completeProgress]
@@ -155,7 +155,7 @@ export const useBaseHook = (hookName, { hasWebFallback = false, webFallback } = 
                 fn()
             } catch (err) {
                 if (isDevelopment()) {
-                    console.warn(`${hookName} callNative failed silently:`, err)
+                    console.warn("Native hook call failed silently:", hookName, err)
                 }
             }
         },
@@ -188,7 +188,7 @@ export const useBaseHook = (hookName, { hasWebFallback = false, webFallback } = 
                 operationCallback()
             } catch (err) {
                 handleNativeError(err)
-                console.error(`❌ ${hookName} ${operationName} failed:`, err)
+                console.error("❌ Native hook operation failed:", hookName, operationName, err)
             }
         },
         [hookName, isWeb, isNative, startProgress, handleNativeError]
@@ -269,7 +269,7 @@ export const useEnvironmentInfo = (hookName) => {
     }
 
     if (isDevelopment()) {
-        console.log(`🔍 ${hookName} Environment:`, getEnvironmentDetails())
+        console.log("🔍 Native hook environment:", hookName, getEnvironmentDetails())
     }
 
     return {
