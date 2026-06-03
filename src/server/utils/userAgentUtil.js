@@ -37,6 +37,9 @@ const aiCrawlerBots = {
 
     // Microsoft Bing bot (also powers Bing Chat/Copilot)
     Bingbot: "bingbot",
+
+    // Meta Crawler bot
+    MetaBot: "meta-externalagent",
 }
 
 // StatusCake synthetic monitoring user agents.
