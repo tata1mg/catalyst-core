@@ -28,8 +28,8 @@ Most apps wrap the CLI in package scripts:
     "start": "catalyst start",
     "build": "catalyst build",
     "serve": "catalyst serve",
-    "devBuild": "BUILD_ENV=development catalyst build",
-    "devServe": "BUILD_ENV=development catalyst serve",
+    "devBuild": "catalyst devBuild",
+    "devServe": "catalyst devServe",
     "buildApp:android": "catalyst buildApp:android",
     "buildApp:ios": "catalyst buildApp:ios"
   }
@@ -56,6 +56,6 @@ For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. 
 ## Related Docs
 
 - [React App Migration](/content/12-Migration/03-React-App-to-Catalyst.md)
-- [Configuration API](/content/11-API%20Reference/02-Configuration.md)
+- [Configuration API](/content/11-API%20Reference/02-Configuration.mdx)
 - [Catalyst App Deployment](/content/08-Deployment/01-Deployment.md)
 - [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md)

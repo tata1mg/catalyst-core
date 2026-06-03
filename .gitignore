@@ -77,6 +77,10 @@ build/
 **/iosnativeWebView/.package-config-hash
 **/iosnativeWebView/.build/
 
+# Vendored Gemfile.locks inside node_modules and CocoaPods checkouts (not managed by us)
+docs/node_modules/lunr-languages/
+src/native/iosnativeWebView/.build/checkouts/
+
 # Built application files
 **.apk
 **.ap_

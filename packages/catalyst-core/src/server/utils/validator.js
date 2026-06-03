@@ -13,7 +13,7 @@ const safeCall = (fn, ...args) => {
         }
         fn(...args)
     } catch (e) {
-        console.log(pc.red(`Failed to execute ${fn.name}: `), e)
+        console.log(pc.red("Failed to execute lifecycle method: "), fn.name, e)
     }
 }
 

@@ -1,13 +1,16 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require('prism-react-renderer/themes/github')
-const darkCodeTheme = require('prism-react-renderer/themes/dracula')
+const { themes: prismThemes } = require('prism-react-renderer')
+const lightCodeTheme = prismThemes.github
+const darkCodeTheme = prismThemes.dracula
 const config = require('./config.json')
 
 const basePublicDocsUrl = config.server.public_docs_mount_url
     ? `/${config.server.public_docs_mount_url}/`
     : '/'
+const socialPreviewImageUrl =
+    'https://onemg.gumlet.io/staging/2fdb0975-8f51-4fd1-bd7d-6375d793f581.svg'
 
 /** @type {import('@docusaurus/types').Config} */
 const configObject = {
@@ -19,6 +22,43 @@ const configObject = {
     onBrokenLinks: 'warn',
     onBrokenMarkdownLinks: 'warn',
     favicon: 'img/favicon.ico',
+    headTags: [
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:image',
+                content: socialPreviewImageUrl,
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:image:secure_url',
+                content: socialPreviewImageUrl,
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:image:type',
+                content: 'image/svg+xml',
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:card',
+                content: 'summary_large_image',
+            },
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:image',
+                content: socialPreviewImageUrl,
+            },
+        },
+    ],
 
     // GitHub pages deployment config.
     // If you aren't using GitHub pages, you don't need these.
@@ -35,8 +75,6 @@ const configObject = {
                     sidebarPath: require.resolve('./publicSidebars.js'),
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
-                    docLayoutComponent: '@theme/DocPage',
-                    docItemComponent: '@theme/ApiItem', // Derived from docusaurus-theme-openapi
                     exclude: [],
                 },
                 pages: {
@@ -128,14 +166,6 @@ const configObject = {
 
     plugins: [
         [
-            'docusaurus-plugin-openapi-docs',
-            {
-                id: 'openapi',
-                docsPluginId: 'classic',
-                config: {},
-            },
-        ],
-        [
             '@docusaurus/plugin-content-docs',
             {
                 id: 'tutorialSidebar',
@@ -146,7 +176,7 @@ const configObject = {
         require.resolve('@cmfcmf/docusaurus-search-local'),
     ],
 
-    themes: ['docusaurus-theme-openapi-docs'],
+    themes: [],
     customFields: {
         public: {},
     },

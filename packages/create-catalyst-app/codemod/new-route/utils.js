@@ -1,7 +1,9 @@
 const fs = require("fs")
 const path = require("path")
 const pc = require("picocolors")
-const { execSync } = require("child_process")
+const { execFileSync } = require("child_process")
+
+const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)
 
 // validates router path
 function validatePath(path) {
@@ -60,14 +62,40 @@ function createDirectory({ componentName, containersDir }) {
 
 // adds route object inside src/js/route/index.js file
 function createNewRoute({ componentName, routePath, routeTransformerPath }) {
-    const command = `jscodeshift --silent -t ${routeTransformerPath} --routePath ${routePath} --componentName ${componentName} src/js/routes/index.js`
-    execSync(command, { stdio: "inherit" })
+    execFileSync(
+        executable("jscodeshift"),
+        [
+            "--silent",
+            "-t",
+            routeTransformerPath,
+            "--routePath",
+            routePath,
+            "--componentName",
+            componentName,
+            "src/js/routes/index.js",
+        ],
+        { stdio: "inherit" }
+    )
 }
 
 // adds newly created reducer into src/js/store/index.js file
 function createReducerEntryInStore({ componentName, routePath, reducerTransformerPath, reducerName }) {
-    const command = `jscodeshift --silent -t ${reducerTransformerPath} --reducerName ${reducerName} --routePath ${routePath} --componentName ${componentName} src/js/store/index.js`
-    execSync(command, { stdio: "inherit" })
+    execFileSync(
+        executable("jscodeshift"),
+        [
+            "--silent",
+            "-t",
+            reducerTransformerPath,
+            "--reducerName",
+            reducerName,
+            "--routePath",
+            routePath,
+            "--componentName",
+            componentName,
+            "src/js/store/index.js",
+        ],
+        { stdio: "inherit" }
+    )
 }
 
 // converts string to camel case

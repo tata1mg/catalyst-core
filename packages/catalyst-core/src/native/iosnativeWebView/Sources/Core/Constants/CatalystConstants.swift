@@ -73,7 +73,17 @@ public enum CatalystConstants {
                 "getSafeArea",
                 "setScreenSecure",
                 "getScreenSecure",
-                "clearWebData"
+                "clearWebData",
+                "startVideoStream",
+                "stopVideoStream",
+                "flipVideoStream",
+                "sendVideoStreamCommand",
+                "setVideoStreamZoom",
+                "setVideoStreamTorch",
+                "setVideoStreamFps",
+                "startTransition",
+                "commitTransition",
+                "cancelTransition"
             ]
 
             // Check if notifications are enabled via config

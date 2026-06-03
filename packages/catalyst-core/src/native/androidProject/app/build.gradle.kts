@@ -208,6 +208,15 @@ dependencies {
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
+    // CameraX
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     // Notification dependencies - conditional based on config
     if (isNotificationsEnabled()) {
         implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")

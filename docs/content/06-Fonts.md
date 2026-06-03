@@ -73,7 +73,7 @@ Third-party hosted fonts such as Google Fonts, Adobe Fonts, or any CDN-hosted fo
 For Google Fonts, add `preconnect` and the stylesheet link inside `Head`:
 
 ```jsx title="server/document.js"
-import { Head, Body } from "catalyst";
+import { Head, Body } from "catalyst-core";
 
 function Document(props) {
   return (

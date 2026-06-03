@@ -6,6 +6,8 @@ var _fs = _interopRequireDefault(require("fs"))
 var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _TerminalProgress = _interopRequireDefault(require("./TerminalProgress.js"))
+var _pluginComposerAndroid = require("./pluginComposerAndroid.js")
+var _internalPluginUtils = require("./internalPluginUtils.js")
 
 // Import the AAB builder
 import { buildAndroidAAB } from "./renameAndroidProject.js"
@@ -14,8 +16,8 @@ function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e }
 }
 
-const configPath = `${process.env.PWD}/config/config.json`
-const publicPath = `${process.env.PWD}/public`
+const configPath = `${process.cwd()}/config/config.json`
+const publicPath = `${process.cwd()}/public`
 const catalystCorePath = _path.default.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = _path.default.join(catalystCorePath, "dist/native")
 const ANDROID_PACKAGE = "io.yourname.androidproject"
@@ -258,20 +260,18 @@ async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
 
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
-    return new Promise((resolve, reject) => {
-        ;(0, _child_process.exec)(
-            `${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`,
-            (error) => {
-                if (error) {
-                    progress.log("Error starting emulator: " + error.message, "error")
-                    reject(error)
-                } else {
-                    progress.log("Emulator started successfully", "success")
-                    resolve()
-                }
-            }
-        )
-    })
+    return (0, _utils.runInteractiveCommand)(
+        EMULATOR_PATH,
+        ["-avd", androidConfig.emulatorName, "-read-only"],
+        {}
+    )
+        .then(() => {
+            progress.log("Emulator started successfully", "success")
+        })
+        .catch((error) => {
+            progress.log("Error starting emulator: " + error.message, "error")
+            throw error
+        })
 }
 
 async function copyBuildAssets(androidConfig, buildOptimisation = false) {
@@ -877,7 +877,6 @@ function generateNotificationIconDrawable(iconName, destPath) {
     _fs.default.writeFileSync(`${destPath}/drawable/${iconName}.xml`, iconXml)
 }
 
-// Cleanup functions to remove notification configurations
 async function cleanupNotificationPermissions() {
     try {
         const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
@@ -891,13 +890,14 @@ async function cleanupNotificationPermissions() {
             "android.permission.RECEIVE_BOOT_COMPLETED",
         ]
 
-        notificationPermissions.forEach((permission) => {
-            const permissionRegex = new RegExp(
-                `\\s*<uses-permission android:name="${permission}"[^>]*/>`,
-                "g"
-            )
-            manifestContent = manifestContent.replace(permissionRegex, "")
-        })
+        manifestContent = manifestContent
+            .split("\n")
+            .filter((line) => {
+                return !notificationPermissions.some((permission) =>
+                    line.includes(`<uses-permission android:name="${permission}"`)
+                )
+            })
+            .join("\n")
 
         _fs.default.writeFileSync(manifestPath, manifestContent)
     } catch (error) {
@@ -940,14 +940,12 @@ async function cleanupNotificationMetadata() {
             "com.google.firebase.messaging.default_notification_sound",
         ]
 
-        metadataNames.forEach((metadataName) => {
-            // Remove the meta-data block including comments
-            const metadataRegex = new RegExp(
-                `\\s*<!--[^>]*notification[^>]*-->\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>|\\s*<meta-data[^>]*android:name="${metadataName}"[\\s\\S]*?/>`,
-                "gi"
-            )
-            manifestContent = manifestContent.replace(metadataRegex, "")
-        })
+        manifestContent = manifestContent
+            .split("\n")
+            .filter((line) => {
+                return !metadataNames.some((metadataName) => line.includes(`android:name="${metadataName}"`))
+            })
+            .join("\n")
 
         // Remove Push Notification Service
         const serviceRegex =
@@ -1255,6 +1253,13 @@ async function buildAndroidApp() {
         await copyOfflinePage()
         await copyIconAssets()
         await configureAppName(androidConfig)
+        const pluginConfig = (0, _internalPluginUtils.resolvePluginConfig)(WEBVIEW_CONFIG)
+        ;(0, _pluginComposerAndroid.composeAndroidPlugins)({
+            corePluginsRoot: (0, _internalPluginUtils.resolveInternalPluginsRoot)(catalystCorePath),
+            androidProjectPath: `${pwd}/androidProject`,
+            pluginConfig,
+            log: (message, status = "info") => progress.log(message, status),
+        })
         await processNotifications(WEBVIEW_CONFIG)
         progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
         progress.complete("copyAssets")

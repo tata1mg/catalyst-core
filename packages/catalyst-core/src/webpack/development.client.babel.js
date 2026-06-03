@@ -100,6 +100,12 @@ const webpackSSRConfig = mergeWithCustomize({
     },
     externals: [
         /\.(html|png|gif|jpg)$/,
+        // OpenTelemetry is an opt-in peer dependency that may not be installed.
+        // Always treat it (and @grpc/grpc-js, pulled in by the gRPC exporters) as
+        // external so the build never tries to resolve it; the lazy import() in
+        // src/otel.js then only requires it at runtime when OTEL_ENABLE=true.
+        /^@opentelemetry\//,
+        "@grpc/grpc-js",
         nodeExternals({
             modulesDir: path.resolve(process.env.src_path, "./node_modules"),
             allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
@@ -166,10 +172,16 @@ let devServer = new WebpackDevServer(
     webpack(webpackClientConfig)
 )
 
-devServer.startCallback(() => {
-    console.log("Catalyst is compiling your files.")
-    console.log("Please wait until bundling is finished.\n")
-})
+devServer
+    .start()
+    .then(() => {
+        console.log("Catalyst is compiling your files.")
+        console.log("Please wait until bundling is finished.\n")
+    })
+    .catch((err) => {
+        console.error("Failed to start webpack-dev-server:", err)
+        process.exit(1)
+    })
 
 // Cleanup on exit
 const cleanup = () => {

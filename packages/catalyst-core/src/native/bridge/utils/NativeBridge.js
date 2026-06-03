@@ -72,7 +72,7 @@ class NativeBridgeUtil {
     _executeAndroidCommand(command, data) {
         try {
             if (typeof window.NativeBridge[command] === "function") {
-                console.log(`🌉 Calling Android method '${command}'`, data ? { data } : "(no data)")
+                console.log("🌉 Calling Android method", command, data ? { data } : "(no data)")
                 // Always pass data parameter to match Kotlin method signatures
                 window.NativeBridge[command](data)
                 return true
@@ -81,7 +81,7 @@ class NativeBridgeUtil {
                 return false
             }
         } catch (error) {
-            console.error(`Error executing Android command '${command}':`, error)
+            console.error("Error executing Android command:", command, error)
             return false
         }
     }
@@ -97,11 +97,11 @@ class NativeBridgeUtil {
                 data: data, // This can be null/undefined, iOS bridge should handle it
             }
 
-            console.log(`🌉 Calling iOS method '${command}'`, data ? { data } : "(no data)")
+            console.log("🌉 Calling iOS method", command, data ? { data } : "(no data)")
             window.webkit.messageHandlers.NativeBridge.postMessage(message)
             return true
         } catch (error) {
-            console.error(`Error executing iOS command '${command}':`, error)
+            console.error("Error executing iOS command:", command, error)
             throw error
         }
     }
@@ -117,7 +117,7 @@ class NativeBridgeUtil {
             // Validate environment and command
             this._validateCommand(command)
 
-            console.log(`🌉 Executing native command: ${command}`, data ? { data } : "")
+            console.log("🌉 Executing native command:", command, data ? { data } : "")
 
             // Execute on appropriate platform
             if (this.isAndroid) {
@@ -128,7 +128,7 @@ class NativeBridgeUtil {
 
             return false
         } catch (error) {
-            console.error(`🌉 Failed to execute command '${command}':`, error)
+            console.error("🌉 Failed to execute command:", command, error)
 
             // In development, we might want to show user-friendly errors
             if (process.env.NODE_ENV === "development") {
@@ -139,6 +139,57 @@ class NativeBridgeUtil {
 
             throw error
         }
+    }
+
+    /**
+     * Video stream methods
+     */
+    videoStream = {
+        /**
+         * Start native camera video stream
+         * @param {Object} options - Stream options
+         *   facing: 'back' | 'front'
+         *   format: 'qr' | 'barcode' | 'all'  — format filter (default: 'all')
+         *   zoom: { auto: true, initial: 1.0 }  — auto-zoom via ML Kit, initial is multiplier (1.0=1x)
+         *   zoom: { auto: false, initial: 2.0 } — manual, starts at 2x
+         */
+        start: (options = {}) => this.call(NATIVE_COMMANDS.START_VIDEO_STREAM, options),
+
+        /**
+         * Stop native camera video stream
+         */
+        stop: () => this.call(NATIVE_COMMANDS.STOP_VIDEO_STREAM),
+
+        /**
+         * Set zoom level multiplier (e.g. 1.0 = 1x, 2.0 = 2x)
+         * @param {number} zoomPct - multiplier >= 1.0
+         */
+        setZoom: (zoomPct) => {
+            if (zoomPct == null || typeof zoomPct !== "number" || isNaN(zoomPct)) {
+                console.warn("[NativeBridge] setZoom: invalid value, ignoring:", zoomPct)
+                return false
+            }
+            return this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_ZOOM, zoomPct.toString())
+        },
+
+        /**
+         * Enable or disable torch (back camera only)
+         * @param {boolean} on
+         */
+        setTorch: (on) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_TORCH, JSON.stringify({ on: !!on })),
+
+        /**
+         * Set target FPS range — triggers session restart
+         * @param {number|null} min - minimum fps (e.g. 15), null to clear
+         * @param {number|null} max - maximum fps (e.g. 30), null to clear
+         */
+        setFps: (min, max) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_FPS, JSON.stringify({ min: min ?? null, max: max ?? null })),
+
+        /**
+         * Flip between front and back camera — restarts the native session internally
+         * Torch resets to off after flip; ON_TORCH_CHANGED(false) fires automatically.
+         */
+        flip: () => this.call(NATIVE_COMMANDS.FLIP_VIDEO_STREAM),
     }
 
     /**
@@ -327,6 +378,28 @@ class NativeBridgeUtil {
          * Returns result through ON_WEB_DATA_CLEARED / ON_WEB_DATA_CLEAR_ERROR callback
          */
         clearWebData: () => this.call(NATIVE_COMMANDS.CLEAR_WEB_DATA),
+    }
+
+    transition = {
+        /**
+         * Begin a native transition — native takes a snapshot/overlay of the current screen.
+         * @param {Object} options
+         *   type: 'slide' | 'fade'
+         *   direction: 'left' | 'right' | 'up' | 'down'  (slide only)
+         *   duration: number (ms, default 300)
+         *   timeout: number (ms, safety timer — native force-fades overlay if commitTransition is never called)
+         */
+        start: (options = {}) => this.call(NATIVE_COMMANDS.START_TRANSITION, JSON.stringify(options)),
+
+        /**
+         * Commit the transition — native animates the snapshot overlay out, revealing the new page.
+         */
+        commit: () => this.call(NATIVE_COMMANDS.COMMIT_TRANSITION),
+
+        /**
+         * Cancel the transition — native removes the overlay immediately without animating.
+         */
+        cancel: () => this.call(NATIVE_COMMANDS.CANCEL_TRANSITION),
     }
 
     /**

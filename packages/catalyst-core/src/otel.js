@@ -1,65 +1,135 @@
-import { metrics } from "@opentelemetry/api"
-import { NodeSDK } from "@opentelemetry/sdk-node"
-import { resourceFromAttributes } from "@opentelemetry/resources"
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node"
-import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
-import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
-import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
+// OpenTelemetry is an OPT-IN feature. Nothing from "@opentelemetry/*" is
+// imported at module-eval time on purpose: the packages are declared as
+// (optional) peerDependencies and may not be installed in the consuming app.
+//
+// All OTel packages are loaded lazily via dynamic import() inside init(), and
+// only when OTEL_ENABLE === "true". Consequences:
+//   - Apps that keep OTEL disabled don't need the packages installed.
+//   - Bundlers don't pull the packages into the static import graph, so
+//     `import "catalyst-core/otel"` no longer forces them to resolve
+//     "@opentelemetry/exporter-trace-otlp-http" & friends at build time.
+//     (Pair this with marking "@opentelemetry/*" external in the bundler so the
+//     dynamic import() chunk isn't resolved at build time either — see the SSR
+//     webpack configs under src/webpack.)
 
-import {
-    ATTR_SERVICE_NAME,
-    ATTR_SERVICE_VERSION,
-    ATTR_DEPLOYMENT_ENVIRONMENT,
-} from "@opentelemetry/semantic-conventions"
+// Set once by init() (when enabled) to the loaded "@opentelemetry/api" module.
+// The wrappers below read it lazily so they never need a static OTel import.
+let _otelApi = null
 
-function init(config = {}) {
+const isOtelEnabled = () => process.env.OTEL_ENABLE === "true"
+
+async function init(config = {}) {
+    if (!isOtelEnabled()) {
+        return { sdk: null, meter: null }
+    }
+
     const {
         serviceName = "catalyst-server",
         serviceVersion = "1.0.0",
         environment = "development",
-        traceUrl = "http://localhost:4318/v1/traces",
-        metricUrl = "http://localhost:4318/v1/metrics",
+        traceUrl = "http://localhost:4317",
+        metricUrl = "http://localhost:4317",
+        traceProtocol = "grpc", // "grpc" or "http"
+        metricProtocol, // "grpc" or "http" - if not provided, metrics will be disabled
         traceHeaders = {},
         metricHeaders = {},
+        batchProcessorConfig = {},
         exportIntervalMillis = 10000,
-        exportTimeoutMillis = 10000,
+        instrumentations,
+        samplingRate = 1.0,
+        grpcCredentials,
     } = config
 
     try {
-        const otlpTraceExporter = new OTLPTraceExporter({
-            url: traceUrl,
-            headers: traceHeaders,
+        // Lazy-load every OpenTelemetry package. These dynamic imports run only
+        // when OTEL_ENABLE=true, so the packages are required at runtime solely
+        // for opted-in deployments.
+        const [
+            otelApi,
+            { NodeSDK },
+            { resourceFromAttributes },
+            { BatchSpanProcessor, TraceIdRatioBasedSampler, ParentBasedSampler },
+            { PeriodicExportingMetricReader },
+            { OTLPTraceExporter },
+            { OTLPMetricExporter },
+            { getNodeAutoInstrumentations },
+            { OTLPTraceExporter: OTLPTraceExporterHTTP },
+            { OTLPMetricExporter: OTLPMetricExporterHTTP },
+            { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT },
+        ] = await Promise.all([
+            import("@opentelemetry/api"),
+            import("@opentelemetry/sdk-node"),
+            import("@opentelemetry/resources"),
+            import("@opentelemetry/sdk-trace-node"),
+            import("@opentelemetry/sdk-metrics"),
+            import("@opentelemetry/exporter-trace-otlp-grpc"),
+            import("@opentelemetry/exporter-metrics-otlp-grpc"),
+            import("@opentelemetry/auto-instrumentations-node"),
+            import("@opentelemetry/exporter-trace-otlp-http"),
+            import("@opentelemetry/exporter-metrics-otlp-http"),
+            import("@opentelemetry/semantic-conventions"),
+        ])
+
+        // Enables the withObservability / withSyncObservability wrappers.
+        _otelApi = otelApi
+
+        const traceExporters = { OTLPTraceExporter, OTLPTraceExporterHTTP }
+        const metricExporters = { OTLPMetricExporter, OTLPMetricExporterHTTP }
+
+        const otlpTraceExporter = createTraceExporter(
+            traceExporters,
+            traceProtocol,
+            traceUrl,
+            traceHeaders,
+            grpcCredentials
+        )
+
+        // Create metric exporter only if metricProtocol is specified
+        let metricReader = null
+        if (metricProtocol) {
+            const otlpMetricExporter = createMetricExporter(
+                metricExporters,
+                metricProtocol,
+                metricUrl,
+                metricHeaders,
+                grpcCredentials
+            )
+            metricReader = new PeriodicExportingMetricReader({
+                exporter: otlpMetricExporter,
+                exportIntervalMillis,
+            })
+        }
+
+        const sampler = new ParentBasedSampler({
+            root: new TraceIdRatioBasedSampler(samplingRate),
         })
 
-        const otlpMetricExporter = new OTLPMetricExporter({
-            url: metricUrl,
-            headers: metricHeaders,
-        })
-
-        const sdk = new NodeSDK({
+        const sdkConfig = {
             resource: resourceFromAttributes({
                 [ATTR_SERVICE_NAME]: serviceName,
                 [ATTR_SERVICE_VERSION]: serviceVersion,
                 [ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
             }),
-            spanProcessor: new BatchSpanProcessor(otlpTraceExporter, {
-                exportTimeoutMillis,
-                scheduledDelayMillis: exportIntervalMillis,
-                maxQueueSize: 100,
-                maxExportBatchSize: 10,
-            }),
-            metricReader: new PeriodicExportingMetricReader({
-                exporter: otlpMetricExporter,
-                exportIntervalMillis,
-            }),
-            instrumentations: [getNodeAutoInstrumentations()],
-        })
+            spanProcessor: new BatchSpanProcessor(otlpTraceExporter, batchProcessorConfig),
+            instrumentations: instrumentations ?? [getNodeAutoInstrumentations()],
+            sampler,
+        }
+
+        // Add metric reader only if metrics are enabled
+        if (metricReader) {
+            sdkConfig.metricReader = metricReader
+        }
+
+        const sdk = new NodeSDK(sdkConfig)
 
         sdk.start()
         logger.info("✅ OpenTelemetry started successfully")
 
-        const meter = initializeCustomMetrics(serviceName, serviceVersion)
+        // Initialize custom metrics only if metrics are enabled
+        let meter = null
+        if (metricProtocol) {
+            meter = initializeCustomMetrics(otelApi, serviceName, serviceVersion)
+        }
 
         const gracefulShutdown = (signal) => {
             logger.info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
@@ -81,9 +151,74 @@ function init(config = {}) {
     }
 }
 
-function initializeCustomMetrics(serviceName, serviceVersion) {
+/**
+ * Creates a trace exporter based on the specified protocol
+ * @param {object} exporters - Lazily-loaded exporter constructors { OTLPTraceExporter, OTLPTraceExporterHTTP }
+ * @param {string} protocol - "grpc" or "http"
+ * @param {string} url - Exporter endpoint URL
+ * @param {object} headers - Headers to include in requests
+ * @param {Function} [grpcCredentials] - gRPC Credentials (optional)
+ * @returns {object} Configured trace exporter
+ */
+function createTraceExporter(exporters, protocol, url, headers = {}, grpcCredentials) {
+    const { OTLPTraceExporter, OTLPTraceExporterHTTP } = exporters
+    if (protocol.toLowerCase() === "http") {
+        logger.info(`📡 Creating HTTP trace exporter for URL: ${url}`)
+        return new OTLPTraceExporterHTTP({
+            url: url,
+            headers: headers,
+        })
+    } else if (protocol.toLowerCase() === "grpc") {
+        logger.info(`📡 Creating gRPC trace exporter for URL: ${url}`)
+        return new OTLPTraceExporter({
+            url: url,
+            headers: headers,
+            credentials: grpcCredentials,
+        })
+    } else {
+        throw new Error(
+            `❌ Unsupported trace protocol: ${protocol}. Supported protocols are "grpc" and "http"`
+        )
+    }
+}
+
+/**
+ * Creates a metric exporter based on the specified protocol
+ * @param {object} exporters - Lazily-loaded exporter constructors { OTLPMetricExporter, OTLPMetricExporterHTTP }
+ * @param {string} protocol - "grpc" or "http"
+ * @param {string} url - Exporter endpoint URL
+ * @param {object} headers - Headers to include in requests
+ * @param {Function} [grpcCredentials] - gRPC Credentials (optional)
+ * @returns {object} Configured metric exporter
+ */
+function createMetricExporter(exporters, protocol, url, headers = {}, grpcCredentials) {
+    const { OTLPMetricExporter, OTLPMetricExporterHTTP } = exporters
+    if (protocol.toLowerCase() === "http") {
+        logger.info(`📊 Creating HTTP metric exporter for URL: ${url}`)
+        return new OTLPMetricExporterHTTP({
+            url: url,
+            headers: headers,
+        })
+    } else if (protocol.toLowerCase() === "grpc") {
+        logger.info(`📊 Creating gRPC metric exporter for URL: ${url}`)
+        return new OTLPMetricExporter({
+            url: url,
+            headers: headers,
+            credentials: grpcCredentials,
+        })
+    } else {
+        throw new Error(
+            `❌ Unsupported metric protocol: ${protocol}. Supported protocols are "grpc" and "http"`
+        )
+    }
+}
+
+/**
+ * @param {object} otelApi - The loaded "@opentelemetry/api" module
+ */
+function initializeCustomMetrics(otelApi, serviceName, serviceVersion) {
     let customMetrics = {}
-    const meter = metrics.getMeter(serviceName, serviceVersion)
+    const meter = otelApi.metrics.getMeter(serviceName, serviceVersion)
 
     // CPU usage gauge
     customMetrics.cpuUsage = meter.createObservableGauge("process_cpu_usage_percent", {
@@ -142,4 +277,81 @@ function initializeCustomMetrics(serviceName, serviceVersion) {
     return meter
 }
 
-export default { init }
+/**
+ * Wraps a synchronous function and measures total execution time.
+ * Creates a single OpenTelemetry span per function call.
+ * Use this instead of withObservability when the wrapped function is synchronous,
+ * so the return type and call sites remain unchanged.
+ *
+ * When OTEL is disabled the original function is returned unchanged, so there is
+ * zero overhead and no dependency on any @opentelemetry/* package.
+ *
+ * @param {string} serviceName - The name of the service
+ * @param {Function} fn - The synchronous function to wrap
+ * @param {string} name - Span name (optional)
+ * @returns {Function} Wrapped function (still synchronous)
+ */
+export function withSyncObservability(serviceName, fn, name) {
+    if (!isOtelEnabled()) return fn
+
+    const spanName = name || fn.name || "anonymousFunction"
+
+    return function (...args) {
+        // init() may not have populated the API yet — run untraced rather than throw.
+        const api = _otelApi
+        if (!api) return fn(...args)
+
+        const tracer = api.trace.getTracer(serviceName)
+        return tracer.startActiveSpan(spanName, (span) => {
+            try {
+                return fn(...args)
+            } catch (err) {
+                span.recordException(err)
+                span.setStatus({ code: 2, message: err.message })
+                throw err
+            } finally {
+                span.end()
+            }
+        })
+    }
+}
+
+/**
+ * Wraps a function (sync or async) and measures total execution time.
+ * Creates a single OpenTelemetry span per function call.
+ *
+ * When OTEL is disabled the original function is returned unchanged, so there is
+ * zero overhead and no dependency on any @opentelemetry/* package.
+ *
+ * @param {string} serviceName - The name of the service
+ * @param {Function} fn - The function to wrap
+ * @param {string} name - Span name (optional)
+ * @returns {Function} Wrapped function
+ */
+export function withObservability(serviceName, fn, name) {
+    if (!isOtelEnabled()) return fn
+
+    const spanName = name || fn.name || "anonymousFunction"
+
+    return async function (...args) {
+        // init() may not have populated the API yet — run untraced rather than throw.
+        const api = _otelApi
+        if (!api) return fn(...args)
+
+        const tracer = api.trace.getTracer(serviceName)
+        return tracer.startActiveSpan(spanName, async (span) => {
+            try {
+                const result = await fn(...args)
+                return result
+            } catch (err) {
+                span.recordException(err)
+                span.setStatus({ code: 2, message: err.message })
+                throw err
+            } finally {
+                span.end()
+            }
+        })
+    }
+}
+
+export default { init, withObservability, withSyncObservability }

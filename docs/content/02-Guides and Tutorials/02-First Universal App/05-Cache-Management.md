@@ -24,16 +24,29 @@ Configuration options:
 - `cachePattern`: Comma-separated list of file patterns to cache (e.g., "*.css,*.js")
 
 ### iOS Configuration
-Configure caching by setting cache patterns in constants:
-- Define patterns for files to be cached (e.g., CSS and JS files)
-- Multiple patterns can be specified in an array
+Configure caching through `WEBVIEW_CONFIG.ios.cachePattern`:
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "ios": {
+      "buildType": "Debug",
+      "cachePattern": "*.css,*.js"
+    }
+  }
+}
+```
+
+Configuration options:
+- `buildType`: Use `Debug` for development. Use `Release` for distribution builds.
+- `cachePattern`: Comma-separated list of file patterns to cache (e.g., "*.css,*.js")
 
 ## Cache Pattern Format
 
 Both platforms support wildcard patterns for cache matching:
 - `*.css`: Matches all CSS files
 - `*.js`: Matches all JavaScript files
-- Multiple patterns can be specified
+- Multiple patterns can be specified as a comma-separated string
 - File extensions are case-insensitive
 
 ## Internal Implementation
