@@ -1,0 +1,20 @@
+packages/catalyst-core/src/native/buildAppIos.js
+  s_5cb2507c122bb2::t_e78ee2d83fc311 762-769
+  s_5cb2507c122bb2::t_121d7ceaf99f0a 723-728
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "079a5c3ab76383bc57b24d1203b3d3ac13dda4a0",
+  "prompts": {},
+  "sessions": {
+    "s_5cb2507c122bb2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "99dffe65-fdc5-4f5e-889e-bdb6577edec6",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
