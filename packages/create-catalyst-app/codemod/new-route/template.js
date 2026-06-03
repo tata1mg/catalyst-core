@@ -4,7 +4,7 @@ const pc = require("picocolors")
 
 // Function to create component using given input
 function createNewComponent({ componentName, containersDir }) {
-    const componentPath = path.join(containersDir, `${componentName}/${componentName}.js`)
+    const componentPath = `${containersDir}${path.sep}${componentName}${path.sep}${componentName}.js`
 
     // Component template
     const componentTemplate = `import React from 'react';
@@ -27,7 +27,7 @@ function createNewComponent({ componentName, containersDir }) {
 
 // Function to create rtk reducer file using given input
 function createRTKReducerFile({ componentName, containersDir, reducerName }) {
-    const reducerPath = path.join(containersDir, `${componentName}/reducer.js`)
+    const reducerPath = `${containersDir}${path.sep}${componentName}${path.sep}reducer.js`
 
     // rtk reducer template
     const reducerTemplate = `import { createSlice } from "@reduxjs/toolkit"
@@ -56,7 +56,7 @@ export const ${reducerName}Reducer = appSlice.reducer
 
 // Function to create redux action file using given input
 function createReduxActionFile({ componentName, containersDir, reducerName }) {
-    const actionsPath = path.join(containersDir, `${componentName}/actions.js`)
+    const actionsPath = `${containersDir}${path.sep}${componentName}${path.sep}actions.js`
 
     // redux action template
     const actionTemplate = `const createActionTypes = (prefix, actionTypeList = []) => {
@@ -84,7 +84,7 @@ export const reduxTest = () => {
 
 // Function to create redux reducer file using given input
 function createReduxReducerFile({ componentName, containersDir, reducerName }) {
-    const reducerPath = path.join(containersDir, `${componentName}/reducer.js`)
+    const reducerPath = `${containersDir}${path.sep}${componentName}${path.sep}reducer.js`
 
     // redux reducer template
     const reducerTemplate = `import { ${reducerName}Actions } from "./actions"

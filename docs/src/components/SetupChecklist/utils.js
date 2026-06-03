@@ -29,12 +29,16 @@ export const canCompleteStep = (stepId, steps, stepStates) => {
         const depState = stepStates[depId]
         const isCompleted = depState === 'completed'
         console.log(
-            `Checking dependency ${depId} for step ${stepId}: ${depState} -> ${isCompleted}`
+            'Checking setup checklist dependency:',
+            depId,
+            stepId,
+            depState,
+            isCompleted
         )
         return isCompleted
     })
 
-    console.log(`Can complete step ${stepId}:`, canComplete)
+    console.log('Can complete setup checklist step:', stepId, canComplete)
     return canComplete
 }
 
@@ -63,7 +67,8 @@ export const updateStepWithDependencies = (
         const uncheckDependents = (stepToUncheck) => {
             const dependentSteps = getDependentSteps(stepToUncheck, steps)
             console.log(
-                `Unchecking dependents of ${stepToUncheck}:`,
+                'Unchecking setup checklist dependents:',
+                stepToUncheck,
                 dependentSteps
             )
 

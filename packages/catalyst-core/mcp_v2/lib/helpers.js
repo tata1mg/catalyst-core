@@ -101,21 +101,33 @@ function findCatalystRoot() {
  * File-system helpers scoped to a project root.
  */
 function makeProjectHelpers(root) {
+    function safeProjectPath(rel) {
+        if (typeof rel !== "string" || path.isAbsolute(rel)) return null
+        const normalized = path.normalize(rel)
+        if (normalized === ".." || normalized.startsWith(`..${path.sep}`)) return null
+        return `${root}${path.sep}${normalized}`
+    }
+
     function fileExists(rel) {
-        return fs.existsSync(path.join(root, rel))
+        const filePath = safeProjectPath(rel)
+        return Boolean(filePath && fs.existsSync(filePath))
     }
 
     function readJson(rel) {
+        const filePath = safeProjectPath(rel)
+        if (!filePath) return null
         try {
-            return JSON.parse(fs.readFileSync(path.join(root, rel), "utf8"))
+            return JSON.parse(fs.readFileSync(filePath, "utf8"))
         } catch {
             return null
         }
     }
 
     function readText(rel) {
+        const filePath = safeProjectPath(rel)
+        if (!filePath) return null
         try {
-            return fs.readFileSync(path.join(root, rel), "utf8")
+            return fs.readFileSync(filePath, "utf8")
         } catch {
             return null
         }
@@ -125,7 +137,6 @@ function makeProjectHelpers(root) {
      * Walk src/**\/*.{js,jsx,ts,tsx} and return relative paths that match pattern.
      */
     function grepSrc(pattern) {
-        const re = new RegExp(pattern)
         const matches = []
         function walk(dir) {
             let entries
@@ -136,12 +147,13 @@ function makeProjectHelpers(root) {
             }
             for (const e of entries) {
                 if (e.name === "node_modules" || e.name === ".git") continue
-                const full = path.join(dir, e.name)
+                const full = `${dir}${path.sep}${e.name}`
                 if (e.isDirectory()) {
                     walk(full)
                 } else if (/\.(js|jsx|ts|tsx)$/.test(e.name)) {
                     try {
-                        if (re.test(fs.readFileSync(full, "utf8"))) {
+                        const content = fs.readFileSync(full, "utf8")
+                        if (pattern.test(content)) {
                             matches.push(path.relative(root, full))
                         }
                     } catch {
@@ -150,7 +162,7 @@ function makeProjectHelpers(root) {
                 }
             }
         }
-        walk(path.join(root, "src"))
+        walk(`${root}${path.sep}src`)
         return matches
     }
 

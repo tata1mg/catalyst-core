@@ -23,10 +23,10 @@
         "form-data": "^4.0.0",
         "formdata-node": "^6.0.3",
         "jsonwebtoken": "^9.0.2",
-        "multer": "^1.4.5-lts.1",
+        "multer": "^2.1.1",
         "node-stream-zip": "^1.15.0",
         "postman-to-openapi": "^3.0.1",
-        "short-uuid": "^4.2.2",
+        "short-uuid": "^6.0.3",
         "swagger-parser": "^10.0.3"
     },
     "devDependencies": {

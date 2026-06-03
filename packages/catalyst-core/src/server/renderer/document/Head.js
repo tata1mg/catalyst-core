@@ -18,7 +18,7 @@ export function Head(props) {
             <head>
                 {children}
                 {metaTags && metaTags}
-                {/* eslint-disable */}
+                {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - pageCss is read from built CSS assets in renderer/extract.js. */}
                 {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
                 {!isBot && preloadJSLinks}
             </head>
@@ -32,7 +32,7 @@ export function Head(props) {
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {metaTags && metaTags}
-            {/* eslint-disable */}
+            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - pageCss is read from built CSS assets in renderer/extract.js. */}
             {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
             {!isBot && preloadJSLinks}
         </head>

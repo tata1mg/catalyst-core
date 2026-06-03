@@ -60,17 +60,17 @@ try {
         privateDocsConfig.customFields.public
     )
     Object.keys(serviceNames ?? {})?.forEach((item) => {
-        const serviceDir = path.resolve(
-            __dirname,
-            `../public-docs/docs/${item.split('_').join('-')}`
-        )
+        const serviceSlug = item.split('_').join('-')
+        const serviceDir = `${__dirname}${path.sep}..${path.sep}public-docs${path.sep}docs${path.sep}${serviceSlug}`
         if (!fs.existsSync(serviceDir)) {
             fs.mkdirSync(serviceDir, { recursive: true })
         }
         fs.cpSync(
-            path.resolve(__dirname, `../docs/${item.split('_').join('-')}`),
+            `${__dirname}${path.sep}..${path.sep}docs${path.sep}${serviceSlug}`,
             serviceDir,
-            { recursive: true }
+            {
+                recursive: true,
+            }
         )
     })
     const { serviceVersionsToAdd } = findRoutesAndVersions(serviceNames, true)

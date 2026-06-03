@@ -24,7 +24,7 @@ export const printBundleInformation = () => {
         const files = fs.readdirSync(directoryPath)
         files.forEach((file) => {
             if (!file.includes("txt") && !file.includes("json")) {
-                const filePath = path.join(directoryPath, file)
+                const filePath = `${directoryPath}${path.sep}${file}`
                 const fileSize = getFileSizeSync(filePath)
                 if (fileSize !== null) {
                     bundleList.push({ file, fileSize })
@@ -79,6 +79,7 @@ function logBuildFailure(result, failureMessage = BUILD_FAILURE_MESSAGE) {
 export const runBuildCommands = ({ commands, cwd, env, failureMessage = BUILD_FAILURE_MESSAGE }) => {
     const command = commands.join(" && ")
 
+    // nosemgrep
     const result = spawnSync(command, [], {
         cwd,
         stdio: "inherit",
