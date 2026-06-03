@@ -9,16 +9,26 @@ import { translateError, isDevelopment } from "./errors"
  * @param {string} hookName - Name of the hook for debugging purposes
  * @returns {Object} Base hook interface with common functionality
  */
-export const useBaseHook = (hookName) => {
+export const useBaseHook = (hookName, { hasWebFallback = false, webFallback } = {}) => {
     // Environment detection — live check at call time, never stale from SSR
     const isNative = useCallback(() => {
         if (typeof window === "undefined") return false
-        return !!(window.WebBridge && (window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge))
+        return !!(window.WebBridge && nativeBridge.isAvailable())
     }, [])
 
     const isWeb = useCallback(() => {
         return !isNative()
     }, [isNative])
+
+    // Web fallback state — only meaningful when isWeb() and hook declared hasWebFallback:true
+    // State tracks imperative setWebFallback() calls. The prop is the synchronous source of truth
+    // when provided — prop wins so there is no async gap between prop change and disabled state.
+    const [webFallbackState, setWebFallback] = useState(true)
+
+    // When prop is explicitly provided, use it directly (synchronous). When undefined, fall back to state.
+    const webFallbackResolved = webFallback !== undefined ? !!webFallback : webFallbackState
+    const webFallbackActive = isWeb() && hasWebFallback && webFallbackResolved
+    const webFallbackDisabled = isWeb() && hasWebFallback && !webFallbackResolved
 
     // Common state management
     const [data, setData] = useState(null)
@@ -204,6 +214,11 @@ export const useBaseHook = (hookName) => {
 
         // Environment detection
         ...environmentFlags,
+
+        // Web fallback control
+        webFallbackActive,
+        webFallbackDisabled,
+        setWebFallback,
 
         // Actions
         clear,
