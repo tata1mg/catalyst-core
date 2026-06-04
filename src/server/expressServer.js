@@ -8,8 +8,13 @@ import expressStaticGzip from "express-static-gzip"
 import ReactRenderer from "@catalyst/server/renderer"
 import { addMiddlewares } from "@catalyst/template/server/server.js"
 import { validateMiddleware } from "@catalyst/server/utils/validator"
+import { responseFlushMiddleware } from "../otel"
 
 const env = process.env.NODE_ENV || "development"
+
+// Same service name as the renderer's tracing (handler.js), so the
+// response-flush span groups under the same service.
+const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
 
 const app = express()
 
@@ -19,6 +24,11 @@ app.use(bodyParser.json({ limit: "100kb" }))
 app.use(bodyParser.raw({ type: "application/*", limit: "100kb" }))
 
 app.use(cookieParser())
+
+// Span that ends on the response 'finish'/'close' event — captures the body
+// flush/egress time that lives past the `handler` span (no-op when the OTEL
+// SDK isn't started).
+app.use(responseFlushMiddleware(SSR_SERVICE, "response.send"))
 
 if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
 
