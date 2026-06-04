@@ -92,12 +92,14 @@ async function createServer() {
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
 
-    // Span from res.end() to the response 'finish'/'close' event — captures the
-    // body flush/egress time that lives past the `handler` span (no-op when OTEL off).
-    app.use(responseFlushMiddleware(SSR_SERVICE, "response.flush"))
-
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
+
+    // response.compress + response.flush spans straddle compression — they
+    // attribute the time past the `handler` span (gzip/brotli, then egress).
+    // MUST be mounted immediately before compression() so its outer res.end
+    // hook reliably wraps compression's patch (no-op when OTEL off).
+    app.use(responseFlushMiddleware(SSR_SERVICE, "response.flush", "response.compress"))
 
     // The middleware will attempt to compress response bodies for all request that traverse through the middleware
     app.use(compression())

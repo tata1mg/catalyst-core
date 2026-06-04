@@ -289,61 +289,98 @@ export function withObservability(serviceName, fn, name) {
 }
 
 /**
- * Express middleware that emits a span measuring the response body
- * flush/egress window: it STARTS when the app calls res.end() (the moment the
- * app stops writing) and ENDS on the response 'finish' event (all bytes handed
- * to the OS) or 'close' (connection torn down first).
+ * Express middleware that emits two spans describing what happens to the
+ * response body AFTER the app calls res.end() — the work that lives past the
+ * `handler` span and makes the HTTP server span run longer:
  *
- * The span's duration is therefore pure egress / TCP backpressure time — the
- * reason the HTTP server span runs longer than `handler` for large fully-SSR'd
- * bot responses (res.end() returns long before the bytes actually drain).
+ *   • response.compress — gzip/brotli of the body. Starts when the app calls
+ *     res.end() (which returns immediately, since compression is async) and
+ *     ends when the compressed bytes are handed to the real socket end.
+ *   • response.flush — network egress. Starts when those bytes hit the socket
+ *     and ends on 'finish' (all bytes handed to the OS) or 'close' (connection
+ *     torn down first).
  *
- * Register this BEFORE the SSR handler. It uses startSpan (not startActiveSpan),
- * so it becomes a sibling of `handler` under the same request span rather than
- * a parent of it. The 'finish'/'close' listeners are attached up front (so an
- * event is never missed), but the span itself is created only when res.end()
- * fires — if the app never writes (e.g. client aborts first), no span is emitted.
+ * Implementation: the gap is bounded by the *app's* res.end() call (outer) and
+ * the *real* socket end after compression (inner), so the middleware wraps
+ * res.end on BOTH sides of the compression middleware. It installs an inner
+ * hook before next() (which compression then wraps) to time the END of
+ * compression, and after next() — once compression has synchronously patched
+ * res.end — installs an outer hook on top to time the START.
+ *
+ * MOUNT THIS IMMEDIATELY BEFORE compression() so the post-next() outer hook
+ * reliably wraps compression's patch (no async middleware in between). If
+ * compression isn't present (or skips the response) only response.flush is
+ * emitted. Uses startSpan (not startActiveSpan), so the spans are siblings of
+ * `handler` under the same request span. No span is emitted if the app never
+ * writes (e.g. the client aborts first).
  *
  * @param {string} serviceName
- * @param {string} [name] - Span name
+ * @param {string} [flushName] - egress span name
+ * @param {string} [compressName] - compression span name
  * @returns {Function} Express middleware
  */
-export function responseFlushMiddleware(serviceName, name = "response.flush") {
+export function responseFlushMiddleware(
+    serviceName,
+    flushName = "response.flush",
+    compressName = "response.compress"
+) {
     const tracer = trace.getTracer(serviceName)
 
     return function (req, res, next) {
-        // Capture the active (request) context now, while it's guaranteed to be
-        // the in-flight request span. The span is created later — when res.end()
-        // is called — so it must be parented to this captured context.
+        // Captured while the request span is active; both spans parent to it.
         const parentContext = context.active()
 
-        let span = null
-        let ended = false
+        let compressSpan = null
+        let flushSpan = null
+        let finished = false
 
         const finalize = (endEvent) => {
-            if (ended) return
-            ended = true
-            if (span) {
-                span.setAttribute("http.response.end_event", endEvent) // "finish" | "close"
-                span.end()
+            if (finished) return
+            finished = true
+            // Whichever span is still open when the response ends gets tagged.
+            const open = flushSpan || compressSpan
+            if (open) {
+                open.setAttribute("http.response.end_event", endEvent) // "finish" | "close"
+                open.end()
             }
+            compressSpan = null
+            flushSpan = null
         }
 
-        // Start the span the moment the app finishes writing. Preserve all
-        // res.end call signatures. The `!ended` guard avoids creating a span
-        // after the response already closed (e.g. client aborted before end).
-        const originalEnd = res.end
-        res.end = function (...args) {
-            if (!span && !ended) {
-                span = tracer.startSpan(name, undefined, parentContext)
+        // Inner hook: wraps the real res.end (installed before compression), so
+        // it fires once compression has produced the final bytes → close the
+        // compression span and open the egress span.
+        const realEnd = res.end
+        const innerEnd = function (...args) {
+            if (!finished && !flushSpan) {
+                if (compressSpan) {
+                    compressSpan.end()
+                    compressSpan = null
+                }
+                flushSpan = tracer.startSpan(flushName, undefined, parentContext)
             }
-            return originalEnd.apply(this, args)
+            return realEnd.apply(this, args)
         }
+        res.end = innerEnd
 
         res.once("finish", () => finalize("finish"))
         res.once("close", () => finalize("close"))
 
         next()
+
+        // After next(): compression has synchronously wrapped innerEnd. Install
+        // an outer hook on top to catch the app's res.end() call → open the
+        // compression span. Skipped if nothing wrapped innerEnd (no compression),
+        // in which case innerEnd alone times the flush from the app's res.end().
+        if (res.end !== innerEnd) {
+            const chainEnd = res.end
+            res.end = function (...args) {
+                if (!finished && !compressSpan && !flushSpan) {
+                    compressSpan = tracer.startSpan(compressName, undefined, parentContext)
+                }
+                return chainEnd.apply(this, args)
+            }
+        }
     }
 }
 
