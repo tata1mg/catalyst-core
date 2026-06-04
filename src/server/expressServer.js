@@ -1,8 +1,8 @@
 import path from "path"
 import express from "express"
 import bodyParser from "body-parser"
-import compression from "compression"
 import cookieParser from "cookie-parser"
+import { createCompression } from "./utils/compression.js"
 import expressStaticGzip from "express-static-gzip"
 import { createServer as createViteServer } from "vite"
 import util from "node:util"
@@ -101,8 +101,8 @@ async function createServer() {
     // hook reliably wraps compression's patch (no-op when OTEL off).
     app.use(responseFlushMiddleware(SSR_SERVICE, "response.flush", "response.compress"))
 
-    // The middleware will attempt to compress response bodies for all request that traverse through the middleware
-    app.use(compression())
+    // Compress response bodies — prefers zstd, falls back to br/gzip based on Accept-Encoding
+    app.use(createCompression())
 
     let vite
 
