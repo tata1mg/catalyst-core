@@ -15,6 +15,14 @@ import semanticConventions from "@opentelemetry/semantic-conventions"
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = semanticConventions
 
 function init(config = {}) {
+    // OpenTelemetry is opt-in — bail out unless explicitly enabled. Mirrors the
+    // OTEL_ENABLE guard in server/expressServer.js and server/renderer/handler.jsx
+    // so the SDK, exporters, instrumentations and signal handlers are never set
+    // up when tracing is off. Returns the same shape so callers can destructure.
+    if (process.env.OTEL_ENABLE !== true) {
+        return { sdk: null, meter: null }
+    }
+
     const {
         serviceName = "catalyst-server",
         serviceVersion = "1.0.0",
@@ -280,4 +288,53 @@ export function withObservability(serviceName, fn, name) {
     }
 }
 
-export default { init, withObservability, withSyncObservability }
+/**
+ * Express middleware that emits a span covering the full server-side lifetime
+ * of the response — INCLUDING the time spent flushing the body to the socket
+ * after res.end() is called. Unlike the `handler` span (which ends as soon as
+ * the render promise resolves), this span ends on the response 'finish' event
+ * (all bytes handed to the OS) or 'close' (connection torn down first).
+ *
+ * A "res.end" span event marks the moment the app stopped writing, so the gap
+ * between that event and the span's end is pure egress / TCP backpressure time
+ * — the reason the HTTP server span runs longer than `handler` for large
+ * fully-SSR'd bot responses.
+ *
+ * Register this BEFORE the SSR handler. It uses startSpan (not startActiveSpan),
+ * so it becomes a sibling of `handler` under the same request span rather than
+ * a parent of it.
+ *
+ * @param {string} serviceName
+ * @param {string} [name] - Span name
+ * @returns {Function} Express middleware
+ */
+export function responseFlushMiddleware(serviceName, name = "response.send") {
+    const tracer = trace.getTracer(serviceName)
+
+    return function (req, res, next) {
+        const span = tracer.startSpan(name)
+
+        // Mark when the app finished writing (res.end called) vs. when the
+        // bytes actually drained ('finish'). Preserve all call signatures.
+        const originalEnd = res.end
+        res.end = function (...args) {
+            span.addEvent("res.end")
+            return originalEnd.apply(this, args)
+        }
+
+        let ended = false
+        const finalize = (endEvent) => {
+            if (ended) return
+            ended = true
+            span.setAttribute("http.response.end_event", endEvent) // "finish" | "close"
+            span.end()
+        }
+
+        res.once("finish", () => finalize("finish"))
+        res.once("close", () => finalize("close"))
+
+        next()
+    }
+}
+
+export default { init, withObservability, withSyncObservability, responseFlushMiddleware }

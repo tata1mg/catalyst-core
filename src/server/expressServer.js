@@ -13,6 +13,20 @@ const { cyan, yellow, green } = pc
 import { validateMiddleware, safeCall } from "./utils/validator.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
 
+// OpenTelemetry is opt-in (OTEL_ENABLE) — mirrors server/renderer/handler.jsx.
+// Passthrough no-op middleware when disabled or packages aren't installed.
+let responseFlushMiddleware = () => (_req, _res, next) => next()
+if (process.env.OTEL_ENABLE === true) {
+    try {
+        const otel = await import("../otel.js")
+        responseFlushMiddleware = otel.responseFlushMiddleware
+    } catch {
+        // otel packages not installed — continue without the flush span
+    }
+}
+
+const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
+
 // ─── Load app-defined server lifecycle hooks ──────────────────────────────────
 let onServerError
 try {
@@ -77,6 +91,10 @@ async function createServer() {
 
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
+
+    // Span that ends on the response 'finish'/'close' event — captures the body
+    // flush/egress time that lives past the `handler` span (no-op when OTEL off).
+    app.use(responseFlushMiddleware(SSR_SERVICE, "response.send"))
 
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
