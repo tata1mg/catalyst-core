@@ -9,7 +9,7 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { TraceIdRatioBasedSampler, ParentBasedSampler } from "@opentelemetry/sdk-trace-node"
 import { OTLPTraceExporter as OTLPTraceExporterHTTP } from "@opentelemetry/exporter-trace-otlp-http"
 import { OTLPMetricExporter as OTLPMetricExporterHTTP } from "@opentelemetry/exporter-metrics-otlp-http"
-import { trace } from "@opentelemetry/api"
+import { trace, context } from "@opentelemetry/api"
 
 import semanticConventions from "@opentelemetry/semantic-conventions"
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = semanticConventions
@@ -289,45 +289,55 @@ export function withObservability(serviceName, fn, name) {
 }
 
 /**
- * Express middleware that emits a span covering the full server-side lifetime
- * of the response — INCLUDING the time spent flushing the body to the socket
- * after res.end() is called. Unlike the `handler` span (which ends as soon as
- * the render promise resolves), this span ends on the response 'finish' event
- * (all bytes handed to the OS) or 'close' (connection torn down first).
+ * Express middleware that emits a span measuring the response body
+ * flush/egress window: it STARTS when the app calls res.end() (the moment the
+ * app stops writing) and ENDS on the response 'finish' event (all bytes handed
+ * to the OS) or 'close' (connection torn down first).
  *
- * A "res.end" span event marks the moment the app stopped writing, so the gap
- * between that event and the span's end is pure egress / TCP backpressure time
- * — the reason the HTTP server span runs longer than `handler` for large
- * fully-SSR'd bot responses.
+ * The span's duration is therefore pure egress / TCP backpressure time — the
+ * reason the HTTP server span runs longer than `handler` for large fully-SSR'd
+ * bot responses (res.end() returns long before the bytes actually drain).
  *
  * Register this BEFORE the SSR handler. It uses startSpan (not startActiveSpan),
  * so it becomes a sibling of `handler` under the same request span rather than
- * a parent of it.
+ * a parent of it. The 'finish'/'close' listeners are attached up front (so an
+ * event is never missed), but the span itself is created only when res.end()
+ * fires — if the app never writes (e.g. client aborts first), no span is emitted.
  *
  * @param {string} serviceName
  * @param {string} [name] - Span name
  * @returns {Function} Express middleware
  */
-export function responseFlushMiddleware(serviceName, name = "response.send") {
+export function responseFlushMiddleware(serviceName, name = "response.flush") {
     const tracer = trace.getTracer(serviceName)
 
     return function (req, res, next) {
-        const span = tracer.startSpan(name)
+        // Capture the active (request) context now, while it's guaranteed to be
+        // the in-flight request span. The span is created later — when res.end()
+        // is called — so it must be parented to this captured context.
+        const parentContext = context.active()
 
-        // Mark when the app finished writing (res.end called) vs. when the
-        // bytes actually drained ('finish'). Preserve all call signatures.
-        const originalEnd = res.end
-        res.end = function (...args) {
-            span.addEvent("res.end")
-            return originalEnd.apply(this, args)
-        }
-
+        let span = null
         let ended = false
+
         const finalize = (endEvent) => {
             if (ended) return
             ended = true
-            span.setAttribute("http.response.end_event", endEvent) // "finish" | "close"
-            span.end()
+            if (span) {
+                span.setAttribute("http.response.end_event", endEvent) // "finish" | "close"
+                span.end()
+            }
+        }
+
+        // Start the span the moment the app finishes writing. Preserve all
+        // res.end call signatures. The `!ended` guard avoids creating a span
+        // after the response already closed (e.g. client aborted before end).
+        const originalEnd = res.end
+        res.end = function (...args) {
+            if (!span && !ended) {
+                span = tracer.startSpan(name, undefined, parentContext)
+            }
+            return originalEnd.apply(this, args)
         }
 
         res.once("finish", () => finalize("finish"))

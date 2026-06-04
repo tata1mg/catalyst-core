@@ -92,9 +92,9 @@ async function createServer() {
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
 
-    // Span that ends on the response 'finish'/'close' event — captures the body
-    // flush/egress time that lives past the `handler` span (no-op when OTEL off).
-    app.use(responseFlushMiddleware(SSR_SERVICE, "response.send"))
+    // Span from res.end() to the response 'finish'/'close' event — captures the
+    // body flush/egress time that lives past the `handler` span (no-op when OTEL off).
+    app.use(responseFlushMiddleware(SSR_SERVICE, "response.flush"))
 
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
