@@ -11,6 +11,7 @@ import fs from "fs"
 const { cyan, yellow, green } = pc
 
 import { validateMiddleware, safeCall } from "./utils/validator.js"
+import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
 
 // OpenTelemetry is opt-in (OTEL_ENABLE) — mirrors server/renderer/handler.jsx.
@@ -160,6 +161,8 @@ async function createServer() {
             productionRender = await import(rendererPath)
         }
     }
+
+    app.use(botDetectionMiddleware)
 
     app.use("*", async (req, res) => {
         try {

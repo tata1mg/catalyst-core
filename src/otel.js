@@ -9,7 +9,9 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { TraceIdRatioBasedSampler, ParentBasedSampler } from "@opentelemetry/sdk-trace-node"
 import { OTLPTraceExporter as OTLPTraceExporterHTTP } from "@opentelemetry/exporter-trace-otlp-http"
 import { OTLPMetricExporter as OTLPMetricExporterHTTP } from "@opentelemetry/exporter-metrics-otlp-http"
-import { trace, context } from "@opentelemetry/api"
+import { trace, context, createContextKey } from "@opentelemetry/api"
+
+export const IS_BOT_KEY = createContextKey("catalyst.is_bot")
 
 import semanticConventions from "@opentelemetry/semantic-conventions"
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = semanticConventions
@@ -245,7 +247,9 @@ export function withSyncObservability(serviceName, fn, name) {
     const spanName = name || fn.name || "anonymousFunction"
 
     return function (...args) {
+        const isBot = context.active().getValue(IS_BOT_KEY)
         return tracer.startActiveSpan(spanName, (span) => {
+            if (isBot !== undefined) span.setAttribute("http.response.is_bot", isBot)
             try {
                 return fn(...args)
             } catch (err) {
@@ -273,7 +277,9 @@ export function withObservability(serviceName, fn, name) {
     const spanName = name || fn.name || "anonymousFunction"
 
     return async function (...args) {
+        const isBot = context.active().getValue(IS_BOT_KEY)
         return tracer.startActiveSpan(spanName, async (span) => {
+            if (isBot !== undefined) span.setAttribute("http.response.is_bot", isBot)
             try {
                 const result = await fn(...args)
                 return result
@@ -357,7 +363,11 @@ export function responseFlushMiddleware(
                     compressSpan.end()
                     compressSpan = null
                 }
-                flushSpan = tracer.startSpan(flushName, undefined, parentContext)
+                flushSpan = tracer.startSpan(
+                    flushName,
+                    { attributes: { "http.response.is_bot": res.locals.is_bot } },
+                    parentContext
+                )
             }
             return realEnd.apply(this, args)
         }
@@ -376,7 +386,11 @@ export function responseFlushMiddleware(
             const chainEnd = res.end
             res.end = function (...args) {
                 if (!finished && !compressSpan && !flushSpan) {
-                    compressSpan = tracer.startSpan(compressName, undefined, parentContext)
+                    compressSpan = tracer.startSpan(
+                        compressName,
+                        { attributes: { "http.response.is_bot": res.locals.is_bot } },
+                        parentContext
+                    )
                 }
                 return chainEnd.apply(this, args)
             }
