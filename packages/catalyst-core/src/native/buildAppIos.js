@@ -149,6 +149,7 @@ function readPlistObject(filePath) {
 }
 
 function writePlistObject(filePath, value) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The generated filename uses path.basename and stays under the fixed project directory.
     const tempPath = path.join(PROJECT_DIR, `.catalyst-${path.basename(filePath)}-${process.pid}.json`)
     fs.writeFileSync(tempPath, JSON.stringify(value, null, 2), "utf8")
     try {
@@ -856,6 +857,7 @@ async function syncPluginResources(pluginComposition = {}) {
                 throw new Error(`Invalid managed plugin resource path: ${resource.bundleRelativePath}`)
             }
 
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The normalized path is validated above and containment is enforced immediately below.
             const targetPath = path.resolve(PROJECT_DIR, PROJECT_NAME, normalizedBundleRelativePath)
             if (
                 targetPath !== pluginResourceDir &&
