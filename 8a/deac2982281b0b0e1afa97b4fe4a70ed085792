@@ -1,0 +1,29 @@
+packages/catalyst-core/src/native/internalPluginUtils.js
+  32a293826e9b7dda 147,199,216,254,267,269
+packages/catalyst-core/src/native/pluginComposerAndroid.js
+  32a293826e9b7dda 185,245,253,260,268,280,286,288,290,335,338,340,362,421,449,469,471,473,475
+packages/catalyst-core/src/native/buildAppIos.js
+  32a293826e9b7dda 152,860
+packages/catalyst-core/src/native/pluginComposerIos.js
+  32a293826e9b7dda 87,89,278,403-405,408,464,471,476,522,525
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "8adeac2982281b0b0e1afa97b4fe4a70ed085792",
+  "prompts": {
+    "32a293826e9b7dda": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7480-9c24-7943-b2ee-49db6b03cebb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 7,
+      "accepted_lines": 39,
+      "overriden_lines": 0
+    }
+  }
+}
