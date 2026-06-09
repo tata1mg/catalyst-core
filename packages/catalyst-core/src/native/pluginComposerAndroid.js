@@ -182,6 +182,7 @@ function walkFiles(rootDir, predicate, results = []) {
     }
 
     for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from readdirSync within the walked root.
         const fullPath = path.join(rootDir, entry.name)
         if (entry.isDirectory()) {
             walkFiles(fullPath, predicate, results)
@@ -241,6 +242,7 @@ function copyTree(sourceDir, targetDir) {
 
     ensureDir(targetDir)
     for (const filePath of walkFiles(sourceDir, () => true)) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - filePath is produced by walking sourceDir, so the relative path remains within that tree.
         const targetPath = path.join(targetDir, path.relative(sourceDir, filePath))
         ensureDir(path.dirname(targetPath))
         fs.copyFileSync(filePath, targetPath)
@@ -248,12 +250,14 @@ function copyTree(sourceDir, targetDir) {
 }
 
 function copyAndroidPluginSources(plugins, javaRoot, log) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The package path components are fixed constants.
     const internalRoot = path.join(javaRoot, ...PLUGINS_PACKAGE_PARTS, "internal")
     fs.rmSync(internalRoot, { recursive: true, force: true })
     ensureDir(internalRoot)
 
     let copiedCount = 0
     for (const plugin of plugins) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - plugin.id is sanitized before being used as a path component.
         const pluginOutputDir = path.join(internalRoot, sanitizeForPath(plugin.id))
         const codeFiles = walkFiles(
             plugin.android.sourceDir,
@@ -261,6 +265,7 @@ function copyAndroidPluginSources(plugins, javaRoot, log) {
         )
 
         for (const sourcePath of codeFiles) {
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sourcePath is produced by walking plugin.android.sourceDir.
             const targetPath = path.join(pluginOutputDir, path.relative(plugin.android.sourceDir, sourcePath))
             ensureDir(path.dirname(targetPath))
             fs.copyFileSync(sourcePath, targetPath)
@@ -272,13 +277,17 @@ function copyAndroidPluginSources(plugins, javaRoot, log) {
 }
 
 function copyPluginAssets(plugins, androidProjectPath, log) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The destination path components are fixed.
     const baseAssetsDir = path.join(androidProjectPath, "app", "src", "main", "assets", "plugins")
     fs.rmSync(baseAssetsDir, { recursive: true, force: true })
     ensureDir(baseAssetsDir)
 
     for (const plugin of plugins) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - plugin.id is sanitized before being used as a path component.
         const pluginAssetsDir = path.join(baseAssetsDir, sanitizeForPath(plugin.id))
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed asset directories beneath the discovered internal plugin directory.
         copyTree(path.join(plugin.pluginDir, "assets", "common"), path.join(pluginAssetsDir, "common"))
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed asset directories beneath the discovered internal plugin directory.
         copyTree(path.join(plugin.pluginDir, "assets", "android"), path.join(pluginAssetsDir, "android"))
     }
 
@@ -323,9 +332,12 @@ object GeneratedPluginIndex {
 }
 `
 
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The package path components are fixed constants.
     const pluginsDir = path.join(javaRoot, ...PLUGINS_PACKAGE_PARTS)
     ensureDir(pluginsDir)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The generated filename is fixed.
     fs.writeFileSync(path.join(pluginsDir, "GeneratedPluginIndex.kt"), indexContent)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The generated filename is fixed.
     fs.rmSync(path.join(pluginsDir, "GeneratedPluginMeta.kt"), { force: true })
 }
 
@@ -347,6 +359,7 @@ function updateAndroidManifestPermissions(manifestPath, selectedPermissions, all
     // Migration cleanup for legacy entries previously written without markers.
     for (const permission of knownPermissions) {
         const escaped = escapeRegexLiteral(permission)
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp - The dynamic value is escaped as a regex literal above.
         const legacyRegex = new RegExp(
             `^[ \\t]*<uses-permission\\s+android:name="${escaped}"\\s*/>\\s*\\n?`,
             "gm"
@@ -405,6 +418,7 @@ function updateGradleDependencies(gradlePath, selectedDependencies, allKnownPlug
     // Migration cleanup for legacy entries previously written without markers.
     for (const dependency of knownDependencies) {
         const escaped = escapeRegexLiteral(dependency)
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp - The dynamic value is escaped as a regex literal above.
         const legacyRegex = new RegExp(`^[ \\t]*implementation\\("${escaped}"\\)\\s*\\n?`, "gm")
         blockBody = blockBody.replace(legacyRegex, "")
     }
@@ -432,6 +446,7 @@ function updateProguardKeepRules(proguardPath, selectedClassNames, allKnownPlugi
 
     for (const className of knownClassNames) {
         const escaped = escapeRegexLiteral(className)
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp - The dynamic value is escaped as a regex literal above.
         const legacyRegex = new RegExp(`^[ \\t]*-keep class ${escaped} \\{ \\*; \\}\\s*\\n?`, "gm")
         rules = rules.replace(legacyRegex, "")
     }
@@ -451,9 +466,13 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
     const selected = selectPluginsForPlatform(enabled, "android", log)
     validateSelectedPluginSources(selected)
 
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed paths within the generated Android project.
     const javaRoot = path.join(androidProjectPath, "app", "src", "main", "java")
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed paths within the generated Android project.
     const manifestPath = path.join(androidProjectPath, "app", "src", "main", "AndroidManifest.xml")
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed paths within the generated Android project.
     const gradlePath = path.join(androidProjectPath, "app", "build.gradle.kts")
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed paths within the generated Android project.
     const proguardPath = path.join(androidProjectPath, "app", "proguard-rules.pro")
 
     copyAndroidPluginSources(selected, javaRoot, log)
