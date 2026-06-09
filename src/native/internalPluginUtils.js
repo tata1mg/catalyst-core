@@ -144,6 +144,7 @@ function derivePackageIdentityFromUrl(url, fieldName, sourcePath) {
 }
 
 function parsePluginManifest(pluginDir) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pluginDir is discovered from the internal plugin root and the filename is fixed.
     const manifestPath = path.join(pluginDir, "manifest.json")
     if (!fs.existsSync(manifestPath)) {
         return null
@@ -195,6 +196,7 @@ function parsePluginManifest(pluginDir) {
         }),
         android: androidConfig
             ? {
+                  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pluginDir is discovered from the internal plugin root and the child directory is fixed.
                   sourceDir: path.join(pluginDir, "android"),
                   permissions: readStringArray(
                       androidConfig.permissions,
@@ -211,6 +213,7 @@ function parsePluginManifest(pluginDir) {
             : null,
         ios: iosConfig
             ? {
+                  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pluginDir is discovered from the internal plugin root and the child directory is fixed.
                   sourceDir: path.join(pluginDir, "ios"),
                   dependencies: readIosDependencies(iosConfig.dependencies, "ios.dependencies", manifestPath),
                   className: mustBeNonEmptyString(iosConfig.className, "ios.className", manifestPath),
@@ -248,6 +251,7 @@ function discoverInternalPlugins(corePluginsRoot, log = () => {}) {
             continue
         }
 
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from readdirSync under the internal plugin root.
         const pluginDir = path.join(corePluginsRoot, entry.name)
         const parsed = parsePluginManifest(pluginDir)
         if (parsed) {
@@ -260,7 +264,9 @@ function discoverInternalPlugins(corePluginsRoot, log = () => {}) {
 }
 
 function resolveInternalPluginsRoot(packageRoot) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed package-internal directories.
     const distPluginsPath = path.join(packageRoot, "dist", "native", "internal-plugins")
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed package-internal directories.
     const srcPluginsPath = path.join(packageRoot, "src", "native", "internal-plugins")
 
     return fs.existsSync(distPluginsPath) ? distPluginsPath : srcPluginsPath
