@@ -40,29 +40,24 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             logger.info("📄 Body preview: \(bodyPreview)")
         }
 
-        // Inject safe area headers for main frame HTTP/HTTPS requests
+        // Inject default app and safe area headers for main frame HTTP/HTTPS requests
         // Only inject on main frame to match Android behavior (not on subresources)
         let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? false
         let isHttpScheme = ["http", "https"].contains(url.scheme?.lowercased() ?? "")
 
         if isMainFrame && isHttpScheme && httpMethod == "GET" {
-            let safeAreaHeaders = viewModel.getSafeAreaHeaders()
+            let missingHeaders = missingDefaultHeaders(for: navigationAction.request)
 
-            // Check if headers are already present (avoid re-injecting)
-            let currentHeaders = navigationAction.request.allHTTPHeaderFields ?? [:]
-            let hasExistingHeaders = currentHeaders.keys.contains("X-Safe-Area-Top")
-
-            if !hasExistingHeaders && !safeAreaHeaders.isEmpty {
-                logger.info("📋 Injecting safe area headers for main frame: \(url.absoluteString)")
+            if !missingHeaders.isEmpty {
+                logger.info("📋 Injecting default headers for main frame: \(url.absoluteString)")
                 #if DEBUG
-                logger.debug("📋 Headers: \(safeAreaHeaders)")
+                logger.debug("📋 Headers: \(missingHeaders)")
                 #endif
 
-                // Create new request with safe area headers
                 var newRequest = navigationAction.request
-                var allHeaders = currentHeaders
-                allHeaders.merge(safeAreaHeaders) { (_, new) in new }
-                newRequest.allHTTPHeaderFields = allHeaders
+                missingHeaders.forEach { header, value in
+                    newRequest.setValue(value, forHTTPHeaderField: header)
+                }
 
                 // Cancel current navigation and reload with headers
                 decisionHandler(.cancel)
@@ -160,6 +155,18 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 viewModel.setLoading(true, fromCache: false)
             }
             decisionHandler(.allow)
+        }
+    }
+
+    private func missingDefaultHeaders(for request: URLRequest) -> [String: String] {
+        var defaultHeaders = viewModel.getSafeAreaHeaders()
+
+        if !ConfigConstants.appInfo.isEmpty {
+            defaultHeaders["X-App-Info"] = ConfigConstants.appInfo
+        }
+
+        return defaultHeaders.filter { header, _ in
+            request.value(forHTTPHeaderField: header) == nil
         }
     }
     
