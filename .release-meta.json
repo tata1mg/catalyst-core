@@ -3,12 +3,12 @@
   "packages": {
     "catalyst-core": {
       "publish": true,
-      "version": "0.1.0-beta.4"
+      "version": "0.1.0-beta.5"
     },
     "create-catalyst-app": {
       "publish": true,
-      "version": "0.1.0-beta.4",
-      "templateCatalystCoreVersion": "0.1.0-beta.4"
+      "version": "0.1.0-beta.5",
+      "templateCatalystCoreVersion": "0.1.0-beta.5"
     }
   }
 }

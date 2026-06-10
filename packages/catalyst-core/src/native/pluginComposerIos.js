@@ -84,7 +84,9 @@ function packageKey(dependency) {
 }
 
 function resolveManifestPath(pluginDir, relativePath, fieldName) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Containment and realpath checks are enforced immediately below.
     const resolvedPath = path.resolve(pluginDir, relativePath)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pluginDir comes from the internal plugin root.
     const normalizedPluginDir = fs.realpathSync(path.resolve(pluginDir))
     if (
         resolvedPath !== normalizedPluginDir &&
@@ -273,6 +275,7 @@ function walkFiles(rootDir, predicate, results = []) {
     }
 
     for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from readdirSync within the walked root.
         const fullPath = path.join(rootDir, entry.name)
         if (entry.isDirectory()) {
             walkFiles(fullPath, predicate, results)
@@ -397,13 +400,12 @@ function collectIosResources(plugins) {
 
             for (const entryPath of entries) {
                 const normalizedRelativePath = normalizeResourceRelativePath(plugin, entryPath)
-                const bundleRelativePath = validateBundleRelativePath(
-                    plugin.id,
-                    path
-                        .join("PluginResources", sanitizeForPath(plugin.id), normalizedRelativePath)
-                        .split(path.sep)
-                        .join("/")
-                )
+                const candidateBundleRelativePath = path
+                    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The resulting path is checked by validateBundleRelativePath below.
+                    .join("PluginResources", sanitizeForPath(plugin.id), normalizedRelativePath)
+                    .split(path.sep)
+                    .join("/")
+                const bundleRelativePath = validateBundleRelativePath(plugin.id, candidateBundleRelativePath)
 
                 resources.push({
                     pluginId: plugin.id,
@@ -459,16 +461,19 @@ function collectIosQuerySchemes(plugins) {
 }
 
 function copyIosPluginSources(plugins, iosProjectPath, log) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The destination path components are fixed.
     const internalRoot = path.join(iosProjectPath, "Sources", "Core", "Plugins", "Internal")
     fs.rmSync(internalRoot, { recursive: true, force: true })
     ensureDir(internalRoot)
 
     let copiedCount = 0
     for (const plugin of plugins) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - plugin.id is sanitized before being used as a path component.
         const pluginOutputDir = path.join(internalRoot, sanitizeForPath(plugin.id))
         const codeFiles = walkFiles(plugin.ios.sourceDir, (name) => name.endsWith(".swift"))
 
         for (const sourcePath of codeFiles) {
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sourcePath is produced by walking plugin.ios.sourceDir.
             const targetPath = path.join(pluginOutputDir, path.relative(plugin.ios.sourceDir, sourcePath))
             ensureDir(path.dirname(targetPath))
             fs.copyFileSync(sourcePath, targetPath)
@@ -514,8 +519,10 @@ enum GeneratedPluginIndex {
 }
 `
 
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The destination path components are fixed.
     const pluginsDir = path.join(iosProjectPath, "Sources", "Core", "Plugins")
     ensureDir(pluginsDir)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The generated filename is fixed.
     fs.writeFileSync(path.join(pluginsDir, "GeneratedPluginIndex.swift"), indexContent)
 }
 

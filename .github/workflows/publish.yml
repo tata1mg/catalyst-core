@@ -375,7 +375,27 @@ jobs:
                     exit 1
                   fi
 
-                  npm view "catalyst-core@$TEMPLATE_CORE_VERSION" version
+                  if [ "$PUBLISH_CORE" != "true" ]; then
+                    npm view "catalyst-core@$TEMPLATE_CORE_VERSION" version
+                    exit 0
+                  fi
+
+                  MAX_ATTEMPTS=3
+                  RETRY_DELAY_SECONDS=10
+
+                  for ATTEMPT in $(seq 1 "$MAX_ATTEMPTS"); do
+                    if npm view "catalyst-core@$TEMPLATE_CORE_VERSION" version; then
+                      exit 0
+                    fi
+
+                    if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then
+                      echo "catalyst-core@$TEMPLATE_CORE_VERSION is not visible on npm yet. Retrying in ${RETRY_DELAY_SECONDS}s ($ATTEMPT/$MAX_ATTEMPTS)..."
+                      sleep "$RETRY_DELAY_SECONDS"
+                    fi
+                  done
+
+                  echo "::error::catalyst-core@$TEMPLATE_CORE_VERSION was not visible on npm after $MAX_ATTEMPTS attempts"
+                  exit 1
 
             - name: Publish create-catalyst-app to npm
               id: publish_cca
