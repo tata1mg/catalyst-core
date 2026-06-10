@@ -15,7 +15,7 @@ public struct ContentView: View {
 
     private static var startURL: String {
         let base = ConfigConstants.url
-        let initial = ConfigConstants.initialUrl
+        let initial = ConfigConstants.initial_url
         guard !initial.isEmpty else { return base }
         let path = initial.hasPrefix("/") ? initial : "/\(initial)"
         return base + path
