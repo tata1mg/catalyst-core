@@ -7,6 +7,7 @@
 # Options:
 #   --only <platform>         Run a single platform (android|ios)
 #   --catalyst-version <ver>  Install a published npm version instead of syncing
+#   --skip-native-tests       Skip gradlew test (android) and xcodebuild test (ios)
 #
 # Flow per platform:
 #   1. setupEmulator:<platform>  — boot emulator/simulator
@@ -34,6 +35,11 @@ APP_PATH="$1"; shift
 
 ONLY_PLATFORM=""
 CATALYST_VERSION=""
+SKIP_SYNC=0
+SKIP_SETUP=0
+SKIP_START=0
+SKIP_NATIVE_TESTS=0
+RESULTS_FILE=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --only)
@@ -42,6 +48,13 @@ while [ $# -gt 0 ]; do
         --catalyst-version)
             [ $# -lt 2 ] && { fail "--catalyst-version requires a version string"; exit 1; }
             CATALYST_VERSION="$2"; shift 2 ;;
+        --skip-sync)         SKIP_SYNC=1;         shift ;;
+        --skip-setup)        SKIP_SETUP=1;        shift ;;
+        --skip-start)        SKIP_START=1;        shift ;;
+        --skip-native-tests) SKIP_NATIVE_TESTS=1; shift ;;
+        --results-file)
+            [ $# -lt 2 ] && { fail "--results-file requires a path"; exit 1; }
+            RESULTS_FILE="$2"; shift 2 ;;
         *) fail "Unknown flag: $1"; exit 1 ;;
     esac
 done
@@ -55,7 +68,7 @@ should_run() { [ -z "$ONLY_PLATFORM" ] || [ "$ONLY_PLATFORM" = "$1" ]; }
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 APP_DIR="$ROOT_DIR/$APP_PATH"
-NATIVE_ROOT="$ROOT_DIR/packages/catalyst-core/src/native"
+NATIVE_ROOT="$APP_DIR/node_modules/catalyst-core/dist/native"
 ANDROID_DIR="$NATIVE_ROOT/androidProject"
 IOS_DIR="$NATIVE_ROOT/iosnativeWebView"
 
@@ -68,7 +81,9 @@ fi
 declare -a RESULTS=()
 
 record() {
-    RESULTS+=("${1}:${2}")
+    RESULTS+=("${1}|${2}")
+    [ -n "$RESULTS_FILE" ] && echo "${1}|${2}" >> "$RESULTS_FILE"
+    return 0
 }
 
 has_script() {
@@ -103,24 +118,24 @@ run_step() {
     fi
 }
 
-start_server() {
-    local port; port=$(get_port "NODE_SERVER_PORT" 3005)
+# run_server <script-name> <port> <pid-var> — backgrounds the server, assigns PID in-shell (no $() hang)
+run_server() {
+    local name="$1" port="$2" pid_var="$3"
     kill_listener "$port"
     sleep 1
     local log; log=$(mktemp)
     set -m
-    { (cd "$APP_DIR" && npm run start >"$log" 2>&1); } &
+    { (cd "$APP_DIR" && npm run "$name" >"$log" 2>&1); } &
     local pid=$!
     set +m
     sleep 5
     if kill -0 "$pid" 2>/dev/null; then
-        ok "start"; echo "$pid"
+        ok "$name (port $port)"; eval "$pid_var=$pid"; rm -f "$log"
     else
-        fail "start"
+        fail "$name"
         grep -m3 "Error\|EADDR\|failed" "$log" || head -5 "$log"
-        rm -f "$log"; echo ""
+        rm -f "$log"; eval "$pid_var="; return 1
     fi
-    rm -f "$log"
 }
 
 kill_server() {
@@ -154,42 +169,13 @@ run_android() {
     header "Platform: android"
     local all_passed=1
 
-    # 1. Boot emulator
-    if has_script "setupEmulator:android"; then
-        printf "  → setupEmulator:android\n"
-        local log; log=$(mktemp)
-        if (cd "$APP_DIR" && npm run setupEmulator:android >"$log" 2>&1); then
-            ok "setupEmulator:android"; rm -f "$log"
-        else
-            fail "setupEmulator:android — cannot continue android tests"
-            cat "$log"; rm -f "$log"
-            record "android" "FAIL"; return
-        fi
-    else
-        warn "setupEmulator:android not found — assuming emulator is already running"
-    fi
-
-    # 2. Start JS server
-    printf "  → start\n"
-    local start_pid
-    start_pid=$(start_server)
-    if [ -z "$start_pid" ]; then
-        fail "start server failed — cannot continue android tests"
-        record "android" "FAIL"; return
-    fi
-
-    # 3. Build and install app
-    if has_script "buildApp:android"; then
-        run_step "buildApp:android" || all_passed=0
-    else
-        warn "buildApp:android not found — skipping"
-    fi
-
-    # 4. Native unit tests (JVM)
-    if [ -f "$ANDROID_DIR/gradlew" ]; then
+    # 1. Native unit tests (JVM)
+    if [ "$SKIP_NATIVE_TESTS" -eq 1 ]; then
+        warn "gradlew test — skipped (--skip-native-tests)"
+    elif [ -f "$ANDROID_DIR/gradlew" ]; then
         printf "  → gradlew test\n"
         local log; log=$(mktemp)
-        if (cd "$ANDROID_DIR" && ./gradlew test --daemon --quiet >"$log" 2>&1); then
+        if (cd "$ANDROID_DIR" && ./gradlew test --daemon >"$log" 2>&1); then
             ok "gradlew test"; rm -f "$log"
         else
             fail "gradlew test"; cat "$log"; rm -f "$log"; all_passed=0
@@ -198,10 +184,7 @@ run_android() {
         warn "gradlew not found at $ANDROID_DIR — skipping JVM unit tests"
     fi
 
-    # 5. Tear down
-    kill_server "$start_pid"
-
-    [ "$all_passed" -eq 1 ] && record "android" "PASS" || record "android" "FAIL"
+    [ "$all_passed" -eq 1 ] && record "native:android" "PASS" || record "native:android" "FAIL"
 }
 
 # ── iOS ───────────────────────────────────────────────────────────────────────
@@ -209,96 +192,143 @@ run_ios() {
     header "Platform: ios"
     local all_passed=1
 
-    # 1. Boot simulator
-    if has_script "setupEmulator:ios"; then
-        printf "  → setupEmulator:ios\n"
-        local log; log=$(mktemp)
-        if (cd "$APP_DIR" && npm run setupEmulator:ios >"$log" 2>&1); then
-            ok "setupEmulator:ios"; rm -f "$log"
-        else
-            fail "setupEmulator:ios — cannot continue ios tests"
-            cat "$log"; rm -f "$log"
-            record "ios" "FAIL"; return
-        fi
-    else
-        warn "setupEmulator:ios not found — assuming simulator is already running"
-    fi
-
-    # 2. Start JS server
-    printf "  → start\n"
-    local start_pid
-    start_pid=$(start_server)
-    if [ -z "$start_pid" ]; then
-        fail "start server failed — cannot continue ios tests"
-        record "ios" "FAIL"; return
-    fi
-
-    # 3. Build and install app
-    if has_script "buildApp:ios"; then
-        run_step "buildApp:ios" || all_passed=0
-    else
-        warn "buildApp:ios not found — skipping"
-    fi
-
-    # 4. Native unit tests (XCTest)
-    if ! command -v xcodebuild >/dev/null 2>&1; then
+    # 1. Native unit tests (XCTest)
+    if [ "$SKIP_NATIVE_TESTS" -eq 1 ]; then
+        warn "xcodebuild test — skipped (--skip-native-tests)"
+    elif ! command -v xcodebuild >/dev/null 2>&1; then
         warn "xcodebuild not found — skipping iOS unit tests"
     elif [ ! -d "$IOS_DIR/iosnativeWebView.xcodeproj" ]; then
         warn "iOS project not found at $IOS_DIR — skipping XCTest"
     else
-        local sim_id=""
+        local sim_id="" ios_scheme=""
         sim_id=$(xcrun simctl list devices booted 2>/dev/null \
             | grep -m1 "iPhone" \
             | grep -oE '[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}' \
             || true)
+        ios_scheme=$(node -e "
+            try { const c=require('$APP_DIR/config/config.json');
+                  console.log((c.WEBVIEW_CONFIG&&c.WEBVIEW_CONFIG.ios&&c.WEBVIEW_CONFIG.ios.scheme)||'iosnativeWebView'); }
+            catch(e){ console.log('iosnativeWebView'); }
+        " 2>/dev/null || echo "iosnativeWebView")
         if [ -z "$sim_id" ]; then
             warn "No booted iPhone simulator found — skipping XCTest"
         else
-            printf "  → xcodebuild test (sim: %s)\n" "$sim_id"
+            # Build test bundle via buildIosForTesting (configure+provision+build-for-testing, no install)
+            printf "  → buildIosForTesting\n"
+            local bft_log; bft_log=$(mktemp)
+            local bft_exit=0
+            (cd "$APP_DIR" && node -e "
+                const { createIosBuild } = require('${NATIVE_ROOT}/buildIos/index.js');
+                const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require('./config/config.json');
+                const build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH });
+                build.buildIosForTesting().then(() => process.exit(0)).catch(e => { console.error(e.message); process.exit(1); });
+            " >"$bft_log" 2>&1) || bft_exit=$?
+            if [ $bft_exit -ne 0 ]; then
+                fail "buildIosForTesting"; cat "$bft_log"; rm -f "$bft_log"
+                record "native:ios" "FAIL"; return
+            fi
+            ok "buildIosForTesting"; rm -f "$bft_log"
+
+            local build_products="$HOME/Library/Developer/Xcode/DerivedData/iosnativeWebView-Build/Build/Products"
+            printf "  → xcodebuild test-without-building (scheme: %s, sim: %s)\n" "$ios_scheme" "$sim_id"
             local xc_exit=0 xc_log; xc_log=$(mktemp)
-            (cd "$IOS_DIR" && xcodebuild test \
+            (cd "$IOS_DIR" && xcodebuild test-without-building \
                 -project iosnativeWebView.xcodeproj \
-                -scheme iosnativeWebView \
+                -scheme "$ios_scheme" \
+                -sdk iphonesimulator \
+                -configuration Debug \
                 -destination "platform=iOS Simulator,id=$sim_id" \
+                DEVELOPMENT_TEAM="" \
+                CODE_SIGN_IDENTITY="" \
+                CODE_SIGNING_REQUIRED=NO \
+                CODE_SIGNING_ALLOWED=NO \
+                ONLY_ACTIVE_ARCH=YES \
+                BUILD_DIR="$build_products" \
+                CONFIGURATION_BUILD_DIR="$build_products/Debug-iphonesimulator" \
                 -quiet >"$xc_log" 2>&1) || xc_exit=$?
             grep -E "Test Suite|passed|failed|error:" "$xc_log" || true
             rm -f "$xc_log"
             if [ $xc_exit -eq 0 ]; then
-                ok "xcodebuild test"
+                ok "xcodebuild test-without-building"
             else
-                fail "xcodebuild test"; all_passed=0
+                fail "xcodebuild test-without-building"; all_passed=0
             fi
         fi
     fi
 
-    # 5. Tear down
-    kill_server "$start_pid"
-
-    [ "$all_passed" -eq 1 ] && record "ios" "PASS" || record "ios" "FAIL"
+    [ "$all_passed" -eq 1 ] && record "native:ios" "PASS" || record "native:ios" "FAIL"
 }
 
 # ── main ──────────────────────────────────────────────────────────────────────
 printf "\n${CYAN}test-native.sh — %s${RESET}\n" "$APP_PATH"
 
-sync_catalyst_core
+[ "$SKIP_SYNC" -eq 0 ] && sync_catalyst_core
 
-should_run "android" && run_android
-should_run "ios"     && run_ios
+# Standalone: setup emulators
+if [ "$SKIP_SETUP" -eq 0 ]; then
+    header "Setup emulators"
+    if should_run "android" && has_script "setupEmulator:android"; then
+        printf "  → setupEmulator:android\n"
+        setup_log=$(mktemp)
+        if (cd "$APP_DIR" && npm run setupEmulator:android >"$setup_log" 2>&1); then
+            ok "setupEmulator:android"; rm -f "$setup_log"
+        else
+            fail "setupEmulator:android"; cat "$setup_log"; rm -f "$setup_log"
+            record "native:android" "FAIL"
+            ONLY_PLATFORM="ios"
+        fi
+    fi
+    if should_run "ios" && has_script "setupEmulator:ios"; then
+        printf "  → setupEmulator:ios\n"
+        setup_log=$(mktemp)
+        if (cd "$APP_DIR" && npm run setupEmulator:ios >"$setup_log" 2>&1); then
+            ok "setupEmulator:ios"; rm -f "$setup_log"
+        else
+            fail "setupEmulator:ios"; cat "$setup_log"; rm -f "$setup_log"
+            record "native:ios" "FAIL"
+        fi
+    fi
+fi
 
-printf "\n${CYAN}══ Summary ══${RESET}\n"
-printf "  %-12s %s\n" "PLATFORM" "STATUS"
-printf "  %-12s %s\n" "────────────" "──────"
+# Standalone: start JS dev server
+START_PID=""
+if [ "$SKIP_START" -eq 0 ]; then
+    header "Start JS dev server"
+    server_port=$(get_port "NODE_SERVER_PORT" 3005)
+    printf "  → start\n"
+    run_server "start" "$server_port" "START_PID" || {
+        fail "JS dev server failed — cannot run native tests"
+        should_run "android" && record "native:android" "FAIL"
+        should_run "ios"     && record "native:ios"     "FAIL"
+        exit 1
+    }
+fi
+
+should_run "android" && run_android || true
+should_run "ios"     && run_ios     || true
+
+[ "$SKIP_START" -eq 0 ] && kill_server "${START_PID:-}"
+
+# Print standalone summary only when not delegated from test-all.sh
+if [ -z "$RESULTS_FILE" ]; then
+    printf "\n${CYAN}══ Summary ══${RESET}\n"
+    printf "  %-12s %s\n" "PLATFORM" "STATUS"
+    printf "  %-12s %s\n" "────────────" "──────"
+    for entry in "${RESULTS[@]}"; do
+        platform="${entry%%|*}"
+        status="${entry##*|}"
+        case "$status" in
+            PASS) color="$GREEN" ;;
+            FAIL) color="$RED" ;;
+            SKIP) color="$YELLOW" ;;
+            *)    color="$RESET" ;;
+        esac
+        printf "  %-16s ${color}%s${RESET}\n" "$platform" "$status"
+    done
+fi
 
 final_exit=0
 for entry in "${RESULTS[@]}"; do
-    platform="${entry%%:*}"
-    status="${entry##*:}"
-    case "$status" in
-        PASS) color="$GREEN" ;;
-        FAIL) color="$RED"; final_exit=1 ;;
-        SKIP) color="$YELLOW" ;;
-    esac
-    printf "  %-12s ${color}%s${RESET}\n" "$platform" "$status"
+    [[ "${entry##*|}" == "FAIL" ]] && final_exit=1
 done
-
 exit $final_exit
