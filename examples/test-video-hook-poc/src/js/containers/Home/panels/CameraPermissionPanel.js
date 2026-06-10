@@ -12,7 +12,7 @@ export function CameraPermissionPanel() {
 
   useEffect(() => {
     if (error) push(error.message || "Permission error");
-  }, [error]);
+  }, [error, push]);
 
   const perm = permStatus || 'undetermined';
   const cls = perm === 'granted' ? 'state--granted' : perm === 'denied' ? 'state--denied' : 'state--undetermined';

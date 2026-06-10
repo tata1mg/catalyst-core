@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { Navigate } from "react-router-dom"
 import Home from "@containers/Home/Home"
 import Profile from "@containers/Profile/Profile"
@@ -17,12 +17,24 @@ import {
   IntentPanel
 } from "@containers/Home/panels"
 
+function ClientNavigate({ to, replace }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+  return <Navigate to={to} replace={replace} />;
+}
+
 const routes = [
     {
         path: "/",
         component: Home,
         children: [
-            { path: "", element: <Navigate to="/video" replace /> },
+            { path: "", element: <ClientNavigate to="/video" replace /> },
             { path: "video", component: VideoStreamPanel },
             { path: "camera", component: CameraPanel },
             { path: "files", component: FilePickerPanel },

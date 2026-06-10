@@ -5,7 +5,9 @@ export function useTheme() {
     try {
       const saved = localStorage.getItem('catalyst-theme');
       if (saved === 'light' || saved === 'dark') return saved;
-    } catch (e) {}
+    } catch (e) {
+      // Ignore localStorage errors in environments where it is blocked/unavailable
+    }
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
@@ -13,7 +15,9 @@ export function useTheme() {
   });
 
   useEffect(() => {
-    try { localStorage.setItem('catalyst-theme', theme); } catch (e) {}
+    try { localStorage.setItem('catalyst-theme', theme); } catch (e) {
+      // Ignore localStorage errors in environments where it is blocked/unavailable
+    }
   }, [theme]);
 
   const toggle = useCallback(() => {

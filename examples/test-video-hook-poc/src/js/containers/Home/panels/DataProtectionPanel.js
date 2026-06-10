@@ -13,7 +13,7 @@ export function DataProtectionPanel() {
 
   useEffect(() => {
     if (error) push(error.message || "Security error");
-  }, [error]);
+  }, [error, push]);
 
   return (
     <div className="col">

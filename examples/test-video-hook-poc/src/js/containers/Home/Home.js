@@ -1,4 +1,4 @@
-import { useLocation, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useLocation, Outlet } from 'react-router-dom';
 import { useNativeTransition } from 'catalyst-core/hooks';
 import React, { useState, useEffect } from 'react';
 import { useSafeArea } from 'catalyst-core/hooks';
@@ -6,20 +6,6 @@ import { useTheme } from './components/Theme';
 import { ToastProvider, BottomSheet } from './components/SharedUI';
 import { TabBar, AppHeader, TABS } from './components/TabBar';
 import IOSDevice from './components/IOSDevice';
-import {
-  VideoStreamPanel,
-  CameraPanel,
-  FilePickerPanel,
-  HapticPanel,
-  CameraPermissionPanel,
-  NetworkPanel,
-  DataProtectionPanel,
-  SafeAreaPanel,
-  DeviceInfoPanel,
-  NotificationPanel,
-  GoogleSignInPanel,
-  IntentPanel
-} from './components/Panels';
 
 // Import global styles
 import '../../../static/css/Bridge.css';
@@ -86,7 +72,7 @@ function Home() {
   });
 
   const setFb = (key) => (v) => {
-    console.log(`🏠 [Home] Setting fallback for ${key} to:`, v);
+    console.log("🏠 [Home] Setting fallback for", key, "to:", v);
     setFallbacks(s => ({ ...s, [key]: v }));
   };
 

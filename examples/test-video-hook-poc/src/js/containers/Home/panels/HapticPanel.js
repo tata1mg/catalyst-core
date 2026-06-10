@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useHapticFeedback } from 'catalyst-core/hooks';
-import { HookStatusBar, PanelHeader, useToast } from '../components/SharedUI';
+import { HookStatusBar, PanelHeader } from '../components/SharedUI';
 
 export function HapticPanel() {
   const { fallbacks, setFb } = useOutletContext();
   const fallback = fallbacks.haptic;
   const setFallback = setFb('haptic');
   const { light, medium, heavy, success, warning, errorHaptic, selection, isSupported, webFallbackActive } = useHapticFeedback({ webFallback: fallback });
-  const { push } = useToast();
   const [fired, setFired] = useState(null);
 
   const fire = (kind, fn) => {

@@ -11,7 +11,7 @@ export function GoogleSignInPanel() {
       console.error("❌ [GoogleSignInPanel] Error:", error);
       push(error.message || "Google Sign-In failed");
     }
-  }, [error]);
+  }, [error, push]);
 
   const statusState = loading
     ? 'loading'

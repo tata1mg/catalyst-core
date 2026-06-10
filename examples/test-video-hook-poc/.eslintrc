@@ -1,6 +1,7 @@
 {
     "rules": {
-        "react-hooks/exhaustive-deps": "error" // Checks effect dependencies
+        "react-hooks/exhaustive-deps": "error", // Checks effect dependencies
+        "react/prop-types": "off"
     },
     "env": {
         "browser": true,
@@ -9,7 +10,7 @@
     },
     "extends": [
         "eslint:recommended",
-        "plugin:react/recommended",
+        "plugin:react/recommended"
     ],
     "parserOptions": {
         "sourceType": "module",

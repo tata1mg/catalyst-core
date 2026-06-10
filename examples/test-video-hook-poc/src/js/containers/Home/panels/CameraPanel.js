@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useCamera } from 'catalyst-core/hooks';
 import { I, HookStatusBar, useToast, PanelHeader, Lightbox } from '../components/SharedUI';
@@ -13,9 +13,14 @@ export function CameraPanel() {
   const [photos, setPhotos] = useState([]);
   const [viewing, setViewing] = useState(null);
 
+  const photosRef = useRef(photos);
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
   useEffect(() => {
     if (error) push(error.message || "Camera error");
-  }, [error]);
+  }, [error, push]);
 
   // Sync captured photo from useCamera hook
   useEffect(() => {
@@ -46,7 +51,7 @@ export function CameraPanel() {
   // Clean up Object URLs on unmount
   useEffect(() => {
     return () => {
-      photos.forEach(p => {
+      photosRef.current.forEach(p => {
         if (p.url && p.url.startsWith('blob:')) {
           URL.revokeObjectURL(p.url);
         }

@@ -9,7 +9,7 @@ export function DeviceInfoPanel() {
   const setFallback = setFb('device');
   
   const { deviceInfo, webFallbackActive, refresh: refreshHook } = useDeviceInfo({ webFallback: fallback });
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [, setRefreshTrigger] = useState(0);
 
   const info = deviceInfo?.data || deviceInfo;
   const src = webFallbackActive ? 'web' : 'native';
@@ -18,7 +18,7 @@ export function DeviceInfoPanel() {
     if (info?.osVersion) return info.osVersion;
     if (typeof navigator !== 'undefined') {
       const ua = navigator.userAgent;
-      const match = ua.match(/Android\s+([0-9\.]+)/);
+      const match = ua.match(/Android\s+([0-9.]+)/);
       if (match) return `Android ${match[1]}`;
       const iosMatch = ua.match(/OS\s+([0-9_]+)/);
       if (iosMatch) return `iOS ${iosMatch[1].replace(/_/g, '.')}`;
@@ -39,7 +39,9 @@ export function DeviceInfoPanel() {
     if (typeof Intl !== 'undefined') {
       try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone;
-      } catch (e) {}
+      } catch (e) {
+        // Fallback to default
+      }
     }
     return '—';
   };

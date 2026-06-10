@@ -41,7 +41,7 @@ export function VideoStreamPanel() {
 
   useEffect(() => {
     if (error) push(error.message || "Video stream error");
-  }, [error]);
+  }, [error, push]);
 
   useEffect(() => {
     if (videoRef.current && mediaStream) {
@@ -395,7 +395,7 @@ function VideoStreamSettingsSheet({ open, onClose, streaming, initial, onApply }
               <input className="input input--num" style={{ width: '100%' }} type="number" min="1" placeholder="—" value={fpsMax} onChange={e => setFpsMax(e.target.value)} />
             </div>
           </div>
-          <div className="help">Leave empty to let the device choose. Live edits use sendCommand('fps').</div>
+          <div className="help">Leave empty to let the device choose. Live edits use sendCommand(&apos;fps&apos;).</div>
         </div>
 
         <div className="row" style={{ marginTop: 4 }}>

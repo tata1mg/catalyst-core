@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useFilePicker } from 'catalyst-core/hooks';
 import { I, HookStatusBar, useToast, PanelHeader, Section, Switch, Lightbox, FileViewer } from '../components/SharedUI';
@@ -25,49 +25,55 @@ export function FilePickerPanel() {
   const [minSize, setMinSize] = useState('');
   const [maxSize, setMaxSize] = useState('');
 
+  const filesRef = useRef(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
   useEffect(() => {
     if (error) push(error.message || "File picker error");
-  }, [error]);
+  }, [error, push]);
 
   // Synchronize hook state data with local state for custom interactive removals
   useEffect(() => {
     if (data) {
       const list = Array.isArray(data) ? data : [data];
-      const next = list.map((f, i) => {
-        const existing = files.find(x => x.fileName === (f.fileName || f.name) && x.size === (f.fileSize || f.size));
-        let url = existing?.url;
-        if (!url) {
-          if (f.fileSrc || f.uri) {
-            url = f.fileSrc || f.uri;
-          } else if (f instanceof File) {
-            url = URL.createObjectURL(f);
-          } else if (f.fileObject instanceof File) {
-            url = URL.createObjectURL(f.fileObject);
-          } else if (f._file instanceof File) {
-            url = URL.createObjectURL(f._file);
+      setFiles(prevFiles => {
+        return list.map((f, i) => {
+          const existing = prevFiles.find(x => x.fileName === (f.fileName || f.name) && x.size === (f.fileSize || f.size));
+          let url = existing?.url;
+          if (!url) {
+            if (f.fileSrc || f.uri) {
+              url = f.fileSrc || f.uri;
+            } else if (f instanceof File) {
+              url = URL.createObjectURL(f);
+            } else if (f.fileObject instanceof File) {
+              url = URL.createObjectURL(f.fileObject);
+            } else if (f._file instanceof File) {
+              url = URL.createObjectURL(f._file);
+            }
           }
-        }
-        return {
-          id: existing?.id || Math.random().toString(36).slice(2),
-          fileName: f.fileName || f.name || `file-${i}`,
-          mimeType: f.type || f.mimeType || 'unknown',
-          size: f.fileSize || f.size || 0,
-          transport: f.transport || 'OBJECT_URL',
-          url: url,
-          canCreate: !!getFileObject,
-          _file: f.fileObject || f._file || (f instanceof File ? f : null)
-        };
+          return {
+            id: existing?.id || Math.random().toString(36).slice(2),
+            fileName: f.fileName || f.name || `file-${i}`,
+            mimeType: f.type || f.mimeType || 'unknown',
+            size: f.fileSize || f.size || 0,
+            transport: f.transport || 'OBJECT_URL',
+            url: url,
+            canCreate: !!getFileObject,
+            _file: f.fileObject || f._file || (f instanceof File ? f : null)
+          };
+        });
       });
-      setFiles(next);
     } else {
       setFiles([]);
     }
-  }, [data]);
+  }, [data, getFileObject]);
 
   // Clean up Object URLs on unmount
   useEffect(() => {
     return () => {
-      files.forEach(f => {
+      filesRef.current.forEach(f => {
         if (f.url && f.url.startsWith('blob:')) {
           URL.revokeObjectURL(f.url);
         }

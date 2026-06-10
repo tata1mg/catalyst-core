@@ -29,7 +29,13 @@ const ok  = (msg) => console.log(`\x1b[32m✔ ${msg}\x1b[0m`);
 const err = (msg) => console.error(`\x1b[31m✖ ${msg}\x1b[0m`);
 
 function rimraf(dir) {
-  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  if (!fs.existsSync(dir)) return;
+  try {
+    execSync(`rm -rf "${dir}"`);
+  } catch {
+    // macOS rm -rf can fail on dirs with symlinks/extended attrs; fall back to find -delete
+    execSync(`find "${dir}" -depth -delete`);
+  }
 }
 
 function copyDir(src, dest) {
