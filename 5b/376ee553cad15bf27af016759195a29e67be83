@@ -1,0 +1,53 @@
+examples/test-video-hook-poc/src/js/routes/index.js
+  s_fb653307799c5f::t_e458fad160e60a 1,20-31,37
+examples/test-video-hook-poc/src/js/containers/Home/Home.js
+  s_fb653307799c5f::t_e458fad160e60a 1,75
+examples/test-video-hook-poc/src/js/containers/Home/components/Theme.js
+  s_fb653307799c5f::t_e458fad160e60a 8-10,18-20
+examples/test-video-hook-poc/src/js/containers/Home/panels/GoogleSignInPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 14
+examples/test-video-hook-poc/src/js/containers/Home/panels/CameraPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 1,16-20,23,54
+examples/test-video-hook-poc/.eslintrc
+  s_fb653307799c5f::t_e458fad160e60a 3-4,13
+examples/test-video-hook-poc/src/js/containers/Home/panels/FilePickerPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 1,28-32,35,41-54,56-66,71,76
+examples/test-video-hook-poc/src/js/containers/Home/panels/CameraPermissionPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 15
+examples/test-video-hook-poc/src/js/containers/Home/panels/DataProtectionPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 16
+examples/sync-core.js
+  s_d0f637ab2a8b01::t_9d869e262affb6 32-38
+examples/test-video-hook-poc/src/js/containers/Home/panels/DeviceInfoPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 12,21,42-44
+examples/test-video-hook-poc/src/js/containers/Home/panels/HapticPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 1,4
+examples/test-video-hook-poc/src/js/containers/Home/panels/VideoStreamPanel.js
+  s_fb653307799c5f::t_e458fad160e60a 44,398
+examples/test-video-hook-poc/package.json
+  s_fb653307799c5f::t_e458fad160e60a 45-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "5b376ee553cad15bf27af016759195a29e67be83",
+  "prompts": {},
+  "sessions": {
+    "s_d0f637ab2a8b01": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "54f231d7-fcf6-4a2a-8d5d-4162f6d2f67f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_fb653307799c5f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "42ab5730-ba45-4e6e-ac03-2c946c3aed53",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
