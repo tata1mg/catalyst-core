@@ -147,11 +147,6 @@ class CustomWebView(
         }
     }
 
-    private fun missingDefaultHeaders(request: WebResourceRequest): Map<String, String> {
-        val existingHeaders = request.requestHeaders.keys.map { it.lowercase() }.toSet()
-        return defaultRequestHeaders.filterKeys { it.lowercase() !in existingHeaders }
-    }
-
     fun loadUrl(url: String) {
         lastTargetUrl = url
         offlinePageVisible = false
@@ -666,23 +661,6 @@ class CustomWebView(
                     // Let WebView handle loading non-API HTTP/HTTPS URLs
                     if (url.scheme in listOf("http", "https")) {
                         lastTargetUrl = urlString
-
-                        if (request.isForMainFrame && request.method.equals("GET", ignoreCase = true)) {
-                            val missingHeaders = missingDefaultHeaders(request)
-                            if (missingHeaders.isNotEmpty()) {
-                                val headers = request.requestHeaders.toMutableMap().apply {
-                                    putAll(missingHeaders)
-                                }
-
-                                if (BuildConfig.DEBUG) {
-                                    Log.d(TAG, "📋 Reloading main-frame navigation with missing default headers: $urlString")
-                                }
-
-                                view?.loadUrl(urlString, headers)
-                                return true
-                            }
-                        }
-
                         return false
                     }
                 }
