@@ -5,7 +5,6 @@ const path = require("path")
 const crypto = require("crypto")
 const { execSync } = require("child_process")
 
-const MANAGED_BASELINE_SUFFIX = ".catalyst-base"
 const PLUGIN_RESOURCE_ROOT = "PluginResources"
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ const { execSync } = require("child_process")
 const { runInteractiveCommand } = require("../utils.js")
 
 module.exports = function createBuildPhase(ctx) {
-    const { WEBVIEW_CONFIG, PROJECT_DIR, PROJECT_NAME, SCHEME_NAME, APP_BUNDLE_ID, IPHONE_MODEL, url, progress, runCommand } = ctx
+    const { WEBVIEW_CONFIG, PROJECT_NAME, SCHEME_NAME, APP_BUNDLE_ID, IPHONE_MODEL, url, progress, runCommand } = ctx
 
     // ─── Simulator helpers ────────────────────────────────────────────────────
 

@@ -2,8 +2,6 @@
 
 const fs = require("fs")
 const path = require("path")
-const crypto = require("crypto")
-const { execSync } = require("child_process")
 
 // ─── Pure helpers (no ctx dependency) ────────────────────────────────────────
 
@@ -89,7 +87,7 @@ function generateSwiftProperty(key, value, indent = "    ") {
 // ─── Module factory ───────────────────────────────────────────────────────────
 
 module.exports = function createConfigPhase(ctx) {
-    const { WEBVIEW_CONFIG, iosConfig, PROJECT_DIR, SCHEME_NAME, url, progress,
+    const { WEBVIEW_CONFIG, iosConfig, PROJECT_DIR, url, progress,
             restoreManagedFileFromBaseline, readPlistObject, writePlistObject } = ctx
 
     function mergeIntoTopLevelObject(target, source, fieldName) {
@@ -296,49 +294,45 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPo
         const PROJECT_NAME = ctx.PROJECT_NAME
         const isGoogleSignInEnabled = ctx.isGoogleSignInEnabled
         const GOOGLE_SERVICES_FILENAME = "GoogleService-Info.plist"
-        try {
-            const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
-            const infoReleasePlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info-Release.plist")
-            const googleServicesPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, GOOGLE_SERVICES_FILENAME)
-            const googleClientId = WEBVIEW_CONFIG.googleSignIn?.clientId || WEBVIEW_CONFIG.googleSignIn?.webClientId || ""
-            const iosClientId = WEBVIEW_CONFIG.googleSignIn?.iosClientId || ""
+        const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist")
+        const infoReleasePlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info-Release.plist")
+        const googleServicesPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, GOOGLE_SERVICES_FILENAME)
+        const googleClientId = WEBVIEW_CONFIG.googleSignIn?.clientId || WEBVIEW_CONFIG.googleSignIn?.webClientId || ""
+        const iosClientId = WEBVIEW_CONFIG.googleSignIn?.iosClientId || ""
 
-            const googleServicesContent = fs.existsSync(googleServicesPlistPath) ? fs.readFileSync(googleServicesPlistPath, "utf8") : null
-            const reversedClientIdFromServices = googleServicesContent
-                ? (googleServicesContent.match(/<key>REVERSED_CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1] : null
-            const clientIdFromServices = googleServicesContent
-                ? (googleServicesContent.match(/<key>CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1] : null
+        const googleServicesContent = fs.existsSync(googleServicesPlistPath) ? fs.readFileSync(googleServicesPlistPath, "utf8") : null
+        const reversedClientIdFromServices = googleServicesContent
+            ? (googleServicesContent.match(/<key>REVERSED_CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1] : null
+        const clientIdFromServices = googleServicesContent
+            ? (googleServicesContent.match(/<key>CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1] : null
 
-            const computeReversed = (value) => !value ? "" : value.split(".").reverse().join(".")
-            const resolvedClientIdForScheme = iosClientId || googleClientId || clientIdFromServices || ""
-            const resolvedReversedClientId = reversedClientIdFromServices || computeReversed(resolvedClientIdForScheme)
+        const computeReversed = (value) => !value ? "" : value.split(".").reverse().join(".")
+        const resolvedClientIdForScheme = iosClientId || googleClientId || clientIdFromServices || ""
+        const resolvedReversedClientId = reversedClientIdFromServices || computeReversed(resolvedClientIdForScheme)
 
-            if (isGoogleSignInEnabled && !resolvedReversedClientId) {
-                throw new Error("Google Sign-In enabled but no valid clientId found")
-            }
-
-            const plistTargets = [infoPlistPath, infoReleasePlistPath]
-            const pluginUrlSchemes = pluginComposition.urlSchemes || []
-            const pluginQuerySchemes = pluginComposition.querySchemes || []
-            const pluginInfoPlist = pluginComposition.infoPlist || {}
-
-            plistTargets.forEach((plistPath) => {
-                if (!fs.existsSync(plistPath)) return
-                restoreManagedFileFromBaseline(plistPath)
-                const plistObject = readPlistObject(plistPath)
-                plistObject.CFBundleDisplayName = iosConfig.appName || "Catalyst Application"
-                mergeIntoTopLevelObject(plistObject, pluginInfoPlist, "ios.infoPlist")
-                if (isGoogleSignInEnabled && resolvedReversedClientId) {
-                    mergeUrlSchemes(plistObject, [{ name: "googleSignIn", schemes: [resolvedReversedClientId] }])
-                    mergeQuerySchemes(plistObject, ["google", resolvedReversedClientId])
-                }
-                mergeUrlSchemes(plistObject, pluginUrlSchemes)
-                mergeQuerySchemes(plistObject, pluginQuerySchemes)
-                writePlistObject(plistPath, plistObject)
-            })
-        } catch (err) {
-            throw err
+        if (isGoogleSignInEnabled && !resolvedReversedClientId) {
+            throw new Error("Google Sign-In enabled but no valid clientId found")
         }
+
+        const plistTargets = [infoPlistPath, infoReleasePlistPath]
+        const pluginUrlSchemes = pluginComposition.urlSchemes || []
+        const pluginQuerySchemes = pluginComposition.querySchemes || []
+        const pluginInfoPlist = pluginComposition.infoPlist || {}
+
+        plistTargets.forEach((plistPath) => {
+            if (!fs.existsSync(plistPath)) return
+            restoreManagedFileFromBaseline(plistPath)
+            const plistObject = readPlistObject(plistPath)
+            plistObject.CFBundleDisplayName = iosConfig.appName || "Catalyst Application"
+            mergeIntoTopLevelObject(plistObject, pluginInfoPlist, "ios.infoPlist")
+            if (isGoogleSignInEnabled && resolvedReversedClientId) {
+                mergeUrlSchemes(plistObject, [{ name: "googleSignIn", schemes: [resolvedReversedClientId] }])
+                mergeQuerySchemes(plistObject, ["google", resolvedReversedClientId])
+            }
+            mergeUrlSchemes(plistObject, pluginUrlSchemes)
+            mergeQuerySchemes(plistObject, pluginQuerySchemes)
+            writePlistObject(plistPath, plistObject)
+        })
     }
 
     async function updateEntitlements(pluginComposition = {}) {
