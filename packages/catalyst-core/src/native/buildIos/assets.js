@@ -69,7 +69,7 @@ module.exports = function createAssetsPhase(ctx) {
 
     async function handleGoogleServicesPlist() {
         try {
-            const rootPath = `${process.env.PWD}/GoogleService-Info.plist`
+            const rootPath = `${process.cwd()}/GoogleService-Info.plist`
             const iosPath = `${PROJECT_DIR}/${PROJECT_NAME}/GoogleService-Info.plist`
             if (fs.existsSync(rootPath)) {
                 progress.log("Found GoogleService-Info.plist in root directory", "info")
@@ -90,7 +90,7 @@ module.exports = function createAssetsPhase(ctx) {
                 return false
             }
         } catch (error) {
-            const rootPath = `${process.env.PWD}/GoogleService-Info.plist`
+            const rootPath = `${process.cwd()}/GoogleService-Info.plist`
             if (error.code === "EACCES" && fs.existsSync(rootPath)) throw new Error(`Permission denied copying GoogleService-Info.plist: ${error.message}`)
             await removeGoogleServicesPlistFromXcodeProject()
             progress.log(`Warning: Error handling GoogleService-Info.plist: ${error.message}`, "warning")
@@ -334,7 +334,7 @@ module.exports = function createAssetsPhase(ctx) {
 
     async function copySplashscreenAssets() {
         try {
-            const publicDir = `${process.env.PWD}/public/ios`
+            const publicDir = `${process.cwd()}/public/ios`
             const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
             if (!WEBVIEW_CONFIG.splashScreen) { progress.log("No splash screen configuration found, skipping asset copy", "info"); return }
             const imageExtensions = ["png", "jpg", "jpeg"]
@@ -363,7 +363,7 @@ module.exports = function createAssetsPhase(ctx) {
 
     async function copyAppIcon() {
         try {
-            const publicDir = `${process.env.PWD}/public/ios/appIcons`
+            const publicDir = `${process.cwd()}/public/ios/appIcons`
             const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
             const iconSetDir = `${assetsDir}/AppIcon.appiconset`
             if (!fs.existsSync(publicDir)) { progress.log("Public directory not found, skipping app icon copy", "info"); return }

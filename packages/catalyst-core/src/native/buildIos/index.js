@@ -28,7 +28,7 @@ function createIosBuild(config) {
     const port = WEBVIEW_CONFIG.port ? (WEBVIEW_CONFIG.useHttps ? 443 : WEBVIEW_CONFIG.port) : null
     const url = port ? `${protocol}://${ip}:${port}` : `${protocol}://${ip}`
 
-    const PUBLIC_PATH = `${process.env.PWD}/public`
+    const PUBLIC_PATH = `${process.cwd()}/public`
     const PROJECT_DIR = `${pwd}/iosnativeWebView`
     const SCHEME_NAME = iosConfig.scheme || "iosnativeWebView"
     const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
@@ -96,6 +96,7 @@ function createIosBuild(config) {
     }
 
     function writePlistObject(filePath, value) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The generated filename uses path.basename and stays under the fixed project directory.
         const tempPath = path.join(PROJECT_DIR, `.catalyst-${path.basename(filePath)}-${process.pid}.json`)
         fs.writeFileSync(tempPath, JSON.stringify(value, null, 2), "utf8")
         try {

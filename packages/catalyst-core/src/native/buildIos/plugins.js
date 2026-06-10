@@ -332,6 +332,7 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
                 if (!normalizedBundleRelativePath.startsWith(expectedPrefix) || normalizedBundleRelativePath.includes("../") || path.posix.isAbsolute(normalizedBundleRelativePath)) {
                     throw new Error(`Invalid managed plugin resource path: ${resource.bundleRelativePath}`)
                 }
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The normalized path is validated above and containment is enforced immediately below.
                 const targetPath = path.resolve(PROJECT_DIR, PROJECT_NAME, normalizedBundleRelativePath)
                 if (targetPath !== pluginResourceDir && !targetPath.startsWith(`${pluginResourceDir}${path.sep}`)) {
                     throw new Error(`Managed plugin resource escaped bundle directory: ${resource.bundleRelativePath}`)

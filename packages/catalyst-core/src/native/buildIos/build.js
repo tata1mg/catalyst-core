@@ -171,7 +171,7 @@ module.exports = function createBuildPhase(ctx) {
             const appName = iosConfig.appName || "app"
             const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-")
             const currentTime = new Date().toLocaleTimeString("en-US", { hour12: true, hour: "2-digit", minute: "2-digit", second: "2-digit" }).replace(/:/g, ":")
-            const destinationDir = path.join(process.env.PWD, BUILD_OUTPUT_PATH, "native", "ios", currentDate, buildType)
+            const destinationDir = path.join(process.cwd(), BUILD_OUTPUT_PATH, "native", "ios", currentDate, buildType)
             const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`)
             if (!fs.existsSync(destinationDir)) fs.mkdirSync(destinationDir, { recursive: true })
             await runCommand(`cp -R "${APP_PATH}" "${destinationPath}"`)
