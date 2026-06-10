@@ -1,0 +1,22 @@
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  s_6f32f62c3c69d8::t_4dd8f4f8b4abb1 18
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Constants/ConfigConstants.swift
+  s_6f32f62c3c69d8::t_b2df5e1a9d313a 29
+  s_6f32f62c3c69d8::t_e342f74da38b75 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "165d6d216becf9857dd8249d752e9bc7eafa9cc8",
+  "prompts": {},
+  "sessions": {
+    "s_6f32f62c3c69d8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "451e5c94-8558-4ef7-b577-f318ebf5d942",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
