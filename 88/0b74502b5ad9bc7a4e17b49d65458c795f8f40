@@ -1,0 +1,69 @@
+packages/catalyst-core/src/native/buildAppIos.js
+  s_68289bb0ca721d::t_567a1c467ccd25 2
+  s_869b6ac1c6b5ff::t_ac7eaed536c6dc 10-12,34-39
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/ConfigMappingTests.swift
+  s_d0f637ab2a8b01::t_bfefaaacd06f05 253,268-269
+packages/catalyst-core/src/native/buildIos/config.js
+  s_68289bb0ca721d::t_938de87324c4c8 1-355
+packages/catalyst-core/src/native/setupEmulatorIos.js
+  s_ed41fe7bc55f2e::t_f1ebcdfaaa43ae 270-276,282-284,287-293
+  s_aaaf9904f3ef05::t_a7e8541b20a2c6 166-171
+packages/catalyst-core/src/native/buildIos/index.js
+  s_68289bb0ca721d::t_f800bb9aaf6ef9 1-266
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/BootTimingUtilityTests.swift
+  s_d0f637ab2a8b01::t_015db1269aa7e1 203
+packages/catalyst-core/src/native/buildIos/assets.js
+  s_68289bb0ca721d::t_b85613d38ed3eb 1-428
+packages/catalyst-core/src/native/buildIos/build.js
+  s_68289bb0ca721d::t_13fb721cb2535b 1-489
+packages/catalyst-core/src/native/buildIos/plugins.js
+  s_68289bb0ca721d::t_e78ee63d10e548 1-352
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "880b74502b5ad9bc7a4e17b49d65458c795f8f40",
+  "prompts": {},
+  "sessions": {
+    "s_68289bb0ca721d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e3a8fffc-cd71-40f5-b2f2-3a202ff88953",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_869b6ac1c6b5ff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f51dda41-f913-4211-b8d7-fed6899a5912",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_aaaf9904f3ef05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7126dd9-0de4-4582-b72c-188b1c6c2f88",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_d0f637ab2a8b01": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "54f231d7-fcf6-4a2a-8d5d-4162f6d2f67f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_ed41fe7bc55f2e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ec47ecf-4865-4dd4-8268-8ded10efac3e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
