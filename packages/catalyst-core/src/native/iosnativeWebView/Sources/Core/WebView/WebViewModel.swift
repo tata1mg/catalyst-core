@@ -177,6 +177,10 @@ public class WebViewModel: ObservableObject {
 
     /// Get current safe area headers for HTTP requests
     public func getSafeAreaHeaders() -> [String: String] {
-        return safeAreaInsets.toHeaders()
+        var headers = safeAreaInsets.toHeaders()
+        if !ConfigConstants.appInfo.isEmpty {
+            headers["X-App-Info"] = ConfigConstants.appInfo
+        }
+        return headers
     }
 }
