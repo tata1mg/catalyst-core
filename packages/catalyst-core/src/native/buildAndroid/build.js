@@ -278,7 +278,7 @@ function createBuildPhase(ctx) {
                     minute: "2-digit",
                     second: "2-digit",
                 })
-                .replace(/:/g, ":")
+                .replace(/:/g, "-")
             let destinationApkFileName = ""
 
             if (appName) {

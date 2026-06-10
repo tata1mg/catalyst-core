@@ -89,7 +89,7 @@ function createAssetsPhase(ctx) {
             const themeFiles = [`${destPath}/values/themes.xml`, `${destPath}/values-night/themes.xml`]
 
             for (const themesFile of themeFiles) {
-                if (fs.existsSync(themesFile)) {
+                try {
                     let content = fs.readFileSync(themesFile, "utf8")
 
                     content = content.replace(
@@ -103,6 +103,8 @@ function createAssetsPhase(ctx) {
                     )
 
                     fs.writeFileSync(themesFile, content)
+                } catch (e) {
+                    if (e.code !== "ENOENT") throw e
                 }
             }
         } catch (error) {
@@ -199,8 +201,13 @@ function createAssetsPhase(ctx) {
             }
 
             const setManifestIcons = (iconValue, roundIconValue) => {
-                if (!fs.existsSync(manifestPath)) return
-                const current = fs.readFileSync(manifestPath, "utf8")
+                let current
+                try {
+                    current = fs.readFileSync(manifestPath, "utf8")
+                } catch (e) {
+                    if (e.code === "ENOENT") return
+                    throw e
+                }
                 const updated = current
                     .replace(/android:icon="[^"]*"/g, `android:icon="${iconValue}"`)
                     .replace(/android:roundIcon="[^"]*"/g, `android:roundIcon="${roundIconValue}"`)
