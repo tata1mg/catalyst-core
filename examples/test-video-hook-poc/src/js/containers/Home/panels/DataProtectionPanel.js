@@ -41,7 +41,14 @@ export function DataProtectionPanel() {
           <div className="card__label" style={{ color: 'var(--accent-red)' }}>Confirm clear</div>
           <div className="row">
             <button className="btn grow" onClick={() => setConfirming(false)}>Cancel</button>
-            <button className="btn btn--danger grow" onClick={() => { clearWebData(); setConfirming(false); }}>Clear</button>
+            <button className="btn btn--danger grow" onClick={async () => {
+              try {
+                await clearWebData();
+                setConfirming(false);
+              } catch (err) {
+                push(err?.message || "Failed to clear web data");
+              }
+            }}>Clear</button>
           </div>
         </div>
       )}

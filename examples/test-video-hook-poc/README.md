@@ -116,7 +116,7 @@ To switch back to local source, run `npm run sync-core` again — it overwrites 
 | File Picker | `useFilePicker` |
 | Haptic | `useHaptic` |
 | Network | `useNetwork` |
-| Notifications | `useNotifications` |
+| Notifications | `useNotification` |
 | Safe Area | `useSafeArea` |
 | Device Info | `useDeviceInfo` |
 | Data Protection | `useDataProtection` |

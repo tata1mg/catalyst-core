@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useHapticFeedback } from 'catalyst-core/hooks';
 import { HookStatusBar, PanelHeader } from '../components/SharedUI';
@@ -9,13 +9,27 @@ export function HapticPanel() {
   const setFallback = setFb('haptic');
   const { light, medium, heavy, success, warning, errorHaptic, selection, isSupported, webFallbackActive } = useHapticFeedback({ webFallback: fallback });
   const [fired, setFired] = useState(null);
+  const timeoutRef = useRef(null);
 
   const fire = (kind, fn) => {
     console.log(`📳 [HapticPanel] Firing ${kind}`);
     if (fn) fn();
     setFired(kind);
-    setTimeout(() => setFired(f => f === kind ? null : f), 460);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setFired(f => f === kind ? null : f);
+    }, 460);
   };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const cell = (kind, label, sub, fn) => (
     <div className={`haptic-cell ${fired === kind ? 'haptic-cell--fired' : ''}`} onClick={() => fire(kind, fn)}>

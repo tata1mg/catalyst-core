@@ -53,8 +53,15 @@ export function DeviceInfoPanel() {
   };
 
   const getPixelRatio = () => {
-    if (info?.pixelRatio) return `${parseFloat(info.pixelRatio).toFixed(2)}×`;
-    if (typeof window !== 'undefined') return `${(window.devicePixelRatio || 1).toFixed(2)}×`;
+    if (info?.pixelRatio) {
+      const parsed = parseFloat(info.pixelRatio);
+      if (Number.isFinite(parsed)) return `${parsed.toFixed(2)}×`;
+    }
+    if (typeof window !== 'undefined') {
+      const ratio = window.devicePixelRatio;
+      const parsed = Number.isFinite(ratio) ? ratio : 1;
+      return `${parsed.toFixed(2)}×`;
+    }
     return '—';
   };
 

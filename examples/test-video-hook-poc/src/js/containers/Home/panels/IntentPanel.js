@@ -127,8 +127,11 @@ export function IntentPanel() {
           push('Fired SHARE intent (no navigator.share)');
         }
       } else if (kind === 'email') {
-        const href = `mailto:${emailTo}?subject=${encodeURIComponent(emailSub)}`;
-        window.location.href = href;
+        const sanitizedEmailTo = encodeURIComponent(emailTo).replace(/%40/g, '@');
+        const href = `mailto:${sanitizedEmailTo}?subject=${encodeURIComponent(emailSub)}`;
+        if (href.startsWith('mailto:')) {
+          window.location.href = href;
+        }
         push('Fired EMAIL intent');
       }
     } catch (e) {

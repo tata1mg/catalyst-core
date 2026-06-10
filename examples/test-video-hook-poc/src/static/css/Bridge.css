@@ -328,6 +328,10 @@ textarea.input { height: auto; padding: 10px 12px; min-height: 60px; resize: non
   color: var(--text-secondary);
   scroll-snap-align: center;
   transition: color 0.15s ease, background 0.15s ease;
+  background: transparent;
+  border: none;
+  font: inherit;
+  outline: none;
 }
 .tabbar__item--active {
   color: var(--accent-blue);

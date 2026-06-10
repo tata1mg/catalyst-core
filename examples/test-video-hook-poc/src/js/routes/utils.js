@@ -15,7 +15,7 @@ export const preparedRoutes = ({ store, routerInitialState }) => {
             let element = route.element
             if (!element && route.component) {
                 const Component = route.component
-                element = <Component key={index} />
+                element = <Component key={route.path || route.id || index} />
             }
             const routeToRender = {
                 ...route,

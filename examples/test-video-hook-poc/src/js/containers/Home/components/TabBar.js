@@ -36,12 +36,11 @@ export function TabBar({ active, onChange }) {
         {TABS.map(t => {
           const isActive = active === t.id;
           return (
-            <div
+            <button
               key={t.id}
               data-tab={t.id}
               className={`tabbar__item ${isActive ? 'tabbar__item--active' : ''}`}
               onClick={() => onChange(t.id)}
-              role="button"
               aria-current={isActive ? 'page' : undefined}
             >
               <span className="tabbar__icon">
@@ -49,7 +48,7 @@ export function TabBar({ active, onChange }) {
                 {t.native && <span className="tabbar__native-chip" title="native-only" />}
               </span>
               <span className="tabbar__label">{t.label}</span>
-            </div>
+            </button>
           );
         })}
       </div>

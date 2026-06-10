@@ -24,6 +24,8 @@ window.addEventListener("load", () => {
         )
         WebBridge.init()
         const container = document.getElementById("app")
-        hydrateRoot(container, Application)
+        if (container) {
+            hydrateRoot(container, Application)
+        }
     })
 })

@@ -6,7 +6,6 @@ import fetchInstance from "@api"
 /**
  * Function that initializes the store with the initialstate and adds middlewares that can be used during action dispatch
  * @param    {object} initialState    Default state
- * @param    {object} request   Request object that we recieve on server, this is only recieved when store is initialized on the server.
  * @return   {object} The store itself
  */
 
