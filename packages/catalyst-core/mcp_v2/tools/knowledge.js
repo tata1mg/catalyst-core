@@ -61,7 +61,7 @@ function fetchRaw(url) {
 //   v0.1.0, v0.1.0-canary.8, v0.0.3-canary-18, v0.1.0-beta.2
 function sanitizeGithubTag(version) {
     if (!version) return "main"
-    return /^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+([.\-]\d+)?)?$/.test(version) ? version : "main"
+    return /^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+([.-]\d+)?)?$/.test(version) ? version : "main"
 }
 
 // Fetch first available file — used for KB-miss GitHub fallback
@@ -101,7 +101,7 @@ async function fetchFromGithub(files, installedVersion) {
 // Strip all FTS5 special characters before quoting so keywords are treated as literals.
 function buildFtsQuery(keywords) {
     return keywords
-        .map((k) => `"${k.replace(/[^a-zA-Z0-9 _\-]/g, " ").trim()}"`)
+        .map((k) => `"${k.replace(/[^a-zA-Z0-9 _-]/g, " ").trim()}"`)
         .filter((k) => k.length > 2) // drop empty/whitespace-only terms after stripping
         .join(" OR ")
 }

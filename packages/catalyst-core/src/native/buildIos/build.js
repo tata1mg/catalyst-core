@@ -1,6 +1,7 @@
 "use strict"
 
 const fs = require("fs")
+const os = require("os")
 const path = require("path")
 const { execSync } = require("child_process")
 const { runInteractiveCommand } = require("../utils.js")
@@ -57,7 +58,7 @@ module.exports = function createBuildPhase(ctx) {
         try {
             const xcuserdataPath = path.join(`${PROJECT_NAME}.xcodeproj`, `project.xcworkspace`, "xcuserdata") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             if (fs.existsSync(xcuserdataPath)) await runCommand(`rm -rf "${xcuserdataPath}"`)
-            const derivedDataPath = path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData")
+            const derivedDataPath = path.join(os.homedir(), "Library/Developer/Xcode/DerivedData")
             await runCommand(`rm -rf "${derivedDataPath}/${PROJECT_NAME}-*"`)
             try { await runCommand(`xcodebuild clean -scheme "${SCHEME_NAME}" -sdk iphonesimulator -configuration Debug`) }
             catch (error) { progress.log("Warning: Clean command returned non-zero exit code", "warning") }
@@ -110,7 +111,7 @@ module.exports = function createBuildPhase(ctx) {
     async function buildXcodeProject() {
         progress.start("build")
         try {
-            const derivedDataPath = path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData")
+            const derivedDataPath = path.join(os.homedir(), "Library/Developer/Xcode/DerivedData")
             try {
                 progress.log("Building for specified simulator...", "info")
                 await buildProject(SCHEME_NAME, "iphonesimulator", `platform=iOS Simulator,name=${IPHONE_MODEL}`, APP_BUNDLE_ID, derivedDataPath, PROJECT_NAME)
@@ -145,7 +146,7 @@ module.exports = function createBuildPhase(ctx) {
     async function findAppPath() {
         progress.start("findApp")
         try {
-            const DERIVED_DATA_DIR = path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData")
+            const DERIVED_DATA_DIR = path.join(os.homedir(), "Library/Developer/Xcode/DerivedData")
             let APP_PATH = ""
             try {
                 APP_PATH = execSync(`find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-*" -prune -not -path "*/Index.noindex*" -path "*/Build/Products/Debug-iphonesimulator/${PROJECT_NAME}.app" -type d | head -n 1`).toString().trim() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
@@ -170,7 +171,7 @@ module.exports = function createBuildPhase(ctx) {
             const buildType = iosConfig.buildType || "debug"
             const appName = iosConfig.appName || "app"
             const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-")
-            const currentTime = new Date().toLocaleTimeString("en-US", { hour12: true, hour: "2-digit", minute: "2-digit", second: "2-digit" }).replace(/:/g, ":")
+            const currentTime = new Date().toLocaleTimeString("en-US", { hour12: true, hour: "2-digit", minute: "2-digit", second: "2-digit" }).replace(/:/g, "-")
             const destinationDir = path.join(process.cwd(), BUILD_OUTPUT_PATH, "native", "ios", currentDate, buildType) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             if (!fs.existsSync(destinationDir)) fs.mkdirSync(destinationDir, { recursive: true })
@@ -370,7 +371,7 @@ module.exports = function createBuildPhase(ctx) {
     }
 
     async function findPhysicalDeviceAppPath() {
-        const DERIVED_DATA_DIR = path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData")
+        const DERIVED_DATA_DIR = path.join(os.homedir(), "Library/Developer/Xcode/DerivedData")
         let APP_PATH = ""
         try {
             APP_PATH = execSync(`find "${DERIVED_DATA_DIR}" -name "${PROJECT_NAME}.app" -path "*/Build/Products/Debug-iphoneos/*" -not -path "*/Index.noindex/*" -type d | head -n 1`).toString().trim() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process

@@ -13,7 +13,7 @@
         "cca:sync-templates": "node scripts/release/sync-cca-templates.js",
         "docs:build": "npm --prefix docs run build",
         "docs:start": "npm --prefix docs run start",
-        "test:example": "scripts/test-all.sh",
+        "test:example": "sh ./scripts/test-all.sh",
         "lint": "npm run lint --workspaces --if-present",
         "lint-staged": "lint-staged"
     },

@@ -26,8 +26,8 @@ module.exports = function createAssetsPhase(ctx) {
     async function addGoogleServicesPlistToXcodeProject() {
         try {
             const projectFilePath = getXcodeProjectFilePath()
-            if (!fs.existsSync(projectFilePath)) { progress.log("Xcode project file not found while adding GoogleService-Info.plist", "warning"); return }
-            let projectContent = fs.readFileSync(projectFilePath, "utf8")
+            let projectContent
+            try { projectContent = fs.readFileSync(projectFilePath, "utf8") } catch { progress.log("Xcode project file not found while adding GoogleService-Info.plist", "warning"); return }
             if (projectContent.includes(`/* ${GOOGLE_SERVICES_FILENAME} */`)) { progress.log("GoogleService-Info.plist already registered in Xcode project", "info"); return }
             const fileRefId = generateProjectObjectId(GOOGLE_SERVICES_FILENAME, "_ref")
             const buildFileId = generateProjectObjectId(GOOGLE_SERVICES_FILENAME, "_build")
@@ -49,8 +49,8 @@ module.exports = function createAssetsPhase(ctx) {
     async function removeGoogleServicesPlistFromXcodeProject() {
         try {
             const projectFilePath = getXcodeProjectFilePath()
-            if (!fs.existsSync(projectFilePath)) return
-            let projectContent = fs.readFileSync(projectFilePath, "utf8")
+            let projectContent
+            try { projectContent = fs.readFileSync(projectFilePath, "utf8") } catch { return }
             const regexes = [
                 new RegExp(`\\t\\t[A-F0-9]+ \\/\\* ${GOOGLE_SERVICES_FILENAME} \\*\\/ = \\{isa = PBXFileReference;[^}]*\\};\\n`, "g"),
                 new RegExp(`\\t\\t[A-F0-9]+ \\/\\* ${GOOGLE_SERVICES_FILENAME} in Resources \\*\\/ = \\{isa = PBXBuildFile;[^}]*\\};\\n`, "g"),
@@ -183,8 +183,8 @@ module.exports = function createAssetsPhase(ctx) {
     async function removeSoundFilesFromXcodeProject() {
         try {
             const projectFilePath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-            if (!fs.existsSync(projectFilePath)) return
-            let projectContent = fs.readFileSync(projectFilePath, "utf8")
+            let projectContent
+            try { projectContent = fs.readFileSync(projectFilePath, "utf8") } catch { return }
             let modified = false
             for (const sound of NOTIFICATION_SOUNDS) {
                 const p = sound.resourceName
@@ -209,7 +209,6 @@ module.exports = function createAssetsPhase(ctx) {
             const projectFilePath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             const bundlePath = `${PROJECT_DIR}/${PROJECT_NAME}`
             const audioFormats = ["mp3", "wav", "m4a", "caf"]
-            if (!fs.existsSync(projectFilePath)) throw new Error(`Xcode project file not found at: ${projectFilePath}`)
             const soundFiles = []
             for (const sound of NOTIFICATION_SOUNDS) {
                 for (const format of audioFormats) {
@@ -218,7 +217,8 @@ module.exports = function createAssetsPhase(ctx) {
                 }
             }
             if (soundFiles.length === 0) { progress.log("No sound files to add to Xcode project", "info"); return }
-            let projectContent = fs.readFileSync(projectFilePath, "utf8")
+            let projectContent
+            try { projectContent = fs.readFileSync(projectFilePath, "utf8") } catch { throw new Error(`Xcode project file not found at: ${projectFilePath}`) }
             for (const soundFile of soundFiles) {
                 const fileRefId = generateProjectObjectId(soundFile.filename, "_ref")
                 const buildFileId = generateProjectObjectId(soundFile.filename, "_build")
@@ -294,8 +294,8 @@ module.exports = function createAssetsPhase(ctx) {
             const projectFilePath = getXcodeProjectFilePath()
             const offlineFileName = "offline.html"
             const offlineRelativePath = "offline/offline.html"
-            if (!fs.existsSync(projectFilePath)) { progress.log("Xcode project file not found while adding offline.html", "warning"); return }
-            let projectContent = fs.readFileSync(projectFilePath, "utf8")
+            let projectContent
+            try { projectContent = fs.readFileSync(projectFilePath, "utf8") } catch { progress.log("Xcode project file not found while adding offline.html", "warning"); return }
             if (projectContent.includes(`/* ${offlineFileName} */`)) { progress.log("offline.html already registered in Xcode project", "info"); return }
             const fileRefId = generateProjectObjectId(offlineFileName, "_ref")
             const buildFileId = generateProjectObjectId(offlineFileName, "_build")
@@ -392,7 +392,7 @@ module.exports = function createAssetsPhase(ctx) {
             if (!fs.existsSync(iconSetDir)) fs.mkdirSync(iconSetDir, { recursive: true })
             const contentsPath = `${iconSetDir}/Contents.json`
             let contents
-            if (fs.existsSync(contentsPath)) { try { contents = JSON.parse(fs.readFileSync(contentsPath, "utf8")) } catch { contents = null } }
+            try { contents = JSON.parse(fs.readFileSync(contentsPath, "utf8")) } catch { contents = null }
             if (!contents || !Array.isArray(contents.images)) contents = { images: [], info: { author: "xcode", version: 1 } }
             for (const { size, idiom, scale } of iconSizes) {
                 const expectedName = `icon-${size}-${scale}`

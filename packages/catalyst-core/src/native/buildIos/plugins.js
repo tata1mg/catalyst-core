@@ -115,18 +115,15 @@ module.exports = function createPluginsPhase(ctx) {
             const targetPath = path.join(PROJECT_DIR, "Package.swift") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             let shouldUpdate = true
 
-            if (fs.existsSync(hashFilePath)) {
+            try {
                 const previousHash = fs.readFileSync(hashFilePath, "utf8")
                 if (previousHash === configHash) {
                     shouldUpdate = false
                     progress.log("Package.swift already up to date", "info")
                 }
-            }
+            } catch { /* hash file absent — proceed with update */ }
 
-            if (!fs.existsSync(targetPath)) {
-                shouldUpdate = true
-                progress.log("Package.swift missing, will generate it now", "info")
-            }
+            try { fs.accessSync(targetPath) } catch { shouldUpdate = true; progress.log("Package.swift missing, will generate it now", "info") }
 
             if (shouldUpdate) {
                 progress.log("Generating Package.swift dynamically", "info")
@@ -213,9 +210,8 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
 
             progress.log(`🔧 Updating Xcode package dependencies (notifications: ${isNotificationsEnabled})`, "info")
 
-            if (!fs.existsSync(projectFilePath)) throw new Error(`Xcode project file not found at: ${projectFilePath}`)
-
-            let projectContent = fs.readFileSync(projectFilePath, "utf8")
+            let projectContent
+            try { projectContent = fs.readFileSync(projectFilePath, "utf8") } catch { throw new Error(`Xcode project file not found at: ${projectFilePath}`) }
 
             const NOTIF_BUILD_FILE_ID = "C99974352E97D56900C25611"
             const NOTIF_PRODUCT_ID = "C99974362E97D56900C25611"
