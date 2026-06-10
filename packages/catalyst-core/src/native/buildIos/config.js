@@ -200,6 +200,17 @@ public enum ConfigConstants {
                 progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
             }
 
+            if (!addedKeys.has("initial_url")) {
+                configContent += '\n    public static let initial_url = ""'
+                addedKeys.add("initial_url")
+            }
+
+            // Ensure appInfo always exists (default to empty string if not configured)
+            if (!addedKeys.has("appInfo")) {
+                configContent += '\n    public static let appInfo = ""'
+                addedKeys.add("appInfo")
+            }
+
             configContent += `\n}`
 
             fs.writeFileSync(appConfigPath, configContent, "utf8")
