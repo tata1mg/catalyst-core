@@ -33,6 +33,8 @@ APP_PATH="$1"; shift
 
 ONLY_GROUP=""
 CATALYST_VERSION=""
+SKIP_SYNC=0
+RESULTS_FILE=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --only)
@@ -41,6 +43,10 @@ while [ $# -gt 0 ]; do
         --catalyst-version)
             [ $# -lt 2 ] && { fail "--catalyst-version requires a version string"; exit 1; }
             CATALYST_VERSION="$2"; shift 2 ;;
+        --skip-sync) SKIP_SYNC=1; shift ;;
+        --results-file)
+            [ $# -lt 2 ] && { fail "--results-file requires a path"; exit 1; }
+            RESULTS_FILE="$2"; shift 2 ;;
         *) fail "Unknown flag: $1"; exit 1 ;;
     esac
 done
@@ -67,6 +73,7 @@ declare -a RESULTS=()
 
 record() {
     RESULTS+=("${1}:${2}")
+    [ -n "$RESULTS_FILE" ] && echo "${1}|${2}" >> "$RESULTS_FILE"
 }
 
 get_port() {
@@ -215,26 +222,31 @@ group_js_tests() {
 # ── main ──────────────────────────────────────────────────────────────────────
 printf "\n${CYAN}test-web.sh — %s${RESET}\n" "$APP_PATH"
 
-sync_catalyst_core
+[ "$SKIP_SYNC" -eq 0 ] && sync_catalyst_core
 
 should_run "build"    && group_build
 should_run "serve"    && group_serve
 should_run "js-tests" && group_js_tests
 
-printf "\n${CYAN}══ Summary ══${RESET}\n"
-printf "  %-14s %-6s\n" "GROUP" "STATUS"
-printf "  %-14s %-6s\n" "──────────────" "──────"
+# Print standalone summary only when not delegated from test-all.sh
+if [ -z "$RESULTS_FILE" ]; then
+    printf "\n${CYAN}══ Summary ══${RESET}\n"
+    printf "  %-14s %-6s\n" "GROUP" "STATUS"
+    printf "  %-14s %-6s\n" "──────────────" "──────"
+    for entry in "${RESULTS[@]}"; do
+        group="${entry%%:*}"
+        status="${entry##*:}"
+        case "$status" in
+            PASS) color="$GREEN" ;;
+            FAIL) color="$RED" ;;
+            SKIP) color="$YELLOW" ;;
+        esac
+        printf "  %-14s ${color}%-6s${RESET}\n" "$group" "$status"
+    done
+fi
 
 final_exit=0
 for entry in "${RESULTS[@]}"; do
-    group="${entry%%:*}"
-    status="${entry##*:}"
-    case "$status" in
-        PASS) color="$GREEN" ;;
-        FAIL) color="$RED"; final_exit=1 ;;
-        SKIP) color="$YELLOW" ;;
-    esac
-    printf "  %-14s ${color}%-6s${RESET}\n" "$group" "$status"
+    [[ "${entry##*:}" == "FAIL" ]] && final_exit=1
 done
-
 exit $final_exit
