@@ -15,7 +15,7 @@ public struct ContentView: View {
 
     private static var startURL: String {
         let base = ConfigConstants.url
-        let initial = ConfigConstants.initial_url
+        let initial = ConfigConstants.initialUrl
         guard !initial.isEmpty else { return base }
         let path = initial.hasPrefix("/") ? initial : "/\(initial)"
         return base + path
@@ -41,7 +41,7 @@ public struct ContentView: View {
             } else {
                 WebViewContainer(urlString: ContentView.startURL, viewModel: webViewModel, cameraManager: cameraManager)
                     .onAppear {
-                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: disabled, respecting safe areas]")
+                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: disabled]")
                     }
             }
 
