@@ -1,0 +1,20 @@
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  s_5151114b7df05f::t_e6245ba6ca5e90 15-23,28-32,36,39,42,44
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Constants/ConfigConstants.swift
+  s_5151114b7df05f::t_a01eef2682596d 29
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/WebCacheManager.kt
+  s_5151114b7df05f::t_be512756d8f61d 397-398
+  s_5151114b7df05f::t_c43a59571d13ce 405-407
+  s_5151114b7df05f::t_93263514c58704 333-342,349,353,368-369
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_5151114b7df05f::t_00ac304a4a1762 842
+  s_5151114b7df05f::t_e3b42feb0d7584 250-260,469-476
+  s_5151114b7df05f::t_ac109ddf7f587b 468,477-479
+  s_5151114b7df05f::t_e1ca130731847b 548
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "0add51880433ae9b1f9ec5eb383af37fa12c9013",
+  "prompts": {}
+}
