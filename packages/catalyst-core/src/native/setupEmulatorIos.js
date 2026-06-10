@@ -163,6 +163,12 @@ async function getRuntime() {
 }
 
 async function configureSimulator(config) {
+    // If a simulator is already configured, skip the interactive picker
+    if (config.ios.simulatorName) {
+        progress.log(`Using configured simulator: ${config.ios.simulatorName}`)
+        return
+    }
+
     progress.pause()
 
     // Get the current runtime first
@@ -261,18 +267,30 @@ async function launchIOSSimulator(simulatorName) {
         const allSimulatorInfo = execSync("xcrun simctl list devices -j").toString()
         const simulatorsJson = JSON.parse(allSimulatorInfo)
 
+        const runtimesOutput = execSync("xcrun simctl list runtimes -j").toString()
+        const availableRuntimeIds = new Set(
+            JSON.parse(runtimesOutput).runtimes
+                .filter((r) => r.isAvailable || r.availability === "(available)" || r.availability === "available")
+                .map((r) => r.identifier)
+        )
+
         // Search through all runtimes and their devices
         let foundSimulator = null
         let foundSimulatorId = null
         let isBooted = false
 
-        // Iterate through all runtimes and their devices
-        Object.values(simulatorsJson.devices).forEach((devices) => {
+        // Prefer devices under an available runtime; fall back to already-booted ones
+        Object.entries(simulatorsJson.devices).forEach(([runtimeId, devices]) => {
+            const isAvailableRuntime = availableRuntimeIds.has(runtimeId)
             devices.forEach((device) => {
                 if (device.name === simulatorName) {
-                    foundSimulator = device
-                    foundSimulatorId = device.udid
-                    isBooted = device.state === "Booted"
+                    const alreadyBooted = device.state === "Booted"
+                    // Take this match if: no match yet, or this runtime is available and current isn't, or device is already booted
+                    if (!foundSimulator || (isAvailableRuntime && !foundSimulator._fromAvailableRuntime) || alreadyBooted) {
+                        foundSimulator = { ...device, _fromAvailableRuntime: isAvailableRuntime }
+                        foundSimulatorId = device.udid
+                        isBooted = alreadyBooted
+                    }
                 }
             })
         })
