@@ -24,8 +24,9 @@ public enum ConfigConstants {
 
     public static let appInfo = "test-build"
     public static let cachePattern: [String] = []
-    public static let LOCAL_IP = "localhost"
+    public static let LOCAL_IP = "localhost" // swiftlint:disable:this identifier_name
     public static let port = ""
+    public static let initial_url = "" // swiftlint:disable:this identifier_name
 
     public enum SplashScreen {
         public static let imageHeight = 200

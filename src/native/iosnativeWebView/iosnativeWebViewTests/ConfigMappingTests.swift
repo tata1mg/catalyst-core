@@ -250,10 +250,9 @@ final class ConfigMappingTests: XCTestCase {
         // This test validates that ConfigConstants structure is correctly defined
 
         // Verify String fields are accessible and non-nil
-        let stringFields = [
+        let stringFields: [String] = [
             ConfigConstants.url,
             ConfigConstants.LOCAL_IP,
-            ConfigConstants.port,
             ConfigConstants.appInfo,
             ConfigConstants.appBundleId,
             ConfigConstants.appName,
@@ -265,6 +264,9 @@ final class ConfigMappingTests: XCTestCase {
         for field in stringFields {
             XCTAssertNotNil(field, "String field should not be nil")
         }
+
+        // Verify Int fields are accessible
+        _ = ConfigConstants.port
 
         // Verify Array fields are accessible
         XCTAssertNotNil(ConfigConstants.cachePattern, "cachePattern should be accessible")

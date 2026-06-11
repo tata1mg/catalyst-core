@@ -13,6 +13,14 @@ public struct ContentView: View {
         onError: { _ in }
     )
 
+    private static var startURL: String {
+        let base = ConfigConstants.url
+        let initial = ConfigConstants.initial_url
+        guard !initial.isEmpty else { return base }
+        let path = initial.hasPrefix("/") ? initial : "/\(initial)"
+        return base + path
+    }
+
     public init() {}
 
     public var body: some View {
@@ -25,18 +33,18 @@ public struct ContentView: View {
             // Normal remote URL - isolated from state changes
             // Conditionally apply edge-to-edge based on config (matches Android behavior)
             if ConfigConstants.EdgeToEdge.enabled {
-                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel, cameraManager: cameraManager)
+                WebViewContainer(urlString: ContentView.startURL, viewModel: webViewModel, cameraManager: cameraManager)
                     .ignoresSafeArea()
                     .onAppear {
-                        logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: enabled]")
+                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: enabled]")
                     }
             } else {
-                WebViewContainer(urlString: ConfigConstants.url, viewModel: webViewModel, cameraManager: cameraManager)
+                WebViewContainer(urlString: ContentView.startURL, viewModel: webViewModel, cameraManager: cameraManager)
                     .onAppear {
-                        logger.info("WebView appeared with URL: \(ConfigConstants.url) [Edge-to-edge: disabled, respecting safe areas]")
+                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: disabled]")
                     }
             }
-            
+
             // Show splash screen if enabled in configuration
             if ConfigConstants.splashScreenEnabled {
                 SplashView(webViewModel: webViewModel).zIndex(1)
@@ -46,11 +54,11 @@ public struct ContentView: View {
                     ProgressView()
                         .scaleEffect(1.5)
                         .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                    
+
                     Text("\(Int(webViewModel.loadingProgress * 100))%")
                         .foregroundColor(.blue)
                         .padding(.top, 8)
-                    
+
                     if webViewModel.isLoadingFromCache {
                         Text("Loading from cache...")
                             .foregroundColor(.blue)
@@ -111,11 +119,11 @@ struct LoadingOverlay: View {
 // UIViewControllerRepresentable for hosting native view controllers
 struct HostingController: UIViewControllerRepresentable {
     var viewController: UIViewController
-    
+
     func makeUIViewController(context: Context) -> UIViewController {
         return viewController
     }
-    
+
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
         // No update needed
     }

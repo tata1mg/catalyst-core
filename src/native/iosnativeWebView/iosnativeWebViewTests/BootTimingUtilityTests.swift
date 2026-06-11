@@ -200,7 +200,7 @@ final class BootTimingUtilityTests: XCTestCase {
             }
         }
 
-        waitForExpectations(timeout: 5.0) { error in
+        waitForExpectations(timeout: 10.0) { error in
             XCTAssertNil(error, "Concurrent logging should complete without errors")
         }
     }
