@@ -1,0 +1,22 @@
+packages/catalyst-core/src/native/buildAndroid/assets.js
+  s_7ba27e6b51ed22::t_e9d5ed7372362f 92,106-107
+  s_7ba27e6b51ed22::t_ac6fe65e467ddb 204-210
+packages/catalyst-core/src/native/buildAndroid/build.js
+  s_7ba27e6b51ed22::t_82bb5887e89854 281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9175ca3d7e12fb0a959533da6ee8dac25c27784d",
+  "prompts": {},
+  "sessions": {
+    "s_7ba27e6b51ed22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e5114bf-f761-4f3b-a1ee-75e7ab3fb0dd",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

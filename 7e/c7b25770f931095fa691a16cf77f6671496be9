@@ -1,0 +1,38 @@
+packages/catalyst-core/src/native/buildIos/build.js
+  s_ab57418fea7a47::t_0c1d7ec50511af 4
+  s_ab57418fea7a47::t_4cf035a9d65b75 174
+  s_ab57418fea7a47::t_16879fc0da0dae 61,114,149,374
+package.json
+  s_ab57418fea7a47::t_7f8db48f3d8e81 16
+packages/catalyst-core/mcp_v2/tools/knowledge.js
+  s_ab57418fea7a47::t_3a05b958fe6050 64
+  s_ab57418fea7a47::t_680ce7b3b7dd34 104
+packages/catalyst-core/src/native/androidSetup.js
+  s_ab57418fea7a47::t_71605da43275fb 242
+packages/catalyst-core/src/native/buildIos/assets.js
+  s_ab57418fea7a47::t_95b3cccd8155b1 220-221
+  s_ab57418fea7a47::t_37358b49f82dfa 52-53
+  s_ab57418fea7a47::t_dbd82ef90dab33 186-187
+  s_ab57418fea7a47::t_f9a5398d895689 29-30
+  s_ab57418fea7a47::t_8907a98b233689 297-298
+  s_ab57418fea7a47::t_5e9fb96d176fc1 395
+packages/catalyst-core/src/native/buildIos/plugins.js
+  s_ab57418fea7a47::t_e97e5ebfcc7f5b 213-214
+  s_ab57418fea7a47::t_80898dd26eeeff 118,124,126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "7ec7b25770f931095fa691a16cf77f6671496be9",
+  "prompts": {},
+  "sessions": {
+    "s_ab57418fea7a47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7c6bedfc-2a51-4200-94bb-498e2927b116",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
