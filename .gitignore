@@ -1,5 +1,13 @@
 **/node_modules
 
+# Examples — generated config files (created via prompt.txt) and runtime artifacts
+examples/*/config/config.json
+examples/*/google-services.json
+examples/*/GoogleService-Info.plist
+examples/*/build/
+examples/*/logs/
+examples/*/package-lock.json
+
 # Docs app local config and generated output
 docs/config.json
 docs/server/config.json
@@ -138,6 +146,10 @@ n8n*
 *.sh
 !scripts/test-catalyst-core.sh
 !scripts/test-cca-smoke.sh
+!scripts/test-all.sh
+!scripts/test-web.sh
+!scripts/test-native.sh
+!scripts/test-build.sh
 openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift

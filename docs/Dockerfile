@@ -27,3 +27,5 @@ ARG SERVICE_NAME
 RUN npm -v
 
 RUN npm run build
+
+USER node
