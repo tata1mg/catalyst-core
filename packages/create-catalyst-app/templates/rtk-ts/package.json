@@ -30,7 +30,7 @@
         "@tata1mg/router": "0.0.1-beta.7",
         "@reduxjs/toolkit": "1.9.3",
         "react-redux": "^8.1.3",
-        "catalyst-core": "0.1.0-beta.5"
+        "catalyst-core": "0.1.0-beta.6"
     },
     "devDependencies": {
         "eslint": "^8.26.0",
