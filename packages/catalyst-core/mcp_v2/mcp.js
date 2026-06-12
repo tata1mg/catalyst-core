@@ -25,6 +25,7 @@ const build = require("./tools/build")
 const tasks = require("./tools/tasks")
 const sync = require("./tools/sync")
 const knowledge = require("./tools/knowledge")
+const github = require("./tools/github")
 
 const MCP_DIR = __dirname
 const DB_PATH = path.join(MCP_DIR, "context.db")
@@ -87,6 +88,7 @@ build.init(db)
 tasks.init(db)
 sync.init(db)
 knowledge.init(db)
+github.init(projectInfo)
 
 // ── Intent classification (internal, not exposed as tool) ─────────────────────
 
@@ -100,6 +102,8 @@ const INTENT_PATTERNS = {
     debug: /error|fail|broken|not work|crash|issue|bug|why|wrong/i,
     build: /build|compile|webpack|bundle|android|ios|platform/i,
     sync: /sync|update.*doc|fetch.*doc|latest.*doc/i,
+    // feedback = wants to raise an issue or discussion on GitHub
+    feedback: /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
 }
 
 // next_action tells the LLM exactly what to do after getting this response
@@ -110,6 +114,7 @@ const INTENT_NEXT_ACTION = {
     debug: "answer_only — provide debug guidance. Do NOT call create_task_plan.",
     build: "answer_only — explain build flow. Do NOT call create_task_plan.",
     sync: "answer_only — sync complete. Do NOT call create_task_plan.",
+    feedback: "answer_only — GitHub action completed. Show the created issue/discussion URL. Do NOT call create_task_plan.",
     unknown: "answer_only — unclear intent. Return what you found. Do NOT call create_task_plan.",
 }
 
@@ -412,6 +417,91 @@ const TOOLS = [
             },
         },
     },
+    {
+        name: "preview_github_feedback",
+        description:
+            "ALWAYS call this FIRST before create_github_issue or create_github_discussion. Use when the developer wants to report a bug, raise an issue, start a discussion, or share any feedback about catalyst-core. This tool drafts the full content with project context attached, searches for duplicate issues/discussions already on GitHub, and returns a preview for the developer to approve — WITHOUT publishing anything. After the developer approves: if type was 'issue', you MUST call create_github_issue. If type was 'discussion', you MUST call create_github_discussion. Intent: feedback.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                title: {
+                    type: "string",
+                    description: "Proposed title for the issue or discussion.",
+                },
+                body: {
+                    type: "string",
+                    description:
+                        "Proposed body. For bugs: include steps to reproduce, expected vs actual behaviour, error messages. For discussions: the question or proposal.",
+                },
+                type: {
+                    type: "string",
+                    enum: ["issue", "discussion"],
+                    description:
+                        "'issue' for bugs, regressions, and actionable feature requests. 'discussion' for questions, open-ended ideas, proposals, and general feedback.",
+                },
+                labels: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional label names for issues. E.g. ['bug', 'native'].",
+                },
+                category: {
+                    type: "string",
+                    description: "Optional discussion category. E.g. 'Q&A', 'Ideas', 'General'.",
+                },
+            },
+            required: ["title", "body", "type"],
+        },
+    },
+    {
+        name: "create_github_issue",
+        description:
+            "Use ONLY when the developer wants to report a bug, request a feature, or raise any problem, AND the preview type was 'issue'. Do NOT call this tool if the preview type was 'discussion' (use create_github_discussion instead). Intent: feedback. Creates an issue on the catalyst-core GitHub repo. Automatically attaches the current catalyst-core version and project name to help triage.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                title: {
+                    type: "string",
+                    description: "Short, descriptive issue title. E.g. 'RouterDataProvider fails on nested dynamic routes'.",
+                },
+                body: {
+                    type: "string",
+                    description:
+                        "Full issue description: steps to reproduce, expected behaviour, actual behaviour, any error messages or stack traces. The more detail, the better.",
+                },
+                labels: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                        "Optional label names to apply. Labels must already exist on the repo. E.g. ['bug', 'routing', 'native'].",
+                },
+            },
+            required: ["title", "body"],
+        },
+    },
+    {
+        name: "create_github_discussion",
+        description:
+            "Use ONLY when the developer wants to ask a question, propose an idea, or start a conversation, AND the preview type was 'discussion'. Do NOT call this tool if the preview type was 'issue' (use create_github_issue instead). Intent: feedback. Creates a GitHub Discussion on the catalyst-core repo. Auto-selects the best category (Q&A for questions, Ideas for proposals, General otherwise).",
+        inputSchema: {
+            type: "object",
+            properties: {
+                title: {
+                    type: "string",
+                    description: "Discussion title.",
+                },
+                body: {
+                    type: "string",
+                    description: "Full discussion body — the question, proposal, or topic to discuss.",
+                },
+                category: {
+                    type: "string",
+                    description:
+                        "Optional discussion category name. E.g. 'Q&A', 'Ideas', 'General', 'Show and tell'. If omitted, auto-detected from the body content.",
+                },
+            },
+            required: ["title", "body"],
+        },
+    },
 ]
 
 // ── Tool handler dispatch ─────────────────────────────────────────────────────
@@ -429,6 +519,9 @@ const TOOL_HANDLERS = {
     close_task_plan: tasks.handle_close_task_plan,
     sync_catalyst_docs: sync.handle_sync_catalyst_docs,
     query_knowledge: knowledge.handle_query_knowledge,
+    create_github_issue: github.handle_create_github_issue,
+    create_github_discussion: github.handle_create_github_discussion,
+    preview_github_feedback: github.handle_preview_github_feedback,
 }
 
 // ── MCP JSON-RPC over stdio ───────────────────────────────────────────────────
