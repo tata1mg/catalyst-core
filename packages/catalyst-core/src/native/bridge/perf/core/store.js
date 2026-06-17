@@ -1,6 +1,5 @@
 import { buildWaterfall, listWaterfalls } from "./waterfalls.js"
 import { buildSummary } from "./summary.js"
-import { installDashboardRoute, openDashboard, PROFILER_ROUTE } from "./dashboard.js"
 
 const MAX_RECORDS = 5000
 
@@ -68,11 +67,8 @@ export class PerfStore {
             summary: () => buildSummary(this.snapshot()),
             export: () => this.snapshot(),
             clear: () => this.clear(),
-            openDashboard: () => openDashboard(api),
-            route: PROFILER_ROUTE,
         }
         window.CatalystPerf = api
-        installDashboardRoute(api)
     }
 
     snapshot() {
