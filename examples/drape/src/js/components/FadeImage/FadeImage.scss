@@ -1,0 +1,109 @@
+// FadeImage — skeleton-shimmer placeholder + per-variant reveal mechanic.
+// See FadeImage.js for the why; this file owns the choreography.
+//
+// Layer model:
+//   .fade           wrapper; takes caller's sizing/border-radius via
+//                   className; position: relative so overlays absolute-
+//                   position inside it.
+//   .fadeImg        the rendered <img>; absolute-positioned and inset:0;
+//                   only present after the bitmap is decode-ready AND
+//                   any in-flight VTA cross-fade has finished.
+//   .developShimmer develop variant overlay — cream shimmer that fades
+//                   out as the image's filter resolves.
+//
+// All reveal animations use `forwards` fill so the end state survives.
+// Triggered by toggling .revealed on the wrap.
+
+.fade {
+    display: block;
+    overflow: hidden;
+    position: relative;
+}
+
+.fadeImg {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+@keyframes fadeImageShimmer {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
+    }
+}
+
+@keyframes fadeImageDevelop {
+    from {
+        filter: contrast(0.6) saturate(0.4) brightness(1.15);
+    }
+    to {
+        filter: none;
+    }
+}
+
+@keyframes fadeImageDevelopShimmerFade {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+// ----- variant: snap (default) -----
+
+.variant_snap {
+    background-image: linear-gradient(
+        105deg,
+        var(--color-canvas) 0%,
+        var(--color-surface-soft) 40%,
+        var(--color-canvas) 80%
+    );
+    background-size: 220% 100%;
+    background-position: 100% 0;
+    animation: fadeImageShimmer var(--motion-shimmer) linear infinite;
+}
+
+// ----- variant: develop -----
+
+.variant_develop {
+    // wrap stays plain; shimmer overlay carries the loading state
+}
+
+.developShimmer {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+        105deg,
+        var(--color-canvas) 0%,
+        var(--color-surface-soft) 40%,
+        var(--color-canvas) 80%
+    );
+    background-size: 220% 100%;
+    background-position: 100% 0;
+    animation: fadeImageShimmer var(--motion-shimmer) linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.variant_develop.revealed .fadeImg {
+    animation: fadeImageDevelop var(--motion-reveal-develop)
+        var(--ease-decelerate) forwards;
+}
+
+.variant_develop.revealed .developShimmer {
+    animation:
+        fadeImageShimmer var(--motion-shimmer) linear infinite,
+        fadeImageDevelopShimmerFade var(--motion-reveal-develop)
+            var(--ease-decelerate) forwards;
+}
+
+// Reduced-motion is handled globally in _variables.scss (durations
+// collapse to 0.01ms with iteration-count 1, freezing animations at
+// their first frame). No additional rules here.
