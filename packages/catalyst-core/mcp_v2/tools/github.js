@@ -11,8 +11,8 @@
  *   5. generate_issue_markdown      - manual fallback when auth/API is unavailable
  *
  * Authentication:
- *   1. GITHUB_TOKEN environment variable
- *   2. GitHub CLI session (`gh auth token`)
+ *   1. Direct GitHub API token from GITHUB_TOKEN, GITHUB_PAT, or CATALYST_GITHUB_TOKEN
+ *   2. Optional fallback to GitHub CLI session (`gh auth token`)
  */
 
 const fs = require("fs")
@@ -173,9 +173,12 @@ function ensureFallbackDir(root) {
 }
 
 function getToken() {
-    const envToken = process.env.GITHUB_TOKEN
-    if (envToken && envToken.trim()) {
-        return { ok: true, token: envToken.trim(), source: "env:GITHUB_TOKEN" }
+    const envTokenNames = ["GITHUB_TOKEN", "GITHUB_PAT", "CATALYST_GITHUB_TOKEN"]
+    for (const name of envTokenNames) {
+        const envToken = process.env[name]
+        if (envToken && envToken.trim()) {
+            return { ok: true, token: envToken.trim(), source: `env:${name}` }
+        }
     }
 
     try {
@@ -192,7 +195,7 @@ function getToken() {
     return {
         ok: false,
         error:
-            "No GitHub credentials found. Run `gh auth login` with repo scope, or pass GITHUB_TOKEN in the MCP server environment.",
+            "No GitHub credentials found. Set GITHUB_TOKEN, GITHUB_PAT, or CATALYST_GITHUB_TOKEN in the MCP server environment. As an optional fallback, you can also run `gh auth login` with repo scope.",
     }
 }
 
@@ -489,52 +492,30 @@ function enrichBody(body) {
     return lines.join("\n")
 }
 
-function extractKeywords(title, body) {
-    const stopWords = new Set([
-        "a",
-        "an",
-        "the",
-        "is",
-        "in",
-        "on",
-        "at",
-        "to",
-        "for",
-        "of",
-        "and",
-        "or",
-        "but",
-        "not",
-        "with",
-        "this",
-        "that",
-        "can",
-        "how",
-        "does",
-        "issue",
-        "bug",
-    ])
-    const tokenise = (str) =>
-        String(str || "")
-            .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, " ")
-            .split(/\s+/)
-            .filter((word) => word.length > 2 && !stopWords.has(word))
-
-    const titleWords = tokenise(title).slice(0, 5)
-    const bodyWords = tokenise(body)
-        .filter((word) => !titleWords.includes(word))
-        .slice(0, 3)
-
-    return [...titleWords, ...bodyWords].join(" ")
+function normalizeSearchText(value) {
+    return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s/_:-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
 }
 
-async function searchDuplicates(token, title, body) {
-    const keywords = extractKeywords(title, body)
-    if (!keywords) return []
+function buildDuplicateSearchText(title, body, duplicateSearchQuery) {
+    const explicitQuery = normalizeSearchText(duplicateSearchQuery)
+    if (explicitQuery) return explicitQuery
+
+    const titleQuery = normalizeSearchText(title)
+    if (titleQuery) return titleQuery
+
+    return normalizeSearchText(body).split(/\s+/).slice(0, 8).join(" ")
+}
+
+async function searchDuplicates(token, title, body, duplicateSearchQuery) {
+    const searchText = buildDuplicateSearchText(title, body, duplicateSearchQuery)
+    if (!searchText) return []
 
     try {
-        const q = encodeURIComponent(`repo:${GITHUB_OWNER}/${GITHUB_REPO} ${keywords} in:title,body is:issue`)
+        const q = encodeURIComponent(`repo:${GITHUB_OWNER}/${GITHUB_REPO} ${searchText} in:title,body is:issue`)
         const res = await githubRequest("GET", `/search/issues?q=${q}&per_page=5`, token)
         if (res.status === 200 && Array.isArray(res.body.items)) {
             return res.body.items.slice(0, 5).map((issue) => ({
@@ -625,6 +606,7 @@ function handle_start_issue_creation(args = {}) {
         next_steps: [
             "Ask the developer for a concise issue title and problem statement if not already known.",
             "Collect steps to reproduce, expected behavior, actual behavior, error logs, environment, what was tried, related issues, and screenshot/image paths or URLs if available.",
+            "Ask the LLM to provide a concise duplicate_search_query with the framework area and failure symptom, e.g. `android webview error.html fallback`.",
             "Call gather_github_issue_context with the title/problem so the issue includes catalyst-core version, package scripts, git state, and relevant file snippets.",
             "Call preview_github_feedback to select/render the issue template, suggested labels, project context, screenshots/attachments, and duplicate candidates.",
             "Show duplicate candidates first when present. If one is the same issue, stop and suggest using the existing issue instead of creating a duplicate.",
@@ -648,7 +630,12 @@ function handle_start_issue_creation(args = {}) {
         image_support:
             "Hosted image URLs are embedded in the issue body. Local image files are listed in the body and copied into the markdown fallback for manual upload, because GitHub's public Issues API does not upload local binaries.",
         duplicate_policy:
-            "The preview step performs a best-effort duplicate search. create_github_issue blocks publishing when matching issues are found unless duplicate_review_confirmed:true is provided after showing those candidates to the developer.",
+            "The preview step performs a best-effort duplicate search. Prefer passing duplicate_search_query from the LLM instead of relying on automatic keyword extraction. create_github_issue blocks publishing when matching issues are found unless duplicate_review_confirmed:true is provided after showing those candidates to the developer.",
+        auth_options: [
+            "Preferred: set a GitHub API token in the MCP server environment as GITHUB_TOKEN, GITHUB_PAT, or CATALYST_GITHUB_TOKEN.",
+            "Optional fallback: if GitHub CLI is installed and authenticated, the MCP can use `gh auth token`.",
+            "GitHub CLI is not required when an API token environment variable is configured.",
+        ],
         manual_fallback:
             "If GitHub auth, network, permission, or validation fails, call generate_issue_markdown or use the fallback returned by create_github_issue so the developer can raise the issue manually.",
         initial_problem: args.problem || args._query || null,
@@ -670,7 +657,7 @@ function collectRelatedFiles(root, query, explicitFiles) {
 
     if (files.length > 0 || !query) return files
 
-    const words = extractKeywords(query, "").split(/\s+/).filter(Boolean).slice(0, 5)
+    const words = normalizeSearchText(query).split(/\s+/).filter(Boolean).slice(0, 5)
     if (words.length === 0) return files
 
     const srcDir = path.join(root, "src")
@@ -756,7 +743,7 @@ async function handle_preview_github_feedback(args = {}) {
     const tokenResult = getToken()
     if (tokenResult.ok) {
         tokenSource = tokenResult.source
-        duplicates = await searchDuplicates(tokenResult.token, title, built.body)
+        duplicates = await searchDuplicates(tokenResult.token, title, built.body, args.duplicate_search_query)
     }
 
     return {
@@ -858,7 +845,7 @@ async function handle_create_github_issue(args = {}) {
     }
 
     try {
-        const duplicates = await searchDuplicates(tokenResult.token, title, built.body)
+        const duplicates = await searchDuplicates(tokenResult.token, title, built.body, args.duplicate_search_query)
         if (duplicates.length > 0 && args.duplicate_review_confirmed !== true) {
             return {
                 ok: false,

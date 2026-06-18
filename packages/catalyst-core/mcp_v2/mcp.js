@@ -473,7 +473,7 @@ const TOOLS = [
     {
         name: "preview_github_feedback",
         description:
-            "Use after start_github_issue_flow and gather_github_issue_context, before create_github_issue. Drafts the full GitHub issue with project context, suggested template, labels/tags, image URLs/paths, and duplicate search, then returns a preview for developer approval WITHOUT publishing anything. If duplicate candidates are returned, show them first and ask whether to cancel/use an existing issue, edit, or continue because this issue is distinct. Show this final rendered template to the developer and ask for edits or explicit publish approval. Intent: feedback.",
+            "Use after start_github_issue_flow and gather_github_issue_context, before create_github_issue. Drafts the full GitHub issue with project context, suggested template, labels/tags, image URLs/paths, and duplicate search, then returns a preview for developer approval WITHOUT publishing anything. Prefer passing duplicate_search_query from the LLM context instead of relying on automatic keyword extraction. If duplicate candidates are returned, show them first and ask whether to cancel/use an existing issue, edit, or continue because this issue is distinct. Show this final rendered template to the developer and ask for edits or explicit publish approval. Intent: feedback.",
         inputSchema: {
             type: "object",
             properties: {
@@ -580,6 +580,11 @@ const TOOLS = [
                     description:
                         "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
                 },
+                duplicate_search_query: {
+                    type: "string",
+                    description:
+                        "Optional focused search query for duplicate detection, supplied by the LLM from the issue context. Example: 'android webview error.html fallback'.",
+                },
             },
             required: ["title"],
         },
@@ -587,7 +592,7 @@ const TOOLS = [
     {
         name: "create_github_issue",
         description:
-            "Use ONLY after preview_github_feedback has been shown and the developer explicitly approved publishing. Creates an issue on the catalyst-core GitHub repo using the selected/suggested template and labels. Automatically attaches the current catalyst-core version and project name to help triage. Before publishing, this tool searches for duplicate candidates and blocks creation if matches are found unless duplicate_review_confirmed:true is passed after showing those candidates to the developer. If GitHub creation, auth, labels, network, or validation fails, return a manual markdown fallback via generate_issue_markdown/fallback. Intent: feedback.",
+            "Use ONLY after preview_github_feedback has been shown and the developer explicitly approved publishing. Creates an issue on the catalyst-core GitHub repo using the selected/suggested template and labels. Automatically attaches the current catalyst-core version and project name to help triage. Before publishing, this tool searches for duplicate candidates using duplicate_search_query when provided and blocks creation if matches are found unless duplicate_review_confirmed:true is passed after showing those candidates to the developer. If GitHub creation, auth, labels, network, or validation fails, return a manual markdown fallback via generate_issue_markdown/fallback. Intent: feedback.",
         inputSchema: {
             type: "object",
             properties: {
@@ -687,6 +692,11 @@ const TOOLS = [
                     items: { type: ["string", "object"] },
                     description:
                         "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
+                },
+                duplicate_search_query: {
+                    type: "string",
+                    description:
+                        "Optional focused search query for duplicate detection, supplied by the LLM from the issue context. Use the same query reviewed in preview_github_feedback.",
                 },
                 duplicate_review_confirmed: {
                     type: "boolean",
