@@ -137,7 +137,9 @@ class WebPerfCollector {
         this._scroll.setInsightsSource((data) => this._insights.notifyScrollJank(data))
 
         // Insights → normalized store
-        this._insights.setStoreSource((data) => this._store.recordInsight(data))
+        this._insights.setStoreSource((data) => {
+            this._store.recordInsight(data)
+        })
     }
 
     static init(bridge) {

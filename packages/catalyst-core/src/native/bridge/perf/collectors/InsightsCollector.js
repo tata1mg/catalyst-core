@@ -29,6 +29,10 @@ import { TRACK, PREFIX, THRESHOLD } from "../core/constants.js"
 
 const SESSION_SUMMARY_DELAY_MS = 3000
 
+function round(value) {
+    return Number.isFinite(value) ? Math.round(value) : value
+}
+
 export class InsightsCollector {
     constructor(measure) {
         this._measure = measure
@@ -251,37 +255,95 @@ export class InsightsCollector {
 
     // ─── Reactive insight emission ─────────────────────────────────────────────
 
-    _emitReactive({ severity, rule, message, fix, evidence }) {
+    _emitReactive({ severity, rule, message, fix, evidence = {} }) {
         const now = performance.now()
         const markName = `${PREFIX.INSIGHT}:${rule}:${Math.round(now)}`
         const color = severity === "critical" ? "error" : severity === "warning" ? "tertiary" : "secondary"
+        const title = this._titleFor(rule, evidence, message)
+        const category = this._categoryFor(rule)
+        const detail = {
+            severity,
+            rule,
+            title,
+            category,
+            message,
+            fix,
+            ...(this._coldStartMs != null ? { "coldStart.ms": String(Math.round(this._coldStartMs)) } : {}),
+            ...Object.fromEntries(Object.entries(evidence).map(([k, v]) => [`evidence.${k}`, String(v)])),
+        }
 
         performance.mark(markName, { startTime: now })
         this._notifyStore?.({
             severity,
             rule,
+            title,
+            category,
             message,
             fix,
             evidence,
             startTime: now,
         })
         this._measure.emit(
-            `${PREFIX.INSIGHT}|${rule}`,
+            `Insight: ${title}`,
             markName,
             now + 2, // point-in-time, minimal duration
-            {
-                severity,
-                rule,
-                message,
-                fix,
-                ...(this._coldStartMs != null
-                    ? { "coldStart.ms": String(Math.round(this._coldStartMs)) }
-                    : {}),
-                ...Object.fromEntries(Object.entries(evidence).map(([k, v]) => [`evidence.${k}`, String(v)])),
-            },
+            detail,
             TRACK.INSIGHTS,
             color
         )
+    }
+
+    _titleFor(rule, evidence, message) {
+        switch (rule) {
+            case "bridge-timeout":
+                return `Bridge timeout: ${evidence.method ?? "unknown"}`
+            case "bridge-too-slow":
+                return `Slow bridge: ${evidence.method ?? "unknown"} ${round(evidence.roundTripMs)}ms`
+            case "fps-drop-during-tap":
+                return `FPS drop after tap: ${round(evidence.minFps)}fps`
+            case "severe-fps-drop":
+                return `FPS drop: ${round(evidence.minFps)}fps for ${round(evidence.durationMs)}ms`
+            case "fps-spike-drop":
+                return `FPS spike drop: -${round(evidence.deltaFps)}fps`
+            case "page-load-too-slow":
+                return `Page load slow: ${round(evidence.durationMs)}ms`
+            case "cold-start-time":
+                return `Cold start: ${round(evidence.durationMs)}ms`
+            case "loaf-blocking-nav":
+                return `Render blocked during navigation: ${round(evidence.durationMs)}ms`
+            case "interaction-unresponsive":
+                return `Slow tap: ${evidence.target ?? "unknown"} ${round(evidence.responseMs)}ms`
+            case "memory-critical":
+            case "memory-high":
+                return `Memory high: ${round(evidence.webviewMb)}MB`
+            case "hw-accel-during-frame":
+                return `Software render window: ${round(evidence.durationMs)}ms`
+            case "large-layout-shift":
+                return `Large layout shift: ${
+                    Number.isFinite(evidence.value) ? evidence.value.toFixed(3) : "unknown"
+                }`
+            case "scroll-jank-critical":
+            case "scroll-jank-warning":
+                return `Scroll jank: ${round(evidence.minFps)}fps`
+            case "low-cache-hit-rate":
+                return `Cache hit rate low: ${evidence.hitRatePct}%`
+            case "session-summary":
+                return "Session issues"
+            default:
+                return message ?? rule
+        }
+    }
+
+    _categoryFor(rule) {
+        if (rule.includes("bridge")) return "bridge"
+        if (rule.includes("fps") || rule.includes("loaf") || rule.includes("layout")) return "render"
+        if (rule.includes("page-load") || rule.includes("cold-start")) return "navigation"
+        if (rule.includes("interaction") || rule.includes("tap")) return "interaction"
+        if (rule.includes("memory")) return "memory"
+        if (rule.includes("scroll")) return "scroll"
+        if (rule.includes("cache")) return "cache"
+        if (rule.includes("session")) return "session"
+        return "general"
     }
 
     // ─── Session summary ───────────────────────────────────────────────────────

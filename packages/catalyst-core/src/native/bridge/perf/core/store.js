@@ -1,5 +1,6 @@
 import { buildWaterfall, listWaterfalls } from "./waterfalls.js"
 import { buildSummary } from "./summary.js"
+import { buildChromeTrace, downloadChromeTrace } from "./traceExport.js"
 
 const MAX_RECORDS = 5000
 
@@ -65,6 +66,8 @@ export class PerfStore {
             waterfalls: () => listWaterfalls(),
             waterfall: (type = "all") => buildWaterfall(this.snapshot(), type),
             summary: () => buildSummary(this.snapshot()),
+            trace: () => JSON.stringify(buildChromeTrace(this.snapshot())),
+            downloadTrace: (filename) => downloadChromeTrace(this.snapshot(), filename),
             export: () => this.snapshot(),
             clear: () => this.clear(),
         }
@@ -295,7 +298,9 @@ export class PerfStore {
             kind: "insight",
             severity: data.severity,
             rule: data.rule,
-            label: data.rule,
+            label: data.title ?? data.rule,
+            title: data.title ?? data.rule,
+            category: data.category ?? "general",
             message: data.message,
             fix: data.fix,
             startTime: data.startTime,

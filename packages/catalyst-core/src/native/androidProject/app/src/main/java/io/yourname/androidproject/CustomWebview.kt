@@ -84,11 +84,6 @@ class CustomWebView(
         // Attach WebView to MetricsMonitor so it can emit perf events to the JS side
         metricsMonitor.attachWebView(webView)
 
-        // Initialize geolocation permission launcher if context is an Activity
-        if (context is androidx.activity.ComponentActivity) {
-            initializeGeolocationPermissionLauncher(context)
-        }
-
         setupWebView()
     }
 

@@ -74,6 +74,7 @@ public enum CatalystConstants {
                 "setScreenSecure",
                 "getScreenSecure",
                 "clearWebData",
+                "exportCatalystTrace",
                 "startVideoStream",
                 "stopVideoStream",
                 "flipVideoStream",
