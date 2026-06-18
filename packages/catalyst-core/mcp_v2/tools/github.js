@@ -1,55 +1,183 @@
 "use strict"
 
 /**
- * tools/github.js — Catalyst MCP v2
+ * tools/github.js - Catalyst MCP v2
  *
- * Exposes three tools:
- *   preview_github_feedback   → drafts content, searches duplicates, returns preview for approval
- *   create_github_issue       → GitHub REST API  (POST /repos/{owner}/{repo}/issues)
- *   create_github_discussion  → GitHub GraphQL API (createDiscussion mutation)
+ * GitHub issue workflow for AI agents:
+ *   1. start_github_issue_flow      - tells the LLM what details to collect
+ *   2. gather_github_issue_context  - reads project/framework context for triage
+ *   3. preview_github_feedback      - formats the issue and checks duplicate candidates
+ *   4. create_github_issue          - publishes after duplicate review, with markdown fallback
+ *   5. generate_issue_markdown      - manual fallback when auth/API is unavailable
  *
- * Authentication (in priority order):
- *   1. GITHUB_TOKEN environment variable (Personal Access Token)
- *   2. GitHub CLI session  — `gh auth login` (token read via `gh auth token`)
- *
- *   Required scopes:
- *     - repo              (for creating issues + searching)
- *     - write:discussion  (for creating discussions)
- *
- * Zero external dependencies — uses Node's built-in `https` and `child_process` modules only.
+ * Authentication:
+ *   1. GITHUB_TOKEN environment variable
+ *   2. GitHub CLI session (`gh auth token`)
  */
 
+const fs = require("fs")
+const path = require("path")
 const https = require("https")
 const { execSync } = require("child_process")
 
-// ── Module state ──────────────────────────────────────────────────────────────
-
 let _projectInfo = null
 
-// Parsed from catalyst-core package.json "repository.url"
 const GITHUB_OWNER = "tata1mg"
 const GITHUB_REPO = "catalyst-core"
+const FALLBACK_DIR = ".mcp_issues"
+
+const DEFAULT_LABELS = [
+    "bug",
+    "dependencies",
+    "documentation",
+    "duplicate",
+    "enhancement",
+    "good first issue",
+    "help wanted",
+    "invalid",
+    "question",
+    "wontfix",
+]
+
+const LABEL_GUIDANCE = {
+    bug: "Something is broken, regressed, ignored, crashes, or behaves differently from the documented/configured behavior.",
+    dependencies: "Dependency/package update work, package-lock changes, npm audit fixes, or vulnerability remediation.",
+    documentation: "Docs, README, examples, guides, migration notes, tutorials, or wording fixes.",
+    duplicate: "The same issue already exists.",
+    enhancement: "New capability, framework improvement, or actionable feature request.",
+    "good first issue": "Small, well-scoped change suitable for newcomers.",
+    "help wanted": "Needs extra maintainer/community attention or implementation help.",
+    invalid: "The report is not applicable or does not describe a valid Catalyst problem.",
+    question: "Needs clarification, usage guidance, or design direction before implementation.",
+    wontfix: "A consciously unsupported or not-planned request.",
+}
+
+const ISSUE_TEMPLATES = {
+    bug: {
+        label: "bug",
+        name: "Bug report",
+        use_when: "Something is not working, is ignored, crashes, regresses, or differs from expected Catalyst behavior.",
+        sections: [
+            "Preflight Checklist",
+            "What's Wrong?",
+            "Steps to Reproduce",
+            "Expected Behavior",
+            "Actual Behavior",
+            "Error Messages/Logs",
+            "Environment",
+            "What I Tried",
+            "Additional Information",
+            "Related Issues",
+        ],
+    },
+    enhancement: {
+        label: "enhancement",
+        name: "Feature request / enhancement",
+        use_when: "A new capability, universal hook behavior, CLI improvement, or framework ergonomics improvement is needed.",
+        sections: [
+            "Summary",
+            "Motivation",
+            "Proposed Behaviour",
+            "Example Usage / Output",
+            "Proposed Fix",
+            "Optional Follow-ups",
+        ],
+    },
+    documentation: {
+        label: "documentation",
+        name: "Documentation improvement",
+        use_when: "Docs, examples, README, guides, migration notes, or API reference need to be added or corrected.",
+        sections: [
+            "Summary",
+            "Current Documentation",
+            "Suggested Documentation",
+            "Affected Pages / Examples",
+            "Optional Follow-ups",
+        ],
+    },
+    dependencies: {
+        label: "dependencies",
+        name: "Dependency update",
+        use_when: "A dependency, lockfile, audit finding, package version, or security update needs attention.",
+        sections: [
+            "Summary",
+            "Current Dependency",
+            "Target Dependency",
+            "Reason / Impact",
+            "Validation Plan",
+        ],
+    },
+    question: {
+        label: "question",
+        name: "Question / clarification",
+        use_when: "The report primarily asks for usage guidance, clarification, or a decision before implementation.",
+        sections: [
+            "Question",
+            "Context",
+            "What I Tried",
+            "Expected Guidance",
+        ],
+    },
+}
 
 function init(projectInfo) {
     _projectInfo = projectInfo
 }
 
-// ── Internal helpers ──────────────────────────────────────────────────────────
+function getProjectRoot(args = {}) {
+    return args.project_path || (_projectInfo && _projectInfo.dir) || process.cwd()
+}
 
-/**
- * Read a GitHub token in priority order:
- *   1. GITHUB_TOKEN env var
- *   2. Active `gh` CLI session (gh auth token)
- * Returns { ok, token, source } or { ok: false, error }.
- */
+function safeReadJson(filePath) {
+    try {
+        return JSON.parse(fs.readFileSync(filePath, "utf8"))
+    } catch {
+        return null
+    }
+}
+
+function safeReadText(filePath, maxBytes = 8000) {
+    try {
+        const content = fs.readFileSync(filePath, "utf8")
+        return content.length > maxBytes ? `${content.slice(0, maxBytes)}\n...[truncated]` : content
+    } catch {
+        return null
+    }
+}
+
+function runGit(root, command) {
+    try {
+        return execSync(command, {
+            cwd: root,
+            encoding: "utf8",
+            timeout: 4000,
+            stdio: ["ignore", "pipe", "ignore"],
+        }).trim()
+    } catch {
+        return null
+    }
+}
+
+function slugify(input) {
+    return String(input || "github-issue")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "github-issue"
+}
+
+function ensureFallbackDir(root) {
+    const dir = path.join(root, FALLBACK_DIR)
+    fs.mkdirSync(dir, { recursive: true })
+    return dir
+}
+
 function getToken() {
-    // 1. Explicit env var
     const envToken = process.env.GITHUB_TOKEN
     if (envToken && envToken.trim()) {
-        return { ok: true, token: envToken.trim(), source: "env" }
+        return { ok: true, token: envToken.trim(), source: "env:GITHUB_TOKEN" }
     }
 
-    // 2. GitHub CLI session — no credentials stored by Catalyst
     try {
         const ghToken = execSync("gh auth token", {
             encoding: "utf8",
@@ -58,27 +186,16 @@ function getToken() {
         }).trim()
         if (ghToken) return { ok: true, token: ghToken, source: "gh-cli" }
     } catch {
-        // gh not installed or not logged in — fall through to error
+        // gh not installed or not logged in.
     }
 
     return {
         ok: false,
         error:
-            "No GitHub credentials found. Provide one of:\n\n" +
-            "Option A — GitHub CLI (recommended, no config needed):\n" +
-            "  gh auth login\n" +
-            "  Required scopes: repo, write:discussion\n\n" +
-            "Option B — Environment variable:\n" +
-            "  Create a PAT at https://github.com/settings/tokens/new\n" +
-            '  Claude Desktop → claude_desktop_config.json → "env": { "GITHUB_TOKEN": "ghp_xxx..." }\n' +
-            "  Cursor → .cursor/mcp.json → \"env\": { \"GITHUB_TOKEN\": \"ghp_xxx...\" }",
+            "No GitHub credentials found. Run `gh auth login` with repo scope, or pass GITHUB_TOKEN in the MCP server environment.",
     }
 }
 
-/**
- * Thin wrapper around Node's https for GitHub API calls.
- * Returns parsed JSON body and status code.
- */
 function githubRequest(method, urlPath, token, body) {
     return new Promise((resolve, reject) => {
         const payload = body ? JSON.stringify(body) : null
@@ -113,19 +230,251 @@ function githubRequest(method, urlPath, token, body) {
     })
 }
 
-/**
- * Execute a GitHub GraphQL query/mutation.
- */
-function graphql(token, query, variables = {}) {
-    return githubRequest("POST", "/graphql", token, { query, variables })
+function normalizeLabels(labels) {
+    if (!Array.isArray(labels)) return []
+    const seen = new Set()
+    return labels
+        .filter((label) => typeof label === "string")
+        .map((label) => label.trim().toLowerCase())
+        .filter((label) => {
+            if (!label || !DEFAULT_LABELS.includes(label) || seen.has(label)) return false
+            seen.add(label)
+            return true
+        })
 }
 
-/**
- * Append a standard footer to the body with project context.
- * Makes triage easy for the catalyst-core team.
- */
+function inferPrimaryLabel(title, body) {
+    const text = `${title || ""}\n${body || ""}`.toLowerCase()
+
+    if (/\b(dependenc|package-lock|package\.json|npm audit|vulnerab|upgrade package)\b/.test(text)) {
+        return "dependencies"
+    }
+    if (/\b(doc|docs|documentation|readme|guide|tutorial|typo)\b/.test(text)) {
+        return "documentation"
+    }
+    if (/\b(bug|broken|fail|error|exception|crash|incorrect|ignored|not working|regression)\b/.test(text)) {
+        return "bug"
+    }
+    if (/\b(question|how do|how to|clarify|doubt)\b/.test(text)) {
+        return "question"
+    }
+
+    return "enhancement"
+}
+
+function resolveIssueTemplate(args, body) {
+    const requested = typeof args.issue_template === "string" ? args.issue_template.trim().toLowerCase() : ""
+    if (ISSUE_TEMPLATES[requested]) return requested
+
+    const labels = normalizeLabels(args.labels)
+    const templateLabel = labels.find((label) => ISSUE_TEMPLATES[label])
+    if (templateLabel) return templateLabel
+
+    const inferred = inferPrimaryLabel(args.title, body)
+    return ISSUE_TEMPLATES[inferred] ? inferred : "enhancement"
+}
+
+function resolveIssueLabels(args, body) {
+    const labels = normalizeLabels(args.labels)
+    if (labels.length > 0) return labels
+
+    return [resolveIssueTemplate(args, body)]
+}
+
+function stripExistingFooter(body) {
+    return String(body || "")
+        .replace(/\n---\n(?:\*\*(?:Project|catalyst-core version|Project path|Reported via):\*\*.*\n?)+$/m, "")
+        .trim()
+}
+
+function hasMarkdownHeadings(body) {
+    return /^#{2,3}\s+\S/m.test(body || "")
+}
+
+function toMarkdownList(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => (typeof item === "string" ? item.trim() : ""))
+            .filter(Boolean)
+            .map((item, index) => {
+                if (/^\d+\.\s/.test(item) || /^[-*]\s/.test(item)) return item
+                return `${index + 1}. ${item}`
+            })
+            .join("\n")
+    }
+    return typeof value === "string" ? value.trim() : ""
+}
+
+function firstNonEmpty(...values) {
+    for (const value of values) {
+        if (typeof value === "string" && value.trim()) return value.trim()
+    }
+    return ""
+}
+
+function appendSection(sections, heading, content) {
+    const text = Array.isArray(content) ? toMarkdownList(content) : firstNonEmpty(content)
+    if (text) sections.push(`## ${heading}\n\n${text}`)
+}
+
+function buildPreflightChecklist(args) {
+    const checklist = Array.isArray(args.preflight_checklist)
+        ? args.preflight_checklist
+        : [
+              "I have searched existing issues and this has not already been reported.",
+              "This is a single issue, not a bundle of unrelated issues.",
+              "I have included reproduction steps, environment details, and logs where available.",
+          ]
+
+    return checklist
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean)
+        .map((item) => (item.startsWith("[") ? `- ${item}` : `- [x] ${item}`))
+        .join("\n")
+}
+
+function buildStyledIssueSections(args) {
+    const rawBody = stripExistingFooter(args.body)
+
+    if (rawBody && hasMarkdownHeadings(rawBody)) {
+        return rawBody
+    }
+
+    const sections = []
+    const template = resolveIssueTemplate(args, rawBody)
+
+    if (template === "documentation") {
+        appendSection(sections, "Summary", firstNonEmpty(args.summary, rawBody))
+        appendSection(sections, "Current Documentation", firstNonEmpty(args.current_behavior, args.actual_behavior))
+        appendSection(sections, "Suggested Documentation", firstNonEmpty(args.expected_behavior, args.proposed_fix, args.suggested_fix))
+        appendSection(sections, "Affected Pages / Examples", args.steps_to_reproduce || args.repro)
+        appendSection(sections, "Optional Follow-ups", args.optional_followups || args.follow_ups)
+        return sections.join("\n\n").trim()
+    }
+
+    if (template === "dependencies") {
+        appendSection(sections, "Summary", firstNonEmpty(args.summary, rawBody))
+        appendSection(sections, "Current Dependency", firstNonEmpty(args.current_behavior, args.actual_behavior))
+        appendSection(sections, "Target Dependency", args.expected_behavior)
+        appendSection(sections, "Reason / Impact", firstNonEmpty(args.root_cause, args.notes))
+        appendSection(sections, "Validation Plan", args.steps_to_reproduce || args.repro)
+        return sections.join("\n\n").trim()
+    }
+
+    if (template === "question") {
+        appendSection(sections, "Question", firstNonEmpty(args.summary, rawBody))
+        appendSection(sections, "Context", firstNonEmpty(args.current_behavior, args.actual_behavior, args.root_cause, args.notes))
+        appendSection(sections, "What I Tried", args.steps_to_reproduce || args.repro)
+        appendSection(sections, "Expected Guidance", args.expected_behavior)
+        return sections.join("\n\n").trim()
+    }
+
+    if (template === "enhancement") {
+        appendSection(sections, "Summary", firstNonEmpty(args.summary, rawBody))
+        appendSection(sections, "Motivation", firstNonEmpty(args.current_behavior, args.actual_behavior, args.root_cause, args.notes))
+        appendSection(sections, "Proposed Behaviour", args.expected_behavior)
+        appendSection(sections, "Example Usage / Output", args.steps_to_reproduce || args.repro)
+        appendSection(sections, "Proposed Fix", firstNonEmpty(args.proposed_fix, args.suggested_fix))
+        appendSection(sections, "Optional Follow-ups", args.optional_followups || args.follow_ups)
+        return sections.join("\n\n").trim()
+    }
+
+    appendSection(sections, "Preflight Checklist", buildPreflightChecklist(args))
+    appendSection(sections, "What's Wrong?", firstNonEmpty(args.summary, rawBody))
+    appendSection(sections, "Steps to Reproduce", args.steps_to_reproduce || args.repro)
+    appendSection(sections, "Expected Behavior", args.expected_behavior)
+    appendSection(sections, "Actual Behavior", firstNonEmpty(args.actual_behavior, args.current_behavior))
+    appendSection(sections, "Error Messages/Logs", args.error_logs ? `\`\`\`\n${args.error_logs}\n\`\`\`` : "")
+    appendSection(sections, "Environment", args.environment)
+    appendSection(sections, "What I Tried", args.what_i_tried || args.what_tried)
+    appendSection(sections, "Additional Information", firstNonEmpty(args.additional_information, args.root_cause, args.notes, args.proposed_fix, args.suggested_fix))
+    appendSection(sections, "Related Issues", args.related_issues)
+
+    return sections.join("\n\n").trim()
+}
+
+function normalizeImages(images, root) {
+    if (!Array.isArray(images)) return { markdown: "", local_files: [], remote_urls: [] }
+
+    const localFiles = []
+    const remoteUrls = []
+    const lines = []
+
+    for (const image of images) {
+        const value = typeof image === "string" ? { path: image } : image
+        if (!value || typeof value !== "object") continue
+
+        const raw = value.url || value.path || value.file
+        if (!raw || typeof raw !== "string") continue
+
+        const alt = typeof value.alt === "string" && value.alt.trim() ? value.alt.trim() : "attachment"
+        if (/^https?:\/\//i.test(raw)) {
+            remoteUrls.push(raw)
+            lines.push(`![${alt}](${raw})`)
+            continue
+        }
+
+        const absolutePath = path.isAbsolute(raw) ? raw : path.resolve(root, raw)
+        const exists = fs.existsSync(absolutePath)
+        localFiles.push({ path: absolutePath, exists })
+        lines.push(`- ${absolutePath}${exists ? "" : " (not found)"}`)
+    }
+
+    if (lines.length === 0) return { markdown: "", local_files: localFiles, remote_urls: remoteUrls }
+
+    return {
+        markdown: ["", "## Attachments", "", ...lines].join("\n"),
+        local_files: localFiles,
+        remote_urls: remoteUrls,
+    }
+}
+
+function buildIssueBody(args, options = {}) {
+    const root = getProjectRoot(args)
+    const images = normalizeImages(args.images, root)
+    const sections = []
+    const styledBody = buildStyledIssueSections(args)
+
+    if (styledBody) sections.push(styledBody)
+
+    const labels = resolveIssueLabels(args, styledBody)
+    if (labels.length > 0) {
+        sections.push(
+            [
+                "## Suggested Labels",
+                "",
+                labels.map((label) => `\`${label}\``).join(", "),
+                "",
+                "> These labels are included in the GitHub API request. If they are not visible on the issue, the token/user likely does not have permission to apply labels.",
+            ].join("\n")
+        )
+    }
+
+    if (args.context) {
+        const context = typeof args.context === "string" ? args.context : JSON.stringify(args.context, null, 2)
+        sections.push(`## Catalyst/Project Context\n\n\`\`\`json\n${context}\n\`\`\``)
+    }
+
+    if (args.environment && resolveIssueTemplate(args, styledBody) !== "bug") {
+        const environment = typeof args.environment === "string" ? args.environment : JSON.stringify(args.environment, null, 2)
+        sections.push(`## Environment\n\n${environment}`)
+    }
+
+    if (args.duplicate_review_note && typeof args.duplicate_review_note === "string") {
+        sections.push(`## Duplicate Review\n\n${args.duplicate_review_note.trim()}`)
+    }
+
+    if (images.markdown) sections.push(images.markdown.trim())
+
+    const body = sections.filter(Boolean).join("\n\n").trim()
+    return {
+        body: options.enrich === false ? body : enrichBody(body),
+        images,
+    }
+}
+
 function enrichBody(body) {
-    const lines = [body.trim(), "", "---"]
+    const lines = [stripExistingFooter(body), "", "---"]
     if (_projectInfo) {
         if (_projectInfo.pkg && _projectInfo.pkg.name) {
             lines.push(`**Project:** \`${_projectInfo.pkg.name}\``)
@@ -140,275 +489,388 @@ function enrichBody(body) {
     return lines.join("\n")
 }
 
-/**
- * Extract short search keywords from a title + body.
- * Returns a URL-encoded query string suitable for the GitHub search API.
- */
 function extractKeywords(title, body) {
-    // Take top words from title (most signal), pad with body words if needed
     const stopWords = new Set([
-        "a", "an", "the", "is", "in", "on", "at", "to", "for", "of", "and",
-        "or", "but", "not", "with", "this", "that", "it", "be", "are", "was",
-        "can", "how", "do", "does", "i", "my", "me", "we", "our",
+        "a",
+        "an",
+        "the",
+        "is",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "and",
+        "or",
+        "but",
+        "not",
+        "with",
+        "this",
+        "that",
+        "can",
+        "how",
+        "does",
+        "issue",
+        "bug",
     ])
     const tokenise = (str) =>
-        str
+        String(str || "")
             .toLowerCase()
             .replace(/[^a-z0-9\s]/g, " ")
             .split(/\s+/)
-            .filter((w) => w.length > 2 && !stopWords.has(w))
+            .filter((word) => word.length > 2 && !stopWords.has(word))
 
     const titleWords = tokenise(title).slice(0, 5)
     const bodyWords = tokenise(body)
-        .filter((w) => !titleWords.includes(w))
+        .filter((word) => !titleWords.includes(word))
         .slice(0, 3)
 
-    return [...titleWords, ...bodyWords].join("+")
+    return [...titleWords, ...bodyWords].join(" ")
 }
 
-/**
- * Search for existing issues or discussions that might be duplicates.
- * Returns array of { number, title, url, state? } — max 5 results.
- *
- * Issues   → GitHub REST Search API  (GET /search/issues)
- * Discussions → GitHub GraphQL search
- */
-async function searchDuplicates(token, title, body, type) {
+async function searchDuplicates(token, title, body) {
     const keywords = extractKeywords(title, body)
     if (!keywords) return []
 
     try {
-        if (type === "discussion") {
-            const query = `
-                query SearchDiscussions($q: String!) {
-                    search(query: $q, type: DISCUSSION, first: 5) {
-                        nodes {
-                            ... on Discussion {
-                                number
-                                title
-                                url
-                            }
-                        }
-                    }
-                }
-            `
-            const searchQ = `repo:${GITHUB_OWNER}/${GITHUB_REPO} ${keywords.replace(/\+/g, " ")}`
-            const res = await graphql(token, query, { q: searchQ })
-            if (res.status === 200 && !res.body.errors) {
-                return (res.body.data?.search?.nodes || []).filter(Boolean)
-            }
-            return []
-        } else {
-            // Issues via REST Search API
-            const q = encodeURIComponent(
-                `repo:${GITHUB_OWNER}/${GITHUB_REPO} ${keywords.replace(/\+/g, " ")} in:title,body`
-            )
-            const res = await githubRequest(
-                "GET",
-                `/search/issues?q=${q}&type=issue&per_page=5`,
-                token
-            )
-            if (res.status === 200 && Array.isArray(res.body.items)) {
-                return res.body.items.slice(0, 5).map((i) => ({
-                    number: i.number,
-                    title: i.title,
-                    url: i.html_url,
-                    state: i.state,
-                }))
-            }
-            return []
+        const q = encodeURIComponent(`repo:${GITHUB_OWNER}/${GITHUB_REPO} ${keywords} in:title,body is:issue`)
+        const res = await githubRequest("GET", `/search/issues?q=${q}&per_page=5`, token)
+        if (res.status === 200 && Array.isArray(res.body.items)) {
+            return res.body.items.slice(0, 5).map((issue) => ({
+                number: issue.number,
+                title: issue.title,
+                url: issue.html_url,
+                state: issue.state,
+            }))
         }
     } catch {
-        // Duplicate search is best-effort — never fail the main flow
-        return []
+        // Duplicate detection is best-effort.
     }
+    return []
 }
 
-/**
- * Fetch the GitHub repository node ID (needed for createDiscussion mutation).
- */
-async function getRepositoryId(token) {
-    const query = `
-        query GetRepoId($owner: String!, $name: String!) {
-            repository(owner: $owner, name: $name) {
-                id
-            }
+async function addLabelsToIssue(token, issueNumber, labels) {
+    if (!Array.isArray(labels) || labels.length === 0) {
+        return { ok: true, labels: [] }
+    }
+
+    const res = await githubRequest(
+        "POST",
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues/${issueNumber}/labels`,
+        token,
+        { labels }
+    )
+
+    if (res.status === 200 && Array.isArray(res.body)) {
+        return {
+            ok: true,
+            labels: res.body.map((label) => label.name),
         }
-    `
-    const res = await graphql(token, query, { owner: GITHUB_OWNER, name: GITHUB_REPO })
-    if (res.status !== 200 || res.body.errors) {
-        const err = res.body.errors ? res.body.errors[0].message : `HTTP ${res.status}`
-        throw new Error(`Failed to fetch repository ID: ${err}`)
     }
-    return res.body.data.repository.id
+
+    const apiMessage = res.body && res.body.message ? res.body.message : JSON.stringify(res.body)
+    return {
+        ok: false,
+        status: res.status,
+        error: `GitHub API returned HTTP ${res.status}: ${apiMessage}`,
+    }
 }
 
-/**
- * Fetch all available Discussion categories for the repo.
- * Returns array of { id, name, emoji }.
- */
-async function getDiscussionCategories(token) {
-    const query = `
-        query GetCategories($owner: String!, $name: String!) {
-            repository(owner: $owner, name: $name) {
-                discussionCategories(first: 25) {
-                    nodes {
-                        id
-                        name
-                        emoji
-                    }
+async function commentOnIssue(token, issueNumber, body) {
+    if (!body || typeof body !== "string" || !body.trim()) {
+        return { ok: true }
+    }
+
+    const res = await githubRequest(
+        "POST",
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues/${issueNumber}/comments`,
+        token,
+        { body: body.trim() }
+    )
+
+    if (res.status === 201) {
+        return { ok: true, url: res.body.html_url }
+    }
+
+    const apiMessage = res.body && res.body.message ? res.body.message : JSON.stringify(res.body)
+    return {
+        ok: false,
+        status: res.status,
+        error: `GitHub API returned HTTP ${res.status}: ${apiMessage}`,
+    }
+}
+
+function handle_start_issue_creation(args = {}) {
+    const initialBody = args.problem || args._query || ""
+    const suggestedTemplate = resolveIssueTemplate({ ...args, title: args.problem || args._query || "", body: initialBody }, initialBody)
+    const suggestedLabels = resolveIssueLabels({ ...args, title: args.problem || args._query || "", body: initialBody }, initialBody)
+
+    return {
+        ok: true,
+        mode: "github_issue_agent",
+        repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
+        when_to_use: [
+            "Use this flow when the developer explicitly asks to create/raise/report/publish a GitHub issue for catalyst-core.",
+            "Use this flow when, during another task, the LLM identifies that the failure is likely caused by catalyst-core framework behavior. In that case, ask the developer whether they want to create a GitHub issue before gathering/publishing.",
+        ],
+        approval_gates: [
+            "Ask the developer whether they want to create a GitHub issue if the issue was inferred during another task.",
+            "Suggest the best template and labels; ask whether the developer accepts them or wants changes.",
+            "Search existing GitHub issues for duplicate candidates and show any matches to the developer before publishing.",
+            "If duplicate candidates exist, ask whether to cancel, update/comment on the existing issue manually, or continue because this is distinct.",
+            "Show the final rendered issue preview, including screenshots/attachments and labels, before publishing.",
+            "Call create_github_issue only after explicit developer approval.",
+        ],
+        next_steps: [
+            "Ask the developer for a concise issue title and problem statement if not already known.",
+            "Collect steps to reproduce, expected behavior, actual behavior, error logs, environment, what was tried, related issues, and screenshot/image paths or URLs if available.",
+            "Call gather_github_issue_context with the title/problem so the issue includes catalyst-core version, package scripts, git state, and relevant file snippets.",
+            "Call preview_github_feedback to select/render the issue template, suggested labels, project context, screenshots/attachments, and duplicate candidates.",
+            "Show duplicate candidates first when present. If one is the same issue, stop and suggest using the existing issue instead of creating a duplicate.",
+            "Show the preview to the developer and ask for approval or edits. If duplicates were shown and the developer still wants to publish, pass duplicate_review_confirmed:true to create_github_issue.",
+            "After approval and duplicate review, call create_github_issue. If it returns ok:false with duplicate_candidates, show them and do not generate a new issue. If it fails due to auth/network/API, use the markdown_path fallback for manual GitHub creation.",
+        ],
+        supported_labels: DEFAULT_LABELS,
+        label_guidance: LABEL_GUIDANCE,
+        supported_templates: ISSUE_TEMPLATES,
+        template_selection_rules: [
+            "Use Bug report + bug for broken behavior, ignored config, crashes, regressions, incorrect output, or failed commands.",
+            "Use Feature request / enhancement + enhancement for new APIs, CLI improvements, universal hook behavior, or framework ergonomics.",
+            "Use Documentation improvement + documentation for missing/incorrect docs, examples, guides, README, migration notes, or typos.",
+            "Use Dependency update + dependencies for package updates, lockfile updates, npm audit/security updates, or dependency version changes.",
+            "Use Question / clarification + question when implementation is not yet clear and maintainer input is needed.",
+            "Add good first issue only when the change is small and well-scoped; add help wanted when extra maintainer/community attention is needed.",
+            "Use duplicate, invalid, or wontfix only after triage establishes that state.",
+        ],
+        suggested_template: ISSUE_TEMPLATES[suggestedTemplate],
+        suggested_labels: suggestedLabels,
+        image_support:
+            "Hosted image URLs are embedded in the issue body. Local image files are listed in the body and copied into the markdown fallback for manual upload, because GitHub's public Issues API does not upload local binaries.",
+        duplicate_policy:
+            "The preview step performs a best-effort duplicate search. create_github_issue blocks publishing when matching issues are found unless duplicate_review_confirmed:true is provided after showing those candidates to the developer.",
+        manual_fallback:
+            "If GitHub auth, network, permission, or validation fails, call generate_issue_markdown or use the fallback returned by create_github_issue so the developer can raise the issue manually.",
+        initial_problem: args.problem || args._query || null,
+    }
+}
+
+function collectRelatedFiles(root, query, explicitFiles) {
+    const files = []
+    const candidates = Array.isArray(explicitFiles) ? explicitFiles : []
+    for (const file of candidates) {
+        if (typeof file !== "string") continue
+        const absolute = path.isAbsolute(file) ? file : path.join(root, file)
+        if (!absolute.startsWith(root)) continue
+        const content = safeReadText(absolute, 12000)
+        if (content) {
+            files.push({ path: path.relative(root, absolute), content })
+        }
+    }
+
+    if (files.length > 0 || !query) return files
+
+    const words = extractKeywords(query, "").split(/\s+/).filter(Boolean).slice(0, 5)
+    if (words.length === 0) return files
+
+    const srcDir = path.join(root, "src")
+    const matches = []
+    function walk(dir) {
+        let entries
+        try {
+            entries = fs.readdirSync(dir, { withFileTypes: true })
+        } catch {
+            return
+        }
+        for (const entry of entries) {
+            if (entry.name === "node_modules" || entry.name === ".git") continue
+            const full = path.join(dir, entry.name)
+            if (entry.isDirectory()) {
+                walk(full)
+            } else if (/\.(js|jsx|ts|tsx|json|scss|css|md|mdx)$/.test(entry.name)) {
+                const content = safeReadText(full, 4000)
+                if (content && words.some((word) => content.toLowerCase().includes(word))) {
+                    matches.push({ path: path.relative(root, full), content })
                 }
             }
+            if (matches.length >= 5) return
         }
-    `
-    const res = await graphql(token, query, { owner: GITHUB_OWNER, name: GITHUB_REPO })
-    if (res.status !== 200 || res.body.errors) {
-        const err = res.body.errors ? res.body.errors[0].message : `HTTP ${res.status}`
-        throw new Error(`Failed to fetch discussion categories: ${err}`)
     }
-    return res.body.data.repository.discussionCategories.nodes
+    walk(srcDir)
+    return matches.slice(0, 5)
 }
 
-/**
- * Pick the best matching category from available ones.
- * Falls back to smart auto-detection based on body content.
- */
-function resolveCategory(categories, requestedName, body) {
-    if (requestedName) {
-        // Exact match first (case-insensitive)
-        const exact = categories.find((c) => c.name.toLowerCase() === requestedName.toLowerCase())
-        if (exact) return exact
+function handle_gather_github_issue_context(args = {}) {
+    const root = getProjectRoot(args)
+    const pkg = safeReadJson(path.join(root, "package.json"))
+    const configJson = safeReadJson(path.join(root, "config", "config.json"))
+    const branch = runGit(root, "git rev-parse --abbrev-ref HEAD")
+    const commit = runGit(root, "git rev-parse --short HEAD")
+    const status = runGit(root, "git status --short")
+    const nodeVersion = runGit(root, "node --version")
+    const npmVersion = runGit(root, "npm --version")
+    const relatedFiles = collectRelatedFiles(root, args.query || args.problem || args.title || "", args.files)
 
-        // Partial match
-        const partial = categories.find((c) =>
-            c.name.toLowerCase().includes(requestedName.toLowerCase())
-        )
-        if (partial) return partial
+    const dependencies = pkg ? { ...pkg.dependencies, ...pkg.devDependencies } : {}
+
+    return {
+        ok: true,
+        context: {
+            project_path: root,
+            package_name: pkg && pkg.name,
+            catalyst_core_declared_version: dependencies["catalyst-core"] || null,
+            catalyst_core_installed_version: _projectInfo && _projectInfo.installedVersion,
+            scripts: pkg && pkg.scripts ? pkg.scripts : {},
+            config: configJson
+                ? {
+                      NODE_SERVER_PORT: configJson.NODE_SERVER_PORT,
+                      WEBVIEW_CONFIG: configJson.WEBVIEW_CONFIG,
+                  }
+                : null,
+            git: { branch, commit, dirty: Boolean(status), status },
+            runtime: { node: nodeVersion, npm: npmVersion },
+            related_files: relatedFiles,
+        },
+        instructions:
+            "Use this context to enrich the issue body. Include only relevant file snippets; do not include secrets or unrelated config.",
     }
-
-    // Auto-detect: if body has a question mark → Q&A, else Ideas or General
-    const isQuestion = body.includes("?")
-    const isFeatureRequest = /\b(feature|proposal|suggest|idea|would\s+be\s+nice|enhancement)\b/i.test(body)
-
-    if (isQuestion) {
-        const qa = categories.find((c) => /q.?a|question/i.test(c.name))
-        if (qa) return qa
-    }
-    if (isFeatureRequest) {
-        const ideas = categories.find((c) => /idea|feature|suggest/i.test(c.name))
-        if (ideas) return ideas
-    }
-
-    // Final fallback: General
-    const general = categories.find((c) => /general/i.test(c.name))
-    return general || categories[0]
 }
 
-// ── Tool: preview_github_feedback ────────────────────────────────────────────
-
-/**
- * Handle preview_github_feedback tool call.
- *
- * Drafts the enriched content, searches for potential duplicates,
- * and returns everything for developer review — WITHOUT publishing anything.
- * The developer then calls create_github_issue or create_github_discussion to confirm.
- *
- * Args:
- *   title    {string}   required — proposed title
- *   body     {string}   required — proposed body
- *   type     {string}   required — "issue" | "discussion"
- *   labels   {string[]} optional — for issues
- *   category {string}  optional — for discussions
- */
-async function handle_preview_github_feedback(args) {
-    const { title, body, type, labels, category } = args
+async function handle_preview_github_feedback(args = {}) {
+    const { title, type = "issue" } = args
 
     if (!title || typeof title !== "string" || title.trim() === "") {
         return { ok: false, error: "title is required." }
     }
-    if (!body || typeof body !== "string" || body.trim() === "") {
-        return { ok: false, error: "body is required." }
-    }
-    if (!type || ![ "issue", "discussion" ].includes(type)) {
-        return { ok: false, error: "type must be 'issue' or 'discussion'." }
+    if (type !== "issue") {
+        return { ok: false, error: "Only GitHub issues are supported by this MCP tool." }
     }
 
-    // Build enriched body (always works, no token needed)
-    const enrichedBody = enrichBody(body)
+    const built = buildIssueBody(args)
+    if (!built.body || built.body.trim() === "") {
+        return { ok: false, error: "body or structured issue fields are required." }
+    }
 
-    // Search duplicates (best-effort — requires token but won't fail without it)
     let duplicates = []
-    let tokenSource = null
+    let tokenSource = "none"
     const tokenResult = getToken()
     if (tokenResult.ok) {
         tokenSource = tokenResult.source
-        duplicates = await searchDuplicates(tokenResult.token, title, body, type)
+        duplicates = await searchDuplicates(tokenResult.token, title, built.body)
     }
-
-    // Build the preview object — exactly what will be published
-    const preview = {
-        type,
-        title: title.trim(),
-        body: enrichedBody,
-        ...(type === "issue" && Array.isArray(labels) && labels.length > 0 ? { labels } : {}),
-        ...(type === "discussion" && category ? { category } : {}),
-    }
-
-    const hasDuplicates = duplicates.length > 0
-    const nextStep =
-        type === "issue"
-            ? `Call create_github_issue with title and body above to publish.`
-            : `Call create_github_discussion with title and body above to publish.`
 
     return {
         ok: true,
-        preview,
+        preview: {
+            type: "issue",
+            repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
+            title: title.trim(),
+            body: built.body,
+            labels: resolveIssueLabels(args, built.body),
+            suggested_template: ISSUE_TEMPLATES[resolveIssueTemplate(args, built.body)],
+            possible_labels: DEFAULT_LABELS,
+            label_guidance: LABEL_GUIDANCE,
+            images: built.images,
+        },
         duplicates,
-        token_source: tokenSource || "none — duplicate search skipped",
-        instructions: [
-            hasDuplicates
-                ? `⚠️  Found ${duplicates.length} similar existing ${type}(s) listed above. Show them to the developer and ask if they still want to proceed.`
-                : `✅ No duplicates found.`,
-            `Show the preview to the developer for approval, then ${nextStep}`,
-        ].join(" "),
+        duplicate_review: {
+            required_before_publish: duplicates.length > 0,
+            status: duplicates.length > 0 ? "needs_user_review" : "no_duplicate_candidates_found",
+            candidates: duplicates,
+            publish_override_field:
+                duplicates.length > 0
+                    ? "Pass duplicate_review_confirmed:true to create_github_issue only after the developer confirms this is not a duplicate."
+                    : null,
+        },
+        token_source: tokenSource,
+        instructions:
+            duplicates.length > 0
+                ? "Show the suggested template, labels, full issue body, attachments, and duplicate candidates to the developer. Ask whether to cancel/use an existing issue, edit, or publish because this is distinct. Call create_github_issue only after explicit approval, and include duplicate_review_confirmed:true if the developer chooses to publish."
+                : "Show the suggested template, labels, full issue body, and attachments to the developer. Ask whether to edit, cancel, or publish. Call create_github_issue only after explicit approval.",
     }
 }
 
-// ── Tool: create_github_issue ─────────────────────────────────────────────────
+function handle_generate_issue_markdown(args = {}) {
+    const { title } = args
+    if (!title || typeof title !== "string" || title.trim() === "") {
+        return { ok: false, error: "title is required." }
+    }
 
-/**
- * Handle create_github_issue tool call.
- *
- * Args:
- *   title   {string}   required — short descriptive issue title
- *   body    {string}   required — full description
- *   labels  {string[]} optional — label names (must already exist on the repo)
- */
-async function handle_create_github_issue(args) {
-    const { title, body, labels } = args
+    const root = getProjectRoot(args)
+    const built = buildIssueBody(args, { enrich: true })
+    const labels = resolveIssueLabels(args, built.body)
+    const dir = ensureFallbackDir(root)
+    const filePath = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${slugify(title)}.md`)
 
+    const markdown = [
+        `# ${title.trim()}`,
+        "",
+        labels.length ? `Labels: ${labels.join(", ")}` : "Labels: none",
+        "",
+        `Repository: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues/new`,
+        "",
+        "Copy the title, labels, and body below into GitHub. Upload any local image files listed under Attachments manually.",
+        "",
+        "## Body",
+        "",
+        built.body,
+        "",
+    ].join("\n")
+
+    fs.writeFileSync(filePath, markdown, "utf8")
+
+    return {
+        ok: true,
+        markdown_path: filePath,
+        title: title.trim(),
+        labels,
+        local_images: built.images.local_files,
+        github_new_issue_url: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues/new`,
+    }
+}
+
+async function handle_create_github_issue(args = {}) {
+    const { title } = args
     if (!title || typeof title !== "string" || title.trim() === "") {
         return { ok: false, error: "title is required and must be a non-empty string." }
     }
-    if (!body || typeof body !== "string" || body.trim() === "") {
-        return { ok: false, error: "body is required and must be a non-empty string." }
+
+    const built = buildIssueBody(args)
+    if (!built.body || built.body.trim() === "") {
+        return { ok: false, error: "body or structured issue fields are required." }
     }
 
     const tokenResult = getToken()
     if (!tokenResult.ok) {
-        return { ok: false, error: tokenResult.error }
+        const fallback = handle_generate_issue_markdown(args)
+        return {
+            ok: false,
+            error: tokenResult.error,
+            fallback: fallback.ok ? fallback : null,
+        }
     }
 
-    const enrichedBody = enrichBody(body)
+    const labels = resolveIssueLabels(args, built.body)
     const payload = {
         title: title.trim(),
-        body: enrichedBody,
-    }
-    if (Array.isArray(labels) && labels.length > 0) {
-        payload.labels = labels.filter((l) => typeof l === "string" && l.trim())
+        body: built.body,
+        labels,
     }
 
     try {
+        const duplicates = await searchDuplicates(tokenResult.token, title, built.body)
+        if (duplicates.length > 0 && args.duplicate_review_confirmed !== true) {
+            return {
+                ok: false,
+                blocked: true,
+                error:
+                    "Possible duplicate GitHub issues were found. Show these candidates to the developer and publish only if they confirm this report is distinct.",
+                duplicate_candidates: duplicates,
+                next_action:
+                    "If the developer confirms this is not a duplicate, call create_github_issue again with duplicate_review_confirmed:true and optionally duplicate_review_note.",
+            }
+        }
+
         const res = await githubRequest(
             "POST",
             `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`,
@@ -417,186 +879,77 @@ async function handle_create_github_issue(args) {
         )
 
         if (res.status === 201) {
-            return {
-                ok: true,
-                message: `✅ Issue #${res.body.number} created successfully!`,
-                number: res.body.number,
-                title: res.body.title,
-                url: res.body.html_url,
-                labels: (res.body.labels || []).map((l) => l.name),
-                state: res.body.state,
-            }
-        }
+            const returnedLabels = (res.body.labels || []).map((label) => label.name)
+            const missingLabels = labels.filter((label) => !returnedLabels.includes(label))
+            let finalLabels = returnedLabels
+            let labelWarning = null
 
-        // Handle common errors with actionable messages
-        if (res.status === 401) {
-            return {
-                ok: false,
-                error:
-                    "GitHub authentication failed (401). Your GITHUB_TOKEN is invalid or expired.\n" +
-                    "Generate a new token at: https://github.com/settings/tokens/new (scope: repo)",
-            }
-        }
-        if (res.status === 403) {
-            return {
-                ok: false,
-                error:
-                    "GitHub permission denied (403). Your token may not have the `repo` scope, " +
-                    "or issues may be disabled on the repository.",
-            }
-        }
-        if (res.status === 404) {
-            return {
-                ok: false,
-                error: `Repository ${GITHUB_OWNER}/${GITHUB_REPO} not found or your token does not have access to it.`,
-            }
-        }
-        if (res.status === 422) {
-            const msg = res.body.errors ? res.body.errors.map((e) => e.message).join(", ") : res.body.message
-            return {
-                ok: false,
-                error: `Validation error (422): ${msg}. Check that all label names exist on the repo.`,
-            }
-        }
-
-        return {
-            ok: false,
-            error: `Unexpected GitHub API response: HTTP ${res.status} — ${JSON.stringify(res.body)}`,
-        }
-    } catch (err) {
-        return { ok: false, error: `Network error while calling GitHub API: ${err.message}` }
-    }
-}
-
-// ── Tool: create_github_discussion ───────────────────────────────────────────
-
-/**
- * Handle create_github_discussion tool call.
- *
- * Args:
- *   title    {string} required — discussion title
- *   body     {string} required — discussion body
- *   category {string} optional — category name ("Q&A", "Ideas", "General", etc.)
- */
-async function handle_create_github_discussion(args) {
-    const { title, body, category } = args
-
-    if (!title || typeof title !== "string" || title.trim() === "") {
-        return { ok: false, error: "title is required and must be a non-empty string." }
-    }
-    if (!body || typeof body !== "string" || body.trim() === "") {
-        return { ok: false, error: "body is required and must be a non-empty string." }
-    }
-
-    const tokenResult = getToken()
-    if (!tokenResult.ok) {
-        return { ok: false, error: tokenResult.error }
-    }
-
-    const token = tokenResult.token
-
-    try {
-        // Fetch repo ID and categories in parallel
-        const [repositoryId, categories] = await Promise.all([
-            getRepositoryId(token),
-            getDiscussionCategories(token),
-        ])
-
-        if (!categories || categories.length === 0) {
-            return {
-                ok: false,
-                error:
-                    "No discussion categories found on the repository. " +
-                    "Discussions may not be enabled on catalyst-core.",
-            }
-        }
-
-        const selectedCategory = resolveCategory(categories, category, body)
-        if (!selectedCategory) {
-            return {
-                ok: false,
-                error: `Could not find a matching discussion category. Available: ${categories.map((c) => c.name).join(", ")}`,
-            }
-        }
-
-        const enrichedBody = enrichBody(body)
-
-        const mutation = `
-            mutation CreateDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
-                createDiscussion(input: {
-                    repositoryId: $repositoryId,
-                    categoryId: $categoryId,
-                    title: $title,
-                    body: $body
-                }) {
-                    discussion {
-                        number
-                        title
-                        url
-                        category {
-                            name
-                        }
+            if (missingLabels.length > 0) {
+                const labelResult = await addLabelsToIssue(tokenResult.token, res.body.number, missingLabels)
+                if (labelResult.ok) {
+                    finalLabels = labelResult.labels
+                } else {
+                    labelWarning =
+                        `Issue was created, but GitHub did not apply label(s): ${missingLabels.join(", ")}. ` +
+                        `This usually means the token/user can create issues but does not have triage/write permission to manage labels. ${labelResult.error}`
+                    const commentResult = await commentOnIssue(
+                        tokenResult.token,
+                        res.body.number,
+                        [
+                            "Catalyst MCP could not apply the requested GitHub label(s).",
+                            "",
+                            `Requested labels: ${missingLabels.map((label) => `\`${label}\``).join(", ")}`,
+                            "",
+                            "Please add these labels manually if appropriate. This usually means the token/user can create issues but does not have triage/write permission to manage labels.",
+                        ].join("\n")
+                    )
+                    if (!commentResult.ok) {
+                        labelWarning += ` MCP also could not add a label-warning comment. ${commentResult.error}`
                     }
                 }
             }
-        `
 
-        const res = await graphql(token, mutation, {
-            repositoryId,
-            categoryId: selectedCategory.id,
-            title: title.trim(),
-            body: enrichedBody,
-        })
-
-        if (res.status === 200 && !res.body.errors) {
-            const discussion = res.body.data.createDiscussion.discussion
             return {
                 ok: true,
-                message: `✅ Discussion #${discussion.number} created successfully!`,
-                number: discussion.number,
-                title: discussion.title,
-                url: discussion.url,
-                category: discussion.category.name,
+                message: labelWarning
+                    ? `Issue #${res.body.number} created successfully, but labels need manual review.`
+                    : `Issue #${res.body.number} created successfully.`,
+                number: res.body.number,
+                title: res.body.title,
+                url: res.body.html_url,
+                labels: finalLabels,
+                requested_labels: labels,
+                label_warning: labelWarning,
+                state: res.body.state,
+                token_source: tokenResult.source,
+                local_images_requiring_manual_upload: built.images.local_files.filter((image) => image.exists),
             }
         }
 
-        // Handle GraphQL-level errors
-        if (res.body.errors && res.body.errors.length > 0) {
-            const errMsg = res.body.errors[0].message
-            if (/not authorized|forbidden/i.test(errMsg)) {
-                return {
-                    ok: false,
-                    error:
-                        "GitHub authorization error: Your token may be missing the `write:discussion` scope.\n" +
-                        "Generate a new token at: https://github.com/settings/tokens/new",
-                }
-            }
-            return { ok: false, error: `GitHub GraphQL error: ${errMsg}` }
-        }
-
-        if (res.status === 401) {
-            return {
-                ok: false,
-                error:
-                    "GitHub authentication failed (401). Your GITHUB_TOKEN is invalid or expired.\n" +
-                    "Generate a new token at: https://github.com/settings/tokens/new",
-            }
-        }
-
+        const apiMessage = res.body && res.body.message ? res.body.message : JSON.stringify(res.body)
+        const fallback = handle_generate_issue_markdown(args)
         return {
             ok: false,
-            error: `Unexpected GitHub API response: HTTP ${res.status} — ${JSON.stringify(res.body)}`,
+            error: `GitHub API returned HTTP ${res.status}: ${apiMessage}`,
+            fallback: fallback.ok ? fallback : null,
         }
     } catch (err) {
-        return { ok: false, error: `Network error while calling GitHub API: ${err.message}` }
+        const fallback = handle_generate_issue_markdown(args)
+        return {
+            ok: false,
+            error: `Network error while calling GitHub API: ${err.message}`,
+            fallback: fallback.ok ? fallback : null,
+        }
     }
 }
 
-// ── Exports ───────────────────────────────────────────────────────────────────
-
 module.exports = {
     init,
+    handle_start_issue_creation,
+    handle_start_github_issue_flow: handle_start_issue_creation,
+    handle_gather_github_issue_context,
     handle_preview_github_feedback,
+    handle_preview_github_issue: handle_preview_github_feedback,
     handle_create_github_issue,
-    handle_create_github_discussion,
+    handle_generate_issue_markdown,
 }

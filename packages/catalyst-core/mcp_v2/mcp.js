@@ -114,7 +114,7 @@ const INTENT_NEXT_ACTION = {
     debug: "answer_only — provide debug guidance. Do NOT call create_task_plan.",
     build: "answer_only — explain build flow. Do NOT call create_task_plan.",
     sync: "answer_only — sync complete. Do NOT call create_task_plan.",
-    feedback: "answer_only — GitHub action completed. Show the created issue/discussion URL. Do NOT call create_task_plan.",
+    feedback: "answer_only — run the GitHub issue workflow and show the created issue URL or markdown fallback. Do NOT call create_task_plan.",
     unknown: "answer_only — unclear intent. Return what you found. Do NOT call create_task_plan.",
 }
 
@@ -418,44 +418,176 @@ const TOOLS = [
         },
     },
     {
+        name: "start_github_issue_flow",
+        description:
+            "ALWAYS call this FIRST when the developer explicitly wants to create, raise, report, or publish a GitHub issue for catalyst-core, OR when the LLM discovers during another task that the root cause is likely catalyst-core framework behavior. If inferred during another task, ask the developer whether they want to create an issue before proceeding. Returns the issue-agent workflow, approval gates, template suggestions, required details to collect, supported labels/tags, screenshot/image handling rules, duplicate-avoidance policy, and next tool calls. Intent: feedback.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                problem: {
+                    type: "string",
+                    description: "The developer's initial issue/problem statement, if already known.",
+                },
+                _query: {
+                    type: "string",
+                    description: "Original user query for intent classification.",
+                },
+            },
+        },
+    },
+    {
+        name: "gather_github_issue_context",
+        description:
+            "Use after start_github_issue_flow and before preview_github_feedback. Reads the current Catalyst app context for a stronger GitHub issue: package name, catalyst-core version, scripts, config, git branch/status, runtime versions, and relevant file snippets. Use this to gather evidence before selecting the final template/labels. Intent: feedback.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                project_path: {
+                    type: "string",
+                    description: "Path to the catalyst app root. Defaults to detected project root.",
+                },
+                title: {
+                    type: "string",
+                    description: "Issue title, if available.",
+                },
+                problem: {
+                    type: "string",
+                    description: "Issue/problem statement or symptoms.",
+                },
+                query: {
+                    type: "string",
+                    description: "Search text used to find relevant source snippets.",
+                },
+                files: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional explicit project files to include as context snippets.",
+                },
+                _query: {
+                    type: "string",
+                    description: "Original user query for intent classification.",
+                },
+            },
+        },
+    },
+    {
         name: "preview_github_feedback",
         description:
-            "ALWAYS call this FIRST before create_github_issue or create_github_discussion. Use when the developer wants to report a bug, raise an issue, start a discussion, or share any feedback about catalyst-core. This tool drafts the full content with project context attached, searches for duplicate issues/discussions already on GitHub, and returns a preview for the developer to approve — WITHOUT publishing anything. After the developer approves: if type was 'issue', you MUST call create_github_issue. If type was 'discussion', you MUST call create_github_discussion. Intent: feedback.",
+            "Use after start_github_issue_flow and gather_github_issue_context, before create_github_issue. Drafts the full GitHub issue with project context, suggested template, labels/tags, image URLs/paths, and duplicate search, then returns a preview for developer approval WITHOUT publishing anything. If duplicate candidates are returned, show them first and ask whether to cancel/use an existing issue, edit, or continue because this issue is distinct. Show this final rendered template to the developer and ask for edits or explicit publish approval. Intent: feedback.",
         inputSchema: {
             type: "object",
             properties: {
                 title: {
                     type: "string",
-                    description: "Proposed title for the issue or discussion.",
+                    description: "Proposed title for the issue.",
                 },
                 body: {
                     type: "string",
                     description:
-                        "Proposed body. For bugs: include steps to reproduce, expected vs actual behaviour, error messages. For discussions: the question or proposal.",
+                        "Proposed body. Plain text is upgraded into the catalyst-core issue style; already structured markdown is preserved.",
+                },
+                summary: {
+                    type: "string",
+                    description: "Structured issue summary if body is not already composed.",
+                },
+                issue_template: {
+                    type: "string",
+                    enum: ["bug", "enhancement", "documentation", "dependencies", "question"],
+                    description:
+                        "Optional template to force. Use bug for broken behavior, enhancement for feature requests, documentation for docs/examples, dependencies for package updates, question for clarification.",
+                },
+                current_behavior: {
+                    type: "string",
+                    description: "What happens today.",
+                },
+                steps_to_reproduce: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Steps to reproduce the issue.",
+                },
+                expected_behavior: {
+                    type: "string",
+                    description: "What should happen.",
+                },
+                actual_behavior: {
+                    type: "string",
+                    description: "What actually happens.",
+                },
+                error_logs: {
+                    type: "string",
+                    description: "Error logs or stack traces.",
+                },
+                preflight_checklist: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
+                },
+                what_i_tried: {
+                    type: "string",
+                    description: "Troubleshooting already attempted.",
+                },
+                additional_information: {
+                    type: "string",
+                    description: "Additional context that does not fit the primary sections.",
+                },
+                related_issues: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Related GitHub issues or links.",
+                },
+                root_cause: {
+                    type: "string",
+                    description: "Technical notes or suspected root cause.",
+                },
+                proposed_fix: {
+                    type: "string",
+                    description: "Concrete suggested fix.",
+                },
+                optional_followups: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Follow-up cleanup, docs, or test suggestions.",
+                },
+                environment: {
+                    type: ["string", "object"],
+                    description: "Environment details such as platform, OS, browser, device, Node/npm versions.",
+                },
+                context: {
+                    type: ["string", "object"],
+                    description: "Context returned by gather_github_issue_context.",
                 },
                 type: {
                     type: "string",
-                    enum: ["issue", "discussion"],
+                    enum: ["issue"],
                     description:
-                        "'issue' for bugs, regressions, and actionable feature requests. 'discussion' for questions, open-ended ideas, proposals, and general feedback.",
+                        "'issue' for bugs, regressions, and actionable feature requests.",
                 },
                 labels: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Optional label names for issues. E.g. ['bug', 'native'].",
+                    description:
+                        "Optional labels. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool infers one primary label.",
                 },
-                category: {
-                    type: "string",
-                    description: "Optional discussion category. E.g. 'Q&A', 'Ideas', 'General'.",
+                images: {
+                    type: "array",
+                    items: { type: ["string", "object"] },
+                    description:
+                        "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
                 },
             },
-            required: ["title", "body", "type"],
+            required: ["title"],
         },
     },
     {
         name: "create_github_issue",
         description:
-            "Use ONLY when the developer wants to report a bug, request a feature, or raise any problem, AND the preview type was 'issue'. Do NOT call this tool if the preview type was 'discussion' (use create_github_discussion instead). Intent: feedback. Creates an issue on the catalyst-core GitHub repo. Automatically attaches the current catalyst-core version and project name to help triage.",
+            "Use ONLY after preview_github_feedback has been shown and the developer explicitly approved publishing. Creates an issue on the catalyst-core GitHub repo using the selected/suggested template and labels. Automatically attaches the current catalyst-core version and project name to help triage. Before publishing, this tool searches for duplicate candidates and blocks creation if matches are found unless duplicate_review_confirmed:true is passed after showing those candidates to the developer. If GitHub creation, auth, labels, network, or validation fails, return a manual markdown fallback via generate_issue_markdown/fallback. Intent: feedback.",
         inputSchema: {
             type: "object",
             properties: {
@@ -466,40 +598,214 @@ const TOOLS = [
                 body: {
                     type: "string",
                     description:
-                        "Full issue description: steps to reproduce, expected behaviour, actual behaviour, any error messages or stack traces. The more detail, the better.",
+                        "Full issue description. Plain text is upgraded into the catalyst-core issue style; already structured markdown is preserved.",
+                },
+                summary: {
+                    type: "string",
+                    description: "Structured issue summary if body is not already composed.",
+                },
+                issue_template: {
+                    type: "string",
+                    enum: ["bug", "enhancement", "documentation", "dependencies", "question"],
+                    description:
+                        "Optional template to force. Use bug for broken behavior, enhancement for feature requests, documentation for docs/examples, dependencies for package updates, question for clarification.",
+                },
+                current_behavior: {
+                    type: "string",
+                    description: "What happens today.",
+                },
+                steps_to_reproduce: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Steps to reproduce the issue.",
+                },
+                expected_behavior: {
+                    type: "string",
+                    description: "What should happen.",
+                },
+                actual_behavior: {
+                    type: "string",
+                    description: "What actually happens.",
+                },
+                error_logs: {
+                    type: "string",
+                    description: "Error logs or stack traces.",
+                },
+                preflight_checklist: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
+                },
+                what_i_tried: {
+                    type: "string",
+                    description: "Troubleshooting already attempted.",
+                },
+                additional_information: {
+                    type: "string",
+                    description: "Additional context that does not fit the primary sections.",
+                },
+                related_issues: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Related GitHub issues or links.",
+                },
+                root_cause: {
+                    type: "string",
+                    description: "Technical notes or suspected root cause.",
+                },
+                proposed_fix: {
+                    type: "string",
+                    description: "Concrete suggested fix.",
+                },
+                optional_followups: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Follow-up cleanup, docs, or test suggestions.",
+                },
+                environment: {
+                    type: ["string", "object"],
+                    description: "Environment details such as platform, OS, browser, device, Node/npm versions.",
+                },
+                context: {
+                    type: ["string", "object"],
+                    description: "Context returned by gather_github_issue_context.",
                 },
                 labels: {
                     type: "array",
                     items: { type: "string" },
                     description:
-                        "Optional label names to apply. Labels must already exist on the repo. E.g. ['bug', 'routing', 'native'].",
+                        "Optional labels. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool infers one primary label.",
+                },
+                images: {
+                    type: "array",
+                    items: { type: ["string", "object"] },
+                    description:
+                        "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
+                },
+                duplicate_review_confirmed: {
+                    type: "boolean",
+                    description:
+                        "Set true only after preview_github_feedback or create_github_issue returned duplicate candidates, those candidates were shown to the developer, and the developer explicitly confirmed this issue is distinct and should still be published.",
+                },
+                duplicate_review_note: {
+                    type: "string",
+                    description:
+                        "Optional short note explaining why the issue is not a duplicate, after the developer confirms publishing.",
                 },
             },
-            required: ["title", "body"],
+            required: ["title"],
         },
     },
     {
-        name: "create_github_discussion",
+        name: "generate_issue_markdown",
         description:
-            "Use ONLY when the developer wants to ask a question, propose an idea, or start a conversation, AND the preview type was 'discussion'. Do NOT call this tool if the preview type was 'issue' (use create_github_issue instead). Intent: feedback. Creates a GitHub Discussion on the catalyst-core repo. Auto-selects the best category (Q&A for questions, Ideas for proposals, General otherwise).",
+            "Use when create_github_issue fails due to auth, permissions, network, or validation problems, or when the developer explicitly wants a manual GitHub issue draft. Writes a local markdown file under .mcp_issues/ with title, labels, body, context, and image paths for manual copy/upload. Intent: feedback.",
         inputSchema: {
             type: "object",
             properties: {
+                project_path: {
+                    type: "string",
+                    description: "Path to the catalyst app root. Defaults to detected project root.",
+                },
                 title: {
                     type: "string",
-                    description: "Discussion title.",
+                    description: "Short, descriptive issue title.",
                 },
                 body: {
                     type: "string",
-                    description: "Full discussion body — the question, proposal, or topic to discuss.",
+                    description: "Full issue body. Plain text is upgraded into the catalyst-core issue style; already structured markdown is preserved.",
                 },
-                category: {
+                summary: {
                     type: "string",
+                    description: "Structured issue summary if body is not already composed.",
+                },
+                issue_template: {
+                    type: "string",
+                    enum: ["bug", "enhancement", "documentation", "dependencies", "question"],
                     description:
-                        "Optional discussion category name. E.g. 'Q&A', 'Ideas', 'General', 'Show and tell'. If omitted, auto-detected from the body content.",
+                        "Optional template to force. Use bug for broken behavior, enhancement for feature requests, documentation for docs/examples, dependencies for package updates, question for clarification.",
+                },
+                current_behavior: {
+                    type: "string",
+                    description: "What happens today.",
+                },
+                steps_to_reproduce: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Steps to reproduce the issue.",
+                },
+                expected_behavior: {
+                    type: "string",
+                    description: "What should happen.",
+                },
+                actual_behavior: {
+                    type: "string",
+                    description: "What actually happens.",
+                },
+                error_logs: {
+                    type: "string",
+                    description: "Error logs or stack traces.",
+                },
+                preflight_checklist: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
+                },
+                what_i_tried: {
+                    type: "string",
+                    description: "Troubleshooting already attempted.",
+                },
+                additional_information: {
+                    type: "string",
+                    description: "Additional context that does not fit the primary sections.",
+                },
+                related_issues: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Related GitHub issues or links.",
+                },
+                root_cause: {
+                    type: "string",
+                    description: "Technical notes or suspected root cause.",
+                },
+                proposed_fix: {
+                    type: "string",
+                    description: "Concrete suggested fix.",
+                },
+                optional_followups: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Follow-up cleanup, docs, or test suggestions.",
+                },
+                labels: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                        "Optional labels. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool infers one primary label.",
+                },
+                context: {
+                    type: ["string", "object"],
+                    description: "Context returned by gather_github_issue_context.",
+                },
+                images: {
+                    type: "array",
+                    items: { type: ["string", "object"] },
+                    description: "Optional image URLs or local image paths.",
                 },
             },
-            required: ["title", "body"],
+            required: ["title"],
         },
     },
 ]
@@ -519,9 +825,11 @@ const TOOL_HANDLERS = {
     close_task_plan: tasks.handle_close_task_plan,
     sync_catalyst_docs: sync.handle_sync_catalyst_docs,
     query_knowledge: knowledge.handle_query_knowledge,
+    start_github_issue_flow: github.handle_start_github_issue_flow,
+    gather_github_issue_context: github.handle_gather_github_issue_context,
     create_github_issue: github.handle_create_github_issue,
-    create_github_discussion: github.handle_create_github_discussion,
     preview_github_feedback: github.handle_preview_github_feedback,
+    generate_issue_markdown: github.handle_generate_issue_markdown,
 }
 
 // ── MCP JSON-RPC over stdio ───────────────────────────────────────────────────
@@ -589,7 +897,7 @@ rl.on("line", (line) => {
                                 text: JSON.stringify({
                                     error: "out_of_scope",
                                     message:
-                                        "This query is outside Catalyst MCP scope. MCP handles: conversion tracking, debugging, config validation, build flow, architecture, task planning, and doc sync.",
+                                        "This query is outside Catalyst MCP scope. MCP handles: conversion tracking, debugging, config validation, build flow, architecture, task planning, doc sync, and GitHub issue creation.",
                                 }),
                             },
                         ],
