@@ -37,6 +37,7 @@ export class InsightsCollector {
     constructor(measure) {
         this._measure = measure
         this._summaryTimer = null
+        this._insightSeq = 0
 
         // Counters reset per session
         this._bridgeTimeouts = 0
@@ -60,7 +61,8 @@ export class InsightsCollector {
 
     // ─── Feed methods — called by index.js after routing native events ─────────
 
-    notifyBridgeCall({ method, roundTripMs, timedOut }) {
+    notifyBridgeCall({ method, roundTripMs, timedOut, startTime, endTime, callId, interactionId }) {
+        const source = { startTime, endTime, related: { callId, interactionId } }
         if (timedOut) {
             this._bridgeTimeouts++
             this._emitReactive({
@@ -69,6 +71,7 @@ export class InsightsCollector {
                 message: `Bridge call '${method}' never returned`,
                 fix: "Check native handler for the method — it may be throwing silently or not calling the callback",
                 evidence: { method },
+                ...source,
             })
         } else if (roundTripMs > THRESHOLD.BRIDGE_SLOW_MS) {
             this._slowBridgeCalls.push({ method, roundTripMs })
@@ -79,21 +82,34 @@ export class InsightsCollector {
                     message: `Bridge call '${method}' took ${roundTripMs}ms (threshold ${THRESHOLD.BRIDGE_SLOW_MS}ms)`,
                     fix: "Move heavy work off the main thread on the native side; batch calls to reduce round-trips",
                     evidence: { method, roundTripMs, thresholdMs: THRESHOLD.BRIDGE_SLOW_MS },
+                    ...source,
                 })
             }
         }
         this._scheduleSummary()
     }
 
-    notifyFpsDrop({ minFps, avgFps, durationMs, duringInteraction, deltaFps, baselineFps }) {
+    notifyFpsDrop({
+        minFps,
+        avgFps,
+        durationMs,
+        duringInteraction,
+        deltaFps,
+        baselineFps,
+        startTime,
+        endTime,
+        interactionId,
+    }) {
+        const source = { startTime, endTime, related: { interactionId } }
         this._fpsDrops.push({ minFps, durationMs })
         if (duringInteraction) {
             this._emitReactive({
                 severity: "critical",
                 rule: "fps-drop-during-tap",
                 message: `FPS dropped to ${minFps.toFixed(1)} for ${Math.round(durationMs)}ms right after a tap`,
-                fix: "A bridge call or heavy computation is blocking the render thread after interaction — check BridgeCollector spans in the same session",
+                fix: "A bridge call or heavy computation is blocking the render thread after interaction — compare spans with the same interaction ID",
                 evidence: { minFps, avgFps, durationMs, deltaFps, baselineFps },
+                ...source,
             })
         } else if (minFps < 30) {
             this._emitReactive({
@@ -102,6 +118,7 @@ export class InsightsCollector {
                 message: `Severe FPS drop: ${minFps.toFixed(1)}fps min for ${Math.round(durationMs)}ms`,
                 fix: "Look for LoAF spans overlapping this window on the Render track — a long script or layout is stalling frames",
                 evidence: { minFps, avgFps, durationMs, deltaFps, baselineFps },
+                ...source,
             })
         } else if (deltaFps != null && deltaFps >= 10) {
             // Sudden spike: FPS fell sharply even if absolute value is not critical
@@ -111,12 +128,13 @@ export class InsightsCollector {
                 message: `Sudden FPS spike: dropped ${deltaFps.toFixed(1)}fps (${baselineFps?.toFixed(1)} → ${minFps.toFixed(1)}) in one frame window`,
                 fix: "A sudden spike drop — often a one-off heavy layout, image decode, or synchronous bridge call. Check Render track for a LoAF aligned with this episode.",
                 evidence: { minFps, avgFps, durationMs, deltaFps, baselineFps },
+                ...source,
             })
         }
         this._scheduleSummary()
     }
 
-    notifySlowLoad({ url, durationMs }) {
+    notifySlowLoad({ url, durationMs, startTime, endTime }) {
         this._slowLoads.push({ url, durationMs })
         if (durationMs > 4000) {
             this._emitReactive({
@@ -125,12 +143,14 @@ export class InsightsCollector {
                 message: `Page load took ${Math.round(durationMs)}ms (${url.split("/").pop() || url})`,
                 fix: "Check Cache track for cache-miss-fetch bursts; consider preloading route chunks or warming the WebView cache",
                 evidence: { url, durationMs },
+                startTime,
+                endTime,
             })
         }
         this._scheduleSummary()
     }
 
-    notifyColdStart({ durationMs }) {
+    notifyColdStart({ durationMs, startTime, endTime }) {
         this._coldStartMs = durationMs // attach to all future insights automatically
         const severity = durationMs > 3000 ? "critical" : durationMs > 1800 ? "warning" : "info"
         const label = durationMs > 3000 ? "slow" : durationMs > 1800 ? "acceptable" : "fast"
@@ -145,10 +165,12 @@ export class InsightsCollector {
                       ? "Cold start >1.8s — consider moving WebView construction earlier (Application.onCreate vs MainActivity.onCreate); check if large local assets block onPageFinished"
                       : "Cold start within target (≤1.8s). No action needed.",
             evidence: { durationMs, targetMs: 1800, acceptableMs: 3000 },
+            startTime,
+            endTime,
         })
     }
 
-    notifyLoafDuringNav(durationMs) {
+    notifyLoafDuringNav({ durationMs, startTime, endTime }) {
         this._loafsDuringNav++
         if (this._loafsDuringNav === 1) {
             this._emitReactive({
@@ -157,11 +179,13 @@ export class InsightsCollector {
                 message: `Long animation frame (${Math.round(durationMs)}ms) fired during navigation — may cause blank screen`,
                 fix: "Defer non-critical JS execution after page-load-end; split large bundles with dynamic import()",
                 evidence: { durationMs, loafsDuringNav: this._loafsDuringNav },
+                startTime,
+                endTime,
             })
         }
     }
 
-    notifySlowInteraction({ target, responseMs }) {
+    notifySlowInteraction({ target, responseMs, startTime, endTime, interactionId }) {
         this._slowInteractions.push({ target, responseMs })
         if (responseMs > 300) {
             this._emitReactive({
@@ -170,12 +194,16 @@ export class InsightsCollector {
                 message: `Tap on '${target}' took ${responseMs}ms to paint (threshold ${THRESHOLD.INTERACTION_SLOW_MS}ms)`,
                 fix: "A LoAF or bridge call is delaying the paint — check if the tap handler triggers a synchronous bridge call",
                 evidence: { target, responseMs, thresholdMs: THRESHOLD.INTERACTION_SLOW_MS },
+                startTime,
+                endTime,
+                related: { interactionId },
             })
         }
         this._scheduleSummary()
     }
 
-    notifyHighMemory({ currentMb }) {
+    notifyHighMemory({ currentMb, startTime, endTime, memoryId }) {
+        const source = { startTime, endTime, related: { memoryId } }
         // currentMb is webviewMb (V8 + Blink + JNI PSS) — the WebView engine memory.
         // A healthy WebView app idles at 80-120MB. Growth beyond that signals
         // a real leak (un-released image bitmaps, accumulating JS closures, JNI objects).
@@ -187,31 +215,35 @@ export class InsightsCollector {
                 severity: "critical",
                 rule: "memory-critical",
                 message: `WebView memory at ${Math.round(currentMb)}MB — above 120MB critical threshold (V8/Blink/JNI leak likely)`,
-                fix: "Check for un-released image bitmaps, accumulating JS closures, or JNI objects not returned to GC. Compare webviewMb growth across snapshots on the Render track.",
+                fix: "Check for un-released image bitmaps, accumulating JS closures, or JNI objects not returned to GC. Compare WebView memory growth across snapshots on the Memory track.",
                 evidence: { webviewMb: currentMb },
+                ...source,
             })
         } else if (currentMb > 80) {
             this._emitReactive({
                 severity: "warning",
                 rule: "memory-high",
                 message: `WebView memory at ${Math.round(currentMb)}MB — above 80MB warning threshold (healthy idle is <80MB)`,
-                fix: "Monitor webviewMb trend on Render track — sustained growth = leak. Check image cache eviction, dispose WebView event listeners on route unmount.",
+                fix: "Monitor WebView memory on the Memory track — sustained growth = leak. Check image cache eviction and dispose WebView listeners on route unmount.",
                 evidence: { webviewMb: currentMb },
+                ...source,
             })
         }
     }
 
-    notifyHwAccelDuringFrame({ durationMs, thread, trigger }) {
+    notifyHwAccelDuringFrame({ durationMs, thread, trigger, startTime, endTime }) {
         this._emitReactive({
             severity: "critical",
             rule: "hw-accel-during-frame",
             message: `Software rendering was active for ${Math.round(durationMs)}ms during a dropped frame (hw-accel disabled by ${trigger ?? "cache-serve"})`,
             fix: "Cache serving on shouldInterceptRequest disables hardware acceleration — move cache I/O off the WebView thread or batch cache warming on app start to reduce mid-session hw-accel toggles",
             evidence: { durationMs, thread: thread ?? "unknown", trigger: trigger ?? "unknown" },
+            startTime,
+            endTime,
         })
     }
 
-    notifyLayoutShift({ value, sessionContext }) {
+    notifyLayoutShift({ value, sessionContext, startTime, endTime }) {
         this._layoutShifts.push({ value })
         if (value > 0.25) {
             this._emitReactive({
@@ -220,11 +252,13 @@ export class InsightsCollector {
                 message: `Large layout shift (CLS ${value.toFixed(3)}) during '${sessionContext}' phase`,
                 fix: "Reserve space for async-loaded content (images, ads, banners) using explicit height; avoid injecting DOM above visible content",
                 evidence: { value, sessionContext },
+                startTime,
+                endTime,
             })
         }
     }
 
-    notifyScrollJank({ minFps, frameDropCount }) {
+    notifyScrollJank({ minFps, frameDropCount, startTime, endTime }) {
         const severity = minFps < 30 ? "critical" : "warning"
         const rule = minFps < 30 ? "scroll-jank-critical" : "scroll-jank-warning"
         this._emitReactive({
@@ -236,11 +270,13 @@ export class InsightsCollector {
                     ? "Severe scroll jank — check for synchronous bridge calls or layout thrash triggered during scroll. Look for LoAF spans on Render track overlapping the Input track scroll session."
                     : "Scroll dropped below 55fps — common causes: sticky header recalc, cart badge updates, or image decode on scroll. Check Render track LoAF spans inside the scroll session.",
             evidence: { minFps, frameDropCount },
+            startTime,
+            endTime,
         })
         this._scheduleSummary()
     }
 
-    notifyCacheSummary({ hitRatePct, total, avgFetchMs }) {
+    notifyCacheSummary({ hitRatePct, total, avgFetchMs, startTime, endTime }) {
         if (total < 5) return // not enough data
         if (hitRatePct < 50) {
             this._emitReactive({
@@ -249,15 +285,18 @@ export class InsightsCollector {
                 message: `Cache hit rate ${hitRatePct}% (${total} resources) — majority served via network`,
                 fix: "Add missed URLs to the allowedUrls cache list; check cache max-age and disk eviction policy",
                 evidence: { hitRatePct, total, avgFetchMs },
+                startTime,
+                endTime,
             })
         }
     }
 
     // ─── Reactive insight emission ─────────────────────────────────────────────
 
-    _emitReactive({ severity, rule, message, fix, evidence = {} }) {
-        const now = performance.now()
-        const markName = `${PREFIX.INSIGHT}:${rule}:${Math.round(now)}`
+    _emitReactive({ severity, rule, message, fix, evidence = {}, startTime, endTime, related = {} }) {
+        const start = Number.isFinite(startTime) ? startTime : performance.now()
+        const end = Number.isFinite(endTime) ? Math.max(start + 1, endTime) : start + 2
+        const markName = `${PREFIX.INSIGHT}:${rule}:${Math.round(start)}:${++this._insightSeq}`
         const color = severity === "critical" ? "error" : severity === "warning" ? "tertiary" : "secondary"
         const title = this._titleFor(rule, evidence, message)
         const category = this._categoryFor(rule)
@@ -268,11 +307,16 @@ export class InsightsCollector {
             category,
             message,
             fix,
+            ...related,
             ...(this._coldStartMs != null ? { "coldStart.ms": String(Math.round(this._coldStartMs)) } : {}),
-            ...Object.fromEntries(Object.entries(evidence).map(([k, v]) => [`evidence.${k}`, String(v)])),
+            ...Object.fromEntries(
+                Object.entries(evidence)
+                    .filter(([, value]) => value != null)
+                    .map(([key, value]) => [`evidence.${key}`, String(value)])
+            ),
         }
 
-        performance.mark(markName, { startTime: now })
+        performance.mark(markName, { startTime: start })
         this._notifyStore?.({
             severity,
             rule,
@@ -281,12 +325,15 @@ export class InsightsCollector {
             message,
             fix,
             evidence,
-            startTime: now,
+            ...related,
+            startTime: start,
+            endTime: end,
+            durationMs: end - start,
         })
         this._measure.emit(
-            `Insight: ${title}`,
+            `${related.interactionId ? `[${related.interactionId}] ` : ""}Insight: ${title}`,
             markName,
-            now + 2, // point-in-time, minimal duration
+            end,
             detail,
             TRACK.INSIGHTS,
             color

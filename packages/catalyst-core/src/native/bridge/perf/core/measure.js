@@ -13,6 +13,25 @@
 
 import { TRACK_GROUP, COLOR, PREFIX, THRESHOLD } from "./constants.js"
 
+const INTERNAL_PROPERTIES = new Set(["simulatorValid"])
+const PROPERTY_LABELS = {
+    interactionId: "Related tap",
+    parentOperation: "Parent operation",
+    callId: "Call ID",
+    requestId: "Request ID",
+    memoryId: "Memory sample",
+}
+const PROPERTY_PRIORITY = {
+    interactionId: 0,
+    parentOperation: 1,
+    outcome: 2,
+    ok: 3,
+    status: 4,
+    durationMs: 5,
+    roundTripMs: 5,
+    responseMs: 5,
+}
+
 export class Measure {
     constructor() {
         // Rolling window of recent LoAF entries — shared across all collectors
@@ -54,7 +73,7 @@ export class Measure {
                 return
             }
             const resolvedColor = color ?? this._colorFor(name, detail, startTime, endTime)
-            const properties = Object.entries(detail)
+            const properties = this._properties(detail)
 
             performance.measure(name, {
                 start: startTime,
@@ -73,6 +92,50 @@ export class Measure {
         } catch (e) {
             console.warn("[CatalystPerf] measure failed:", name, e.message)
         }
+    }
+
+    marker(name, startTime, detail = {}, color = COLOR.SECONDARY) {
+        try {
+            performance.mark(name, {
+                startTime,
+                detail: {
+                    devtools: {
+                        dataType: "marker",
+                        color,
+                        tooltipText: name,
+                        properties: this._properties(detail),
+                    },
+                },
+            })
+        } catch (e) {
+            console.warn("[CatalystPerf] marker failed:", name, e.message)
+        }
+    }
+
+    _properties(detail) {
+        return Object.entries(detail)
+            .filter(([key, value]) => !INTERNAL_PROPERTIES.has(key) && value != null)
+            .sort(([left], [right]) => (PROPERTY_PRIORITY[left] ?? 100) - (PROPERTY_PRIORITY[right] ?? 100))
+            .map(([key, value]) => [this._propertyName(key), this._propertyValue(value)])
+    }
+
+    _propertyName(key) {
+        if (PROPERTY_LABELS[key]) return PROPERTY_LABELS[key]
+        return key
+            .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+            .replace(/[._-]+/g, " ")
+            .replace(/^./, (char) => char.toUpperCase())
+    }
+
+    _propertyValue(value) {
+        if (typeof value === "object") {
+            try {
+                return JSON.stringify(value)
+            } catch {
+                return String(value)
+            }
+        }
+        return String(value)
     }
 
     // ─── Color derivation ─────────────────────────────────────────────────────
@@ -115,9 +178,9 @@ export class Measure {
         }
 
         // Bridge calls
-        if (name.startsWith(PREFIX.BRIDGE_CALL)) {
+        if (name.startsWith(PREFIX.BRIDGE_CALL) || Number.isFinite(detail.roundTripMs)) {
             if (detail.timedOut) return COLOR.ERROR
-            if (duration > THRESHOLD.BRIDGE_SLOW_MS) return COLOR.ERROR
+            if ((detail.roundTripMs ?? duration) > THRESHOLD.BRIDGE_SLOW_MS) return COLOR.ERROR
             return COLOR.SECONDARY
         }
 
@@ -132,8 +195,10 @@ export class Measure {
             return detail.loafCount > 0 ? COLOR.ERROR : COLOR.SECONDARY
 
         // Interaction
-        if (name.startsWith(PREFIX.INTERACTION))
-            return duration > THRESHOLD.INTERACTION_SLOW_MS ? COLOR.ERROR : COLOR.PRIMARY
+        if (name.startsWith(PREFIX.INTERACTION) || Number.isFinite(detail.responseMs))
+            return (detail.responseMs ?? duration) > THRESHOLD.INTERACTION_SLOW_MS
+                ? COLOR.ERROR
+                : COLOR.PRIMARY
 
         // Long press — just informational
         if (name.startsWith(PREFIX.LONG_PRESS)) return COLOR.TERTIARY

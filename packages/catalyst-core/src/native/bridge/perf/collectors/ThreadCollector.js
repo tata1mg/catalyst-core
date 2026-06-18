@@ -88,6 +88,8 @@ export class ThreadCollector {
                         durationMs: endTime - startTime,
                         thread: offThread,
                         trigger: offTrigger,
+                        startTime,
+                        endTime,
                     })
                 }
             }

@@ -185,7 +185,7 @@ export class CacheCollector {
         )
 
         // Notify InsightsCollector so it can flag low hit rates
-        this._notifyInsights?.({ hitRatePct, total, avgFetchMs })
+        this._notifyInsights?.({ hitRatePct, total, avgFetchMs, startTime, endTime })
     }
 
     _filename(url) {

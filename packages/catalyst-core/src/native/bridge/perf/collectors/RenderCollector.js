@@ -77,24 +77,24 @@ export class RenderCollector {
                 const markName = `${PREFIX.FPS_DROP}:${Math.round(start)}`
                 performance.mark(markName, { startTime: start })
 
-                const sessionId = this._getInteraction?.()?.activeSessionId ?? null
-                if (sessionId) this._getInteraction?.()?.onFpsDrop()
+                const interactionId = this._getInteraction?.()?.interactionIdForRange(start, end) ?? null
+                if (interactionId) this._getInteraction?.()?.onFpsDrop()
 
                 this._measure.emit(
-                    `${PREFIX.FPS_DROP}|${event.minFps.toFixed(1)}fps-min|${Math.round(event.durationMs)}ms`,
+                    `${interactionId ? `[${interactionId}] ` : ""}FPS drop: ${event.minFps.toFixed(1)}fps - ${Math.round(event.durationMs)}ms`,
                     markName,
                     end,
                     {
+                        interactionId,
                         minFps: event.minFps,
                         avgFps: event.avgFps,
                         durationMs: event.durationMs,
                         sessionContext: this._getSessionContext(),
-                        sessionId,
                         thread: event.thread ?? null,
                         simulatorValid: false,
                     },
                     TRACK.RENDER,
-                    event.minFps < 30 ? "error" : "primary"
+                    event.minFps < 30 ? "error" : "tertiary"
                 )
                 this._notifyWaterfall?.({
                     metric: "fps-drop",
@@ -103,18 +103,21 @@ export class RenderCollector {
                     durationMs: event.durationMs,
                     minFps: event.minFps,
                     avgFps: event.avgFps,
-                    sessionId,
+                    sessionId: interactionId,
                 })
-                break
+                return { interactionId, startTime: start, endTime: end }
             }
             case "long-task": {
                 const markName = `${PREFIX.LONG_TASK}:${Math.round(t)}`
+                const interactionId =
+                    this._getInteraction?.()?.interactionIdForRange(t, t + event.durationMs) ?? null
                 performance.mark(markName, { startTime: t })
                 this._measure.emit(
-                    `${PREFIX.LONG_TASK}|${event.durationMs}ms`,
+                    `${interactionId ? `[${interactionId}] ` : ""}Long task: ${event.durationMs}ms`,
                     markName,
                     t + event.durationMs,
                     {
+                        interactionId,
                         durationMs: event.durationMs,
                         sessionContext: this._getSessionContext(),
                         thread: event.thread ?? null,
@@ -128,61 +131,57 @@ export class RenderCollector {
                     startTime: t,
                     endTime: t + event.durationMs,
                     durationMs: event.durationMs,
+                    sessionId: interactionId,
                 })
                 break
             }
             case "memory-snapshot": {
-                // Three point-in-time spans emitted at the same timestamp so they
-                // stack visually. Each has a distinct color so the breakdown is
-                // immediately readable without opening the tooltip.
-                // 1. JVM heap — your Kotlin/Java objects (blue = familiar "your code")
                 const jvmMark = `catalyst:mem/jvm:${Math.round(t)}`
                 performance.mark(jvmMark, { startTime: t })
                 this._measure.emit(
-                    `catalyst:mem/jvm|${event.jvmMb.toFixed(1)}MB`,
+                    `JVM memory: ${event.jvmMb.toFixed(1)}MB`,
                     jvmMark,
                     t + 1,
                     {
-                        what: "Kotlin/Java heap — memory used by your app code, models, and data structures",
+                        memoryId: `memory-jvm-${Math.round(t)}`,
                         jvmMb: event.jvmMb,
                         peakMb: event.peakMb,
                         thread: event.thread ?? null,
                         simulatorValid: false,
-                        ...(event.coldStartMs != null ? { "coldStart.ms": event.coldStartMs } : {}),
+                        ...(event.coldStartMs != null ? { coldStartMs: event.coldStartMs } : {}),
                     },
-                    TRACK.RENDER,
-                    "primary" // blue — your code
+                    TRACK.MEMORY,
+                    "primary"
                 )
 
-                // 2. WebView heap — V8 + Blink + JNI (orange = watch this)
+                const webviewMemoryId = `memory-webview-${Math.round(t)}`
                 const webviewMark = `catalyst:mem/webview:${Math.round(t)}`
                 performance.mark(webviewMark, { startTime: t })
                 this._measure.emit(
-                    `catalyst:mem/webview|${event.webviewMb.toFixed(1)}MB`,
+                    `WebView memory: ${event.webviewMb.toFixed(1)}MB`,
                     webviewMark,
                     t + 1,
                     {
-                        what: "WebView engine heap — V8 JS engine + Blink renderer + JNI bridge; healthy idle is 80-120MB, growth = leak signal",
+                        memoryId: webviewMemoryId,
                         webviewMb: event.webviewMb,
                         otherMb: event.otherMb,
                         peakMb: event.peakMb,
                         thread: event.thread ?? null,
                         simulatorValid: false,
-                        ...(event.coldStartMs != null ? { "coldStart.ms": event.coldStartMs } : {}),
+                        ...(event.coldStartMs != null ? { coldStartMs: event.coldStartMs } : {}),
                     },
-                    TRACK.RENDER,
-                    "tertiary-dark" // orange — WebView/native territory
+                    TRACK.MEMORY,
+                    "tertiary-dark"
                 )
 
-                // 3. Total PSS — what the Android OOM killer acts on (purple → red if high)
-                const totalMark = `catalyst:mem/total:${Math.round(t)}`
+                const totalMark = `${PREFIX.MEMORY_TOTAL}:${Math.round(t)}`
                 performance.mark(totalMark, { startTime: t })
                 this._measure.emit(
-                    `catalyst:mem/total|${event.totalMb.toFixed(1)}MB`,
+                    `Total memory: ${event.totalMb.toFixed(1)}MB`,
                     totalMark,
                     t + 1,
                     {
-                        what: "Total process PSS — full memory footprint seen by Android OOM killer; >400MB = OOM risk",
+                        memoryId: `memory-total-${Math.round(t)}`,
                         totalMb: event.totalMb,
                         jvmMb: event.jvmMb,
                         webviewMb: event.webviewMb,
@@ -190,15 +189,18 @@ export class RenderCollector {
                         peakMb: event.peakMb,
                         thread: event.thread ?? null,
                         simulatorValid: false,
-                        ...(event.coldStartMs != null ? { "coldStart.ms": event.coldStartMs } : {}),
+                        ...(event.coldStartMs != null ? { coldStartMs: event.coldStartMs } : {}),
                     },
-                    TRACK.RENDER,
-                    event.totalMb > 400 ? "error" : "secondary" // purple normally, red if OOM risk
+                    TRACK.MEMORY,
+                    event.totalMb > 400 ? "error" : "secondary"
                 )
 
-                // Feed insights off webviewMb — more meaningful than total for leak detection
-                // (webviewMb growth = V8/Blink/JNI leak; total growth can be normal app data)
-                this._notifyInsights?.({ currentMb: event.webviewMb })
+                this._notifyInsights?.({
+                    currentMb: event.webviewMb,
+                    startTime: t,
+                    endTime: t + 1,
+                    memoryId: webviewMemoryId,
+                })
                 this._notifyWaterfall?.({
                     metric: "memory",
                     startTime: t,
@@ -267,7 +269,12 @@ export class RenderCollector {
                 const markName = `catalyst:cls:${Math.round(entry.startTime)}`
                 performance.mark(markName, { startTime: entry.startTime })
                 if (entry.value > 0.1) {
-                    this._notifyInsights?.({ value: entry.value, sessionContext: context })
+                    this._notifyInsights?.({
+                        value: entry.value,
+                        sessionContext: context,
+                        startTime: entry.startTime,
+                        endTime: entry.startTime + 1,
+                    })
                 }
 
                 this._measure.emit(

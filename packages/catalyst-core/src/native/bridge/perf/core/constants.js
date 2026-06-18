@@ -15,7 +15,9 @@ export const TRACK = {
     INPUT: "Input",
     KEYBOARD: "Keyboard", // alias kept for backward compat — collectors use TRACK.INPUT
     RENDER: "Render",
+    MEMORY: "Memory",
     CACHE: "Cache",
+    NETWORK: "Network",
     BRIDGE: "Bridge",
     HOOK: "Hook",
     INTERACTION: "Interaction",

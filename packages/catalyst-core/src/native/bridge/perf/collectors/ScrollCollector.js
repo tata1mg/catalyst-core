@@ -17,7 +17,7 @@
  *   index.js checks this._scroll._session.isOpen before calling onFpsDrop(event)
  */
 
-import { TRACK, PREFIX, THRESHOLD } from "../core/constants.js"
+import { TRACK, PREFIX } from "../core/constants.js"
 import { Session } from "../core/session.js"
 
 export class ScrollCollector {
@@ -79,7 +79,12 @@ export class ScrollCollector {
         )
 
         if (janky && this._insightsCb) {
-            this._insightsCb({ minFps: this._minFps, frameDropCount: this._frameDropCount })
+            this._insightsCb({
+                minFps: this._minFps,
+                frameDropCount: this._frameDropCount,
+                startTime,
+                endTime: webNow,
+            })
         }
 
         this._notifyWaterfall?.({

@@ -19,6 +19,10 @@
  *   catalyst:long-press|<tag>                — pointerdown held > 500ms (Track: Interaction)
  *                                              detail: target, heldMs
  *
+ * Correlation:
+ *   A lightweight interaction ID remains active from pointerdown to the next frame.
+ *   Related work is tagged without emitting a parent session track.
+ *
  * Disabled session nesting:
  *   On pointerdown, a 2-second interaction session opens.
  *   BridgeCollector and RenderCollector query activeSessionId to tag their spans.
@@ -29,6 +33,7 @@ import { TRACK, PREFIX, THRESHOLD } from "../core/constants.js"
 import { Session } from "../core/session.js"
 
 const SESSION_WINDOW_MS = 2000
+const MAX_RECENT_INTERACTIONS = 50
 
 export class InteractionCollector {
     constructor(measure) {
@@ -40,12 +45,31 @@ export class InteractionCollector {
         this._sessionBridgeCalls = 0
         this._sessionNetworkCalls = 0
         this._sessionFpsDrop = false
+        this._activeInteraction = null
+        this._recentInteractions = []
+        this._interactionSeq = 0
     }
 
     // ─── Public API — queried by BridgeCollector + RenderCollector ─────────────
 
-    get activeSessionId() {
-        return this._session.isOpen ? this._sessionId : null
+    get activeInteractionId() {
+        return this._activeInteraction?.id ?? null
+    }
+
+    interactionIdForRange(startTime, endTime = startTime) {
+        const interactions = this._activeInteraction
+            ? [...this._recentInteractions, this._activeInteraction]
+            : this._recentInteractions
+        return (
+            interactions
+                .slice()
+                .reverse()
+                .find(
+                    (interaction) =>
+                        startTime <= (interaction.endTime ?? performance.now()) &&
+                        endTime >= interaction.startTime
+                )?.id ?? null
+        )
     }
 
     /** Called by index.js to wire up insights notifications. */
@@ -85,9 +109,7 @@ export class InteractionCollector {
     init() {
         document.addEventListener("pointerdown", this._onPointerDown.bind(this), { passive: true })
         document.addEventListener("pointerup", this._onPointerUp.bind(this), { passive: true })
-        document.addEventListener("pointercancel", (e) => this._pendingTaps.delete(e.pointerId), {
-            passive: true,
-        })
+        document.addEventListener("pointercancel", this._onPointerCancel.bind(this), { passive: true })
     }
 
     _openSession(target, startTime) {
@@ -153,40 +175,50 @@ export class InteractionCollector {
         const startTime = performance.now()
         const target = this._describeTarget(e.target)
         const startMark = `${PREFIX.INTERACTION}:${e.pointerId}:start`
+        const interactionId = `Tap #${++this._interactionSeq}`
         performance.mark(startMark, { startTime })
+        this._activeInteraction = { id: interactionId, startTime, endTime: null }
+        this._measure.marker(`${interactionId}: ${target}`, startTime, { interactionId, target }, "secondary")
 
         // The old 2s parent session
         // this._openSession(target, startTime)
-        // const sessionId = this._sessionId
-        const sessionId = null
 
         // Long-press detection timer
         const longPressTimer = setTimeout(() => {
             this._emitLongPress(e.pointerId, target, startTime)
         }, THRESHOLD.LONG_PRESS_MS)
 
-        this._pendingTaps.set(e.pointerId, { startMark, startTime, target, longPressTimer })
+        this._pendingTaps.set(e.pointerId, {
+            startMark,
+            startTime,
+            target,
+            interactionId,
+            longPressTimer,
+        })
 
         // Measure tap → next paint (interaction responsiveness)
         requestAnimationFrame(() => {
             const endTime = performance.now()
             const tap = this._pendingTaps.get(e.pointerId)
-            if (!tap) return // pointerup or cancel already cleaned up
+            if (!tap) return
+            tap.frameComplete = true
+            if (tap.released) this._pendingTaps.delete(e.pointerId)
+            this._rememberInteraction(interactionId, startTime, endTime)
 
             const responseMs = Math.round(endTime - startTime)
             if (responseMs > THRESHOLD.INTERACTION_SLOW_MS) {
-                this._notifyInsights?.({ target, responseMs })
+                this._notifyInsights?.({ target, responseMs, startTime, endTime, interactionId })
             }
 
             this._measure.emit(
-                `${PREFIX.INTERACTION}|${target}`,
+                `${interactionId}: ${target} - ${responseMs}ms`,
                 startMark,
                 endTime,
                 {
                     responseMs,
                     loafOverlap: this._measure.overlapsLoaf(startTime, endTime),
                     target,
-                    sessionId,
+                    interactionId,
                     simulatorValid: false,
                 },
                 TRACK.INTERACTION
@@ -195,7 +227,7 @@ export class InteractionCollector {
             this._notifyWaterfall?.({
                 phase: "end",
                 target,
-                sessionId,
+                sessionId: interactionId,
                 bridgeCalls: 0,
                 networkCalls: 0,
                 fpsDrop: false,
@@ -212,8 +244,25 @@ export class InteractionCollector {
         const tap = this._pendingTaps.get(e.pointerId)
         if (tap) {
             clearTimeout(tap.longPressTimer)
-            this._pendingTaps.delete(e.pointerId)
+            tap.released = true
+            if (tap.frameComplete) this._pendingTaps.delete(e.pointerId)
         }
+    }
+
+    _onPointerCancel(e) {
+        const tap = this._pendingTaps.get(e.pointerId)
+        if (!tap) return
+        clearTimeout(tap.longPressTimer)
+        this._pendingTaps.delete(e.pointerId)
+        if (this._activeInteraction?.id === tap.interactionId) this._activeInteraction = null
+    }
+
+    _rememberInteraction(id, startTime, endTime) {
+        this._recentInteractions.push({ id, startTime, endTime })
+        if (this._recentInteractions.length > MAX_RECENT_INTERACTIONS) {
+            this._recentInteractions.shift()
+        }
+        if (this._activeInteraction?.id === id) this._activeInteraction = null
     }
 
     _emitLongPress(pointerId, target, startTime) {
@@ -226,16 +275,17 @@ export class InteractionCollector {
         performance.mark(markName, { startTime })
 
         this._measure.emit(
-            `${PREFIX.LONG_PRESS}|${target}`,
+            `${tap.interactionId}: Long press ${target} - ${heldMs}ms`,
             markName,
             endTime,
             {
                 target,
                 heldMs,
-                sessionId: this._sessionId,
+                interactionId: tap.interactionId,
                 simulatorValid: true,
             },
-            TRACK.INTERACTION
+            TRACK.INTERACTION,
+            "tertiary"
         )
     }
 

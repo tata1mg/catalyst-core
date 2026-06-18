@@ -37,9 +37,9 @@
  *   RenderCollector.addLoafListener → HookCollector.onLoaf
  *   KeyboardCollector (scroll during keyboard) → ScrollCollector.onScrollDuringKeyboard
  *   NavigationCollector.isLoading → RenderCollector session context
- *   InteractionCollector.activeSessionId → BridgeCollector spans (sessionId tag)
- *   InteractionCollector.activeSessionId → RenderCollector fps-drop spans (sessionId tag)
- *   InteractionCollector.activeSessionId → NetworkTimingCollector fetch/XHR spans (sessionId tag)
+ *   InteractionCollector.activeInteractionId → BridgeCollector spans
+ *   InteractionCollector interaction range → RenderCollector spans
+ *   InteractionCollector.activeInteractionId → NetworkTimingCollector fetch/XHR spans
  *   BridgeCollector / RenderCollector → InteractionCollector (onBridgeCall, onFpsDrop)
  *   CacheCollector.cache-summary → InsightsCollector.notifyCacheSummary
  *   All collectors → InsightsCollector (reactive warnings + session summary)
@@ -67,6 +67,7 @@ class WebPerfCollector {
         // Read lazily on each call — __NATIVE_TIME_OFFSET is injected via evaluateJavascript
         // in onPageStarted which may not have executed yet when this constructor runs.
         const nativeToWeb = (nativeMs) => nativeMs - (window.__NATIVE_TIME_OFFSET ?? 0)
+        this._nativeToWeb = nativeToWeb
 
         // ── Shared core ────────────────────────────────────────────────────────
         const measure = new Measure()
@@ -95,7 +96,11 @@ class WebPerfCollector {
         // LoAF during navigation → Insights
         this._render.addLoafListener((start, end) => {
             if (this._nav.isLoading) {
-                this._insights.notifyLoafDuringNav(end - start)
+                this._insights.notifyLoafDuringNav({
+                    durationMs: end - start,
+                    startTime: start,
+                    endTime: end,
+                })
             }
         })
 
@@ -103,6 +108,8 @@ class WebPerfCollector {
         this._bridge.setInteractionSource(() => this._interaction)
         this._render.setInteractionSource(() => this._interaction)
         this._networkTiming.setInteractionSource(() => this._interaction)
+        this._api.setBridgeSource(() => this._bridge)
+        this._api.setInteractionSource(() => this._interaction)
 
         // Normalized store feed for waterfalls, tables, export, and future DevTools UI.
         this._nav.setWaterfallSource((data) => this._store.recordNavigation(data))
@@ -256,7 +263,11 @@ class WebPerfCollector {
         } else if (type === "page-load-end") {
             this._nav.onNativeEvent(event)
             if (event.durationMs != null) {
-                this._insights.notifySlowLoad({ url: event.url, durationMs: event.durationMs })
+                this._insights.notifySlowLoad({
+                    url: event.url,
+                    durationMs: event.durationMs,
+                    ...this._nativeRange(event),
+                })
             }
         } else if (type?.startsWith("boot-")) {
             this._nav.onBatchEvent(event)
@@ -270,7 +281,7 @@ class WebPerfCollector {
             this._api.onBatchEvent(event)
         } else if (type === "cold-start") {
             this._nav.onNativeEvent(event)
-            this._insights.notifyColdStart({ durationMs: event.durationMs })
+            this._insights.notifyColdStart({ durationMs: event.durationMs, ...this._nativeRange(event) })
         } else {
             // Unknown batch event — silently ignore (may be from future native additions)
         }
@@ -315,18 +326,25 @@ class WebPerfCollector {
             case "page-load-end": {
                 this._nav.onNativeEvent(event)
                 if (event.durationMs != null) {
-                    this._insights.notifySlowLoad({ url: event.url, durationMs: event.durationMs })
+                    this._insights.notifySlowLoad({
+                        url: event.url,
+                        durationMs: event.durationMs,
+                        ...this._nativeRange(event),
+                    })
                 }
                 break
             }
 
             case "cold-start":
                 this._nav.onNativeEvent(event)
-                this._insights.notifyColdStart({ durationMs: event.durationMs })
+                this._insights.notifyColdStart({
+                    durationMs: event.durationMs,
+                    ...this._nativeRange(event),
+                })
                 break
 
             case "fps-drop-episode": {
-                this._render.onNativeEvent(event)
+                const source = this._render.onNativeEvent(event)
                 // Option B: feed fps-drop into scroll session if one is open
                 if (this._scroll._session.isOpen) {
                     this._scroll.onFpsDrop(event)
@@ -335,9 +353,12 @@ class WebPerfCollector {
                     minFps: event.minFps,
                     avgFps: event.avgFps,
                     durationMs: event.durationMs,
-                    duringInteraction: this._interaction.activeSessionId != null,
+                    duringInteraction: source?.interactionId != null,
                     deltaFps: event.deltaFps ?? null,
                     baselineFps: event.baselineFps ?? null,
+                    interactionId: source?.interactionId ?? null,
+                    startTime: source?.startTime,
+                    endTime: source?.endTime,
                 })
                 break
             }
@@ -371,6 +392,14 @@ class WebPerfCollector {
             default:
                 console.warn("[CatalystPerf] Unknown native event type:", event.type)
         }
+    }
+
+    _nativeRange(event) {
+        const nativeEnd = event.nativeTime ?? event.nativeEndMs ?? event.endNativeTime
+        if (!Number.isFinite(nativeEnd)) return {}
+        const endTime = this._nativeToWeb(nativeEnd)
+        const durationMs = Number.isFinite(event.durationMs) ? event.durationMs : 1
+        return { startTime: Math.max(0, endTime - durationMs), endTime }
     }
 
     // ─── Session context helper ───────────────────────────────────────────────

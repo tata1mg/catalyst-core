@@ -226,6 +226,8 @@ export class PerfStore {
             startTime: data.startTime,
             endTime: data.endTime,
             durationMs: data.durationMs,
+            sessionId: data.sessionId ?? null,
+            interactionId: data.sessionId ?? null,
             detail: { ...data },
         })
     }
@@ -304,8 +306,12 @@ export class PerfStore {
             message: data.message,
             fix: data.fix,
             startTime: data.startTime,
-            endTime: (data.startTime ?? 0) + 1,
-            durationMs: 1,
+            endTime: data.endTime ?? (data.startTime ?? 0) + 1,
+            durationMs: data.durationMs ?? 1,
+            interactionId: data.interactionId ?? null,
+            callId: data.callId ?? null,
+            requestId: data.requestId ?? null,
+            memoryId: data.memoryId ?? null,
             detail: { ...data },
         })
     }

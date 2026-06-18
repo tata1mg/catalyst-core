@@ -27,6 +27,8 @@
 
 import { TRACK, PREFIX, THRESHOLD } from "../core/constants.js"
 
+const MAX_CALL_CORRELATIONS = 500
+
 export class BridgeCollector {
     constructor(measure, nativeToWeb) {
         this._measure = measure
@@ -34,6 +36,7 @@ export class BridgeCollector {
         this._getInteraction = null // set by index.js after construction
         // Pending calls: callId → { startMark, startTime, method, timeoutHandle }
         this._pending = new Map()
+        this._callInteractions = new Map()
     }
 
     /** Called by index.js to wire up interaction session context. */
@@ -49,6 +52,10 @@ export class BridgeCollector {
     /** Called by index.js to feed the normalized perf store. */
     setWaterfallSource(fn) {
         this._notifyWaterfall = fn
+    }
+
+    interactionIdForCall(callId) {
+        return this._callInteractions.get(callId) ?? null
     }
 
     init() {
@@ -70,19 +77,34 @@ export class BridgeCollector {
         const { callId, method, nativeTime } = event
         const startTime = this._nativeToWeb(nativeTime)
         const startMark = `${PREFIX.BRIDGE_CALL}:${callId}:start`
+        const interactionId = this._getInteraction?.()?.activeInteractionId ?? null
+        if (interactionId) {
+            this._callInteractions.set(callId, interactionId)
+            if (this._callInteractions.size > MAX_CALL_CORRELATIONS) {
+                this._callInteractions.delete(this._callInteractions.keys().next().value)
+            }
+        }
 
         performance.mark(startMark, { startTime })
 
         // Set timeout — if no end arrives, emit a timed-out span
         const timeoutHandle = setTimeout(() => {
-            this._emitSpan(callId, method, startMark, startTime, {
-                ok: false,
-                payloadSize: null,
-                timedOut: true,
-            })
+            this._emitSpan(
+                callId,
+                method,
+                startMark,
+                startTime,
+                {
+                    ok: false,
+                    payloadSize: null,
+                    timedOut: true,
+                },
+                null,
+                interactionId
+            )
         }, THRESHOLD.BRIDGE_TIMEOUT_MS)
 
-        this._pending.set(callId, { startMark, startTime, method, timeoutHandle })
+        this._pending.set(callId, { startMark, startTime, method, timeoutHandle, interactionId })
     }
 
     _onCallEnd(event) {
@@ -103,18 +125,26 @@ export class BridgeCollector {
                 payloadSize: payloadSize ?? null,
                 timedOut: false,
             },
-            endTime
+            endTime,
+            pending.interactionId
         )
     }
 
-    _emitSpan(callId, method, startMark, startTime, detail, endTime = null) {
+    _emitSpan(callId, method, startMark, startTime, detail, endTime = null, interactionId = null) {
         this._pending.delete(callId)
         const end = endTime ?? performance.now()
 
-        const sessionId = this._getInteraction?.()?.activeSessionId ?? null
         const roundTripMs = Math.round(end - startTime)
-        if (sessionId) this._getInteraction?.()?.onBridgeCall()
-        this._notifyInsights?.({ method, roundTripMs, timedOut: detail.timedOut ?? false })
+        if (interactionId) this._getInteraction?.()?.onBridgeCall()
+        this._notifyInsights?.({
+            method,
+            roundTripMs,
+            timedOut: detail.timedOut ?? false,
+            startTime,
+            endTime: end,
+            callId,
+            interactionId,
+        })
         this._notifyWaterfall?.({
             method,
             durationMs: roundTripMs,
@@ -122,17 +152,18 @@ export class BridgeCollector {
             ok: detail.ok ?? true,
             startTime,
             endTime: end,
-            sessionId,
+            sessionId: interactionId,
         })
 
         this._measure.emit(
-            `${PREFIX.BRIDGE_CALL}|${method}`,
+            `${interactionId ? `[${interactionId}] ` : ""}Bridge: ${method} - ${roundTripMs}ms`,
             startMark,
             end,
             {
+                interactionId,
                 method,
-                roundTripMs: Math.round(end - startTime),
-                sessionId,
+                roundTripMs,
+                callId,
                 ...detail,
                 simulatorValid: false,
             },

@@ -120,16 +120,15 @@ export class NetworkTimingCollector {
         const url = this._normalizeUrl(rawUrl)
         const label = this._labelForUrl(url)
         const requestId = `${api}:${++this._requestSeq}`
-        const measureName = `${PREFIX.NETWORK_TIMING}/${api}|${normalizedMethod}|${label}`
-        const startMark = `${measureName}:start:${requestId}`
+        const startMark = `${PREFIX.NETWORK_TIMING}:${requestId}:start`
 
         performance.mark(startMark, { startTime })
 
         const interaction = this._getInteraction?.()
-        const sessionId = interaction?.activeSessionId ?? null
-        if (sessionId) interaction?.onNetworkCall?.()
+        const interactionId = interaction?.activeInteractionId ?? null
+        if (interactionId) interaction?.onNetworkCall?.()
 
-        return { api, method: normalizedMethod, url, requestId, measureName, startMark, startTime, sessionId }
+        return { api, method: normalizedMethod, url, label, requestId, startMark, startTime, interactionId }
     }
 
     _finish(span, result = {}) {
@@ -149,7 +148,7 @@ export class NetworkTimingCollector {
             ok,
             outcome,
             durationMs,
-            sessionId: span.sessionId,
+            sessionId: span.interactionId,
             requestId: span.requestId,
             simulatorValid: true,
         }
@@ -160,7 +159,14 @@ export class NetworkTimingCollector {
             endTime,
         })
 
-        this._measure.emit(span.measureName, span.startMark, endTime, detail, TRACK.BRIDGE, color)
+        this._measure.emit(
+            `${span.interactionId ? `[${span.interactionId}] ` : ""}Network: ${span.method} ${span.label} - ${durationMs}ms`,
+            span.startMark,
+            endTime,
+            { interactionId: span.interactionId, ...detail, sessionId: undefined },
+            TRACK.NETWORK,
+            color
+        )
     }
 
     _normalizeUrl(rawUrl) {
