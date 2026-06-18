@@ -68,7 +68,7 @@ try {
 let withObservability = (_service, fn) => fn
 let withSyncObservability = (_service, fn) => fn
 
-if (process.env.OTEL_ENABLE === "true") {
+if (process.env.OTEL_ENABLE === true) {
     try {
         const otel = await import("../../otel.js")
         withObservability = otel.withObservability

@@ -11,7 +11,22 @@ import fs from "fs"
 const { cyan, yellow, green } = pc
 
 import { validateMiddleware, safeCall } from "./utils/validator.js"
+import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
+
+// OpenTelemetry is opt-in (OTEL_ENABLE) — mirrors server/renderer/handler.jsx.
+// Passthrough no-op middleware when disabled or packages aren't installed.
+let responseFlushMiddleware = () => (_req, _res, next) => next()
+if (process.env.OTEL_ENABLE === true) {
+    try {
+        const otel = await import("../otel.js")
+        responseFlushMiddleware = otel.responseFlushMiddleware
+    } catch {
+        // otel packages not installed — continue without the flush span
+    }
+}
+
+const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
 
 // ─── Load app-defined server lifecycle hooks ──────────────────────────────────
 let onServerError
@@ -81,6 +96,12 @@ async function createServer() {
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
 
+    // response.compress + response.flush spans straddle compression — they
+    // attribute the time past the `handler` span (gzip/brotli, then egress).
+    // MUST be mounted immediately before compression() so its outer res.end
+    // hook reliably wraps compression's patch (no-op when OTEL off).
+    app.use(responseFlushMiddleware(SSR_SERVICE, "response.flush", "response.compress"))
+
     // The middleware will attempt to compress response bodies for all request that traverse through the middleware
     app.use(compression())
 
@@ -140,6 +161,8 @@ async function createServer() {
             productionRender = await import(rendererPath)
         }
     }
+
+    app.use(botDetectionMiddleware)
 
     app.use("*", async (req, res) => {
         try {
