@@ -37,7 +37,18 @@ function label(record, fallback) {
 }
 
 function detail(record) {
-    return record.detail ?? record
+    const source = record.detail ?? record
+    const relatedTap = record.interactionId ?? record.sessionId ?? source.interactionId ?? source.sessionId
+    return relatedTap ? { relatedTap, ...source } : source
+}
+
+function displayLabel(record, fallback) {
+    const base = label(record, fallback)
+    const source = record.detail ?? record
+    const relatedTap = record.interactionId ?? record.sessionId ?? source.interactionId ?? source.sessionId
+    if (!relatedTap) return base
+    if (record.kind === "interaction") return `${relatedTap}: ${record.target ?? source.target ?? base}`
+    return base.startsWith(`[${relatedTap}]`) ? base : `[${relatedTap}] ${base}`
 }
 
 function sessionThread(kind) {
@@ -68,7 +79,7 @@ function addMetadata(events, pid) {
 function addDuration(events, record, tid, category, fallbackName) {
     const startTime = record.startTime ?? record.time ?? 0
     events.push({
-        name: label(record, fallbackName),
+        name: displayLabel(record, fallbackName),
         cat: category,
         ph: "X",
         ts: us(startTime),
@@ -81,7 +92,7 @@ function addDuration(events, record, tid, category, fallbackName) {
 
 function addInstant(events, record, tid, category, fallbackName) {
     events.push({
-        name: label(record, fallbackName),
+        name: displayLabel(record, fallbackName),
         cat: category,
         ph: "i",
         s: "t",
@@ -89,6 +100,22 @@ function addInstant(events, record, tid, category, fallbackName) {
         pid: 1,
         tid,
         args: detail(record),
+    })
+}
+
+function addTapMarker(events, session) {
+    const source = session.detail ?? session
+    const tap = session.interactionId ?? session.sessionId ?? source.interactionId ?? source.sessionId
+    if (!tap) return
+    events.push({
+        name: `${tap}: ${session.target ?? source.target ?? "interaction"}`,
+        cat: "Catalyst Interaction",
+        ph: "i",
+        s: "g",
+        ts: us(session.startTime ?? 0),
+        pid: 1,
+        tid: THREADS.input,
+        args: { relatedTap: tap, target: session.target ?? source.target ?? "unknown" },
     })
 }
 
@@ -118,13 +145,16 @@ export function buildChromeTrace(data) {
 
     for (const session of data.sessions ?? []) {
         addDuration(traceEvents, session, sessionThread(session.kind), `Catalyst ${session.kind}`, "Session")
+        if (session.kind === "interaction") addTapMarker(traceEvents, session)
     }
 
     for (const request of data.requests ?? []) {
         addDuration(traceEvents, request, requestThread(request.kind), `Catalyst ${request.kind}`, "Request")
     }
 
+    const hasMemorySamples = (data.metrics ?? []).some((metric) => metric.kind === "memory")
     for (const metric of data.metrics ?? []) {
+        if (metric.kind === "memory-summary" && hasMemorySamples) continue
         if (metric.kind === "memory" || metric.kind === "memory-summary") {
             addCounter(traceEvents, metric)
         } else {

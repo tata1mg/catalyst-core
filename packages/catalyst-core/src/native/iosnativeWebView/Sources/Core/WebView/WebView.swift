@@ -306,7 +306,7 @@ extension WebView.Coordinator: UIScrollViewDelegate {
         CatalystPerf.emit([
             "type": type,
             "nativeTime": CatalystPerf.nativeTimeMs(),
-            "height": frame?.height ?? 0,
+            "keyboardHeight": frame?.height ?? 0,
             "durationMs": Int((durationSeconds ?? 0) * 1000),
         ], to: perfWebView)
     }

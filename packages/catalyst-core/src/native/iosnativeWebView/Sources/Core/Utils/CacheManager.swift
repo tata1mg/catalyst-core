@@ -202,9 +202,10 @@ public final class CacheManager {
                 CatalystPerf.add([
                     "type": "network-fetch-complete",
                     "url": request.url?.absoluteString ?? "",
-                    "status": httpResponse.statusCode,
+                    "statusCode": httpResponse.statusCode,
                     "resourceType": "document",
                     "nativeTime": fetchStartMs,
+                    "nativeStartMs": fetchStartMs,
                     "durationMs": durationMs,
                 ])
                 storeCachedResponse(httpResponse, data: data, for: request)

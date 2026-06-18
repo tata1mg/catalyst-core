@@ -1024,6 +1024,7 @@ class CustomWebView(
                 progressBar.visibility = View.GONE
                 if(!isInitialPageLoaded){
                     isInitialPageLoaded = true
+                    metricsMonitor.markAppStartComplete()
                 }
                 url?.let { metricsMonitor.trackPageLoadEnd(it) }
 

@@ -147,6 +147,7 @@ export class BridgeCollector {
         })
         this._notifyWaterfall?.({
             method,
+            callId,
             durationMs: roundTripMs,
             timedOut: detail.timedOut ?? false,
             ok: detail.ok ?? true,

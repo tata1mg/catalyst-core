@@ -383,6 +383,18 @@ export class PerfStore {
         }
 
         if (type === "memory-snapshot") {
+            this._add("metrics", {
+                id: this._id("metric"),
+                kind: "memory",
+                name: "memory",
+                label: `Memory ${round(event.totalMb)}MB total`,
+                startTime: time,
+                endTime: time + 1,
+                durationMs: 1,
+                value: event.totalMb,
+                unit: "MB",
+                detail: { ...event },
+            })
             this._updateMemorySummary(event, time)
             return
         }

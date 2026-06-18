@@ -66,6 +66,7 @@ export class ApiCollector {
             startTime,
             endTime,
             sessionId: interactionId,
+            parentOperation: `Bridge: ${method}`,
         })
         this._measure.emit(
             `${interactionId ? `[${interactionId}] ` : ""}Native API: ${method} - ${durationMs}ms`,

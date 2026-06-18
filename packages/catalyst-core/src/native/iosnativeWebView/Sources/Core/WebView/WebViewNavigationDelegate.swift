@@ -139,6 +139,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                         "url": url.absoluteString,
                         "resourceType": "document",
                         "nativeTime": cacheStartMs,
+                        "nativeStartMs": cacheStartMs,
                         "durationMs": cacheDurationMs,
                         "source": cacheState == .fresh ? "fresh" : "stale",
                     ])
@@ -165,6 +166,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                         "url": url.absoluteString,
                         "resourceType": "document",
                         "nativeTime": cacheStartMs,
+                        "nativeStartMs": cacheStartMs,
                         "durationMs": cacheDurationMs,
                     ])
                     break

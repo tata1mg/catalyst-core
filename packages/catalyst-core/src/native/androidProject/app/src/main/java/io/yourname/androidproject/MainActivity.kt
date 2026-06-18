@@ -406,9 +406,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     customWebView.showOfflinePage()
                 }
             }
-
-            metricsMonitor.markAppStartComplete()
-
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
             // TODO: Add HTML file workflow - error.html not available yet

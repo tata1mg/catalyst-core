@@ -39,6 +39,7 @@ class MetricsMonitor(private val context: Context) {
     // App Startup metrics
     private var appStartTime: Long = SystemClock.elapsedRealtime()
     private var coldStartDuration: Long = 0
+    private var coldStartCompleted = false
 
     // Page Load metrics
     private val pageLoadTimes = mutableMapOf<String, Long>()
@@ -104,6 +105,8 @@ class MetricsMonitor(private val context: Context) {
     }
 
     fun markAppStartComplete() {
+        if (coldStartCompleted) return
+        coldStartCompleted = true
         coldStartDuration = SystemClock.elapsedRealtime() - appStartTime
         Log.d(TAG, "App cold start completed in: $coldStartDuration ms")
         // Buffer so it is delivered with the post-load batch flush when JS is ready.

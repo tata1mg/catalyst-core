@@ -9,8 +9,10 @@ final class DisplayLinkPerfMonitor {
     private var fpsSum: Double = 0
     private var sampleCount = 0
     private var lastTimestamp: CFTimeInterval?
+    private var lastStableFps: Double = 60
+    private var dropBaselineFps: Double = 60
 
-    private let dropThresholdFps = 45.0
+    private let dropThresholdFps = 55.0
     private let minDropDurationMs: Int64 = 250
 
     init(webView: WKWebView) {
@@ -32,6 +34,8 @@ final class DisplayLinkPerfMonitor {
         fpsSum = 0
         minFps = 60
         lastTimestamp = nil
+        lastStableFps = 60
+        dropBaselineFps = 60
     }
 
     @objc private func tick(_ link: CADisplayLink) {
@@ -48,6 +52,7 @@ final class DisplayLinkPerfMonitor {
                 minFps = fps
                 fpsSum = 0
                 sampleCount = 0
+                dropBaselineFps = lastStableFps
             }
             minFps = min(minFps, fps)
             fpsSum += fps
@@ -55,18 +60,27 @@ final class DisplayLinkPerfMonitor {
             return
         }
 
-        guard let startMs = dropStartMs else { return }
+        guard let startMs = dropStartMs else {
+            lastStableFps = fps
+            return
+        }
         let durationMs = now - startMs
         if durationMs >= minDropDurationMs, sampleCount > 0 {
             CatalystPerf.emit([
                 "type": "fps-drop-episode",
                 "nativeTime": startMs,
+                "startNativeTime": startMs,
+                "endNativeTime": now,
                 "durationMs": durationMs,
                 "minFps": minFps,
                 "avgFps": fpsSum / Double(sampleCount),
+                "deltaFps": dropBaselineFps - minFps,
+                "baselineFps": dropBaselineFps,
+                "thread": Thread.current.name ?? "main",
             ], to: webView)
         }
 
+        lastStableFps = fps
         dropStartMs = nil
         sampleCount = 0
         fpsSum = 0
