@@ -1,0 +1,446 @@
+name: Prepare Release
+
+on:
+    workflow_dispatch:
+        inputs:
+            release_tag:
+                description: "Release channel to prepare"
+                required: true
+                type: choice
+                options:
+                    - beta
+                    - latest
+                    - canary
+                default: beta
+            prepare_core:
+                description: "Prepare catalyst-core"
+                required: true
+                type: boolean
+                default: true
+            core_version_bump:
+                description: "catalyst-core version bump type"
+                required: true
+                type: choice
+                options:
+                    - patch
+                    - minor
+                    - major
+                    - release
+                    - custom
+                default: custom
+            core_custom_version:
+                description: "Custom catalyst-core version"
+                required: false
+                type: string
+            prepare_cca:
+                description: "Prepare create-catalyst-app"
+                required: true
+                type: boolean
+                default: false
+            cca_version_bump:
+                description: "create-catalyst-app version bump type"
+                required: true
+                type: choice
+                options:
+                    - patch
+                    - minor
+                    - major
+                    - release
+                    - custom
+                default: custom
+            cca_custom_version:
+                description: "Custom create-catalyst-app version"
+                required: false
+                type: string
+            dry_run:
+                description: "Dry run"
+                required: true
+                type: boolean
+                default: false
+
+permissions:
+    contents: write
+    id-token: write
+
+jobs:
+    prepare:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Validate branch and inputs
+              env:
+                  BRANCH: ${{ github.ref_name }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION_BUMP: ${{ inputs.core_version_bump }}
+                  CORE_CUSTOM_VERSION: ${{ inputs.core_custom_version }}
+                  CCA_VERSION_BUMP: ${{ inputs.cca_version_bump }}
+                  CCA_CUSTOM_VERSION: ${{ inputs.cca_custom_version }}
+              run: |
+                  validate_custom_version() {
+                    PACKAGE_LABEL="$1"
+                    VERSION_BUMP="$2"
+                    CUSTOM_VERSION="$3"
+
+                    if [ "$VERSION_BUMP" != "custom" ]; then
+                      return
+                    fi
+
+                    if [ -z "$CUSTOM_VERSION" ]; then
+                      echo "::error::$PACKAGE_LABEL custom version is empty"
+                      exit 1
+                    fi
+
+                    if ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+                      echo "::error::Invalid $PACKAGE_LABEL version format '$CUSTOM_VERSION'. Expected X.Y.Z or X.Y.Z-prerelease"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "beta" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'; then
+                      echo "::error::$PACKAGE_LABEL beta releases require X.Y.Z-beta.N"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "canary" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
+                      echo "::error::$PACKAGE_LABEL canary releases require X.Y.Z-canary.N"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "latest" ] && ! echo "$CUSTOM_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'; then
+                      echo "::error::$PACKAGE_LABEL latest releases require either X.Y.Z or X.Y.Z-beta.N"
+                      exit 1
+                    fi
+                  }
+
+                  if [ "$PREPARE_CORE" != "true" ] && [ "$PREPARE_CCA" != "true" ]; then
+                    echo "::error::Select at least one package to prepare"
+                    exit 1
+                  fi
+
+                  if [ "$BRANCH" == "main" ] || [ "$BRANCH" == "canary" ]; then
+                    echo "::error::prepare-release must run from a working branch, not '$BRANCH'"
+                    exit 1
+                  fi
+
+                  if [ "$RELEASE_TAG" != "latest" ] && { { [ "$PREPARE_CORE" == "true" ] && [ "$CORE_VERSION_BUMP" == "release" ]; } || { [ "$PREPARE_CCA" == "true" ] && [ "$CCA_VERSION_BUMP" == "release" ]; }; }; then
+                    echo "::error::'release' bump is only valid for latest releases"
+                    exit 1
+                  fi
+
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    validate_custom_version "catalyst-core" "$CORE_VERSION_BUMP" "$CORE_CUSTOM_VERSION"
+                  fi
+
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    validate_custom_version "create-catalyst-app" "$CCA_VERSION_BUMP" "$CCA_CUSTOM_VERSION"
+                  fi
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  registry-url: "https://registry.npmjs.org"
+
+            - name: Compute and apply target versions
+              id: versions
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION_BUMP: ${{ inputs.core_version_bump }}
+                  CORE_CUSTOM_VERSION: ${{ inputs.core_custom_version }}
+                  CCA_VERSION_BUMP: ${{ inputs.cca_version_bump }}
+                  CCA_CUSTOM_VERSION: ${{ inputs.cca_custom_version }}
+              run: |
+                  CORE_PACKAGE_NAME="catalyst-core"
+                  CCA_PACKAGE_NAME="create-catalyst-app"
+
+                  set_target_version() {
+                    WORKSPACE_NAME="$1"
+                    PACKAGE_NAME="$2"
+                    PACKAGE_FILE="$3"
+                    VERSION_BUMP="$4"
+                    CUSTOM_VERSION="$5"
+                    OUTPUT_PREFIX="$6"
+
+                    CURRENT_VERSION=$(node -p "require('${PACKAGE_FILE}').version")
+                    CURRENT_BASE_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-.*//')
+
+                    if [ "$VERSION_BUMP" == "custom" ]; then
+                      TARGET_VERSION="$CUSTOM_VERSION"
+                    elif [ "$RELEASE_TAG" == "beta" ] || [ "$RELEASE_TAG" == "canary" ]; then
+                      if [ "$VERSION_BUMP" == "patch" ] && echo "$CURRENT_VERSION" | grep -q -- "-${RELEASE_TAG}\."; then
+                        TARGET_BASE_VERSION="$CURRENT_BASE_VERSION"
+                      else
+                        npm version "$VERSION_BUMP" --workspace "$WORKSPACE_NAME" --no-git-tag-version
+                        TARGET_BASE_VERSION=$(node -p "require('${PACKAGE_FILE}').version" | sed 's/-.*//')
+                      fi
+
+                      NPM_VIEW_OUTPUT=$(mktemp)
+                      NPM_VIEW_ERROR=$(mktemp)
+                      NODE_PARSE_ERROR=$(mktemp)
+                      NPM_VIEW_QUERY="$PACKAGE_NAME@>=${TARGET_BASE_VERSION}-${RELEASE_TAG}.0 <${TARGET_BASE_VERSION}-${RELEASE_TAG}.9999"
+
+                      if npm view "$NPM_VIEW_QUERY" version --json > "$NPM_VIEW_OUTPUT" 2> "$NPM_VIEW_ERROR"; then
+                        if ! LATEST_PRERELEASE=$(node -e '
+                          const tag = process.argv[1]
+                          let data = ""
+                          process.stdin.on("data", (chunk) => (data += chunk))
+                          process.stdin.on("end", () => {
+                            try {
+                              if (!data.trim()) {
+                                console.log("-1")
+                                return
+                              }
+
+                              const value = JSON.parse(data)
+                              const versions = (Array.isArray(value) ? value : [value]).filter(Boolean)
+                              const prereleasePattern = new RegExp(`-${tag}\\.(\\d+)$`)
+                              const prereleaseNumbers = versions
+                                .map((version) => String(version).match(prereleasePattern))
+                                .filter(Boolean)
+                                .map((match) => Number(match[1]))
+
+                              console.log(prereleaseNumbers.length ? Math.max(...prereleaseNumbers) : -1)
+                            } catch (error) {
+                              console.error(error.message)
+                              process.exit(1)
+                            }
+                          })
+                        ' "$RELEASE_TAG" < "$NPM_VIEW_OUTPUT" 2> "$NODE_PARSE_ERROR"); then
+                          echo "::error::Failed to parse npm prerelease response for $NPM_VIEW_QUERY"
+                          cat "$NODE_PARSE_ERROR"
+                          exit 1
+                        fi
+                      elif grep -qiE 'E404|No match found|not in this registry' "$NPM_VIEW_ERROR"; then
+                        LATEST_PRERELEASE=-1
+                      else
+                        echo "::error::Failed to query npm prereleases for $NPM_VIEW_QUERY"
+                        cat "$NPM_VIEW_ERROR"
+                        exit 1
+                      fi
+
+                      rm -f "$NPM_VIEW_OUTPUT" "$NPM_VIEW_ERROR" "$NODE_PARSE_ERROR"
+
+                      if ! echo "$LATEST_PRERELEASE" | grep -qE '^-?[0-9]+$'; then
+                        echo "::error::Invalid latest prerelease number '$LATEST_PRERELEASE' for $NPM_VIEW_QUERY"
+                        exit 1
+                      fi
+
+                      NEXT_PRERELEASE=$((LATEST_PRERELEASE + 1))
+                      TARGET_VERSION="${TARGET_BASE_VERSION}-${RELEASE_TAG}.${NEXT_PRERELEASE}"
+                    else
+                      if [ "$VERSION_BUMP" == "release" ]; then
+                        if [ "$CURRENT_VERSION" == "$CURRENT_BASE_VERSION" ]; then
+                          echo "::error::$PACKAGE_NAME version '$CURRENT_VERSION' is already stable"
+                          exit 1
+                        fi
+                        TARGET_VERSION="$CURRENT_BASE_VERSION"
+                      else
+                        npm version "$VERSION_BUMP" --workspace "$WORKSPACE_NAME" --no-git-tag-version
+                        TARGET_VERSION=$(node -p "require('${PACKAGE_FILE}').version")
+                      fi
+                    fi
+
+                    npm pkg set version="$TARGET_VERSION" --workspace "$WORKSPACE_NAME"
+                    echo "${OUTPUT_PREFIX}_current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+                    echo "${OUTPUT_PREFIX}_version=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
+                  }
+
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    set_target_version "packages/catalyst-core" "$CORE_PACKAGE_NAME" "./packages/catalyst-core/package.json" "$CORE_VERSION_BUMP" "$CORE_CUSTOM_VERSION" "core"
+                  fi
+
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    set_target_version "packages/create-catalyst-app" "$CCA_PACKAGE_NAME" "./packages/create-catalyst-app/package.json" "$CCA_VERSION_BUMP" "$CCA_CUSTOM_VERSION" "cca"
+                  fi
+
+            - name: Resolve create-catalyst-app template catalyst dependency
+              id: template_core
+              if: inputs.prepare_cca
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+              run: |
+                  validate_template_dependency_version() {
+                    PACKAGE_NAME="$1"
+                    VERSION="$2"
+
+                    if [ "$RELEASE_TAG" == "beta" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'; then
+                      echo "::error::$PACKAGE_NAME beta template dependency must be X.Y.Z-beta.N (current: $VERSION)"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "canary" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
+                      echo "::error::$PACKAGE_NAME canary template dependency must be X.Y.Z-canary.N (current: $VERSION)"
+                      exit 1
+                    fi
+
+                    if [ "$RELEASE_TAG" == "latest" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+                      echo "::error::$PACKAGE_NAME latest template dependency must be a stable X.Y.Z release (current: $VERSION)"
+                      exit 1
+                    fi
+                  }
+
+                  PACKAGE_NAME="catalyst-core"
+
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    TARGET_VERSION="$CORE_VERSION"
+                  else
+                    TARGET_VERSION=$(npm view "$PACKAGE_NAME@$RELEASE_TAG" version 2>/dev/null || true)
+                    if [ -z "$TARGET_VERSION" ]; then
+                      echo "::error::Could not resolve $PACKAGE_NAME@$RELEASE_TAG for create-catalyst-app templates"
+                      exit 1
+                    fi
+                  fi
+
+                  validate_template_dependency_version "$PACKAGE_NAME" "$TARGET_VERSION"
+
+                  echo "version=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
+
+            - name: Sync create-catalyst-app template dependency versions
+              if: inputs.prepare_cca
+              env:
+                  TEMPLATE_CORE_VERSION: ${{ steps.template_core.outputs.version }}
+              run: |
+                  node scripts/release/sync-cca-templates.js --package-version="$TEMPLATE_CORE_VERSION"
+
+            - name: Validate create-catalyst-app template dependency versions
+              if: inputs.prepare_cca
+              env:
+                  TEMPLATE_CORE_VERSION: ${{ steps.template_core.outputs.version }}
+              run: |
+                  node scripts/release/sync-cca-templates.js --check --package-version="$TEMPLATE_CORE_VERSION"
+
+            - name: Update workspace lockfile
+              run: npm install --package-lock-only --ignore-scripts
+
+            - name: Check version availability on npm
+              env:
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+              run: |
+                  check_version_available() {
+                    PACKAGE_NAME="$1"
+                    VERSION="$2"
+
+                    if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+                      echo "::error::Version $VERSION already exists on npm for $PACKAGE_NAME"
+                      exit 1
+                    fi
+                  }
+
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    PACKAGE_NAME="catalyst-core"
+                    check_version_available "$PACKAGE_NAME" "$CORE_VERSION"
+                  fi
+
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    PACKAGE_NAME="create-catalyst-app"
+                    check_version_available "$PACKAGE_NAME" "$CCA_VERSION"
+                  fi
+
+            - name: Write release metadata
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+                  TEMPLATE_CORE_VERSION: ${{ steps.template_core.outputs.version }}
+              run: |
+                  export RELEASE_TAG PREPARE_CORE PREPARE_CCA CORE_VERSION CCA_VERSION TEMPLATE_CORE_VERSION
+
+                  node - <<'NODE'
+                  const fs = require("fs")
+
+                  const metadata = {
+                    tag: process.env.RELEASE_TAG,
+                    packages: {},
+                  }
+
+                  if (process.env.PREPARE_CORE === "true") {
+                    metadata.packages["catalyst-core"] = {
+                      publish: true,
+                      version: process.env.CORE_VERSION,
+                    }
+                  }
+
+                  if (process.env.PREPARE_CCA === "true") {
+                    metadata.packages["create-catalyst-app"] = {
+                      publish: true,
+                      version: process.env.CCA_VERSION,
+                      templateCatalystCoreVersion: process.env.TEMPLATE_CORE_VERSION,
+                    }
+                  }
+
+                  fs.writeFileSync(".release-meta.json", `${JSON.stringify(metadata, null, 2)}\n`)
+                  NODE
+
+            - name: Configure Git
+              if: ${{ !inputs.dry_run }}
+              run: |
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+                  git config --global user.name "github-actions[bot]"
+
+            - name: Commit prepared version
+              id: commit_prepare
+              if: ${{ !inputs.dry_run }}
+              env:
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+              run: |
+                  /usr/bin/git add .release-meta.json package-lock.json packages/catalyst-core/package.json packages/create-catalyst-app/package.json packages/create-catalyst-app/templates/*/package.json
+
+                  if git diff --cached --quiet; then
+                    echo "::error::No version changes to commit"
+                    exit 1
+                  fi
+
+                  PACKAGE_LABELS=()
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    PACKAGE_LABELS+=("catalyst-core@$CORE_VERSION")
+                  fi
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    PACKAGE_LABELS+=("create-catalyst-app@$CCA_VERSION")
+                  fi
+
+                  git commit -m "chore: prepare release ${PACKAGE_LABELS[*]} [skip ci]"
+                  git push
+
+            - name: Final summary
+              if: always()
+              env:
+                  STATUS: ${{ job.status }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  DRY_RUN: ${{ inputs.dry_run }}
+                  PREPARE_CORE: ${{ inputs.prepare_core }}
+                  PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  CORE_CURRENT: ${{ steps.versions.outputs.core_current }}
+                  CORE_TARGET: ${{ steps.versions.outputs.core_version }}
+                  CCA_CURRENT: ${{ steps.versions.outputs.cca_current }}
+                  CCA_TARGET: ${{ steps.versions.outputs.cca_version }}
+                  COMMIT_OUTCOME: ${{ steps.commit_prepare.outcome }}
+              run: |
+                  echo "status=$STATUS"
+                  echo "release_tag=$RELEASE_TAG"
+                  echo "dry_run=$DRY_RUN"
+
+                  if [ "$PREPARE_CORE" == "true" ]; then
+                    echo "catalyst-core: $CORE_CURRENT -> $CORE_TARGET"
+                  fi
+
+                  if [ "$PREPARE_CCA" == "true" ]; then
+                    echo "create-catalyst-app: $CCA_CURRENT -> $CCA_TARGET"
+                  fi
+
+                  echo "commit_prepare=${COMMIT_OUTCOME:-not run}"

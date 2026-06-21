@@ -1,63 +1,46 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+    pull_request:
+        branches: ["main"]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    catalyst-core:
+        runs-on: ubuntu-latest
+        container:
+            image: mcr.microsoft.com/playwright:v1.52.0-noble
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: npm install
+            - name: Build and Test
+              run: node -v && chmod +x ./scripts/test-catalyst-core.sh && ./scripts/test-catalyst-core.sh
 
-      - name: Run lint
-        run: npm run lint
+    create-catalyst-app:
+        runs-on: ubuntu-latest
+        container:
+            image: mcr.microsoft.com/playwright:v1.52.0-noble
 
-  build:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
+            - name: Scaffold and Build Smoke Test
+              run: node -v && chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
 
-      - name: Install dependencies
-        run: npm install
+    docs:
+        runs-on: ubuntu-latest
 
-      - name: Run build
-        run: npm run build
+        steps:
+            - uses: actions/checkout@v4
 
-  test:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests
-        run: npm test
+            - name: Build Docs
+              run: |
+                  node -v
+                  npm --prefix docs ci
+                  cp docs/config_template.json docs/config.json
+                  npm run docs:build

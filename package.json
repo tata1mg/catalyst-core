@@ -1,73 +1,29 @@
 {
-    "name": "catalyst-core",
-    "version": "0.0.2-canary.1",
-    "type": "module",
-    "description": "Web framework that provides great performance out of the box",
-    "bin": {
-        "catalyst": "bin/catalyst.js"
-    },
-    "_moduleAliases": {
-        "@catalyst/template": "."
-    },
-    "exports": {
-        "./logger": "./dist/logger.js",
-        "./caching": "./dist/caching.js",
-        "./otel": "./dist/otel.js",
-        "./router/ClientRouter": "./dist/router/ClientRouter.js",
-        "./document": "./dist/server/renderer/document/index.js",
-        ".": "./dist/index.jsx"
-    },
+    "name": "catalyst-monorepo",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
     "scripts": {
-        "lint": "eslint .",
-        "lint-staged": "lint-staged",
-        "prettify": "prettier . --write",
-        "prepare": "rm -rf ./dist && cp -r ./src ./dist ",
-        "prepublishOnly": "npm i && npm run prepare"
-    },
-    "license": "MIT",
-    "dependencies": {
-        "@vitejs/plugin-react": "^4.4.1",
-        "body-parser": "^1.20.2",
-        "compression": "^1.7.4",
-        "cookie-parser": "^1.4.6",
-        "express": "^4.18.2",
-        "express-static-gzip": "^2.1.7",
-        "picocolors": "^1.0.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0",
-        "react-helmet-async": "^1.3.0",
-        "react-redux": "^8.1.3",
-        "react-refresh": "^0.14.0",
-        "react-router-dom": "^6.16.0",
-        "redux": "^4.2.1",
-        "sanitize-html": "^2.13.1",
-        "sass": "^1.89.2",
-        "ua-parser-js": "^1.0.37",
-        "vite": "^6.3.5",
-        "vite-plugin-svgr": "^5.0.0"
+        "setup": "node scripts/setup.js",
+        "sandbox:create": "node scripts/create-release-sandbox.js",
+        "core:build": "npm run prepare --workspace packages/catalyst-core",
+        "core:test": "sh ./scripts/test-catalyst-core.sh",
+        "cca:test": "sh ./scripts/test-cca-smoke.sh",
+        "cca:sync-templates": "node scripts/release/sync-cca-templates.js",
+        "docs:build": "npm --prefix docs run build",
+        "docs:start": "npm --prefix docs run start",
+        "test:example": "sh ./scripts/test-all.sh",
+        "lint": "npm run lint --workspaces --if-present",
+        "lint-staged": "lint-staged"
     },
     "devDependencies": {
-        "@commitlint/cli": "^19.3.0",
-        "@commitlint/config-conventional": "^19.2.2",
-        "eslint": "^8.26.0",
         "husky": "^9.0.11",
-        "lint-staged": "^15.2.2",
-        "prettier": "^3.2.5"
-    },
-    "lint-staged": {
-        "*.{js,jsx}": [
-            "eslint .",
-            "prettier . --write"
-        ]
+        "lint-staged": "^15.2.2"
     },
     "overrides": {
-        "react-helmet-async": {
-            "react": "^19.0.0",
-            "react-dom": "^19.0.0"
-        },
-        "react-redux": {
-            "react": "^19.0.0",
-            "react-dom": "^19.0.0"
-        }
+        "uuid": "11.1.1",
+        "file-type": "22.0.1",
+        "imagemin": "9.0.1"
     }
 }

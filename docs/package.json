@@ -1,0 +1,74 @@
+{
+    "name": "@catalyst/docs",
+    "version": "0.0.0",
+    "author": "Animesh Singh",
+    "private": true,
+    "workspaces": [
+        "server"
+    ],
+    "scripts": {
+        "start": "npm run start --workspace @catalyst/docs-server",
+        "prebuild": "node scripts/copyConfig.js && node scripts/generateThemeCss.js && node scripts/createPublicDocStructure.js",
+        "build": "npm run build-private-docs && npm run build-public-docs",
+        "build-private-docs": "docusaurus build --config=privateDocs.config.js --out-dir=build/private-docs",
+        "build-public-docs": "docusaurus build --config=publicDocs.config.js --out-dir=build/public-docs",
+        "swizzle-public": "docusaurus swizzle --config=publicDocs.config.js",
+        "deploy": "docusaurus deploy",
+        "clear": "docusaurus clear",
+        "start-public": "docusaurus start --config=publicDocs.config.js",
+        "start-private": "docusaurus start --config=privateDocs.config.js",
+        "write-translations": "docusaurus write-translations",
+        "write-heading-ids": "docusaurus write-heading-ids",
+        "gen-private-api-docs": "set DOC_TYPE=private&& docusaurus gen-api-docs",
+        "gen-public-api-docs": "set DOC_TYPE=public&& docusaurus gen-api-docs",
+        "clean-private-api-docs": "set DOC_TYPE=private&& docusaurus clean-api-docs",
+        "clean-public-api-docs": "set DOC_TYPE=public&& docusaurus clean-api-docs",
+        "gen-public-api-docs:version": "set DOC_TYPE=public&& docusaurus gen-api-docs:version",
+        "gen-private-api-docs:version": "set DOC_TYPE=private&& docusaurus gen-api-docs:version",
+        "clean-public-api-docs:version": "set DOC_TYPE=public&& docusaurus clean-api-docs:version",
+        "clean-private-api-docs:version": "set DOC_TYPE=private&& docusaurus clean-api-docs:version",
+        "public-swizzle-list": "npm run swizzle -- --list --config=publicDocs.config.js",
+        "format": "prettier . --write",
+        "dev:style": "node scripts/generateThemeCss.js"
+    },
+    "browserslist": {
+        "production": [
+            ">0.5%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    },
+    "dependencies": {
+        "@cmfcmf/docusaurus-search-local": "^2.0.1",
+        "@docusaurus/core": "^3.10.1",
+        "@docusaurus/preset-classic": "^3.10.1",
+        "@docusaurus/theme-classic": "^3.10.1",
+        "@docusaurus/utils-validation": "^3.10.1",
+        "@mdx-js/react": "^3.1.1",
+        "antd": "^5.12.5",
+        "axios": "^1.6.2",
+        "clsx": "^1.1.1",
+        "jose": "^5.0.1",
+        "prism-react-renderer": "^2.4.1",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+    },
+    "engines": {
+        "node": ">=16.14"
+    },
+    "devDependencies": {
+        "prettier": "3.2.5"
+    },
+    "overrides": {
+        "serialize-javascript": "^7.0.3",
+        "uuid": "11.1.1",
+        "picomatch": "^4.0.4",
+        "brace-expansion": "^2.0.3",
+        "ip-address": "^10.1.1"
+    }
+}

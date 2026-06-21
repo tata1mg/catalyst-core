@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSLocalNotificationUsageDescription</key>
+	<string>This app uses notifications to alert you about important events</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>This app needs notification permission to send you important updates</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>background-fetch</string>
+	</array>
+</dict>
+</plist>

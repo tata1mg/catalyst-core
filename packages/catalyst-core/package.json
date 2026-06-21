@@ -1,0 +1,98 @@
+{
+    "name": "catalyst-core",
+    "version": "1.0.0-beta.1",
+    "type": "module",
+    "main": "./dist/index.jsx",
+    "description": "Web framework that provides great performance out of the box",
+    "bin": {
+        "catalyst": "bin/catalyst.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/catalyst-core"
+    },
+    "_moduleAliases": {
+        "@catalyst/template": "."
+    },
+    "exports": {
+        ".": "./dist/index.jsx",
+        "./package.json": "./package.json",
+        "./logger": "./dist/logger.js",
+        "./caching": "./dist/caching.js",
+        "./router/ClientRouter": "./dist/router/ClientRouter.js",
+        "./document": "./dist/server/renderer/document/index.jsx",
+        "./WebBridge": "./dist/native/bridge/WebBridge.js",
+        "./hooks": "./dist/native/bridge/hooks.js",
+        "./sentry": "./dist/sentry.cjs",
+        "./otel": "./dist/otel.js"
+    },
+    "scripts": {
+        "lint": "eslint .",
+        "lint-staged": "lint-staged",
+        "prettify": "prettier . --write",
+        "prepare": "rm -rf ./dist && cp -r ./src ./dist && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs",
+        "prepublishOnly": "npm run prepare",
+        "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "@vitejs/plugin-react": "^4.4.1",
+        "body-parser": "^1.20.2",
+        "compression": "^1.7.4",
+        "cookie-parser": "^1.4.6",
+        "express": "^4.18.2",
+        "express-static-gzip": "^2.1.7",
+        "picocolors": "^1.0.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "react-helmet-async": "^1.3.0",
+        "react-redux": "^8.1.3",
+        "react-refresh": "^0.14.0",
+        "react-router-dom": "^6.16.0",
+        "redux": "^4.2.1",
+        "sanitize-html": "^2.13.1",
+        "sass": "^1.89.2",
+        "ua-parser-js": "^1.0.37",
+        "vite": "^6.3.5",
+        "vite-plugin-svgr": "^5.0.0",
+        "winston": "^3.11.0",
+        "winston-daily-rotate-file": "^5.0.0"
+    },
+    "devDependencies": {
+        "@babel/cli": "^7.23.0",
+        "@babel/core": "^7.23.2",
+        "@babel/eslint-parser": "^7.19.1",
+        "@babel/preset-env": "^7.23.2",
+        "@babel/preset-react": "^7.22.15",
+        "@babel/preset-typescript": "^7.24.7",
+        "@commitlint/cli": "^19.3.0",
+        "@commitlint/config-conventional": "^19.2.2",
+        "eslint": "^8.26.0",
+        "eslint-plugin-babel": "^5.3.1",
+        "eslint-plugin-react": "^7.34.1",
+        "eslint-plugin-react-compiler": "^19.0.0-beta-decd7b8-20250118",
+        "eslint-plugin-react-hooks": "^4.6.0",
+        "eslint-plugin-risxss": "^2.1.0",
+        "eslint-plugin-security": "^3.0.0",
+        "husky": "^9.0.11",
+        "lint-staged": "^15.2.2",
+        "prettier": "^3.2.5"
+    },
+    "lint-staged": {
+        "*.{js,jsx}": [
+            "eslint .",
+            "prettier . --write"
+        ]
+    },
+    "overrides": {
+        "react-helmet-async": {
+            "react": "^19.0.0",
+            "react-dom": "^19.0.0"
+        },
+        "react-redux": {
+            "react": "^19.0.0",
+            "react-dom": "^19.0.0"
+        }
+    }
+}

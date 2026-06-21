@@ -1,0 +1,44 @@
+.copyButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--copy-button-bg, rgba(113, 113, 255, 0.1));
+    border: 1px solid var(--copy-button-border, rgba(113, 113, 255, 0.2));
+    border-radius: 6px;
+    color: var(--copy-button-color, #7171ff);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+:global([data-theme='dark']) .copyButton {
+    --copy-button-bg: rgba(113, 113, 255, 0.15);
+    --copy-button-border: rgba(113, 113, 255, 0.3);
+    --copy-button-color: #9191ff;
+}
+
+.copyButton:hover {
+    background: var(--copy-button-hover-bg, rgba(113, 113, 255, 0.15));
+    border-color: var(--copy-button-hover-border, rgba(113, 113, 255, 0.4));
+    transform: translateY(-1px);
+}
+
+:global([data-theme='dark']) .copyButton:hover {
+    --copy-button-hover-bg: rgba(113, 113, 255, 0.2);
+    --copy-button-hover-border: rgba(113, 113, 255, 0.5);
+}
+
+.copyButton:active {
+    transform: translateY(0);
+}
+
+.copyButton svg {
+    flex-shrink: 0;
+}
+
+.copyButton span {
+    white-space: nowrap;
+}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<!-- Add specific production domains here if needed -->
+		</dict>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+    <string>Debug web content in Safari Web Inspector</string>
+    <key>NSCameraUsageDescription</key>
+    <string>This app requires camera access to capture images</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>This app requires photo library access to select images from your gallery</string>
+</dict>
+</plist>

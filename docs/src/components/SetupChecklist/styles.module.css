@@ -1,0 +1,374 @@
+/* SetupChecklist Styles - Following existing component patterns */
+
+.setupChecklist {
+    --background-color: var(--ifm-background-color);
+    --text-color: var(--ifm-color-content);
+    --text-color-secondary: var(--ifm-color-content-secondary);
+    --border-color: var(--ifm-color-emphasis-300);
+    --success-color: #52c41a;
+    --warning-color: #faad14;
+    --blocked-color: #ff4d4f;
+
+    padding: 1.5rem 0;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Toggle Component */
+.toggleContainer {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.toggleWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.toggleLabel {
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.toggleSwitch {
+    margin: 0 0.5rem;
+}
+
+.toggleDescription {
+    color: var(--text-color-secondary);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* Progress Bar */
+.progressContainer {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.progressHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.progressText {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.progressPercentage {
+    font-weight: bold;
+    color: var(--ifm-color-primary);
+    font-size: 1.1rem;
+}
+
+.progressBarTrack {
+    width: 100%;
+    height: 8px;
+    background-color: var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progressBarFill {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        var(--ifm-color-primary),
+        var(--success-color)
+    );
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.completionMessage {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: transparent;
+    border: 2px solid var(--success-color);
+    border-radius: 6px;
+    color: var(--success-color);
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Checklist Steps */
+.checklistSteps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.checklistStep {
+    background: transparent;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+}
+
+.checklistStep:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: var(--ifm-color-primary);
+    border-width: 2px;
+}
+
+.checklistStep.completed {
+    background: transparent;
+    border-color: var(--success-color);
+    border-width: 2px;
+}
+
+.checklistStep.completed .stepNumber {
+    background: var(--success-color);
+    color: white;
+    border-color: var(--success-color);
+}
+
+.checklistStep.blocked {
+    background: transparent;
+    border-color: var(--border-color);
+    border-width: 2px;
+    opacity: 0.6;
+}
+
+.stepHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stepCheckbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.stepNumber {
+    background: transparent;
+    color: var(--ifm-color-primary);
+    border: 2px solid var(--ifm-color-primary);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.stepTitleSection {
+    flex: 1;
+}
+
+.stepTitle {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-color);
+    font-size: 1.2rem;
+    font-weight: 600;
+    transition: text-decoration 0.2s ease;
+}
+
+.stepTitle.strikethrough {
+    text-decoration: line-through;
+    color: var(--text-color-secondary);
+}
+
+.stepSummary {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-color-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.dependencyWarning {
+    background: transparent;
+    border: 1px solid var(--warning-color);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    color: var(--warning-color);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Step Content */
+.stepCollapse {
+    margin-top: 0.5rem;
+}
+
+.stepPanel {
+    border: none !important;
+}
+
+.stepContent {
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.stepDescription {
+    margin-bottom: 1.5rem;
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.codeSection,
+.linksSection,
+.substepsSection {
+    margin-bottom: 1.5rem;
+}
+
+.codeSection h5,
+.linksSection h5,
+.substepsSection h5 {
+    margin: 0 0 0.75rem 0;
+    color: var(--ifm-color-primary);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.codeSnippet {
+    position: relative;
+    margin: 0.5rem 0;
+}
+
+.copyButton {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: #d4d4d4;
+    font-size: 0.8rem;
+}
+
+.copyButton:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Commands List Layout */
+.commandsList {
+    margin: 0.5rem 0;
+}
+
+.commandsHeader {
+    margin-bottom: 1rem;
+}
+
+.commandsHeader h6 {
+    margin: 0;
+    color: var(--ifm-color-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.individualCommand {
+    margin-bottom: 1rem;
+}
+
+.commandDescription {
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.25rem 0;
+}
+
+.linksList {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.stepLink {
+    color: var(--ifm-color-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.stepLink:hover {
+    text-decoration: underline;
+}
+
+.substepsList {
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.substepItem {
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+    line-height: 1.4;
+}
+
+.timeEstimate {
+    margin-top: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: 1px solid #91caff;
+    border-radius: 4px;
+    color: #1677ff;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Documentation View */
+.documentationView {
+    padding: 2rem 0;
+}
+
+.documentationContent {
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .setupChecklist {
+        padding: 1rem 0;
+    }
+
+    .toggleContainer {
+        padding: 1rem;
+    }
+
+    .progressContainer {
+        padding: 1rem;
+    }
+
+    .checklistStep {
+        padding: 1rem;
+    }
+
+    .stepHeader {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .toggleWrapper {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .progressHeader {
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+    }
+}
