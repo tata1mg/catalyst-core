@@ -44,14 +44,19 @@
     "extends": ["eslint:recommended", "plugin:react/recommended"],
     "parserOptions": {
         "sourceType": "module",
+        "requireConfigFile": false,
         "ecmaFeatures": {
             "experimentalObjectRestSpread": true,
             "jsx": true
         },
         "babelOptions": {
-            "configFile": "./babel.config.js"
+            "babelrc": false,
+            "configFile": false,
+            "parserOpts": {
+                "plugins": ["jsx"]
+            }
         },
-        "ecmaVersion": 6
+        "ecmaVersion": 2022
     },
     "plugins": ["babel", "react", "react-hooks", "security", "risxss", "eslint-plugin-react-compiler"],
     "settings": {

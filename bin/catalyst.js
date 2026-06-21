@@ -1,128 +1,68 @@
 #!/usr/bin/env node
-"use strict"
-process.on("unhandledRejection", (err) => {
-    throw err
+
+import { spawnSync } from "node:child_process"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+
+process.on("unhandledRejection", (error) => {
+    throw error
 })
-const { spawnSync } = require("node:child_process")
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 const args = process.argv.slice(2)
-
-// Array of valid commands
-const validCommands = [
-    "build",
-    "start",
-    "serve",
-    "devBuild",
-    "devServe",
-    "plugin",
-    "plugins",
-    "buildApp",
-    "buildApp:ios",
-    "buildApp:android",
-    "setupEmulator",
-    "setupEmulator:ios",
-    "setupEmulator:android",
-]
-
-// Map of platform-specific commands to their script paths
+const webCommands = new Set(["build", "start", "serve", "serve:inspect", "plugin", "plugins"])
 const platformScripts = {
     "setupEmulator:ios": "../dist/native/setupEmulatorIos.js",
     "setupEmulator:android": "../dist/native/androidSetup.js",
     "buildApp:ios": "../dist/native/buildAppIos.js",
     "buildApp:android": "../dist/native/buildAppAndroid.js",
 }
+const validCommands = new Set([...webCommands, "buildApp", "setupEmulator", ...Object.keys(platformScripts)])
 
-// Helper to check if arg is a platform command
-const isPlatformCommand = (arg, prefix) => {
-    if (!arg.startsWith(`${prefix}:`)) return false
-    const platform = arg.split(":")[1]
-    return ["ios", "android"].includes(platform) || platform === undefined
-}
+const scriptIndex = args.findIndex((arg) => validCommands.has(arg))
+const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
+const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
+const scriptArgs = args.slice(scriptIndex + 1)
 
-// Helper function to run a platform command
-const runPlatformCommand = (baseCommand, platform) => {
-    const command = `${baseCommand}:${platform}`
-    const result = spawnSync(
-        process.execPath,
-        nodeArgs.concat(require.resolve(platformScripts[command])).concat(args.slice(scriptIndex + 1)),
-        { stdio: "inherit" }
-    )
-    return result
-}
-
-// Helper function to run commands for all platforms
-const runAllPlatforms = (baseCommand) => {
-    const platforms = ["ios", "android"]
-    for (const platform of platforms) {
-        const result = runPlatformCommand(baseCommand, platform)
-        if (result.status !== 0) {
-            handleProcessResult(result)
-            return
+function handleProcessResult(result) {
+    if (result.signal) {
+        if (result.signal === "SIGKILL") {
+            console.error("The Catalyst process was terminated with SIGKILL.")
+        } else if (result.signal === "SIGTERM") {
+            console.error("The Catalyst process was terminated with SIGTERM.")
         }
+        process.exit(1)
+    }
+    process.exit(result.status ?? 1)
+}
+
+function runScript(relativePath, extraArgs = []) {
+    return spawnSync(process.execPath, [...nodeArgs, resolve(__dirname, relativePath), ...extraArgs, ...scriptArgs], {
+        stdio: "inherit",
+    })
+}
+
+function runPlatformCommand(command) {
+    return runScript(platformScripts[command])
+}
+
+if (script === "buildApp" || script === "setupEmulator") {
+    for (const platform of ["ios", "android"]) {
+        const result = runPlatformCommand(`${script}:${platform}`)
+        if (result.status !== 0 || result.signal) handleProcessResult(result)
     }
     process.exit(0)
 }
 
-const scriptIndex = args.findIndex(
-    (x) =>
-        x === "build" ||
-        x === "start" ||
-        x === "serve" ||
-        x === "devBuild" ||
-        x === "devServe" ||
-        x === "plugin" ||
-        x === "plugins" ||
-        isPlatformCommand(x, "buildApp") ||
-        isPlatformCommand(x, "setupEmulator")
-)
-const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
-const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
-const resolvedScript = script === "plugin" ? "plugins" : script
-
-if (validCommands.includes(script)) {
-    // Handle platform-specific or combined commands
-    if (script === "buildApp" || script === "setupEmulator") {
-        // Run for all platforms if no specific platform is specified
-        runAllPlatforms(script)
-    } else if (script in platformScripts) {
-        // Run for specific platform
-        const result = spawnSync(
-            process.execPath,
-            nodeArgs.concat(require.resolve(platformScripts[script])).concat(args.slice(scriptIndex + 1)),
-            { stdio: "inherit" }
-        )
-        handleProcessResult(result)
-    } else {
-        // Original commands
-        const result = spawnSync(
-            process.execPath,
-            nodeArgs
-                .concat(require.resolve("../dist/scripts/" + resolvedScript))
-                .concat(args.slice(scriptIndex + 1)),
-            { stdio: "inherit" }
-        )
-        handleProcessResult(result)
-    }
-} else {
-    console.log('Unknown script "' + script + '".')
+if (platformScripts[script]) {
+    handleProcessResult(runPlatformCommand(script))
 }
 
-// Helper function to handle process results
-function handleProcessResult(result) {
-    if (result.signal) {
-        if (result.signal === "SIGKILL") {
-            console.log(
-                "The build failed because the process exited too early. " +
-                    "This probably means the system ran out of memory or someone called " +
-                    "`kill -9` on the process."
-            )
-        } else if (result.signal === "SIGTERM") {
-            console.log(
-                "The build failed because the process exited too early. " +
-                    "Someone might have called `kill` or `killall`, or the system could " +
-                    "be shutting down."
-            )
-        }
-        process.exit(1)
-    }
-    process.exit(result.status)
+if (webCommands.has(script)) {
+    const scriptName = script === "plugin" ? "plugins" : script === "serve:inspect" ? "serve" : script
+    const extraArgs = script === "serve:inspect" ? ["--inspect"] : []
+    handleProcessResult(runScript(`../dist/scripts/${scriptName}.js`, extraArgs))
 }
+
+console.error(`Unknown script "${script}".`)
+process.exit(1)
