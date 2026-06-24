@@ -54,7 +54,7 @@
         "sanitize-html": "^2.13.1",
         "sass": "^1.89.2",
         "ua-parser-js": "^1.0.37",
-        "vite": "^6.3.5",
+        "vite": "^6.4.3",
         "vite-plugin-svgr": "^5.0.0",
         "winston": "^3.11.0",
         "winston-daily-rotate-file": "^5.0.0"
