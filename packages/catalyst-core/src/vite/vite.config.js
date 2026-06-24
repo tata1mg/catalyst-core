@@ -61,6 +61,38 @@ function jsxInJsPlugin() {
     }
 }
 
+const emptyStoreModuleId = "\0catalyst-empty-store"
+const templateStoreImport = "@catalyst/template/src/js/store/index.js"
+
+function optionalTemplateStorePlugin() {
+    return {
+        name: "vite-plugin-optional-template-store",
+        enforce: "pre",
+        resolveId(source) {
+            const storePath = path.join(process.env.src_path, "src/js/store/index.js")
+            const isTemplateStoreImport = source === templateStoreImport || path.resolve(source) === storePath
+            if (!isTemplateStoreImport) return null
+            if (fs.existsSync(storePath)) return null
+
+            return emptyStoreModuleId
+        },
+        load(id) {
+            if (id !== emptyStoreModuleId) return null
+
+            return `
+                export default function configureStore(initialState = {}) {
+                    return {
+                        getState: () => initialState,
+                        dispatch: (action) => action,
+                        subscribe: () => () => {},
+                        replaceReducer: () => {},
+                    }
+                }
+            `
+        },
+    }
+}
+
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 const __filename = fileURLToPath(import.meta.url)
@@ -149,6 +181,22 @@ export const getClientEnvVariables = () => {
 }
 
 const isProduction = process.env.NODE_ENV === "production"
+
+const getScssResourcesImport = () => {
+    const resourcesDir = path.join(process.env.src_path, "src/static/css/resources")
+    const indexPath = path.join(resourcesDir, "index.scss")
+    const variablesPath = path.join(resourcesDir, "_variables.scss")
+
+    if (fs.existsSync(indexPath)) {
+        return '@import "@css/resources/index.scss"; '
+    }
+
+    if (fs.existsSync(variablesPath)) {
+        return '@import "@css/resources/_variables.scss"; '
+    }
+
+    return ""
+}
 
 // Pre-bundling upfront avoids Vite discovering deps at runtime which causes
 // cascading full-page reloads and "stuck in loading" on dev server.
@@ -278,6 +326,7 @@ export default defineConfig({
         },
     },
     plugins: [
+        optionalTemplateStorePlugin(),
         scssModulesPlugin(),
         jsxInJsPlugin(),
         // `include` extends the default regex so Fast Refresh also wraps .js
@@ -332,7 +381,7 @@ export default defineConfig({
         preprocessorOptions: {
             scss: {
                 additionalData: (content) =>
-                    `@import "@css/resources/index.scss"; $font_url: "${fontUrl()}"; $url_for: "${imageUrl()}";\n${content}`,
+                    `${getScssResourcesImport()}$font_url: "${fontUrl()}"; $url_for: "${imageUrl()}";\n${content}`,
                 silenceDeprecations: [
                     "import",
                     "global-builtin",
