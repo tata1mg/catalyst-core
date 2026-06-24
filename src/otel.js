@@ -49,18 +49,18 @@ class StatusAwareSampler {
 
         if (parentSpanContext && isSpanContextValid(parentSpanContext)) {
             if (parentSpanContext.traceFlags & TraceFlags.SAMPLED) {
-                return { decision: SamplingDecision.RECORD_AND_SAMPLE }
+                return { decision: SamplingDecision.RECORD_AND_SAMPLED }
             } else {
-                return { decision: SamplingDecision.RECORD_ONLY }
+                return { decision: SamplingDecision.RECORD }
             }
         }
 
         // Head sampling using characters 0-12
         const isHeadSampled = getDecisionForBits(traceId, 0, 12, this.samplingRate)
         if (isHeadSampled) {
-            return { decision: SamplingDecision.RECORD_AND_SAMPLE }
+            return { decision: SamplingDecision.RECORD_AND_SAMPLED }
         } else {
-            return { decision: SamplingDecision.RECORD_ONLY }
+            return { decision: SamplingDecision.RECORD }
         }
     }
 
