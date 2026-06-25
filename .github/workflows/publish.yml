@@ -44,6 +44,13 @@ concurrency:
 jobs:
     publish:
         runs-on: ubuntu-latest
+        outputs:
+            should_run: ${{ steps.context.outputs.should_run }}
+            dry_run: ${{ steps.context.outputs.dry_run }}
+            publish_core: ${{ steps.context.outputs.publish_core }}
+            channel: ${{ steps.context.outputs.channel }}
+            core_version: ${{ steps.versions.outputs.core }}
+            release_pr_number: ${{ steps.release_pr.outputs.number }}
         steps:
             - uses: actions/checkout@v4
               with:
@@ -431,13 +438,10 @@ jobs:
                   git tag "create-catalyst-app@$CCA_VERSION"
                   git push origin "create-catalyst-app@$CCA_VERSION"
 
-            - name: Trigger release automation
-              id: release_automation
+            - name: Resolve release PR number
+              id: release_pr
               if: success() && steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.context.outputs.dry_run != 'true'
               env:
-                  CORE_VERSION: ${{ steps.versions.outputs.core }}
-                  CHANNEL: ${{ steps.context.outputs.channel }}
-                  RELEASE_AUTOMATION_URL: https://stagcatalyst.1mg.com/release-automation/release-requests
                   GH_TOKEN: ${{ github.token }}
               run: |
                   PR_NUMBER=$(gh api \
@@ -450,38 +454,7 @@ jobs:
                     exit 1
                   fi
 
-                  OIDC_RESPONSE=$(curl --fail-with-body -sS \
-                    -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-                    "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=catalyst-release-automation")
-                  OIDC_TOKEN=$(echo "$OIDC_RESPONSE" | jq -r '.value')
-
-                  if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" == "null" ]; then
-                    echo "::error::Could not fetch GitHub OIDC token"
-                    exit 1
-                  fi
-
-                  PAYLOAD=$(jq -n \
-                    --arg repo "$GITHUB_REPOSITORY" \
-                    --arg packageName "catalyst-core" \
-                    --arg version "$CORE_VERSION" \
-                    --arg npmTag "$CHANNEL" \
-                    --arg prNumber "$PR_NUMBER" \
-                    --arg commitSha "$GITHUB_SHA" \
-                    --arg tagName "catalyst-core@$CORE_VERSION" \
-                    '{
-                      repo: $repo,
-                      packageName: $packageName,
-                      version: $version,
-                      npmTag: $npmTag,
-                      prNumber: $prNumber,
-                      commitSha: $commitSha,
-                      tagName: $tagName
-                    }')
-
-                  curl --fail-with-body -X POST "$RELEASE_AUTOMATION_URL" \
-                    -H "Content-Type: application/json" \
-                    -H "Authorization: Bearer $OIDC_TOKEN" \
-                    -d "$PAYLOAD"
+                  echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
             - name: Final summary
               if: always()
@@ -509,3 +482,13 @@ jobs:
                   if [ "$PUBLISH_CCA" == "true" ]; then
                     echo "create-catalyst-app=$CCA_VERSION"
                   fi
+
+    trigger_release_automation:
+        needs: publish
+        if: success() && needs.publish.outputs.should_run == 'true' && needs.publish.outputs.publish_core == 'true' && needs.publish.outputs.dry_run != 'true'
+        uses: ./.github/workflows/release-automation.yml
+        with:
+            version: ${{ needs.publish.outputs.core_version }}
+            npm_tag: ${{ needs.publish.outputs.channel }}
+            pr_number: ${{ needs.publish.outputs.release_pr_number }}
+            commit_sha: ${{ github.sha }}
