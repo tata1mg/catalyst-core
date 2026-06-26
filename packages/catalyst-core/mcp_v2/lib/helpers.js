@@ -38,7 +38,8 @@ function versionOlderThan(a, b) {
 }
 
 /**
- * Walk up the directory tree looking for a package.json that depends on Catalyst.
+ * Walk up the directory tree looking for a package.json that depends on Catalyst,
+ * or the catalyst-core package source itself when developing this repo.
  * Returns { dir, pkg, catalystPackageName, catalystVersion, installedVersion, versionMeta } or null.
  */
 function findCatalystRoot() {
@@ -54,6 +55,26 @@ function findCatalystRoot() {
             if (fs.existsSync(pkgPath)) {
                 try {
                     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
+                    if (pkg.name === "catalyst-core") {
+                        const sourceVersion = pkg.version || null
+                        return {
+                            dir,
+                            pkg,
+                            catalystPackageName: "catalyst-core",
+                            catalystVersion: sourceVersion,
+                            version: sourceVersion,
+                            installedVersion: sourceVersion,
+                            notInstalled: false,
+                            isSourcePackage: true,
+                            versionMeta: {
+                                declaredRef: sourceVersion,
+                                isGithubRef: false,
+                                installedVersion: sourceVersion,
+                                parsed: parseVersion(sourceVersion),
+                            },
+                        }
+                    }
+
                     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
                     const declaredRef = deps["catalyst-core"]
                     if (declaredRef) {
@@ -77,6 +98,7 @@ function findCatalystRoot() {
                             pkg,
                             catalystPackageName: "catalyst-core",
                             catalystVersion: declaredRef, // what package.json says (may be github ref)
+                            version: declaredRef,
                             installedVersion, // what's actually in node_modules e.g. "0.0.3-canary.3"
                             notInstalled: !installed,
                             versionMeta: {

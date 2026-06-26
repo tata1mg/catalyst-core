@@ -4,11 +4,10 @@
  * tools/github.js - Catalyst MCP v2
  *
  * GitHub issue workflow for AI agents:
- *   1. start_github_issue_flow      - tells the LLM what details to collect
- *   2. gather_github_issue_context  - reads project/framework context for triage
- *   3. preview_github_feedback      - formats the issue and checks duplicate candidates
- *   4. create_github_issue          - publishes after duplicate review, with markdown fallback
- *   5. generate_issue_markdown      - manual fallback when auth/API is unavailable
+ *   create_github_issue({ dry_run: true })  - first asks the developer to select labels
+ *   create_github_issue({ dry_run: true, labels }) - gathers context, templates, and duplicate candidates
+ *   create_github_issue({ dry_run: false }) - publishes after explicit developer approval
+ *   markdown fallback is generated internally when auth/API publishing fails
  *
  * Authentication:
  *   1. Direct GitHub API token from GITHUB_TOKEN, GITHUB_PAT, or CATALYST_GITHUB_TOKEN
@@ -228,6 +227,9 @@ function githubRequest(method, urlPath, token, body) {
         })
 
         req.on("error", reject)
+        req.setTimeout(30000, () => {
+            req.destroy(new Error("GitHub API request timed out after 30 seconds"))
+        })
         if (payload) req.write(payload)
         req.end()
     })
@@ -282,6 +284,38 @@ function resolveIssueLabels(args, body) {
     if (labels.length > 0) return labels
 
     return [resolveIssueTemplate(args, body)]
+}
+
+function hasLabelsInput(args) {
+    return Object.prototype.hasOwnProperty.call(args, "labels")
+}
+
+function buildLabelSelectionResponse(args = {}) {
+    const textForSuggestion = [
+        args.title,
+        args.body,
+        args.summary,
+        args.current_behavior,
+        args.actual_behavior,
+        args.expected_behavior,
+        args.error_logs,
+    ]
+        .filter((value) => typeof value === "string" && value.trim())
+        .join("\n")
+    const suggestedLabel = textForSuggestion ? inferPrimaryLabel(args.title, textForSuggestion) : null
+
+    return {
+        ok: true,
+        dry_run: true,
+        label_selection_required: true,
+        repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
+        possible_labels: DEFAULT_LABELS,
+        label_guidance: LABEL_GUIDANCE,
+        suggested_label: suggestedLabel,
+        instructions:
+            "Ask the developer to select one or more labels before gathering context, rendering the issue preview, checking duplicates, or publishing. Call create_github_issue again with labels set to the selected labels.",
+        next_action: "Wait for developer label selection, then call create_github_issue with labels.",
+    }
 }
 
 function stripExistingFooter(body) {
@@ -582,66 +616,6 @@ async function commentOnIssue(token, issueNumber, body) {
     }
 }
 
-function handle_start_issue_creation(args = {}) {
-    const initialBody = args.problem || args._query || ""
-    const suggestedTemplate = resolveIssueTemplate({ ...args, title: args.problem || args._query || "", body: initialBody }, initialBody)
-    const suggestedLabels = resolveIssueLabels({ ...args, title: args.problem || args._query || "", body: initialBody }, initialBody)
-
-    return {
-        ok: true,
-        mode: "github_issue_agent",
-        repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
-        when_to_use: [
-            "Use this flow when the developer explicitly asks to create/raise/report/publish a GitHub issue for catalyst-core.",
-            "Use this flow when, during another task, the LLM identifies that the failure is likely caused by catalyst-core framework behavior. In that case, ask the developer whether they want to create a GitHub issue before gathering/publishing.",
-        ],
-        approval_gates: [
-            "Ask the developer whether they want to create a GitHub issue if the issue was inferred during another task.",
-            "Suggest the best template and labels; ask whether the developer accepts them or wants changes.",
-            "Search existing GitHub issues for duplicate candidates and show any matches to the developer before publishing.",
-            "If duplicate candidates exist, ask whether to cancel, update/comment on the existing issue manually, or continue because this is distinct.",
-            "Show the final rendered issue preview, including screenshots/attachments and labels, before publishing.",
-            "Call create_github_issue only after explicit developer approval.",
-        ],
-        next_steps: [
-            "Ask the developer for a concise issue title and problem statement if not already known.",
-            "Collect steps to reproduce, expected behavior, actual behavior, error logs, environment, what was tried, related issues, and screenshot/image paths or URLs if available.",
-            "Ask the LLM to provide a concise duplicate_search_query with the framework area and failure symptom, e.g. `android webview error.html fallback`.",
-            "Call gather_github_issue_context with the title/problem so the issue includes catalyst-core version, package scripts, git state, and relevant file snippets.",
-            "Call preview_github_feedback to select/render the issue template, suggested labels, project context, screenshots/attachments, and duplicate candidates.",
-            "Show duplicate candidates first when present. If one is the same issue, stop and suggest using the existing issue instead of creating a duplicate.",
-            "Show the preview to the developer and ask for approval or edits. If duplicates were shown and the developer still wants to publish, pass duplicate_review_confirmed:true to create_github_issue.",
-            "After approval and duplicate review, call create_github_issue. If it returns ok:false with duplicate_candidates, show them and do not generate a new issue. If it fails due to auth/network/API, use the markdown_path fallback for manual GitHub creation.",
-        ],
-        supported_labels: DEFAULT_LABELS,
-        label_guidance: LABEL_GUIDANCE,
-        supported_templates: ISSUE_TEMPLATES,
-        template_selection_rules: [
-            "Use Bug report + bug for broken behavior, ignored config, crashes, regressions, incorrect output, or failed commands.",
-            "Use Feature request / enhancement + enhancement for new APIs, CLI improvements, universal hook behavior, or framework ergonomics.",
-            "Use Documentation improvement + documentation for missing/incorrect docs, examples, guides, README, migration notes, or typos.",
-            "Use Dependency update + dependencies for package updates, lockfile updates, npm audit/security updates, or dependency version changes.",
-            "Use Question / clarification + question when implementation is not yet clear and maintainer input is needed.",
-            "Add good first issue only when the change is small and well-scoped; add help wanted when extra maintainer/community attention is needed.",
-            "Use duplicate, invalid, or wontfix only after triage establishes that state.",
-        ],
-        suggested_template: ISSUE_TEMPLATES[suggestedTemplate],
-        suggested_labels: suggestedLabels,
-        image_support:
-            "Hosted image URLs are embedded in the issue body. Local image files are listed in the body and copied into the markdown fallback for manual upload, because GitHub's public Issues API does not upload local binaries.",
-        duplicate_policy:
-            "The preview step performs a best-effort duplicate search. Prefer passing duplicate_search_query from the LLM instead of relying on automatic keyword extraction. create_github_issue blocks publishing when matching issues are found unless duplicate_review_confirmed:true is provided after showing those candidates to the developer.",
-        auth_options: [
-            "Preferred: set a GitHub API token in the MCP server environment as GITHUB_TOKEN, GITHUB_PAT, or CATALYST_GITHUB_TOKEN.",
-            "Optional fallback: if GitHub CLI is installed and authenticated, the MCP can use `gh auth token`.",
-            "GitHub CLI is not required when an API token environment variable is configured.",
-        ],
-        manual_fallback:
-            "If GitHub auth, network, permission, or validation fails, call generate_issue_markdown or use the fallback returned by create_github_issue so the developer can raise the issue manually.",
-        initial_problem: args.problem || args._query || null,
-    }
-}
-
 function collectRelatedFiles(root, query, explicitFiles) {
     const files = []
     const candidates = Array.isArray(explicitFiles) ? explicitFiles : []
@@ -687,7 +661,7 @@ function collectRelatedFiles(root, query, explicitFiles) {
     return matches.slice(0, 5)
 }
 
-function handle_gather_github_issue_context(args = {}) {
+function gatherGithubIssueContext(args = {}) {
     const root = getProjectRoot(args)
     const pkg = safeReadJson(path.join(root, "package.json"))
     const configJson = safeReadJson(path.join(root, "config", "config.json"))
@@ -701,83 +675,24 @@ function handle_gather_github_issue_context(args = {}) {
     const dependencies = pkg ? { ...pkg.dependencies, ...pkg.devDependencies } : {}
 
     return {
-        ok: true,
-        context: {
-            project_path: root,
-            package_name: pkg && pkg.name,
-            catalyst_core_declared_version: dependencies["catalyst-core"] || null,
-            catalyst_core_installed_version: _projectInfo && _projectInfo.installedVersion,
-            scripts: pkg && pkg.scripts ? pkg.scripts : {},
-            config: configJson
-                ? {
-                      NODE_SERVER_PORT: configJson.NODE_SERVER_PORT,
-                      WEBVIEW_CONFIG: configJson.WEBVIEW_CONFIG,
-                  }
-                : null,
-            git: { branch, commit, dirty: Boolean(status), status },
-            runtime: { node: nodeVersion, npm: npmVersion },
-            related_files: relatedFiles,
-        },
-        instructions:
-            "Use this context to enrich the issue body. Include only relevant file snippets; do not include secrets or unrelated config.",
+        project_path: root,
+        package_name: pkg && pkg.name,
+        catalyst_core_declared_version: dependencies["catalyst-core"] || null,
+        catalyst_core_installed_version: _projectInfo && _projectInfo.installedVersion,
+        scripts: pkg && pkg.scripts ? pkg.scripts : {},
+        config: configJson
+            ? {
+                  NODE_SERVER_PORT: configJson.NODE_SERVER_PORT,
+                  WEBVIEW_CONFIG: configJson.WEBVIEW_CONFIG,
+              }
+            : null,
+        git: { branch, commit, dirty: Boolean(status), status },
+        runtime: { node: nodeVersion, npm: npmVersion },
+        related_files: relatedFiles,
     }
 }
 
-async function handle_preview_github_feedback(args = {}) {
-    const { title, type = "issue" } = args
-
-    if (!title || typeof title !== "string" || title.trim() === "") {
-        return { ok: false, error: "title is required." }
-    }
-    if (type !== "issue") {
-        return { ok: false, error: "Only GitHub issues are supported by this MCP tool." }
-    }
-
-    const built = buildIssueBody(args)
-    if (!built.body || built.body.trim() === "") {
-        return { ok: false, error: "body or structured issue fields are required." }
-    }
-
-    let duplicates = []
-    let tokenSource = "none"
-    const tokenResult = getToken()
-    if (tokenResult.ok) {
-        tokenSource = tokenResult.source
-        duplicates = await searchDuplicates(tokenResult.token, title, built.body, args.duplicate_search_query)
-    }
-
-    return {
-        ok: true,
-        preview: {
-            type: "issue",
-            repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
-            title: title.trim(),
-            body: built.body,
-            labels: resolveIssueLabels(args, built.body),
-            suggested_template: ISSUE_TEMPLATES[resolveIssueTemplate(args, built.body)],
-            possible_labels: DEFAULT_LABELS,
-            label_guidance: LABEL_GUIDANCE,
-            images: built.images,
-        },
-        duplicates,
-        duplicate_review: {
-            required_before_publish: duplicates.length > 0,
-            status: duplicates.length > 0 ? "needs_user_review" : "no_duplicate_candidates_found",
-            candidates: duplicates,
-            publish_override_field:
-                duplicates.length > 0
-                    ? "Pass duplicate_review_confirmed:true to create_github_issue only after the developer confirms this is not a duplicate."
-                    : null,
-        },
-        token_source: tokenSource,
-        instructions:
-            duplicates.length > 0
-                ? "Show the suggested template, labels, full issue body, attachments, and duplicate candidates to the developer. Ask whether to cancel/use an existing issue, edit, or publish because this is distinct. Call create_github_issue only after explicit approval, and include duplicate_review_confirmed:true if the developer chooses to publish."
-                : "Show the suggested template, labels, full issue body, and attachments to the developer. Ask whether to edit, cancel, or publish. Call create_github_issue only after explicit approval.",
-    }
-}
-
-function handle_generate_issue_markdown(args = {}) {
+function generateIssueMarkdown(args = {}) {
     const { title } = args
     if (!title || typeof title !== "string" || title.trim() === "") {
         return { ok: false, error: "title is required." }
@@ -817,19 +732,88 @@ function handle_generate_issue_markdown(args = {}) {
 }
 
 async function handle_create_github_issue(args = {}) {
+    const labels = normalizeLabels(args.labels)
+    if (!hasLabelsInput(args) || labels.length === 0) {
+        if (hasLabelsInput(args)) {
+            return {
+                ok: false,
+                error: "labels must include at least one valid Catalyst GitHub label.",
+                possible_labels: DEFAULT_LABELS,
+                label_guidance: LABEL_GUIDANCE,
+            }
+        }
+        return buildLabelSelectionResponse(args)
+    }
+
     const { title } = args
     if (!title || typeof title !== "string" || title.trim() === "") {
         return { ok: false, error: "title is required and must be a non-empty string." }
     }
 
-    const built = buildIssueBody(args)
+    const dryRun = args.dry_run !== false
+    const gatheredContext = gatherGithubIssueContext({
+        ...args,
+        query: args.query || args.duplicate_search_query || args.summary || args.body || args.title,
+    })
+    const issueArgs = {
+        ...args,
+        context: args.context || gatheredContext,
+    }
+    const built = buildIssueBody(issueArgs)
     if (!built.body || built.body.trim() === "") {
         return { ok: false, error: "body or structured issue fields are required." }
     }
 
+    let duplicates = []
+    let tokenSource = "none"
     const tokenResult = getToken()
+    if (tokenResult.ok) {
+        tokenSource = tokenResult.source
+        duplicates = await searchDuplicates(tokenResult.token, title, built.body, issueArgs.duplicate_search_query)
+    }
+
+    const preview = {
+        type: "issue",
+        repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
+        title: title.trim(),
+        body: built.body,
+        labels,
+        suggested_template: ISSUE_TEMPLATES[resolveIssueTemplate(issueArgs, built.body)],
+        possible_labels: DEFAULT_LABELS,
+        label_guidance: LABEL_GUIDANCE,
+        images: built.images,
+        context: gatheredContext,
+    }
+
+    const duplicateReview = {
+        required_before_publish: duplicates.length > 0,
+        status: duplicates.length > 0 ? "needs_user_review" : "no_duplicate_candidates_found",
+        candidates: duplicates,
+        publish_override_field:
+            duplicates.length > 0
+                ? "Pass duplicate_review_confirmed:true with dry_run:false only after the developer confirms this is not a duplicate."
+                : null,
+    }
+
+    if (dryRun) {
+        return {
+            ok: true,
+            dry_run: true,
+            preview,
+            duplicates,
+            duplicate_review: duplicateReview,
+            token_source: tokenSource,
+            auth_warning: tokenResult.ok ? null : tokenResult.error,
+            instructions:
+                duplicates.length > 0
+                    ? "Show the rendered issue preview, suggested template, labels, attachments, context, and duplicate candidates to the developer. Ask whether to cancel/use an existing issue, edit, or publish because this is distinct. Publish only after explicit approval with dry_run:false, and include duplicate_review_confirmed:true if duplicates were reviewed."
+                    : "Show the rendered issue preview, suggested template, labels, attachments, and context to the developer. Ask whether to edit, cancel, or publish. Publish only after explicit approval with dry_run:false.",
+            next_action: "Wait for explicit developer approval before calling create_github_issue with dry_run:false.",
+        }
+    }
+
     if (!tokenResult.ok) {
-        const fallback = handle_generate_issue_markdown(args)
+        const fallback = generateIssueMarkdown(issueArgs)
         return {
             ok: false,
             error: tokenResult.error,
@@ -837,7 +821,6 @@ async function handle_create_github_issue(args = {}) {
         }
     }
 
-    const labels = resolveIssueLabels(args, built.body)
     const payload = {
         title: title.trim(),
         body: built.body,
@@ -845,7 +828,6 @@ async function handle_create_github_issue(args = {}) {
     }
 
     try {
-        const duplicates = await searchDuplicates(tokenResult.token, title, built.body, args.duplicate_search_query)
         if (duplicates.length > 0 && args.duplicate_review_confirmed !== true) {
             return {
                 ok: false,
@@ -914,14 +896,14 @@ async function handle_create_github_issue(args = {}) {
         }
 
         const apiMessage = res.body && res.body.message ? res.body.message : JSON.stringify(res.body)
-        const fallback = handle_generate_issue_markdown(args)
+        const fallback = generateIssueMarkdown(issueArgs)
         return {
             ok: false,
             error: `GitHub API returned HTTP ${res.status}: ${apiMessage}`,
             fallback: fallback.ok ? fallback : null,
         }
     } catch (err) {
-        const fallback = handle_generate_issue_markdown(args)
+        const fallback = generateIssueMarkdown(issueArgs)
         return {
             ok: false,
             error: `Network error while calling GitHub API: ${err.message}`,
@@ -932,11 +914,5 @@ async function handle_create_github_issue(args = {}) {
 
 module.exports = {
     init,
-    handle_start_issue_creation,
-    handle_start_github_issue_flow: handle_start_issue_creation,
-    handle_gather_github_issue_context,
-    handle_preview_github_feedback,
-    handle_preview_github_issue: handle_preview_github_feedback,
     handle_create_github_issue,
-    handle_generate_issue_markdown,
 }

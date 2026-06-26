@@ -16,30 +16,13 @@ const path = require("path")
 const Database = require("better-sqlite3")
 const https = require("https")
 const crypto = require("crypto")
+const { findCatalystRoot } = require("./lib/helpers")
 
 const MCP_DIR = __dirname
 const DB_PATH = path.join(MCP_DIR, "context.db")
 const SCHEMA_PATH = path.join(MCP_DIR, "schema.sql")
 const KB_PATH = path.join(MCP_DIR, "knowledge-base.json")
 const SITEMAP_URL = "https://catalyst.1mg.com/public_docs/sitemap.xml"
-
-// ── 1. Find & validate catalyst project ──────────────────────────────────────
-
-function findCatalystRoot() {
-    let dir = process.cwd()
-    while (dir !== path.parse(dir).root) {
-        const pkgPath = path.join(dir, "package.json")
-        if (fs.existsSync(pkgPath)) {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
-            const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-            if (deps["catalyst-core"]) {
-                return { dir, pkg, catalystPackageName: "catalyst-core", version: deps["catalyst-core"] }
-            }
-        }
-        dir = path.dirname(dir)
-    }
-    return null
-}
 
 // ── 2. DB init ────────────────────────────────────────────────────────────────
 

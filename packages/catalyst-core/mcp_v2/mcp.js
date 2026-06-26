@@ -99,11 +99,11 @@ const INTENT_PATTERNS = {
     guidance:
         /\b(what\s+is|what\s+are|how\s+does|how\s+do|explain|show\s+me|tell\s+me|hook|api|usage|example)\b/i,
     status: /status|done|complet|finish|check.*config|config.*check|what.*(left|remain|todo|next|pending)|how far|progress/i,
+    // feedback = wants to raise an issue or discussion on GitHub
+    feedback: /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
     debug: /error|fail|broken|not work|crash|issue|bug|why|wrong/i,
     build: /build|compile|webpack|bundle|android|ios|platform/i,
     sync: /sync|update.*doc|fetch.*doc|latest.*doc/i,
-    // feedback = wants to raise an issue or discussion on GitHub
-    feedback: /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
 }
 
 // next_action tells the LLM exactly what to do after getting this response
@@ -418,184 +418,21 @@ const TOOLS = [
         },
     },
     {
-        name: "start_github_issue_flow",
+        name: "create_github_issue",
         description:
-            "ALWAYS call this FIRST when the developer explicitly wants to create, raise, report, or publish a GitHub issue for catalyst-core, OR when the LLM discovers during another task that the root cause is likely catalyst-core framework behavior. If inferred during another task, ask the developer whether they want to create an issue before proceeding. Returns the issue-agent workflow, approval gates, template suggestions, required details to collect, supported labels/tags, screenshot/image handling rules, duplicate-avoidance policy, and next tool calls. Intent: feedback.",
+            "Use when the developer wants to create, raise, report, preview, or publish a GitHub issue for catalyst-core, or after the LLM discovers that a problem is likely caused by catalyst-core framework behavior and the developer agrees to raise an issue. This single tool first asks the developer to select labels when labels are omitted. After labels are supplied, it gathers project context, renders the issue using the selected/suggested template, searches duplicates using duplicate_search_query when provided, supports preview with dry_run:true, publishes only when dry_run:false is explicitly passed, and falls back to a markdown draft on auth/network/API failure. Default to dry_run:true first; if label_selection_required is returned, ask the developer to select labels before collecting/rendering the rest of the issue. Intent: feedback.",
         inputSchema: {
             type: "object",
             properties: {
-                problem: {
-                    type: "string",
-                    description: "The developer's initial issue/problem statement, if already known.",
+                dry_run: {
+                    type: "boolean",
+                    description:
+                        "Defaults to true. When true, returns rendered preview, labels, duplicate candidates, and gathered context without publishing. Pass false only after explicit developer approval.",
                 },
-                _query: {
-                    type: "string",
-                    description: "Original user query for intent classification.",
-                },
-            },
-        },
-    },
-    {
-        name: "gather_github_issue_context",
-        description:
-            "Use after start_github_issue_flow and before preview_github_feedback. Reads the current Catalyst app context for a stronger GitHub issue: package name, catalyst-core version, scripts, config, git branch/status, runtime versions, and relevant file snippets. Use this to gather evidence before selecting the final template/labels. Intent: feedback.",
-        inputSchema: {
-            type: "object",
-            properties: {
                 project_path: {
                     type: "string",
                     description: "Path to the catalyst app root. Defaults to detected project root.",
                 },
-                title: {
-                    type: "string",
-                    description: "Issue title, if available.",
-                },
-                problem: {
-                    type: "string",
-                    description: "Issue/problem statement or symptoms.",
-                },
-                query: {
-                    type: "string",
-                    description: "Search text used to find relevant source snippets.",
-                },
-                files: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Optional explicit project files to include as context snippets.",
-                },
-                _query: {
-                    type: "string",
-                    description: "Original user query for intent classification.",
-                },
-            },
-        },
-    },
-    {
-        name: "preview_github_feedback",
-        description:
-            "Use after start_github_issue_flow and gather_github_issue_context, before create_github_issue. Drafts the full GitHub issue with project context, suggested template, labels/tags, image URLs/paths, and duplicate search, then returns a preview for developer approval WITHOUT publishing anything. Prefer passing duplicate_search_query from the LLM context instead of relying on automatic keyword extraction. If duplicate candidates are returned, show them first and ask whether to cancel/use an existing issue, edit, or continue because this issue is distinct. Show this final rendered template to the developer and ask for edits or explicit publish approval. Intent: feedback.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                title: {
-                    type: "string",
-                    description: "Proposed title for the issue.",
-                },
-                body: {
-                    type: "string",
-                    description:
-                        "Proposed body. Plain text is upgraded into the catalyst-core issue style; already structured markdown is preserved.",
-                },
-                summary: {
-                    type: "string",
-                    description: "Structured issue summary if body is not already composed.",
-                },
-                issue_template: {
-                    type: "string",
-                    enum: ["bug", "enhancement", "documentation", "dependencies", "question"],
-                    description:
-                        "Optional template to force. Use bug for broken behavior, enhancement for feature requests, documentation for docs/examples, dependencies for package updates, question for clarification.",
-                },
-                current_behavior: {
-                    type: "string",
-                    description: "What happens today.",
-                },
-                steps_to_reproduce: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
-                    description: "Steps to reproduce the issue.",
-                },
-                expected_behavior: {
-                    type: "string",
-                    description: "What should happen.",
-                },
-                actual_behavior: {
-                    type: "string",
-                    description: "What actually happens.",
-                },
-                error_logs: {
-                    type: "string",
-                    description: "Error logs or stack traces.",
-                },
-                preflight_checklist: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
-                },
-                what_i_tried: {
-                    type: "string",
-                    description: "Troubleshooting already attempted.",
-                },
-                additional_information: {
-                    type: "string",
-                    description: "Additional context that does not fit the primary sections.",
-                },
-                related_issues: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
-                    description: "Related GitHub issues or links.",
-                },
-                root_cause: {
-                    type: "string",
-                    description: "Technical notes or suspected root cause.",
-                },
-                proposed_fix: {
-                    type: "string",
-                    description: "Concrete suggested fix.",
-                },
-                optional_followups: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
-                    description: "Follow-up cleanup, docs, or test suggestions.",
-                },
-                environment: {
-                    type: ["string", "object"],
-                    description: "Environment details such as platform, OS, browser, device, Node/npm versions.",
-                },
-                context: {
-                    type: ["string", "object"],
-                    description: "Context returned by gather_github_issue_context.",
-                },
-                type: {
-                    type: "string",
-                    enum: ["issue"],
-                    description:
-                        "'issue' for bugs, regressions, and actionable feature requests.",
-                },
-                labels: {
-                    type: "array",
-                    items: { type: "string" },
-                    description:
-                        "Optional labels. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool infers one primary label.",
-                },
-                images: {
-                    type: "array",
-                    items: { type: ["string", "object"] },
-                    description:
-                        "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
-                },
-                duplicate_search_query: {
-                    type: "string",
-                    description:
-                        "Optional focused search query for duplicate detection, supplied by the LLM from the issue context. Example: 'android webview error.html fallback'.",
-                },
-            },
-            required: ["title"],
-        },
-    },
-    {
-        name: "create_github_issue",
-        description:
-            "Use ONLY after preview_github_feedback has been shown and the developer explicitly approved publishing. Creates an issue on the catalyst-core GitHub repo using the selected/suggested template and labels. Automatically attaches the current catalyst-core version and project name to help triage. Before publishing, this tool searches for duplicate candidates using duplicate_search_query when provided and blocks creation if matches are found unless duplicate_review_confirmed:true is passed after showing those candidates to the developer. If GitHub creation, auth, labels, network, or validation fails, return a manual markdown fallback via generate_issue_markdown/fallback. Intent: feedback.",
-        inputSchema: {
-            type: "object",
-            properties: {
                 title: {
                     type: "string",
                     description: "Short, descriptive issue title. E.g. 'RouterDataProvider fails on nested dynamic routes'.",
@@ -677,15 +514,11 @@ const TOOLS = [
                     type: ["string", "object"],
                     description: "Environment details such as platform, OS, browser, device, Node/npm versions.",
                 },
-                context: {
-                    type: ["string", "object"],
-                    description: "Context returned by gather_github_issue_context.",
-                },
                 labels: {
                     type: "array",
                     items: { type: "string" },
                     description:
-                        "Optional labels. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool infers one primary label.",
+                        "Required after the initial label-selection step. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool returns label_selection_required and does not gather context, render a full preview, search duplicates, or publish.",
                 },
                 images: {
                     type: "array",
@@ -696,126 +529,28 @@ const TOOLS = [
                 duplicate_search_query: {
                     type: "string",
                     description:
-                        "Optional focused search query for duplicate detection, supplied by the LLM from the issue context. Use the same query reviewed in preview_github_feedback.",
+                        "Optional focused search query for duplicate detection, supplied by the LLM from the issue context. Use the same query reviewed in the dry_run:true preview.",
                 },
                 duplicate_review_confirmed: {
                     type: "boolean",
                     description:
-                        "Set true only after preview_github_feedback or create_github_issue returned duplicate candidates, those candidates were shown to the developer, and the developer explicitly confirmed this issue is distinct and should still be published.",
+                        "Set true only after a dry_run:true preview or blocked publish returned duplicate candidates, those candidates were shown to the developer, and the developer explicitly confirmed this issue is distinct and should still be published.",
                 },
                 duplicate_review_note: {
                     type: "string",
                     description:
                         "Optional short note explaining why the issue is not a duplicate, after the developer confirms publishing.",
                 },
-            },
-            required: ["title"],
-        },
-    },
-    {
-        name: "generate_issue_markdown",
-        description:
-            "Use when create_github_issue fails due to auth, permissions, network, or validation problems, or when the developer explicitly wants a manual GitHub issue draft. Writes a local markdown file under .mcp_issues/ with title, labels, body, context, and image paths for manual copy/upload. Intent: feedback.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                project_path: {
-                    type: "string",
-                    description: "Path to the catalyst app root. Defaults to detected project root.",
-                },
-                title: {
-                    type: "string",
-                    description: "Short, descriptive issue title.",
-                },
-                body: {
-                    type: "string",
-                    description: "Full issue body. Plain text is upgraded into the catalyst-core issue style; already structured markdown is preserved.",
-                },
-                summary: {
-                    type: "string",
-                    description: "Structured issue summary if body is not already composed.",
-                },
-                issue_template: {
-                    type: "string",
-                    enum: ["bug", "enhancement", "documentation", "dependencies", "question"],
-                    description:
-                        "Optional template to force. Use bug for broken behavior, enhancement for feature requests, documentation for docs/examples, dependencies for package updates, question for clarification.",
-                },
-                current_behavior: {
-                    type: "string",
-                    description: "What happens today.",
-                },
-                steps_to_reproduce: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
-                    description: "Steps to reproduce the issue.",
-                },
-                expected_behavior: {
-                    type: "string",
-                    description: "What should happen.",
-                },
-                actual_behavior: {
-                    type: "string",
-                    description: "What actually happens.",
-                },
-                error_logs: {
-                    type: "string",
-                    description: "Error logs or stack traces.",
-                },
-                preflight_checklist: {
+                files: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
+                    description: "Optional explicit project files to include as context snippets.",
                 },
-                what_i_tried: {
+                _query: {
                     type: "string",
-                    description: "Troubleshooting already attempted.",
-                },
-                additional_information: {
-                    type: "string",
-                    description: "Additional context that does not fit the primary sections.",
-                },
-                related_issues: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
-                    description: "Related GitHub issues or links.",
-                },
-                root_cause: {
-                    type: "string",
-                    description: "Technical notes or suspected root cause.",
-                },
-                proposed_fix: {
-                    type: "string",
-                    description: "Concrete suggested fix.",
-                },
-                optional_followups: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
-                    description: "Follow-up cleanup, docs, or test suggestions.",
-                },
-                labels: {
-                    type: "array",
-                    items: { type: "string" },
-                    description:
-                        "Optional labels. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool infers one primary label.",
-                },
-                context: {
-                    type: ["string", "object"],
-                    description: "Context returned by gather_github_issue_context.",
-                },
-                images: {
-                    type: "array",
-                    items: { type: ["string", "object"] },
-                    description: "Optional image URLs or local image paths.",
+                    description: "Original user query for intent classification.",
                 },
             },
-            required: ["title"],
         },
     },
 ]
@@ -835,11 +570,7 @@ const TOOL_HANDLERS = {
     close_task_plan: tasks.handle_close_task_plan,
     sync_catalyst_docs: sync.handle_sync_catalyst_docs,
     query_knowledge: knowledge.handle_query_knowledge,
-    start_github_issue_flow: github.handle_start_github_issue_flow,
-    gather_github_issue_context: github.handle_gather_github_issue_context,
     create_github_issue: github.handle_create_github_issue,
-    preview_github_feedback: github.handle_preview_github_feedback,
-    generate_issue_markdown: github.handle_generate_issue_markdown,
 }
 
 // ── MCP JSON-RPC over stdio ───────────────────────────────────────────────────
