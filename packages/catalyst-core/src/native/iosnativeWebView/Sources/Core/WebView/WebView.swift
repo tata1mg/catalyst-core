@@ -98,7 +98,9 @@ public struct WebView: UIViewRepresentable, Equatable {
                 logWithTimestamp("✅ webView.load() returned (took \(String(format: "%.2f", loadTime))ms)")
             } else {
                 logWithTimestamp("📴 Device offline on launch, showing offline page")
-                _ = navigationDelegate.showOfflinePage(in: webView)
+                if !OfflineCacheService.shared.loadSnapshot(in: webView, for: url) {
+                    _ = navigationDelegate.showOfflinePage(in: webView)
+                }
             }
         }
 

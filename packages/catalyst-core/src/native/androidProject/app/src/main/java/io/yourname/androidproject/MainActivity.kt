@@ -385,7 +385,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     if (BuildConfig.DEBUG) {
                         Log.w(TAG, "📴 Device offline on launch, showing offline page")
                     }
-                    customWebView.showOfflinePage()
+                    customWebView.showOfflineRouteOrOfflinePage(currentUrl)
                 }
             }
 
@@ -533,7 +533,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 loadUrlWithSafeArea(url)
             } else {
                 Log.w(TAG, "📴 Offline during notification click, showing offline page")
-                customWebView.showOfflinePage()
+                customWebView.showOfflineRouteOrOfflinePage(url)
             }
 
         } catch (e: Exception) {

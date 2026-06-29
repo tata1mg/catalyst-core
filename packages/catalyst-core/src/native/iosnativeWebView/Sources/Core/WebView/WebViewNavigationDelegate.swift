@@ -120,6 +120,25 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             let isCacheableMethod = httpMethod == "GET"
             logger.info("🔍 Cache check - Method: \(httpMethod), isCacheable: \(isCacheableMethod)")
 
+            if isMainFrame && isHttpScheme && isCacheableMethod {
+                if NetworkMonitor.shared.currentStatus.isOnline {
+                    OfflineCacheService.shared.storeRouteSnapshot(
+                        for: navigationAction.request,
+                        webView: webView
+                    )
+                } else {
+                    let loadedSnapshot = await MainActor.run {
+                        OfflineCacheService.shared.loadSnapshot(in: webView, for: url)
+                    }
+
+                    if loadedSnapshot {
+                        logger.info("📴 Serving cached offline route snapshot: \(url.absoluteString)")
+                        decisionHandler(.cancel)
+                        return
+                    }
+                }
+            }
+
             if isCacheableMethod && CacheManager.shared.shouldCacheURL(url) {
                 logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
 
@@ -259,6 +278,12 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             logger.error("Navigation failed: \(error.localizedDescription)")
 
             guard shouldShowOfflinePage(for: error), let webView else { return }
+            if let targetURL = lastTargetURL ?? webView.url,
+               OfflineCacheService.shared.loadSnapshot(in: webView, for: targetURL) {
+                logger.info("📴 Showing cached offline route snapshot")
+                return
+            }
+
             if showOfflinePage(in: webView) {
                 logger.info("📴 Showing offline fallback page")
             } else {

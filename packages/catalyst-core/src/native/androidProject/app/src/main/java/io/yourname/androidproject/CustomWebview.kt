@@ -35,6 +35,7 @@ class CustomWebView(
     override val coroutineContext = Dispatchers.Main + job
 
     private var cacheManager: WebCacheManager
+    private var offlineCacheService: OfflineCacheService
     private val metricsMonitor = MetricsMonitor.getInstance(context)
     private var buildType: String = "debug"  // Default to debug
     private var cachePatterns: List<String> = emptyList()
@@ -63,6 +64,7 @@ class CustomWebView(
     init {
         setupFromProperties()
         cacheManager = WebCacheManager(context, properties)
+        offlineCacheService = OfflineCacheService(context)
         setupWebView()
     }
 
@@ -138,6 +140,10 @@ class CustomWebView(
     private fun loadUrlInternal(url: String) {
         val isNetworkUrl = url.startsWith("http://") || url.startsWith("https://")
 
+        if (isNetworkUrl && NetworkUtils.getCurrentStatus(context).isOnline) {
+            offlineCacheService.refreshManifestAsync(url, defaultRequestHeaders)
+        }
+
         if (isNetworkUrl && defaultRequestHeaders.isNotEmpty()) {
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "🌐 Loading with headers: $url, headers=$defaultRequestHeaders")
@@ -192,6 +198,19 @@ class CustomWebView(
 
     fun clearAllCache() {
         cacheManager.clearAll()
+        offlineCacheService.clearAll()
+    }
+
+    fun showOfflineRouteOrOfflinePage(url: String) {
+        if (offlineCacheService.loadSnapshotInto(webView, url)) {
+            offlinePageVisible = false
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "📴 Showing cached offline route snapshot: $url")
+            }
+            return
+        }
+
+        showOfflinePage()
     }
 
     fun canGoBack(): Boolean = webView.canGoBack()
@@ -310,7 +329,7 @@ class CustomWebView(
             Log.d(TAG, "🔍 CACHE_CHECK: Cache patterns: $cachePatterns")
         }
 
-        val shouldCache = matchesCachePattern(url, cachePatterns)
+        val shouldCache = matchesCachePattern(url, cachePatterns) || offlineCacheService.shouldCacheAssetUrl(url)
 
         if (BuildConfig.DEBUG) {
             if (shouldCache) {
@@ -713,6 +732,30 @@ class CustomWebView(
                     }
                 }
 
+                val isMainFrameDocument = request.isForMainFrame &&
+                    request.method == "GET" &&
+                    (request.url.scheme == "http" || request.url.scheme == "https") &&
+                    !isApiCall(url)
+
+                if (isMainFrameDocument) {
+                    val headers = defaultRequestHeaders.toMutableMap().apply {
+                        putAll(request.requestHeaders)
+                    }
+                    val isOnline = NetworkUtils.getCurrentStatus(context).isOnline
+
+                    if (isOnline) {
+                        offlineCacheService.storeRouteSnapshotAsync(url, headers)
+                    } else {
+                        val snapshotResponse = offlineCacheService.getRouteSnapshotResponse(url)
+                        if (snapshotResponse != null) {
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "📴 INTERCEPT: Serving offline route snapshot: $url")
+                            }
+                            return withCorsHeaders(snapshotResponse)
+                        }
+                    }
+                }
+
                 // TODO: Add HTML file workflow - index.html not available yet
                 // Handle the initial route request - intercept first request regardless of host
                 // if (!isInitialApiCalled && request.method == "GET") {
@@ -953,6 +996,19 @@ class CustomWebView(
                 if (error != null) {
                     Log.e(TAG, "❌ Error loading ${request?.url}: ${error.errorCode} ${error.description}")
                 }
+
+                val failedUrl = request?.url?.toString()
+                if (request?.isForMainFrame == true &&
+                    failedUrl != null &&
+                    failedUrl != offlineAssetUrl &&
+                    !NetworkUtils.getCurrentStatus(context).isOnline
+                ) {
+                    view?.post {
+                        showOfflineRouteOrOfflinePage(failedUrl)
+                    }
+                    return
+                }
+
                 super.onReceivedError(view, request, error)
             }
 

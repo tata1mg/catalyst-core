@@ -128,6 +128,10 @@ public final class CacheManager {
     }
     
     func shouldCacheURL(_ url: URL) -> Bool {
+        if OfflineCacheService.shared.shouldCacheAssetURL(url) {
+            return true
+        }
+
         let urlString = url.absoluteString
 
         // Use pre-compiled regex patterns for better performance
