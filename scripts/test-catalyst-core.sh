@@ -21,6 +21,7 @@ npm run prepare --workspace packages/catalyst-core
 # Replace built catalyst-core in the fixture app
 rm -rf "$FIXTURE_DIR/node_modules/catalyst-core/dist"
 mv "$PACKAGE_DIR/dist" "$FIXTURE_DIR/node_modules/catalyst-core/"
+cp "$PACKAGE_DIR/package.json" "$FIXTURE_DIR/node_modules/catalyst-core/package.json"
 
 # Run fixture app checks
 cd "$FIXTURE_DIR"
