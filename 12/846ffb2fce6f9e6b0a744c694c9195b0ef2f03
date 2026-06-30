@@ -1,0 +1,37 @@
+packages/catalyst-core/src/native/bridge/perf/collectors/BridgeCollector.js
+  f305a641ef316279 30-31,39,57-58,80-86,101-103,107,128-129,133,138,142-146,155,159,163,166
+packages/catalyst-core/src/native/bridge/perf/index.js
+  f305a641ef316279 40-42,70,99-103,111-112,268-269,284,331-332,341-342,347,356,359-361,397-402
+packages/catalyst-core/src/native/bridge/perf/collectors/InteractionCollector.js
+  f305a641ef316279 22-25,36,48-50,55-56,59-72,112,178,180-181,195-196,204-206,210,214,221,230,247-263,265,278,284,287-288
+packages/catalyst-core/src/native/bridge/perf/core/constants.js
+  f305a641ef316279 18,20
+packages/catalyst-core/src/native/bridge/perf/collectors/NetworkTimingCollector.js
+  f305a641ef316279 123,128-129,131,151,163,166-167
+packages/catalyst-core/src/native/bridge/perf/collectors/ApiCollector.js
+  f305a641ef316279 38-45,52-55,59,67-68,71,75-76,79,81
+packages/catalyst-core/src/native/bridge/perf/collectors/RenderCollector.js
+  f305a641ef316279 80-81,84,88,97,106,108,112-113,116,120,134,142,146,151,153-154,157,161,165,171,173-174,177,180,184,192,194-195,199-202,274-276
+packages/catalyst-core/src/native/bridge/perf/core/measure.js
+  f305a641ef316279 16-34,76,97-136,138,181,183,198-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "12846ffb2fce6f9e6b0a744c694c9195b0ef2f03",
+  "prompts": {
+    "f305a641ef316279": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed44f-5fa7-7422-b169-fcd25927bf34",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 392,
+      "total_deletions": 175,
+      "accepted_lines": 285,
+      "overriden_lines": 0
+    }
+  }
+}

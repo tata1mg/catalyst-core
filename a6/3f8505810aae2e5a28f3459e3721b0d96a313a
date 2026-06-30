@@ -1,0 +1,79 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  fb7636ac98eba817 10-11,22,25-26,56-59,73-81,83-86,180-184,331-332,348-349,550-563,747-748,997-1020,1034-1058,1090-1094,1188-1222
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  fb7636ac98eba817 8-9,100-101,105-153
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/KeyboardUtil.kt
+  fb7636ac98eba817 5,10,12,16-17,21,24,29-32,43,53,63,68-70,75-79,85-89,101-119
+packages/catalyst-core/src/native/bridge/perf/collectors/KeyboardCollector.js
+  fb7636ac98eba817 1-122
+packages/catalyst-core/src/native/bridge/perf/collectors/NetworkTimingCollector.js
+  fb7636ac98eba817 1-192
+packages/catalyst-core/src/native/bridge/perf/collectors/InsightsCollector.js
+  fb7636ac98eba817 1-352
+packages/catalyst-core/src/native/bridge/perf/core/waterfalls.js
+  fb7636ac98eba817 1-249
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  fb7636ac98eba817 288-290,292-301,308-309,365-370
+packages/catalyst-core/src/native/bridge/perf/collectors/NavigationCollector.js
+  fb7636ac98eba817 1-306
+packages/catalyst-core/src/native/bridge/perf/collectors/BridgeCollector.js
+  fb7636ac98eba817 1-131
+packages/catalyst-core/src/native/bridge/perf/collectors/CacheCollector.js
+  fb7636ac98eba817 1-163
+packages/catalyst-core/src/native/bridge/WebBridge.js
+  fb7636ac98eba817 10,106-108
+packages/catalyst-core/src/native/bridge/perf/core/store.js
+  fb7636ac98eba817 1-556
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  fb7636ac98eba817 147,336-337,340,383-385,502-503,508,920-921
+packages/catalyst-core/src/native/bridge/perf/collectors/ThreadCollector.js
+  fb7636ac98eba817 1-108
+packages/catalyst-core/src/native/bridge/perf/core/constants.js
+  fb7636ac98eba817 1-110
+packages/catalyst-core/src/native/bridge/perf/index.js
+  fb7636ac98eba817 1-380
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/PerfEventBuffer.kt
+  fb7636ac98eba817 1-282
+packages/catalyst-core/src/native/bridge/perf/collectors/HookCollector.js
+  fb7636ac98eba817 1-171
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  fb7636ac98eba817 96
+packages/catalyst-core/src/native/bridge/perf/collectors/RenderCollector.js
+  fb7636ac98eba817 1-295
+packages/catalyst-core/src/native/bridge/constants/NativeInterfaces.js
+  fb7636ac98eba817 123-125
+packages/catalyst-core/src/native/bridge/perf/collectors/ApiCollector.js
+  fb7636ac98eba817 1-60
+packages/catalyst-core/src/native/bridge/perf/collectors/InteractionCollector.js
+  fb7636ac98eba817 1-249
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/MetricsMonitor.kt
+  fb7636ac98eba817 8-11,20-36,58-66,109-116,185,187-192,220-224,231-264,268-288,295-319,450
+packages/catalyst-core/src/native/bridge/perf/core/session.js
+  fb7636ac98eba817 1-86
+packages/catalyst-core/src/native/bridge/perf/core/measure.js
+  fb7636ac98eba817 1-143
+packages/catalyst-core/src/native/bridge/perf/collectors/ScrollCollector.js
+  fb7636ac98eba817 1-106
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/WebCacheManager.kt
+  fb7636ac98eba817 4,8,10-11,13,22-23,70-111,119-121,124,137,152,161,171-172,176,191,199,217,229,240-241,384-385,387,430
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "a63f8505810aae2e5a28f3459e3721b0d96a313a",
+  "prompts": {
+    "fb7636ac98eba817": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4937-62b0-7b02-9b7d-8dd38e89b41a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 6154,
+      "total_deletions": 86,
+      "accepted_lines": 4612,
+      "overriden_lines": 0
+    }
+  }
+}
