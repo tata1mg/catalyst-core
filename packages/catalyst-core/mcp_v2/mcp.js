@@ -25,6 +25,7 @@ const build = require("./tools/build")
 const tasks = require("./tools/tasks")
 const sync = require("./tools/sync")
 const knowledge = require("./tools/knowledge")
+const github = require("./tools/github")
 
 const MCP_DIR = __dirname
 const DB_PATH = path.join(MCP_DIR, "context.db")
@@ -87,6 +88,7 @@ build.init(db)
 tasks.init(db)
 sync.init(db)
 knowledge.init(db)
+github.init(projectInfo)
 
 // ── Intent classification (internal, not exposed as tool) ─────────────────────
 
@@ -97,6 +99,8 @@ const INTENT_PATTERNS = {
     guidance:
         /\b(what\s+is|what\s+are|how\s+does|how\s+do|explain|show\s+me|tell\s+me|hook|api|usage|example)\b/i,
     status: /status|done|complet|finish|check.*config|config.*check|what.*(left|remain|todo|next|pending)|how far|progress/i,
+    // feedback = wants to raise an issue or discussion on GitHub
+    feedback: /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
     debug: /error|fail|broken|not work|crash|issue|bug|why|wrong/i,
     build: /build|compile|webpack|bundle|android|ios|platform/i,
     sync: /sync|update.*doc|fetch.*doc|latest.*doc/i,
@@ -110,6 +114,7 @@ const INTENT_NEXT_ACTION = {
     debug: "answer_only — provide debug guidance. Do NOT call create_task_plan.",
     build: "answer_only — explain build flow. Do NOT call create_task_plan.",
     sync: "answer_only — sync complete. Do NOT call create_task_plan.",
+    feedback: "answer_only — run the GitHub issue workflow and show the created issue URL or markdown fallback. Do NOT call create_task_plan.",
     unknown: "answer_only — unclear intent. Return what you found. Do NOT call create_task_plan.",
 }
 
@@ -412,6 +417,142 @@ const TOOLS = [
             },
         },
     },
+    {
+        name: "create_github_issue",
+        description:
+            "Use when the developer wants to create, raise, report, preview, or publish a GitHub issue for catalyst-core, or after the LLM discovers that a problem is likely caused by catalyst-core framework behavior and the developer agrees to raise an issue. This single tool first asks the developer to select labels when labels are omitted. After labels are supplied, it gathers project context, renders the issue using the selected/suggested template, searches duplicates using duplicate_search_query when provided, supports preview with dry_run:true, publishes only when dry_run:false is explicitly passed, and falls back to a markdown draft on auth/network/API failure. Default to dry_run:true first; if label_selection_required is returned, ask the developer to select labels before collecting/rendering the rest of the issue. Intent: feedback.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                dry_run: {
+                    type: "boolean",
+                    description:
+                        "Defaults to true. When true, returns rendered preview, labels, duplicate candidates, and gathered context without publishing. Pass false only after explicit developer approval.",
+                },
+                project_path: {
+                    type: "string",
+                    description: "Path to the catalyst app root. Defaults to detected project root.",
+                },
+                title: {
+                    type: "string",
+                    description: "Short, descriptive issue title. E.g. 'RouterDataProvider fails on nested dynamic routes'.",
+                },
+                body: {
+                    type: "string",
+                    description:
+                        "Full issue description. Plain text is upgraded into the catalyst-core issue style; already structured markdown is preserved.",
+                },
+                summary: {
+                    type: "string",
+                    description: "Structured issue summary if body is not already composed.",
+                },
+                issue_template: {
+                    type: "string",
+                    enum: ["bug", "enhancement", "documentation", "dependencies", "question"],
+                    description:
+                        "Optional template to force. Use bug for broken behavior, enhancement for feature requests, documentation for docs/examples, dependencies for package updates, question for clarification.",
+                },
+                current_behavior: {
+                    type: "string",
+                    description: "What happens today.",
+                },
+                steps_to_reproduce: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Steps to reproduce the issue.",
+                },
+                expected_behavior: {
+                    type: "string",
+                    description: "What should happen.",
+                },
+                actual_behavior: {
+                    type: "string",
+                    description: "What actually happens.",
+                },
+                error_logs: {
+                    type: "string",
+                    description: "Error logs or stack traces.",
+                },
+                preflight_checklist: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
+                },
+                what_i_tried: {
+                    type: "string",
+                    description: "Troubleshooting already attempted.",
+                },
+                additional_information: {
+                    type: "string",
+                    description: "Additional context that does not fit the primary sections.",
+                },
+                related_issues: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Related GitHub issues or links.",
+                },
+                root_cause: {
+                    type: "string",
+                    description: "Technical notes or suspected root cause.",
+                },
+                proposed_fix: {
+                    type: "string",
+                    description: "Concrete suggested fix.",
+                },
+                optional_followups: {
+                    oneOf: [
+                        { type: "string" },
+                        { type: "array", items: { type: "string" } },
+                    ],
+                    description: "Follow-up cleanup, docs, or test suggestions.",
+                },
+                environment: {
+                    type: ["string", "object"],
+                    description: "Environment details such as platform, OS, browser, device, Node/npm versions.",
+                },
+                labels: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                        "Required after the initial label-selection step. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool returns label_selection_required and does not gather context, render a full preview, search duplicates, or publish.",
+                },
+                images: {
+                    type: "array",
+                    items: { type: ["string", "object"] },
+                    description:
+                        "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
+                },
+                duplicate_search_query: {
+                    type: "string",
+                    description:
+                        "Optional focused search query for duplicate detection, supplied by the LLM from the issue context. Use the same query reviewed in the dry_run:true preview.",
+                },
+                duplicate_review_confirmed: {
+                    type: "boolean",
+                    description:
+                        "Set true only after a dry_run:true preview or blocked publish returned duplicate candidates, those candidates were shown to the developer, and the developer explicitly confirmed this issue is distinct and should still be published.",
+                },
+                duplicate_review_note: {
+                    type: "string",
+                    description:
+                        "Optional short note explaining why the issue is not a duplicate, after the developer confirms publishing.",
+                },
+                files: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional explicit project files to include as context snippets.",
+                },
+                _query: {
+                    type: "string",
+                    description: "Original user query for intent classification.",
+                },
+            },
+        },
+    },
 ]
 
 // ── Tool handler dispatch ─────────────────────────────────────────────────────
@@ -429,6 +570,7 @@ const TOOL_HANDLERS = {
     close_task_plan: tasks.handle_close_task_plan,
     sync_catalyst_docs: sync.handle_sync_catalyst_docs,
     query_knowledge: knowledge.handle_query_knowledge,
+    create_github_issue: github.handle_create_github_issue,
 }
 
 // ── MCP JSON-RPC over stdio ───────────────────────────────────────────────────
@@ -496,7 +638,7 @@ rl.on("line", (line) => {
                                 text: JSON.stringify({
                                     error: "out_of_scope",
                                     message:
-                                        "This query is outside Catalyst MCP scope. MCP handles: conversion tracking, debugging, config validation, build flow, architecture, task planning, and doc sync.",
+                                        "This query is outside Catalyst MCP scope. MCP handles: conversion tracking, debugging, config validation, build flow, architecture, task planning, doc sync, and GitHub issue creation.",
                                 }),
                             },
                         ],
