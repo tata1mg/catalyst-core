@@ -12,6 +12,8 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     private var lastTargetURL: URL?
     private let initialURL: URL?
     private weak var cameraManager: NativeCameraManager?
+    private var pageLoadStartMs: Int64?
+    private var didEmitColdStart = false
 
     init(viewModel: WebViewModel, initialURL: URL?, cameraManager: NativeCameraManager? = nil) {
         self.viewModel = viewModel
@@ -121,15 +123,26 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             logger.info("🔍 Cache check - Method: \(httpMethod), isCacheable: \(isCacheableMethod)")
 
             if isCacheableMethod && CacheManager.shared.shouldCacheURL(url) {
-                logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
+            logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
 
+                let cacheStartMs = CatalystPerf.nativeTimeMs()
                 let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
                     for: navigationAction.request
                 )
+                let cacheDurationMs = CatalystPerf.nativeTimeMs() - cacheStartMs
                 
                 switch cacheState {
                 case .fresh, .stale:
                     logger.info("✅ Serving fresh/stale cached content")
+                    CatalystPerf.add([
+                        "type": "cache-hit-memory",
+                        "url": url.absoluteString,
+                        "resourceType": "document",
+                        "nativeTime": cacheStartMs,
+                        "nativeStartMs": cacheStartMs,
+                        "durationMs": cacheDurationMs,
+                        "source": cacheState == .fresh ? "fresh" : "stale",
+                    ])
 
                     if let cachedData = cachedData,
                        let mimeType = mimeType {
@@ -148,6 +161,14 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     
                 case .expired:
                     logger.info("♻️ Cache expired, fetching fresh content")
+                    CatalystPerf.add([
+                        "type": "cache-miss-fetch",
+                        "url": url.absoluteString,
+                        "resourceType": "document",
+                        "nativeTime": cacheStartMs,
+                        "nativeStartMs": cacheStartMs,
+                        "durationMs": cacheDurationMs,
+                    ])
                     break
                 }
             } else {
@@ -201,6 +222,21 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         logWithTimestamp("📡 didStartProvisionalNavigation - loading started")
+        let nativeNow = CatalystPerf.nativeTimeMs()
+        pageLoadStartMs = nativeNow
+        CatalystPerf.injectNativeTimeOffset(into: webView)
+        if let url = webView.url?.absoluteString ?? lastTargetURL?.absoluteString {
+            CatalystPerf.add([
+                "type": "boot-page-started",
+                "nativeTime": nativeNow,
+                "url": url,
+            ])
+            CatalystPerf.add([
+                "type": "page-load-start",
+                "nativeTime": nativeNow,
+                "url": url,
+            ])
+        }
         // Stop camera on navigation — mirrors Android CustomWebview onPageStarted lambda
         cameraManager?.stop()
         Task { @MainActor in
@@ -227,6 +263,32 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         logWithTimestamp("🎉 didFinish - page fully loaded")
+        let nativeNow = CatalystPerf.nativeTimeMs()
+        let url = webView.url?.absoluteString ?? lastTargetURL?.absoluteString ?? ""
+        let durationMs = pageLoadStartMs.map { nativeNow - $0 } ?? 0
+        CatalystPerf.add([
+            "type": "boot-page-finished",
+            "nativeTime": nativeNow,
+            "url": url,
+        ])
+        CatalystPerf.add([
+            "type": "page-load-end",
+            "nativeTime": nativeNow,
+            "url": url,
+            "durationMs": durationMs,
+        ])
+        if !didEmitColdStart {
+            didEmitColdStart = true
+            CatalystPerf.add([
+                "type": "cold-start",
+                "nativeTime": nativeNow,
+                "url": url,
+                "durationMs": nativeNow - AppBoot.nativeStartMs,
+            ])
+        }
+        CatalystPerf.memorySnapshot(to: nil, label: "page-finish")
+        CatalystPerf.scheduleFlush(webView)
+
         Task { @MainActor in
             if let url = webView.url {
                 if !isOfflinePageURL(url) {
@@ -253,6 +315,13 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     }
 
     private func handleNavigationError(_ error: Error, webView: WKWebView?) {
+        CatalystPerf.emit([
+            "type": "page-load-error",
+            "nativeTime": CatalystPerf.nativeTimeMs(),
+            "url": webView?.url?.absoluteString ?? lastTargetURL?.absoluteString ?? "",
+            "description": error.localizedDescription,
+        ], to: webView)
+
         Task { @MainActor in
             viewModel.reset()
             logWithTimestamp("🔴 Navigation error: \(error.localizedDescription)")

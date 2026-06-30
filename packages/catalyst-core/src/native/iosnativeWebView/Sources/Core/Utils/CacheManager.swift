@@ -191,12 +191,23 @@ public final class CacheManager {
     
     private func revalidateResource(request: URLRequest) async {
         logger.info("🔄 Starting revalidation for: \(request.url?.absoluteString ?? "")")
+        let fetchStartMs = CatalystPerf.nativeTimeMs()
         
         do {
             let (data, response) = try await session.data(for: request)
+            let durationMs = CatalystPerf.nativeTimeMs() - fetchStartMs
             
             if let httpResponse = response as? HTTPURLResponse,
                isCacheableResponse(httpResponse) {
+                CatalystPerf.add([
+                    "type": "network-fetch-complete",
+                    "url": request.url?.absoluteString ?? "",
+                    "statusCode": httpResponse.statusCode,
+                    "resourceType": "document",
+                    "nativeTime": fetchStartMs,
+                    "nativeStartMs": fetchStartMs,
+                    "durationMs": durationMs,
+                ])
                 storeCachedResponse(httpResponse, data: data, for: request)
                 logger.info("Resource revalidated: \(request.url?.absoluteString ?? "")")
             }
