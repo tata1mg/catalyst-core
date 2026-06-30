@@ -145,6 +145,7 @@ sync_catalyst_core() {
     header "Sync catalyst-core"
     if [ -n "$CATALYST_VERSION" ]; then
         info "Installing catalyst-core@$CATALYST_VERSION from npm"
+        rm -rf "$APP_DIR/node_modules/catalyst-core"
         (cd "$APP_DIR" && npm install "catalyst-core@$CATALYST_VERSION" --save-exact --silent 2>&1)
         ok "Installed catalyst-core@$CATALYST_VERSION"
     else

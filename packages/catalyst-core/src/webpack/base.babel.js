@@ -1,4 +1,5 @@
 import path from "path"
+import fs from "fs"
 import webpack from "webpack"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer"
@@ -15,6 +16,20 @@ loadEnvironmentVariables()
 
 const isDev = process.env.NODE_ENV === "development"
 const isSSR = !!process.env.SSR || false
+
+// Derive AI_PUBLIC_CONFIG: only the browser block from AI_CONFIG, no API keys
+const aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
+
+// Detect which @catalyst/* AI packages are installed in the app's node_modules.
+// Results are injected as __CATALYST_PACKAGES__.* literals so webpack dead-code
+// eliminates require() calls for missing packages — no build error, clean bundle.
+const appNodeModules = path.resolve(process.env.src_path || process.cwd(), "node_modules")
+const catalystPackages = {
+    cloudAI:      fs.existsSync(path.join(appNodeModules, "@catalyst", "cloud-ai")),
+    webAILocal:   fs.existsSync(path.join(appNodeModules, "@catalyst", "web-ai-local")),
+    nativeAILocal:fs.existsSync(path.join(appNodeModules, "@catalyst", "native-ai-local")),
+}
 
 export const basePlugins = [
     // **This loads process.env variable during webpack build process
@@ -33,6 +48,11 @@ export const basePlugins = [
             clientEnvMap[env] = JSON.stringify(process.env[env])
             return clientEnvMap
         }, {}),
+        "process.env.AI_PUBLIC_CONFIG": JSON.stringify(JSON.stringify(aiPublicConfig)),
+        "__CATALYST_PACKAGES__":               JSON.stringify(catalystPackages),
+        "__CATALYST_PACKAGES__.cloudAI":       catalystPackages.cloudAI,
+        "__CATALYST_PACKAGES__.webAILocal":    catalystPackages.webAILocal,
+        "__CATALYST_PACKAGES__.nativeAILocal": catalystPackages.nativeAILocal,
     }),
 
     // ** This is used to analyze bundle size.
@@ -82,12 +102,16 @@ export default {
     resolve: {
         fallback: { url: require.resolve("url") },
         extensions: [".js", ".jsx", ".scss", ".ts", ".tsx"],
-        alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
-            // nosemgrep
-            moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
-
-            return moduleEnvMap
-        }, {}),
+        alias: {
+            ...Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
+                // nosemgrep
+                moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
+                return moduleEnvMap
+            }, {}),
+            "@catalyst/cloud-ai": catalystPackages.cloudAI
+                ? path.join(appNodeModules, "@catalyst", "cloud-ai")
+                : false,
+        },
     },
     plugins: basePlugins,
     module: {

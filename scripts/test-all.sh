@@ -36,6 +36,7 @@ APP_PATH="$1"; shift
 
 ONLY_SUITE=""
 CATALYST_VERSION=""
+PACKAGES=""
 SKIP_NATIVE_TESTS=0
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -45,6 +46,9 @@ while [ $# -gt 0 ]; do
         --catalyst-version)
             [ $# -lt 2 ] && { fail "--catalyst-version requires a version string"; exit 1; }
             CATALYST_VERSION="$2"; shift 2 ;;
+        --packages)
+            [ $# -lt 2 ] && { fail "--packages requires a value (e.g. cloud-ai | all)"; exit 1; }
+            PACKAGES="$2"; shift 2 ;;
         --skip-native-tests) SKIP_NATIVE_TESTS=1; shift ;;
         *) fail "Unknown flag: $1"; exit 1 ;;
     esac
@@ -123,6 +127,7 @@ kill_server() {
 header "Sync catalyst-core"
 if [ -n "$CATALYST_VERSION" ]; then
     info "Installing catalyst-core@$CATALYST_VERSION from npm"
+    rm -rf "$APP_DIR/node_modules/catalyst-core"
     (cd "$APP_DIR" && npm install "catalyst-core@$CATALYST_VERSION" --save-exact --silent 2>&1)
     ok "Installed catalyst-core@$CATALYST_VERSION"
 else
@@ -134,6 +139,19 @@ else
         fail "catalyst-core sync failed"; cat "$sync_log"; rm -f "$sync_log"; exit 1
     fi
     rm -f "$sync_log"
+fi
+
+# ── 2. sync @catalyst/* packages ─────────────────────────────────────────────
+if [ -n "$PACKAGES" ]; then
+    header "Sync @catalyst/* packages"
+    info "Packages: $PACKAGES"
+    pkg_log=$(mktemp)
+    if (cd "$APP_DIR" && node ../sync-packages.js --packages "$PACKAGES" >"$pkg_log" 2>&1); then
+        ok "@catalyst/* packages synced"
+    else
+        fail "package sync failed"; cat "$pkg_log"; rm -f "$pkg_log"; exit 1
+    fi
+    rm -f "$pkg_log"
 fi
 
 # Build suite-specific pass-through args

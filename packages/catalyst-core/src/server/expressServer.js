@@ -25,6 +25,20 @@ app.use(cookieParser())
 // All the middlewares defined by the user will run here.
 if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
 
+// Mount AI route if @catalyst/cloud-ai is installed
+try {
+    const cloudAIPath = require.resolve(
+        path.join(process.env.src_path || process.cwd(), "node_modules/@catalyst/cloud-ai/src/route.js")
+    )
+    const aiRouter = require(cloudAIPath)
+    const aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+    const aiBasePath = aiConfig.basePath || "/ai"
+    console.log(`[catalyst-core/ai] mounting AI router at ${aiBasePath}`)
+    app.use(aiBasePath, aiRouter)
+} catch (_) {
+    // @catalyst/cloud-ai not installed — AI routes unavailable
+}
+
 // The middleware will attempt to compress response bodies for all request that traverse through the middleware
 app.use(compression())
 
