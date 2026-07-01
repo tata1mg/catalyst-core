@@ -69,7 +69,12 @@ Native request interception:
 - sends `X-Catalyst-Offline-Snapshot-Fetch: 1` on native background snapshot fetches;
 - serves a cached snapshot when the same URL is requested offline;
 - lets API requests and non-GET requests pass through uncached;
-- includes intercepted static asset requests in the existing native asset cache path.
+- keeps existing `cachePattern` behavior as a global/manual native cache policy;
+- adds same-origin GET subresources requested by an active offline route to the native asset cache
+  path, while still excluding API and document/data responses where native can identify them.
+
+Use `cachePattern` for cross-origin/CDN assets or custom asset endpoints that native cannot safely
+identify as route subresources.
 
 Offline app launch and notification navigation first try a cached route snapshot. If no snapshot is
 available, Catalyst falls back to bundled `public/offline.html`.

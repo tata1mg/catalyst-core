@@ -5,7 +5,6 @@ import android.net.Uri
 import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebResourceResponse
-import android.webkit.WebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,6 +42,7 @@ class OfflineCacheService(
     }
 
     private val TAG = "OfflineCacheService"
+    private val FLOW_TAG = "CatalystOfflineFlow"
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val rootDir = File(context.cacheDir, "catalyst_offline")
     private val routeRootDir = File(rootDir, "routes")
@@ -65,14 +65,28 @@ class OfflineCacheService(
     init {
         rootDir.mkdirs()
         routeRootDir.mkdirs()
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "OFFLINE_SERVICE init cacheDir=${rootDir.absolutePath} manifestBuildId=${manifest?.buildId ?: "none"} routes=${manifest?.routes?.size ?: 0}")
+        }
     }
 
     fun refreshManifestAsync(url: String, headers: Map<String, String> = emptyMap()) {
         if (!isHttpUrl(url)) return
 
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "MANIFEST refresh-async requested url=$url")
+        }
         scope.launch {
             refreshManifestBlocking(url, headers)
         }
+    }
+
+    fun refreshManifestIfMissing(url: String, headers: Map<String, String> = emptyMap()) {
+        if (!isHttpUrl(url) || manifest != null) return
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "MANIFEST refresh-blocking reason=missing url=$url")
+        }
+        refreshManifestBlocking(url, headers)
     }
 
     fun storeRouteSnapshotAsync(url: String, headers: Map<String, String> = emptyMap()) {
@@ -83,15 +97,34 @@ class OfflineCacheService(
             ongoingSnapshots.add(key)
         }
 
-        if (!shouldFetch) return
+        if (!shouldFetch) {
+            if (BuildConfig.DEBUG) {
+                Log.d(FLOW_TAG, "SNAPSHOT skip reason=already-in-flight url=$key")
+            }
+            return
+        }
+
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "SNAPSHOT store-requested url=$key")
+        }
 
         scope.launch {
             try {
                 refreshManifestBlocking(url, headers)
-                if (!isOfflineRouteUrl(url)) return@launch
+                if (!isOfflineRouteUrl(url)) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(FLOW_TAG, "SNAPSHOT skip reason=route-not-eligible url=$url manifestBuildId=${manifest?.buildId ?: "none"} routes=${manifest?.routes?.size ?: 0}")
+                    }
+                    return@launch
+                }
 
                 val file = snapshotFileForUrl(key)
-                if (isFreshSnapshot(file)) return@launch
+                if (isFreshSnapshot(file)) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(FLOW_TAG, "SNAPSHOT skip reason=fresh-existing ageMs=${System.currentTimeMillis() - file.lastModified()} bytes=${file.length()} url=$key path=${file.absolutePath}")
+                    }
+                    return@launch
+                }
 
                 val connection = URL(key).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
@@ -107,6 +140,9 @@ class OfflineCacheService(
 
                 connection.connect()
                 val contentType = connection.contentType ?: ""
+                if (BuildConfig.DEBUG) {
+                    Log.d(FLOW_TAG, "SNAPSHOT fetch-response status=${connection.responseCode} contentType=$contentType url=$key")
+                }
 
                 if (connection.responseCode == HttpURLConnection.HTTP_OK &&
                     contentType.contains("text/html", ignoreCase = true)
@@ -117,13 +153,17 @@ class OfflineCacheService(
                         FileOutputStream(file).use { it.write(bytes) }
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "Stored route snapshot: $key")
+                            Log.d(FLOW_TAG, "SNAPSHOT stored bytes=${bytes.size} url=$key path=${file.absolutePath}")
                         }
                     }
+                } else if (BuildConfig.DEBUG) {
+                    Log.w(FLOW_TAG, "SNAPSHOT not-stored reason=non-html-or-non-200 status=${connection.responseCode} contentType=$contentType url=$key")
                 }
                 connection.disconnect()
             } catch (e: Exception) {
                 if (BuildConfig.DEBUG) {
                     Log.w(TAG, "Unable to store route snapshot for $url: ${e.message}")
+                    Log.w(FLOW_TAG, "SNAPSHOT error phase=store url=$url error=${e.message}", e)
                 }
             } finally {
                 synchronized(ongoingSnapshots) {
@@ -134,10 +174,23 @@ class OfflineCacheService(
     }
 
     fun getRouteSnapshotResponse(url: String): WebResourceResponse? {
-        if (!isOfflineRouteUrl(url)) return null
+        if (!isOfflineRouteUrl(url)) {
+            if (BuildConfig.DEBUG) {
+                Log.d(FLOW_TAG, "SNAPSHOT miss reason=route-not-eligible url=$url")
+            }
+            return null
+        }
         val file = snapshotFileForUrl(url)
-        if (!file.exists()) return null
+        if (!file.exists()) {
+            if (BuildConfig.DEBUG) {
+                Log.d(FLOW_TAG, "SNAPSHOT miss reason=file-missing url=$url path=${file.absolutePath}")
+            }
+            return null
+        }
 
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "SNAPSHOT hit bytes=${file.length()} url=$url path=${file.absolutePath}")
+        }
         return WebResourceResponse(
             "text/html",
             "utf-8",
@@ -148,25 +201,14 @@ class OfflineCacheService(
         )
     }
 
-    fun loadSnapshotInto(webView: WebView, url: String): Boolean {
-        if (!isOfflineRouteUrl(url)) return false
+    fun hasRouteSnapshot(url: String): Boolean {
+        val eligible = isOfflineRouteUrl(url)
         val file = snapshotFileForUrl(url)
-        if (!file.exists()) return false
-
-        return try {
-            val bytes = file.readBytes()
-            webView.loadDataWithBaseURL(
-                normalizeSnapshotUrl(url),
-                String(bytes, Charsets.UTF_8),
-                "text/html",
-                "UTF-8",
-                normalizeSnapshotUrl(url)
-            )
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Unable to load route snapshot for $url: ${e.message}")
-            false
+        val exists = eligible && file.exists()
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "SNAPSHOT exists-check eligible=$eligible exists=$exists bytes=${if (file.exists()) file.length() else 0} url=$url path=${file.absolutePath}")
         }
+        return exists
     }
 
     fun isOfflineRouteUrl(url: String): Boolean {
@@ -174,13 +216,17 @@ class OfflineCacheService(
         val currentManifest = manifest ?: return false
         val path = Uri.parse(url).path ?: "/"
 
-        return currentManifest.routes.any { route ->
+        val matchedRoute = currentManifest.routes.firstOrNull { route ->
             try {
                 Regex(route.regex, RegexOption.IGNORE_CASE).matches(path)
             } catch (_: Exception) {
                 false
             }
         }
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "ROUTE match=${matchedRoute != null} path=$path pattern=${matchedRoute?.pattern ?: "none"} regex=${matchedRoute?.regex ?: "none"} buildId=${currentManifest.buildId} url=$url")
+        }
+        return matchedRoute != null
     }
 
     fun shouldCacheAssetUrl(url: String): Boolean {
@@ -219,6 +265,9 @@ class OfflineCacheService(
             connection.connect()
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                if (BuildConfig.DEBUG) {
+                    Log.w(FLOW_TAG, "MANIFEST refresh-response status=${connection.responseCode} url=$manifestUrl keepingBuildId=${manifest?.buildId ?: "none"}")
+                }
                 connection.disconnect()
                 return manifest
             }
@@ -228,10 +277,17 @@ class OfflineCacheService(
             val parsed = parseManifest(body)
             manifestFile.writeText(body)
             manifest = parsed
+            if (BuildConfig.DEBUG) {
+                Log.d(FLOW_TAG, "MANIFEST refreshed buildId=${parsed.buildId} routes=${parsed.routes.size} url=$manifestUrl")
+                parsed.routes.forEach { route ->
+                    Log.d(FLOW_TAG, "MANIFEST route pattern=${route.pattern} regex=${route.regex}")
+                }
+            }
             parsed
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
                 Log.w(TAG, "Unable to refresh offline manifest: ${e.message}")
+                Log.w(FLOW_TAG, "MANIFEST refresh-error url=$url error=${e.message}", e)
             }
             manifest
         }

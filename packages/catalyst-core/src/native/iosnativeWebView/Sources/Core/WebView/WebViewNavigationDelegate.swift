@@ -9,6 +9,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     private let offlineFileName = "offline.html"
     private let offlineSubdirectory = "offline"
     private var offlinePageVisible = false
+    private var offlineSnapshotVisibleURL: String?
     private var lastTargetURL: URL?
     private let initialURL: URL?
     private weak var cameraManager: NativeCameraManager?
@@ -46,6 +47,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         // Only inject on main frame to match Android behavior (not on subresources)
         let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? false
         let isHttpScheme = ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+        let isCatalystOfflineURL = OfflineCacheService.shared.originalURL(forOfflineURL: url) != nil
 
         if isMainFrame && isHttpScheme && httpMethod == "GET" {
             let safeAreaHeaders = viewModel.getSafeAreaHeaders()
@@ -86,7 +88,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             return
         }
 
-        if URLWhitelistManager.shared.isAccessControlEnabled {
+        if URLWhitelistManager.shared.isAccessControlEnabled && !isCatalystOfflineURL {
 
             // Check if URL is an external domain
             let isExternal = URLWhitelistManager.shared.isExternalDomain(url)
@@ -107,8 +109,10 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             }
 
             logger.info("✅ URL passed whitelist checks, allowing navigation: \(url.absoluteString)")
-        } else {
+        } else if !isCatalystOfflineURL {
             logger.info("⚠️ Access control disabled, allowing all navigation: \(url.absoluteString)")
+        } else {
+            logger.info("📴 Catalyst offline URL allowed: \(url.absoluteString)")
         }
 
         if ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
@@ -122,13 +126,21 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
 
             if isMainFrame && isHttpScheme && isCacheableMethod {
                 if NetworkMonitor.shared.currentStatus.isOnline {
+                    let isOfflineRoute = await OfflineCacheService.shared.prepareActiveOfflineRoute(
+                        for: navigationAction.request,
+                        webView: webView
+                    )
+                    offlineSnapshotVisibleURL = nil
+                    if !isOfflineRoute {
+                        logger.info("⏭️ Main-frame route is not currently offline eligible: \(url.absoluteString)")
+                    }
                     OfflineCacheService.shared.storeRouteSnapshot(
                         for: navigationAction.request,
                         webView: webView
                     )
                 } else {
                     let loadedSnapshot = await MainActor.run {
-                        OfflineCacheService.shared.loadSnapshot(in: webView, for: url)
+                        loadCachedSnapshotIfNeeded(in: webView, for: url)
                     }
 
                     if loadedSnapshot {
@@ -136,7 +148,10 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                         decisionHandler(.cancel)
                         return
                     }
+                    OfflineCacheService.shared.clearActiveOfflineRoute()
                 }
+            } else if isMainFrame && isHttpScheme {
+                OfflineCacheService.shared.clearActiveOfflineRoute()
             }
 
             if isCacheableMethod && CacheManager.shared.shouldCacheURL(url) {
@@ -279,7 +294,13 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
 
             guard shouldShowOfflinePage(for: error), let webView else { return }
             if let targetURL = lastTargetURL ?? webView.url,
-               OfflineCacheService.shared.loadSnapshot(in: webView, for: targetURL) {
+               isOfflineSnapshotVisible(for: targetURL) {
+                logger.info("📴 Ignoring repeated error for visible offline route snapshot")
+                return
+            }
+
+            if let targetURL = lastTargetURL ?? webView.url,
+               loadCachedSnapshotIfNeeded(in: webView, for: targetURL) {
                 logger.info("📴 Showing cached offline route snapshot")
                 return
             }
@@ -345,6 +366,8 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
 
         offlinePageVisible = false
+        offlineSnapshotVisibleURL = nil
+        OfflineCacheService.shared.clearActiveOfflineRoute()
         logWithTimestamp("🔄 Retry requested, online. Reloading: \(targetURL.absoluteString)")
         webView.load(URLRequest(url: targetURL))
     }
@@ -376,8 +399,11 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
 
         offlinePageVisible = true
+        offlineSnapshotVisibleURL = nil
+        OfflineCacheService.shared.clearActiveOfflineRoute()
         let readAccessURL = offlineURL.deletingLastPathComponent()
         webView.loadFileURL(offlineURL, allowingReadAccessTo: readAccessURL)
+        viewModel.setLoading(false, fromCache: true)
         return true
     }
     
@@ -420,5 +446,34 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
         
         return true
+    }
+
+    private func loadCachedSnapshotIfNeeded(in webView: WKWebView, for url: URL) -> Bool {
+        let key = snapshotKey(for: url)
+        if offlineSnapshotVisibleURL == key {
+            return true
+        }
+
+        if OfflineCacheService.shared.loadSnapshot(in: webView, for: url) {
+            offlinePageVisible = false
+            offlineSnapshotVisibleURL = key
+            viewModel.setLoading(false, fromCache: true)
+            return true
+        }
+
+        offlineSnapshotVisibleURL = nil
+        return false
+    }
+
+    private func isOfflineSnapshotVisible(for url: URL) -> Bool {
+        offlineSnapshotVisibleURL == snapshotKey(for: url)
+    }
+
+    private func snapshotKey(for url: URL) -> String {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url.absoluteString
+        }
+        components.fragment = nil
+        return components.url?.absoluteString ?? url.absoluteString
     }
 }
