@@ -4,9 +4,16 @@ const router = express.Router()
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+function getAIConfig() {
+    return JSON.parse(process.env.AI_CONFIG || "{}")
+}
+
+function isAIEnabled() {
+    return getAIConfig()?.enabled === true
+}
+
 function getProviderConfig(provider) {
-    const aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
-    const cfg = aiConfig?.providers?.[provider]
+    const cfg = getAIConfig()?.providers?.[provider]
     if (!cfg || !cfg.apiKey) return null
     return cfg
 }
@@ -173,14 +180,15 @@ function geminiSystemInstruction(messages) {
     return sys ? { parts: [{ text: sys.content }] } : undefined
 }
 
-async function geminiStream({ apiKey, model, messages, genConfig, conversationId, res }) {
-    if (conversationId !== undefined) {
-        // stateful: Interactions API
+async function geminiStream({ apiKey, model, messages, genConfig, conversationId, stateful, res }) {
+    if (stateful) {
+        // stateful: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
         const sys = geminiSystemInstruction(messages)
+        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
         const body = {
             model: `models/${model}`,
-            input: toGeminiContents(messages).map((c) => c.parts[0].text).join("\n"),
+            input: lastUserMsg,
             stream: true,
             ...(conversationId && { previous_interaction_id: conversationId }),
             ...(sys && { system_instruction: sys }),
@@ -218,8 +226,9 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
                     if (parsed.event_type === "step.delta" && parsed.delta?.type === "text" && parsed.delta.text) {
                         res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
                     }
-                    if (parsed.event_type === "interaction.completed" && parsed.id) {
-                        res.write(`data: ${JSON.stringify({ conversationId: parsed.id })}\n\n`)
+                    if (parsed.event_type === "interaction.completed" && parsed.interaction?.id) {
+                        console.log(`[@catalyst/cloud-ai] gemini session id: ${parsed.interaction.id}`)
+                        res.write(`data: ${JSON.stringify({ conversationId: parsed.interaction.id })}\n\n`)
                     }
                 } catch (_) {}
             }
@@ -273,14 +282,15 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
     res.end()
 }
 
-async function geminiGenerate({ apiKey, model, messages, genConfig, conversationId }) {
-    if (conversationId !== undefined) {
-        // stateful non-streaming: Interactions API
+async function geminiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful }) {
+    if (stateful) {
+        // stateful non-streaming: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
         const sys = geminiSystemInstruction(messages)
+        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
         const body = {
             model: `models/${model}`,
-            input: toGeminiContents(messages).map((c) => c.parts[0].text).join("\n"),
+            input: lastUserMsg,
             stream: false,
             ...(conversationId && { previous_interaction_id: conversationId }),
             ...(sys && { system_instruction: sys }),
@@ -297,7 +307,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         })
         if (!response.ok) throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
-        const text = data.steps?.find((s) => s.type === "model_output")?.content ?? ""
+        const text = data.steps?.find((s) => s.type === "model_output")?.content?.[0]?.text ?? ""
         return { output: text, conversationId: data.id ?? null }
     } else {
         // stateless non-streaming: generateContent
@@ -334,14 +344,15 @@ const PROVIDERS = {
 
 // GET /ai/providers — returns list of configured provider ids, no keys exposed
 router.get("/providers", (req, res) => {
-    const aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
-    const providers = Object.entries(aiConfig?.providers ?? {})
+    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
+    const providers = Object.entries(getAIConfig()?.providers ?? {})
         .filter(([, cfg]) => cfg?.apiKey)
         .map(([id, cfg]) => ({ id, defaultModel: cfg.defaultModel ?? null }))
     res.json({ providers })
 })
 
 router.post("/:provider/stream", async (req, res) => {
+    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
     const { provider } = req.params
     const adapter = PROVIDERS[provider]
     if (!adapter) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
@@ -350,11 +361,12 @@ router.post("/:provider/stream", async (req, res) => {
     if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
 
     const { messages, genConfig = {}, conversationId, model } = req.body
+    const stateful = "conversationId" in req.body
     const resolvedModel = model || cfg.defaultModel
 
     sseHeaders(res)
     try {
-        await adapter.stream({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, res })
+        await adapter.stream({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful, res })
     } catch (err) {
         console.error(`[@catalyst/cloud-ai] ${provider} stream error:`, err.message)
         res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`)
@@ -363,6 +375,7 @@ router.post("/:provider/stream", async (req, res) => {
 })
 
 router.post("/:provider/generate", async (req, res) => {
+    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
     const { provider } = req.params
     const adapter = PROVIDERS[provider]
     if (!adapter) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
@@ -371,10 +384,11 @@ router.post("/:provider/generate", async (req, res) => {
     if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
 
     const { messages, genConfig = {}, conversationId, model } = req.body
+    const stateful = "conversationId" in req.body
     const resolvedModel = model || cfg.defaultModel
 
     try {
-        const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId })
+        const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
         res.json(result)
     } catch (err) {
         console.error(`[@catalyst/cloud-ai] ${provider} generate error:`, err.message)

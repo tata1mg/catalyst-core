@@ -1,0 +1,45 @@
+plugins {
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "io.catalyst.nativeai"
+    compileSdk = 34
+
+    defaultConfig {
+        minSdk = 24
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+        freeCompilerArgs += "-Xskip-metadata-version-check"
+    }
+
+
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" &&
+            (requested.name == "kotlin-stdlib" ||
+             requested.name == "kotlin-stdlib-jdk7" ||
+             requested.name == "kotlin-stdlib-jdk8" ||
+             requested.name == "kotlin-reflect")) {
+            useVersion("2.0.21")
+        }
+    }
+}
+
+dependencies {
+    // LiteRT-LM — on-device LLM inference
+    implementation("com.google.ai.edge.litertlm:litertlm-android:latest.release")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.json:json:20231013")
+}

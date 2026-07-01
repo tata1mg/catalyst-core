@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+/* global __CATALYST_PACKAGES__ */
 
 function getBrowserConfig() {
     try {
@@ -17,18 +17,31 @@ function resolveMode(provider) {
     return "cloud"
 }
 
+function isNativeAIAvailable() {
+    const nb = typeof window !== "undefined" && window.NativeBridge
+    return nb && typeof nb.isAIAvailable === "function" && nb.isAIAvailable()
+}
+
+const _pkg = __CATALYST_PACKAGES__.cloudAI
+    ? require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
+    : null
+
 // provider: "transformers" → useWebAI   (@catalyst/cloud-ai)
-//           "native"       → useNativeAI (@catalyst/cloud-ai)
+//           "native"       → useNativeAI (@catalyst/cloud-ai, falls back to useCloudAI if bridge unavailable)
 //           anything else  → useCloudAI  (@catalyst/cloud-ai, default)
 export function useAI(options = {}) {
-    if (typeof window === "undefined") return emptyHook()
-
     const { provider } = options
     const config = getBrowserConfig()
     const resolvedProvider = provider || config?.provider
     const mode = resolveMode(resolvedProvider)
 
-    if (!__CATALYST_PACKAGES__.cloudAI) {
+    const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
+    const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
+    const nativeResult = _pkg ? _pkg.useNativeAI(options) : emptyHook()
+
+    if (typeof window === "undefined") return emptyHook()
+
+    if (!_pkg) {
         console.error(
             "\n[catalyst-core] useAI requires @catalyst/cloud-ai.\n" +
             "Run: npm install @catalyst/cloud-ai\n"
@@ -36,18 +49,9 @@ export function useAI(options = {}) {
         return emptyHook()
     }
 
-    if (mode === "local") {
-        const { useWebAI } = require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
-        return useWebAI(options)
-    }
-
-    if (mode === "native") {
-        const { useNativeAI } = require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
-        return useNativeAI(options)
-    }
-
-    const { useCloudAI } = require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
-    return useCloudAI(options)
+    if (mode === "local") return webResult
+    if (mode === "native" && isNativeAIAvailable()) return nativeResult
+    return cloudResult
 }
 
 // Returned when @catalyst/cloud-ai is missing — keeps hook shape stable so callers don't crash
