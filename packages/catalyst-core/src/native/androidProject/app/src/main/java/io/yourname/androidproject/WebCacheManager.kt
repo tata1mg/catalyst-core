@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 
 class WebCacheManager(private val context: Context, private val properties: java.util.Properties? = null) {
     private val TAG = "WebCacheManager"
+    private val FLOW_TAG = "CatalystOfflineFlow"
     private val cacheDir = File(context.cacheDir, "webview_cache")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val BUFFER_SIZE = 32 * 1024 
@@ -51,18 +52,33 @@ class WebCacheManager(private val context: Context, private val properties: java
         }
     }
 
-    data class CacheEntry(
-        val response: WebResourceResponse,
+    private data class CacheEntry(
+        val data: ByteArray,
+        val mimeType: String,
+        val encoding: String,
+        val responseHeaders: Map<String, String> = emptyMap(),
         val timestamp: Long = System.currentTimeMillis(),
         val eTag: String? = null,
         val lastModified: String? = null
-    )
+    ) {
+        fun toResponse(): WebResourceResponse {
+            return WebResourceResponse(
+                mimeType,
+                encoding,
+                200,
+                "OK",
+                responseHeaders.ifEmpty { null },
+                ByteArrayInputStream(data)
+            )
+        }
+    }
 
     /**
      * Synchronous cache check - only returns cached content if immediately available
      * Does not perform network requests or background revalidation
      * Used by ServiceWorker to avoid blocking
      */
+    @Suppress("UNUSED_PARAMETER")
     fun getCachedResponseSync(url: String, headers: Map<String, String>): WebResourceResponse? {
         return try {
             val cacheKey = generateCacheKey(url)
@@ -76,8 +92,12 @@ class WebCacheManager(private val context: Context, private val properties: java
                 if (age <= maxAge + staleWhileRevalidate) {
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "✅ Serving from memory cache (sync): $url")
+                        Log.d(FLOW_TAG, "ASSET cache-hit source=memory ageMs=$age url=$url")
                     }
-                    return memoryCacheEntry.response
+                    return memoryCacheEntry.toResponse()
+                }
+                if (BuildConfig.DEBUG) {
+                    Log.d(FLOW_TAG, "ASSET cache-expired source=memory ageMs=$age url=$url")
                 }
             }
 
@@ -88,20 +108,48 @@ class WebCacheManager(private val context: Context, private val properties: java
                 if (fileAge <= maxAge + staleWhileRevalidate) {
                     val metadata = loadMetadata(cacheKey)
                     val response = createResponseFromCache(cacheFile, metadata)
+                    memoryCache.put(cacheKey, createEntryFromCache(cacheFile, metadata, cacheFile.lastModified()))
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "✅ Serving from disk cache (sync): $url")
+                        Log.d(FLOW_TAG, "ASSET cache-hit source=disk ageMs=$fileAge bytes=${cacheFile.length()} mime=${metadata.mimeType} encoding=${metadata.encoding} url=$url")
                     }
                     return response
+                }
+                if (BuildConfig.DEBUG) {
+                    Log.d(FLOW_TAG, "ASSET cache-expired source=disk ageMs=$fileAge bytes=${cacheFile.length()} url=$url")
                 }
             }
 
             // No valid cache available
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "❌ No valid cache available (sync): $url")
+                Log.d(FLOW_TAG, "ASSET cache-miss url=$url")
             }
             null
         } catch (e: Exception) {
             Log.e(TAG, "Error in getCachedResponseSync for URL: $url: ${e.message}")
+            if (BuildConfig.DEBUG) {
+                Log.e(FLOW_TAG, "ASSET cache-error phase=read url=$url error=${e.message}", e)
+            }
+            null
+        }
+    }
+
+    /**
+     * Synchronous cache-or-network path for WebView interception.
+     *
+     * shouldInterceptRequest runs off the UI thread, so it is safe to block here.
+     * Returning the fetched response from this method guarantees that the same
+     * request which populated the cache also succeeds in the WebView.
+     */
+    fun getCachedResponseOrFetchSync(url: String, headers: Map<String, String>): WebResourceResponse? {
+        return try {
+            getCachedResponseSync(url, headers) ?: fetchAndCacheResourceBlocking(url, headers, generateCacheKey(url))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in getCachedResponseOrFetchSync for URL: $url: ${e.message}")
+            if (BuildConfig.DEBUG) {
+                Log.e(FLOW_TAG, "ASSET cache-error phase=cache-or-fetch url=$url error=${e.message}", e)
+            }
             null
         }
     }
@@ -123,7 +171,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                             if (BuildConfig.DEBUG) {
                                 Log.d(TAG, "Serving fresh content from memory cache: $url")
                             }
-                            return@withContext memoryCacheEntry.response
+                            return@withContext memoryCacheEntry.toResponse()
                         }
                         age <= maxAge + staleWhileRevalidate -> {
                             // Stale content, but within revalidate window
@@ -131,7 +179,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                                 Log.d(TAG, "Serving stale content while revalidating: $url")
                             }
                             revalidateInBackground(url, headers, cacheKey, memoryCacheEntry)
-                            return@withContext memoryCacheEntry.response
+                            return@withContext memoryCacheEntry.toResponse()
                         }
                     }
                 }
@@ -146,18 +194,13 @@ class WebCacheManager(private val context: Context, private val properties: java
                         fileAge <= maxAge -> {
                             // Fresh content from disk
                             val response = createResponseFromCache(cacheFile, metadata)
-                            memoryCache.put(cacheKey, CacheEntry(response))
+                            memoryCache.put(cacheKey, createEntryFromCache(cacheFile, metadata, cacheFile.lastModified()))
                             return@withContext response
                         }
                         fileAge <= maxAge + staleWhileRevalidate -> {
                             // Stale content from disk, revalidate in background
                             val response = createResponseFromCache(cacheFile, metadata)
-                            val cacheEntry = CacheEntry(
-                                response = response,
-                                timestamp = cacheFile.lastModified(),
-                                eTag = metadata.eTag,
-                                lastModified = metadata.lastModified
-                            )
+                            val cacheEntry = createEntryFromCache(cacheFile, metadata, cacheFile.lastModified())
                             revalidateInBackground(url, headers, cacheKey, cacheEntry)
                             return@withContext response
                         }
@@ -168,7 +211,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "❌ Cache miss, fetching fresh content: $url")
                 }
-                fetchAndCacheResource(url, headers, cacheKey)
+                fetchAndCacheResourceBlocking(url, headers, cacheKey)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in getCachedResponse for URL: $url: ${e.message}")
                 if (BuildConfig.DEBUG) {
@@ -282,7 +325,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "⚡ Content changed, updating cache: $url")
                         }
-                        fetchAndCacheResource(url, headers, cacheKey)
+                        fetchAndCacheResourceBlocking(url, headers, cacheKey)
                     }
                 }
             } catch (e: Exception) {
@@ -308,25 +351,32 @@ class WebCacheManager(private val context: Context, private val properties: java
         }
     }
 
-    private suspend fun fetchAndCacheResource(
+    private fun fetchAndCacheResourceBlocking(
         url: String,
         headers: Map<String, String>,
         cacheKey: String
-    ): WebResourceResponse? = withContext(Dispatchers.IO) {
+    ): WebResourceResponse? {
         var connection: HttpURLConnection? = null
         try {
             connection = URL(url).openConnection() as HttpURLConnection
             headers.forEach { (key, value) ->
-                connection.setRequestProperty(key, value)
+                if (!key.equals("Accept-Encoding", ignoreCase = true)) {
+                    connection.setRequestProperty(key, value)
+                }
             }
+            connection.setRequestProperty("Accept-Encoding", "identity")
 
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
+            if (BuildConfig.DEBUG) {
+                Log.d(FLOW_TAG, "ASSET network-fetch start url=$url headers=${headers.keys.sorted()}")
+            }
             connection.connect()
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val mimeType = connection.contentType ?: "application/octet-stream"
-                val encoding = connection.contentEncoding ?: "utf-8"
+                val contentType = connection.contentType ?: "application/octet-stream"
+                val mimeType = mimeTypeFromContentType(contentType)
+                val encoding = charsetFromContentType(contentType)
                 val eTag = connection.getHeaderField("ETag")
                 val lastModified = connection.getHeaderField("Last-Modified")
 
@@ -336,13 +386,17 @@ class WebCacheManager(private val context: Context, private val properties: java
                 while (true) {
                     val key = connection.getHeaderFieldKey(i) ?: break
                     val value = connection.getHeaderField(i)
-                    if (key.isNotEmpty()) savedHeaders[key] = value
+                    if (key.isNotEmpty() && shouldReplayHeader(key)) savedHeaders[key] = value
                     i++
                 }
+                savedHeaders["Content-Type"] = contentType
 
                 val responseBytes = connection.inputStream.use { it.readBytes() }
                 if (!isValidResponse(mimeType, responseBytes)) {
-                    return@withContext null
+                    if (BuildConfig.DEBUG) {
+                        Log.w(FLOW_TAG, "ASSET network-fetch invalid-response status=${connection.responseCode} contentType=$contentType bytes=${responseBytes.size} url=$url")
+                    }
+                    return null
                 }
 
                 // Create response for immediate use
@@ -350,7 +404,10 @@ class WebCacheManager(private val context: Context, private val properties: java
 
                 // Cache the response
                 val cacheEntry = CacheEntry(
-                    response = WebResourceResponse(mimeType, encoding, 200, "OK", savedHeaders, ByteArrayInputStream(responseBytes.copyOf())),
+                    data = responseBytes.copyOf(),
+                    mimeType = mimeType,
+                    encoding = encoding,
+                    responseHeaders = savedHeaders,
                     eTag = eTag,
                     lastModified = lastModified
                 )
@@ -370,21 +427,34 @@ class WebCacheManager(private val context: Context, private val properties: java
                         ))
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "✅ Successfully cached response for: $url")
+                            Log.d(FLOW_TAG, "ASSET stored bytes=${responseBytes.size} mime=$mimeType encoding=$encoding url=$url")
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error saving to disk cache for URL: $url: ${e.message}")
+                        if (BuildConfig.DEBUG) {
+                            Log.e(FLOW_TAG, "ASSET store-error url=$url error=${e.message}", e)
+                        }
                     }
                 }
 
-                return@withContext response
+                if (BuildConfig.DEBUG) {
+                    Log.d(FLOW_TAG, "ASSET network-fetch success status=${connection.responseCode} bytes=${responseBytes.size} contentType=$contentType replayMime=$mimeType replayEncoding=$encoding url=$url")
+                }
+                return response
             }
-            return@withContext null
+            if (BuildConfig.DEBUG) {
+                Log.w(FLOW_TAG, "ASSET network-fetch non-200 status=${connection.responseCode} contentType=${connection.contentType} url=$url")
+            }
+            return null
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching resource: ${e.message}")
             if (BuildConfig.DEBUG) {
+                Log.e(FLOW_TAG, "ASSET network-fetch error url=$url error=${e.message}", e)
+            }
+            if (BuildConfig.DEBUG) {
                 e.printStackTrace()
             }
-            return@withContext null
+            return null
         } finally {
             connection?.disconnect()
         }
@@ -406,6 +476,46 @@ class WebCacheManager(private val context: Context, private val properties: java
             "OK",
             metadata.responseHeaders.ifEmpty { null },
             BufferedInputStream(FileInputStream(cacheFile), BUFFER_SIZE)
+        )
+    }
+
+    private fun mimeTypeFromContentType(contentType: String): String {
+        return contentType.substringBefore(";").trim().ifEmpty { "application/octet-stream" }
+    }
+
+    private fun charsetFromContentType(contentType: String): String {
+        val charsetPart = contentType
+            .split(";")
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("charset=", ignoreCase = true) }
+        return charsetPart
+            ?.substringAfter("=")
+            ?.trim()
+            ?.trim('"')
+            ?.ifEmpty { null }
+            ?: "utf-8"
+    }
+
+    private fun shouldReplayHeader(header: String): Boolean {
+        return !header.equals("Content-Encoding", ignoreCase = true) &&
+            !header.equals("Transfer-Encoding", ignoreCase = true) &&
+            !header.equals("Content-Length", ignoreCase = true) &&
+            !header.equals("Connection", ignoreCase = true)
+    }
+
+    private fun createEntryFromCache(
+        cacheFile: File,
+        metadata: CacheMetadata,
+        timestamp: Long
+    ): CacheEntry {
+        return CacheEntry(
+            data = cacheFile.readBytes(),
+            mimeType = metadata.mimeType,
+            encoding = metadata.encoding,
+            responseHeaders = metadata.responseHeaders,
+            timestamp = timestamp,
+            eTag = metadata.eTag,
+            lastModified = metadata.lastModified
         )
     }
 

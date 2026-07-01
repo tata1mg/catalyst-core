@@ -12,13 +12,20 @@ const DEFAULT_SAFE_AREA = { top: 0, right: 0, bottom: 0, left: 0 }
  * @param {object} children - contains any child elements defined within the component
  */
 export function Body(props) {
-    const { jsx = "", initialState = {}, fetcherData = {}, children, safeArea = DEFAULT_SAFE_AREA } = props
+    const {
+        jsx = "",
+        initialState = {},
+        fetcherData = {},
+        children,
+        safeArea = DEFAULT_SAFE_AREA,
+        nativeWebView = false,
+    } = props
     return (
         <body>
             <script
                 /* eslint-disable-next-line risxss/catch-potential-xss-react */
                 dangerouslySetInnerHTML={{
-                    __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}`,
+                    __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}; window.__CATALYST_NATIVE_WEBVIEW__ = ${nativeWebView ? "true" : "false"}`,
                 }}
             />
             {jsx}
@@ -43,4 +50,5 @@ Body.propTypes = {
     fetcherData: PropTypes.object,
     children: PropTypes.node,
     safeArea: PropTypes.object,
+    nativeWebView: PropTypes.bool,
 }

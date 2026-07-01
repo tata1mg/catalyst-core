@@ -136,6 +136,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         "X-Safe-Area-Right" to latestSafeAreaInsets.right.toString(),
         "X-Safe-Area-Bottom" to latestSafeAreaInsets.bottom.toString(),
         "X-Safe-Area-Left" to latestSafeAreaInsets.left.toString(),
+        "X-Catalyst-Native-WebView" to "1",
         // Prevent caching of SSR response so updated headers are always used
         "Cache-Control" to "no-cache, no-store, must-revalidate",
         "Pragma" to "no-cache"
@@ -385,7 +386,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     if (BuildConfig.DEBUG) {
                         Log.w(TAG, "📴 Device offline on launch, showing offline page")
                     }
-                    customWebView.showOfflinePage()
+                    customWebView.showOfflineRouteOrOfflinePage(currentUrl)
                 }
             }
 
@@ -533,7 +534,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 loadUrlWithSafeArea(url)
             } else {
                 Log.w(TAG, "📴 Offline during notification click, showing offline page")
-                customWebView.showOfflinePage()
+                customWebView.showOfflineRouteOrOfflinePage(url)
             }
 
         } catch (e: Exception) {
