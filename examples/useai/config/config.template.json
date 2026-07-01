@@ -1,0 +1,100 @@
+{
+  "NODE_SERVER_HOSTNAME": "localhost",
+  "NODE_SERVER_PORT": 3005,
+  "WEBPACK_DEV_SERVER_HOSTNAME": "localhost",
+  "WEBPACK_DEV_SERVER_PORT": 3006,
+  "BUILD_OUTPUT_PATH": "build",
+  "PUBLIC_STATIC_ASSET_PATH": "/assets/",
+  "PUBLIC_STATIC_ASSET_URL": "http://localhost:3005",
+  "API_URL": "http://localhost:3005",
+  "ANALYZE_BUNDLE": false,
+  "CLIENT_ENV_VARIABLES": [
+    "API_URL"
+  ],
+  "AI_CONFIG": {
+    "enabled": true,
+    "basePath": "/ai",
+    "providers": {
+      "openai": {
+        "apiKey": "",
+        "defaultModel": "gpt-4o-mini"
+      },
+      "gemini": {
+        "apiKey": "",
+        "defaultModel": "gemini-2.0-flash"
+      }
+    },
+    "browser": {
+      "provider": "transformers",
+      "model": "onnx-community/Qwen2.5-0.5B-Instruct"
+    }
+  },
+  "WEBVIEW_CONFIG": {
+    "ai": {
+      "enabled": true
+    },
+    "accessControl": {
+      "enabled": true,
+      "allowedUrls": [
+        "http://localhost:*",
+        "https://fonts.googleapis.com/*",
+        "https://fonts.gstatic.com/*",
+        "https://*.gstatic.com/*"
+      ]
+    },
+    "android": {
+      "appName": "My App",
+      "packageName": "com.example.myapp",
+      "buildType": "debug",
+      "cachePattern": "*.css,*.png,*.jpg,*.jpeg",
+      "emulatorName": "testMediumPhone",
+      "sdkPath": "/path/to/Android/",
+      "security": {
+        "mode": "custom",
+        "allowBackup": false
+      }
+    },
+    "appInfo": "android-v1.0.0",
+    "ios": {
+      "appBundleId": "com.example.myapp",
+      "appName": "My App",
+      "buildType": "Debug",
+      "cachePattern": "*.css",
+      "simulatorName": "iPhone 17 Pro",
+      "accessControl": {
+        "allowedUrls": [
+          "http://localhost:*",
+          "https://fonts.googleapis.com/*",
+          "https://fonts.gstatic.com/*",
+          "https://*.gstatic.com/*"
+        ],
+        "enabled": true
+      }
+    },
+    "LOCAL_IP": "localhost",
+    "port": 3005,
+    "splashScreen": {
+      "imageHeight": 200,
+      "imageWidth": 400
+    },
+    "useHttps": false,
+    "notifications": {
+      "enabled": false,
+      "color": "#007AFF"
+    },
+    "googleSignIn": {
+      "enabled": false,
+      "clientId": "",
+      "iosClientId": ""
+    },
+    "featureVariants": []
+  },
+  "splashScreen": {
+    "android": {
+      "path": "public/android/splashscreen.png"
+    },
+    "ios": {
+      "path": "public/ios/splashscreen.png"
+    }
+  }
+}
