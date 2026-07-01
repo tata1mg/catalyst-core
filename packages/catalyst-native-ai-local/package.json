@@ -1,0 +1,26 @@
+{
+    "name": "@catalyst/native-ai-local",
+    "version": "0.1.0",
+    "description": "Native Android AI for catalyst-core — LiteRT-LM inference via Ktor SSE bridge",
+    "main": "src/index.js",
+    "exports": {
+        ".": "./src/index.js"
+    },
+    "scripts": {
+        "preinstall": "node ./scripts/check-peer.js"
+    },
+    "peerDependencies": {
+        "catalyst-core": ">=0.1.0"
+    },
+    "peerDependenciesMeta": {
+        "catalyst-core": {
+            "optional": false
+        }
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/catalyst-native-ai-local"
+    }
+}

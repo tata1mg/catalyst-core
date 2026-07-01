@@ -1,0 +1,27 @@
+{
+    "name": "@catalyst/cloud-ai",
+    "version": "0.1.0",
+    "description": "Cloud AI provider for catalyst-core — OpenAI SSE route + useCloudAI hook",
+    "main": "src/index.js",
+    "exports": {
+        ".": "./src/index.js",
+        "./route": "./src/route.js"
+    },
+    "scripts": {
+        "preinstall": "node ./scripts/check-peer.js"
+    },
+    "peerDependencies": {
+        "catalyst-core": ">=0.1.0"
+    },
+    "peerDependenciesMeta": {
+        "catalyst-core": {
+            "optional": false
+        }
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/catalyst-cloud-ai"
+    }
+}
