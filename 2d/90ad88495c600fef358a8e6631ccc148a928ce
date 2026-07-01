@@ -1,0 +1,26 @@
+examples/useai/config/config.template.json
+  s_c18fb73e73b94e::t_1f60c71a0bda95 1-100
+examples/useai/.gitignore
+  s_c18fb73e73b94e::t_20b3ab6e65cbaa 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "2d90ad88495c600fef358a8e6631ccc148a928ce",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_c18fb73e73b94e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "91d73720-90ab-496d-a825-c189925b523d",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
