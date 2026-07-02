@@ -303,6 +303,7 @@ function isValidExportName(name) {
 const loaderRequire = createRequire(import.meta.url)
 
 const CJS_PATTERN = /\b(module\.exports\b|exports\.\w+\s*=)/
+const REQUIRE_CALL_PATTERN = /\brequire\s*\(/
 
 // Shim __dirname and __filename for ESM app files (these globals only exist in CJS)
 const createDirnameShim = (source) => {
@@ -318,6 +319,17 @@ const createDirnameShim = (source) => {
     ]
         .filter(Boolean)
         .join("\n")
+}
+
+// Shim require for ESM app files that still import legacy CJS dependencies.
+const createRequireShim = (source) => {
+    if (!REQUIRE_CALL_PATTERN.test(source)) return ""
+    if (/\b(?:const|let|var)\s+require\b/.test(source) || /\bfunction\s+require\b/.test(source)) return ""
+
+    return [
+        `import { createRequire as __node_loader_createRequire } from "module";`,
+        `const require = __node_loader_createRequire(import.meta.url);`,
+    ].join("\n")
 }
 
 /**
@@ -380,6 +392,7 @@ export async function load(url, context, defaultLoad) {
         // source inline so that `module.exports` becomes the default export.
         if (CJS_PATTERN.test(source)) {
             const shimmed = [
+                createRequireShim(source),
                 createDirnameShim(source),
                 `var module = { exports: {} };`,
                 `var exports = module.exports;`,
@@ -404,7 +417,7 @@ export async function load(url, context, defaultLoad) {
 
         // ESM app files: prepend __dirname/__filename shim + JSX transform
         {
-            const transformed = `${createDirnameShim(source)}\n${source}`
+            const transformed = `${createRequireShim(source)}\n${createDirnameShim(source)}\n${source}`
             try {
                 const result = transformSync(transformed, {
                     loader: "jsx",
