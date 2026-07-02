@@ -325,7 +325,7 @@ async function _handler(req, res) {
         const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
 
         const cachedRoutes = getCachedRoutes()
-        const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.baseUrl) : []
+        const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
         let allTags = []
 
         safeCall(onRouteMatch, { req, res, matches: allMatches, store })

@@ -112,10 +112,13 @@ async function createServer() {
         // loaded once at startup by ./manifestCache.js — handler reads from
         // that singleton instead of attaching them to every `req`.
         const buildPath = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
-        const publicPath = path.join(buildPath, "client")
+        const publicPath = path.join(buildPath, "client", "assets")
+        const publicAssetBase = `/${(process.env.PUBLIC_STATIC_ASSET_PATH || "/assets/")
+            .replace(/^\/+|\/+$/g, "")
+            .replace(/\/+/g, "/")}/client/assets`
         // Serve static assets — prefers pre-compressed .br / .gz files generated at build time
         app.use(
-            "client/assets",
+            publicAssetBase,
             expressStaticGzip(publicPath, {
                 enableBrotli: true,
                 orderPreference: ["br", "gz"],
