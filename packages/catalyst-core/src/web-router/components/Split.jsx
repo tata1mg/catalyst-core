@@ -97,13 +97,6 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
           ? thirdArg
           : undefined
 
-    if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
-        const prefetch = importFn().then((mod) => {
-            moduleCache.set(importFn, mod)
-        })
-        prefetchPromises.push(prefetch)
-    }
-
     const LazyComponent = lazy(importFn)
     let loadInFlight = null
 
@@ -116,6 +109,21 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
     const notifyAll = () => {
         anyVisible = true
         subscribers.forEach((fn) => fn())
+    }
+    const copyRouteStatics = (mod) => {
+        const Component = mod?.default || mod
+        for (const key of ["clientFetcher", "serverFetcher", "setMetaData"]) {
+            if (Component?.[key]) wrapper[key] = Component[key]
+        }
+        return mod
+    }
+
+    if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
+        const prefetch = importFn().then((mod) => {
+            moduleCache.set(importFn, mod)
+            copyRouteStatics(mod)
+        })
+        prefetchPromises.push(prefetch)
     }
 
     const wrapper = ({ fallback: fallbackProp, ...props }) => {
@@ -168,6 +176,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         if (!loadInFlight) {
             loadInFlight = importFn()
                 .then((mod) => {
+                    copyRouteStatics(mod)
                     if (typeof window !== "undefined") {
                         moduleCache.set(importFn, mod)
                     }
