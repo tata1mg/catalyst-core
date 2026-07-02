@@ -1,161 +1,149 @@
+import React from "react"
 import path from "path"
 import fs from "fs"
-import { withSyncObservability } from "../../otel"
 
-const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
+// ── CSS: read from disk and inline as <style> ──────────────────────────
 
-export function cachePreloadJSLinks(key, data) {
-    if (!process.preloadJSLinkCache) {
-        process.preloadJSLinkCache = {}
+// Process-level cache — survives across requests, reset on deploy.
+if (!process.cssFileCache) process.cssFileCache = {}
+
+// Per-route deferred asset paths/URLs learned from past SSRs — inlined in <head> on later visits
+// so late <style> after </body> does not re-layout already-painted content. CSS file bodies use
+// process.cssFileCache inside readCssFromDisk (no repeat disk read).
+if (!process.deferredAssetsByRoute) process.deferredAssetsByRoute = new Map()
+
+const routeRecord = (routeKey) => {
+    let rec = process.deferredAssetsByRoute.get(routeKey)
+    if (!rec) {
+        rec = { css: new Set(), js: new Set() }
+        process.deferredAssetsByRoute.set(routeKey, rec)
     }
-    let preloadJSLinks = []
-    if (Array.isArray(data)) {
-        try {
-            preloadJSLinks = data.filter((asset) => asset?.props?.as === "script")
-        } catch (error) {
-            logger.error("Error in filtering preloaded JS:" + error)
-        }
-    }
+    return rec
+}
 
-    process.preloadJSLinkCache[key] = preloadJSLinks
+/** Stable key for caching deferred chunks — uses the matched route pattern (e.g. "/product/:name/:id")
+ *  so all pages on the same route share one entry regardless of their actual URL parameters. */
+export const getDeferredRouteKey = (req, allMatches = []) => {
+    return allMatches?.length ? allMatches[allMatches.length - 1]?.route?.path ?? null : null
+}
+
+/** CSS paths (manifest-relative) previously deferred on this route — for <head> inlining. */
+export const getCachedDeferredCssPathsForRoute = (routeKey) => {
+    if (!routeKey) return []
+    const rec = process.deferredAssetsByRoute.get(routeKey)
+    return rec ? [...rec.css] : []
 }
 
 /**
- * Stores css chunks styles into cache in string format
- * @param {string} key - router path
- * @param {object} data - css elements array extracted through loadable chunk extracter
+ * Record deferred asset paths/URLs for this route. Returns CSS paths not yet on the route so they
+ * can be inlined after </body> only once; on later visits those paths are inlined in <head> instead.
+ * JS URLs are always emitted in HTML on every navigation — skipping "cached" scripts would omit modules.
+ * @returns {{ newCssPaths: string[] }}
  */
-export function cacheCSS(key, data) {
-    if (!process.cssCache) {
-        process.cssCache = {}
+export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } = {}, isBot = false) => {
+    if (!routeKey) return { newCssPaths: [] }
+    const rec = routeRecord(routeKey)
+    const newCssPaths = []
+    for (const p of css) {
+        if (!p) continue
+        if (!rec.css.has(p)) newCssPaths.push(p)
+        rec.css.add(p)
     }
-    let pageCss = ""
-    let listOfCachedAssets = {}
-    if (Array.isArray(data)) {
-        try {
-            if (process.env.NODE_ENV === "production") {
-                data.map((assetChunk) => {
-                    const assetPathArr = assetChunk.key.split("/")
-                    const assetName = path.basename(assetPathArr[assetPathArr.length - 1])
-                    const ext = path.extname(assetName)
-
-                    if (ext === ".css") {
-                        // if css file has not already been cached, add the content of this CSS file in pageCSS
-                        if (
-                            !listOfCachedAssets[assetName] &&
-                            !process.cssCache?.[key]?.listOfCachedAssets?.[assetName]
-                        ) {
-                            pageCss += fs.readFileSync(
-                                `${process.env.src_path}${path.sep}${process.env.BUILD_OUTPUT_PATH}${path.sep}public${path.sep}${assetName}`
-                            )
-                            listOfCachedAssets[assetName] = true
-                        }
-                    }
-                })
-            }
-        } catch (error) {
-            logger.error("Error in caching CSS:" + error)
+    if (!isBot) {
+        for (const url of js) {
+            if (url) rec.js.add(url)
         }
     }
-    // if css cache exists for a route and there are some uncached css, add that css to the cache
-    // this will run on subsequent hits and will add css of uncached widgets to the cache
-    if (process.cssCache[key]) {
-        if (pageCss !== "") {
-            let existingListOfCachedAssets = process.cssCache[key].listOfCachedAssets
-            const newPageCSS = process.cssCache[key].pageCss + pageCss
-            let newListOfCachedAssets = { ...existingListOfCachedAssets, ...listOfCachedAssets }
-            process.cssCache[key] = { pageCss: newPageCSS, listOfCachedAssets: newListOfCachedAssets }
-        }
-    } else {
-        // create css cache for a page. This will run on the first hit.
-        process.cssCache[key] = { pageCss, listOfCachedAssets }
-    }
-
-    return pageCss
+    return { newCssPaths }
 }
 
 /**
- * returns cached css
- * @param {string} key - router path
- * @return {string} - cached css
+ * Cached deferred script URLs for this route, excluding URLs already loaded as critical scripts.
+ * @param {string|null} routeKey - Matched route pattern.
+ * @param {Iterable<string>} excludeUrls - Critical / head script src URLs.
+ * @returns {string[]}
  */
-function fetchCachedCSS(key) {
-    return process.cssCache && process.cssCache[key] ? process.cssCache[key].pageCss : ""
-}
-
-function fetchPreloadJSLinkCache(key) {
-    return process.preloadJSLinkCache && process.preloadJSLinkCache[key]
-        ? process.preloadJSLinkCache[key]
-        : null
+export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
+    if (!routeKey) return []
+    const rec = process.deferredAssetsByRoute.get(routeKey)
+    if (!rec) return []
+    const exclude = new Set(excludeUrls)
+    return [...rec.js].filter((url) => url && !exclude.has(url))
 }
 
 /**
- * stores css and js in cache
- * @param {object} res - response object
- * @param {string} route - route path
+ * React <link rel="modulepreload"> elements (deduped). Use before matching <script type="module">.
+ * @param {string[]} jsUrls
+ * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
  */
-export default withSyncObservability(
-    SSR_SERVICE,
-    function extractAssets(res, route) {
+export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload") =>
+    [...new Set(jsUrls)].map((url, i) =>
+        React.createElement("link", {
+            key: `${keyPrefix}-${i}`,
+            rel: "modulepreload",
+            href: url,
+            fetchPriority: "high",
+        })
+    )
+
+/**
+ * Read CSS files from disk and return concatenated CSS string for inlining.
+ * @param {string[]} cssPaths - Relative CSS paths (from manifest).
+ * @param {string} basePath  - Build output directory on disk.
+ * @returns {string} Concatenated CSS content.
+ */
+export const readCssFromDisk = (cssPaths = [], basePath) => {
+    if (!cssPaths.length) return ""
+
+    const seen = new Set()
+    const chunks = []
+
+    for (const asset of cssPaths) {
+        if (!asset || seen.has(asset)) continue
+        seen.add(asset)
+        if (asset.startsWith("http")) continue
+
+        const filePath = path.isAbsolute(asset) ? asset : path.join(basePath, asset.replace(/^\/+/, ""))
+
         try {
-            const requestPath = route.path
-            const cachedCss = fetchCachedCSS(requestPath)
-            const cachedPreloadJSLinks = fetchPreloadJSLinkCache(requestPath)
-
-            if (cachedCss || cachedPreloadJSLinks) {
-                res.locals.pageCss = cachedCss
-                res.locals.preloadJSLinks = cachedPreloadJSLinks
-                return
+            if (!process.cssFileCache[filePath]) {
+                process.cssFileCache[filePath] = fs.readFileSync(filePath, "utf8")
             }
-
-            logger.info({
-                message: "Cache Missed",
-                uri: requestPath,
-            })
-        } catch (error) {
-            logger.error("Error in extracting assets:" + error)
-        }
-    },
-    "extractAssets"
-)
-
-export const cacheAndFetchAssets = withSyncObservability(
-    SSR_SERVICE,
-    function cacheAndFetchAssets({ webExtractor, res, isBot }) {
-        // For bot first fold css and js would become complete page css and js
-        let firstFoldCss = ""
-        let firstFoldJS = ""
-        const isProd = process.env.NODE_ENV === "production"
-
-        const { routePath, preloadJSLinks } = res.locals
-
-        const linkElements = webExtractor.getLinkElements()
-
-        // We want to cache/or check for update css on every call
-        // We want to extract script tags for every call that will get added to body.
-        // Their corresponding preloaded link script tags are already present in head.
-        if (routePath) {
-            if (isProd) {
-                firstFoldCss = cacheCSS(routePath, linkElements)
-                if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
-            } else {
-                cacheCSS(routePath, linkElements)
-                firstFoldCss = webExtractor.getStyleTags()
+            if (process.cssFileCache[filePath]) {
+                chunks.push(process.cssFileCache[filePath])
             }
-            // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
-            firstFoldJS = webExtractor.getScriptTags()
+        } catch {
+            // Silently skip unreadable assets in production
         }
+    }
 
-        // This block will run for the first time and cache preloaded JS Links for second render
-        // firstFoldJS ->scripts gets inject in body
-        // firstFoldCss -> Inline css gets injected in body only for the first render
-        if (!isProd || isBot || (routePath && !preloadJSLinks)) {
-            // For production, we inject link tags with preload/prefetch using getLinkElements and inlining them via file reads
-            // For local, given we have assets in memory we dont read from file rather directly inject via link elements returned without preload/prefetch
-            !isBot && cachePreloadJSLinks(routePath, linkElements)
-        }
+    return chunks.join("\n")
+}
 
-        return { firstFoldCss, firstFoldJS }
-    },
-    "cacheAndFetchAssets"
-)
+// ── React elements (for SSR rendering inside <Head>) ───────────────────
+
+/**
+ * <script type="module"> React elements for JS assets.
+ */
+export const generateScriptElements = (jsUrls = []) =>
+    [...new Set(jsUrls)].map((url, i) =>
+        React.createElement("script", { key: `js-${i}`, type: "module", src: url })
+    )
+
+// ── HTML strings (for streaming injection after body via res.write) ────
+
+/**
+ * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body).
+ */
+export const generateCssLinkStrings = (cssUrls = []) =>
+    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}">`).join("")
+
+/**
+ * <link rel="modulepreload"> + <script type="module"> HTML strings.
+ */
+export const generateScriptStrings = (jsUrls = []) =>
+    [...new Set(jsUrls)]
+        .map((url) => {
+            return `<script type="module" src="${url}"></script>`
+        })
+        .join("")
