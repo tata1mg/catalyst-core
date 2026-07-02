@@ -24,8 +24,6 @@
         "@routes": "src/js/routes/"
     },
     "dependencies": {
-        "@loadable/component": "^5.16.3",
-        "@tata1mg/router": "0.0.1-beta.7",
         "catalyst-core": "0.1.0-beta.7"
     },
     "devDependencies": {

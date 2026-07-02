@@ -212,7 +212,6 @@ const browserOptimizeDeps = [
     "react-helmet-async",
     "react-google-recaptcha",
     "react-fast-compare",
-    "@tata1mg/router",
     "history",
     "lottie-web",
     // Pre-bundle alongside React so esbuild marks react/react-router as external
