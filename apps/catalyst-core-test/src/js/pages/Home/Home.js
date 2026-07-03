@@ -1,5 +1,6 @@
 import React from "react"
 import { Link, useCurrentRouteData } from "catalyst-core"
+import { getDogApiBaseUrl } from "../../utils/dogApi"
 
 const Home = () => {
     const { data, error, isFetching } = useCurrentRouteData()
@@ -30,7 +31,7 @@ const Home = () => {
 
 Home.clientFetcher = async () => {
     try {
-        const response = await fetch("https://dog.ceo/api/breeds/list/all")
+        const response = await fetch(`${getDogApiBaseUrl()}/api/breeds/list/all`)
         const data = await response.json()
         return data
     } catch (error) {
@@ -41,7 +42,7 @@ Home.clientFetcher = async () => {
 
 Home.serverFetcher = async () => {
     try {
-        const response = await fetch("https://dog.ceo/api/breeds/list/all")
+        const response = await fetch(`${getDogApiBaseUrl()}/api/breeds/list/all`)
         const data = await response.json()
         return data
     } catch (error) {

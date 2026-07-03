@@ -1,5 +1,6 @@
 import React from "react"
 import { useCurrentRouteData, useParams, Link } from "catalyst-core"
+import { getDogApiBaseUrl } from "../../utils/dogApi"
 
 const BreedDetails = () => {
     const params = useParams()
@@ -42,7 +43,7 @@ const BreedDetails = () => {
 BreedDetails.clientFetcher = async ({ params }) => {
     try {
         const breedName = params.breed
-        const response = await fetch(`https://dog.ceo/api/breed/${breedName}/images`)
+        const response = await fetch(`${getDogApiBaseUrl()}/api/breed/${breedName}/images`)
         const data = await response.json()
         return data
     } catch (error) {
@@ -54,7 +55,7 @@ BreedDetails.clientFetcher = async ({ params }) => {
 BreedDetails.serverFetcher = async ({ params }) => {
     try {
         const breedName = params.breed
-        const response = await fetch(`https://dog.ceo/api/breed/${breedName}/images`)
+        const response = await fetch(`${getDogApiBaseUrl()}/api/breed/${breedName}/images`)
         const data = await response.json()
         return data
     } catch (error) {
