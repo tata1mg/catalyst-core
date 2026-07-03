@@ -673,6 +673,20 @@ export default function Home() {
                             <span className="font-mono text-[11.5px] text-neutral-500 shrink-0 w-4.5 text-center">🛝</span>
                             <span className="text-[13px] font-medium leading-none">AI Playground</span>
                         </Link>
+                        <Link
+                            to="/tic-tac-toe"
+                            className="w-full text-left cursor-pointer p-2 rounded-xl flex gap-3 items-center text-neutral-400 hover:bg-neutral-900/20 hover:text-white transition no-underline"
+                        >
+                            <span className="font-mono text-[11.5px] text-neutral-500 shrink-0 w-4.5 text-center">⭕</span>
+                            <span className="text-[13px] font-medium leading-none">AI Tic-Tac-Toe</span>
+                        </Link>
+                        <Link
+                            to="/chess"
+                            className="w-full text-left cursor-pointer p-2 rounded-xl flex gap-3 items-center text-neutral-400 hover:bg-neutral-900/20 hover:text-white transition no-underline"
+                        >
+                            <span className="font-mono text-[11.5px] text-neutral-500 shrink-0 w-4.5 text-center">👑</span>
+                            <span className="text-[13px] font-medium leading-none">AI Chess</span>
+                        </Link>
                     </div>
                 </div>
 

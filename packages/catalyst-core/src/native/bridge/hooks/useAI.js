@@ -22,8 +22,18 @@ function isNativeAIAvailable() {
     return nb && typeof nb.isAIAvailable === "function" && nb.isAIAvailable()
 }
 
-const _pkg = __CATALYST_PACKAGES__.cloudAI
-    ? require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
+// __CATALYST_PACKAGES__ is only substituted by webpack's DefinePlugin. catalyst-core
+// is externalized (nodeExternals) from the SSR bundle, so on the server this file is
+// require()'d directly by Node — the global never exists there. Fall back to a direct
+// require() attempt (still resolves against the app's real node_modules) in that case.
+const _pkg = (typeof __CATALYST_PACKAGES__ !== "undefined" ? __CATALYST_PACKAGES__.cloudAI : true)
+    ? (() => {
+        try {
+            return require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
+        } catch (_) {
+            return null
+        }
+    })()
     : null
 
 // provider: "transformers" → useWebAI   (@catalyst/cloud-ai)
@@ -74,5 +84,7 @@ function emptyHook() {
         reset: () => {},
         clearError: () => {},
         conversationId: null,
+        getSessionMetrics: () => null,
+        resetSessionMetrics: () => {},
     }
 }

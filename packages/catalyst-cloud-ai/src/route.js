@@ -26,6 +26,65 @@ function sseHeaders(res) {
     res.flushHeaders()
 }
 
+// ─── usage normalization ──────────────────────────────────────────────────────
+// Each provider/API reports token usage under different field names. Normalize
+// to a common shape so the client doesn't need per-provider parsing logic.
+
+// NOTE: completionTokens is normalized to mean "visible output only" across all
+// providers/APIs. OpenAI's completion_tokens/output_tokens *include* reasoning
+// tokens (reasoning_tokens is a subset, not additive) — Gemini's
+// candidatesTokenCount *excludes* thoughts (thoughtsTokenCount is additive).
+// Subtracting reasoning out here keeps totalTokens = prompt + completion +
+// reasoning valid for every provider downstream.
+
+function normalizeOpenAIChatUsage(usage, model) {
+    if (!usage) return null
+    const reasoningTokens = usage.completion_tokens_details?.reasoning_tokens ?? 0
+    return {
+        model,
+        promptTokens: usage.prompt_tokens ?? 0,
+        cachedTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+        completionTokens: (usage.completion_tokens ?? 0) - reasoningTokens,
+        reasoningTokens,
+    }
+}
+
+function normalizeOpenAIResponsesUsage(usage, model) {
+    if (!usage) return null
+    const reasoningTokens = usage.output_tokens_details?.reasoning_tokens ?? 0
+    return {
+        model,
+        promptTokens: usage.input_tokens ?? 0,
+        cachedTokens: usage.input_tokens_details?.cached_tokens ?? 0,
+        completionTokens: (usage.output_tokens ?? 0) - reasoningTokens,
+        reasoningTokens,
+    }
+}
+
+// stateless generateContent / streamGenerateContent
+function normalizeGeminiUsage(usageMetadata, model) {
+    if (!usageMetadata) return null
+    return {
+        model,
+        promptTokens: usageMetadata.promptTokenCount ?? 0,
+        cachedTokens: usageMetadata.cachedContentTokenCount ?? 0,
+        completionTokens: usageMetadata.candidatesTokenCount ?? 0,
+        reasoningTokens: usageMetadata.thoughtsTokenCount ?? 0,
+    }
+}
+
+// stateful Interactions API — different field names entirely (verified live against v1beta/interactions)
+function normalizeGeminiInteractionUsage(usage, model) {
+    if (!usage) return null
+    return {
+        model,
+        promptTokens: usage.total_input_tokens ?? 0,
+        cachedTokens: usage.total_cached_tokens ?? 0,
+        completionTokens: usage.total_output_tokens ?? 0,
+        reasoningTokens: usage.total_thought_tokens ?? 0,
+    }
+}
+
 // ─── OpenAI adapters ─────────────────────────────────────────────────────────
 
 async function openaiStream({ apiKey, model, messages, genConfig, conversationId, res }) {
@@ -75,6 +134,10 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
                     if (parsed.type === "response.output_text.delta" && parsed.delta != null) {
                         res.write(`data: ${JSON.stringify({ token: parsed.delta })}\n\n`)
                     }
+                    if (parsed.type === "response.completed" && parsed.response?.usage) {
+                        const usage = normalizeOpenAIResponsesUsage(parsed.response.usage, model)
+                        if (usage) res.write(`data: ${JSON.stringify({ usage })}\n\n`)
+                    }
                 } catch (_) {}
             }
         }
@@ -85,6 +148,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
             model,
             messages,
             stream: true,
+            stream_options: { include_usage: true },
             ...(genConfig?.maxTokens && { max_tokens: genConfig.maxTokens }),
             ...(genConfig?.temperature != null && { temperature: genConfig.temperature }),
             ...(genConfig?.topP != null && { top_p: genConfig.topP }),
@@ -116,6 +180,10 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
                     const parsed = JSON.parse(payload)
                     const token = parsed.choices?.[0]?.delta?.content
                     if (token != null) res.write(`data: ${JSON.stringify({ token })}\n\n`)
+                    if (parsed.usage) {
+                        const usage = normalizeOpenAIChatUsage(parsed.usage, model)
+                        if (usage) res.write(`data: ${JSON.stringify({ usage })}\n\n`)
+                    }
                 } catch (_) {}
             }
         }
@@ -145,7 +213,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
         if (!response.ok) throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
         const output = data.output?.find((o) => o.type === "message")?.content?.find((c) => c.type === "output_text")?.text ?? ""
-        return { output, conversationId: data.id ?? null }
+        return { output, conversationId: data.id ?? null, usage: normalizeOpenAIResponsesUsage(data.usage, model) }
     } else {
         const endpoint = "https://api.openai.com/v1/chat/completions"
         const body = {
@@ -163,7 +231,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
         })
         if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
-        return { output: data.choices?.[0]?.message?.content ?? "", conversationId: null }
+        return { output: data.choices?.[0]?.message?.content ?? "", conversationId: null, usage: normalizeOpenAIChatUsage(data.usage, model) }
     }
 }
 
@@ -180,11 +248,19 @@ function geminiSystemInstruction(messages) {
     return sys ? { parts: [{ text: sys.content }] } : undefined
 }
 
+// Interactions API (v1beta/interactions) takes system_instruction as a plain string —
+// unlike generateContent/streamGenerateContent, which need { parts: [{ text }] }.
+// Confirmed via live 400: "Expected string, unexpected character: '{'"
+function geminiInteractionsSystemInstruction(messages) {
+    const sys = messages.find((m) => m.role === "system")
+    return sys ? sys.content : undefined
+}
+
 async function geminiStream({ apiKey, model, messages, genConfig, conversationId, stateful, res }) {
     if (stateful) {
         // stateful: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
-        const sys = geminiSystemInstruction(messages)
+        const sys = geminiInteractionsSystemInstruction(messages)
         const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
         const body = {
             model: `models/${model}`,
@@ -229,6 +305,8 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
                     if (parsed.event_type === "interaction.completed" && parsed.interaction?.id) {
                         console.log(`[@catalyst/cloud-ai] gemini session id: ${parsed.interaction.id}`)
                         res.write(`data: ${JSON.stringify({ conversationId: parsed.interaction.id })}\n\n`)
+                        const usage = normalizeGeminiInteractionUsage(parsed.interaction?.usage, model)
+                        if (usage) res.write(`data: ${JSON.stringify({ usage })}\n\n`)
                     }
                 } catch (_) {}
             }
@@ -273,6 +351,10 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
                     const parsed = JSON.parse(payload)
                     const token = parsed.candidates?.[0]?.content?.parts?.[0]?.text
                     if (token != null) res.write(`data: ${JSON.stringify({ token })}\n\n`)
+                    if (parsed.usageMetadata) {
+                        const usage = normalizeGeminiUsage(parsed.usageMetadata, model)
+                        if (usage) res.write(`data: ${JSON.stringify({ usage })}\n\n`)
+                    }
                 } catch (_) {}
             }
         }
@@ -286,7 +368,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
     if (stateful) {
         // stateful non-streaming: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
-        const sys = geminiSystemInstruction(messages)
+        const sys = geminiInteractionsSystemInstruction(messages)
         const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
         const body = {
             model: `models/${model}`,
@@ -308,7 +390,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         if (!response.ok) throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
         const text = data.steps?.find((s) => s.type === "model_output")?.content?.[0]?.text ?? ""
-        return { output: text, conversationId: data.id ?? null }
+        return { output: text, conversationId: data.id ?? null, usage: normalizeGeminiInteractionUsage(data.usage, model) }
     } else {
         // stateless non-streaming: generateContent
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
@@ -329,7 +411,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         })
         if (!response.ok) throw new Error(`Gemini API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
-        return { output: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "", conversationId: null }
+        return { output: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "", conversationId: null, usage: normalizeGeminiUsage(data.usageMetadata, model) }
     }
 }
 
@@ -389,7 +471,7 @@ router.post("/:provider/generate", async (req, res) => {
 
     try {
         const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
-        res.json(result)
+        res.json({ ...result, model: resolvedModel })
     } catch (err) {
         console.error(`[@catalyst/cloud-ai] ${provider} generate error:`, err.message)
         res.status(500).json({ error: err.message })

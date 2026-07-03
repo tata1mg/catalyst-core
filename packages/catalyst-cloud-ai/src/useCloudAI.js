@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
+import { computeMetrics, aggregateSessionMetrics } from "./metrics.js"
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
@@ -68,6 +69,7 @@ export function useCloudAI({
     const rafRef = useRef(null)
     const conversationIdRef = useRef(null)
     const activeGenerationRef = useRef(0)
+    const historyRef = useRef([])
 
     const generate = useCallback(
         async ({ messages, genConfig: callGenConfig = {} }) => {
@@ -96,6 +98,7 @@ export function useCloudAI({
             const t0 = performance.now()
             let tokenCount = 0
             let ttftMs = null
+            let usage = null
 
             try {
                 if (!isStreamMode) {
@@ -123,7 +126,10 @@ export function useCloudAI({
                     }
                     const genMs = Math.round(performance.now() - t0)
                     setOutput(data.output ?? "")
-                    setMetrics({ ttftMs: genMs, tokensPerSec: null, totalTokens: null, genMs })
+                    const generateUsage = data.usage ? { ...data.usage, provider } : null
+                    const generateMetrics = computeMetrics(generateUsage, { ttftMs: genMs, genMs })
+                    setMetrics(generateMetrics)
+                    if (generateMetrics) historyRef.current.push(generateMetrics)
                     return
                 }
 
@@ -185,6 +191,9 @@ export function useCloudAI({
                                         })
                                     }
                                 }
+                                if (data.usage) {
+                                    usage = { ...data.usage, provider }
+                                }
                             } catch (_) {}
                         }
                     }
@@ -204,8 +213,23 @@ export function useCloudAI({
             } finally {
                 if (activeGenerationRef.current === generationId) {
                     const genMs = Math.round(performance.now() - t0)
-                    const tokensPerSec = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : null
-                    if (tokenCount > 0) setMetrics({ ttftMs, tokensPerSec, totalTokens: tokenCount, genMs })
+                    if (usage) {
+                        const streamMetrics = computeMetrics(usage, { ttftMs, genMs })
+                        setMetrics(streamMetrics)
+                        if (streamMetrics) historyRef.current.push(streamMetrics)
+                    } else if (tokenCount > 0) {
+                        // usage frame never arrived (e.g. unverified Interactions API usage shape) —
+                        // fall back to our own token-count-based tps so the UI isn't left blank
+                        const tps = parseFloat((tokenCount / (genMs / 1000)).toFixed(1))
+                        const fallbackMetrics = {
+                            provider, model: modelRef.current, ttftMs, genMs, tps,
+                            promptTokens: null, cachedTokens: null, completionTokens: tokenCount,
+                            reasoningTokens: null, totalTokens: tokenCount, cost: null, cacheSavings: null,
+                            device: null, dtype: null, loadMs: null, downloadBytes: null,
+                        }
+                        setMetrics(fallbackMetrics)
+                        historyRef.current.push(fallbackMetrics)
+                    }
                     if (abortControllerRef.current === controller) abortControllerRef.current = null
                 }
             }
@@ -231,6 +255,12 @@ export function useCloudAI({
         setLoading(false)
     }, [])
 
+    const getSessionMetrics = useCallback(() => aggregateSessionMetrics(historyRef.current), [])
+
+    const resetSessionMetrics = useCallback(() => {
+        historyRef.current = []
+    }, [])
+
     return {
         output,
         streaming,
@@ -247,6 +277,8 @@ export function useCloudAI({
         generate,
         cancel,
         reset,
+        getSessionMetrics,
+        resetSessionMetrics,
         clearError: useCallback(() => setError(null), []),
         get conversationId() { return conversationIdRef.current },
     }

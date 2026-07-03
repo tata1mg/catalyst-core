@@ -258,5 +258,10 @@ export function useNativeAI({
         reset,
         clearError: useCallback(() => setError(null), []),
         get conversationId() { return conversationIdRef.current },
+        // Native bridge generations aren't HTTP usage objects, so there's no cost/token
+        // accounting to aggregate yet — stubbed so callers can invoke unconditionally
+        // across all three modes without branching.
+        getSessionMetrics: useCallback(() => null, []),
+        resetSessionMetrics: useCallback(() => {}, []),
     }
 }

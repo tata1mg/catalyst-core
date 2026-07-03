@@ -1,10 +1,19 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useAI } from "catalyst-core/hooks";
+import { motion, AnimatePresence } from "framer-motion";
 import { truncateFilename, formatBytes, formatSeconds, formatTps, formatTokens, renderOutput } from "../../utils/ai";
+
+const formatCost = (cost) => {
+    if (cost === null || cost === undefined) return "$0.00000";
+    if (cost === 0) return "$0.00";
+    if (cost < 0.00001) return `$${cost.toFixed(6)}`;
+    return `$${cost.toFixed(5)}`;
+};
 
 export default function Panel({ mode, label, icon, provider, accentColor, borderColor, prompt, run, model, genConfig, systemPrompt, sessionMode = "stateless", onResetSession }) {
     const [selectedProvider, setSelectedProvider] = useState(provider === "gemini" ? "gemini" : "openai");
     const [isStreaming, setIsStreaming] = useState(true);
+    const [showStatsModal, setShowStatsModal] = useState(false);
 
     const isCloud = provider === "openai" || provider === "gemini";
     const activeProvider = isCloud ? selectedProvider : provider;
@@ -42,7 +51,7 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
             },
         }
     });
-    const { output, streaming, loading, error, isLocal, modelReady, downloadProgress, nativeDownloadProgress, nativeLogs, metrics, generate, cancel, reset, clearError } =
+    const { output, streaming, loading, error, isLocal, modelReady, downloadProgress, nativeDownloadProgress, nativeLogs, metrics, generate, cancel, reset, clearError, getSessionMetrics, resetSessionMetrics } =
         useAIResult;
 
     const isNative = activeProvider === "native" || useAIResult.isNative;
@@ -90,6 +99,9 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
 
     const hasStarted = loading || streaming || output;
     const firstTokenArrived = metrics?.ttftMs !== null && metrics?.ttftMs !== undefined;
+
+    const stats = getSessionMetrics ? getSessionMetrics() : null;
+    const hasStats = stats !== null && stats !== undefined && stats.generationCount > 0;
 
     return (
         <div className={`flex flex-col flex-1 min-w-0 bg-[var(--surface)] border ${borderColor} rounded-2xl overflow-hidden shadow-xl`}>
@@ -252,7 +264,7 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
             </div>
 
             {/* Metrics Bar */}
-            {(isLocal || isNative) && hasStarted && (
+            {(isLocal || isNative || isCloud) && hasStarted && (
                 <div className={`transition-opacity duration-300 ${firstTokenArrived ? "opacity-100" : "opacity-0"} shrink-0 px-5 py-3 border-t border-[var(--border)] bg-[var(--surface-2)] flex items-center justify-between select-none font-mono text-[11px]`}>
                     {isLocal && (
                         <>
@@ -287,7 +299,7 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
                     
                     <div className="flex-grow flex flex-col items-center">
                         <span className="text-[var(--text-3)] mb-0.5">tok/s</span>
-                        <span className="text-white font-medium">{formatTps(metrics?.tokensPerSec)}</span>
+                        <span className="text-white font-medium">{formatTps(metrics?.tps)}</span>
                     </div>
                     {isLocal && (
                         <>
@@ -298,8 +310,170 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
                             </div>
                         </>
                     )}
+                    <div className="h-6 w-px bg-[var(--border)]" />
+                    <div className="flex-grow flex flex-col items-center justify-center">
+                        <button
+                            type="button"
+                            onClick={() => setShowStatsModal(true)}
+                            disabled={!hasStats}
+                            title={hasStats ? "View session metrics" : "No generations yet"}
+                            className={`px-2.5 py-1 text-[10px] font-semibold rounded-md border transition cursor-pointer select-none font-sans ${
+                                hasStats
+                                    ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25 hover:border-indigo-500/40"
+                                    : "bg-neutral-800/50 text-neutral-500 border-neutral-700/30 cursor-not-allowed"
+                            }`}
+                        >
+                            📊 Session Stats
+                        </button>
+                    </div>
                 </div>
             )}
+
+            <AnimatePresence>
+                {showStatsModal && stats && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowStatsModal(false)}
+                            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm cursor-pointer"
+                        />
+
+                        {/* Modal Container */}
+                        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
+                            {/* Modal Card */}
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                transition={{ type: "spring", damping: 25, stiffness: 350 }}
+                                className="w-full max-w-md bg-[#16161a] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden pointer-events-auto flex flex-col font-sans"
+                            >
+                                {/* Header */}
+                                <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--surface-2)] flex items-center justify-between select-none">
+                                    <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                                        <span>📊</span> Session Metrics
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowStatsModal(false)}
+                                        className="p-1 rounded-full text-[var(--text-3)] hover:text-white transition cursor-pointer"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {/* Body */}
+                                <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Generations</span>
+                                            <span className="text-lg font-bold text-white font-mono">{stats.generationCount}</span>
+                                        </div>
+                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Cost</span>
+                                            <span className="text-lg font-bold text-emerald-400 font-mono">{formatCost(stats.totalCost)}</span>
+                                        </div>
+                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Tokens</span>
+                                            <span className="text-lg font-bold text-white font-mono">{formatTokens(stats.totalTokens)}</span>
+                                            {stats.totalCachedTokens > 0 && (
+                                                <span className="text-[9px] text-[var(--text-3)] mt-0.5 font-mono">
+                                                    ({formatTokens(stats.totalCachedTokens)} cached)
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Cache Savings</span>
+                                            <span className="text-lg font-bold text-emerald-400 font-mono">{formatCost(stats.totalCacheSavings)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-[var(--surface-3)] p-3.5 rounded-xl border border-[var(--border)] flex flex-col gap-2 mt-1">
+                                        <div className="text-[10px] text-[var(--text-3)] border-b border-[var(--border)] pb-1.5 mb-0.5 uppercase tracking-wider font-semibold">
+                                            Performance Metrics
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+                                            <div className="flex justify-between">
+                                                <span className="text-[var(--text-2)]">Avg TTFT</span>
+                                                <span className="text-white font-mono font-medium">{formatSeconds(stats.avgTtftMs)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-[var(--text-2)]">Avg Speed</span>
+                                                <span className="text-white font-mono font-medium">{formatTps(stats.avgTps)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-[var(--text-2)]">Min Speed</span>
+                                                <span className="text-white font-mono font-medium">{formatTps(stats.minTps)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-[var(--text-2)]">Max Speed</span>
+                                                <span className="text-white font-mono font-medium">{formatTps(stats.maxTps)}</span>
+                                            </div>
+                                            <div className="flex justify-between col-span-2 border-t border-[var(--border)] pt-2 mt-1">
+                                                <span className="text-[var(--text-2)]">Avg Cost/Gen</span>
+                                                <span className="text-emerald-400 font-mono font-medium">{formatCost(stats.avgCostPerGeneration)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {stats.byProvider && Object.keys(stats.byProvider).length > 1 && (
+                                        <div className="flex flex-col gap-2 mt-1">
+                                            <div className="text-[10px] text-[var(--text-3)] uppercase tracking-wider font-semibold">Breakdown by Provider</div>
+                                            <div className="border border-[var(--border)] rounded-lg overflow-hidden">
+                                                <table className="w-full text-left font-mono text-[11px] border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-[var(--surface-3)] text-[var(--text-3)] border-b border-[var(--border)]">
+                                                            <th className="p-2 border-r border-[var(--border)]">Provider</th>
+                                                            <th className="p-2 border-r border-[var(--border)] text-right">Gens</th>
+                                                            <th className="p-2 border-r border-[var(--border)] text-right">Tokens</th>
+                                                            <th className="p-2 text-right">Cost</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Object.entries(stats.byProvider).map(([prov, pStats]) => (
+                                                            <tr key={prov} className="border-b border-[var(--border)] last:border-b-0 hover:bg-white/5">
+                                                                <td className="p-2 border-r border-[var(--border)] text-white font-sans capitalize">{prov}</td>
+                                                                <td className="p-2 border-r border-[var(--border)] text-right text-white">{pStats.generationCount}</td>
+                                                                <td className="p-2 border-r border-[var(--border)] text-right text-white">{formatTokens(pStats.totalTokens)}</td>
+                                                                <td className="p-2 text-right text-emerald-400">{formatCost(pStats.totalCost)}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--surface-2)] flex items-center justify-between">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            resetSessionMetrics?.();
+                                            setShowStatsModal(false);
+                                        }}
+                                        className="px-3.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 font-semibold text-[11px] border border-red-500/20 rounded-xl transition cursor-pointer select-none"
+                                    >
+                                        Reset Session
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowStatsModal(false)}
+                                        className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-750 text-white font-semibold text-[11px] border border-neutral-700 rounded-xl transition cursor-pointer select-none"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* footer */}
             <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface-2)] px-5 py-3 flex items-center gap-2">
