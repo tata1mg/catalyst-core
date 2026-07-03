@@ -1,6 +1,6 @@
 import React from "react"
 import { Link, useCurrentRouteData } from "catalyst-core"
-import { getDogApiBaseUrl } from "../../utils/dogApi"
+import { getDogApiBaseUrl, getDogBreeds } from "../../utils/dogApi"
 
 const Home = () => {
     const { data, error, isFetching } = useCurrentRouteData()
@@ -42,9 +42,7 @@ Home.clientFetcher = async () => {
 
 Home.serverFetcher = async () => {
     try {
-        const response = await fetch(`${getDogApiBaseUrl()}/api/breeds/list/all`)
-        const data = await response.json()
-        return data
+        return getDogBreeds()
     } catch (error) {
         console.error("Error fetching dog breeds:", error)
         throw error
