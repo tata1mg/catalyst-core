@@ -5,7 +5,7 @@ const isCompilerEnabled = !!customWebpackConfig.reactCompiler
 const reactCompilerOptions =
     typeof customWebpackConfig.reactCompiler === "object"
         ? customWebpackConfig.reactCompiler
-        : { target: "18" }
+        : { target: "19" }
 
 export default {
     babelrc: false,
