@@ -1,0 +1,494 @@
+name: Publish
+
+on:
+    workflow_dispatch:
+        inputs:
+            publish_channel:
+                description: "Publish channel"
+                required: true
+                type: choice
+                options:
+                    - beta
+                    - latest
+                    - canary
+                default: beta
+            publish_core:
+                description: "Publish catalyst-core"
+                required: true
+                type: boolean
+                default: true
+            publish_cca:
+                description: "Publish create-catalyst-app"
+                required: true
+                type: boolean
+                default: false
+            dry_run:
+                description: "Dry run"
+                required: true
+                type: boolean
+                default: false
+    push:
+        branches:
+            - main
+            - canary
+
+permissions:
+    contents: write
+    id-token: write
+    pull-requests: read
+
+concurrency:
+    group: publish-${{ github.ref_name }}
+    cancel-in-progress: false
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        outputs:
+            should_run: ${{ steps.context.outputs.should_run }}
+            dry_run: ${{ steps.context.outputs.dry_run }}
+            publish_core: ${{ steps.context.outputs.publish_core }}
+            channel: ${{ steps.context.outputs.channel }}
+            core_version: ${{ steps.versions.outputs.core }}
+            release_pr_number: ${{ steps.release_pr.outputs.number }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Resolve release context
+              id: context
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  BRANCH: ${{ github.ref_name }}
+                  BEFORE_SHA: ${{ github.event.before }}
+                  AFTER_SHA: ${{ github.sha }}
+                  INPUT_PUBLISH_CHANNEL: ${{ inputs.publish_channel }}
+                  INPUT_DRY_RUN: ${{ inputs.dry_run }}
+                  INPUT_PUBLISH_CORE: ${{ inputs.publish_core }}
+                  INPUT_PUBLISH_CCA: ${{ inputs.publish_cca }}
+              run: |
+                  SHOULD_RUN=false
+                  CHANNEL=""
+                  DRY_RUN=false
+                  REASON=""
+                  PUBLISH_CORE=false
+                  PUBLISH_CCA=false
+                  CORE_METADATA_VERSION=""
+                  CCA_METADATA_VERSION=""
+
+                  if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+                    CHANNEL="$INPUT_PUBLISH_CHANNEL"
+                    DRY_RUN="$INPUT_DRY_RUN"
+                    PUBLISH_CORE="$INPUT_PUBLISH_CORE"
+                    PUBLISH_CCA="$INPUT_PUBLISH_CCA"
+                    REASON="manual dispatch"
+
+                    if [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
+                      SHOULD_RUN=true
+                    else
+                      REASON="manual dispatch without any selected package"
+                    fi
+                  elif [ "$BRANCH" == "canary" ] || [ "$BRANCH" == "main" ]; then
+                    if [ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]; then
+                      CHANGED_FILES=$(git show --pretty='' --name-only "$AFTER_SHA" 2>/dev/null || true)
+                    else
+                      CHANGED_FILES=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null || true)
+                    fi
+
+                    if ! echo "$CHANGED_FILES" | grep -qx '.release-meta.json'; then
+                      REASON="push without release metadata change"
+                    elif [ ! -f .release-meta.json ]; then
+                      REASON="release metadata missing at branch head"
+                    else
+                      CHANNEL=$(node -p "const meta=require('./.release-meta.json'); meta.tag || ''")
+                      PUBLISH_CORE=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['catalyst-core']?.publish))")
+                      PUBLISH_CCA=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['create-catalyst-app']?.publish))")
+                      CORE_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['catalyst-core']?.version || ''")
+                      CCA_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['create-catalyst-app']?.version || ''")
+                      REASON="auto publish on push via release metadata"
+
+                      if [ -z "$CHANNEL" ]; then
+                        REASON="release metadata missing channel"
+                      elif [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
+                        SHOULD_RUN=true
+                      else
+                        REASON="release metadata selected no packages"
+                      fi
+                    fi
+                  else
+                    REASON="unsupported trigger context"
+                  fi
+
+                  echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+                  echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+                  echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+                  echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+                  echo "publish_core=$PUBLISH_CORE" >> "$GITHUB_OUTPUT"
+                  echo "publish_cca=$PUBLISH_CCA" >> "$GITHUB_OUTPUT"
+                  echo "core_metadata_version=$CORE_METADATA_VERSION" >> "$GITHUB_OUTPUT"
+                  echo "cca_metadata_version=$CCA_METADATA_VERSION" >> "$GITHUB_OUTPUT"
+
+            - name: Validate branch
+              if: steps.context.outputs.should_run == 'true'
+              env:
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+                  BRANCH: ${{ github.ref_name }}
+              run: |
+                  if [ "$CHANNEL" == "canary" ] && [ "$BRANCH" != "canary" ]; then
+                    echo "::error::Canary publishes must run from 'canary' (current: $BRANCH)"
+                    exit 1
+                  fi
+
+                  if { [ "$CHANNEL" == "beta" ] || [ "$CHANNEL" == "latest" ]; } && [ "$BRANCH" != "main" ]; then
+                    echo "::error::$CHANNEL publishes must run from 'main' (current: $BRANCH)"
+                    exit 1
+                  fi
+
+            - name: Setup Node.js
+              if: steps.context.outputs.should_run == 'true'
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  registry-url: "https://registry.npmjs.org"
+
+            - name: Read workspace package versions
+              id: versions
+              if: steps.context.outputs.should_run == 'true'
+              run: |
+                  CORE_VERSION=$(node -p "require('./packages/catalyst-core/package.json').version")
+                  CCA_VERSION=$(node -p "require('./packages/create-catalyst-app/package.json').version")
+                  echo "core=$CORE_VERSION" >> "$GITHUB_OUTPUT"
+                  echo "cca=$CCA_VERSION" >> "$GITHUB_OUTPUT"
+
+            - name: Validate release metadata
+              if: steps.context.outputs.should_run == 'true' && github.event_name == 'push'
+              env:
+                  PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
+                  PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  CORE_METADATA_VERSION: ${{ steps.context.outputs.core_metadata_version }}
+                  CCA_METADATA_VERSION: ${{ steps.context.outputs.cca_metadata_version }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
+              run: |
+                  if [ "$PUBLISH_CORE" == "true" ]; then
+                    if [ -z "$CORE_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata is missing catalyst-core version"
+                      exit 1
+                    fi
+
+                    if [ "$CORE_VERSION" != "$CORE_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata catalyst-core version '$CORE_METADATA_VERSION' does not match package version '$CORE_VERSION'"
+                      exit 1
+                    fi
+                  fi
+
+                  if [ "$PUBLISH_CCA" == "true" ]; then
+                    if [ -z "$CCA_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata is missing create-catalyst-app version"
+                      exit 1
+                    fi
+
+                    if [ "$CCA_VERSION" != "$CCA_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata create-catalyst-app version '$CCA_METADATA_VERSION' does not match package version '$CCA_VERSION'"
+                      exit 1
+                    fi
+                  fi
+
+            - name: Validate create-catalyst-app template versions
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true'
+              run: |
+                  TEMPLATE_CORE_VERSION=$(node -p "require('./packages/create-catalyst-app/templates/none-js/package.json').dependencies['catalyst-core']")
+                  node scripts/release/sync-cca-templates.js --check --package-version="$TEMPLATE_CORE_VERSION"
+
+            - name: Validate package versions against channel
+              if: steps.context.outputs.should_run == 'true'
+              env:
+                  PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
+                  PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: |
+                  validate_version() {
+                    PACKAGE_NAME="$1"
+                    VERSION="$2"
+                    CHANNEL="$3"
+
+                    if [ "$CHANNEL" == "beta" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'; then
+                      echo "::error::$PACKAGE_NAME beta publishes require X.Y.Z-beta.N (current: $VERSION)"
+                      exit 1
+                    fi
+
+                    if [ "$CHANNEL" == "latest" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'; then
+                      echo "::error::$PACKAGE_NAME latest publishes require either X.Y.Z or X.Y.Z-beta.N (current: $VERSION)"
+                      exit 1
+                    fi
+
+                    if [ "$CHANNEL" == "canary" ] && ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
+                      echo "::error::$PACKAGE_NAME canary publishes require X.Y.Z-canary.N (current: $VERSION)"
+                      exit 1
+                    fi
+                  }
+
+                  if [ "$PUBLISH_CORE" == "true" ]; then
+                    validate_version "catalyst-core" "$CORE_VERSION" "$CHANNEL"
+                  fi
+
+                  if [ "$PUBLISH_CCA" == "true" ]; then
+                    validate_version "create-catalyst-app" "$CCA_VERSION" "$CHANNEL"
+                  fi
+
+            - name: Check release state
+              id: release_state
+              if: steps.context.outputs.should_run == 'true'
+              env:
+                  PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
+                  PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: |
+                  check_package_state() {
+                    PACKAGE_NAME="$1"
+                    VERSION="$2"
+                    CHANNEL="$3"
+                    TAG_NAME="$4"
+                    PREFIX="$5"
+
+                    VERSION_EXISTS=false
+                    TAG_EXISTS=false
+                    DIST_TAG_MATCHES=false
+                    DIST_TAG_VERSION=$(npm view "$PACKAGE_NAME@$CHANNEL" version 2>/dev/null || true)
+
+                    if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+                      VERSION_EXISTS=true
+                    fi
+
+                    if git ls-remote --exit-code --tags origin "refs/tags/$TAG_NAME" >/dev/null 2>&1; then
+                      TAG_EXISTS=true
+                    fi
+
+                    if [ "$DIST_TAG_VERSION" == "$VERSION" ]; then
+                      DIST_TAG_MATCHES=true
+                    fi
+
+                    echo "${PREFIX}_version_exists=$VERSION_EXISTS" >> "$GITHUB_OUTPUT"
+                    echo "${PREFIX}_tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
+                    echo "${PREFIX}_dist_tag_matches=$DIST_TAG_MATCHES" >> "$GITHUB_OUTPUT"
+                  }
+
+                  if [ "$PUBLISH_CORE" == "true" ]; then
+                    check_package_state "catalyst-core" "$CORE_VERSION" "$CHANNEL" "catalyst-core@$CORE_VERSION" "core"
+                  fi
+
+                  if [ "$PUBLISH_CCA" == "true" ]; then
+                    check_package_state "create-catalyst-app" "$CCA_VERSION" "$CHANNEL" "create-catalyst-app@$CCA_VERSION" "cca"
+                  fi
+
+            - name: Validate release state
+              if: steps.context.outputs.should_run == 'true'
+              env:
+                  PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
+                  PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  CORE_VERSION_EXISTS: ${{ steps.release_state.outputs.core_version_exists }}
+                  CORE_TAG_EXISTS: ${{ steps.release_state.outputs.core_tag_exists }}
+                  CORE_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.core_dist_tag_matches }}
+                  CCA_VERSION_EXISTS: ${{ steps.release_state.outputs.cca_version_exists }}
+                  CCA_TAG_EXISTS: ${{ steps.release_state.outputs.cca_tag_exists }}
+                  CCA_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.cca_dist_tag_matches }}
+              run: |
+                  validate_state() {
+                    PACKAGE_NAME="$1"
+                    VERSION="$2"
+                    VERSION_EXISTS="$3"
+                    TAG_EXISTS="$4"
+                    DIST_TAG_MATCHES="$5"
+
+                    if [ "$VERSION_EXISTS" == "true" ] && [ "$TAG_EXISTS" == "true" ] && [ "$DIST_TAG_MATCHES" == "true" ]; then
+                      echo "::error::Version $VERSION is already published and assigned to the requested dist-tag for $PACKAGE_NAME"
+                      exit 1
+                    fi
+                  }
+
+                  if [ "$PUBLISH_CORE" == "true" ]; then
+                    validate_state "catalyst-core" "$CORE_VERSION" "$CORE_VERSION_EXISTS" "$CORE_TAG_EXISTS" "$CORE_DIST_TAG_MATCHES"
+                  fi
+
+                  if [ "$PUBLISH_CCA" == "true" ]; then
+                    validate_state "create-catalyst-app" "$CCA_VERSION" "$CCA_VERSION_EXISTS" "$CCA_TAG_EXISTS" "$CCA_DIST_TAG_MATCHES"
+                  fi
+
+            - name: Configure Git
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
+              run: |
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+                  git config --global user.name "github-actions[bot]"
+
+            - name: Install dependencies
+              if: steps.context.outputs.should_run == 'true'
+              run: npm install --ignore-scripts
+
+            - name: Build catalyst-core package
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.release_state.outputs.core_version_exists != 'true'
+              run: npm run prepare --workspace packages/catalyst-core
+
+            - name: Update npm for OIDC support
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
+              run: npm install -g npm@latest
+
+            - name: Publish catalyst-core to npm
+              id: publish_core
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.release_state.outputs.core_version_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: npm publish --workspace packages/catalyst-core --tag "$CHANNEL" --access public
+
+            - name: Update catalyst-core dist-tag
+              id: retag_core
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.release_state.outputs.core_version_exists == 'true' && steps.release_state.outputs.core_dist_tag_matches != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: npm dist-tag add "catalyst-core@$CORE_VERSION" "$CHANNEL"
+
+            - name: Verify catalyst-core version for create-catalyst-app templates
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+                  PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+              run: |
+                  TEMPLATE_CORE_VERSION=$(node -p "require('./packages/create-catalyst-app/templates/none-js/package.json').dependencies['catalyst-core']")
+
+                  if [ "$CHANNEL" == "beta" ] && ! echo "$TEMPLATE_CORE_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'; then
+                    echo "::error::create-catalyst-app beta publish requires catalyst-core template dependency X.Y.Z-beta.N (current: $TEMPLATE_CORE_VERSION)"
+                    exit 1
+                  fi
+
+                  if [ "$CHANNEL" == "canary" ] && ! echo "$TEMPLATE_CORE_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9]+$'; then
+                    echo "::error::create-catalyst-app canary publish requires catalyst-core template dependency X.Y.Z-canary.N (current: $TEMPLATE_CORE_VERSION)"
+                    exit 1
+                  fi
+
+                  if [ "$CHANNEL" == "latest" ] && ! echo "$TEMPLATE_CORE_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+                    echo "::error::create-catalyst-app latest publish requires a stable catalyst-core template dependency (current: $TEMPLATE_CORE_VERSION)"
+                    exit 1
+                  fi
+
+                  if [ "$PUBLISH_CORE" == "true" ] && [ "$TEMPLATE_CORE_VERSION" != "$CORE_VERSION" ]; then
+                    echo "::error::create-catalyst-app templates depend on catalyst-core@$TEMPLATE_CORE_VERSION but this publish is releasing catalyst-core@$CORE_VERSION"
+                    exit 1
+                  fi
+
+                  if [ "$PUBLISH_CORE" != "true" ]; then
+                    npm view "catalyst-core@$TEMPLATE_CORE_VERSION" version
+                    exit 0
+                  fi
+
+                  MAX_ATTEMPTS=3
+                  RETRY_DELAY_SECONDS=10
+
+                  for ATTEMPT in $(seq 1 "$MAX_ATTEMPTS"); do
+                    if npm view "catalyst-core@$TEMPLATE_CORE_VERSION" version; then
+                      exit 0
+                    fi
+
+                    if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then
+                      echo "catalyst-core@$TEMPLATE_CORE_VERSION is not visible on npm yet. Retrying in ${RETRY_DELAY_SECONDS}s ($ATTEMPT/$MAX_ATTEMPTS)..."
+                      sleep "$RETRY_DELAY_SECONDS"
+                    fi
+                  done
+
+                  echo "::error::catalyst-core@$TEMPLATE_CORE_VERSION was not visible on npm after $MAX_ATTEMPTS attempts"
+                  exit 1
+
+            - name: Publish create-catalyst-app to npm
+              id: publish_cca
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true' && steps.release_state.outputs.cca_version_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: npm publish --workspace packages/create-catalyst-app --tag "$CHANNEL" --access public
+
+            - name: Update create-catalyst-app dist-tag
+              id: retag_cca
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true' && steps.release_state.outputs.cca_version_exists == 'true' && steps.release_state.outputs.cca_dist_tag_matches != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: npm dist-tag add "create-catalyst-app@$CCA_VERSION" "$CHANNEL"
+
+            - name: Create catalyst-core git tag
+              id: tag_core
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.release_state.outputs.core_tag_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+              run: |
+                  git tag "catalyst-core@$CORE_VERSION"
+                  git push origin "catalyst-core@$CORE_VERSION"
+
+            - name: Create create-catalyst-app git tag
+              id: tag_cca
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true' && steps.release_state.outputs.cca_tag_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
+              run: |
+                  git tag "create-catalyst-app@$CCA_VERSION"
+                  git push origin "create-catalyst-app@$CCA_VERSION"
+
+            - name: Resolve release PR number
+              id: release_pr
+              if: success() && steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  PR_NUMBER=$(gh api \
+                    -H "Accept: application/vnd.github+json" \
+                    "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+                    --jq '.[0].number // ""' 2>/dev/null || true)
+
+                  if [ -z "$PR_NUMBER" ]; then
+                    echo "::error::Could not resolve pull request number for commit $GITHUB_SHA"
+                    exit 1
+                  fi
+
+                  echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+            - name: Final summary
+              if: always()
+              env:
+                  STATUS: ${{ job.status }}
+                  REASON: ${{ steps.context.outputs.reason }}
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+                  DRY_RUN: ${{ steps.context.outputs.dry_run }}
+                  PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
+                  PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
+              run: |
+                  echo "status=$STATUS"
+                  echo "reason=$REASON"
+                  echo "channel=$CHANNEL"
+                  echo "dry_run=$DRY_RUN"
+                  echo "publish_core=$PUBLISH_CORE"
+                  echo "publish_cca=$PUBLISH_CCA"
+
+                  if [ "$PUBLISH_CORE" == "true" ]; then
+                    echo "catalyst-core=$CORE_VERSION"
+                  fi
+
+                  if [ "$PUBLISH_CCA" == "true" ]; then
+                    echo "create-catalyst-app=$CCA_VERSION"
+                  fi
+
+    trigger_release_automation:
+        needs: publish
+        if: success() && needs.publish.outputs.should_run == 'true' && needs.publish.outputs.publish_core == 'true' && needs.publish.outputs.dry_run != 'true'
+        uses: ./.github/workflows/release-automation.yml
+        with:
+            version: ${{ needs.publish.outputs.core_version }}
+            npm_tag: ${{ needs.publish.outputs.channel }}
+            pr_number: ${{ needs.publish.outputs.release_pr_number }}
+            commit_sha: ${{ github.sha }}

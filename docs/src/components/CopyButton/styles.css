@@ -1,0 +1,48 @@
+.copy-button {
+    background: var(--ifm-color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.copy-button:hover {
+    background: var(--ifm-color-primary-darker);
+    transform: translateY(-1px);
+}
+
+.copy-button:active {
+    transform: translateY(0);
+}
+
+.copy-button.copied {
+    background: var(--ifm-color-success);
+}
+
+.copy-button.copied:hover {
+    background: var(--ifm-color-success-darker);
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .copy-button {
+    background: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .copy-button:hover {
+    background: var(--ifm-color-primary-darker);
+}
+
+[data-theme='dark'] .copy-button.copied {
+    background: var(--ifm-color-success);
+}
+
+[data-theme='dark'] .copy-button.copied:hover {
+    background: var(--ifm-color-success-darker);
+}

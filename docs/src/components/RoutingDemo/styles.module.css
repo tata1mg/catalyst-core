@@ -1,0 +1,335 @@
+.routingDemo {
+    padding: 2rem 0;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.demoContent h2 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.demoContent p {
+    color: var(--text-color);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    font-size: 1rem;
+}
+
+.routingExample {
+    display: grid;
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.routeNavigation {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.routeNavigation h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.navButtons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.navBtn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--ifm-color-primary);
+    background: var(--background-color);
+    color: var(--ifm-color-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.navBtn:hover {
+    background: var(--ifm-color-primary);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(46, 133, 85, 0.2);
+}
+
+.navBtn.active {
+    background: var(--ifm-color-primary);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.routeDisplay {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.routeDisplay h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.routeInfo {
+    background: var(--ifm-card-background-color);
+    padding: 1rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    border: 1px solid #dee2e6;
+}
+
+.routePath,
+.routeComponent {
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.routeParams {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.routeParams pre {
+    background: var(--ifm-code-background);
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin: 0.5rem 0 0 0;
+    font-size: 0.8rem;
+    color: var(--text-color);
+    border: 1px solid #dee2e6;
+}
+
+.routeContent {
+    background: var(--background-color);
+    border: 2px solid var(--ifm-color-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.routeContent h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.contentSimulation {
+    display: grid;
+    gap: 1rem;
+}
+
+.pageContent {
+    background: linear-gradient(
+        135deg,
+        var(--background-color) 0%,
+        var(--ifm-card-background-color) 100%
+    );
+    padding: 1.5rem;
+    border-radius: 4px;
+    border-left: 4px solid var(--ifm-color-primary);
+    transition: all 0.2s ease;
+}
+
+.pageContent:hover {
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pageContent h4 {
+    margin: 0 0 1rem 0;
+    color: var(--ifm-color-primary);
+    font-weight: 600;
+}
+
+.pageContent p {
+    margin: 0;
+    color: var(--text-color);
+    line-height: 1.5;
+}
+
+.pageContent.home {
+    border-left-color: #28a745;
+}
+
+.pageContent.about {
+    border-left-color: #ffc107;
+}
+
+.pageContent.user {
+    border-left-color: #dc3545;
+}
+
+.pageContent.products {
+    border-left-color: #6f42c1;
+}
+
+.codeExample {
+    margin-top: 3rem;
+}
+
+.codeExample h3 {
+    color: var(--ifm-color-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.codeBlock {
+    margin-bottom: 2rem;
+}
+
+.codeHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.codeHeader h4 {
+    color: var(--text-color);
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.copyButton {
+    background: var(--ifm-color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.copyButton:hover {
+    background: #1a5f3a;
+    transform: translateY(-1px);
+}
+
+.copyButton.copied {
+    background: #28a745;
+}
+
+.codeBlock h4 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.codeBlock pre {
+    background: #f8f9fa;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+    color: #2c3e50;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .routingDemo {
+        padding: 1rem;
+    }
+
+    .routingExample {
+        gap: 1rem;
+    }
+
+    .navButtons {
+        flex-direction: column;
+    }
+
+    .navBtn {
+        text-align: center;
+    }
+
+    .routeNavigation,
+    .routeDisplay,
+    .routeContent {
+        padding: 1rem;
+    }
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .routingDemo {
+    color: var(--text-color);
+}
+
+[data-theme='dark'] .routeNavigation,
+[data-theme='dark'] .routeDisplay,
+[data-theme='dark'] .routeContent {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .pageContent {
+    background: linear-gradient(
+        135deg,
+        var(--background-color) 0%,
+        var(--ifm-card-background-color) 100%
+    );
+    color: var(--text-color);
+}
+
+[data-theme='dark'] .routeInfo {
+    background: var(--ifm-card-background-color);
+    border-color: #4a5568;
+    color: var(--text-color);
+}
+
+[data-theme='dark'] .routeParams pre {
+    background: var(--ifm-code-background);
+    border-color: #4a5568;
+    color: var(--text-color);
+}
+
+[data-theme='dark'] .codeBlock pre {
+    background: #2b2b2b;
+    border-color: #404040;
+    color: #e8e8e8;
+}
+
+[data-theme='dark'] .navBtn {
+    background: var(--background-color);
+    border-color: var(--ifm-color-primary);
+    color: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .navBtn:hover {
+    background: var(--ifm-color-primary);
+    color: white;
+}
+
+[data-theme='dark'] .navBtn.active {
+    background: var(--ifm-color-primary);
+    color: white;
+}

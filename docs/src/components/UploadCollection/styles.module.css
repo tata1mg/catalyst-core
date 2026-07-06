@@ -1,0 +1,182 @@
+.width-full input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border-width: 1px !important;
+    border-top-color: lightgray !important;
+    outline: none !important;
+}
+
+.width-full.d-flex {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2rem;
+}
+
+.column label {
+    white-space: nowrap;
+    font-size: 18px;
+}
+
+.column {
+    display: flex;
+}
+
+.flex {
+    display: flex;
+    align-items: center;
+}
+
+.upload-wrapper {
+    background-color: inherit;
+    border: 0px solid #ccc;
+    border-radius: 5px;
+    border-radius: 22px;
+    background: inherit;
+    /* box-shadow: 0px 0px 10px #5a5a5a,
+        0px 0px 10px #eee; */
+    box-shadow:
+        0px 0px 10px #afafaf,
+        0px 0px 10px #eee;
+    padding: 20px;
+    width: 50%;
+}
+
+.upload-wrapper-dark {
+    background-color: inherit;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    border-radius: 22px;
+    padding: 20px;
+    width: 50%;
+}
+
+input[type='text'] {
+    padding: 10px;
+    margin-top: 8px;
+    margin-bottom: 15px;
+    border: 2px solid #ccc !important;
+    background: var(--ifm-card-background-color) !important;
+    border-left: none !important;
+    border-top: none !important;
+    border-right: none !important;
+    font-size: 16px;
+    width: 100%;
+}
+
+.upload-wrapper-dark input[type='text'] {
+    padding: 10px;
+    margin-top: 8px;
+    margin-bottom: 15px;
+    border-radius: 0 !important;
+    border: 1px solid #ccc !important;
+    border-radius: 7px !important;
+    background: var(--ifm-card-background-color) !important;
+    border-left: none !important;
+    border-top: none !important;
+    border-right: none !important;
+    font-size: 16px;
+    width: 100%;
+}
+
+textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    font-size: 16px;
+    width: 100%;
+    background-color: var(--ifm-card-background-color) !important;
+}
+
+.btn {
+    /* background-color: #2e8555; */
+    background-color: var(--ifm-color-primary);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    width: 100%;
+    padding: 10px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.radio-input {
+    margin: 0;
+    visibility: hidden;
+}
+
+.radio-input:checked + span {
+    border: 2px solid #f4b400;
+}
+
+.radio-input:checked + span:after {
+    opacity: 1;
+}
+
+.custom-radio {
+    left: -8px;
+    top: 6px;
+    cursor: pointer;
+    width: 17px !important;
+    height: 17px;
+    border: 2px solid #9a9a9a;
+    border-radius: 50%;
+    display: inline-block;
+    position: relative;
+}
+
+/* for inner filled circle */
+.custom-radio::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background: #f4b400;
+    position: absolute;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+/* Define dark theme styles */
+.dark-theme .upload-wrapper {
+    background-color: var(--background-color-dark);
+    border: 1px solid var(--border-color-dark);
+    color: var(--text-color-dark);
+    /* ... other dark theme styles ... */
+}
+
+.upload-title {
+    font-weight: 600;
+    font-size: 18px;
+}
+
+@media (max-width: 767px) {
+    .upload-wrapper {
+        width: 85%;
+        margin: 0 auto;
+        border-radius: 5px;
+    }
+
+    .upload-wrapper-dark {
+        width: 85%;
+        margin: 0 auto;
+        border-radius: 5px;
+    }
+
+    .width-full.d-flex {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+}
