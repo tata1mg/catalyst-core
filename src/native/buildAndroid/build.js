@@ -16,7 +16,9 @@ function createBuildPhase(ctx) {
             progress.log("Detecting physical devices...", "info")
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
             const devices = ctx.runCommand(`${ADB_PATH} devices -l`)
-            const lines = devices.split("\n").filter((line) => line.trim() && !line.includes("List of devices"))
+            const lines = devices
+                .split("\n")
+                .filter((line) => line.trim() && !line.includes("List of devices"))
 
             for (const line of lines) {
                 const parts = line.trim().split(/\s+/)
@@ -127,11 +129,8 @@ function createBuildPhase(ctx) {
     async function startEmulator(EMULATOR_PATH, androidConfig) {
         progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
         // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - EMULATOR_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-        return ctx.runInteractiveCommand(
-            EMULATOR_PATH,
-            ["-avd", androidConfig.emulatorName, "-read-only"],
-            {}
-        )
+        return ctx
+            .runInteractiveCommand(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {})
             .then(() => {
                 progress.log("Emulator started successfully", "success")
             })
@@ -288,13 +287,31 @@ function createBuildPhase(ctx) {
                         : `${appName}-${currentTime}.debug.apk`
             } else {
                 destinationApkFileName =
-                    buildType === "release" ? `app-${currentTime}.release.apk` : `app-${currentTime}.debug.apk`
+                    buildType === "release"
+                        ? `app-${currentTime}.release.apk`
+                        : `app-${currentTime}.debug.apk`
             }
 
             const sourceApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
 
-            const sourceApkPath = path.join(pwd, "androidProject", "app", "build", "outputs", "apk", buildType, sourceApkFileName) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pwd is an internal resolved path; buildType is "debug"/"release" from config; sourceApkFileName is derived from buildType.
-            const destinationDir = path.join(process.cwd(), BUILD_OUTPUT_PATH, "native", "android", currentDate, buildType) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is from trusted config; buildType and currentDate are internal values.
+            const sourceApkPath = path.join(
+                pwd,
+                "androidProject",
+                "app",
+                "build",
+                "outputs",
+                "apk",
+                buildType,
+                sourceApkFileName
+            ) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pwd is an internal resolved path; buildType is "debug"/"release" from config; sourceApkFileName is derived from buildType.
+            const destinationDir = path.join(
+                process.cwd(),
+                BUILD_OUTPUT_PATH,
+                "native",
+                "android",
+                currentDate,
+                buildType
+            ) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is from trusted config; buildType and currentDate are internal values.
             const destinationApkPath = path.join(destinationDir, destinationApkFileName) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - destinationDir and destinationApkFileName are derived from internal config values, not user input.
 
             if (!fs.existsSync(sourceApkPath)) {

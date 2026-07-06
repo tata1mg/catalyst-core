@@ -239,7 +239,8 @@ async function checkEmulator(ADB_PATH) {
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`)
     // eslint-disable-next-line security/detect-child-process
-    exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, (error) => { // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+    exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, (error) => {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
         if (error) {
             progress.log(`Error starting emulator: ${error}`, "error")
         }
