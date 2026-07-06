@@ -1,5 +1,4 @@
 import React from "react"
-import PropTypes from "prop-types"
 
 /**
  * Head component which will be used in page rendering
@@ -37,13 +36,4 @@ export function Head(props) {
             {!isBot && preloadJSLinks}
         </head>
     )
-}
-
-Head.propTypes = {
-    isBot: PropTypes.bool,
-    preloadJSLinks: PropTypes.array,
-    pageCss: PropTypes.string,
-    metaTags: PropTypes.array,
-    publicAssetPath: PropTypes.string,
-    children: PropTypes.node,
 }
