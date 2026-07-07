@@ -13,7 +13,7 @@ const knowledge = require("./knowledge")
 const SITEMAP_URL = "https://catalyst.1mg.com/public_docs/sitemap.xml"
 const SITEMAP_HOST = "catalyst.1mg.com"
 const KB_GITHUB_URL =
-    "https://raw.githubusercontent.com/tata1mg/catalyst-core/main/mcp_v2/knowledge-base.json"
+    "https://raw.githubusercontent.com/tata1mg/catalyst-core/main/packages/catalyst-core/mcp_v2/knowledge-base.json"
 const GITHUB_RAW_HOST = "raw.githubusercontent.com"
 const KB_PATH = path.join(__dirname, "..", "knowledge-base.json")
 const MAX_BYTES = 512 * 1024
