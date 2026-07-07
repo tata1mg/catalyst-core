@@ -96,16 +96,16 @@ async function main() {
     console.log("\nSyncing knowledge-base.json from tata1mg/catalyst-core@main...")
     sync.init(db)
     try {
-        const result = await sync.handle_sync_catalyst_docs({})
+        const result = await sync.handle_sync_knowledge_base({})
         if (result.error) {
             console.warn(`  ⚠ ${result.error}`)
-            console.warn("    Run sync_catalyst_docs later via your MCP client to retry.")
+            console.warn("    Run sync_knowledge_base later via your MCP client to retry.")
         } else {
             console.log(`  ✓ ${result.message}`)
         }
     } catch (e) {
         console.warn(`  ⚠ Sync threw: ${e.message}`)
-        console.warn("    Run sync_catalyst_docs later via your MCP client to retry.")
+        console.warn("    Run sync_knowledge_base later via your MCP client to retry.")
     }
 
     db.close()

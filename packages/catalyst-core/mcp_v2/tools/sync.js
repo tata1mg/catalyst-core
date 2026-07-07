@@ -46,7 +46,7 @@ function fetchUrl(url, opts = {}) {
         const mod = parsed.protocol === "https:" ? https : http
         const req = mod.get(
             url,
-            { headers: { "User-Agent": "catalyst-mcp/2.0 sync_catalyst_docs" } },
+            { headers: { "User-Agent": "catalyst-mcp/2.0 sync_knowledge_base" } },
             (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                     res.resume()
@@ -178,7 +178,7 @@ async function syncKnowledgeBaseFromGithub({ force = false } = {}) {
     }
 }
 
-async function handle_sync_catalyst_docs({ force = false } = {}) {
+async function handle_sync_knowledge_base({ force = false } = {}) {
     const knowledge_base = await syncKnowledgeBaseFromGithub({ force })
     return {
         synced_at: new Date().toISOString(),
@@ -193,4 +193,4 @@ async function handle_sync_catalyst_docs({ force = false } = {}) {
     }
 }
 
-module.exports = { init, handle_sync_catalyst_docs }
+module.exports = { init, handle_sync_knowledge_base }
