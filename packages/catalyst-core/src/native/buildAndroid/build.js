@@ -295,23 +295,23 @@ function createBuildPhase(ctx) {
             const sourceApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
 
             const sourceApkPath = path.join(
-                pwd,
+                pwd, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pwd is an internal resolved path.
                 "androidProject",
                 "app",
                 "build",
                 "outputs",
                 "apk",
-                buildType,
+                buildType, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - buildType is "debug" or "release" from config.
                 sourceApkFileName
-            ) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pwd is an internal resolved path; buildType is "debug"/"release" from config; sourceApkFileName is derived from buildType.
+            )
             const destinationDir = path.join(
                 process.cwd(),
-                BUILD_OUTPUT_PATH,
+                BUILD_OUTPUT_PATH, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is trusted application config.
                 "native",
                 "android",
                 currentDate,
-                buildType
-            ) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is from trusted config; buildType and currentDate are internal values.
+                buildType // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - buildType is "debug" or "release" from config.
+            )
             const destinationApkPath = path.join(destinationDir, destinationApkFileName) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - destinationDir and destinationApkFileName are derived from internal config values, not user input.
 
             if (!fs.existsSync(sourceApkPath)) {

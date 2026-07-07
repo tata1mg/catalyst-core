@@ -247,16 +247,16 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
                 try {
                     execSync(`cd "${PROJECT_DIR}" && rm -rf .build`, { stdio: "ignore" }) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
                     try {
-                        fs.rmSync(path.join(PROJECT_DIR, "Package.resolved"), { force: true })
+                        fs.rmSync(path.join(PROJECT_DIR, "Package.resolved"), { force: true }) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PROJECT_DIR is the fixed generated iOS project directory.
                     } catch {
                         progress.log("")
-                    } // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+                    }
                     execSync(`cd "${PROJECT_DIR}" && rm -rf .swiftpm`, { stdio: "ignore" }) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
                     const projectPath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
                     execSync(
-                        `cd "${PROJECT_DIR}" && xcodebuild -resolvePackageDependencies -project "${projectPath}" -scheme "${SCHEME_NAME}"`,
+                        `cd "${PROJECT_DIR}" && xcodebuild -resolvePackageDependencies -project "${projectPath}" -scheme "${SCHEME_NAME}"`, // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - PROJECT_DIR, projectPath, and SCHEME_NAME are generated from trusted iOS project config.
                         { stdio: "inherit" }
-                    ) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                    )
                     progress.log("Package dependencies resolved successfully", "success")
                 } catch (error) {
                     if (isNotificationsEnabled) {

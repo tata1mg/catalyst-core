@@ -115,7 +115,7 @@ function buildInlineCSS(linkElements) {
             const assetPath = path.resolve(
                 process.env.src_path,
                 `${process.env.BUILD_OUTPUT_PATH}/public`,
-                assetName
+                assetName // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - assetName is reduced to a basename and CSS is read from the build output directory.
             )
 
             // Read and cache CSS content
