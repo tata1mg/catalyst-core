@@ -54,6 +54,32 @@ if (fs.existsSync(storePath)) {
 }
 
 const isProduction = process.env.NODE_ENV === "production"
+const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
+
+const parseSafeAreaFromHeaders = (req) => {
+    const readEdge = (header) => {
+        const raw = req.get(header) ?? req.headers[header.toLowerCase()]
+        const value = Number(raw)
+        return Number.isFinite(value) && value >= 0 ? value : null
+    }
+
+    const top = readEdge("X-Safe-Area-Top")
+    const right = readEdge("X-Safe-Area-Right")
+    const bottom = readEdge("X-Safe-Area-Bottom")
+    const left = readEdge("X-Safe-Area-Left")
+
+    const hasAny = [top, right, bottom, left].some((value) => value !== null)
+    if (!hasAny) {
+        return null
+    }
+
+    return {
+        top: top ?? 0,
+        right: right ?? 0,
+        bottom: bottom ?? 0,
+        left: left ?? 0,
+    }
+}
 
 // Cache webStats path - computed once at module load
 const webStatsPath = isProduction
@@ -237,6 +263,12 @@ const renderMarkUp = async (
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
+    const safeArea = parseSafeAreaFromHeaders(req) || { ...DEFAULT_SAFE_AREA_INSETS }
+
+    /* eslint-disable no-undef */
+    const previousSafeArea = globalThis.__SAFE_AREA_INITIAL__
+    globalThis.__SAFE_AREA_INITIAL__ = safeArea
+    /* eslint-enable no-undef */
 
     let state = store.getState()
     // collectChunks wraps the component tree so the extractor can track which loadable
@@ -263,6 +295,7 @@ const renderMarkUp = async (
         jsx,
         initialState: state,
         fetcherData,
+        safeArea,
     }
 
     let CompleteDocument = () => {
@@ -282,10 +315,21 @@ const renderMarkUp = async (
                         jsx={finalProps.jsx}
                         fetcherData={finalProps.fetcherData}
                         initialState={finalProps.initialState}
+                        safeArea={finalProps.safeArea}
                     />
                 </html>
             )
         }
+    }
+
+    const cleanupGlobalThis = () => {
+        /* eslint-disable no-undef */
+        if (previousSafeArea === undefined) {
+            delete globalThis.__SAFE_AREA_INITIAL__
+        } else {
+            globalThis.__SAFE_AREA_INITIAL__ = previousSafeArea
+        }
+        /* eslint-enable no-undef */
     }
 
     try {
@@ -308,12 +352,14 @@ const renderMarkUp = async (
                     tracedResWriteFirstFoldCss(res, firstFoldCss)
                     tracedResWriteFirstFoldJS(res, firstFoldJS)
                     tracedResEnd(res)
+                    cleanupGlobalThis()
                     resolve()
                 },
                 onError(error) {
                     logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
                     // function defined by user which needs to run if rendering fails
                     safeCall(onRenderError, { req, res, store, error })
+                    cleanupGlobalThis()
                     reject(error)
                 },
             })
@@ -326,6 +372,7 @@ const renderMarkUp = async (
         })
         // function defined by user which needs to run if rendering fails
         safeCall(onRenderError, { req, res, store, error })
+        cleanupGlobalThis()
         return Promise.reject(error)
     }
 }
