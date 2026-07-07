@@ -10,18 +10,13 @@ const { URL } = require("url")
 const { seedKnowledgeBase } = require("../lib/seed")
 const knowledge = require("./knowledge")
 
-const SITEMAP_URL = "https://catalyst.1mg.com/public_docs/sitemap.xml"
-const SITEMAP_HOST = "catalyst.1mg.com"
 const KB_GITHUB_URL =
     "https://raw.githubusercontent.com/tata1mg/catalyst-core/main/packages/catalyst-core/mcp_v2/knowledge-base.json"
 const GITHUB_RAW_HOST = "raw.githubusercontent.com"
 const KB_PATH = path.join(__dirname, "..", "knowledge-base.json")
-const MAX_BYTES = 512 * 1024
 const KB_MAX_BYTES = 4 * 1024 * 1024
 const MAX_REDIRECTS = 5
 const SOCKET_TIMEOUT_MS = 15_000
-const CONTENT_TRUNCATE = 2000
-const MAX_ERRORS_RETURNED = 20
 
 let _db
 
@@ -31,8 +26,8 @@ function init(db) {
 
 function fetchUrl(url, opts = {}) {
     const {
-        allowedHost = SITEMAP_HOST,
-        maxBytes = MAX_BYTES,
+        allowedHost = GITHUB_RAW_HOST,
+        maxBytes = KB_MAX_BYTES,
         redirectsLeft = MAX_REDIRECTS,
     } = opts
     return new Promise((resolve, reject) => {
@@ -96,39 +91,8 @@ function fetchUrl(url, opts = {}) {
     })
 }
 
-function decodeXmlEntities(s) {
-    return s
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-}
-
-function parseSitemapUrls(xml) {
-    const matches = xml.match(/<loc>([\s\S]*?)<\/loc>/g) || []
-    return matches
-        .map((m) => decodeXmlEntities(m.replace(/<\/?loc>/g, "").trim()))
-        .filter(Boolean)
-}
-
-function stripHtml(html) {
-    return html
-        .replace(/<script[\s\S]*?<\/script>/gi, "")
-        .replace(/<style[\s\S]*?<\/style>/gi, "")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-}
-
 function contentHash(text) {
     return crypto.createHash("sha256").update(text).digest("hex").slice(0, 16)
-}
-
-function extractTitle(html, url) {
-    const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-    if (m && m[1].trim()) return decodeXmlEntities(m[1].trim()).slice(0, 200)
-    return url.split("/").filter(Boolean).pop() || url
 }
 
 async function syncKnowledgeBaseFromGithub({ force = false } = {}) {
@@ -191,8 +155,7 @@ async function syncKnowledgeBaseFromGithub({ force = false } = {}) {
     let counts
     try {
         counts = seedKnowledgeBase(_db, KB_PATH)
-        // Rebuild fk_fts so rowids match the freshly-inserted framework_knowledge ids
-        // (sitemap rows already in framework_knowledge are repopulated by knowledge.init).
+        // Rebuild fk_fts so rowids match the freshly-inserted framework_knowledge ids.
         _db.exec(`DROP TABLE IF EXISTS fk_fts`)
         knowledge.init(_db)
     } catch (e) {
@@ -217,129 +180,16 @@ async function syncKnowledgeBaseFromGithub({ force = false } = {}) {
 
 async function handle_sync_catalyst_docs({ force = false } = {}) {
     const knowledge_base = await syncKnowledgeBaseFromGithub({ force })
-
-    let xml
-    try {
-        xml = await fetchUrl(SITEMAP_URL)
-    } catch (e) {
-        return {
-            error: "sitemap_fetch_failed",
-            sitemap_url: SITEMAP_URL,
-            knowledge_base,
-            message: `Could not fetch sitemap: ${e.message}`,
-        }
-    }
-
-    const urls = parseSitemapUrls(xml)
-    if (urls.length === 0) {
-        return {
-            error: "empty_sitemap",
-            sitemap_url: SITEMAP_URL,
-            knowledge_base,
-            message: "Sitemap parsed but contained no <loc> entries.",
-        }
-    }
-
-    const getCurr = _db.prepare(
-        `SELECT id, content_hash FROM doc_snapshots WHERE url = ? AND slot = 'curr'`
-    )
-    const deletePrev = _db.prepare(`DELETE FROM doc_snapshots WHERE url = ? AND slot = 'prev'`)
-    const promoteCurr = _db.prepare(
-        `UPDATE doc_snapshots SET slot = 'prev' WHERE url = ? AND slot = 'curr'`
-    )
-    const insertCurr = _db.prepare(
-        `INSERT INTO doc_snapshots (url, content_hash, slot) VALUES (?, ?, 'curr')`
-    )
-    const getLinked = _db.prepare(`SELECT knowledge_id FROM linkage_map WHERE url = ?`)
-    const insertKnowledge = _db.prepare(`
-        INSERT INTO framework_knowledge (section, title, content, layer, source, tags, url)
-        VALUES ('sitemap', ?, ?, 'Component', 'sitemap', '[]', ?)
-    `)
-    const updateKnowledge = _db.prepare(`
-        UPDATE framework_knowledge
-        SET title = ?, content = ?, last_updated = datetime('now')
-        WHERE id = ?
-    `)
-    const insertLink = _db.prepare(`INSERT INTO linkage_map (url, knowledge_id) VALUES (?, ?)`)
-    const insertFts = _db.prepare(
-        `INSERT INTO fk_fts(rowid, title, content, tags, section) VALUES (?, ?, ?, '', 'sitemap')`
-    )
-    const updateFts = _db.prepare(`UPDATE fk_fts SET title = ?, content = ? WHERE rowid = ?`)
-
-    let fetched = 0
-    let changed = 0
-    let unchanged = 0
-    let failed = 0
-    const errors = []
-
-    for (const url of urls) {
-        let html
-        try {
-            html = await fetchUrl(url)
-        } catch (e) {
-            failed++
-            if (errors.length < MAX_ERRORS_RETURNED) errors.push({ url, error: e.message })
-            continue
-        }
-        fetched++
-
-        const text = stripHtml(html)
-        const hash = contentHash(text)
-        const prior = getCurr.get(url)
-
-        if (!force && prior && prior.content_hash === hash) {
-            unchanged++
-            continue
-        }
-
-        const title = extractTitle(html, url)
-        const content = text.slice(0, CONTENT_TRUNCATE)
-
-        const upsert = _db.transaction(() => {
-            deletePrev.run(url)
-            if (prior) promoteCurr.run(url)
-            insertCurr.run(url, hash)
-
-            const linked = getLinked.all(url)
-            if (linked.length > 0) {
-                for (const link of linked) {
-                    updateKnowledge.run(title, content, link.knowledge_id)
-                    updateFts.run(title, content, link.knowledge_id)
-                }
-            } else {
-                const result = insertKnowledge.run(title, content, url)
-                const newId = Number(result.lastInsertRowid)
-                insertLink.run(url, newId)
-                insertFts.run(newId, title, content)
-            }
-        })
-
-        try {
-            upsert()
-            changed++
-        } catch (e) {
-            failed++
-            if (errors.length < MAX_ERRORS_RETURNED) {
-                errors.push({ url, error: `db_upsert_failed: ${e.message}` })
-            }
-        }
-    }
-
     return {
         synced_at: new Date().toISOString(),
-        sitemap_url: SITEMAP_URL,
         force,
-        total_urls: urls.length,
-        fetched,
-        changed,
-        unchanged,
-        failed,
-        errors,
         knowledge_base,
+        error: knowledge_base.error || null,
         message:
-            failed === 0
-                ? `Synced ${changed} changed, ${unchanged} unchanged of ${urls.length} URLs.`
-                : `Synced ${changed} changed, ${unchanged} unchanged, ${failed} failed of ${urls.length} URLs.`,
+            knowledge_base.message ||
+            (knowledge_base.error
+                ? `knowledge-base.json sync failed: ${knowledge_base.error}`
+                : "knowledge-base.json sync complete."),
     }
 }
 

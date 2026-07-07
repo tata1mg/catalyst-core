@@ -401,7 +401,7 @@ const TOOLS = [
     {
         name: "sync_catalyst_docs",
         description:
-            "Use when the developer asks: 'sync docs', 'update framework knowledge', 'fetch latest catalyst docs'. Intent: sync. Fetches changelog and template diffs, updates the KB. Maintenance only — no task planning needed after.",
+            "Use when the developer asks: 'sync docs', 'update framework knowledge', 'fetch latest catalyst docs'. Intent: sync. Pulls the latest knowledge-base.json from tata1mg/catalyst-core@main and re-seeds the KB. Maintenance only — no task planning needed after.",
         inputSchema: {
             type: "object",
             properties: {

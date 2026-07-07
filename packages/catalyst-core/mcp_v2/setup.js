@@ -9,7 +9,7 @@
  * 3. Seed framework_knowledge from knowledge-base.json (static rows)
  * 4. Seed known_errors from knowledge-base.json known_errors section
  * 5. Build FTS index over static rows
- * 6. Run sync_catalyst_docs once for live sitemap rows (best-effort; warns but does not fail)
+ * 6. Sync knowledge-base.json from tata1mg/catalyst-core@main (best-effort; warns but does not fail)
  */
 
 const fs = require("fs")
@@ -91,32 +91,17 @@ async function main() {
     db.exec(`DROP TABLE IF EXISTS fk_fts`)
     knowledge.init(db)
 
-    // 6. Initial sync — pulls knowledge-base.json from tata1mg/catalyst-core@main, then
-    //    fetches the catalyst.1mg.com sitemap. Failures are warnings, not setup-blockers
-    //    (network may be unavailable at install time).
-    console.log("\nSyncing knowledge-base.json from tata1mg/catalyst-core@main and live docs...")
+    // 6. Initial sync — pulls knowledge-base.json from tata1mg/catalyst-core@main.
+    //    Failures are warnings, not setup-blockers (network may be unavailable at install time).
+    console.log("\nSyncing knowledge-base.json from tata1mg/catalyst-core@main...")
     sync.init(db)
     try {
         const result = await sync.handle_sync_catalyst_docs({})
-        const kb = result.knowledge_base
-        if (kb) {
-            if (kb.error) {
-                console.warn(`  ⚠ knowledge-base.json: ${kb.error}`)
-            } else if (kb.kb_changed) {
-                console.log(`  ✓ knowledge-base.json: ${kb.message}`)
-            } else {
-                console.log(`  ✓ knowledge-base.json: ${kb.message}`)
-            }
-        }
         if (result.error) {
-            console.warn(`  ⚠ ${result.message}`)
+            console.warn(`  ⚠ ${result.error}`)
             console.warn("    Run sync_catalyst_docs later via your MCP client to retry.")
         } else {
             console.log(`  ✓ ${result.message}`)
-            if (result.failed > 0 && result.errors.length) {
-                const sample = result.errors.slice(0, 3).map((e) => `${e.url} (${e.error})`)
-                console.warn(`    ${result.failed} URL(s) failed. First: ${sample.join("; ")}`)
-            }
         }
     } catch (e) {
         console.warn(`  ⚠ Sync threw: ${e.message}`)
