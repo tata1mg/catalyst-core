@@ -31,7 +31,7 @@
         "@reduxjs/toolkit": "^2.9.0",
         "@tailwindcss/postcss": "^4.1.4",
         "@tata1mg/router": "0.1.0-beta",
-        "catalyst-core": "0.1.0-canary.7",
+        "catalyst-core": "0.1.0-beta.7",
         "react-redux": "^9.2.0",
         "tailwindcss": "^4.1.4",
         "react": "19.0.0",
