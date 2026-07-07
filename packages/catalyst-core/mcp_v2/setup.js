@@ -8,20 +8,21 @@
  * 2. Create context.db, run schema.sql
  * 3. Seed framework_knowledge from knowledge-base.json (static rows)
  * 4. Seed known_errors from knowledge-base.json known_errors section
- * 5. Run sync_catalyst_docs once (dynamic sitemap rows)
+ * 5. Build FTS index over static rows
+ * 6. Run sync_catalyst_docs once for live sitemap rows (best-effort; warns but does not fail)
  */
 
 const fs = require("fs")
 const path = require("path")
 const Database = require("better-sqlite3")
-const https = require("https")
-const crypto = require("crypto")
+const sync = require("./tools/sync")
+const knowledge = require("./tools/knowledge")
+const { seedKnowledgeBase } = require("./lib/seed")
 
 const MCP_DIR = __dirname
 const DB_PATH = path.join(MCP_DIR, "context.db")
 const SCHEMA_PATH = path.join(MCP_DIR, "schema.sql")
 const KB_PATH = path.join(MCP_DIR, "knowledge-base.json")
-const SITEMAP_URL = "https://catalyst.1mg.com/public_docs/sitemap.xml"
 
 // ── 1. Find & validate catalyst project ──────────────────────────────────────
 
@@ -52,178 +53,13 @@ function initDb() {
 
 // ── 3 & 4. Seed from knowledge-base.json ─────────────────────────────────────
 
-function seedKnowledgeBase(db, projectInfo) {
-    const kb = JSON.parse(fs.readFileSync(KB_PATH, "utf8"))
-
-    // DELETE existing static rows so re-runs reflect updated knowledge-base.json
-    db.prepare(`DELETE FROM framework_knowledge WHERE source = 'static'`).run()
-    db.prepare(`DELETE FROM known_errors`).run()
-
-    const insertKnowledge = db.prepare(`
-    INSERT INTO framework_knowledge (section, title, content, layer, source, tags, github_files)
-    VALUES (@section, @title, @content, @layer, @source, @tags, @github_files)
-  `)
-
-    const insertError = db.prepare(`
-    INSERT INTO known_errors (symptom, cause, fix, layer, tags)
-    VALUES (@symptom, @cause, @fix, @layer, @tags)
-  `)
-
-    let knowledgeCount = 0
-    let errorCount = 0
-
-    const seedAll = db.transaction(() => {
-        for (const entry of kb) {
-            if (entry.section === "known_errors") {
-                // known_errors entries encode symptom/cause/fix in content as:
-                // "Symptom: ... Cause: ... Fix: ..."
-                const content = entry.content || ""
-                const symptomMatch = content.match(/Symptom:\s*([^.]+\.?)/i)
-                const causeMatch = content.match(/Cause:\s*([^.]+\.?)/i)
-                const fixMatch = content.match(/Fix:\s*([\s\S]+)/i)
-                insertError.run({
-                    symptom: symptomMatch ? symptomMatch[1].trim() : entry.title,
-                    cause: causeMatch ? causeMatch[1].trim() : "",
-                    fix: fixMatch ? fixMatch[1].trim() : "",
-                    layer: entry.layer,
-                    tags: JSON.stringify(entry.tags || []),
-                })
-                errorCount++
-            } else {
-                insertKnowledge.run({
-                    section: entry.section,
-                    title: entry.title,
-                    content: entry.content,
-                    layer: entry.layer,
-                    source: "static",
-                    tags: JSON.stringify(entry.tags || []),
-                    github_files: entry.github_files ? JSON.stringify(entry.github_files) : null,
-                })
-                knowledgeCount++
-            }
-        }
-    })
-
-    seedAll()
+function seedFromLocalKb(db, projectInfo) {
+    const { knowledgeCount, errorCount } = seedKnowledgeBase(db, KB_PATH, projectInfo)
     console.log(`  ✓ Seeded ${knowledgeCount} knowledge entries`)
     console.log(`  ✓ Seeded ${errorCount} known_errors entries`)
-
-    // Store project context
-    db.prepare(
-        `
-    INSERT OR REPLACE INTO project_context (id, repo_path, package_name, catalyst_version, detected_at)
-    VALUES (1, @repo_path, @package_name, @catalyst_version, datetime('now'))
-  `
-    ).run({
-        repo_path: projectInfo.dir,
-        package_name: projectInfo.pkg.name || "unknown",
-        catalyst_version: projectInfo.version,
-    })
     console.log(
         `  ✓ Project context stored (${projectInfo.pkg.name}, ${projectInfo.catalystPackageName}@${projectInfo.version})`
     )
-}
-
-// ── 5. sync_catalyst_docs (initial run) ───────────────────────────────────────
-
-function fetchUrl(url) {
-    return new Promise((resolve, reject) => {
-        const mod = url.startsWith("https") ? https : require("http")
-        mod.get(url, (res) => {
-            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                return fetchUrl(res.headers.location).then(resolve).catch(reject)
-            }
-            let data = ""
-            res.on("data", (chunk) => (data += chunk))
-            res.on("end", () => resolve(data))
-        }).on("error", reject)
-    })
-}
-
-function parseSitemapUrls(xml) {
-    const matches = xml.match(/<loc>(.*?)<\/loc>/g) || []
-    return matches.map((m) => m.replace(/<\/?loc>/g, "").trim())
-}
-
-function stripHtml(html) {
-    // Very simple strip — good enough for catalyst docs
-    return html
-        .replace(/<script[\s\S]*?<\/script>/gi, "")
-        .replace(/<style[\s\S]*?<\/style>/gi, "")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-}
-
-function contentHash(text) {
-    return crypto.createHash("sha256").update(text).digest("hex").slice(0, 16)
-}
-
-// Kept for manual/live sync flows; setup does not invoke it by default.
-// eslint-disable-next-line no-unused-vars
-async function syncCatalystDocs(db) {
-    console.log("\n  Fetching sitemap...")
-    let xml
-    try {
-        xml = await fetchUrl(SITEMAP_URL)
-    } catch (e) {
-        console.warn(`  ⚠ Could not fetch sitemap (${e.message}). Skipping live docs sync.`)
-        console.warn("    You can run sync later via the sync_catalyst_docs MCP tool.")
-        return
-    }
-
-    const urls = parseSitemapUrls(xml)
-    console.log(`  Found ${urls.length} URLs in sitemap`)
-
-    const insertKnowledge = db.prepare(`
-    INSERT INTO framework_knowledge (section, title, content, layer, source, tags, url)
-    VALUES (@section, @title, @content, @layer, 'sitemap', '[]', @url)
-  `)
-
-    const insertSnapshot = db.prepare(`
-    INSERT INTO doc_snapshots (url, content_hash, slot) VALUES (@url, @hash, 'curr')
-  `)
-
-    const insertLink = db.prepare(`
-    INSERT INTO linkage_map (url, knowledge_id) VALUES (@url, @knowledge_id)
-  `)
-
-    let synced = 0
-    let failed = 0
-
-    for (const url of urls) {
-        try {
-            const html = await fetchUrl(url)
-            const text = stripHtml(html)
-            const hash = contentHash(text)
-
-            // Extract a title from <title> tag if present
-            const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i)
-            const title = titleMatch ? titleMatch[1].trim() : url.split("/").pop() || url
-
-            // Truncate content to 2000 chars to keep DB lean
-            const content = text.slice(0, 2000)
-
-            db.transaction(() => {
-                const row = insertKnowledge.run({
-                    section: "sitemap",
-                    title,
-                    content,
-                    layer: "Component",
-                    url,
-                })
-                insertSnapshot.run({ url, hash })
-                insertLink.run({ url, knowledge_id: row.lastInsertRowid })
-            })()
-
-            synced++
-            process.stdout.write(`\r  Synced ${synced}/${urls.length} pages...`)
-        } catch (e) {
-            failed++
-        }
-    }
-
-    console.log(`\n  ✓ Synced ${synced} pages (${failed} failed)`)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -248,11 +84,44 @@ async function main() {
 
     // 3 & 4. Seed static knowledge
     console.log("\nSeeding knowledge-base.json...")
-    seedKnowledgeBase(db, projectInfo)
+    seedFromLocalKb(db, projectInfo)
 
-    // 5. Initial sitemap sync — disabled (slow, use sync_catalyst_docs MCP tool manually)
-    // console.log('\nRunning initial sync_catalyst_docs...');
-    // await syncCatalystDocs(db);
+    // 5. Build FTS index from the just-seeded static rows.
+    //    DROP first so re-runs of setup don't leave orphan rowids pointing at deleted rows.
+    db.exec(`DROP TABLE IF EXISTS fk_fts`)
+    knowledge.init(db)
+
+    // 6. Initial sync — pulls knowledge-base.json from tata1mg/catalyst-core@main, then
+    //    fetches the catalyst.1mg.com sitemap. Failures are warnings, not setup-blockers
+    //    (network may be unavailable at install time).
+    console.log("\nSyncing knowledge-base.json from tata1mg/catalyst-core@main and live docs...")
+    sync.init(db)
+    try {
+        const result = await sync.handle_sync_catalyst_docs({})
+        const kb = result.knowledge_base
+        if (kb) {
+            if (kb.error) {
+                console.warn(`  ⚠ knowledge-base.json: ${kb.error}`)
+            } else if (kb.kb_changed) {
+                console.log(`  ✓ knowledge-base.json: ${kb.message}`)
+            } else {
+                console.log(`  ✓ knowledge-base.json: ${kb.message}`)
+            }
+        }
+        if (result.error) {
+            console.warn(`  ⚠ ${result.message}`)
+            console.warn("    Run sync_catalyst_docs later via your MCP client to retry.")
+        } else {
+            console.log(`  ✓ ${result.message}`)
+            if (result.failed > 0 && result.errors.length) {
+                const sample = result.errors.slice(0, 3).map((e) => `${e.url} (${e.error})`)
+                console.warn(`    ${result.failed} URL(s) failed. First: ${sample.join("; ")}`)
+            }
+        }
+    } catch (e) {
+        console.warn(`  ⚠ Sync threw: ${e.message}`)
+        console.warn("    Run sync_catalyst_docs later via your MCP client to retry.")
+    }
 
     db.close()
     console.log("\n✓ Setup complete. MCP is ready.\n")
