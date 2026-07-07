@@ -220,20 +220,20 @@ module.exports = function createBuildPhase(ctx) {
             let APP_PATH = ""
             try {
                 APP_PATH = execSync(
-                    `find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-*" -prune -not -path "*/Index.noindex*" -path "*/Build/Products/Debug-iphonesimulator/${PROJECT_NAME}.app" -type d | head -n 1`
+                    `find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-*" -prune -not -path "*/Index.noindex*" -path "*/Build/Products/Debug-iphonesimulator/${PROJECT_NAME}.app" -type d | head -n 1` // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - DERIVED_DATA_DIR and PROJECT_NAME are internal iOS build paths.
                 )
                     .toString()
-                    .trim() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                    .trim()
             } catch (error) {
                 progress.log("Primary app path search failed, trying fallback...", "warning")
             }
             if (!APP_PATH) {
                 try {
                     APP_PATH = execSync(
-                        `find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-*" -name "${PROJECT_NAME}.app" -type d -not -path "*/Index.noindex*" | head -n 1`
+                        `find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-*" -name "${PROJECT_NAME}.app" -type d -not -path "*/Index.noindex*" | head -n 1` // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - DERIVED_DATA_DIR and PROJECT_NAME are internal iOS build paths.
                     )
                         .toString()
-                        .trim() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                        .trim()
                 } catch (error) {
                     throw new Error("Could not locate built application")
                 }
@@ -263,12 +263,12 @@ module.exports = function createBuildPhase(ctx) {
                 .replace(/:/g, "-")
             const destinationDir = path.join(
                 process.cwd(),
-                BUILD_OUTPUT_PATH,
+                BUILD_OUTPUT_PATH, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is trusted application config.
                 "native",
                 "ios",
                 currentDate,
-                buildType
-            ) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+                buildType // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - buildType is "debug" or "release" from config.
+            )
             const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             if (!fs.existsSync(destinationDir)) fs.mkdirSync(destinationDir, { recursive: true })
             await runCommand(`cp -R "${APP_PATH}" "${destinationPath}"`)
@@ -298,11 +298,10 @@ module.exports = function createBuildPhase(ctx) {
         console.log("Waiting for the app to be fully installed...")
         for (let i = 0; i < 30; i++) {
             try {
-                execSync(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`)
+                execSync(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - APP_BUNDLE_ID is generated from trusted native config.
                 console.log("App installed successfully.")
                 break
             } catch (error) {
-                // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
                 if (i === 29) throw new Error("Timeout: App installation took too long.")
                 await new Promise((resolve) => setTimeout(resolve, 1000))
             }
@@ -445,8 +444,8 @@ module.exports = function createBuildPhase(ctx) {
             if (physicalDevices.length === 0) {
                 try {
                     const xcodebuildOutput = execSync(
-                        `xcodebuild -scheme "${SCHEME_NAME}" -showdestinations`
-                    ).toString() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                        `xcodebuild -scheme "${SCHEME_NAME}" -showdestinations` // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - SCHEME_NAME is generated from trusted iOS project config.
+                    ).toString()
                     progress.log("Scanning xcodebuild destinations for physical devices...", "info")
                     for (const line of xcodebuildOutput.split("\n")) {
                         const m = line.match(
@@ -542,22 +541,21 @@ module.exports = function createBuildPhase(ctx) {
         let APP_PATH = ""
         try {
             APP_PATH = execSync(
-                `find "${DERIVED_DATA_DIR}" -name "${PROJECT_NAME}.app" -path "*/Build/Products/Debug-iphoneos/*" -not -path "*/Index.noindex/*" -type d | head -n 1`
+                `find "${DERIVED_DATA_DIR}" -name "${PROJECT_NAME}.app" -path "*/Build/Products/Debug-iphoneos/*" -not -path "*/Index.noindex/*" -type d | head -n 1` // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - DERIVED_DATA_DIR and PROJECT_NAME are internal iOS build paths.
             )
                 .toString()
-                .trim() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                .trim()
         } catch {
             progress.log("Primary app path search failed for physical device, trying fallback...", "warning")
         }
         if (!APP_PATH) {
             try {
                 APP_PATH = execSync(
-                    `find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-Build/Build/Products/Debug-iphoneos/${PROJECT_NAME}.app" -type d | head -n 1`
+                    `find "${DERIVED_DATA_DIR}" -path "*${PROJECT_NAME}-Build/Build/Products/Debug-iphoneos/${PROJECT_NAME}.app" -type d | head -n 1` // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - DERIVED_DATA_DIR and PROJECT_NAME are internal iOS build paths.
                 )
                     .toString()
                     .trim()
             } catch {
-                // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
                 progress.log("Fallback app path search also failed", "warning")
             }
         }

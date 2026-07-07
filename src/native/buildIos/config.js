@@ -136,12 +136,12 @@ module.exports = function createConfigPhase(ctx) {
         progress.start("config")
         try {
             const appConfigPath = path.join(
-                PROJECT_DIR,
+                PROJECT_DIR, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PROJECT_DIR is the fixed generated iOS project directory.
                 "Sources",
                 "Core",
                 "Constants",
                 "ConfigConstants.swift"
-            ) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+            )
             const appConfigDir = path.dirname(appConfigPath)
             if (!fs.existsSync(appConfigDir)) fs.mkdirSync(appConfigDir, { recursive: true })
 
