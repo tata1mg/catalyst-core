@@ -399,9 +399,9 @@ const TOOLS = [
         },
     },
     {
-        name: "sync_catalyst_docs",
+        name: "sync_knowledge_base",
         description:
-            "Use when the developer asks: 'sync docs', 'update framework knowledge', 'fetch latest catalyst docs'. Intent: sync. Fetches changelog and template diffs, updates the KB. Maintenance only — no task planning needed after.",
+            "Use when the developer asks: 'sync docs', 'update framework knowledge', 'fetch latest catalyst docs'. Intent: sync. Pulls the latest knowledge-base.json from tata1mg/catalyst-core@main and re-seeds the KB. Maintenance only — no task planning needed after.",
         inputSchema: {
             type: "object",
             properties: {
@@ -427,7 +427,7 @@ const TOOL_HANDLERS = {
     update_task_step: tasks.handle_update_task_step,
     get_active_task: tasks.handle_get_active_task,
     close_task_plan: tasks.handle_close_task_plan,
-    sync_catalyst_docs: sync.handle_sync_catalyst_docs,
+    sync_knowledge_base: sync.handle_sync_knowledge_base,
     query_knowledge: knowledge.handle_query_knowledge,
 }
 
