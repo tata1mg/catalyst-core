@@ -6,7 +6,8 @@ import { parseNativePayload } from "./utils.js"
 
 export const useNetworkStatus = ({ webFallback } = {}) => {
     // navigator.onLine is unreliable in some dev/Electron environments — default true if undefined
-    const initialOnline = typeof navigator !== "undefined" && typeof navigator.onLine === "boolean" ? navigator.onLine : true
+    const initialOnline =
+        typeof navigator !== "undefined" && typeof navigator.onLine === "boolean" ? navigator.onLine : true
     const [status, setStatus] = useState({ online: initialOnline, type: null })
     const [error, setError] = useState(null)
     const isNative = nativeBridge.isAvailable()
@@ -59,5 +60,13 @@ export const useNetworkStatus = ({ webFallback } = {}) => {
         }
     }, [isNative, webFallbackDisabled])
 
-    return { ...status, error, isNative, isWeb: !isNative, webFallbackActive, webFallbackDisabled, setWebFallback }
+    return {
+        ...status,
+        error,
+        isNative,
+        isWeb: !isNative,
+        webFallbackActive,
+        webFallbackDisabled,
+        setWebFallback,
+    }
 }

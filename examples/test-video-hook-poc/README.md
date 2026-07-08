@@ -50,6 +50,7 @@ npm run sync-core
 ```
 
 What it does:
+
 1. Clears `packages/catalyst-core/dist` (removes stale build)
 2. Clears `node_modules/catalyst-core` (removes stale installed copy)
 3. Builds catalyst-core fresh
@@ -108,20 +109,20 @@ To switch back to local source, run `npm run sync-core` again — it overwrites 
 
 ## What's in this app
 
-| Panel | Hook tested |
-|---|---|
-| Video Stream | `useVideoStream` — start/stop, QR scan, zoom, torch, flip, FPS control |
-| Camera | `useCamera` — capture photo, web fallback |
-| Camera Permission | `useCameraPermission` |
-| File Picker | `useFilePicker` |
-| Haptic | `useHaptic` |
-| Network | `useNetwork` |
-| Notifications | `useNotification` |
-| Safe Area | `useSafeArea` |
-| Device Info | `useDeviceInfo` |
-| Data Protection | `useDataProtection` |
-| Intent | `useIntent` |
-| Google Sign-In | `useGoogleSignIn` |
+| Panel             | Hook tested                                                            |
+| ----------------- | ---------------------------------------------------------------------- |
+| Video Stream      | `useVideoStream` — start/stop, QR scan, zoom, torch, flip, FPS control |
+| Camera            | `useCamera` — capture photo, web fallback                              |
+| Camera Permission | `useCameraPermission`                                                  |
+| File Picker       | `useFilePicker`                                                        |
+| Haptic            | `useHaptic`                                                            |
+| Network           | `useNetwork`                                                           |
+| Notifications     | `useNotification`                                                      |
+| Safe Area         | `useSafeArea`                                                          |
+| Device Info       | `useDeviceInfo`                                                        |
+| Data Protection   | `useDataProtection`                                                    |
+| Intent            | `useIntent`                                                            |
+| Google Sign-In    | `useGoogleSignIn`                                                      |
 
 ---
 

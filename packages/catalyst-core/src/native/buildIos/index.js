@@ -48,8 +48,12 @@ function createIosBuild(config) {
     }
 
     const progressConfig = {
-        titlePaddingTop: 2, titlePaddingBottom: 1, stepPaddingLeft: 4,
-        stepSpacing: 1, errorPaddingLeft: 6, bottomMargin: 2,
+        titlePaddingTop: 2,
+        titlePaddingBottom: 1,
+        stepPaddingLeft: 4,
+        stepSpacing: 1,
+        errorPaddingLeft: 6,
+        bottomMargin: 2,
     }
 
     const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
@@ -58,17 +62,22 @@ function createIosBuild(config) {
 
     function runCommand(command, options = {}) {
         return new Promise((resolve, reject) => {
-            execFile(shellCommand, shellArgs(command), { maxBuffer: 1024 * 1024 * 10, ...options }, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`Command failed: ${command}`)
-                    console.error(`Error: ${error.message}`)
-                    console.error(`stderr: ${stderr}`)
-                    reject(error)
-                    return
+            execFile(
+                shellCommand,
+                shellArgs(command),
+                { maxBuffer: 1024 * 1024 * 10, ...options },
+                (error, stdout, stderr) => {
+                    if (error) {
+                        console.error(`Command failed: ${command}`)
+                        console.error(`Error: ${error.message}`)
+                        console.error(`stderr: ${stderr}`)
+                        reject(error)
+                        return
+                    }
+                    if (stderr) console.warn(`Warning: ${stderr}`)
+                    resolve(stdout.trim())
                 }
-                if (stderr) console.warn(`Warning: ${stderr}`)
-                resolve(stdout.trim())
-            })
+            )
         })
     }
 
@@ -79,7 +88,8 @@ function createIosBuild(config) {
     function ensureManagedBaseline(filePath) {
         const baselinePath = `${filePath}${MANAGED_BASELINE_SUFFIX}`
         if (!fs.existsSync(baselinePath)) {
-            if (!fs.existsSync(filePath)) throw new Error(`Managed baseline source file not found: ${filePath}`)
+            if (!fs.existsSync(filePath))
+                throw new Error(`Managed baseline source file not found: ${filePath}`)
             fs.copyFileSync(filePath, baselinePath)
         }
         return baselinePath
@@ -109,24 +119,47 @@ function createIosBuild(config) {
     // ─── Shared context passed to all phase modules ───────────────────────────
 
     const ctx = {
-        WEBVIEW_CONFIG, BUILD_OUTPUT_PATH, iosConfig, isGoogleSignInEnabled,
-        PROJECT_DIR, PROJECT_NAME, SCHEME_NAME, APP_BUNDLE_ID, IPHONE_MODEL,
-        url, PUBLIC_PATH, progress,
-        runCommand, getXcodeProjectFilePath,
-        ensureManagedBaseline, restoreManagedFileFromBaseline,
-        readPlistObject, writePlistObject,
+        WEBVIEW_CONFIG,
+        BUILD_OUTPUT_PATH,
+        iosConfig,
+        isGoogleSignInEnabled,
+        PROJECT_DIR,
+        PROJECT_NAME,
+        SCHEME_NAME,
+        APP_BUNDLE_ID,
+        IPHONE_MODEL,
+        url,
+        PUBLIC_PATH,
+        progress,
+        runCommand,
+        getXcodeProjectFilePath,
+        ensureManagedBaseline,
+        restoreManagedFileFromBaseline,
+        readPlistObject,
+        writePlistObject,
     }
 
     // ─── Instantiate phase modules ────────────────────────────────────────────
 
-    const { generateConfigConstants, generateXCConfig, updateInfoPlist, updateEntitlements } = createConfigPhase(ctx)
-    const { generatePackageSwift, updateXcodeProjectPackageDependencies, syncPluginResources } = createPluginsPhase(ctx)
-    const { processNotificationAssets, copyOfflinePage, copySplashscreenAssets, copyAppIcon } = createAssetsPhase(ctx)
+    const { generateConfigConstants, generateXCConfig, updateInfoPlist, updateEntitlements } =
+        createConfigPhase(ctx)
+    const { generatePackageSwift, updateXcodeProjectPackageDependencies, syncPluginResources } =
+        createPluginsPhase(ctx)
+    const { processNotificationAssets, copyOfflinePage, copySplashscreenAssets, copyAppIcon } =
+        createAssetsPhase(ctx)
     const {
-        cleanBuildArtifacts, buildXcodeProject, buildProjectForTesting,
-        findAppPath, moveAppToBuildOutput, installAndLaunchApp,
-        detectPhysicalDevices, buildProjectForPhysicalDevice, findPhysicalDeviceAppPath,
-        installAndLaunchOnPhysicalDevice, launchIOSSimulator, getBootedSimulatorUUID,
+        cleanBuildArtifacts,
+        buildXcodeProject,
+        buildProjectForTesting,
+        findAppPath,
+        moveAppToBuildOutput,
+        installAndLaunchApp,
+        detectPhysicalDevices,
+        buildProjectForPhysicalDevice,
+        findPhysicalDeviceAppPath,
+        installAndLaunchOnPhysicalDevice,
+        launchIOSSimulator,
+        getBootedSimulatorUUID,
     } = createBuildPhase(ctx)
 
     // ─── Orchestrated build flows ─────────────────────────────────────────────
@@ -152,20 +185,49 @@ function createIosBuild(config) {
                 targetInfo = { type: "physical", name: physicalDevice.name, udid: physicalDevice.udid }
                 await cleanBuildArtifacts()
                 progress.start("build")
-                try { await buildProjectForPhysicalDevice(SCHEME_NAME, APP_BUNDLE_ID, path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData"), PROJECT_NAME, physicalDevice); progress.complete("build") }
-                catch (error) {
+                try {
+                    await buildProjectForPhysicalDevice(
+                        SCHEME_NAME,
+                        APP_BUNDLE_ID,
+                        path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData"),
+                        PROJECT_NAME,
+                        physicalDevice
+                    )
+                    progress.complete("build")
+                } catch (error) {
                     progress.fail("build", error.message)
                     progress.printTreeContent("Physical Device Build Failed", [
                         "Build failed. Please check:",
-                        { text: "Code signing certificates are properly installed", indent: 1, prefix: "├─ ", color: "yellow" },
-                        { text: "Provisioning profile matches your bundle ID", indent: 1, prefix: "├─ ", color: "yellow" },
-                        { text: "Device is connected and trusted", indent: 1, prefix: "└─ ", color: "yellow" },
+                        {
+                            text: "Code signing certificates are properly installed",
+                            indent: 1,
+                            prefix: "├─ ",
+                            color: "yellow",
+                        },
+                        {
+                            text: "Provisioning profile matches your bundle ID",
+                            indent: 1,
+                            prefix: "├─ ",
+                            color: "yellow",
+                        },
+                        {
+                            text: "Device is connected and trusted",
+                            indent: 1,
+                            prefix: "└─ ",
+                            color: "yellow",
+                        },
                     ])
                     throw error
                 }
                 progress.start("findApp")
-                try { APP_PATH = await findPhysicalDeviceAppPath(); progress.log("Found app at: " + APP_PATH, "success"); progress.complete("findApp") }
-                catch (error) { progress.fail("findApp", error.message); throw error }
+                try {
+                    APP_PATH = await findPhysicalDeviceAppPath()
+                    progress.log("Found app at: " + APP_PATH, "success")
+                    progress.complete("findApp")
+                } catch (error) {
+                    progress.fail("findApp", error.message)
+                    throw error
+                }
                 await installAndLaunchOnPhysicalDevice(APP_PATH, physicalDevice)
             } else {
                 progress.log("📱 Building for simulator workflow", "info")
@@ -181,7 +243,12 @@ function createIosBuild(config) {
             }
             progress.printTreeContent("Build Summary", [
                 "Build completed successfully:",
-                { text: `Target: ${targetInfo.type === "physical" ? "📱 Physical Device" : "📱 Simulator"}`, indent: 1, prefix: "├─ ", color: "green" },
+                {
+                    text: `Target: ${targetInfo.type === "physical" ? "📱 Physical Device" : "📱 Simulator"}`,
+                    indent: 1,
+                    prefix: "├─ ",
+                    color: "green",
+                },
                 { text: `Device: ${targetInfo.name}`, indent: 1, prefix: "├─ ", color: "gray" },
                 { text: `App Path: ${APP_PATH}`, indent: 1, prefix: "├─ ", color: "gray" },
                 { text: `URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
@@ -219,13 +286,30 @@ function createIosBuild(config) {
             const derivedDataPath = path.join(process.env.HOME, "Library/Developer/Xcode/DerivedData")
             progress.start("build")
             try {
-                await buildProjectForTesting(SCHEME_NAME, "iphonesimulator", `platform=iOS Simulator,name=${IPHONE_MODEL}`, APP_BUNDLE_ID, derivedDataPath, PROJECT_NAME)
+                await buildProjectForTesting(
+                    SCHEME_NAME,
+                    "iphonesimulator",
+                    `platform=iOS Simulator,name=${IPHONE_MODEL}`,
+                    APP_BUNDLE_ID,
+                    derivedDataPath,
+                    PROJECT_NAME
+                )
                 progress.complete("build")
             } catch (buildError) {
-                progress.log("build-for-testing failed, attempting fallback with booted simulator...", "warning")
+                progress.log(
+                    "build-for-testing failed, attempting fallback with booted simulator...",
+                    "warning"
+                )
                 const bootedUUID = await getBootedSimulatorUUID(IPHONE_MODEL)
                 if (bootedUUID) {
-                    await buildProjectForTesting(SCHEME_NAME, "iphonesimulator", `platform=iOS Simulator,id=${bootedUUID}`, APP_BUNDLE_ID, derivedDataPath, PROJECT_NAME)
+                    await buildProjectForTesting(
+                        SCHEME_NAME,
+                        "iphonesimulator",
+                        `platform=iOS Simulator,id=${bootedUUID}`,
+                        APP_BUNDLE_ID,
+                        derivedDataPath,
+                        PROJECT_NAME
+                    )
                     progress.complete("build")
                 } else {
                     progress.fail("build", buildError.message)

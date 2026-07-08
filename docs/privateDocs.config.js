@@ -173,9 +173,7 @@ const configObject = {
             },
         }),
 
-    plugins: [
-        require.resolve('@cmfcmf/docusaurus-search-local'),
-    ],
+    plugins: [require.resolve('@cmfcmf/docusaurus-search-local')],
 
     themes: [],
     customFields: {

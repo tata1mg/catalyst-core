@@ -240,6 +240,7 @@ function main() {
     console.log("Preparing temporary create-catalyst-app package...")
     copyDirectory(ccaPackageDir, ccaCopyDir)
     patchCcaTemplates(ccaCopyDir, coreSpec)
+    run("npm", ["install", "--omit=dev", "--package-lock=false"], { cwd: ccaCopyDir })
 
     console.log("Scaffolding app with current branch create-catalyst-app...")
     const cliPath = path.join(ccaCopyDir, "scripts", "cli.cjs")

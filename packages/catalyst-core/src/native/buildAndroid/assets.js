@@ -30,7 +30,10 @@ function createAssetsPhase(ctx) {
                     const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`
                     const count = parseInt(ctx.runCommand(checkCommand).trim(), 10)
                     if (count > 0) {
-                        progress.log(`Warning: Found ${count} instances of excluded file ${pattern}`, "warning")
+                        progress.log(
+                            `Warning: Found ${count} instances of excluded file ${pattern}`,
+                            "warning"
+                        )
                         ctx.runCommand(`find ${destPath} -name "${pattern}" -delete`)
                     }
                 }
@@ -583,7 +586,9 @@ function createAssetsPhase(ctx) {
             manifestContent = manifestContent
                 .split("\n")
                 .filter((line) => {
-                    return !metadataNames.some((metadataName) => line.includes(`android:name="${metadataName}"`))
+                    return !metadataNames.some((metadataName) =>
+                        line.includes(`android:name="${metadataName}"`)
+                    )
                 })
                 .join("\n")
 
@@ -591,7 +596,10 @@ function createAssetsPhase(ctx) {
                 /\s*<!--\s*Push Notification Service\s*-->\s*<service[^>]*android:name="[^"]*PushNotificationUtils"[\s\S]*?<\/service>/gi
             manifestContent = manifestContent.replace(serviceRegex, "")
 
-            manifestContent = manifestContent.replace(/\s*<!--\s*Default notification configuration\s*-->/gi, "")
+            manifestContent = manifestContent.replace(
+                /\s*<!--\s*Default notification configuration\s*-->/gi,
+                ""
+            )
             manifestContent = manifestContent.replace(
                 /\s*<!--\s*Firebase default notification configuration\s*-->/gi,
                 ""

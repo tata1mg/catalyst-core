@@ -183,7 +183,11 @@ class NativeBridgeUtil {
          * @param {number|null} min - minimum fps (e.g. 15), null to clear
          * @param {number|null} max - maximum fps (e.g. 30), null to clear
          */
-        setFps: (min, max) => this.call(NATIVE_COMMANDS.SET_VIDEO_STREAM_FPS, JSON.stringify({ min: min ?? null, max: max ?? null })),
+        setFps: (min, max) =>
+            this.call(
+                NATIVE_COMMANDS.SET_VIDEO_STREAM_FPS,
+                JSON.stringify({ min: min ?? null, max: max ?? null })
+            ),
 
         /**
          * Flip between front and back camera — restarts the native session internally

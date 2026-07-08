@@ -87,8 +87,16 @@ function generateSwiftProperty(key, value, indent = "    ") {
 // ─── Module factory ───────────────────────────────────────────────────────────
 
 module.exports = function createConfigPhase(ctx) {
-    const { WEBVIEW_CONFIG, iosConfig, PROJECT_DIR, url, progress,
-            restoreManagedFileFromBaseline, readPlistObject, writePlistObject } = ctx
+    const {
+        WEBVIEW_CONFIG,
+        iosConfig,
+        PROJECT_DIR,
+        url,
+        progress,
+        restoreManagedFileFromBaseline,
+        readPlistObject,
+        writePlistObject,
+    } = ctx
 
     function mergeIntoTopLevelObject(target, source, fieldName) {
         for (const [key, value] of Object.entries(source || {})) {
@@ -100,7 +108,9 @@ module.exports = function createConfigPhase(ctx) {
         const existing = Array.isArray(plistObject.CFBundleURLTypes) ? plistObject.CFBundleURLTypes : []
         const merged = existing.map((entry) => ({
             ...entry,
-            CFBundleURLSchemes: Array.isArray(entry?.CFBundleURLSchemes) ? [...new Set(entry.CFBundleURLSchemes)] : [],
+            CFBundleURLSchemes: Array.isArray(entry?.CFBundleURLSchemes)
+                ? [...new Set(entry.CFBundleURLSchemes)]
+                : [],
         }))
         for (const entry of entries) {
             const targetName = entry.name || null
@@ -115,7 +125,9 @@ module.exports = function createConfigPhase(ctx) {
     }
 
     function mergeQuerySchemes(plistObject, schemes) {
-        const existing = Array.isArray(plistObject.LSApplicationQueriesSchemes) ? plistObject.LSApplicationQueriesSchemes : []
+        const existing = Array.isArray(plistObject.LSApplicationQueriesSchemes)
+            ? plistObject.LSApplicationQueriesSchemes
+            : []
         const merged = [...new Set([...existing, ...schemes.filter(Boolean)])]
         if (merged.length > 0) plistObject.LSApplicationQueriesSchemes = merged
     }
@@ -123,7 +135,13 @@ module.exports = function createConfigPhase(ctx) {
     async function generateConfigConstants() {
         progress.start("config")
         try {
-            const appConfigPath = path.join(PROJECT_DIR, "Sources", "Core", "Constants", "ConfigConstants.swift") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+            const appConfigPath = path.join(
+                PROJECT_DIR, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PROJECT_DIR is the fixed generated iOS project directory.
+                "Sources",
+                "Core",
+                "Constants",
+                "ConfigConstants.swift"
+            )
             const appConfigDir = path.dirname(appConfigPath)
             if (!fs.existsSync(appConfigDir)) fs.mkdirSync(appConfigDir, { recursive: true })
 
@@ -138,7 +156,8 @@ public enum ConfigConstants {
             if (WEBVIEW_CONFIG && typeof WEBVIEW_CONFIG === "object") {
                 for (const [key, value] of Object.entries(WEBVIEW_CONFIG)) {
                     if (key === "ios" || key === "android") continue
-                    if (key === "notifications") progress.log(`Processing notifications config: ${JSON.stringify(value)}`, "info")
+                    if (key === "notifications")
+                        progress.log(`Processing notifications config: ${JSON.stringify(value)}`, "info")
                     configContent += "\n" + generateSwiftProperty(key, value)
                     addedKeys.add(key)
                 }
@@ -159,7 +178,12 @@ public enum ConfigConstants {
                     const allowedUrls = accessControl.allowedUrls.map((u) => `"${u}"`).join(", ")
                     configContent += `\n    public static let allowedUrls: [String] = [${allowedUrls}]`
                 } else if (accessControl.allowedUrls && typeof accessControl.allowedUrls === "string") {
-                    const allowedUrls = accessControl.allowedUrls.split(",").map((u) => u.trim()).filter((u) => u.length > 0).map((u) => `"${u}"`).join(", ")
+                    const allowedUrls = accessControl.allowedUrls
+                        .split(",")
+                        .map((u) => u.trim())
+                        .filter((u) => u.length > 0)
+                        .map((u) => `"${u}"`)
+                        .join(", ")
                     configContent += `\n    public static let allowedUrls: [String] = [${allowedUrls}]`
                 }
             } else {
@@ -169,8 +193,12 @@ public enum ConfigConstants {
             const splashConfig = WEBVIEW_CONFIG.splashScreen
             if (splashConfig) {
                 configContent += `\n\n    // Splash Screen Configuration\n    public static let splashScreenEnabled = true`
-                configContent += splashConfig.duration ? `\n    public static let splashScreenDuration: TimeInterval? = ${splashConfig.duration / 1000.0}` : `\n    public static let splashScreenDuration: TimeInterval? = nil`
-                configContent += splashConfig.backgroundColor ? `\n    public static let splashScreenBackgroundColor = "${splashConfig.backgroundColor}"` : `\n    public static let splashScreenBackgroundColor = "#ffffff"`
+                configContent += splashConfig.duration
+                    ? `\n    public static let splashScreenDuration: TimeInterval? = ${splashConfig.duration / 1000.0}`
+                    : `\n    public static let splashScreenDuration: TimeInterval? = nil`
+                configContent += splashConfig.backgroundColor
+                    ? `\n    public static let splashScreenBackgroundColor = "${splashConfig.backgroundColor}"`
+                    : `\n    public static let splashScreenBackgroundColor = "#ffffff"`
                 configContent += `\n    public static let splashScreenImageWidth: CGFloat = ${splashConfig.imageWidth || 120}`
                 configContent += `\n    public static let splashScreenImageHeight: CGFloat = ${splashConfig.imageHeight || 120}`
                 configContent += `\n    public static let splashScreenCornerRadius: CGFloat = ${splashConfig.cornerRadius || 20}`
@@ -180,7 +208,8 @@ public enum ConfigConstants {
 
             if (!addedKeys.has("notifications")) {
                 progress.log("Notifications not found in config, adding default (false)", "info")
-                configContent += "\n    public enum Notifications {\n        public static let enabled = false\n    }"
+                configContent +=
+                    "\n    public enum Notifications {\n        public static let enabled = false\n    }"
                 addedKeys.add("notifications")
             } else {
                 progress.log("Notifications config was processed from WEBVIEW_CONFIG", "info")
@@ -188,13 +217,15 @@ public enum ConfigConstants {
 
             if (!addedKeys.has("googleSignIn")) {
                 progress.log("Google Sign-In not found in config, adding defaults (disabled)", "info")
-                configContent += '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n        public static let iosClientId = ""\n    }'
+                configContent +=
+                    '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n        public static let iosClientId = ""\n    }'
                 addedKeys.add("googleSignIn")
             }
 
             if (!addedKeys.has("edgeToEdge")) {
                 progress.log("EdgeToEdge not found in config, adding default (false)", "info")
-                configContent += "\n    public enum EdgeToEdge {\n        public static let enabled = false\n    }"
+                configContent +=
+                    "\n    public enum EdgeToEdge {\n        public static let enabled = false\n    }"
                 addedKeys.add("edgeToEdge")
             } else {
                 progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
@@ -227,12 +258,15 @@ public enum ConfigConstants {
             const xconfigPath = path.join(PROJECT_DIR, "Configurations", "Shared.xcconfig") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             const configDir = path.dirname(xconfigPath)
             if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true })
-            const bundleId = iosConfig.bundleIdentifier || iosConfig.appBundleId || "com.catalyst.framework.app"
+            const bundleId =
+                iosConfig.bundleIdentifier || iosConfig.appBundleId || "com.catalyst.framework.app"
             const appName = iosConfig.appName || "Catalyst App"
             const teamId = iosConfig.developmentTeam || ""
             const swiftVersion = iosConfig.deployment?.swiftVersion || "5.9"
             const deploymentTarget = iosConfig.deployment?.target || "17.0"
-            const marketingVersion = iosConfig.version ? `${iosConfig.version.major || 1}.${iosConfig.version.minor || 0}.${iosConfig.version.patch || 0}` : "1.0.0"
+            const marketingVersion = iosConfig.version
+                ? `${iosConfig.version.major || 1}.${iosConfig.version.minor || 0}.${iosConfig.version.patch || 0}`
+                : "1.0.0"
             const buildNumber = iosConfig.version?.buildNumber || 1
             const provisioningProfile = iosConfig.provisioningProfile || ""
             const xconfigContent = `// This file is auto-generated by buildAppIos.js. Do not edit.
@@ -294,7 +328,9 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPort
 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
 `
             fs.writeFileSync(xconfigPath, xconfigContent, "utf8")
-            console.log(`✅ Generated Shared.xcconfig with Swift ${swiftVersion}, iOS ${deploymentTarget}, Bundle ID: ${bundleId}`)
+            console.log(
+                `✅ Generated Shared.xcconfig with Swift ${swiftVersion}, iOS ${deploymentTarget}, Bundle ID: ${bundleId}`
+            )
         } catch (error) {
             console.error(`❌ Failed to generate Shared.xcconfig: ${error.message}`)
             throw error
@@ -308,18 +344,25 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPo
         const infoPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info.plist") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
         const infoReleasePlistPath = path.join(PROJECT_DIR, PROJECT_NAME, "Info-Release.plist") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
         const googleServicesPlistPath = path.join(PROJECT_DIR, PROJECT_NAME, GOOGLE_SERVICES_FILENAME) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-        const googleClientId = WEBVIEW_CONFIG.googleSignIn?.clientId || WEBVIEW_CONFIG.googleSignIn?.webClientId || ""
+        const googleClientId =
+            WEBVIEW_CONFIG.googleSignIn?.clientId || WEBVIEW_CONFIG.googleSignIn?.webClientId || ""
         const iosClientId = WEBVIEW_CONFIG.googleSignIn?.iosClientId || ""
 
-        const googleServicesContent = fs.existsSync(googleServicesPlistPath) ? fs.readFileSync(googleServicesPlistPath, "utf8") : null
+        const googleServicesContent = fs.existsSync(googleServicesPlistPath)
+            ? fs.readFileSync(googleServicesPlistPath, "utf8")
+            : null
         const reversedClientIdFromServices = googleServicesContent
-            ? (googleServicesContent.match(/<key>REVERSED_CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1] : null
+            ? (googleServicesContent.match(/<key>REVERSED_CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) ||
+                  [])[1]
+            : null
         const clientIdFromServices = googleServicesContent
-            ? (googleServicesContent.match(/<key>CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1] : null
+            ? (googleServicesContent.match(/<key>CLIENT_ID<\/key>\s*<string>([^<]+)<\/string>/) || [])[1]
+            : null
 
-        const computeReversed = (value) => !value ? "" : value.split(".").reverse().join(".")
+        const computeReversed = (value) => (!value ? "" : value.split(".").reverse().join("."))
         const resolvedClientIdForScheme = iosClientId || googleClientId || clientIdFromServices || ""
-        const resolvedReversedClientId = reversedClientIdFromServices || computeReversed(resolvedClientIdForScheme)
+        const resolvedReversedClientId =
+            reversedClientIdFromServices || computeReversed(resolvedClientIdForScheme)
 
         if (isGoogleSignInEnabled && !resolvedReversedClientId) {
             throw new Error("Google Sign-In enabled but no valid clientId found")
