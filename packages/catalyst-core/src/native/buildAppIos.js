@@ -8,7 +8,15 @@ const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/c
 
 async function main() {
     const build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH })
-    const { progress, generateConfigConstants, updateInfoPlist, updateEntitlements, syncPluginResources, buildForIOS, PROJECT_DIR } = build
+    const {
+        progress,
+        generateConfigConstants,
+        updateInfoPlist,
+        updateEntitlements,
+        syncPluginResources,
+        buildForIOS,
+        PROJECT_DIR,
+    } = build
 
     try {
         progress.log("Starting build process...", "info")

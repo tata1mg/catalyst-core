@@ -40,7 +40,8 @@ const DEFAULT_LABELS = [
 
 const LABEL_GUIDANCE = {
     bug: "Something is broken, regressed, ignored, crashes, or behaves differently from the documented/configured behavior.",
-    dependencies: "Dependency/package update work, package-lock changes, npm audit fixes, or vulnerability remediation.",
+    dependencies:
+        "Dependency/package update work, package-lock changes, npm audit fixes, or vulnerability remediation.",
     documentation: "Docs, README, examples, guides, migration notes, tutorials, or wording fixes.",
     duplicate: "The same issue already exists.",
     enhancement: "New capability, framework improvement, or actionable feature request.",
@@ -55,7 +56,8 @@ const ISSUE_TEMPLATES = {
     bug: {
         label: "bug",
         name: "Bug report",
-        use_when: "Something is not working, is ignored, crashes, regresses, or differs from expected Catalyst behavior.",
+        use_when:
+            "Something is not working, is ignored, crashes, regresses, or differs from expected Catalyst behavior.",
         sections: [
             "Preflight Checklist",
             "What's Wrong?",
@@ -72,7 +74,8 @@ const ISSUE_TEMPLATES = {
     enhancement: {
         label: "enhancement",
         name: "Feature request / enhancement",
-        use_when: "A new capability, universal hook behavior, CLI improvement, or framework ergonomics improvement is needed.",
+        use_when:
+            "A new capability, universal hook behavior, CLI improvement, or framework ergonomics improvement is needed.",
         sections: [
             "Summary",
             "Motivation",
@@ -85,7 +88,8 @@ const ISSUE_TEMPLATES = {
     documentation: {
         label: "documentation",
         name: "Documentation improvement",
-        use_when: "Docs, examples, README, guides, migration notes, or API reference need to be added or corrected.",
+        use_when:
+            "Docs, examples, README, guides, migration notes, or API reference need to be added or corrected.",
         sections: [
             "Summary",
             "Current Documentation",
@@ -97,7 +101,8 @@ const ISSUE_TEMPLATES = {
     dependencies: {
         label: "dependencies",
         name: "Dependency update",
-        use_when: "A dependency, lockfile, audit finding, package version, or security update needs attention.",
+        use_when:
+            "A dependency, lockfile, audit finding, package version, or security update needs attention.",
         sections: [
             "Summary",
             "Current Dependency",
@@ -109,13 +114,9 @@ const ISSUE_TEMPLATES = {
     question: {
         label: "question",
         name: "Question / clarification",
-        use_when: "The report primarily asks for usage guidance, clarification, or a decision before implementation.",
-        sections: [
-            "Question",
-            "Context",
-            "What I Tried",
-            "Expected Guidance",
-        ],
+        use_when:
+            "The report primarily asks for usage guidance, clarification, or a decision before implementation.",
+        sections: ["Question", "Context", "What I Tried", "Expected Guidance"],
     },
 }
 
@@ -172,11 +173,13 @@ function runGit(root, command) {
 }
 
 function slugify(input) {
-    return String(input || "github-issue")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 80) || "github-issue"
+    return (
+        String(input || "github-issue")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 80) || "github-issue"
+    )
 }
 
 function ensureFallbackDir(root) {
@@ -207,8 +210,7 @@ function getToken() {
 
     return {
         ok: false,
-        error:
-            "No GitHub credentials found. Set GITHUB_TOKEN, GITHUB_PAT, or CATALYST_GITHUB_TOKEN in the MCP server environment. As an optional fallback, you can also run `gh auth login` with repo scope.",
+        error: "No GitHub credentials found. Set GITHUB_TOKEN, GITHUB_PAT, or CATALYST_GITHUB_TOKEN in the MCP server environment. As an optional fallback, you can also run `gh auth login` with repo scope.",
     }
 }
 
@@ -224,7 +226,9 @@ function githubRequest(method, urlPath, token, body) {
                 Accept: "application/vnd.github+json",
                 "User-Agent": "catalyst-mcp/2.0",
                 "X-GitHub-Api-Version": "2022-11-28",
-                ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+                ...(payload
+                    ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
+                    : {}),
             },
         }
 
@@ -436,8 +440,16 @@ function buildStyledIssueSections(args) {
 
     if (template === "documentation") {
         appendSection(sections, "Summary", firstNonEmpty(args.summary, rawBody))
-        appendSection(sections, "Current Documentation", firstNonEmpty(args.current_behavior, args.actual_behavior))
-        appendSection(sections, "Suggested Documentation", firstNonEmpty(args.expected_behavior, args.proposed_fix, args.suggested_fix))
+        appendSection(
+            sections,
+            "Current Documentation",
+            firstNonEmpty(args.current_behavior, args.actual_behavior)
+        )
+        appendSection(
+            sections,
+            "Suggested Documentation",
+            firstNonEmpty(args.expected_behavior, args.proposed_fix, args.suggested_fix)
+        )
         appendSection(sections, "Affected Pages / Examples", args.steps_to_reproduce || args.repro)
         appendSection(sections, "Optional Follow-ups", args.optional_followups || args.follow_ups)
         return sections.join("\n\n").trim()
@@ -445,7 +457,11 @@ function buildStyledIssueSections(args) {
 
     if (template === "dependencies") {
         appendSection(sections, "Summary", firstNonEmpty(args.summary, rawBody))
-        appendSection(sections, "Current Dependency", firstNonEmpty(args.current_behavior, args.actual_behavior))
+        appendSection(
+            sections,
+            "Current Dependency",
+            firstNonEmpty(args.current_behavior, args.actual_behavior)
+        )
         appendSection(sections, "Target Dependency", args.expected_behavior)
         appendSection(sections, "Reason / Impact", firstNonEmpty(args.root_cause, args.notes))
         appendSection(sections, "Validation Plan", args.steps_to_reproduce || args.repro)
@@ -454,7 +470,11 @@ function buildStyledIssueSections(args) {
 
     if (template === "question") {
         appendSection(sections, "Question", firstNonEmpty(args.summary, rawBody))
-        appendSection(sections, "Context", firstNonEmpty(args.current_behavior, args.actual_behavior, args.root_cause, args.notes))
+        appendSection(
+            sections,
+            "Context",
+            firstNonEmpty(args.current_behavior, args.actual_behavior, args.root_cause, args.notes)
+        )
         appendSection(sections, "What I Tried", args.steps_to_reproduce || args.repro)
         appendSection(sections, "Expected Guidance", args.expected_behavior)
         return sections.join("\n\n").trim()
@@ -462,7 +482,11 @@ function buildStyledIssueSections(args) {
 
     if (template === "enhancement") {
         appendSection(sections, "Summary", firstNonEmpty(args.summary, rawBody))
-        appendSection(sections, "Motivation", firstNonEmpty(args.current_behavior, args.actual_behavior, args.root_cause, args.notes))
+        appendSection(
+            sections,
+            "Motivation",
+            firstNonEmpty(args.current_behavior, args.actual_behavior, args.root_cause, args.notes)
+        )
         appendSection(sections, "Proposed Behaviour", args.expected_behavior)
         appendSection(sections, "Example Usage / Output", args.steps_to_reproduce || args.repro)
         appendSection(sections, "Proposed Fix", firstNonEmpty(args.proposed_fix, args.suggested_fix))
@@ -475,10 +499,24 @@ function buildStyledIssueSections(args) {
     appendSection(sections, "Steps to Reproduce", args.steps_to_reproduce || args.repro)
     appendSection(sections, "Expected Behavior", args.expected_behavior)
     appendSection(sections, "Actual Behavior", firstNonEmpty(args.actual_behavior, args.current_behavior))
-    appendSection(sections, "Error Messages/Logs", args.error_logs ? `\`\`\`\n${args.error_logs}\n\`\`\`` : "")
+    appendSection(
+        sections,
+        "Error Messages/Logs",
+        args.error_logs ? `\`\`\`\n${args.error_logs}\n\`\`\`` : ""
+    )
     appendSection(sections, "Environment", args.environment)
     appendSection(sections, "What I Tried", args.what_i_tried || args.what_tried)
-    appendSection(sections, "Additional Information", firstNonEmpty(args.additional_information, args.root_cause, args.notes, args.proposed_fix, args.suggested_fix))
+    appendSection(
+        sections,
+        "Additional Information",
+        firstNonEmpty(
+            args.additional_information,
+            args.root_cause,
+            args.notes,
+            args.proposed_fix,
+            args.suggested_fix
+        )
+    )
     appendSection(sections, "Related Issues", args.related_issues)
 
     return sections.join("\n\n").trim()
@@ -547,12 +585,16 @@ function buildIssueBody(args, options = {}) {
     }
 
     if (args.context) {
-        const context = typeof args.context === "string" ? args.context : JSON.stringify(args.context, null, 2)
+        const context =
+            typeof args.context === "string" ? args.context : JSON.stringify(args.context, null, 2)
         sections.push(`## Catalyst/Project Context\n\n\`\`\`json\n${context}\n\`\`\``)
     }
 
     if (args.environment && resolveIssueTemplate(args, styledBody) !== "bug") {
-        const environment = typeof args.environment === "string" ? args.environment : JSON.stringify(args.environment, null, 2)
+        const environment =
+            typeof args.environment === "string"
+                ? args.environment
+                : JSON.stringify(args.environment, null, 2)
         sections.push(`## Environment\n\n${environment}`)
     }
 
@@ -673,7 +715,9 @@ async function searchDuplicates(token, title, body, duplicateSearchQuery) {
     if (!searchText) return []
 
     try {
-        const q = encodeURIComponent(`repo:${GITHUB_OWNER}/${GITHUB_REPO} ${searchText} in:title,body is:issue`)
+        const q = encodeURIComponent(
+            `repo:${GITHUB_OWNER}/${GITHUB_REPO} ${searchText} in:title,body is:issue`
+        )
         const res = await githubRequest("GET", `/search/issues?q=${q}&per_page=5`, token)
         if (res.status === 200 && Array.isArray(res.body.items)) {
             return res.body.items.slice(0, 5).map((issue) => ({
@@ -901,7 +945,12 @@ async function handle_create_github_issue(args = {}) {
     const tokenResult = getToken()
     if (tokenResult.ok) {
         tokenSource = tokenResult.source
-        duplicates = await searchDuplicates(tokenResult.token, title, built.body, issueArgs.duplicate_search_query)
+        duplicates = await searchDuplicates(
+            tokenResult.token,
+            title,
+            built.body,
+            issueArgs.duplicate_search_query
+        )
     }
 
     const preview = {
@@ -945,7 +994,8 @@ async function handle_create_github_issue(args = {}) {
                 duplicates.length > 0 || sensitiveDataReview.required_before_publish
                     ? "Show the rendered issue preview, suggested template, labels, attachments, context, duplicate candidates if any, and sensitive/config data warning if present. Ask whether to edit, cancel, use an existing issue, or publish. Publish only after explicit approval with dry_run:false. Include duplicate_review_confirmed:true if duplicates were reviewed, and sensitive_data_confirmed:true if config or sensitive-looking data was detected and the developer confirms it may be posted."
                     : "Show the rendered issue preview, suggested template, labels, attachments, and context to the developer. Ask whether to edit, cancel, or publish. Publish only after explicit approval with dry_run:false.",
-            next_action: "Wait for explicit developer approval before calling create_github_issue with dry_run:false.",
+            next_action:
+                "Wait for explicit developer approval before calling create_github_issue with dry_run:false.",
         }
     }
 
@@ -959,8 +1009,7 @@ async function handle_create_github_issue(args = {}) {
         return {
             ok: false,
             blocked: true,
-            error:
-                "The rendered GitHub issue includes config or sensitive-looking data. Show the preview and warning to the developer, and publish only if they explicitly confirm this data may be posted.",
+            error: "The rendered GitHub issue includes config or sensitive-looking data. Show the preview and warning to the developer, and publish only if they explicitly confirm this data may be posted.",
             sensitive_data_review: sensitiveDataReview,
             next_action:
                 "If the developer confirms the config/sensitive-looking data may be posted, call create_github_issue again with sensitive_data_confirmed:true and dry_run:false.",
@@ -981,8 +1030,7 @@ async function handle_create_github_issue(args = {}) {
             return {
                 ok: false,
                 blocked: true,
-                error:
-                    "Possible duplicate GitHub issues were found. Show these candidates to the developer and publish only if they confirm this report is distinct.",
+                error: "Possible duplicate GitHub issues were found. Show these candidates to the developer and publish only if they confirm this report is distinct.",
                 duplicate_candidates: duplicates,
                 next_action:
                     "If the developer confirms this is not a duplicate, call create_github_issue again with duplicate_review_confirmed:true and optionally duplicate_review_note.",
@@ -1040,7 +1088,9 @@ async function handle_create_github_issue(args = {}) {
                 label_warning: labelWarning,
                 state: res.body.state,
                 token_source: tokenResult.source,
-                local_images_requiring_manual_upload: built.images.local_files.filter((image) => image.exists),
+                local_images_requiring_manual_upload: built.images.local_files.filter(
+                    (image) => image.exists
+                ),
             }
         }
 

@@ -17,8 +17,7 @@ export const useDataProtection = ({ webFallback } = {}) => {
         if (!base.webFallbackActive || !screenSecureWeb) return
 
         const overlay = document.createElement("div")
-        overlay.style.cssText =
-            "position:fixed;inset:0;background:#000;z-index:2147483647;display:none"
+        overlay.style.cssText = "position:fixed;inset:0;background:#000;z-index:2147483647;display:none"
         document.body.appendChild(overlay)
         secureOverlayRef.current = overlay
 
@@ -42,7 +41,9 @@ export const useDataProtection = ({ webFallback } = {}) => {
         try {
             localStorage.clear()
             sessionStorage.clear()
-        } catch (_) { /* storage may be unavailable in restricted contexts */ }
+        } catch (_) {
+            /* storage may be unavailable in restricted contexts */
+        }
 
         document.cookie.split(";").forEach((c) => {
             document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/"
@@ -50,10 +51,15 @@ export const useDataProtection = ({ webFallback } = {}) => {
 
         if (window.indexedDB?.databases) {
             const dbs = await window.indexedDB.databases().catch(() => [])
-            await Promise.all(dbs.map((db) => new Promise((res) => {
-                const req = window.indexedDB.deleteDatabase(db.name)
-                req.onsuccess = req.onerror = res
-            })))
+            await Promise.all(
+                dbs.map(
+                    (db) =>
+                        new Promise((res) => {
+                            const req = window.indexedDB.deleteDatabase(db.name)
+                            req.onsuccess = req.onerror = res
+                        })
+                )
+            )
         }
     }, [])
 

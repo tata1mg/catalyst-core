@@ -100,7 +100,8 @@ const INTENT_PATTERNS = {
         /\b(what\s+is|what\s+are|how\s+does|how\s+do|explain|show\s+me|tell\s+me|hook|api|usage|example)\b/i,
     status: /status|done|complet|finish|check.*config|config.*check|what.*(left|remain|todo|next|pending)|how far|progress/i,
     // feedback = wants to raise an issue or discussion on GitHub
-    feedback: /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
+    feedback:
+        /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
     debug: /error|fail|broken|not work|crash|issue|bug|why|wrong/i,
     build: /build|compile|webpack|bundle|android|ios|platform/i,
     sync: /sync|update.*doc|fetch.*doc|latest.*doc/i,
@@ -114,7 +115,8 @@ const INTENT_NEXT_ACTION = {
     debug: "answer_only — provide debug guidance. Do NOT call create_task_plan.",
     build: "answer_only — explain build flow. Do NOT call create_task_plan.",
     sync: "answer_only — sync complete. Do NOT call create_task_plan.",
-    feedback: "answer_only — run the GitHub issue workflow and show the created issue URL or markdown fallback. Do NOT call create_task_plan.",
+    feedback:
+        "answer_only — run the GitHub issue workflow and show the created issue URL or markdown fallback. Do NOT call create_task_plan.",
     unknown: "answer_only — unclear intent. Return what you found. Do NOT call create_task_plan.",
 }
 
@@ -435,7 +437,8 @@ const TOOLS = [
                 },
                 title: {
                     type: "string",
-                    description: "Short, descriptive issue title. E.g. 'RouterDataProvider fails on nested dynamic routes'.",
+                    description:
+                        "Short, descriptive issue title. E.g. 'RouterDataProvider fails on nested dynamic routes'.",
                 },
                 body: {
                     type: "string",
@@ -476,7 +479,8 @@ const TOOLS = [
                 preflight_checklist: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
+                    description:
+                        "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
                 },
                 what_i_tried: {
                     type: "string",
@@ -506,7 +510,8 @@ const TOOLS = [
                 },
                 environment: {
                     type: "object",
-                    description: "Environment details such as platform, OS, browser, device, Node/npm versions.",
+                    description:
+                        "Environment details such as platform, OS, browser, device, Node/npm versions.",
                 },
                 labels: {
                     type: "array",
