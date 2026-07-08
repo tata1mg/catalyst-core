@@ -136,11 +136,25 @@ function safeReadJson(filePath) {
 }
 
 function safeReadText(filePath, maxBytes = 8000) {
+    let fd
     try {
-        const content = fs.readFileSync(filePath, "utf8")
-        return content.length > maxBytes ? `${content.slice(0, maxBytes)}\n...[truncated]` : content
+        fd = fs.openSync(filePath, "r")
+        const stats = fs.fstatSync(fd)
+        const limit = Math.max(0, maxBytes)
+        const buffer = Buffer.alloc(limit)
+        const bytesRead = fs.readSync(fd, buffer, 0, limit, 0)
+        const content = buffer.subarray(0, bytesRead).toString("utf8")
+        return stats.size > bytesRead ? `${content}\n...[truncated]` : content
     } catch {
         return null
+    } finally {
+        if (typeof fd === "number") {
+            try {
+                fs.closeSync(fd)
+            } catch {
+                // Ignore close failures; callers treat unreadable files as absent.
+            }
+        }
     }
 }
 
@@ -320,7 +334,7 @@ function buildLabelSelectionResponse(args = {}) {
 
 function stripExistingFooter(body) {
     return String(body || "")
-        .replace(/\n---\n(?:\*\*(?:Project|catalyst-core version|Project path|Reported via):\*\*.*\n?)+$/m, "")
+        .replace(/\n---\n(?:\*\*(?:Project|catalyst-core version|Project path|Reported via):\*\*.*\n?)+$/, "")
         .trim()
 }
 
@@ -349,9 +363,49 @@ function firstNonEmpty(...values) {
     return ""
 }
 
+function hasContentValue(value) {
+    if (typeof value === "string") return Boolean(value.trim())
+    if (Array.isArray(value)) return value.some(hasContentValue)
+    if (value && typeof value === "object") return Object.keys(value).length > 0
+    return false
+}
+
+function hasUserIssueContent(args = {}) {
+    return [
+        "body",
+        "summary",
+        "current_behavior",
+        "actual_behavior",
+        "expected_behavior",
+        "error_logs",
+        "environment",
+        "what_i_tried",
+        "additional_information",
+        "related_issues",
+        "root_cause",
+        "proposed_fix",
+        "optional_followups",
+        "steps_to_reproduce",
+        "repro",
+        "notes",
+        "context",
+    ].some((key) => hasContentValue(args[key]))
+}
+
 function appendSection(sections, heading, content) {
-    const text = Array.isArray(content) ? toMarkdownList(content) : firstNonEmpty(content)
+    const text = Array.isArray(content)
+        ? toMarkdownList(content)
+        : content && typeof content === "object"
+          ? JSON.stringify(content, null, 2)
+          : firstNonEmpty(content)
     if (text) sections.push(`## ${heading}\n\n${text}`)
+}
+
+function isPathInside(root, candidate) {
+    const resolvedRoot = path.resolve(root)
+    const resolvedCandidate = path.resolve(candidate)
+    const relative = path.relative(resolvedRoot, resolvedCandidate)
+    return relative === "" || (relative && !relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
 function buildPreflightChecklist(args) {
@@ -451,7 +505,12 @@ function normalizeImages(images, root) {
             continue
         }
 
-        const absolutePath = path.isAbsolute(raw) ? raw : path.resolve(root, raw)
+        const absolutePath = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(root, raw)
+        if (!isPathInside(root, absolutePath)) {
+            localFiles.push({ path: raw, exists: false, rejected: true, reason: "outside_project_root" })
+            lines.push(`- ${raw} (outside project root; not included)`)
+            continue
+        }
         const exists = fs.existsSync(absolutePath)
         localFiles.push({ path: absolutePath, exists })
         lines.push(`- ${absolutePath}${exists ? "" : " (not found)"}`)
@@ -518,9 +577,6 @@ function enrichBody(body) {
         }
         const version = _projectInfo.installedVersion || _projectInfo.catalystVersion || "unknown"
         lines.push(`**catalyst-core version:** \`${version}\``)
-        if (_projectInfo.dir) {
-            lines.push(`**Project path:** \`${_projectInfo.dir}\``)
-        }
     }
     lines.push("**Reported via:** Catalyst MCP v2")
     return lines.join("\n")
@@ -689,8 +745,8 @@ function collectRelatedFiles(root, query, explicitFiles) {
     const candidates = Array.isArray(explicitFiles) ? explicitFiles : []
     for (const file of candidates) {
         if (typeof file !== "string") continue
-        const absolute = path.isAbsolute(file) ? file : path.join(root, file)
-        if (!absolute.startsWith(root)) continue
+        const absolute = path.isAbsolute(file) ? path.resolve(file) : path.resolve(root, file)
+        if (!isPathInside(root, absolute)) continue
         const content = safeReadText(absolute, 12000)
         if (content) {
             files.push({ path: path.relative(root, absolute), content })
@@ -767,6 +823,10 @@ function generateIssueMarkdown(args = {}) {
     }
 
     const root = getProjectRoot(args)
+    if (!hasUserIssueContent(args)) {
+        return { ok: false, error: "body or structured issue fields are required." }
+    }
+
     const built = buildIssueBody(args, { enrich: true })
     const labels = resolveIssueLabels(args, built.body)
     const dir = ensureFallbackDir(root)
@@ -818,6 +878,10 @@ async function handle_create_github_issue(args = {}) {
         return { ok: false, error: "title is required and must be a non-empty string." }
     }
 
+    if (!hasUserIssueContent(args)) {
+        return { ok: false, error: "body or structured issue fields are required." }
+    }
+
     const dryRun = args.dry_run !== false
     const gatheredContext = gatherGithubIssueContext({
         ...args,
@@ -825,7 +889,7 @@ async function handle_create_github_issue(args = {}) {
     })
     const issueArgs = {
         ...args,
-        context: args.context || gatheredContext,
+        context: args.context,
     }
     const built = buildIssueBody(issueArgs)
     if (!built.body || built.body.trim() === "") {
@@ -864,7 +928,7 @@ async function handle_create_github_issue(args = {}) {
     }
     const sensitiveDataReview = detectSensitiveIssueData({
         body: built.body,
-        context: gatheredContext,
+        context: issueArgs.context,
     })
 
     if (dryRun) {

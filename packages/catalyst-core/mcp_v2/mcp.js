@@ -457,10 +457,8 @@ const TOOLS = [
                     description: "What happens today.",
                 },
                 steps_to_reproduce: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
+                    type: "array",
+                    items: { type: "string" },
                     description: "Steps to reproduce the issue.",
                 },
                 expected_behavior: {
@@ -489,10 +487,8 @@ const TOOLS = [
                     description: "Additional context that does not fit the primary sections.",
                 },
                 related_issues: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
+                    type: "array",
+                    items: { type: "string" },
                     description: "Related GitHub issues or links.",
                 },
                 root_cause: {
@@ -504,14 +500,12 @@ const TOOLS = [
                     description: "Concrete suggested fix.",
                 },
                 optional_followups: {
-                    oneOf: [
-                        { type: "string" },
-                        { type: "array", items: { type: "string" } },
-                    ],
+                    type: "array",
+                    items: { type: "string" },
                     description: "Follow-up cleanup, docs, or test suggestions.",
                 },
                 environment: {
-                    type: ["string", "object"],
+                    type: "object",
                     description: "Environment details such as platform, OS, browser, device, Node/npm versions.",
                 },
                 labels: {
@@ -522,7 +516,7 @@ const TOOLS = [
                 },
                 images: {
                     type: "array",
-                    items: { type: ["string", "object"] },
+                    items: { type: "object" },
                     description:
                         "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
                 },
