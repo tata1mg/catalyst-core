@@ -17,8 +17,8 @@ function seedKnowledgeBase(db, kbPath, projectInfo = null) {
     const kb = JSON.parse(fs.readFileSync(kbPath, "utf8"))
     if (!Array.isArray(kb)) throw new Error("knowledge-base.json must be a JSON array")
 
-    db.prepare(`DELETE FROM framework_knowledge WHERE source = 'static'`).run()
-    db.prepare(`DELETE FROM known_errors`).run()
+    const deleteKnowledge = db.prepare(`DELETE FROM framework_knowledge WHERE source = 'static'`)
+    const deleteErrors = db.prepare(`DELETE FROM known_errors`)
 
     const insertKnowledge = db.prepare(`
         INSERT INTO framework_knowledge (section, title, content, layer, source, tags, github_files)
@@ -34,6 +34,8 @@ function seedKnowledgeBase(db, kbPath, projectInfo = null) {
     let errorCount = 0
 
     const seedAll = db.transaction(() => {
+        deleteKnowledge.run()
+        deleteErrors.run()
         for (const entry of kb) {
             if (entry.section === "known_errors") {
                 // known_errors entries encode symptom/cause/fix in content as:
