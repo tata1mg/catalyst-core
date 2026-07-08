@@ -6,7 +6,7 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "node index.js",
+        "start": "NODE_ENV=production node index.js",
         "dev": "nodemon index.js"
     },
     "author": "Shubham Sharma",
@@ -20,10 +20,10 @@
         "escodegen": "^2.1.0",
         "esprima": "^4.0.1",
         "express": "^4.18.2",
-        "form-data": "^4.0.0",
+        "form-data": "^4.0.6",
         "formdata-node": "^6.0.3",
         "jsonwebtoken": "^9.0.2",
-        "multer": "^2.1.1",
+        "multer": "^2.2.0",
         "node-stream-zip": "^1.15.0",
         "postman-to-openapi": "^3.0.1",
         "short-uuid": "^6.0.3",
