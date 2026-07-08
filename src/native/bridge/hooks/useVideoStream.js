@@ -4,7 +4,14 @@ import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 import { useBaseHook } from "../useBaseHook.js"
 
-const STREAM_STATE_DEFAULT = { zoom: null, minZoom: null, maxZoom: null, torchOn: false, fpsMin: null, fpsMax: null }
+const STREAM_STATE_DEFAULT = {
+    zoom: null,
+    minZoom: null,
+    maxZoom: null,
+    torchOn: false,
+    fpsMin: null,
+    fpsMax: null,
+}
 
 export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
     const base = useBaseHook("useVideoStream", { hasWebFallback: true, webFallback })
@@ -42,53 +49,59 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
         }
     }, [])
 
-    const applyTrackConstraints = useCallback(async (constraints) => {
-        const track = mediaStreamRef.current?.getVideoTracks()[0]
-        if (!track) return
-        try {
-            await track.applyConstraints(constraints)
-        } catch (e) {
-            base.setError({ message: `applyConstraints failed: ${e.message}` })
-        }
-    }, [base])
-
-    const webStart = useCallback(async (options = {}) => {
-        if (!window.isSecureContext) {
-            base.setError({ message: "getUserMedia requires a secure context (HTTPS or localhost)" })
-            return
-        }
-        if (!navigator.mediaDevices?.getUserMedia) {
-            base.setError({ message: "getUserMedia is not available in this browser" })
-            return
-        }
-        try {
-            if (mediaStreamRef.current) return
-            base.setLoading(true)
-            const constraints = {
-                video: {
-                    facingMode: { ideal: facingModeRef.current },
-                    ...(options.fps ? { frameRate: { ideal: options.fps } } : {}),
-                },
-                audio: false,
+    const applyTrackConstraints = useCallback(
+        async (constraints) => {
+            const track = mediaStreamRef.current?.getVideoTracks()[0]
+            if (!track) return
+            try {
+                await track.applyConstraints(constraints)
+            } catch (e) {
+                base.setError({ message: `applyConstraints failed: ${e.message}` })
             }
-            const stream = await navigator.mediaDevices.getUserMedia(constraints)
-            mediaStreamRef.current = stream
-            setIsStreamingWeb(true)
-            base.setLoading(false)
+        },
+        [base]
+    )
 
-            const track = stream.getVideoTracks()[0]
-            const caps = track?.getCapabilities?.() || {}
-            setStreamStateWeb((prev) => ({
-                ...prev,
-                minZoom: caps.zoom?.min ?? null,
-                maxZoom: caps.zoom?.max ?? null,
-                zoom: caps.zoom?.min ?? null,
-            }))
-        } catch (e) {
-            base.setLoading(false)
-            base.setError({ message: e.message || "getUserMedia failed" })
-        }
-    }, [base])
+    const webStart = useCallback(
+        async (options = {}) => {
+            if (!window.isSecureContext) {
+                base.setError({ message: "getUserMedia requires a secure context (HTTPS or localhost)" })
+                return
+            }
+            if (!navigator.mediaDevices?.getUserMedia) {
+                base.setError({ message: "getUserMedia is not available in this browser" })
+                return
+            }
+            try {
+                if (mediaStreamRef.current) return
+                base.setLoading(true)
+                const constraints = {
+                    video: {
+                        facingMode: { ideal: facingModeRef.current },
+                        ...(options.fps ? { frameRate: { ideal: options.fps } } : {}),
+                    },
+                    audio: false,
+                }
+                const stream = await navigator.mediaDevices.getUserMedia(constraints)
+                mediaStreamRef.current = stream
+                setIsStreamingWeb(true)
+                base.setLoading(false)
+
+                const track = stream.getVideoTracks()[0]
+                const caps = track?.getCapabilities?.() || {}
+                setStreamStateWeb((prev) => ({
+                    ...prev,
+                    minZoom: caps.zoom?.min ?? null,
+                    maxZoom: caps.zoom?.max ?? null,
+                    zoom: caps.zoom?.min ?? null,
+                }))
+            } catch (e) {
+                base.setLoading(false)
+                base.setError({ message: e.message || "getUserMedia failed" })
+            }
+        },
+        [base]
+    )
 
     const webStop = useCallback(() => {
         if (!mediaStreamRef.current) return
@@ -106,47 +119,54 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
         }
     }, [webStart, webStop])
 
-    const webSendCommand = useCallback(async (type, value) => {
-        if (!isStreamingWeb) {
-            base.setError({ message: `sendCommand('${type}') called but stream is not active` })
-            return
-        }
-        switch (type) {
-            case "zoom": {
-                if (typeof value !== "number" || value < 1.0) {
-                    base.setError({ message: `sendCommand zoom: value must be a multiplier >= 1.0, got ${value}` })
-                    return
-                }
-                await applyTrackConstraints({ advanced: [{ zoom: value }] })
-                setStreamStateWeb((prev) => ({ ...prev, zoom: value }))
-                break
+    const webSendCommand = useCallback(
+        async (type, value) => {
+            if (!isStreamingWeb) {
+                base.setError({ message: `sendCommand('${type}') called but stream is not active` })
+                return
             }
-            case "torch": {
-                if (typeof value !== "boolean") {
-                    base.setError({ message: `sendCommand torch: value must be boolean, got ${value}` })
-                    return
+            switch (type) {
+                case "zoom": {
+                    if (typeof value !== "number" || value < 1.0) {
+                        base.setError({
+                            message: `sendCommand zoom: value must be a multiplier >= 1.0, got ${value}`,
+                        })
+                        return
+                    }
+                    await applyTrackConstraints({ advanced: [{ zoom: value }] })
+                    setStreamStateWeb((prev) => ({ ...prev, zoom: value }))
+                    break
                 }
-                await applyTrackConstraints({ advanced: [{ torch: value }] })
-                setStreamStateWeb((prev) => ({ ...prev, torchOn: value }))
-                break
-            }
-            case "fps": {
-                if (typeof value !== "object" || value === null) {
-                    base.setError({ message: `sendCommand fps: value must be { min, max }, got ${value}` })
-                    return
+                case "torch": {
+                    if (typeof value !== "boolean") {
+                        base.setError({ message: `sendCommand torch: value must be boolean, got ${value}` })
+                        return
+                    }
+                    await applyTrackConstraints({ advanced: [{ torch: value }] })
+                    setStreamStateWeb((prev) => ({ ...prev, torchOn: value }))
+                    break
                 }
-                const { min = null, max = null } = value
-                const frameRate = {}
-                if (min !== null) frameRate.min = min
-                if (max !== null) frameRate.max = max
-                await applyTrackConstraints({ frameRate })
-                setStreamStateWeb((prev) => ({ ...prev, fpsMin: min, fpsMax: max }))
-                break
+                case "fps": {
+                    if (typeof value !== "object" || value === null) {
+                        base.setError({
+                            message: `sendCommand fps: value must be { min, max }, got ${value}`,
+                        })
+                        return
+                    }
+                    const { min = null, max = null } = value
+                    const frameRate = {}
+                    if (min !== null) frameRate.min = min
+                    if (max !== null) frameRate.max = max
+                    await applyTrackConstraints({ frameRate })
+                    setStreamStateWeb((prev) => ({ ...prev, fpsMin: min, fpsMax: max }))
+                    break
+                }
+                default:
+                    base.setError({ message: `sendCommand: unknown type '${type}'` })
             }
-            default:
-                base.setError({ message: `sendCommand: unknown type '${type}'` })
-        }
-    }, [isStreamingWeb, applyTrackConstraints, base])
+        },
+        [isStreamingWeb, applyTrackConstraints, base]
+    )
 
     // Native event registration — skipped on web (WebBridge absent or native bridge unavailable)
     useEffect(() => {
@@ -212,12 +232,15 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
         }
     }, [base.handleNativeError])
 
-    const nativeStart = useCallback((options = {}) => {
-        base.executeOperation(() => {
-            console.log("[useVideoStream] start() options:", JSON.stringify(options))
-            nativeBridge.videoStream.start(options)
-        }, "start video stream")
-    }, [base.executeOperation])
+    const nativeStart = useCallback(
+        (options = {}) => {
+            base.executeOperation(() => {
+                console.log("[useVideoStream] start() options:", JSON.stringify(options))
+                nativeBridge.videoStream.start(options)
+            }, "start video stream")
+        },
+        [base.executeOperation]
+    )
 
     const nativeStop = useCallback(() => {
         console.log("[useVideoStream] stop()")
@@ -230,55 +253,66 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
         nativeBridge.videoStream.flip()
     }, [])
 
-    const nativeSendCommand = useCallback((type, value) => {
-        if (!isStreaming) {
-            base.setError({ message: `sendCommand('${type}') called but stream is not active` })
-            return
-        }
-        console.log(`[useVideoStream] sendCommand(${type}, ${value})`)
-        switch (type) {
-            case "zoom": {
-                if (typeof value !== "number" || value < 1.0) {
-                    base.setError({ message: `sendCommand zoom: value must be a multiplier >= 1.0 (e.g. 1.0=1x, 2.0=2x), got ${value}` })
-                    return
-                }
-                nativeBridge.videoStream.setZoom(value)
-                break
+    const nativeSendCommand = useCallback(
+        (type, value) => {
+            if (!isStreaming) {
+                base.setError({ message: `sendCommand('${type}') called but stream is not active` })
+                return
             }
-            case "torch": {
-                if (typeof value !== "boolean") {
-                    base.setError({ message: `sendCommand torch: value must be boolean, got ${value}` })
-                    return
+            console.log(`[useVideoStream] sendCommand(${type}, ${value})`)
+            switch (type) {
+                case "zoom": {
+                    if (typeof value !== "number" || value < 1.0) {
+                        base.setError({
+                            message: `sendCommand zoom: value must be a multiplier >= 1.0 (e.g. 1.0=1x, 2.0=2x), got ${value}`,
+                        })
+                        return
+                    }
+                    nativeBridge.videoStream.setZoom(value)
+                    break
                 }
-                nativeBridge.videoStream.setTorch(value)
-                break
+                case "torch": {
+                    if (typeof value !== "boolean") {
+                        base.setError({ message: `sendCommand torch: value must be boolean, got ${value}` })
+                        return
+                    }
+                    nativeBridge.videoStream.setTorch(value)
+                    break
+                }
+                case "fps": {
+                    if (typeof value !== "object" || value === null) {
+                        base.setError({
+                            message: `sendCommand fps: value must be { min, max }, got ${value}`,
+                        })
+                        return
+                    }
+                    const { min = null, max = null } = value
+                    if (min !== null && (typeof min !== "number" || min < 1)) {
+                        base.setError({
+                            message: `sendCommand fps: min must be a positive number, got ${min}`,
+                        })
+                        return
+                    }
+                    if (max !== null && (typeof max !== "number" || max < 1)) {
+                        base.setError({
+                            message: `sendCommand fps: max must be a positive number, got ${max}`,
+                        })
+                        return
+                    }
+                    if (min !== null && max !== null && min > max) {
+                        base.setError({ message: `sendCommand fps: min (${min}) must be <= max (${max})` })
+                        return
+                    }
+                    nativeBridge.videoStream.setFps(min, max)
+                    setStreamState((prev) => ({ ...prev, fpsMin: min, fpsMax: max }))
+                    break
+                }
+                default:
+                    base.setError({ message: `sendCommand: unknown type '${type}'` })
             }
-            case "fps": {
-                if (typeof value !== "object" || value === null) {
-                    base.setError({ message: `sendCommand fps: value must be { min, max }, got ${value}` })
-                    return
-                }
-                const { min = null, max = null } = value
-                if (min !== null && (typeof min !== "number" || min < 1)) {
-                    base.setError({ message: `sendCommand fps: min must be a positive number, got ${min}` })
-                    return
-                }
-                if (max !== null && (typeof max !== "number" || max < 1)) {
-                    base.setError({ message: `sendCommand fps: max must be a positive number, got ${max}` })
-                    return
-                }
-                if (min !== null && max !== null && min > max) {
-                    base.setError({ message: `sendCommand fps: min (${min}) must be <= max (${max})` })
-                    return
-                }
-                nativeBridge.videoStream.setFps(min, max)
-                setStreamState((prev) => ({ ...prev, fpsMin: min, fpsMax: max }))
-                break
-            }
-            default:
-                base.setError({ message: `sendCommand: unknown type '${type}'` })
-        }
-    }, [isStreaming, base.setError])
+        },
+        [isStreaming, base.setError]
+    )
 
     if (typeof window === "undefined") {
         return {

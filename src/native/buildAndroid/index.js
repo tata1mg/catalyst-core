@@ -99,7 +99,10 @@ function createAndroidBuild(config) {
                         "success"
                     )
 
-                    const canInstallOnPhysical = await testPhysicalDeviceInstallation(ADB_PATH, physicalDevice.id)
+                    const canInstallOnPhysical = await testPhysicalDeviceInstallation(
+                        ADB_PATH,
+                        physicalDevice.id
+                    )
 
                     if (canInstallOnPhysical) {
                         targetDevice = {

@@ -25,11 +25,7 @@ function init(db) {
 }
 
 function fetchUrl(url, opts = {}) {
-    const {
-        allowedHost = GITHUB_RAW_HOST,
-        maxBytes = KB_MAX_BYTES,
-        redirectsLeft = MAX_REDIRECTS,
-    } = opts
+    const { allowedHost = GITHUB_RAW_HOST, maxBytes = KB_MAX_BYTES, redirectsLeft = MAX_REDIRECTS } = opts
     return new Promise((resolve, reject) => {
         let parsed
         try {

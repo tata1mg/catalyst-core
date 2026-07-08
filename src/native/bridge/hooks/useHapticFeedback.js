@@ -45,8 +45,8 @@ const detectHapticCapabilities = (isNative) => {
         const platform = userAgent.includes("android")
             ? "android"
             : userAgent.includes("iphone") || userAgent.includes("ipad")
-            ? "ios"
-            : "native"
+              ? "ios"
+              : "native"
         const availableTypes =
             platform === "ios"
                 ? ["light", "medium", "heavy", "success", "warning", "error", "selection", "impact"]
@@ -139,9 +139,7 @@ export const useHapticFeedback = ({ webFallback } = {}) => {
                 message: `Triggering ${type} haptic feedback...`,
             })
 
-            const success = base.isNative
-                ? await requestHapticFeedback(type)
-                : handleWebHaptic(type, options)
+            const success = base.isNative ? await requestHapticFeedback(type) : handleWebHaptic(type, options)
 
             base.setDataAndComplete({
                 lastType: type,
