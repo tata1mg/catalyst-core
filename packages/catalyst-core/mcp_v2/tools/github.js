@@ -544,6 +544,74 @@ function buildDuplicateSearchText(title, body, duplicateSearchQuery) {
     return normalizeSearchText(body).split(/\s+/).slice(0, 8).join(" ")
 }
 
+const SENSITIVE_FILE_PATTERN =
+    /(^|\/)(\.env|\.npmrc|\.pypirc|config\/config\.json|google-services\.json|googleservice-info\.plist|.*keystore.*|.*\.jks|.*\.p12|.*\.pem|.*\.key)$/i
+
+const SENSITIVE_TEXT_PATTERN =
+    /\b(api[_-]?key|auth[_-]?token|authorization|client[_-]?secret|cookie|firebase|google[_-]?services|password|private[_-]?key|secret|session[_-]?id|sentry[_-]?dsn|token)\b/i
+
+const SENSITIVE_BODY_PATTERN =
+    /\b(api[_-]?key|auth[_-]?token|authorization|client[_-]?secret|cookie|password|private[_-]?key|secret|session[_-]?id|sentry[_-]?dsn|token)\b\s*[:=]\s*\S+|\bbearer\s+[a-z0-9._-]+/i
+
+function addSensitiveFinding(findings, seen, finding) {
+    const key = `${finding.type}:${finding.path || ""}:${finding.reason}`
+    if (seen.has(key)) return
+    seen.add(key)
+    findings.push(finding)
+}
+
+function detectSensitiveIssueData({ body, context }) {
+    const findings = []
+    const seen = new Set()
+
+    if (context && context.config) {
+        addSensitiveFinding(findings, seen, {
+            type: "config",
+            path: "config/config.json",
+            reason: "Issue context includes Catalyst config fields.",
+        })
+    }
+
+    const relatedFiles = context && Array.isArray(context.related_files) ? context.related_files : []
+    for (const file of relatedFiles) {
+        if (!file || typeof file.path !== "string") continue
+
+        if (SENSITIVE_FILE_PATTERN.test(file.path)) {
+            addSensitiveFinding(findings, seen, {
+                type: "file",
+                path: file.path,
+                reason: "Related file path is a config or credential-looking file.",
+            })
+        }
+
+        if (typeof file.content === "string" && SENSITIVE_TEXT_PATTERN.test(file.content)) {
+            addSensitiveFinding(findings, seen, {
+                type: "content",
+                path: file.path,
+                reason: "Related file content contains secret-looking keys or values.",
+            })
+        }
+    }
+
+    if (typeof body === "string" && SENSITIVE_BODY_PATTERN.test(body)) {
+        addSensitiveFinding(findings, seen, {
+            type: "body",
+            path: null,
+            reason: "Rendered issue body contains sensitive-looking words or values.",
+        })
+    }
+
+    return {
+        required_before_publish: findings.length > 0,
+        status: findings.length > 0 ? "needs_user_review" : "no_sensitive_or_config_data_detected",
+        findings,
+        publish_override_field:
+            findings.length > 0
+                ? "Pass sensitive_data_confirmed:true with dry_run:false only after the developer reviews the preview and confirms the config/sensitive-looking data may be posted."
+                : null,
+    }
+}
+
 async function searchDuplicates(token, title, body, duplicateSearchQuery) {
     const searchText = buildDuplicateSearchText(title, body, duplicateSearchQuery)
     if (!searchText) return []
@@ -794,6 +862,10 @@ async function handle_create_github_issue(args = {}) {
                 ? "Pass duplicate_review_confirmed:true with dry_run:false only after the developer confirms this is not a duplicate."
                 : null,
     }
+    const sensitiveDataReview = detectSensitiveIssueData({
+        body: built.body,
+        context: gatheredContext,
+    })
 
     if (dryRun) {
         return {
@@ -802,13 +874,32 @@ async function handle_create_github_issue(args = {}) {
             preview,
             duplicates,
             duplicate_review: duplicateReview,
+            sensitive_data_review: sensitiveDataReview,
             token_source: tokenSource,
             auth_warning: tokenResult.ok ? null : tokenResult.error,
             instructions:
-                duplicates.length > 0
-                    ? "Show the rendered issue preview, suggested template, labels, attachments, context, and duplicate candidates to the developer. Ask whether to cancel/use an existing issue, edit, or publish because this is distinct. Publish only after explicit approval with dry_run:false, and include duplicate_review_confirmed:true if duplicates were reviewed."
+                duplicates.length > 0 || sensitiveDataReview.required_before_publish
+                    ? "Show the rendered issue preview, suggested template, labels, attachments, context, duplicate candidates if any, and sensitive/config data warning if present. Ask whether to edit, cancel, use an existing issue, or publish. Publish only after explicit approval with dry_run:false. Include duplicate_review_confirmed:true if duplicates were reviewed, and sensitive_data_confirmed:true if config or sensitive-looking data was detected and the developer confirms it may be posted."
                     : "Show the rendered issue preview, suggested template, labels, attachments, and context to the developer. Ask whether to edit, cancel, or publish. Publish only after explicit approval with dry_run:false.",
             next_action: "Wait for explicit developer approval before calling create_github_issue with dry_run:false.",
+        }
+    }
+
+    const payload = {
+        title: title.trim(),
+        body: built.body,
+        labels,
+    }
+
+    if (sensitiveDataReview.required_before_publish && args.sensitive_data_confirmed !== true) {
+        return {
+            ok: false,
+            blocked: true,
+            error:
+                "The rendered GitHub issue includes config or sensitive-looking data. Show the preview and warning to the developer, and publish only if they explicitly confirm this data may be posted.",
+            sensitive_data_review: sensitiveDataReview,
+            next_action:
+                "If the developer confirms the config/sensitive-looking data may be posted, call create_github_issue again with sensitive_data_confirmed:true and dry_run:false.",
         }
     }
 
@@ -819,12 +910,6 @@ async function handle_create_github_issue(args = {}) {
             error: tokenResult.error,
             fallback: fallback.ok ? fallback : null,
         }
-    }
-
-    const payload = {
-        title: title.trim(),
-        body: built.body,
-        labels,
     }
 
     try {

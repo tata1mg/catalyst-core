@@ -536,6 +536,11 @@ const TOOLS = [
                     description:
                         "Set true only after a dry_run:true preview or blocked publish returned duplicate candidates, those candidates were shown to the developer, and the developer explicitly confirmed this issue is distinct and should still be published.",
                 },
+                sensitive_data_confirmed: {
+                    type: "boolean",
+                    description:
+                        "Set true only after a dry_run:true preview or blocked publish returned sensitive_data_review.required_before_publish=true, the config/sensitive-looking data warning and rendered issue preview were shown to the developer, and the developer explicitly confirmed this data may be posted to GitHub.",
+                },
                 duplicate_review_note: {
                     type: "string",
                     description:
