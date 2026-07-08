@@ -18,29 +18,12 @@ const Database = require("better-sqlite3")
 const sync = require("./tools/sync")
 const knowledge = require("./tools/knowledge")
 const { seedKnowledgeBase } = require("./lib/seed")
+const { findCatalystRoot } = require("./lib/helpers")
 
 const MCP_DIR = __dirname
 const DB_PATH = path.join(MCP_DIR, "context.db")
 const SCHEMA_PATH = path.join(MCP_DIR, "schema.sql")
 const KB_PATH = path.join(MCP_DIR, "knowledge-base.json")
-
-// ── 1. Find & validate catalyst project ──────────────────────────────────────
-
-function findCatalystRoot() {
-    let dir = process.cwd()
-    while (dir !== path.parse(dir).root) {
-        const pkgPath = path.join(dir, "package.json")
-        if (fs.existsSync(pkgPath)) {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
-            const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-            if (deps["catalyst-core"]) {
-                return { dir, pkg, catalystPackageName: "catalyst-core", version: deps["catalyst-core"] }
-            }
-        }
-        dir = path.dirname(dir)
-    }
-    return null
-}
 
 // ── 2. DB init ────────────────────────────────────────────────────────────────
 
