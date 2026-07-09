@@ -701,6 +701,19 @@
         "tags": ["offline", "fallback", "native", "canary.19", "public"]
     },
     {
+        "section": "native_offline",
+        "title": "Route Offline Snapshots - Online Recovery Behavior",
+        "content": "Route offline snapshots are network-first while online. Cached route HTML is served only when eligible route navigation is offline or the navigation fetch fails. When connectivity returns, retry, reload, or a new navigation uses the network again and can refresh the snapshot. If the bundled offline fallback page is already visible, Catalyst does not auto-reload it on reconnect; the user must retry/reload/navigate. Static assets may still come from cache while fresh or revalidating. API responses and non-GET requests are not cached by route offline snapshots.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["offline", "route-snapshots", "network-first", "native", "service-worker"],
+        "github_files": [
+            "packages/catalyst-core/src/offline/catalyst-sw.js",
+            "packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt",
+            "packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift"
+        ]
+    },
+    {
         "section": "framework_identity",
         "title": "Mono-Repository Support (canary.2)",
         "content": "Added in canary.2. catalyst-core supports mono-repo project structures where the catalyst app lives as a sub-package (e.g. packages/mweb/) rather than at the repo root. setup.js and MCP findCatalystRoot() both support this: they walk up from __dirname to find the nearest package.json with catalyst-core in dependencies, not assuming project root = cwd. For mono-repos: run 'node .catalyst/mcp/setup.js' from inside the sub-package directory (e.g. cd packages/mweb && node .catalyst/mcp/setup.js), NOT from the mono-repo root. The MCP will anchor to that sub-package as its project root.",

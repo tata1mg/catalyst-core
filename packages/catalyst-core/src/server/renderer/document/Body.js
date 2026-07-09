@@ -16,13 +16,14 @@ export function Body({
     fetcherData = {},
     children,
     safeArea = DEFAULT_SAFE_AREA,
+    nativeWebView = false,
 }) {
     return (
         <body>
             <script
                 /* eslint-disable-next-line risxss/catch-potential-xss-react */
                 dangerouslySetInnerHTML={{
-                    __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}`,
+                    __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}; window.__CATALYST_NATIVE_WEBVIEW__ = ${nativeWebView ? "true" : "false"}`,
                 }}
             />
             {jsx}

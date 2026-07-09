@@ -23,6 +23,7 @@ export const basePlugins = [
             [
                 ...clientEnv,
                 "BUILD_OUTPUT_PATH",
+                "NODE_ENV",
                 "PUBLIC_STATIC_ASSET_PATH",
                 "PUBLIC_STATIC_ASSET_URL",
                 "src_path",

@@ -81,6 +81,11 @@ const parseSafeAreaFromHeaders = (req) => {
     }
 }
 
+const isNativeWebViewRequest = (req) => {
+    const raw = req.get("X-Catalyst-Native-WebView") ?? req.headers["x-catalyst-native-webview"]
+    return raw === "1" || raw === "true"
+}
+
 // Cache webStats path - computed once at module load
 const webStatsPath = isProduction
     ? path.join(process.env.src_path, `${process.env.BUILD_OUTPUT_PATH}/public/loadable-stats.json`)
@@ -264,10 +269,13 @@ const renderMarkUp = async (
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
     const safeArea = parseSafeAreaFromHeaders(req) || { ...DEFAULT_SAFE_AREA_INSETS }
+    const nativeWebView = isNativeWebViewRequest(req)
 
     /* eslint-disable no-undef */
     const previousSafeArea = globalThis.__SAFE_AREA_INITIAL__
+    const previousNativeWebView = globalThis.__CATALYST_NATIVE_WEBVIEW__
     globalThis.__SAFE_AREA_INITIAL__ = safeArea
+    globalThis.__CATALYST_NATIVE_WEBVIEW__ = nativeWebView
     /* eslint-enable no-undef */
 
     let state = store.getState()
@@ -296,6 +304,7 @@ const renderMarkUp = async (
         initialState: state,
         fetcherData,
         safeArea,
+        nativeWebView,
     }
 
     let CompleteDocument = () => {
@@ -316,6 +325,7 @@ const renderMarkUp = async (
                         fetcherData={finalProps.fetcherData}
                         initialState={finalProps.initialState}
                         safeArea={finalProps.safeArea}
+                        nativeWebView={finalProps.nativeWebView}
                     />
                 </html>
             )
@@ -328,6 +338,11 @@ const renderMarkUp = async (
             delete globalThis.__SAFE_AREA_INITIAL__
         } else {
             globalThis.__SAFE_AREA_INITIAL__ = previousSafeArea
+        }
+        if (previousNativeWebView === undefined) {
+            delete globalThis.__CATALYST_NATIVE_WEBVIEW__
+        } else {
+            globalThis.__CATALYST_NATIVE_WEBVIEW__ = previousNativeWebView
         }
         /* eslint-enable no-undef */
     }
