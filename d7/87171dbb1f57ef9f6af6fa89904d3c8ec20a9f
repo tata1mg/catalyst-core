@@ -1,0 +1,41 @@
+examples/useai/src/js/components/AITest/Panel.js
+  s_5c848e9f4195a6::t_23f50321899350 370-420
+examples/useai/src/js/containers/AITest/AITest.js
+  s_5c848e9f4195a6::t_09f2de56997df2 46
+  s_5c848e9f4195a6::t_b90aa6ee8f4b16 240-255
+  s_5c848e9f4195a6::t_5678c447839918 318
+  s_5c848e9f4195a6::t_e294b6214c3b20 328-329
+packages/catalyst-cloud-ai/src/metrics.js
+  s_5c848e9f4195a6::t_e5fefee3317331 159,163-210
+  s_5c848e9f4195a6::t_7bdc24266c0fbd 160-162
+packages/catalyst-cloud-ai/src/useWebAI.js
+  s_5c848e9f4195a6::t_8e95f5f227494c 211,223
+  s_5c848e9f4195a6::t_30aa7e2c6e7b24 305,310
+  s_5c848e9f4195a6::t_a7a91d259fdea0 325-326,351-353
+  s_5c848e9f4195a6::t_f51237f4f08734 4-7
+  s_5c848e9f4195a6::t_8dfcd3a790fdc2 177,193-195
+  s_5c848e9f4195a6::t_9f5186cd4a0e9c 2
+  s_5c848e9f4195a6::t_5d4bc3130b5ba2 271,273-277
+  s_5c848e9f4195a6::t_d3d92f9da94d3e 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d787171dbb1f57ef9f6af6fa89904d3c8ec20a9f",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_5c848e9f4195a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b475fb39-c0ef-4552-bf71-56068190df6d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
