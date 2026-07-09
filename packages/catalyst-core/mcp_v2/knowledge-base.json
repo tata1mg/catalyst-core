@@ -1703,7 +1703,7 @@
     {
         "section": "ai_integration",
         "title": "useAI — Basic Integration",
-        "content": "Import: import { useAI } from 'catalyst-core/hooks'. Call with options: { provider, model, genConfig, systemPrompt, sessionMode, attachmentComponents }. Returns: { output, streaming, loading, error, generate, cancel, reset, clearError, conversationId, isLocal, isNative, modelReady, downloadProgress, nativeDownloadProgress, nativeLogs, metrics }. Call generate({ messages: [{ role: 'user', content: prompt }], genConfig }) to trigger a request. provider='openai'|'gemini' → cloud. provider='transformers' → in-browser local model. provider='native' → Android on-device.",
+        "content": "Import: import { useAI } from 'catalyst-core/hooks'. Call with options: { provider, model, genConfig, systemPrompt, sessionMode, attachmentComponents }. Returns: { output, streaming, loading, error, generate, cancel, reset, clearError, conversationId, isLocal, isNative, isWeb, modelReady, downloadProgress, nativeDownloadProgress, nativeLogs, metrics, getSessionMetrics, resetSessionMetrics }. Call generate({ messages: [{ role: 'user', content: prompt }], genConfig }) to trigger a request. provider='openai'|'gemini' → useCloudAI (Node route.js, POST /ai/:provider/stream|generate). provider='transformers' → useWebAI (in-browser Transformers.js pipeline via a Worker; EXPERIMENTAL — inference quality/backend selection not yet reliable, see useWebAI.js). provider='native' → useNativeAI (Android on-device LiteRT-LM engine, via an embedded Ktor server at POST /framework-{sessionId}/ai/stream|generate), falling back to useCloudAI if window.NativeBridge is unavailable.",
         "layer": "Component",
         "source": "static",
         "tags": [
@@ -1711,13 +1711,16 @@
             "hooks",
             "integration",
             "generate",
-            "provider"
+            "provider",
+            "useCloudAI",
+            "useWebAI",
+            "useNativeAI"
         ]
     },
     {
         "section": "ai_integration",
         "title": "useAI — genConfig Options",
-        "content": "genConfig object passed to useAI options and to generate(): { temperature: number (0-1), maxTokens: number|null, topP: number, repetitionPenalty: number (local only), noRepeatNgramSize: number (local only), stream: bool }. stream:true triggers SSE path (POST /ai/:provider/stream), stream:false uses POST /ai/:provider/generate (JSON response). genConfig is merged: options-level genConfig is default, generate()-call genConfig overrides per-call.",
+        "content": "genConfig object passed to useAI options and to generate(): { temperature: number (0-1), maxTokens: number|null, topP: number, repetitionPenalty: number (native/web only), noRepeatNgramSize: number (native/web only), stream: bool }. stream:true triggers the SSE path; stream:false uses a single-JSON-response path. Route differs per provider: cloud is POST /ai/:provider/stream|generate (Node route.js); native is POST /framework-{sessionId}/ai/stream|generate (embedded Ktor server on the device — the generate URL is derived client-side in useNativeAI.js by suffix-swapping the stream URL, no separate native plumbing needed); web has no network route at all — genConfig.stream is effectively ignored, the Worker always runs the full generation and streams tokens back via postMessage. genConfig is merged: options-level genConfig is default, generate()-call genConfig overrides per-call.",
         "layer": "Component",
         "source": "static",
         "tags": [
@@ -1731,7 +1734,7 @@
     {
         "section": "ai_integration",
         "title": "useAI — Stateful Sessions",
-        "content": "Pass sessionMode='stateful' to enable conversation memory. On first call, server returns conversationId. Subsequent calls automatically send previous_response_id (OpenAI) or previous_interaction_id (Gemini). conversationId is exposed on the hook return value. Call reset() to clear output and start a new session. sessionMode='stateless' (default) — each generate() call is independent with no history.",
+        "content": "Pass sessionMode='stateful' to enable conversation memory — the mechanism differs per provider since each has a different notion of 'session':\n- Cloud (useCloudAI): client sends conversationId in the request body; the server route.js translates it into the underlying provider's continuation token — previous_response_id (OpenAI) or previous_interaction_id (Gemini) — and returns a fresh conversationId with each response.\n- Native (useNativeAI): client sends conversationId in the request body to the Ktor /ai/stream|generate route; NativeBridgeAI.kt's supply() reuses the same LiteRT-LM Conversation object (nativeConversation/nativeConversationId) when the incoming id matches, otherwise creates a new one via eng.createConversation(). reset() also calls window.NativeBridge.clearNativeConversation() to drop the native-side object.\n- Web (useWebAI, EXPERIMENTAL): there is no server/engine-side session at all — Transformers.js pipelines are stateless per call. 'Stateful' here means useWebAI.js accumulates prior {role, content} turns in a messagesRef and prepends them to every generate() call, replaying full context each time (real chat, not KV-cache reuse). conversationId is a locally-generated crypto.randomUUID(), just to give the UI something stable to key off — it has no meaning beyond this hook instance.\nconversationId is exposed on the hook return value in all three cases. Call reset() to clear output, conversation history, and start a new session. sessionMode='stateless' (default) — each generate() call is independent with no history.",
         "layer": "Component",
         "source": "static",
         "tags": [
@@ -1739,7 +1742,10 @@
             "stateful",
             "sessionMode",
             "conversationId",
-            "reset"
+            "reset",
+            "useCloudAI",
+            "useNativeAI",
+            "useWebAI"
         ]
     },
     {
@@ -1759,7 +1765,7 @@
     {
         "section": "ai_integration",
         "title": "useAI — Loading & Progress States",
-        "content": "loading=true while request is in flight (both stream and generate paths). streaming=true during active SSE token delivery. For local (transformers) provider: modelReady=false while model downloads, downloadProgress={ file, percent } shows per-file progress. For native provider: nativeDownloadProgress={ phase, percent, detail } (phases: 'engine_init', 'model_fetch'), nativeLogs[] contains native log lines. metrics={ ttftMs, tokensPerSec, totalTokens, loadMs, downloadBytes, device } available after generation.",
+        "content": "loading=true while request is in flight (both stream and generate paths). streaming=true during active SSE token delivery. For web/local (transformers) provider: modelReady=false while model downloads, downloadProgress={ file, percent } shows per-file progress (EXPERIMENTAL provider — see useAI — Basic Integration). For native provider: nativeDownloadProgress={ phase, percent, detail } (phases: 'engine_init', 'model_fetch'), nativeLogs[] contains native log lines. metrics shape differs per provider: cloud (useCloudAI) includes cost/cachedTokens/cacheSavings/byProvider fields from computeMetrics() in metrics.js; native and web have no billing, so their per-generation metrics only carry { device, ttftMs, tps, totalTokens, genMs } (web additionally has dtype/loadMs/downloadBytes for the model download). Call getSessionMetrics() to get an aggregate across all generations this session — returns aggregateSessionMetrics() (cloud), aggregateNativeSessionMetrics() (native), or aggregateWebSessionMetrics() (web) from metrics.js; null if no generations yet. resetSessionMetrics() clears the accumulated history without resetting output/conversation state.",
         "layer": "Component",
         "source": "static",
         "tags": [
@@ -1768,7 +1774,9 @@
             "streaming",
             "downloadProgress",
             "modelReady",
-            "metrics"
+            "metrics",
+            "getSessionMetrics",
+            "resetSessionMetrics"
         ]
     }
 ]
