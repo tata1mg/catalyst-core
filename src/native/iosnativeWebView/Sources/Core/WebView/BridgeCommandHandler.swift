@@ -508,6 +508,7 @@ class BridgeCommandHandler {
         store.removeData(ofTypes: dataTypes, modifiedSince: .distantPast) { [weak self] in
             guard let self else { return }
             CacheManager.shared.clearCache()
+            OfflineCacheService.shared.clearAll()
             commandLogger.debug("clearWebData complete")
             DispatchQueue.main.async {
                 self.delegate?.sendJSONCallback(eventName: "ON_WEB_DATA_CLEARED", data: [
