@@ -1,2 +1,2 @@
-export function MetaTag(): React.JSX.Element;
-import React from "react";
+export function MetaTag(): React.JSX.Element
+import React from "react"

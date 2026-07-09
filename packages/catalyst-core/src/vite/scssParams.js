@@ -3,10 +3,7 @@
  * @returns returns path required for loading assets according to enviorment
  */
 export const imageUrl = () => {
-    const {
-        PUBLIC_STATIC_ASSET_URL,
-        PUBLIC_STATIC_ASSET_PATH,
-    } = process.env
+    const { PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH } = process.env
     let publicPath = `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
     const imagePath = `${publicPath}images/`
     return imagePath
@@ -17,10 +14,7 @@ export const imageUrl = () => {
  * @returns returns path required for loading fonts according to enviorment
  */
 export const fontUrl = () => {
-    const {
-        PUBLIC_STATIC_ASSET_URL,
-        PUBLIC_STATIC_ASSET_PATH,
-    } = process.env
+    const { PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH } = process.env
     let publicPath = `${PUBLIC_STATIC_ASSET_URL}${PUBLIC_STATIC_ASSET_PATH}`
     const fontPath = `${publicPath}fonts/`
     return fontPath

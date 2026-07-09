@@ -24,7 +24,7 @@
         "@routes": "src/js/routes/"
     },
     "dependencies": {
-        "catalyst-core": "0.1.0-beta.7"
+        "catalyst-core": "0.2.0-beta.1"
     },
     "devDependencies": {
         "eslint": "^8.26.0",

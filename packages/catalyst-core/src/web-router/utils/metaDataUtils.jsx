@@ -107,7 +107,9 @@ export function getMetaData(matchedRoutes, routeData) {
         })
         if (Array.isArray(allTags) && allTags.length > 0) {
             let mergedTags = mergeHeadElements(...allTags)
-            allTags = mergedTags.map((el,index)=>React.cloneElement(el,{"data-catalyst":true,key:index}))
+            allTags = mergedTags.map((el, index) =>
+                React.cloneElement(el, { "data-catalyst": true, key: index })
+            )
         }
     } catch (er) {
         console.log("meta tags error is ===>", er)
