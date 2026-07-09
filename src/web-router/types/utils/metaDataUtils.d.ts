@@ -5,14 +5,14 @@
  * @param {...Array<JSX.Element>} lists - Multiple lists of JSX head elements, where the first argument is the parent and the rest are children in order.
  * @returns {Array<JSX.Element>} - The combined list with later lists overriding duplicates from earlier ones.
  */
-export function mergeHeadElements(...lists: Array<JSX.Element>[]): Array<JSX.Element>;
+export function mergeHeadElements(...lists: Array<JSX.Element>[]): Array<JSX.Element>
 /**
  * Deletes all elements in the head with a specific data attribute.
  *
  * @param {string} attributeName - The name of the data attribute to search for.
  * @param {string} [attributeValue] - The specific value of the data attribute to match (optional).
  */
-export function deleteHeadTagsByDataAttribute(attributeName: string, attributeValue?: string): void;
+export function deleteHeadTagsByDataAttribute(attributeName: string, attributeValue?: string): void
 /**
  * Returns resolved array of meta data elements.
  *
@@ -21,4 +21,4 @@ export function deleteHeadTagsByDataAttribute(attributeName: string, attributeVa
  * @param {Object} routeData  - Data returned from Router.
  * @returns {Array<JSX.Element>} - List of all meta tags for the matched location.
  */
-export function getMetaData(matchedRoutes: Array<Match>, routeData: Object): Array<JSX.Element>;
+export function getMetaData(matchedRoutes: Array<Match>, routeData: Object): Array<JSX.Element>

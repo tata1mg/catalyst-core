@@ -29,9 +29,7 @@ export function Body(props) {
                     __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}`,
                 }}
             />
-            {process.env.NODE_ENV === "development" && (
-                <script type="module" src="/client/index.js"></script>
-            )}
+            {process.env.NODE_ENV === "development" && <script type="module" src="/client/index.js"></script>}
             {jsx}
             <script
                 /* eslint-disable */

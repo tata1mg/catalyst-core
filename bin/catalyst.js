@@ -37,9 +37,13 @@ function handleProcessResult(result) {
 }
 
 function runScript(relativePath, extraArgs = []) {
-    return spawnSync(process.execPath, [...nodeArgs, resolve(__dirname, relativePath), ...extraArgs, ...scriptArgs], {
-        stdio: "inherit",
-    })
+    return spawnSync(
+        process.execPath,
+        [...nodeArgs, resolve(__dirname, relativePath), ...extraArgs, ...scriptArgs],
+        {
+            stdio: "inherit",
+        }
+    )
 }
 
 function runPlatformCommand(command) {

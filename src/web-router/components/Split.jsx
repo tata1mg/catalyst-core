@@ -42,7 +42,6 @@ const Split = ({
     onVisible,
     skipVisibility,
     children,
-    ...props
 }) => {
     // Check if we're on the server
     const isServer = typeof window === "undefined"
@@ -86,7 +85,7 @@ const Split = ({
  * still hydrates without a Suspense flash.
  */
 export const split = (importFn, options = {}, thirdArg, fourthArg) => {
-    const { ssr = true, fallback = null, key } = options || {}
+    const { ssr = true, fallback = null } = options || {}
     const hasThirdArg = typeof thirdArg !== "undefined"
     const hasFourthArg = typeof fourthArg !== "undefined"
     const cacheKey =

@@ -24,15 +24,13 @@ function getSharedObserver() {
                 }
             })
         },
-        { rootMargin: DEFAULT_ROOT_MARGIN },
+        { rootMargin: DEFAULT_ROOT_MARGIN }
     )
     return sharedObserver
 }
 
 const hasCustomOptions = (o) =>
-    o &&
-    typeof o === "object" &&
-    (o.root != null || o.rootMargin != null || o.threshold != null)
+    o && typeof o === "object" && (o.root != null || o.rootMargin != null || o.threshold != null)
 
 /**
  * Defers rendering of children until the placeholder enters the viewport.
@@ -93,7 +91,7 @@ const SplitInview = ({ fallback = null, children, rootOptions, onVisible }) => {
                 root: opts.root ?? null,
                 rootMargin: opts.rootMargin ?? DEFAULT_ROOT_MARGIN,
                 threshold: opts.threshold,
-            },
+            }
         )
 
         observer.observe(node)

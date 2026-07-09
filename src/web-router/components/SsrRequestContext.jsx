@@ -8,5 +8,7 @@ import React, { createContext } from "react"
 export const SsrRequestContext = createContext({ isBot: false })
 
 export function SsrRequestProvider({ value, children }) {
-    return <SsrRequestContext.Provider value={value ?? { isBot: false }}>{children}</SsrRequestContext.Provider>
+    return (
+        <SsrRequestContext.Provider value={value ?? { isBot: false }}>{children}</SsrRequestContext.Provider>
+    )
 }

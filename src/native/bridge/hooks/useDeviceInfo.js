@@ -56,5 +56,14 @@ export const useDeviceInfo = ({ webFallback } = {}) => {
             })
     }, [webFallbackDisabled])
 
-    return { deviceInfo, loading, error, isNative, isWeb: !isNative, webFallbackActive, webFallbackDisabled, setWebFallback }
+    return {
+        deviceInfo,
+        loading,
+        error,
+        isNative,
+        isWeb: !isNative,
+        webFallbackActive,
+        webFallbackDisabled,
+        setWebFallback,
+    }
 }

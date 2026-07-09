@@ -24,7 +24,7 @@ const routeRecord = (routeKey) => {
 /** Stable key for caching deferred chunks — uses the matched route pattern (e.g. "/product/:name/:id")
  *  so all pages on the same route share one entry regardless of their actual URL parameters. */
 export const getDeferredRouteKey = (req, allMatches = []) => {
-    return allMatches?.length ? allMatches[allMatches.length - 1]?.route?.path ?? null : null
+    return allMatches?.length ? (allMatches[allMatches.length - 1]?.route?.path ?? null) : null
 }
 
 /** CSS paths (manifest-relative) previously deferred on this route — for <head> inlining. */

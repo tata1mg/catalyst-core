@@ -167,7 +167,7 @@ async function createServer() {
 
     app.use(botDetectionMiddleware)
 
-    app.use("*", async (req, res) => {
+    app.use("*", async (req, res, next) => {
         try {
             let render
 
@@ -181,7 +181,7 @@ async function createServer() {
 
             // Render your app
             if (render && render.default) {
-                await render.default(req, res)
+                await render.default(req, res, next)
             } else {
                 console.error("Renderer not found or invalid")
                 res.status(500).send("Error loading renderer")
