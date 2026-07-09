@@ -154,7 +154,7 @@ jobs:
               if: steps.context.outputs.should_run == 'true'
               uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
-                  node-version: "20"
+                  node-version: "22.14.0"
                   registry-url: "https://registry.npmjs.org"
 
             - name: Read workspace package versions
@@ -342,7 +342,7 @@ jobs:
 
             - name: Update npm for OIDC support
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
-              run: npm install -g npm@10
+              run: npm install -g npm@11.5.1
 
             - name: Publish catalyst-core to npm
               id: publish_core
