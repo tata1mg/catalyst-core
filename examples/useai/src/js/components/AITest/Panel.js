@@ -367,7 +367,57 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
                                 </div>
 
                                 {/* Body */}
-                                {isNative ? (
+                                {isLocal ? (
+                                    <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Generations</span>
+                                                <span className="text-lg font-bold text-white font-mono">{stats.generationCount}</span>
+                                            </div>
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Tokens</span>
+                                                <span className="text-lg font-bold text-white font-mono">{formatTokens(stats.totalTokens)}</span>
+                                            </div>
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Gen Time</span>
+                                                <span className="text-lg font-bold text-white font-mono">{formatSeconds(stats.totalGenMs)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-[var(--surface-3)] p-3.5 rounded-xl border border-[var(--border)] flex flex-col gap-2 mt-1">
+                                            <div className="text-[10px] text-[var(--text-3)] border-b border-[var(--border)] pb-1.5 mb-0.5 uppercase tracking-wider font-semibold">
+                                                Performance Metrics
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Avg TTFT</span>
+                                                    <span className="text-white font-mono font-medium">{formatSeconds(stats.avgTtftMs)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Avg Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.avgTps)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Min Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.minTps)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Max Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.maxTps)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {(stats.device || stats.dtype) && (
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex items-center justify-between">
+                                                <span className="text-[10px] text-[var(--text-3)] uppercase tracking-wider font-semibold">Engine</span>
+                                                <span className="text-[12px] text-white font-mono font-medium">
+                                                    {[stats.device, stats.dtype].filter(Boolean).join(" · ")}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : isNative ? (
                                     <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
                                         <div className="grid grid-cols-3 gap-3">
                                             <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">

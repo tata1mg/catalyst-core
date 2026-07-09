@@ -1,4 +1,10 @@
 import { useState, useRef, useCallback } from "react"
+import { aggregateWebSessionMetrics } from "./metrics.js"
+
+// EXPERIMENTAL: in-browser inference via Transformers.js is not efficient or reliable yet —
+// generation quality/instruction-following degrades noticeably on larger models (e.g. Llama 3)
+// versus useCloudAI/useNativeAI, and WebGPU/WASM backend selection is unpredictable across
+// devices. Treat this provider as a demo/fallback path, not production-ready, until revisited.
 
 const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js"
 
@@ -168,6 +174,7 @@ export function useWebAI({
     formatPrompt,
     genConfig: genConfigProp = {},
     defaultGenConfig = {},
+    sessionMode = "stateless",
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
 
@@ -183,6 +190,9 @@ export function useWebAI({
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const cancelledRef = useRef(false)
+    const historyRef = useRef([])
+    const messagesRef = useRef([])
+    const conversationIdRef = useRef(null)
 
     const generate = useCallback(
         ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
@@ -198,6 +208,7 @@ export function useWebAI({
             }
 
             const genConfig = { ...hookGenConfig, ...callGenConfig }
+            const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...messages] : messages
 
             setLoading(true)
             setOutput("")
@@ -209,7 +220,7 @@ export function useWebAI({
             outputAccRef.current = ""
             if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
 
-            const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null }
+            const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null }
 
             const worker = new Worker(getWorkerBlobUrl(), { type: "module" })
             workerRef.current = worker
@@ -257,7 +268,13 @@ export function useWebAI({
                         setOutput(outputAccRef.current)
                         metricsAcc.tps = msg.tps
                         metricsAcc.totalTokens = msg.totalTokens
+                        metricsAcc.genMs = msg.genMs
                         setMetrics({ ...metricsAcc })
+                        historyRef.current.push({ ...metricsAcc })
+                        if (sessionMode === "stateful") {
+                            if (!conversationIdRef.current) conversationIdRef.current = crypto.randomUUID()
+                            messagesRef.current = [...resolvedMessages, { role: "assistant", content: outputAccRef.current }]
+                        }
                         setStreaming(false)
                         setLoading(false)
                         worker.terminate()
@@ -285,12 +302,12 @@ export function useWebAI({
             worker.postMessage({
                 type: "generate",
                 model: resolvedModel,
-                messages,
+                messages: resolvedMessages,
                 genConfig,
                 formatPrompt: typeof formatPrompt === "function" ? formatPrompt.toString() : null,
             })
         },
-        [modelProp, formatPrompt, hookGenConfig]
+        [modelProp, formatPrompt, hookGenConfig, sessionMode]
     )
 
     const cancel = useCallback(() => {
@@ -305,6 +322,8 @@ export function useWebAI({
         if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
         outputAccRef.current = ""
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        conversationIdRef.current = null
+        messagesRef.current = []
         setOutput("")
         setError(null)
         setMetrics(null)
@@ -329,11 +348,8 @@ export function useWebAI({
         cancel,
         reset,
         clearError: useCallback(() => setError(null), []),
-        conversationId: null,
-        // Local/web generations aren't HTTP usage objects, so there's no cost/token
-        // accounting to aggregate yet — stubbed so callers can invoke unconditionally
-        // across all three modes without branching.
-        getSessionMetrics: useCallback(() => null, []),
-        resetSessionMetrics: useCallback(() => {}, []),
+        get conversationId() { return conversationIdRef.current },
+        getSessionMetrics: useCallback(() => aggregateWebSessionMetrics(historyRef.current), []),
+        resetSessionMetrics: useCallback(() => { historyRef.current = [] }, []),
     }
 }

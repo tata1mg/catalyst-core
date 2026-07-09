@@ -43,6 +43,7 @@ export default function AITest() {
 
     const [cloudSessionMode, setCloudSessionMode] = useState("stateless");
     const [nativeSessionMode, setNativeSessionMode] = useState("stateless");
+    const [localSessionMode, setLocalSessionMode] = useState("stateless");
 
     const noneSelected = !useCloud && !useLocal && !useNative;
 
@@ -236,6 +237,22 @@ export default function AITest() {
                                 <span className="text-[11px] font-mono opacity-70">{nativeSessionMode}</span>
                             </button>
                         )}
+                        {useLocal && (
+                            <button
+                                type="button"
+                                onClick={() => setLocalSessionMode(m => m === "stateless" ? "stateful" : "stateless")}
+                                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[13px] font-semibold transition cursor-pointer select-none ${
+                                    localSessionMode === "stateful"
+                                        ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                                        : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white hover:bg-[var(--surface-3)]"
+                                }`}
+                                title="Stateful: prior turns are replayed into each prompt client-side. Stateless: each prompt is independent."
+                            >
+                                <span>{localSessionMode === "stateful" ? "🔗" : "⬜"}</span>
+                                <span>Local Session</span>
+                                <span className="text-[11px] font-mono opacity-70">{localSessionMode}</span>
+                            </button>
+                        )}
                     </div>
 
                     <div className="w-full h-px bg-[var(--border)] my-5" />
@@ -298,7 +315,7 @@ export default function AITest() {
                 {useLocal && (
                     <Panel
                         key="local"
-                        label="Local · Transformers.js"
+                        label="Local · Transformers.js (experimental)"
                         icon="🧠"
                         provider="transformers"
                         model={selectedLocalModel}
@@ -308,6 +325,8 @@ export default function AITest() {
                         run={localRun}
                         genConfig={genConfig}
                         systemPrompt={systemPrompt}
+                        sessionMode={localSessionMode}
+                        onResetSession={() => setLocalSessionMode(m => m)}
                     />
                 )}
                 {useNative && (

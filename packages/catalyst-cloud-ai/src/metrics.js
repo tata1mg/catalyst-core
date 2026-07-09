@@ -156,3 +156,55 @@ export function aggregateNativeSessionMetrics(history) {
         maxTps,
     }
 }
+
+// EXPERIMENTAL (see useWebAI.js) — metrics reflect a provider whose generation quality/backend
+// selection isn't yet reliable, so tps/ttft numbers here are informative, not a guarantee.
+//
+// history: array of web per-generation metrics objects ({ device, dtype, ttftMs, tps, totalTokens, genMs })
+// accumulated across a browser session. No cost/cachedTokens/cacheSavings/byProvider — web has no
+// billing and one pipeline per session. device/dtype are taken from the most recent entry rather
+// than aggregated, since they describe the loaded model/backend, not a per-generation value.
+// Returns null when history is empty.
+export function aggregateWebSessionMetrics(history) {
+    if (!history || history.length === 0) return null
+
+    const generationCount = history.length
+    let totalTokens = 0
+    let totalGenMs = 0
+    let ttftSum = 0
+    let ttftCount = 0
+    let tpsSum = 0
+    let tpsCount = 0
+    let minTps = null
+    let maxTps = null
+
+    for (const m of history) {
+        totalTokens += m.totalTokens ?? 0
+        totalGenMs += m.genMs ?? 0
+
+        if (typeof m.ttftMs === "number") {
+            ttftSum += m.ttftMs
+            ttftCount++
+        }
+        if (typeof m.tps === "number") {
+            tpsSum += m.tps
+            tpsCount++
+            minTps = minTps === null ? m.tps : Math.min(minTps, m.tps)
+            maxTps = maxTps === null ? m.tps : Math.max(maxTps, m.tps)
+        }
+    }
+
+    const last = history[history.length - 1]
+
+    return {
+        generationCount,
+        totalTokens,
+        totalGenMs,
+        avgTtftMs: ttftCount > 0 ? Math.round(ttftSum / ttftCount) : null,
+        avgTps: tpsCount > 0 ? parseFloat((tpsSum / tpsCount).toFixed(1)) : null,
+        minTps,
+        maxTps,
+        device: last?.device ?? null,
+        dtype: last?.dtype ?? null,
+    }
+}
