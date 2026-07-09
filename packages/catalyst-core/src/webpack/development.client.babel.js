@@ -1,14 +1,11 @@
+import net from "net"
 import webpack from "webpack"
-import merge, { mergeWithCustomize, customizeArray, customizeObject } from "webpack-merge"
+import merge from "webpack-merge"
 import WebpackDevServer from "webpack-dev-server"
 import LoadablePlugin from "@loadable/webpack-plugin"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import ReactRefreshWebpackPlugin from "@pmmmwh/react-refresh-webpack-plugin"
 import path from "path"
-import nodeExternals from "webpack-node-externals"
-import rootWorkspacePath from "app-root-path"
-// Import the catalystResultMap for SSR support
-import { catalystResultMap } from "../scripts/registerAliases.js"
 
 import catalystConfig from "@catalyst/root/config.json"
 import baseConfig from "@catalyst/webpack/base.babel.js"
@@ -16,14 +13,16 @@ import customWebpackConfig from "@catalyst/template/webpackConfig.js"
 
 const { WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME } = process.env
 
-// Create client config
 const webpackClientConfig = merge(baseConfig, {
+    // eval-cheap-module-source-map: faster rebuilds and lower memory than inline-source-map
     devtool: "inline-source-map",
     stats: "none",
     infrastructureLogging: {
         level: "none",
     },
     plugins: [
+        // writeToDisk is required because the Node server runs in a separate process
+        // and cannot access webpack's in-memory filesystem to read loadable-stats.json.
         new LoadablePlugin({
             filename: "loadable-stats.json",
             writeToDisk: {
@@ -79,76 +78,7 @@ const webpackClientConfig = merge(baseConfig, {
     },
 })
 
-// Create SSR config
-const webpackSSRConfig = mergeWithCustomize({
-    customizeArray: customizeArray({
-        entry: "replace",
-        optimization: "replace",
-        plugins: "prepend",
-    }),
-    customizeObject: customizeObject({
-        entry: "replace",
-        optimization: "replace",
-        plugins: "prepend",
-    }),
-})(baseConfig, {
-    mode: "development",
-    stats: "none",
-    target: "node",
-    entry: {
-        handler: path.resolve(__dirname, "..", "./server/renderer/handler.js"),
-    },
-    externals: [
-        /\.(html|png|gif|jpg)$/,
-        // OpenTelemetry is an opt-in peer dependency that may not be installed.
-        // Always treat it (and @grpc/grpc-js, pulled in by the gRPC exporters) as
-        // external so the build never tries to resolve it; the lazy import() in
-        // src/otel.js then only requires it at runtime when OTEL_ENABLE=true.
-        /^@opentelemetry\//,
-        "@grpc/grpc-js",
-        nodeExternals({
-            modulesDir: path.resolve(process.env.src_path, "./node_modules"),
-            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
-        }),
-        nodeExternals({
-            modulesDir: path.join(rootWorkspacePath.path, "./node_modules"),
-            allowlist: customWebpackConfig.transpileModules ? customWebpackConfig.transpileModules : [],
-        }),
-    ],
-    resolve: {
-        alias: catalystResultMap,
-    },
-    output: {
-        path: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
-        chunkFilename: catalystConfig.chunkFileName,
-        filename: "handler.development.js",
-        libraryTarget: "commonjs",
-    },
-    plugins: [
-        new LoadablePlugin({
-            filename: "loadable-stats.json",
-            writeToDisk: {
-                filename: path.join(__dirname, "../..", ".catalyst-dev", "/server", "/renderer"),
-            },
-        }),
-        new MiniCssExtractPlugin({
-            filename: catalystConfig.cssChunkFileName,
-            ignoreOrder: true,
-        }),
-        ...customWebpackConfig.ssrPlugins,
-    ].filter(Boolean),
-})
-
-// Create separate compiler for SSR that writes to disk
-const ssrCompiler = webpack(webpackSSRConfig)
-const watchInstance = ssrCompiler.watch({}, (err) => {
-    if (err) {
-        console.error(err)
-        return
-    }
-})
-
-// Create dev server for client-side only
+// SSR compiler runs in a separate process; this process handles client-side HMR only
 let devServer = new WebpackDevServer(
     {
         port: WEBPACK_DEV_SERVER_PORT,
@@ -172,41 +102,51 @@ let devServer = new WebpackDevServer(
     webpack(webpackClientConfig)
 )
 
-devServer
-    .start()
+const checkPortAvailability = (port, host) => {
+    return new Promise((resolve, reject) => {
+        const tester = net
+            .createServer()
+            .once("error", (err) => {
+                tester.close(() => {
+                    if (err.code === "EADDRINUSE") {
+                        reject(
+                            new Error(
+                                `Port ${port} is already in use on ${host}. Please free the port or set a different WEBPACK_DEV_SERVER_PORT.`
+                            )
+                        )
+                    } else {
+                        reject(err)
+                    }
+                })
+            })
+            .once("listening", () => {
+                tester.close(() => resolve())
+            })
+            .listen(port, host)
+    })
+}
+
+checkPortAvailability(WEBPACK_DEV_SERVER_PORT, WEBPACK_DEV_SERVER_HOSTNAME)
     .then(() => {
-        console.log("Catalyst is compiling your files.")
-        console.log("Please wait until bundling is finished.\n")
+        devServer
+            .start()
+            .then(() => {
+                console.log("Catalyst is compiling your files.")
+                console.log("Please wait until bundling is finished.\n")
+            })
+            .catch((err) => {
+                console.error("Failed to start webpack-dev-server:", err)
+                process.exit(1)
+            })
     })
     .catch((err) => {
-        console.error("Failed to start webpack-dev-server:", err)
+        console.error(`\n[Catalyst] Dev server startup failed: ${err.message}\n`)
         process.exit(1)
     })
 
-// Cleanup on exit
 const cleanup = () => {
-    // Close webpack watch
-    watchInstance.close(() => {
-        // Delete the development handler file
-        try {
-            // Delete the file
-            require("fs").unlinkSync(
-                path.join(
-                    __dirname,
-                    "../..",
-                    ".catalyst-dev",
-                    "/server",
-                    "/renderer",
-                    "handler.development.js"
-                )
-            )
-            // Try to remove the renderer directory
-            require("fs").rmdirSync(path.join(process.env.src_path, ".catalyst-dev", "/renderer"))
-            // Try to remove the parent directory
-            require("fs").rmdirSync(path.join(process.env.src_path, ".catalyst-dev"))
-        } catch (err) {
-            // Ignore errors during cleanup
-        }
+    console.log("[Client] Shutting down client dev server...")
+    devServer.stop().then(() => {
         process.exit()
     })
 }
@@ -214,4 +154,3 @@ const cleanup = () => {
 // Handle various ways the process might exit
 process.on("SIGINT", cleanup) // Ctrl+C
 process.on("SIGTERM", cleanup) // kill
-process.on("exit", cleanup) // normal exit

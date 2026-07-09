@@ -269,8 +269,10 @@ async function launchIOSSimulator(simulatorName) {
 
         const runtimesOutput = execSync("xcrun simctl list runtimes -j").toString()
         const availableRuntimeIds = new Set(
-            JSON.parse(runtimesOutput).runtimes
-                .filter((r) => r.isAvailable || r.availability === "(available)" || r.availability === "available")
+            JSON.parse(runtimesOutput)
+                .runtimes.filter(
+                    (r) => r.isAvailable || r.availability === "(available)" || r.availability === "available"
+                )
                 .map((r) => r.identifier)
         )
 
@@ -286,7 +288,11 @@ async function launchIOSSimulator(simulatorName) {
                 if (device.name === simulatorName) {
                     const alreadyBooted = device.state === "Booted"
                     // Take this match if: no match yet, or this runtime is available and current isn't, or device is already booted
-                    if (!foundSimulator || (isAvailableRuntime && !foundSimulator._fromAvailableRuntime) || alreadyBooted) {
+                    if (
+                        !foundSimulator ||
+                        (isAvailableRuntime && !foundSimulator._fromAvailableRuntime) ||
+                        alreadyBooted
+                    ) {
                         foundSimulator = { ...device, _fromAvailableRuntime: isAvailableRuntime }
                         foundSimulatorId = device.udid
                         isBooted = alreadyBooted

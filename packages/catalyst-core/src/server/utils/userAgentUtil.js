@@ -15,6 +15,31 @@ const googleBots = {
     "Web Light": "googleweblight",
     "Amp crawler": "Google-AMPHTM",
     Googlebot: "Googlebot",
+    "Google Inspection Tool": "Google-InspectionTool",
+    "Google Agent": "Google-Agent",
+}
+
+// AI Crawler bots - for improved SEO with AI search engines
+const aiCrawlerBots = {
+    // OpenAI/ChatGPT bots
+    GPTBot: "GPTBot",
+    "ChatGPT-User": "ChatGPT-User",
+    "OAI-SearchBot": "OAI-SearchBot",
+
+    // Anthropic/Claude bots
+    ClaudeBot: "ClaudeBot",
+    "Claude-User": "Claude-User",
+    "Claude-SearchBot": "Claude-SearchBot",
+
+    // Perplexity bots
+    PerplexityBot: "PerplexityBot",
+    "Perplexity-User": "Perplexity-User",
+
+    // Microsoft Bing bot (also powers Bing Chat/Copilot)
+    Bingbot: "bingbot",
+
+    // Meta Crawler bot
+    MetaBot: "meta-externalagent",
 }
 
 /**
@@ -29,6 +54,13 @@ const getGoogleBot = (ua) => {
     return null
 }
 
+const getAICrawlerBot = (ua) => {
+    for (let key in aiCrawlerBots) {
+        if (ua.includes(aiCrawlerBots[key])) return key
+    }
+    return null
+}
+
 /**
  * returns object which contains google bot and user-agent info
  * @param {string} ua - user agent
@@ -37,6 +69,7 @@ const getGoogleBot = (ua) => {
 export const getUserAgentDetails = (ua) => {
     const agentDetails = parser(ua)
     const googleBot = getGoogleBot(ua)
+    const aiBot = getAICrawlerBot(ua)
 
-    return { ...agentDetails, googleBot }
+    return { ...agentDetails, googleBot, aiBot }
 }

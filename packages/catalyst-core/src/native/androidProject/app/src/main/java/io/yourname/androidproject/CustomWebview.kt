@@ -97,7 +97,7 @@ class CustomWebView(
 
         // Access control toggle
         accessControlEnabled = properties
-            .getProperty("accessControl.enabled", "true")
+            .getProperty("accessControl.enabled", "false")
             .equals("true", ignoreCase = true)
 
         // Initialize URLWhitelistManager with access control configuration

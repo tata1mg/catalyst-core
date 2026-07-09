@@ -2,15 +2,14 @@ import express from "express"
 
 const router = express.Router()
 
-if (process.env.NODE_ENV === "production") {
-    const handler = require("./handler").default
-
-    router.use(handler)
-} else {
-    const developmentHandler =
-        require("../../../.catalyst-dev/server/renderer/handler.development.js").default
-
-    router.use(developmentHandler)
-}
+router.use(function rendererMiddleware(req, res, next) {
+    let handler = require("./handler").default
+    if (res.locals.rendererWrapper) {
+        logger.debug({ message: "Handler wrapped" })
+        res.locals.rendererWrapper(handler)(req, res, next)
+    } else {
+        handler(req, res, next)
+    }
+})
 
 export default router

@@ -4,7 +4,11 @@ export { useCamera, requestCameraPermission, useCameraPermission } from "./useCa
 export { useIntent } from "./useIntent.js"
 export { useFilePicker, sanitizeFilePickerOptions } from "./useFilePicker.js"
 export { useHapticFeedback, requestHapticFeedback } from "./useHapticFeedback.js"
-export { useNotification, useNotificationPermission, requestNotificationPermission } from "./useNotification.js"
+export {
+    useNotification,
+    useNotificationPermission,
+    requestNotificationPermission,
+} from "./useNotification.js"
 export { useNetworkStatus } from "./useNetworkStatus.js"
 export { useDeviceInfo } from "./useDeviceInfo.js"
 export { useDataProtection } from "./useDataProtection.js"

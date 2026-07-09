@@ -2,160 +2,188 @@ import path from "path"
 import fs from "fs"
 import { withSyncObservability } from "../../otel"
 
+// Use decimal megabytes (1 MB = 1,000,000 bytes) for all memory logs
+const BYTES_PER_MB = 1_000_000
+const toMB = (bytes) => (bytes / BYTES_PER_MB).toFixed(2)
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
 
-export function cachePreloadJSLinks(key, data) {
-    if (!process.preloadJSLinkCache) {
-        process.preloadJSLinkCache = {}
-    }
-    let preloadJSLinks = []
-    if (Array.isArray(data)) {
-        try {
-            preloadJSLinks = data.filter((asset) => asset?.props?.as === "script")
-        } catch (error) {
-            logger.error("Error in filtering preloaded JS:" + error)
-        }
-    }
-
-    process.preloadJSLinkCache[key] = preloadJSLinks
-}
-
 /**
- * Stores css chunks styles into cache in string format
- * @param {string} key - router path
- * @param {object} data - css elements array extracted through loadable chunk extracter
+ * Caches CSS file content (shared across all routes)
+ * @param {string} assetName - CSS filename
+ * @param {string} assetPath - Full path to CSS file
  */
-export function cacheCSS(key, data) {
+function cacheCSS(assetName, assetPath) {
     if (!process.cssCache) {
         process.cssCache = {}
     }
-    let pageCss = ""
-    let listOfCachedAssets = {}
-    if (Array.isArray(data)) {
-        try {
-            if (process.env.NODE_ENV === "production") {
-                data.map((assetChunk) => {
-                    const assetPathArr = assetChunk.key.split("/")
-                    const assetName = path.basename(assetPathArr[assetPathArr.length - 1])
-                    const ext = path.extname(assetName)
 
-                    if (ext === ".css") {
-                        // if css file has not already been cached, add the content of this CSS file in pageCSS
-                        if (
-                            !listOfCachedAssets[assetName] &&
-                            !process.cssCache?.[key]?.listOfCachedAssets?.[assetName]
-                        ) {
-                            pageCss += fs.readFileSync(
-                                `${process.env.src_path}${path.sep}${process.env.BUILD_OUTPUT_PATH}${path.sep}public${path.sep}${assetName}`
-                            )
-                            listOfCachedAssets[assetName] = true
-                        }
-                    }
-                })
-            }
-        } catch (error) {
-            logger.error("Error in caching CSS:" + error)
-        }
-    }
-    // if css cache exists for a route and there are some uncached css, add that css to the cache
-    // this will run on subsequent hits and will add css of uncached widgets to the cache
-    if (process.cssCache[key]) {
-        if (pageCss !== "") {
-            let existingListOfCachedAssets = process.cssCache[key].listOfCachedAssets
-            const newPageCSS = process.cssCache[key].pageCss + pageCss
-            let newListOfCachedAssets = { ...existingListOfCachedAssets, ...listOfCachedAssets }
-            process.cssCache[key] = { pageCss: newPageCSS, listOfCachedAssets: newListOfCachedAssets }
-        }
-    } else {
-        // create css cache for a page. This will run on the first hit.
-        process.cssCache[key] = { pageCss, listOfCachedAssets }
+    if (!process.cssCache[assetName]) {
+        const css = fs.readFileSync(assetPath)
+        process.cssCache[assetName] = css
+
+        const cssCacheSize = Object.keys(process.cssCache).length
+        const cssCacheTotalSizeBytes = Object.values(process.cssCache).reduce(
+            (total, cssContent) => total + Buffer.byteLength(cssContent),
+            0
+        )
+
+        const memoryUsage = process.memoryUsage()
+        const availableMemoryBytes = (memoryUsage?.heapTotal ?? 0) - (memoryUsage?.heapUsed ?? 0)
+
+        logger.info(
+            `Last Cached CSS - Asset: ${assetName}, ` +
+                `CSS Cache Entries: ${cssCacheSize}, ` +
+                `CSS Cache Total Size: ${toMB(cssCacheTotalSizeBytes)} MB, ` +
+                `RSS: ${toMB(memoryUsage?.rss ?? 0)} MB, ` +
+                `Heap Total: ${toMB(memoryUsage?.heapTotal ?? 0)} MB, ` +
+                `Heap Used: ${toMB(memoryUsage?.heapUsed ?? 0)} MB, ` +
+                `External: ${toMB(memoryUsage?.external ?? 0)} MB, ` +
+                `Array Buffers: ${toMB(memoryUsage?.arrayBuffers ?? 0)} MB, ` +
+                `Available Memory: ${toMB(availableMemoryBytes)} MB, ` +
+                `Timestamp: ${new Date().toISOString()}`
+        )
     }
 
-    return pageCss
+    return process.cssCache[assetName]
 }
 
 /**
- * returns cached css
- * @param {string} key - router path
- * @return {string} - cached css
+ * Extracts CSS and preload links from cached ChunkExtractor
+ * @param {string} routePath - Route path
+ * @returns {object} { css: string, preloadJSLinks: array } or null if not cached
  */
-function fetchCachedCSS(key) {
-    return process.cssCache && process.cssCache[key] ? process.cssCache[key].pageCss : ""
-}
+function getAssetsFromCachedExtractor(routePath) {
+    const isProd = process.env.NODE_ENV === "production"
 
-function fetchPreloadJSLinkCache(key) {
-    return process.preloadJSLinkCache && process.preloadJSLinkCache[key]
-        ? process.preloadJSLinkCache[key]
-        : null
+    // Only use cached extractor in production
+    if (!isProd || !process.extractorCache || !process.extractorCache[routePath]) {
+        return null
+    }
+
+    const extractor = process.extractorCache[routePath]
+    const linkElements = extractor.getLinkElements({ fetchpriority: "low" })
+
+    // Extractor hasn't run renderToString yet — no chunks collected
+    if (!linkElements || linkElements.length === 0) {
+        return null
+    }
+
+    const preloadJSLinks = linkElements.filter((asset) => asset?.props?.as === "script")
+
+    const cssAssets = linkElements.filter((e) => {
+        const href = e?.props?.href
+        return href && href.endsWith(".css")
+    })
+
+    // Build inline CSS from cached CSS files
+    const cssContents = []
+    for (const cssElement of cssAssets) {
+        const assetName = path.basename(cssElement.props.href)
+        // Check if CSS content is cached
+        if (process.cssCache && process.cssCache[assetName]) {
+            cssContents.push(process.cssCache[assetName])
+        } else {
+            // CSS file not in cache yet — fall back to full render path
+            return null
+        }
+    }
+
+    const cachedCss = cssContents.join("")
+
+    return {
+        css: cachedCss,
+        preloadJSLinks: preloadJSLinks,
+    }
 }
 
 /**
- * stores css and js in cache
- * @param {object} res - response object
- * @param {string} route - route path
+ * Builds inline CSS from link elements by reading and caching CSS files
+ * @param {array} linkElements - Link elements from ChunkExtractor
+ * @returns {string} Concatenated CSS content
+ */
+function buildInlineCSS(linkElements) {
+    if (!Array.isArray(linkElements) || linkElements.length === 0) {
+        return ""
+    }
+
+    const cssContents = []
+
+    for (const element of linkElements) {
+        const href = element?.props?.href
+        if (href && href.endsWith(".css")) {
+            const assetName = path.basename(href)
+            const assetPath = path.resolve(
+                process.env.src_path,
+                `${process.env.BUILD_OUTPUT_PATH}/public`,
+                assetName // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - assetName is reduced to a basename and CSS is read from the build output directory.
+            )
+
+            // Read and cache CSS content
+            const cssContent = cacheCSS(assetName, assetPath)
+            cssContents.push(cssContent)
+        }
+    }
+
+    return cssContents.join("")
+}
+
+/**
+ * Phase 2: called from renderMarkUp's onAllReady after renderToPipeableStream finishes.
+ * Builds the inline CSS (<style> block) and script tags that are appended to the stream.
+ * In production, CSS is inlined from disk-cached files; in dev, style tags are used directly.
+ * Bots receive no JS — only the fully rendered HTML is needed for crawling.
+ */
+export const cacheAndFetchAssets = withSyncObservability(
+    SSR_SERVICE,
+    function cacheAndFetchAssets({ webExtractor, res, isBot }) {
+        let firstFoldCss = ""
+        let firstFoldJS = ""
+        const isProd = process.env.NODE_ENV === "production"
+        const { routePath } = res.locals
+
+        const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
+
+        if (routePath) {
+            if (isProd) {
+                firstFoldCss = buildInlineCSS(linkElements)
+                if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
+            } else {
+                firstFoldCss = webExtractor.getStyleTags()
+            }
+            firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
+        }
+
+        return { firstFoldCss, firstFoldJS }
+    },
+    "cacheAndFetchAssets"
+)
+
+/**
+ * Checks if we have cached assets for this route
+ * Called during Phase 1 to determine if we can skip renderToString
+ * @param {object} res - Response object
+ * @param {object} route - Route configuration
  */
 export default withSyncObservability(
     SSR_SERVICE,
     function extractAssets(res, route) {
         try {
-            const requestPath = route.path
-            const cachedCss = fetchCachedCSS(requestPath)
-            const cachedPreloadJSLinks = fetchPreloadJSLinkCache(requestPath)
+            const routePath = route.path
+            const cached = getAssetsFromCachedExtractor(routePath)
 
-            if (cachedCss || cachedPreloadJSLinks) {
-                res.locals.pageCss = cachedCss
-                res.locals.preloadJSLinks = cachedPreloadJSLinks
+            if (cached && (cached.css || cached.preloadJSLinks)) {
+                res.locals.pageCss = cached.css
+                res.locals.preloadJSLinks = cached.preloadJSLinks
                 return
             }
 
             logger.info({
                 message: "Cache Missed",
-                uri: requestPath,
+                uri: routePath,
             })
         } catch (error) {
             logger.error("Error in extracting assets:" + error)
         }
     },
     "extractAssets"
-)
-
-export const cacheAndFetchAssets = withSyncObservability(
-    SSR_SERVICE,
-    function cacheAndFetchAssets({ webExtractor, res, isBot }) {
-        // For bot first fold css and js would become complete page css and js
-        let firstFoldCss = ""
-        let firstFoldJS = ""
-        const isProd = process.env.NODE_ENV === "production"
-
-        const { routePath, preloadJSLinks } = res.locals
-
-        const linkElements = webExtractor.getLinkElements()
-
-        // We want to cache/or check for update css on every call
-        // We want to extract script tags for every call that will get added to body.
-        // Their corresponding preloaded link script tags are already present in head.
-        if (routePath) {
-            if (isProd) {
-                firstFoldCss = cacheCSS(routePath, linkElements)
-                if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
-            } else {
-                cacheCSS(routePath, linkElements)
-                firstFoldCss = webExtractor.getStyleTags()
-            }
-            // firstFoldJS = webExtractor.getScriptTags({ nonce: cspNonce })
-            firstFoldJS = webExtractor.getScriptTags()
-        }
-
-        // This block will run for the first time and cache preloaded JS Links for second render
-        // firstFoldJS ->scripts gets inject in body
-        // firstFoldCss -> Inline css gets injected in body only for the first render
-        if (!isProd || isBot || (routePath && !preloadJSLinks)) {
-            // For production, we inject link tags with preload/prefetch using getLinkElements and inlining them via file reads
-            // For local, given we have assets in memory we dont read from file rather directly inject via link elements returned without preload/prefetch
-            !isBot && cachePreloadJSLinks(routePath, linkElements)
-        }
-
-        return { firstFoldCss, firstFoldJS }
-    },
-    "cacheAndFetchAssets"
 )
