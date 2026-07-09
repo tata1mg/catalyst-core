@@ -6,8 +6,12 @@ id: route-offline-snapshots
 
 # Route Offline Snapshots
 
-Catalyst can cache SSR HTML snapshots for selected routes so repeat visits can hydrate when the
-server or network is unavailable. API responses are still not cached.
+Catalyst can cache SSR HTML snapshots for selected routes. After a successful online visit to an
+eligible SSR route, Catalyst stores the rendered HTML for that exact URL. If the same URL is opened
+later while the server or network is unavailable, Catalyst can serve the cached HTML and hydrate the
+page with cached runtime assets.
+
+API responses and non-GET requests are not cached by route offline snapshots.
 
 ## Developer API
 
@@ -25,12 +29,33 @@ Enable route snapshots through route config:
 so a root index route caches `/` without making every URL eligible. Snapshots are stored by exact
 visited URL, so `/home`, `/home?tab=a`, and `/home/settings` are separate cached documents.
 
+Route eligibility is matched by path. Query strings are ignored for route eligibility, but they are
+kept in the snapshot cache key.
+
+Examples:
+
+```javascript
+{ path: "/home", offline: true }
+// eligible: /home, /home/settings, /home?tab=a
+
+{ path: "/account", children: [{ path: "", offline: true }] }
+// eligible: /account
+// not eligible: /account/settings
+
+{ path: "/", index: true, offline: true }
+// eligible: /
+// not every app route
+```
+
 ## Build Output
 
-Production-style builds generate two Catalyst-owned files in `build/public`:
+Production-style builds generate Catalyst-owned offline runtime files in `build/public`:
 
 - `catalyst-offline-manifest.json`
 - `catalyst-sw.js`
+
+If the app provides `public/offline.html`, Catalyst copies it to `build/public/offline.html` and
+uses it as the fallback when an eligible route has not been visited online yet.
 
 The manifest contains:
 
@@ -49,8 +74,9 @@ WebViews.
 The service worker:
 
 - fetches and stores the latest offline manifest;
-- stores successful SSR HTML for eligible route navigations;
-- returns exact cached route snapshots when navigation fetch fails;
+- uses a network-first strategy for eligible route navigations;
+- stores successful `text/html` SSR responses by exact URL;
+- returns an exact cached route snapshot only when the navigation fetch fails;
 - caches intercepted JS, CSS, font, and image requests on demand;
 - deletes old Catalyst build caches on service worker activation;
 - falls back to `/offline.html` when no route snapshot exists;
@@ -64,7 +90,8 @@ Native request interception:
 
 - refreshes the manifest while online;
 - treats main-frame GET document requests under offline route subtrees as snapshot eligible;
-- stores successful `text/html` snapshots by exact URL;
+- lets the original online WebView navigation continue normally;
+- stores successful `text/html` snapshots by exact URL in the background;
 - skips background snapshot refresh when the existing snapshot is still fresh;
 - sends `X-Catalyst-Offline-Snapshot-Fetch: 1` on native background snapshot fetches;
 - serves a cached snapshot when the same URL is requested offline;
@@ -79,6 +106,20 @@ identify as route subresources.
 Offline app launch and notification navigation first try a cached route snapshot. If no snapshot is
 available, Catalyst falls back to bundled `public/offline.html`.
 
+## Online Recovery
+
+Route snapshots do not replace normal online loading. When the device or browser is online again,
+future route reloads, retry actions, and navigations use the network first and refresh the cached
+snapshot after a successful response.
+
+If the user is already viewing the bundled offline fallback page, Catalyst does not automatically
+reload the page on connectivity recovery. The user must retry, reload, or navigate again for the
+online route to load. This avoids unexpectedly replacing visible content or interrupting in-progress
+user state during partial connectivity.
+
+Cached JS, CSS, font, and image assets may still be served from the asset cache while fresh or while
+being revalidated. API responses and non-GET requests are not served from route offline snapshots.
+
 ## Data Clearing
 
 `clearWebData` clears:
@@ -89,6 +130,32 @@ available, Catalyst falls back to bundled `public/offline.html`.
 
 Only mark routes `offline: true` when their SSR HTML is public or safe to persist on the device, or
 when the app guarantees `clearWebData` on logout and user switch.
+
+## Custom Documents
+
+Native WebView requests include `X-Catalyst-Native-WebView: 1`. Catalyst uses this to expose
+`nativeWebView` to the SSR document and to inject `window.__CATALYST_NATIVE_WEBVIEW__` from the
+default `<Body />` component.
+
+Apps with a custom `server/document.js` should pass all document props through to Catalyst's
+`<Body />`, or explicitly pass `nativeWebView`, so cached native SSR snapshots keep the same native
+layout/runtime behavior as online pages:
+
+```jsx title="server/document.js"
+import { Head, Body } from "catalyst-core";
+
+export default function Document(props) {
+  return (
+    <html lang={props.lang}>
+      <Head {...props} />
+      <Body {...props} />
+    </html>
+  );
+}
+```
+
+If a custom document does not render Catalyst's `<Body />`, it must inject the equivalent
+`window.__CATALYST_NATIVE_WEBVIEW__` value itself.
 
 ## Key Files
 
