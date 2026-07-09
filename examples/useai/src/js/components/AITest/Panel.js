@@ -367,87 +367,130 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
                                 </div>
 
                                 {/* Body */}
-                                <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
-                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Generations</span>
-                                            <span className="text-lg font-bold text-white font-mono">{stats.generationCount}</span>
+                                {isNative ? (
+                                    <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Generations</span>
+                                                <span className="text-lg font-bold text-white font-mono">{stats.generationCount}</span>
+                                            </div>
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Tokens</span>
+                                                <span className="text-lg font-bold text-white font-mono">{formatTokens(stats.totalTokens)}</span>
+                                            </div>
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Gen Time</span>
+                                                <span className="text-lg font-bold text-white font-mono">{formatSeconds(stats.totalGenMs)}</span>
+                                            </div>
                                         </div>
-                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
-                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Cost</span>
-                                            <span className="text-lg font-bold text-emerald-400 font-mono">{formatCost(stats.totalCost)}</span>
-                                        </div>
-                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
-                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Tokens</span>
-                                            <span className="text-lg font-bold text-white font-mono">{formatTokens(stats.totalTokens)}</span>
-                                            {stats.totalCachedTokens > 0 && (
-                                                <span className="text-[9px] text-[var(--text-3)] mt-0.5 font-mono">
-                                                    ({formatTokens(stats.totalCachedTokens)} cached)
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
-                                            <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Cache Savings</span>
-                                            <span className="text-lg font-bold text-emerald-400 font-mono">{formatCost(stats.totalCacheSavings)}</span>
-                                        </div>
-                                    </div>
 
-                                    <div className="bg-[var(--surface-3)] p-3.5 rounded-xl border border-[var(--border)] flex flex-col gap-2 mt-1">
-                                        <div className="text-[10px] text-[var(--text-3)] border-b border-[var(--border)] pb-1.5 mb-0.5 uppercase tracking-wider font-semibold">
-                                            Performance Metrics
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
-                                            <div className="flex justify-between">
-                                                <span className="text-[var(--text-2)]">Avg TTFT</span>
-                                                <span className="text-white font-mono font-medium">{formatSeconds(stats.avgTtftMs)}</span>
+                                        <div className="bg-[var(--surface-3)] p-3.5 rounded-xl border border-[var(--border)] flex flex-col gap-2 mt-1">
+                                            <div className="text-[10px] text-[var(--text-3)] border-b border-[var(--border)] pb-1.5 mb-0.5 uppercase tracking-wider font-semibold">
+                                                Performance Metrics
                                             </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-[var(--text-2)]">Avg Speed</span>
-                                                <span className="text-white font-mono font-medium">{formatTps(stats.avgTps)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-[var(--text-2)]">Min Speed</span>
-                                                <span className="text-white font-mono font-medium">{formatTps(stats.minTps)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-[var(--text-2)]">Max Speed</span>
-                                                <span className="text-white font-mono font-medium">{formatTps(stats.maxTps)}</span>
-                                            </div>
-                                            <div className="flex justify-between col-span-2 border-t border-[var(--border)] pt-2 mt-1">
-                                                <span className="text-[var(--text-2)]">Avg Cost/Gen</span>
-                                                <span className="text-emerald-400 font-mono font-medium">{formatCost(stats.avgCostPerGeneration)}</span>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Avg TTFT</span>
+                                                    <span className="text-white font-mono font-medium">{formatSeconds(stats.avgTtftMs)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Avg Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.avgTps)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Min Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.minTps)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Max Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.maxTps)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
+                                ) : (
+                                    <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Generations</span>
+                                                <span className="text-lg font-bold text-white font-mono">{stats.generationCount}</span>
+                                            </div>
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Cost</span>
+                                                <span className="text-lg font-bold text-emerald-400 font-mono">{formatCost(stats.totalCost)}</span>
+                                            </div>
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Total Tokens</span>
+                                                <span className="text-lg font-bold text-white font-mono">{formatTokens(stats.totalTokens)}</span>
+                                                {stats.totalCachedTokens > 0 && (
+                                                    <span className="text-[9px] text-[var(--text-3)] mt-0.5 font-mono">
+                                                        ({formatTokens(stats.totalCachedTokens)} cached)
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="bg-[var(--surface-3)] p-3 rounded-xl border border-[var(--border)] flex flex-col">
+                                                <span className="text-[10px] text-[var(--text-3)] mb-0.5 uppercase tracking-wider font-semibold">Cache Savings</span>
+                                                <span className="text-lg font-bold text-emerald-400 font-mono">{formatCost(stats.totalCacheSavings)}</span>
+                                            </div>
+                                        </div>
 
-                                    {stats.byProvider && Object.keys(stats.byProvider).length > 1 && (
-                                        <div className="flex flex-col gap-2 mt-1">
-                                            <div className="text-[10px] text-[var(--text-3)] uppercase tracking-wider font-semibold">Breakdown by Provider</div>
-                                            <div className="border border-[var(--border)] rounded-lg overflow-hidden">
-                                                <table className="w-full text-left font-mono text-[11px] border-collapse">
-                                                    <thead>
-                                                        <tr className="bg-[var(--surface-3)] text-[var(--text-3)] border-b border-[var(--border)]">
-                                                            <th className="p-2 border-r border-[var(--border)]">Provider</th>
-                                                            <th className="p-2 border-r border-[var(--border)] text-right">Gens</th>
-                                                            <th className="p-2 border-r border-[var(--border)] text-right">Tokens</th>
-                                                            <th className="p-2 text-right">Cost</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {Object.entries(stats.byProvider).map(([prov, pStats]) => (
-                                                            <tr key={prov} className="border-b border-[var(--border)] last:border-b-0 hover:bg-white/5">
-                                                                <td className="p-2 border-r border-[var(--border)] text-white font-sans capitalize">{prov}</td>
-                                                                <td className="p-2 border-r border-[var(--border)] text-right text-white">{pStats.generationCount}</td>
-                                                                <td className="p-2 border-r border-[var(--border)] text-right text-white">{formatTokens(pStats.totalTokens)}</td>
-                                                                <td className="p-2 text-right text-emerald-400">{formatCost(pStats.totalCost)}</td>
+                                        <div className="bg-[var(--surface-3)] p-3.5 rounded-xl border border-[var(--border)] flex flex-col gap-2 mt-1">
+                                            <div className="text-[10px] text-[var(--text-3)] border-b border-[var(--border)] pb-1.5 mb-0.5 uppercase tracking-wider font-semibold">
+                                                Performance Metrics
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Avg TTFT</span>
+                                                    <span className="text-white font-mono font-medium">{formatSeconds(stats.avgTtftMs)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Avg Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.avgTps)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Min Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.minTps)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-[var(--text-2)]">Max Speed</span>
+                                                    <span className="text-white font-mono font-medium">{formatTps(stats.maxTps)}</span>
+                                                </div>
+                                                <div className="flex justify-between col-span-2 border-t border-[var(--border)] pt-2 mt-1">
+                                                    <span className="text-[var(--text-2)]">Avg Cost/Gen</span>
+                                                    <span className="text-emerald-400 font-mono font-medium">{formatCost(stats.avgCostPerGeneration)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {stats.byProvider && Object.keys(stats.byProvider).length > 1 && (
+                                            <div className="flex flex-col gap-2 mt-1">
+                                                <div className="text-[10px] text-[var(--text-3)] uppercase tracking-wider font-semibold">Breakdown by Provider</div>
+                                                <div className="border border-[var(--border)] rounded-lg overflow-hidden">
+                                                    <table className="w-full text-left font-mono text-[11px] border-collapse">
+                                                        <thead>
+                                                            <tr className="bg-[var(--surface-3)] text-[var(--text-3)] border-b border-[var(--border)]">
+                                                                <th className="p-2 border-r border-[var(--border)]">Provider</th>
+                                                                <th className="p-2 border-r border-[var(--border)] text-right">Gens</th>
+                                                                <th className="p-2 border-r border-[var(--border)] text-right">Tokens</th>
+                                                                <th className="p-2 text-right">Cost</th>
                                                             </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                                        </thead>
+                                                        <tbody>
+                                                            {Object.entries(stats.byProvider).map(([prov, pStats]) => (
+                                                                <tr key={prov} className="border-b border-[var(--border)] last:border-b-0 hover:bg-white/5">
+                                                                    <td className="p-2 border-r border-[var(--border)] text-white font-sans capitalize">{prov}</td>
+                                                                    <td className="p-2 border-r border-[var(--border)] text-right text-white">{pStats.generationCount}</td>
+                                                                    <td className="p-2 border-r border-[var(--border)] text-right text-white">{formatTokens(pStats.totalTokens)}</td>
+                                                                    <td className="p-2 text-right text-emerald-400">{formatCost(pStats.totalCost)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Footer */}
                                 <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--surface-2)] flex items-center justify-between">

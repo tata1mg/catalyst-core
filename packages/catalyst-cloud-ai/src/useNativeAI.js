@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react"
+import { aggregateNativeSessionMetrics } from "./metrics.js"
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
@@ -41,6 +42,7 @@ export function useNativeAI({
     const rafRef = useRef(null)
     const nativeStreamUrlRef = useRef(null)
     const conversationIdRef = useRef(null)
+    const historyRef = useRef([])
 
     useEffect(() => {
         if (!window.NativeBridge?.initAI) {
@@ -119,6 +121,7 @@ export function useNativeAI({
 
             const genConfig = { ...hookGenConfig, ...callGenConfig }
             const prompt = messages.map((m) => `${m.role}: ${m.content}`).join("\n")
+            const isStreamMode = genConfig.stream !== false
 
             setLoading(true)
             setOutput("")
@@ -134,6 +137,34 @@ export function useNativeAI({
                 const nativeBody = { prompt, genConfig }
                 if (sessionMode === "stateful" && conversationIdRef.current) {
                     nativeBody.conversationId = conversationIdRef.current
+                }
+
+                if (!isStreamMode) {
+                    const generateUrl = url.replace(/\/ai\/stream$/, "/ai/generate")
+                    const response = await fetch(generateUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(nativeBody),
+                        signal: controller.signal,
+                    })
+
+                    if (!response.ok) throw new Error(`Native AI HTTP error: ${response.status}`)
+                    setLoading(false)
+
+                    const data = await response.json()
+                    if (data.error) throw new Error(data.error)
+
+                    if (sessionMode === "stateful" && data.conversationId) {
+                        conversationIdRef.current = data.conversationId
+                    }
+                    const genMs = Math.round(performance.now() - t0)
+                    setOutput(data.output ?? "")
+                    const tokenCountOut = data.tokenCount ?? 0
+                    const tps = tokenCountOut > 0 ? parseFloat((tokenCountOut / (genMs / 1000)).toFixed(1)) : 0
+                    const generateMetrics = { device: "native", ttftMs: genMs, tps, totalTokens: tokenCountOut, genMs }
+                    setMetrics(generateMetrics)
+                    historyRef.current.push(generateMetrics)
+                    return
                 }
 
                 const response = await fetch(url, {
@@ -167,7 +198,9 @@ export function useNativeAI({
                                     setStreaming(false)
                                     const genMs = Math.round(performance.now() - t0)
                                     const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0
-                                    setMetrics({ device: "native", ttftMs, tps, totalTokens: tokenCount, genMs })
+                                    const streamMetrics = { device: "native", ttftMs, tps, totalTokens: tokenCount, genMs }
+                                    setMetrics(streamMetrics)
+                                    historyRef.current.push(streamMetrics)
                                     return
                                 }
                                 if (sessionMode === "stateful" && data.conversationId) {
@@ -258,10 +291,7 @@ export function useNativeAI({
         reset,
         clearError: useCallback(() => setError(null), []),
         get conversationId() { return conversationIdRef.current },
-        // Native bridge generations aren't HTTP usage objects, so there's no cost/token
-        // accounting to aggregate yet — stubbed so callers can invoke unconditionally
-        // across all three modes without branching.
-        getSessionMetrics: useCallback(() => null, []),
-        resetSessionMetrics: useCallback(() => {}, []),
+        getSessionMetrics: useCallback(() => aggregateNativeSessionMetrics(historyRef.current), []),
+        resetSessionMetrics: useCallback(() => { historyRef.current = [] }, []),
     }
 }

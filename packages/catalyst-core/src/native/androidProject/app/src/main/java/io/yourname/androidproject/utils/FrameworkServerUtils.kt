@@ -384,6 +384,70 @@ object FrameworkServerUtils {
                     call.respond(HttpStatusCode.OK)
                 }
 
+                // Native AI non-streaming endpoint — POST body: { "prompt": "...", "genConfig": {...} }
+                // Drains nativeAiSupplier's tokenFlow fully, then returns a single JSON response.
+                post("/framework-$sessionId/ai/generate") {
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+
+                    val body = try {
+                        JSONObject(call.receiveText())
+                    } catch (e: Exception) {
+                        JSONObject()
+                    }
+                    val userPrompt = body.optString("prompt", "")
+                    val genConfig = body.optJSONObject("genConfig") ?: JSONObject()
+                    val incomingConvId = body.optString("conversationId", "").takeIf { it.isNotBlank() }
+                    if (nativeSystemPrompt.isNotBlank()) Log.d(TAG, "Injecting system prompt (${nativeSystemPrompt.length} chars)")
+                    val prompt = if (nativeSystemPrompt.isNotBlank()) "$nativeSystemPrompt\n\n$userPrompt" else userPrompt
+
+                    val supplier = nativeAiSupplier
+                    if (supplier == null) {
+                        call.respondText(
+                            JSONObject().put("error", "Native AI not initialised — call initAI() first").toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.ServiceUnavailable
+                        )
+                        return@post
+                    }
+                    if (prompt.isBlank()) {
+                        call.respondText(
+                            JSONObject().put("error", "prompt is empty").toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.BadRequest
+                        )
+                        return@post
+                    }
+
+                    try {
+                        val (activeConvId, tokenFlow) = supplier(prompt, genConfig, incomingConvId)
+                        val output = StringBuilder()
+                        var tokenCount = 0
+                        tokenFlow.collect { token -> output.append(token); tokenCount++ }
+                        val responseJson = JSONObject()
+                            .put("output", output.toString())
+                            .put("conversationId", activeConvId)
+                            .put("tokenCount", tokenCount)
+                        call.respondText(responseJson.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Native AI generate error", e)
+                        call.respondText(
+                            JSONObject().put("error", (e.message ?: "generate error")).toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.InternalServerError
+                        )
+                    }
+                }
+
+                // OPTIONS preflight for ai/generate
+                options("/framework-$sessionId/ai/generate") {
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowMethods, "POST, OPTIONS")
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+                    call.response.header(HttpHeaders.AccessControlMaxAge, "86400")
+                    call.respond(HttpStatusCode.OK)
+                }
+
                 get("/framework-$sessionId/file-{fileId}") {
                     val fileId = call.parameters["fileId"]
                     

@@ -41,10 +41,11 @@ export default function TicTacToe() {
         systemPrompt: "You are an AI playing Tic Tac Toe. You play to win and block opponents. Keep responses minimal."
     });
 
-    const { generate, loading, error, output, reset } = useAIResult;
+    const { generate, loading, error, output, reset, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
 
     // Track AI thinking states manually to sync with hook lifecycle
     const [aiThinking, setAiThinking] = useState(false);
+    const isNativeLoading = provider === "native" && isNative && !modelReady;
 
     // Board analyzer
     const checkWinner = (currentBoard) => {
@@ -62,7 +63,7 @@ export default function TicTacToe() {
 
     // When the user plays a move
     const handleCellClick = (index) => {
-        if (board[index] || !isPlayerTurn || gameStatus !== "active" || aiThinking) return;
+        if (board[index] || !isPlayerTurn || gameStatus !== "active" || aiThinking || isNativeLoading) return;
 
         const nextBoard = [...board];
         nextBoard[index] = "X"; // Player is X
@@ -256,31 +257,71 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                             {/* Provider Toggle */}
                             <div>
                                 <label className="text-[12px] font-semibold text-[var(--text-2)] block mb-2 font-mono">Select AI Engine</label>
-                                <div className="grid grid-cols-2 gap-2 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
+                                <div className="grid grid-cols-3 gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
                                     <button
                                         type="button"
                                         onClick={() => setProvider("openai")}
-                                        className={`py-2 rounded-lg font-semibold text-[12px] transition cursor-pointer ${
+                                        className={`py-2 px-1 rounded-lg font-semibold text-[10.5px] transition cursor-pointer text-center truncate ${
                                             provider === "openai"
                                                 ? "bg-indigo-500 text-white shadow-md"
                                                 : "text-[var(--text-2)] hover:text-white"
                                         }`}
+                                        title="OpenAI (GPT-4o)"
                                     >
                                         OpenAI (GPT-4o)
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setProvider("gemini")}
-                                        className={`py-2 rounded-lg font-semibold text-[12px] transition cursor-pointer ${
+                                        className={`py-2 px-1 rounded-lg font-semibold text-[10.5px] transition cursor-pointer text-center truncate ${
                                             provider === "gemini"
                                                 ? "bg-indigo-500 text-white shadow-md"
                                                 : "text-[var(--text-2)] hover:text-white"
                                         }`}
+                                        title="Gemini (3.5 Flash)"
                                     >
                                         Gemini (3.5 Flash)
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setProvider("native")}
+                                        className={`py-2 px-1 rounded-lg font-semibold text-[10.5px] transition cursor-pointer text-center truncate ${
+                                            provider === "native"
+                                                ? "bg-indigo-500 text-white shadow-md"
+                                                : "text-[var(--text-2)] hover:text-white"
+                                        }`}
+                                        title="Native (On-Device)"
+                                    >
+                                        Native (On-Device)
+                                    </button>
                                 </div>
                             </div>
+
+                            {/* Native progress bar */}
+                            {provider === "native" && isNative && nativeDownloadProgress && !modelReady && (
+                                <div className="pt-4 border-t border-[var(--border)] select-none">
+                                    <div className="flex justify-between text-[10px] font-mono text-[var(--text-3)] mb-1">
+                                        <span className="truncate max-w-[70%]">
+                                            {nativeDownloadProgress.phase === "engine_init" ? "Engine init" : nativeDownloadProgress.phase}
+                                            {nativeDownloadProgress.detail ? ` · ${nativeDownloadProgress.detail}` : ""}
+                                        </span>
+                                        <span>{nativeDownloadProgress.percent > 0 ? `${nativeDownloadProgress.percent}%` : "…"}</span>
+                                    </div>
+                                    {nativeDownloadProgress.percent > 0 && (
+                                        <div className="w-full h-1.5 bg-[var(--surface-3)] rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-orange-400 rounded-full transition-all duration-200"
+                                                style={{ width: `${nativeDownloadProgress.percent}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                    {nativeLogs && nativeLogs.length > 0 && (
+                                        <div className="mt-1 text-[9px] font-mono text-[var(--text-3)] truncate opacity-70">
+                                            {nativeLogs[nativeLogs.length - 1]}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Current Turn display */}
                             <div className="pt-4 border-t border-[var(--border)] flex items-center justify-between">
@@ -345,9 +386,9 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                                     <button
                                         key={index}
                                         onClick={() => handleCellClick(index)}
-                                        disabled={cell !== null || !isPlayerTurn || gameStatus !== "active" || aiThinking}
+                                        disabled={cell !== null || !isPlayerTurn || gameStatus !== "active" || aiThinking || isNativeLoading}
                                         className={`relative flex items-center justify-center rounded-xl bg-[var(--surface-3)]/40 border transition-all duration-300 font-bold ${
-                                            cell === null && isPlayerTurn && gameStatus === "active" && !aiThinking
+                                            cell === null && isPlayerTurn && gameStatus === "active" && !aiThinking && !isNativeLoading
                                                 ? "hover:bg-[var(--surface-3)] cursor-pointer hover:shadow-lg border-[var(--border)] hover:border-[var(--accent-line)]"
                                                 : "border-[var(--border)]"
                                         } ${

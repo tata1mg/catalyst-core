@@ -113,3 +113,46 @@ export function aggregateSessionMetrics(history) {
         byProvider,
     }
 }
+
+// history: array of native per-generation metrics objects ({ device, ttftMs, tps, totalTokens, genMs })
+// accumulated across a session. No cost/cachedTokens/cacheSavings/byProvider — native has no
+// billing and only one local model, so those fields don't apply. Returns null when history is empty.
+export function aggregateNativeSessionMetrics(history) {
+    if (!history || history.length === 0) return null
+
+    const generationCount = history.length
+    let totalTokens = 0
+    let totalGenMs = 0
+    let ttftSum = 0
+    let ttftCount = 0
+    let tpsSum = 0
+    let tpsCount = 0
+    let minTps = null
+    let maxTps = null
+
+    for (const m of history) {
+        totalTokens += m.totalTokens ?? 0
+        totalGenMs += m.genMs ?? 0
+
+        if (typeof m.ttftMs === "number") {
+            ttftSum += m.ttftMs
+            ttftCount++
+        }
+        if (typeof m.tps === "number") {
+            tpsSum += m.tps
+            tpsCount++
+            minTps = minTps === null ? m.tps : Math.min(minTps, m.tps)
+            maxTps = maxTps === null ? m.tps : Math.max(maxTps, m.tps)
+        }
+    }
+
+    return {
+        generationCount,
+        totalTokens,
+        totalGenMs,
+        avgTtftMs: ttftCount > 0 ? Math.round(ttftSum / ttftCount) : null,
+        avgTps: tpsCount > 0 ? parseFloat((tpsSum / tpsCount).toFixed(1)) : null,
+        minTps,
+        maxTps,
+    }
+}
