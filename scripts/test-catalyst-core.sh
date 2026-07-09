@@ -23,6 +23,11 @@ npm run prepare --workspace packages/catalyst-core
 npm pack --workspace packages/catalyst-core --pack-destination "$PACK_DIR" --ignore-scripts --silent >/dev/null
 CORE_TARBALL=$(find "$PACK_DIR" -name "catalyst-core-*.tgz" -print -quit)
 
+if [ -z "$CORE_TARBALL" ] || [ ! -f "$CORE_TARBALL" ]; then
+    echo "::error::npm pack did not produce a catalyst-core tarball in $PACK_DIR" >&2
+    exit 1
+fi
+
 cd "$FIXTURE_DIR"
 npm install
 npm install --no-save --package-lock=false "$CORE_TARBALL"

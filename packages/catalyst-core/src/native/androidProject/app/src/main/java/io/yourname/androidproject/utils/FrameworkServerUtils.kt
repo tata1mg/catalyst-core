@@ -42,6 +42,7 @@ object FrameworkServerUtils {
     private const val FRAMEWORK_PORT_RANGE_START = 3000
     private const val FRAMEWORK_PORT_RANGE_END = 3099
     private const val SESSION_TIMEOUT_MS = 30 * 60 * 1000L // 30 minutes
+    private const val AI_GENERATE_TIMEOUT_MS = 120 * 1000L // 2 minutes
     
     // Server state
     private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
@@ -423,12 +424,21 @@ object FrameworkServerUtils {
                         val (activeConvId, tokenFlow) = supplier(prompt, genConfig, incomingConvId)
                         val output = StringBuilder()
                         var tokenCount = 0
-                        tokenFlow.collect { token -> output.append(token); tokenCount++ }
+                        withTimeout(AI_GENERATE_TIMEOUT_MS) {
+                            tokenFlow.collect { token -> output.append(token); tokenCount++ }
+                        }
                         val responseJson = JSONObject()
                             .put("output", output.toString())
                             .put("conversationId", activeConvId)
                             .put("tokenCount", tokenCount)
                         call.respondText(responseJson.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+                    } catch (e: TimeoutCancellationException) {
+                        Log.e(TAG, "Native AI generate timed out after ${AI_GENERATE_TIMEOUT_MS}ms", e)
+                        call.respondText(
+                            JSONObject().put("error", "generate timed out after ${AI_GENERATE_TIMEOUT_MS / 1000}s").toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.GatewayTimeout
+                        )
                     } catch (e: Exception) {
                         Log.e(TAG, "Native AI generate error", e)
                         call.respondText(
