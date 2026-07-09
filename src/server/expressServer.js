@@ -103,7 +103,20 @@ async function createServer() {
     app.use(responseFlushMiddleware(SSR_SERVICE, "response.flush", "response.compress"))
 
     // The middleware will attempt to compress response bodies for all request that traverse through the middleware
-    app.use(compression())
+    app.use(
+        compression({
+            level: 6, // Balance between speed and compression (1-9)
+            threshold: 1024, // Only compress responses > 1KB
+            filter: (req, res) => {
+                // Don't compress if client doesn't accept it
+                if (req.headers["x-no-compression"]) {
+                    return false
+                }
+                // Use default filter (checks Accept-Encoding)
+                return compression.filter(req, res)
+            },
+        })
+    )
 
     let vite
 

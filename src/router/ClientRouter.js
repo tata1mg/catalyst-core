@@ -9,4 +9,4 @@ const clientRouter = ({ routerInitialState }) => {
     return browserRouter
 }
 
-export default clientRouter
+export { clientRouter }

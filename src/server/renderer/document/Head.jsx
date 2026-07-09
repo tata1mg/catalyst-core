@@ -56,5 +56,6 @@ Head.propTypes = {
     deferredPreloadLinks: PropTypes.array,
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
+    essentialAssets: PropTypes.object,
     children: PropTypes.node,
 }

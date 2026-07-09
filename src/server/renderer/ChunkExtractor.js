@@ -7,6 +7,18 @@
  *
  * Critical CSS is inlined as <style> to avoid FOUC/CLS.
  * With natural Vite code-splitting (no mega "main" chunk), critical CSS stays small (~15-25KB).
+ *
+ * For PPR, `critical`/`deferred` double as the static-shell / dynamic-phase asset sets
+ * (see getStaticShellAssets/getDynamicAssets below) — PPR doesn't need a separate tracking model.
+ */
+export const PPR_ASSET_PHASE = {
+    STATIC_SHELL: "static_shell", // Assets for initial prerender (critical path)
+    DYNAMIC: "dynamic", // Assets for resume phase (deferred loading)
+}
+
+/**
+ * ChunkExtractor class for tracking and extracting chunks during SSR
+ * Compatible with Vite's manifest and chunk splitting system
  */
 export class ChunkExtractor {
     constructor({ manifest = {}, assetManifest = {} } = {}) {
@@ -138,6 +150,47 @@ export class ChunkExtractor {
 
     getRenderedComponentKeys() {
         return Array.from(this.components)
+    }
+
+    /**
+     * Get assets for PPR static shell (critical path for initial render)
+     * These are essential assets that must be in the prelude
+     * @returns {Object} - Object with js and css arrays
+     */
+    getStaticShellAssets() {
+        // Static shell assets = critical assets
+        // These are needed for the initial render before any Suspense boundaries resolve
+        return this.getCriticalAssets()
+    }
+
+    /**
+     * Get assets for PPR dynamic phase (loaded during resume)
+     * These are deferred assets that can be loaded after the shell
+     * @returns {Object} - Object with js and css arrays
+     */
+    getDynamicAssets() {
+        // Dynamic assets = deferred assets
+        // These are loaded after the static shell is rendered
+        return this.getDeferredAssets()
+    }
+
+    /**
+     * Get all assets categorized for PPR
+     * @returns {Object} - { staticShell: { js, css }, dynamic: { js, css } }
+     */
+    getPPRAssets() {
+        return {
+            staticShell: this.getStaticShellAssets(),
+            dynamic: this.getDynamicAssets(),
+        }
+    }
+
+    /**
+     * Check if PPR is enabled
+     * @returns {boolean}
+     */
+    isPPREnabled() {
+        return process.env.ENABLE_PPR === "true"
     }
 }
 
