@@ -1,0 +1,24 @@
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_5c848e9f4195a6::t_9e607394479944 1706,1714-1717,1723,1737,1745-1748,1768,1777-1779
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8f95e74f5928bcd997f4f2e01887fd43f8f5a604",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_5c848e9f4195a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b475fb39-c0ef-4552-bf71-56068190df6d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
