@@ -1,0 +1,37 @@
+packages/catalyst-cloud-ai/src/route.js
+  s_5c848e9f4195a6::t_69919deab273a7 453
+  s_5c848e9f4195a6::t_cd3fce580c86d6 476
+examples/sync-packages.js
+  s_5c848e9f4195a6::t_3154f9115b8007 36
+packages/catalyst-ai/package.json
+  s_5c848e9f4195a6::t_d1973ff02cb4f9 13
+packages/catalyst-native-ai-local/package.json
+  s_5c848e9f4195a6::t_49e619b77477f6 13
+packages/catalyst-web-ai-local/package.json
+  s_5c848e9f4195a6::t_45087643f635a0 13
+packages/catalyst-cloud-ai/package.json
+  s_5c848e9f4195a6::t_26e75ca9b8b20d 14
+package-lock.json
+  s_5c848e9f4195a6::t_7d15262af3ed76 1719-1734,13890-13918,14075-14100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2380fba7ef2cc2195fe68c50fe7ef29728b58945",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_5c848e9f4195a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b475fb39-c0ef-4552-bf71-56068190df6d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
