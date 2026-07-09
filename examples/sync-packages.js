@@ -18,7 +18,6 @@
 
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
 
 const EXAMPLE_DIR = process.cwd();
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -34,12 +33,7 @@ const PACKAGE_MAP = {
 };
 
 function rimraf(dir) {
-  if (!fs.existsSync(dir)) return;
-  try {
-    execSync(`rm -rf "${dir}"`); // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
-  } catch {
-    execSync(`find "${dir}" -depth -delete`); // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
-  }
+  fs.rmSync(dir, { recursive: true, force: true });
 }
 
 function copyDir(src, dest) {

@@ -450,7 +450,7 @@ router.post("/:provider/stream", async (req, res) => {
     try {
         await adapter.stream({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful, res })
     } catch (err) {
-        console.error(`[@catalyst/cloud-ai] ${provider} stream error:`, err.message)
+        console.error("[@catalyst/cloud-ai] %s stream error:", provider, err.message)
         res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`)
         res.end()
     }
@@ -473,7 +473,7 @@ router.post("/:provider/generate", async (req, res) => {
         const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
-        console.error(`[@catalyst/cloud-ai] ${provider} generate error:`, err.message)
+        console.error("[@catalyst/cloud-ai] %s generate error:", provider, err.message)
         res.status(500).json({ error: err.message })
     }
 })

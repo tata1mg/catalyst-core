@@ -10,7 +10,7 @@
         "preinstall": "node ./scripts/check-peer.js"
     },
     "peerDependencies": {
-        "catalyst-core": ">=0.1.0"
+        "catalyst-core": ">=0.2.0-0"
     },
     "peerDependenciesMeta": {
         "catalyst-core": {
