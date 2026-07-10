@@ -26,9 +26,7 @@ const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
 // eliminates require() calls for missing packages — no build error, clean bundle.
 const appNodeModules = path.resolve(process.env.src_path || process.cwd(), "node_modules")
 const catalystPackages = {
-    cloudAI:      fs.existsSync(path.join(appNodeModules, "@catalyst", "cloud-ai")),
-    webAILocal:   fs.existsSync(path.join(appNodeModules, "@catalyst", "web-ai-local")),
-    nativeAILocal:fs.existsSync(path.join(appNodeModules, "@catalyst", "native-ai-local")),
+    cloudAI: fs.existsSync(path.join(appNodeModules, "@catalyst", "cloud-ai")),
 }
 
 export const basePlugins = [
@@ -49,10 +47,8 @@ export const basePlugins = [
             return clientEnvMap
         }, {}),
         "process.env.AI_PUBLIC_CONFIG": JSON.stringify(JSON.stringify(aiPublicConfig)),
-        "__CATALYST_PACKAGES__":               JSON.stringify(catalystPackages),
-        "__CATALYST_PACKAGES__.cloudAI":       catalystPackages.cloudAI,
-        "__CATALYST_PACKAGES__.webAILocal":    catalystPackages.webAILocal,
-        "__CATALYST_PACKAGES__.nativeAILocal": catalystPackages.nativeAILocal,
+        "__CATALYST_PACKAGES__": JSON.stringify(catalystPackages),
+        "__CATALYST_PACKAGES__.cloudAI": catalystPackages.cloudAI,
     }),
 
     ANALYZE_BUNDLE &&
