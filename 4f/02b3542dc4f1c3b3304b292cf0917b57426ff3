@@ -1,0 +1,31 @@
+packages/catalyst-core/src/native/buildIos/assets.js
+  s_5c848e9f4195a6::t_931cfa8aa37b03 159
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/FrameworkServerUtils.kt
+  s_5c848e9f4195a6::t_0e57ed31710b92 427-429,435-441
+  s_5c848e9f4195a6::t_16046fd7ec61e3 45
+packages/catalyst-core/src/native/buildAndroid/assets.js
+  s_5c848e9f4195a6::t_29611d3262c1fe 605
+scripts/test-catalyst-core.sh
+  s_5c848e9f4195a6::t_138f00d5de2577 26-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4f02b3542dc4f1c3b3304b292cf0917b57426ff3",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_5c848e9f4195a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b475fb39-c0ef-4552-bf71-56068190df6d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
