@@ -18,7 +18,12 @@ const isDev = process.env.NODE_ENV === "development"
 const isSSR = !!process.env.SSR || false
 
 // Derive AI_PUBLIC_CONFIG: only the browser block from AI_CONFIG, no API keys
-const aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+let aiConfig = {}
+try {
+    aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+} catch (e) {
+    console.warn(`[catalyst-core] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
+}
 const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
 
 // Detect which @catalyst/* AI packages are installed in the app's node_modules.

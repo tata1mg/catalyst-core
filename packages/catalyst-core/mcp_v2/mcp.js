@@ -79,6 +79,10 @@ if (dbMissing || dbEmpty) {
                 id: null,
             }) + "\n"
         )
+        // process.exit(1) instead of exitCode+return: this is top-level script code
+        // (not inside a function), and ESLint here rejects top-level return even
+        // though Node's CommonJS wrapper allows it. Matches the exit pattern used
+        // by the other startup-validation failures above (L49, L62).
         process.exit(1)
     }
 }

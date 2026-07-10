@@ -232,6 +232,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
             });
         } catch (e) {
             console.error("Chess AI move failed, choosing fallback", e);
+            setAiThinking(false);
             makeFallbackMove(validMoves);
         }
     };

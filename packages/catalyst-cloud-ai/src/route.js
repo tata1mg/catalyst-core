@@ -5,7 +5,11 @@ const router = express.Router()
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function getAIConfig() {
-    return JSON.parse(process.env.AI_CONFIG || "{}")
+    try {
+        return JSON.parse(process.env.AI_CONFIG || "{}")
+    } catch {
+        return {}
+    }
 }
 
 function isAIEnabled() {
