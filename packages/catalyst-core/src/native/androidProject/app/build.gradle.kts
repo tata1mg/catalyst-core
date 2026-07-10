@@ -60,6 +60,22 @@ fun isNotificationsEnabled(): Boolean {
     }
 }
 
+fun isAIEnabled(): Boolean {
+    return try {
+        if (configPath == null) return false
+        val configFile = File(configPath!!)
+        if (!configFile.exists()) return false
+
+        val json = JSONObject(configFile.readText())
+        if (!json.has("WEBVIEW_CONFIG")) return false
+
+        val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
+        webviewConfig.optJSONObject("ai")?.optBoolean("enabled", false) ?: false
+    } catch (e: Exception) {
+        false
+    }
+}
+
 fun getLocalIpAddress(): String {
     return NetworkInterface.getNetworkInterfaces().toList()
         .flatMap { it.inetAddresses.toList() }
@@ -150,6 +166,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
+        freeCompilerArgs += "-Xskip-metadata-version-check"
     }
 
     buildFeatures {
@@ -167,8 +184,9 @@ android {
             excludes.add("META-INF/io.netty.versions.properties")
         }
         jniLibs {
-            // Enable 16KB page size alignment for all native libraries
-            useLegacyPackaging = false
+            // libLiteRtClGlAccelerator.so must be extracted to disk for GPU dlopen().
+            // This must live in the app module — AGP ignores useLegacyPackaging in library modules.
+            useLegacyPackaging = isAIEnabled()
         }
     }
 
@@ -185,7 +203,7 @@ android {
         }
     }
 
-    // Conditional source sets based on notifications config
+    // Conditional source sets based on feature config
     sourceSets {
         getByName("main") {
             if (isNotificationsEnabled()) {
@@ -195,6 +213,20 @@ android {
                 logger.info("SourceSet selected: noFcm (notifications disabled)")
                 java.srcDirs("src/noFcm/java")
             }
+            // AI has no source-set swap — CatalystAIBridge self-registers via ServiceLoader
+            // when @catalyst/cloud-ai is on the classpath.
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" &&
+            (requested.name == "kotlin-stdlib" ||
+             requested.name == "kotlin-stdlib-jdk7" ||
+             requested.name == "kotlin-stdlib-jdk8" ||
+             requested.name == "kotlin-reflect")) {
+            useVersion("2.0.21")
         }
     }
 }
@@ -216,7 +248,16 @@ dependencies {
     implementation("io.ktor:ktor-server-core:3.0.3")
     implementation("io.ktor:ktor-server-netty:3.0.3")
     implementation("io.ktor:ktor-server-content-negotiation:3.0.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("io.ktor:ktor-server-sse:3.0.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // Native AI — compileOnly always (for types), implementation only when ai.enabled=true (for runtime bundling)
+    if (project.findProject(":catalyst-cloud-ai") != null) {
+        compileOnly(project(":catalyst-cloud-ai"))
+        if (isAIEnabled()) {
+            implementation(project(":catalyst-cloud-ai"))
+        }
+    }
 
     // Security detection dependencies
     implementation("com.scottyab:rootbeer-lib:0.1.1")  // Root detection

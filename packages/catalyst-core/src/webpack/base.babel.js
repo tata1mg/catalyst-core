@@ -1,4 +1,5 @@
 import path from "path"
+import fs from "fs"
 import webpack from "webpack"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer"
@@ -15,6 +16,23 @@ loadEnvironmentVariables()
 
 const isDev = process.env.NODE_ENV === "development"
 const isSSR = !!process.env.SSR || false
+
+// Derive AI_PUBLIC_CONFIG: only the browser block from AI_CONFIG, no API keys
+let aiConfig = {}
+try {
+    aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+} catch (e) {
+    console.warn(`[catalyst-core] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
+}
+const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
+
+// Detect which @catalyst/* AI packages are installed in the app's node_modules.
+// Results are injected as __CATALYST_PACKAGES__.* literals so webpack dead-code
+// eliminates require() calls for missing packages — no build error, clean bundle.
+const appNodeModules = path.resolve(process.env.src_path || process.cwd(), "node_modules")
+const catalystPackages = {
+    cloudAI: fs.existsSync(path.join(appNodeModules, "@catalyst", "cloud-ai")),
+}
 
 export const basePlugins = [
     // Expose only the whitelisted env vars to the client bundle
@@ -34,6 +52,9 @@ export const basePlugins = [
             clientEnvMap[env] = JSON.stringify(process.env[env])
             return clientEnvMap
         }, {}),
+        "process.env.AI_PUBLIC_CONFIG": JSON.stringify(JSON.stringify(aiPublicConfig)),
+        "__CATALYST_PACKAGES__": JSON.stringify(catalystPackages),
+        "__CATALYST_PACKAGES__.cloudAI": catalystPackages.cloudAI,
     }),
 
     ANALYZE_BUNDLE &&
@@ -92,12 +113,16 @@ export default {
     resolve: {
         fallback: { url: require.resolve("url") },
         extensions: [".js", ".jsx", ".scss", ".ts", ".tsx"],
-        alias: Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
-            // nosemgrep
-            moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
-
-            return moduleEnvMap
-        }, {}),
+        alias: {
+            ...Object.keys(_moduleAliases || {}).reduce((moduleEnvMap, alias) => {
+                // nosemgrep
+                moduleEnvMap[alias] = path.join(process.env.src_path, ..._moduleAliases[alias].split("/"))
+                return moduleEnvMap
+            }, {}),
+            "@catalyst/cloud-ai": catalystPackages.cloudAI
+                ? path.join(appNodeModules, "@catalyst", "cloud-ai")
+                : false,
+        },
     },
     plugins: basePlugins,
     module: {

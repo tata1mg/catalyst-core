@@ -53,6 +53,10 @@ export const NATIVE_COMMANDS = {
     SET_SCREEN_SECURE: "setScreenSecure",
     GET_SCREEN_SECURE: "getScreenSecure",
     CLEAR_WEB_DATA: "clearWebData",
+
+    // Native AI commands
+    INIT_AI: "initAI",
+    GENERATE_NATIVE: "generateNative",
 }
 
 // Callback Interfaces: Native → Web (incoming events/callbacks)
@@ -120,6 +124,14 @@ export const NATIVE_CALLBACKS = {
     ON_SCREEN_SECURE_ERROR: "ON_SCREEN_SECURE_ERROR",
     ON_WEB_DATA_CLEARED: "ON_WEB_DATA_CLEARED",
     ON_WEB_DATA_CLEAR_ERROR: "ON_WEB_DATA_CLEAR_ERROR",
+
+    // Native AI callbacks
+    ON_AI_READY: "ON_AI_READY",
+    ON_AI_TOKEN: "ON_AI_TOKEN",
+    ON_AI_DONE: "ON_AI_DONE",
+    ON_AI_ERROR: "ON_AI_ERROR",
+    ON_AI_PROGRESS: "ON_AI_PROGRESS",
+    ON_AI_LOG: "ON_AI_LOG",
 }
 
 // Interface Categories for easier management
@@ -215,6 +227,17 @@ export const INTERFACE_CATEGORIES = {
             NATIVE_CALLBACKS.ON_TRANSITION_COMMITTED,
             NATIVE_CALLBACKS.ON_TRANSITION_CANCELLED,
             NATIVE_CALLBACKS.ON_TRANSITION_TIMEOUT,
+        ],
+    },
+    AI: {
+        commands: [NATIVE_COMMANDS.INIT_AI, NATIVE_COMMANDS.GENERATE_NATIVE],
+        callbacks: [
+            NATIVE_CALLBACKS.ON_AI_READY,
+            NATIVE_CALLBACKS.ON_AI_TOKEN,
+            NATIVE_CALLBACKS.ON_AI_DONE,
+            NATIVE_CALLBACKS.ON_AI_ERROR,
+            NATIVE_CALLBACKS.ON_AI_PROGRESS,
+            NATIVE_CALLBACKS.ON_AI_LOG,
         ],
     },
 }

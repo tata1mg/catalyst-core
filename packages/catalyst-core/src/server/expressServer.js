@@ -62,6 +62,32 @@ app.use(cookieParser())
 
 if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
 
+// Mount AI route if @catalyst/cloud-ai is installed
+let cloudAIPath
+try {
+    cloudAIPath = require.resolve(
+        path.join(process.env.src_path || process.cwd(), "node_modules/@catalyst/cloud-ai/src/route.js")
+    )
+} catch (resolveErr) {
+    if (resolveErr.code !== "MODULE_NOT_FOUND") {
+        console.error("[catalyst-core/ai] Unexpected error resolving @catalyst/cloud-ai:", resolveErr)
+    }
+    // @catalyst/cloud-ai not installed — AI routes unavailable
+}
+
+if (cloudAIPath) {
+    try {
+        const aiRouter = require(cloudAIPath)
+        const aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+        const aiBasePath = aiConfig.basePath || "/ai"
+        console.log(`[catalyst-core/ai] mounting AI router at ${aiBasePath}`)
+        app.use(aiBasePath, aiRouter)
+    } catch (mountErr) {
+        console.error("[catalyst-core/ai] Failed to mount AI router:", mountErr)
+    }
+}
+
+// The middleware will attempt to compress response bodies for all request that traverse through the middleware
 app.use(compression())
 
 // Serve pre-compressed static assets (brotli preferred) from the build output directory

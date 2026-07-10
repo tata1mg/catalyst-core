@@ -29,6 +29,7 @@ Catalyst exposes two groups of hooks:
 | `useNetworkStatus` | Read online status and network type | Yes | Yes | Yes |
 | `useDataProtection` | Use native data protection and encryption helpers | No | Yes | Yes |
 | `useSafeArea` | Read native safe-area insets | Yes | Yes | Yes |
+| `useAI` | Generate text via cloud, native on-device, or in-browser models | Partial | Yes | Yes |
 
 `Partial` means behavior depends on browser support or fallback behavior in the web environment.
 
@@ -464,3 +465,130 @@ function ScreenShell({ children }) {
   return <main style={{ paddingTop: safeArea.top }}>{children}</main>;
 }
 ```
+
+### `useAI`
+
+Generate text through one of three providers, chosen with the `provider` option — the hook picks the underlying implementation for you:
+
+| `provider` | Implementation | Where it runs |
+|------------|-----------------|----------------|
+| `"openai"` \| `"gemini"` (default) | `useCloudAI` | Node server route (`POST /ai/:provider/stream` or `/generate`) |
+| `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device LiteRT-LM engine, via an embedded Ktor server (`POST /framework-{sessionId}/ai/stream` or `/generate`) |
+| `"transformers"` | `useWebAI` — **experimental**: in-browser inference quality and WebGPU/WASM backend selection aren't reliable yet on larger models | In-browser, via a Web Worker running Transformers.js |
+
+Requires `@catalyst/cloud-ai` to be installed in the app.
+
+#### Import
+
+```javascript
+import { useAI } from "catalyst-core/hooks";
+```
+
+#### Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `provider` | `string` | `"openai"`, `"gemini"`, `"native"`, or `"transformers"`. Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
+| `model` | `string` | Model id. Required for `transformers`; optional override for cloud/native. |
+| `genConfig` | `object` | Default generation config, merged with any per-call `genConfig` passed to `generate()`. See below. |
+| `systemPrompt` | `string` | System prompt prepended to every generation. |
+| `sessionMode` | `string` | `"stateless"` (default) or `"stateful"` — see Stateful Sessions below. |
+| `attachmentComponents` | `object` | Map of component name → `{ attrs, hint }`, enabling structured output. See Attachment Components below. |
+
+#### Returns
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `output` | `string` | Accumulated generation text so far. |
+| `streaming` | `boolean` | `true` while SSE tokens are actively arriving. |
+| `loading` | `boolean` | `true` while a request is in flight (covers both the stream and non-stream paths). |
+| `error` | `Error \| null` | Error from the last `generate()` call, if any. |
+| `generate` | `function` | `generate({ messages, genConfig })` — triggers a request. `messages` is `[{ role, content }, ...]`. |
+| `cancel` | `function` | Abort the in-flight generation. |
+| `reset` | `function` | Clear output, error, and conversation state; ends the current session. |
+| `clearError` | `function` | Clear `error` only. |
+| `conversationId` | `string \| null` | Present when `sessionMode="stateful"` — see below for what it means per provider. |
+| `isLocal` / `isNative` / `isWeb` | `boolean` | Indicates which provider actually served the request. |
+| `modelReady` | `boolean` | For `native`/`transformers`: `false` while the model is downloading or the engine is initializing. |
+| `downloadProgress` | `object \| null` | For `transformers`: `{ file, percent, status }`. |
+| `nativeDownloadProgress` | `object \| null` | For `native`: `{ phase, percent, detail }` (`phase` is `"engine_init"` or `"model_fetch"`). |
+| `nativeLogs` | `string[]` | For `native`: recent native-side log lines. |
+| `metrics` | `object \| null` | Per-generation metrics from the most recent call — shape differs per provider, see below. |
+| `getSessionMetrics` | `function` | Returns an aggregate across every generation this session, or `null` if none yet. |
+| `resetSessionMetrics` | `function` | Clears the accumulated metrics history, without touching output or conversation state. |
+
+#### Usage
+
+```javascript
+function Summarizer() {
+  const { generate, output, streaming, loading, error } = useAI({
+    provider: "openai",
+    genConfig: { temperature: 0.3, maxTokens: 512 },
+  });
+
+  const handleSummarize = (document) => {
+    generate({ messages: [{ role: "user", content: `Summarize: ${document}` }] });
+  };
+
+  return (
+    <div>
+      <button onClick={() => handleSummarize(doc)} disabled={loading}>Summarize</button>
+      {streaming && <Spinner />}
+      {error && <p>{error.message}</p>}
+      {output && <p>{output}</p>}
+    </div>
+  );
+}
+```
+
+#### `genConfig`
+
+```
+{
+  temperature: number,        // 0-1
+  maxTokens: number | null,
+  topP: number,
+  repetitionPenalty: number,  // native/web only
+  noRepeatNgramSize: number,  // native/web only
+  stream: boolean,
+}
+```
+
+`stream: true` uses the SSE path; `stream: false` uses a single-JSON-response path. Cloud and native both expose real `stream`/`generate` HTTP routes for this. The `transformers` provider ignores `genConfig.stream` — the Worker always runs the full generation and streams tokens back internally via `postMessage`.
+
+#### Stateful Sessions
+
+Pass `sessionMode: "stateful"` to carry conversation context across calls. The mechanism is different for each provider, since each has a different notion of "session":
+
+- **Cloud** — the client sends `conversationId` in the request body; the server translates it into the underlying provider's own continuation token (`previous_response_id` for OpenAI, `previous_interaction_id` for Gemini) and returns a fresh `conversationId` with each response.
+- **Native** — the client sends `conversationId` to the Ktor route; the Android engine reuses the same LiteRT-LM `Conversation` object when the incoming id matches its current one, otherwise starts a new one. `reset()` also tells the native bridge to drop that object.
+- **Web (experimental)** — there is no engine-side session at all. "Stateful" here means the hook accumulates prior `{ role, content }` turns client-side and replays the full history into every `generate()` call — real chat, not KV-cache reuse. `conversationId` is just a locally-generated id for the UI to key off; it carries no meaning beyond the hook instance.
+
+`reset()` clears output, conversation history, and `conversationId` in all three cases. `sessionMode: "stateless"` (the default) makes every `generate()` call independent.
+
+#### Metrics
+
+`metrics` (after a call) and `getSessionMetrics()` (aggregated across the session) differ by provider:
+
+- **Cloud** includes `cost`, `cachedTokens`, `cacheSavings`, and a `byProvider` breakdown, alongside `ttftMs`/`tps`/`totalTokens`.
+- **Native** and **web** have no billing, so their metrics are the leaner `{ device, ttftMs, tps, totalTokens, genMs }` (web additionally reports `dtype`, `loadMs`, and `downloadBytes` for the model download).
+
+Call `resetSessionMetrics()` to clear accumulated history without ending the current conversation.
+
+#### Attachment Components
+
+Pass `attachmentComponents` to have the model return structured, renderable output instead of plain text:
+
+```javascript
+useAI({
+  attachmentComponents: {
+    InfoCard: { attrs: { title: "string", type: "info|warning|success" }, hint: "1 sentence callout" },
+  },
+});
+```
+
+The model is instructed (via an injected system prompt) to wrap relevant output in `{% ComponentName attr='val' %}body{% /ComponentName %}` tags. `output` contains the raw tagged text — render it with `renderOutput(output, streaming)` from `utils/ai.js`, or the `AttachmentRenderer` component. Each key must correspond to a registered React component.
+
+#### Requirements
+
+Requires `@catalyst/cloud-ai` to be installed (`npm install @catalyst/cloud-ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
