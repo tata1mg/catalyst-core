@@ -5,7 +5,7 @@ Every route in Catalyst renders in one of three modes. They trade off how fresh 
 | Mode      | What's cached      | What's fresh per request          | Applies to bots | Data fetching API |
 | --------- | ------------------- | ----------------------------------- | ---------------- | ------------------- |
 | Streaming | Nothing              | Everything (data + render)          | Yes (always)      | `serverFetcher` / `clientFetcher` |
-| PPR       | Static shell only    | `usePPRRouteData()` boundaries      | No                | `usePPRRouteData()` only — `serverFetcher` never runs |
+| PPR       | Static shell only    | `usePPRRouteData()` boundaries      | No                | `usePPRRouteData()` |
 | Static    | The entire page      | Nothing, until cache is refreshed   | Yes               | `serverFetcher` / `clientFetcher` |
 
 ## Streaming (default)
@@ -16,7 +16,7 @@ The classic path: `serverFetcher` runs on every request, the fully-resolved tree
 
 Enabled globally via `ENABLE_PPR=true` (this is the default). A route's static markup — everything that doesn't read data through `usePPRRouteData()` — is rendered once, cached, and replayed as the shell for every subsequent request. Anything wrapped in `usePPRRouteData()` suspends during that initial prerender, gets cut from the cached shell, and is resolved fresh on every request when the shell resumes.
 
-**`serverFetcher`/`clientFetcher` do not run under PPR.** `handler.jsx` skips `serverDataFetcher` entirely on the PPR path — it returns right after `_renderMarkUpPPR` and never reaches the call that would invoke `serverFetcher`. `useCurrentRouteData()` will not have any data on a PPR route. All data fetching on a PPR route — both the parts that end up in the cached shell (fetched directly during render, no special API needed) and the parts that must stay fresh per request — has to go through [`usePPRRouteData()`/`DynamicDataProvider`](src/web-router/components/DataFetcher.jsx), not `serverFetcher`.
+All data fetching on a PPR route goes through [`usePPRRouteData()`/`DynamicDataProvider`](src/web-router/components/DataFetcher.jsx):
 
 ```js
 import { usePPRRouteData, DynamicDataProvider } from "catalyst-core"
