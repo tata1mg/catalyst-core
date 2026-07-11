@@ -11,8 +11,10 @@ const StaticDemo = split(() => import("@containers/StaticDemo/StaticDemo"))
 // renderMode has to be mirrored onto the split() wrapper itself, not just the
 // underlying component the wrapper lazily resolves to.
 
-// TEMP EXPERIMENT: direct import (no split()) to isolate a nested-Suspense bug.
-import StreamingDemo from "@containers/StreamingDemo/StreamingDemo"
+// serverFetcher is only discovered off a lazy-loaded (split()) component —
+// StreamingDemo went back to serverFetcher (see StreamingDemo.js), so this
+// needs split() again.
+const StreamingDemo = split(() => import("@containers/StreamingDemo/StreamingDemo"))
 // No renderMode set — this route is the streaming default.
 
 Home.renderMode = "ppr"

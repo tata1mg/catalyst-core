@@ -6,6 +6,7 @@ import {
     getDashboardSummary,
     getPricingInfo,
     getLiveOrdersFeed,
+    getKitchenStatus,
 } from "./mockApi.js"
 
 // Server middlewares are added here.
@@ -20,4 +21,5 @@ export function addMiddlewares(app) {
     app.get("/api/dashboard-summary", getDashboardSummary)
     app.get("/api/pricing-info", getPricingInfo)
     app.get("/api/live-orders-feed", getLiveOrdersFeed)
+    app.get("/api/kitchen-status", getKitchenStatus)
 }

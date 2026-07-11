@@ -89,6 +89,16 @@ export function getLiveOrdersFeed(req, res) {
     }, 3000)
 }
 
+export function getKitchenStatus(req, res) {
+    setTimeout(() => {
+        res.json({
+            kitchenName: "Central Kitchen #4",
+            openSince: "6:00 AM",
+            staffOnShift: Math.floor(randomBetween(4, 14)),
+        })
+    }, 600)
+}
+
 export function getPricingInfo(req, res) {
     res.json({
         generatedAt: new Date().toISOString(),
