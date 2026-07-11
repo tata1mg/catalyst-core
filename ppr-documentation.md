@@ -10,7 +10,26 @@ Every route in Catalyst renders in one of three modes. They trade off how fresh 
 
 ## Streaming (default)
 
-The classic path: `serverFetcher` runs on every request, the fully-resolved tree is rendered with `renderToPipeableStream`, and the response streams to the client as it renders. This is what a route gets by default, and what bot/crawler requests always get regardless of any other mode.
+The classic path: `serverFetcher` runs on every request, the fully-resolved tree is rendered with `renderToPipeableStream`, and the response streams to the client as it renders. This is what a route gets by default — no `renderMode` to set — and what bot/crawler requests always get regardless of any other mode.
+
+```js
+import { useCurrentRouteData } from "catalyst-core"
+
+function LiveOrders() {
+    const { data } = useCurrentRouteData()
+    return <p>{data.orderCount} orders right now, fetched at {data.fetchedAt}</p>
+}
+
+// Runs on every single request — no shell, no cache, the whole page waits
+// on this before anything renders.
+LiveOrders.serverFetcher = async () => {
+    return fetch("/api/live-order-stats").then((res) => res.json())
+}
+
+export default LiveOrders
+```
+
+Unlike PPR, there's no static/dynamic split here — the entire page is gated on `serverFetcher` resolving, every time. That's the tradeoff: simplest mental model (one fetch, one render, nothing cached), at the cost of paying full data-fetch + render latency on every request, for every visitor.
 
 ## Partial Prerendering (PPR)
 
@@ -90,10 +109,11 @@ The cache is in-process and per-server: it's cleared on restart/redeploy, and (l
 
 ## x-rendering-mode reference
 
-Every response carries an `x-rendering-mode` header useful for debugging which path served a given request:
+PPR and static responses carry an `x-rendering-mode` header useful for debugging which path served a given request. Streaming responses carry **no such header at all** — its absence is itself the signal that a route rendered via the classic path.
 
 | Value                    | Meaning                                                    |
 | -------------------------- | ------------------------------------------------------------- |
+| *(header absent)*          | Streaming: classic path, rendered fresh, nothing cached        |
 | `1st Req`                  | PPR: first request for this route, shell just got cached      |
 | `resumeToPipeableStream`   | PPR: shell served from cache, dynamic content resumed live    |
 | `static-cache-miss`        | Static: no cache entry (or dev bypass) — rendered fresh        |
