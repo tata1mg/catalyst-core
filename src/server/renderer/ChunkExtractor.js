@@ -184,14 +184,6 @@ export class ChunkExtractor {
             dynamic: this.getDynamicAssets(),
         }
     }
-
-    /**
-     * Check if PPR is enabled
-     * @returns {boolean}
-     */
-    isPPREnabled() {
-        return process.env.ENABLE_PPR === "true"
-    }
 }
 
 export default ChunkExtractor

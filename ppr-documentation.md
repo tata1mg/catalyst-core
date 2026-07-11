@@ -1,6 +1,6 @@
 # Rendering Modes
 
-Every route in Catalyst renders in one of three modes. They trade off how fresh the content is against how cheap it is to serve — pick per route based on whether the content is personalized, semi-dynamic, or truly the same for everyone.
+Every route in Catalyst renders in one of three modes. They trade off how fresh the content is against how cheap it is to serve — pick per route based on whether the content is personalized, semi-dynamic, or truly the same for everyone. PPR and static are both explicit per-route opt-ins via `Component.renderMode` — there's no global toggle; an unset `renderMode` is the streaming default.
 
 | Mode      | What's cached      | What's fresh per request          | Applies to bots | Data fetching API |
 | --------- | ------------------- | ----------------------------------- | ---------------- | ------------------- |
@@ -14,7 +14,13 @@ The classic path: `serverFetcher` runs on every request, the fully-resolved tree
 
 ## Partial Prerendering (PPR)
 
-Enabled globally via `ENABLE_PPR=true` (this is the default). A route's static markup — everything that doesn't read data through `usePPRRouteData()` — is rendered once, cached, and replayed as the shell for every subsequent request. Anything wrapped in `usePPRRouteData()` suspends during that initial prerender, gets cut from the cached shell, and is resolved fresh on every request when the shell resumes.
+Opt a route in by setting `renderMode` on its component:
+
+```js
+Home.renderMode = "ppr"
+```
+
+A route's static markup — everything that doesn't read data through `usePPRRouteData()` — is rendered once, cached, and replayed as the shell for every subsequent request. Anything wrapped in `usePPRRouteData()` suspends during that initial prerender, gets cut from the cached shell, and is resolved fresh on every request when the shell resumes.
 
 All data fetching on a PPR route goes through [`usePPRRouteData()`/`DynamicDataProvider`](src/web-router/components/DataFetcher.jsx):
 
@@ -51,7 +57,7 @@ function ProductPage() {
 
 **Caveat:** `usePPRRouteData()`'s cache is keyed per-route (by pathname), not per call site. If a route calls it more than once with different fetchers, the second call reuses the first call's cached promise instead of fetching independently. Fetch everything that route needs in a single call (return one combined object) rather than calling `usePPRRouteData()` multiple times on the same page.
 
-PPR is skipped for bot requests (crawlers get the full streaming path) and for routes opted into static mode (see below), even when `ENABLE_PPR=true`.
+PPR is skipped for bot requests (crawlers get the full streaming path) regardless of `renderMode` — a single-pass crawler render doesn't benefit from a shell/dynamic split.
 
 ## Static (full-page cache)
 

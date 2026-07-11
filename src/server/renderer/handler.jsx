@@ -102,8 +102,6 @@ const onRequestError = traceHook(_onRequestError, "onRequestError")
 const prerenderCache = new Map()
 export const clearPrerenderCache = () => prerenderCache.clear()
 
-const isPPREnabled = () => process.env.ENABLE_PPR === "true"
-
 function collectStream(stream) {
     return new Promise((resolve, reject) => {
         const chunks = []
@@ -123,11 +121,12 @@ function collectStream(stream) {
 const staticPageCache = new Map()
 export const clearStaticPageCache = () => staticPageCache.clear()
 
-// renderMode lives on the leaf-matched route's component (mirrors the
-// existing serverFetcher/clientFetcher convention) — matchRoutes orders
-// matches root-first, so the last entry is the actual page being rendered.
-const getStaticRenderMode = (allMatches) =>
-    allMatches[allMatches.length - 1]?.route?.component?.renderMode
+// renderMode ("static" | "ppr" | undefined) lives on the leaf-matched route's
+// component (mirrors the existing serverFetcher/clientFetcher convention) —
+// matchRoutes orders matches root-first, so the last entry is the actual page
+// being rendered. Unset means the classic (streaming) path. There is no
+// global toggle for PPR — it's an explicit per-route opt-in, same as static.
+const getRenderMode = (allMatches) => allMatches[allMatches.length - 1]?.route?.component?.renderMode
 
 // Per-route dev escape hatch: ?__refresh_static_cache on any static route
 // skips reading (and re-populates) that one route's cache entry for this
@@ -578,11 +577,12 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
  *      abort/postpone — waits for the whole tree, buffers it, caches it) instead of
  *      _renderMarkUp's live renderToPipeableStream.
  *   3. App.serverSideFunction (app-level server hook)
- *   4a. PPR path (non-bot, ENABLE_PPR=true, non-static route): skip upfront data fetch —
- *       render via prerenderToNodeStream/resumeToPipeableStream, data is resolved lazily
- *       inside the tree via usePPRRouteData()/use(). The static shell is cached per-route;
- *       postponed (dynamic/personalized) content is always resolved fresh per request.
- *   4b. Classic path (bots, PPR disabled, or a static route on cache miss):
+ *   4a. PPR path (non-bot, leaf route's Component.renderMode === "ppr"): skip upfront
+ *       data fetch — render via prerenderToNodeStream/resumeToPipeableStream, data is
+ *       resolved lazily inside the tree via usePPRRouteData()/use(). The static shell is
+ *       cached per-route; postponed (dynamic/personalized) content is always resolved
+ *       fresh per request.
+ *   4b. Classic path (bots, renderMode unset, or a static route on cache miss):
  *       serverDataFetcher pre-fetches all route data, then _renderMarkUp/_renderMarkUpStatic
  *       renders the fully-resolved tree in one pass.
  *
@@ -607,7 +607,9 @@ async function _handler(req, res) {
 
         if (res.headersSent) return
 
-        const isStaticRoute = getStaticRenderMode(allMatches) === "static"
+        const renderMode = getRenderMode(allMatches)
+        const isStaticRoute = renderMode === "static"
+        const isPPRRoute = renderMode === "ppr"
         if (isStaticRoute && !isStaticCacheBypassRequested(req)) {
             const cacheKey = new URL(req.originalUrl, `http://${req.headers.host}`).pathname
             const cached = staticPageCache.get(cacheKey)
@@ -634,10 +636,11 @@ async function _handler(req, res) {
             const isBot = !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
             const chunkExtractor = collectAssets(req, allMatches)
 
-            // Static routes always take the classic (fully pre-fetched) path below —
-            // PPR's per-request-fresh dynamic resolution is exactly what full-page
-            // caching must NOT capture, so PPR is skipped even if globally enabled.
-            if (!isBot && isPPREnabled() && !isStaticRoute) {
+            // PPR is opt-in per route (Component.renderMode = "ppr"), same as static —
+            // there's no global toggle. Bots always take the classic path below
+            // regardless of renderMode: PPR's per-request-fresh dynamic resolution
+            // doesn't apply to a single-pass crawler render.
+            if (!isBot && isPPRRoute) {
                 allTags = tracedGetMetaData(allMatches, {})
                 await tracedRenderMarkUpPPR(req, res, allTags, store, allMatches, chunkExtractor)
                 return

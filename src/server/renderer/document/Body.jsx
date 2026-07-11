@@ -36,8 +36,6 @@ export function Body(props) {
         children,
     } = props
 
-    const isPPREnabled = process.env.ENABLE_PPR === "true"
-
     return (
         <body>
             {process.env.NODE_ENV === "development" && (
@@ -51,7 +49,6 @@ export function Body(props) {
                     window.__INITIAL_STATE__ = ${JSON.stringify(initialState)}
                     window.__STATUS_CODE__ = ${statusCode}
                     window.__ROUTER_INITIAL_DATA__ = ${JSON.stringify(fetcherData)}
-                    ${isPPREnabled ? `window.__PPR_ENABLED__ = true` : ""}
                     ${pprPostponed ? `window.__PPR_POSTPONED__ = ${serializePostponed(pprPostponed)}` : ""}
             `,
                 }}
