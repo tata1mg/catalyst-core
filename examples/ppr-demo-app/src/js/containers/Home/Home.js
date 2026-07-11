@@ -40,7 +40,7 @@ function Home() {
                 </p>
                 <p>
                     <Link className={css.appLink} to="/streaming-demo">
-                        View the streaming (default) demo (Streaming Mode)
+                        View the streaming (default) demo (Fetch then Render)
                     </Link>
                 </p>
                 <a
