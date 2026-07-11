@@ -113,6 +113,33 @@ function collectStream(stream) {
     })
 }
 
+// ── Static (full-page cache) ─────────────────────────────────────────────
+// Unlike PPR — which caches only the non-personalized shell and resolves a
+// dynamic subtree fresh per request — a route opted into full static caching
+// (`Component.renderMode = "static"`) has no per-request boundary at all:
+// the entire rendered page is cached once and replayed byte-for-byte to
+// every later request, bots included (there's nothing bot-unsafe about it,
+// since the content is identical for everyone by construction).
+const staticPageCache = new Map()
+export const clearStaticPageCache = () => staticPageCache.clear()
+
+// renderMode lives on the leaf-matched route's component (mirrors the
+// existing serverFetcher/clientFetcher convention) — matchRoutes orders
+// matches root-first, so the last entry is the actual page being rendered.
+const getStaticRenderMode = (allMatches) =>
+    allMatches[allMatches.length - 1]?.route?.component?.renderMode
+
+// Per-route dev escape hatch: ?__refresh_static_cache on any static route
+// skips reading (and re-populates) that one route's cache entry for this
+// request only — lets you iterate on a static page without a server restart
+// or wiping every other cached route via clearStaticPageCache(). Presence-
+// checked (not truthy-checked) so a bare `?__refresh_static_cache` works,
+// not just `?__refresh_static_cache=1`. Disabled in production: a client-
+// controlled way to force a full re-render defeats the point of the cache
+// and is a cheap way to force repeated expensive prerenders.
+const isStaticCacheBypassRequested = (req) =>
+    process.env.NODE_ENV !== "production" && req.query?.__refresh_static_cache !== undefined
+
 // ── Asset collection ───────────────────────────────────────────────────
 const _collectAssets = (req, allMatches) => {
     const chunkExtractor = new ChunkExtractor({
@@ -310,6 +337,95 @@ const _renderMarkUp = async (
     }
 }
 
+// ── Render and stream (Static — prerender fully to completion once, cache
+// the entire page, replay the cached buffer to every later request) ────
+const _renderMarkUpStatic = async (
+    errorCode,
+    req,
+    res,
+    metaTags,
+    fetcherData,
+    store,
+    allMatches,
+    context,
+    chunkExtractor
+) => {
+    // Cache read/hit-short-circuit lives entirely in _handler (it decides
+    // whether this function gets called at all — including the dev-only
+    // ?__refresh_static_cache bypass) — this function always renders fresh
+    // and (re)populates staticPageCache on success.
+    const cacheKey = new URL(req.originalUrl, `http://${req.headers.host}`).pathname
+
+    // The cached response is shared across every future visitor, bots
+    // included, so it's rendered once as a single canonical version rather
+    // than branching per-request on device/bot detection.
+    const isBot = false
+
+    const { deferredRouteKey, buildDir, shellStart } = buildShellStart(
+        req,
+        allMatches,
+        chunkExtractor,
+        metaTags,
+        isBot,
+        fetcherData
+    )
+
+    const state = store.getState()
+    const jsx = getComponent(store, context, req, fetcherData, isBot)
+    const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
+    const finalProps = { ...shellStart, ...shellEnd, jsx, req, res }
+    const CompleteDocument = () => renderDocument(finalProps)
+
+    const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
+
+    try {
+        // No AbortController/signal — unlike PPR's prerender pass, nothing
+        // here is meant to postpone. This resolves only once the entire tree
+        // (including any Suspense boundaries) is fully settled, and the
+        // result is the complete page — nothing left to resume per request.
+        const result = await prerenderToNodeStream(<CompleteDocument />)
+        const preludeBuffer = result.prelude ? await collectStream(result.prelude) : Buffer.from("")
+
+        // Mirror _renderMarkUp's onAllReady trailer scripts (SSR'd-component
+        // hints for split(), deferred CSS/JS) so a static page hydrates and
+        // lazy-loads identically to one served via the classic path.
+        const deferredAssets = chunkExtractor ? chunkExtractor.getDeferredAssets() : { js: [], css: [] }
+        const trailerParts = [`<script>window.__CATALYST_IS_BOT__=false;</script>`]
+        if (chunkExtractor) {
+            const renderedKeys = chunkExtractor.getRenderedComponentKeys()
+            trailerParts.push(
+                `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
+            )
+        }
+        const { newCssPaths } = registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets, isBot)
+        if (newCssPaths.length) {
+            trailerParts.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+        }
+        trailerParts.push(generateScriptStrings(deferredAssets.js))
+
+        const buffer = Buffer.concat([preludeBuffer, Buffer.from(trailerParts.join(""))])
+
+        // Only cache a clean 200 — never bake in a transient error page or a
+        // redirect as if it were "the" static content for this route.
+        if (status === 200) {
+            staticPageCache.set(cacheKey, { buffer, statusCode: status })
+        }
+
+        res.setHeader("x-rendering-mode", "static-cache-miss")
+        res.status(status)
+        res.set({ "content-type": "text/html; charset=utf-8" })
+        res.end(buffer)
+    } catch (error) {
+        console.error(`[Static] Prerender failed for ${cacheKey}:`, error)
+        safeCall(onRenderError, { req, res, store, error })
+        if (!res.headersSent) {
+            res.status(500).send("Internal Server Error")
+        } else {
+            res.end()
+        }
+    }
+}
+
 // ── Render and stream (PPR — prerender + cache shell, resume per request) ─
 const _renderMarkUpPPR = async (req, res, metaTags, store, allMatches, chunkExtractor) => {
     const url = req.originalUrl
@@ -346,8 +462,28 @@ const _renderMarkUpPPR = async (req, res, metaTags, store, allMatches, chunkExtr
         }
     }
 
+    // A route with nothing wrapped in <DynamicDataProvider>/usePPRRouteData()
+    // (e.g. no route matched at all — favicon.ico, DevTools probe requests,
+    // any 404) never gets aborted mid-prerender, so prerenderToNodeStream
+    // finishes with postponed === null and prelude already holding the
+    // COMPLETE page. There is nothing to resume — resumeToPipeableStream
+    // requires a non-null postponed state and throws otherwise — so just
+    // send the prelude as-is instead of attempting a resume.
+    const sendComplete = (prelude) => {
+        res.setHeader("x-rendering-mode", "fully-static")
+        if (prelude) res.write(prelude)
+        writeStreamTrailers()
+        clearPPRCache()
+        res.end()
+    }
+
     const resumeAndStream = (element, postponedState, renderingMode, prelude) =>
         new Promise((resolve, reject) => {
+            if (!postponedState) {
+                sendComplete(prelude)
+                resolve()
+                return
+            }
             try {
                 const { pipe } = resumeToPipeableStream(element, postponedState, {
                     onShellReady() {
@@ -420,6 +556,7 @@ const _renderMarkUpPPR = async (req, res, metaTags, store, allMatches, chunkExtr
 }
 
 const tracedRenderMarkUp = withObservability(SSR_SERVICE, _renderMarkUp, "renderMarkUp")
+const tracedRenderMarkUpStatic = withObservability(SSR_SERVICE, _renderMarkUpStatic, "renderMarkUpStatic")
 const tracedRenderMarkUpPPR = withObservability(SSR_SERVICE, _renderMarkUpPPR, "renderMarkUpPPR")
 const tracedAppServerSideFunction = withObservability(
     SSR_SERVICE,
@@ -433,13 +570,21 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
 /**
  * SSR request handler. Execution pipeline per request:
  *   1. Match route → collect assets
- *   2. App.serverSideFunction (app-level server hook)
- *   3a. PPR path (non-bot, ENABLE_PPR=true): skip upfront data fetch — render via
- *       prerenderToNodeStream/resumeToPipeableStream, data is resolved lazily inside
- *       the tree via usePPRRouteData()/use(). The static shell is cached per-route;
+ *   2. Static path (leaf route's Component.renderMode === "static"): on cache hit,
+ *      replay the cached full-page buffer verbatim — no data fetch, no render, applies
+ *      to bots too. On cache miss (or a dev-only ?__refresh_static_cache bypass — see
+ *      isStaticCacheBypassRequested), falls through to serverDataFetcher below same as
+ *      the classic path, but renders via _renderMarkUpStatic (prerenderToNodeStream, no
+ *      abort/postpone — waits for the whole tree, buffers it, caches it) instead of
+ *      _renderMarkUp's live renderToPipeableStream.
+ *   3. App.serverSideFunction (app-level server hook)
+ *   4a. PPR path (non-bot, ENABLE_PPR=true, non-static route): skip upfront data fetch —
+ *       render via prerenderToNodeStream/resumeToPipeableStream, data is resolved lazily
+ *       inside the tree via usePPRRouteData()/use(). The static shell is cached per-route;
  *       postponed (dynamic/personalized) content is always resolved fresh per request.
- *   3b. Classic path (bots, or PPR disabled): serverDataFetcher pre-fetches all route
- *       data, then renderToPipeableStream renders the fully-resolved tree in one pass.
+ *   4b. Classic path (bots, PPR disabled, or a static route on cache miss):
+ *       serverDataFetcher pre-fetches all route data, then _renderMarkUp/_renderMarkUpStatic
+ *       renders the fully-resolved tree in one pass.
  *
  * res.headersSent is checked after each async step: if a user hook
  * (onRouteMatch, onFetcherSuccess, etc.) has already sent a response
@@ -452,12 +597,32 @@ async function _handler(req, res) {
         const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
 
         const cachedRoutes = getCachedRoutes()
-        const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.baseUrl) : []
+        // matchRoutes (react-router) returns null — not [] — when nothing matches
+        // (e.g. favicon.ico, DevTools probe requests). Every downstream consumer
+        // assumes an array, so normalize here rather than null-guard everywhere.
+        const allMatches = (cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.baseUrl) : []) || []
         let allTags = []
 
         safeCall(onRouteMatch, { req, res, matches: allMatches, store })
 
         if (res.headersSent) return
+
+        const isStaticRoute = getStaticRenderMode(allMatches) === "static"
+        if (isStaticRoute && !isStaticCacheBypassRequested(req)) {
+            const cacheKey = new URL(req.originalUrl, `http://${req.headers.host}`).pathname
+            const cached = staticPageCache.get(cacheKey)
+            if (cached) {
+                res.setHeader("x-rendering-mode", "static-cache-hit")
+                res.status(cached.statusCode)
+                res.set({ "content-type": "text/html; charset=utf-8" })
+                res.end(cached.buffer)
+                return
+            }
+        }
+        // On a static-route cache miss, _renderMarkUpStatic (same call signature as
+        // _renderMarkUp) takes over rendering — prerendered to a buffer and cached,
+        // rather than streamed — at every call site below.
+        const renderMarkUp = isStaticRoute ? tracedRenderMarkUpStatic : tracedRenderMarkUp
 
         try {
             await tracedAppServerSideFunction({ store, req, res })
@@ -469,7 +634,10 @@ async function _handler(req, res) {
             const isBot = !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
             const chunkExtractor = collectAssets(req, allMatches)
 
-            if (!isBot && isPPREnabled()) {
+            // Static routes always take the classic (fully pre-fetched) path below —
+            // PPR's per-request-fresh dynamic resolution is exactly what full-page
+            // caching must NOT capture, so PPR is skipped even if globally enabled.
+            if (!isBot && isPPREnabled() && !isStaticRoute) {
                 allTags = tracedGetMetaData(allMatches, {})
                 await tracedRenderMarkUpPPR(req, res, allTags, store, allMatches, chunkExtractor)
                 return
@@ -492,7 +660,7 @@ async function _handler(req, res) {
                     if (res.headersSent) return
 
                     const statusCode = err.status_code || 404
-                    await tracedRenderMarkUp(
+                    await renderMarkUp(
                         statusCode,
                         req,
                         res,
@@ -508,7 +676,7 @@ async function _handler(req, res) {
 
                     if (res.headersSent) return
 
-                    await tracedRenderMarkUp(
+                    await renderMarkUp(
                         null,
                         req,
                         res,
@@ -526,7 +694,7 @@ async function _handler(req, res) {
 
                 if (res.headersSent) return
 
-                await tracedRenderMarkUp(
+                await renderMarkUp(
                     404,
                     req,
                     res,
@@ -545,7 +713,7 @@ async function _handler(req, res) {
             if (res.headersSent) return
 
             const chunkExtractor = collectAssets(req, allMatches)
-            await tracedRenderMarkUp(
+            await renderMarkUp(
                 error.status_code,
                 req,
                 res,

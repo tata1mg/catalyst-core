@@ -125,10 +125,17 @@ async function createServer() {
         // loaded once at startup by ./manifestCache.js — handler reads from
         // that singleton instead of attaching them to every `req`.
         const buildPath = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
-        const publicPath = path.join(buildPath, "client")
-        // Serve static assets — prefers pre-compressed .br / .gz files generated at build time
+        // vite.config.client.js emits every chunk/asset under "client/assets/"
+        // (relative to outDir) — e.g. build/client/assets/foo.js. The mount
+        // prefix below is "client/assets", so publicPath must point at that
+        // same "assets" subfolder, or every request 404s one directory short.
+        const publicPath = path.join(buildPath, "client", "assets")
+        // Serve static assets — prefers pre-compressed .br / .gz files generated at build time.
+        // Leading slash is required: Express (path-to-regexp) treats a mount path
+        // without one as never matching, so this silently fell through to the SSR
+        // catch-all for every asset request.
         app.use(
-            "client/assets",
+            "/client/assets",
             expressStaticGzip(publicPath, {
                 enableBrotli: true,
                 orderPreference: ["br", "gz"],
