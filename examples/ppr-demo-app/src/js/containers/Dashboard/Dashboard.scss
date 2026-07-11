@@ -1,0 +1,320 @@
+.shell {
+    display: flex;
+    min-height: 100vh;
+    background: #f4f6fb;
+    color: #1a1f36;
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+}
+
+// ── Sidebar (static — part of the cached shell) ────────────────────────────
+.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: #12172b;
+    color: #b7bcd6;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 16px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 17px;
+    padding: 0 8px 24px;
+}
+
+.brandMark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: default;
+}
+
+.navItemActive {
+    composes: navItem;
+    background: rgba(99, 102, 241, 0.18);
+    color: #fff;
+    font-weight: 600;
+}
+
+.navIcon {
+    width: 18px;
+    text-align: center;
+}
+
+.sidebarFooter {
+    margin-top: auto;
+    padding: 12px 8px 0;
+    font-size: 11px;
+    color: #565d7d;
+    border-top: 1px solid #232a45;
+    padding-top: 16px;
+}
+
+// ── Main column ─────────────────────────────────────────────────────────
+.main {
+    flex: 1;
+    padding: 28px 36px 48px;
+    max-width: 1180px;
+}
+
+.topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.title {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.subtitle {
+    margin: 0;
+    color: #6b7290;
+    font-size: 13px;
+}
+
+.shellBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #eef0fd;
+    color: #4f46e5;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.filterPill {
+    background: #fff;
+    border: 1px solid #e3e5f0;
+    color: #444a6a;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 8px;
+}
+
+// ── KPI cards (dynamic) ────────────────────────────────────────────────
+.kpiGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.kpiCard {
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 2px rgba(20, 24, 51, 0.05);
+    border: 1px solid #ebedf7;
+}
+
+.kpiLabel {
+    font-size: 12px;
+    color: #6b7290;
+    margin: 0 0 8px;
+}
+
+.kpiValue {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.kpiDeltaUp {
+    color: #16a34a;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.kpiDeltaDown {
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+// ── Chart + live badge row ──────────────────────────────────────────────
+.row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 2px rgba(20, 24, 51, 0.05);
+    border: 1px solid #ebedf7;
+}
+
+.panelTitle {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 16px;
+    color: #2b2f4c;
+}
+
+.chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    height: 140px;
+}
+
+.chartBarWrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.chartBar {
+    width: 100%;
+    max-width: 34px;
+    border-radius: 5px 5px 0 0;
+    background: linear-gradient(180deg, #818cf8, #4f46e5);
+}
+
+.chartLabel {
+    font-size: 11px;
+    color: #8388a6;
+}
+
+.liveBox {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+}
+
+.liveDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #16a34a;
+    display: inline-block;
+    margin-right: 6px;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+}
+
+.liveCount {
+    font-size: 34px;
+    font-weight: 700;
+    margin: 10px 0 4px;
+}
+
+.liveLabel {
+    font-size: 12px;
+    color: #6b7290;
+}
+
+// ── Recent orders table (dynamic) ───────────────────────────────────────
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.table th {
+    text-align: left;
+    color: #6b7290;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0 10px 10px;
+    border-bottom: 1px solid #ebedf7;
+}
+
+.table td {
+    padding: 10px;
+    border-bottom: 1px solid #f2f3fa;
+}
+
+.status {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.statusDelivered {
+    composes: status;
+    background: #e8f8ee;
+    color: #16a34a;
+}
+
+.statusPending {
+    composes: status;
+    background: #fef6e7;
+    color: #b45309;
+}
+
+.statusCancelled {
+    composes: status;
+    background: #fdecec;
+    color: #dc2626;
+}
+
+.skeleton {
+    color: #a2a7c4;
+    font-size: 13px;
+    padding: 40px 0;
+    text-align: center;
+}
