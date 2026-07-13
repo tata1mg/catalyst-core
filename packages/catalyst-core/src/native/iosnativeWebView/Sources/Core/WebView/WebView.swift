@@ -58,6 +58,18 @@ public struct WebView: UIViewRepresentable, Equatable {
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
+        #if DEBUG
+        if ConfigConstants.Profiler.enabled {
+            configuration.userContentController.addUserScript(
+                WKUserScript(
+                    source: "window.__CATALYST_PROFILER_ENABLED = true;",
+                    injectionTime: .atDocumentStart,
+                    forMainFrameOnly: true
+                )
+            )
+        }
+        #endif
+
         let webViewCreateStart = CFAbsoluteTimeGetCurrent()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         let webViewCreateTime = (CFAbsoluteTimeGetCurrent() - webViewCreateStart) * 1000
@@ -68,7 +80,11 @@ public struct WebView: UIViewRepresentable, Equatable {
         ])
 
         webView.navigationDelegate = navigationDelegate
-        webView.scrollView.delegate = context.coordinator
+        #if DEBUG
+        if ConfigConstants.Profiler.enabled {
+            webView.scrollView.delegate = context.coordinator
+        }
+        #endif
         webView.allowsBackForwardNavigationGestures = true
         webView.isOpaque = false
         webView.backgroundColor = .clear
@@ -131,7 +147,11 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         let makeUIViewTime = (CFAbsoluteTimeGetCurrent() - makeUIViewStart) * 1000
         logWithTimestamp("🔨 makeUIView() completed (took \(String(format: "%.2f", makeUIViewTime))ms)")
-        context.coordinator.startKeyboardPerfTracking(webView)
+        #if DEBUG
+        if ConfigConstants.Profiler.enabled {
+            context.coordinator.startKeyboardPerfTracking(webView)
+        }
+        #endif
 
         return webView
     }
@@ -210,8 +230,12 @@ public struct WebView: UIViewRepresentable, Equatable {
             pluginBridge.register()
             self.nativeBridge = bridge
             self.pluginBridge = pluginBridge
-            self.fpsMonitor = DisplayLinkPerfMonitor(webView: webView)
-            self.fpsMonitor?.start()
+            #if DEBUG
+            if ConfigConstants.Profiler.enabled {
+                self.fpsMonitor = DisplayLinkPerfMonitor(webView: webView)
+                self.fpsMonitor?.start()
+            }
+            #endif
         }
 
         func stopPerfMonitoring() {

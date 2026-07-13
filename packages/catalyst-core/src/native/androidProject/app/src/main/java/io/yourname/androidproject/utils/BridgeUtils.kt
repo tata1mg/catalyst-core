@@ -112,6 +112,7 @@ object BridgeUtils {
      * @param payload JSONObject with at minimum a "type" field
      */
     fun emitPerfEvent(webView: WebView, payload: JSONObject) {
+        if (!PerfEventBuffer.isEnabled()) return
         if (Looper.myLooper() != Looper.getMainLooper()) {
             // Capture caller thread name before marshalling to main thread
             if (!payload.has("emitThread")) {

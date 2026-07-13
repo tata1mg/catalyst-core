@@ -26,6 +26,7 @@ enum CatalystPerf {
 
     static func add(_ event: [String: Any]) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         var payload = event
         if payload["nativeTime"] == nil {
             payload["nativeTime"] = nativeTimeMs()
@@ -43,6 +44,7 @@ enum CatalystPerf {
 
     static func emit(_ event: [String: Any], to webView: WKWebView?) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         guard let webView else {
             add(event)
             return
@@ -63,6 +65,7 @@ enum CatalystPerf {
 
     static func bridgeCallReceived(callId: String, method: String) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         lock.lock()
         pendingCalls[callId] = (nativeTimeMs(), method)
         lock.unlock()
@@ -71,6 +74,7 @@ enum CatalystPerf {
 
     static func bridgeCallDispatched(callId: String) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         lock.lock()
         guard let pending = pendingCalls.removeValue(forKey: callId) else {
             lock.unlock()
@@ -93,6 +97,7 @@ enum CatalystPerf {
 
     static func scheduleFlush(_ webView: WKWebView?) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         guard let webView else { return }
 
         lock.lock()
@@ -113,6 +118,7 @@ enum CatalystPerf {
 
     static func flushNow(_ webView: WKWebView?) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         guard let webView else { return }
         Task { @MainActor in
             flush(webView, includeCacheSummary: false)
@@ -138,6 +144,7 @@ enum CatalystPerf {
 
     static func memorySnapshot(to webView: WKWebView?, label: String? = nil) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         let currentMb = currentResidentMemoryMb()
         let event: [String: Any] = [
             "type": "memory-snapshot",
@@ -162,6 +169,7 @@ enum CatalystPerf {
 
     static func injectNativeTimeOffset(into webView: WKWebView?) {
         #if DEBUG
+        guard ConfigConstants.Profiler.enabled else { return }
         guard let webView else { return }
         let nativeNow = nativeTimeMs()
         DispatchQueue.main.async {

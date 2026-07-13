@@ -72,8 +72,8 @@ export class RenderCollector {
 
         switch (event.type) {
             case "fps-drop-episode": {
-                const start = this._nativeToWeb(event.startNativeTime)
-                const end = this._nativeToWeb(event.endNativeTime)
+                const start = Math.max(0, this._nativeToWeb(event.startNativeTime))
+                const end = Math.max(start, this._nativeToWeb(event.endNativeTime))
                 const markName = `${PREFIX.FPS_DROP}:${Math.round(start)}`
                 performance.mark(markName, { startTime: start })
 

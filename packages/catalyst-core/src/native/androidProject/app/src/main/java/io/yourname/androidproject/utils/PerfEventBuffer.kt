@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.webkit.WebView
+import io.yourname.androidproject.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -37,12 +38,14 @@ object PerfEventBuffer {
     private val buffer = ConcurrentLinkedQueue<JSONObject>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val flushed = AtomicBoolean(false)
+    @Volatile private var profilerEnabled = false
 
     // Periodic flush state
     @Volatile private var periodicWebView: WebView? = null
     private var lastFlushedSize = 0
     private val periodicRunnable: Runnable = object : Runnable {
         override fun run() {
+            if (!isEnabled()) return
             val wv = periodicWebView ?: return
             val currentSize = buffer.size
             if (currentSize > lastFlushedSize) {
@@ -112,8 +115,16 @@ object PerfEventBuffer {
 
     // ─── Public API ──────────────────────────────────────────────────────────
 
+    fun configure(enabled: Boolean) {
+        profilerEnabled = BuildConfig.DEBUG && enabled
+        if (!profilerEnabled) reset()
+    }
+
+    fun isEnabled(): Boolean = profilerEnabled
+
     /** Add a perf event to the buffer. Safe from any thread. */
     fun add(event: JSONObject) {
+        if (!isEnabled()) return
         if (buffer.size >= MAX_BUFFER_SIZE) {
             buffer.poll() // drop oldest
         }
@@ -131,6 +142,7 @@ object PerfEventBuffer {
      * Call this immediately when the method is invoked on the JavascriptInterface.
      */
     fun bridgeCallReceived(callId: String, method: String) {
+        if (!isEnabled()) return
         pendingCalls[callId] = Pair(SystemClock.elapsedRealtime(), method)
     }
 
@@ -139,6 +151,7 @@ object PerfEventBuffer {
      * Computes durationMs and adds an api-call event to the buffer.
      */
     fun bridgeCallDispatched(callId: String) {
+        if (!isEnabled()) return
         val pending = pendingCalls.remove(callId) ?: return
         val (t0, method) = pending
         val t1 = SystemClock.elapsedRealtime()
@@ -159,6 +172,7 @@ object PerfEventBuffer {
      * Also starts the periodic flush loop for subsequent SPA navigations.
      */
     fun scheduleFlush(webView: WebView) {
+        if (!isEnabled()) return
         if (flushed.getAndSet(true)) {
             android.util.Log.d(TAG, "[PerfBuffer] scheduleFlush() skipped — already flushed")
             return
@@ -176,6 +190,7 @@ object PerfEventBuffer {
      * Does NOT reset the buffer — only drains buffered events up to this point.
      */
     fun flushNow(webView: WebView) {
+        if (!isEnabled()) return
         mainHandler.post { flushIncremental(webView) }
     }
 
@@ -184,6 +199,7 @@ object PerfEventBuffer {
      * Call after onPageFinished so the JS receiver is registered.
      */
     fun startPeriodicFlush(webView: WebView) {
+        if (!isEnabled()) return
         mainHandler.removeCallbacks(periodicRunnable)
         periodicWebView = webView
         lastFlushedSize = 0
@@ -221,6 +237,7 @@ object PerfEventBuffer {
      * Used by periodic flush and flushNow(). Must run on main thread.
      */
     private fun flushIncremental(webView: WebView) {
+        if (!isEnabled()) return
         if (Looper.myLooper() != Looper.getMainLooper()) {
             mainHandler.post { flushIncremental(webView) }
             return
@@ -248,6 +265,7 @@ object PerfEventBuffer {
     }
 
     private fun flush(webView: WebView) {
+        if (!isEnabled()) return
         if (Looper.myLooper() != Looper.getMainLooper()) {
             mainHandler.post { flush(webView) }
             return

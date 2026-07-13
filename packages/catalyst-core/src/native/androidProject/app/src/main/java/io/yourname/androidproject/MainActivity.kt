@@ -274,6 +274,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.setProperty("buildType", if (BuildConfig.DEBUG) "debug" else "release")
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
         }
+        io.yourname.androidproject.utils.PerfEventBuffer.configure(
+            properties.getProperty("profiler.enabled", "false").toBoolean()
+        )
 
         configureEdgeToEdge()
 

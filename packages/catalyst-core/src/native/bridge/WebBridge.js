@@ -7,7 +7,6 @@ import {
 import nativeBridge from "./utils/NativeBridge.js"
 import CameraUtils from "./utils/CameraUtils.js"
 import pluginBridge from "../plugin-bridge/PluginBridge.js"
-import WebPerfCollector from "./perf/index.js"
 
 const DEVICE_INFO_PLUGIN = {
     pluginId: "io.catalyst.device_info",
@@ -103,9 +102,11 @@ class WebBridge {
 
         const { platform } = nativeBridge.getEnvironmentInfo()
 
-        // Start perf collection — hooks into native cache/keyboard events
-        // and sets up LoAF/layout-shift/scroll observers.
-        WebPerfCollector.init(bridge)
+        if (window.__CATALYST_PROFILER_ENABLED === true) {
+            import("./perf/index.js").then(({ default: WebPerfCollector }) => {
+                WebPerfCollector.init(bridge)
+            })
+        }
 
         console.log("🌉 WebBridge created and attached to window")
         return { bridge, platform, getDeviceInfo: bridge.getDeviceInfo }

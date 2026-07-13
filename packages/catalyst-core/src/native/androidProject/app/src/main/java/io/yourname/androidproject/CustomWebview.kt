@@ -13,6 +13,8 @@ import android.view.View
 import android.webkit.*
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import androidx.webkit.WebResourceRequestCompat
 import android.widget.ProgressBar
 import androidx.webkit.WebViewAssetLoader
@@ -50,6 +52,7 @@ class CustomWebView(
     private var isInitialApiCalled: Boolean = false  // Flag to track initial page load
     private var isInitialPageLoaded: Boolean = false
     private var buildOptimisation: Boolean = false // Added property for build optimization
+    private var profilerEnabled: Boolean = false
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
     private var accessControlEnabled: Boolean = false
@@ -78,7 +81,7 @@ class CustomWebView(
         }
         setupFromProperties()
         cacheManager = WebCacheManager(context, properties)
-        metricsMonitor.attachWebView(webView)
+        if (profilerEnabled) metricsMonitor.attachWebView(webView)
         offlineCacheService = OfflineCacheService(context)
         setupWebView()
     }
@@ -105,6 +108,7 @@ class CustomWebView(
 
         // Parse buildOptimisation property
         buildOptimisation = properties.getProperty("buildOptimisation", "false").toBoolean()
+        profilerEnabled = PerfEventBuffer.isEnabled()
 
         // Load allowed URLs from properties
         allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
@@ -757,6 +761,13 @@ class CustomWebView(
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
+        if (profilerEnabled && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(
+                webView,
+                "window.__CATALYST_PROFILER_ENABLED = true;",
+                setOf("*")
+            )
+        }
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🌐 Setting up WebView on thread: ${Thread.currentThread().name}")
         }
@@ -1097,12 +1108,15 @@ class CustomWebView(
                     Log.d(FLOW_TAG, "PAGE started url=$url online=${NetworkUtils.getCurrentStatus(context).isOnline} offlinePageVisible=$offlinePageVisible visibleSnapshot=${visibleOfflineSnapshotUrl ?: "none"} activeOrigin=${activeOfflineRouteOrigin ?: "none"}")
                 }
 
-                val nativeNow = android.os.SystemClock.elapsedRealtime()
-                view?.evaluateJavascript(
-                    "window.__NATIVE_TIME_OFFSET = $nativeNow - performance.now();",
-                    null
-                )
-                if (BuildConfig.DEBUG && url != null) {
+                if (profilerEnabled) {
+                    val nativeNow = android.os.SystemClock.elapsedRealtime()
+                    view?.evaluateJavascript(
+                        "window.__CATALYST_PROFILER_ENABLED = true; window.__NATIVE_TIME_OFFSET = $nativeNow - performance.now();",
+                        null
+                    )
+                }
+                if (profilerEnabled && url != null) {
+                    val nativeNow = android.os.SystemClock.elapsedRealtime()
                     PerfEventBuffer.add(JSONObject().apply {
                         put("type", "boot-page-started")
                         put("nativeTime", nativeNow)
@@ -1125,7 +1139,7 @@ class CustomWebView(
                 url?.let { metricsMonitor.trackPageLoadEnd(it) }
 
                 val pageFinishedNative = android.os.SystemClock.elapsedRealtime()
-                if (BuildConfig.DEBUG && url != null) {
+                if (profilerEnabled && url != null) {
                     PerfEventBuffer.add(JSONObject().apply {
                         put("type", "boot-page-finished")
                         put("nativeTime", pageFinishedNative)
@@ -1289,7 +1303,7 @@ class CustomWebView(
         // Only enable WebView debugging in debug builds
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
-        if (BuildConfig.DEBUG) {
+        if (profilerEnabled) {
             scrollGestureDetector = GestureDetector(context,
                 object : GestureDetector.SimpleOnGestureListener() {
                     override fun onScroll(
