@@ -5,7 +5,7 @@ const isCompilerEnabled = !!customWebpackConfig.reactCompiler
 const reactCompilerOptions =
     typeof customWebpackConfig.reactCompiler === "object"
         ? customWebpackConfig.reactCompiler
-        : { target: "18" }
+        : { target: "19" }
 
 export default {
     babelrc: false,
@@ -36,10 +36,7 @@ export default {
             plugins: ["react-refresh/babel"],
         },
         production: {
-            plugins: [
-                require("./babel-plugins/remove-client.plugin").default,
-                "transform-react-remove-prop-types",
-            ],
+            plugins: [require("./babel-plugins/remove-client.plugin").default],
         },
     },
     ignore: ["__TEST__"],

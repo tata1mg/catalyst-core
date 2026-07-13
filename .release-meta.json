@@ -1,14 +1,14 @@
 {
-  "tag": "beta",
-  "packages": {
-    "catalyst-core": {
-      "publish": true,
-      "version": "0.1.0-beta.6"
-    },
-    "create-catalyst-app": {
-      "publish": true,
-      "version": "0.1.0-beta.6",
-      "templateCatalystCoreVersion": "0.1.0-beta.6"
+    "tag": "beta",
+    "packages": {
+        "catalyst-core": {
+            "publish": true,
+            "version": "0.2.0-beta.2"
+        },
+        "create-catalyst-app": {
+            "publish": true,
+            "version": "0.2.0-beta.2",
+            "templateCatalystCoreVersion": "0.2.0-beta.2"
+        }
     }
-  }
 }

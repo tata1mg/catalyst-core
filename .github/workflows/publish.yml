@@ -27,6 +27,11 @@ on:
                 required: true
                 type: boolean
                 default: false
+            release_pr_number:
+                description: "Release PR number override for release automation"
+                required: false
+                type: string
+                default: ""
     push:
         branches:
             - main
@@ -35,6 +40,7 @@ on:
 permissions:
     contents: write
     id-token: write
+    pull-requests: read
 
 concurrency:
     group: publish-${{ github.ref_name }}
@@ -43,8 +49,15 @@ concurrency:
 jobs:
     publish:
         runs-on: ubuntu-latest
+        outputs:
+            should_run: ${{ steps.context.outputs.should_run }}
+            dry_run: ${{ steps.context.outputs.dry_run }}
+            publish_core: ${{ steps.context.outputs.publish_core }}
+            channel: ${{ steps.context.outputs.channel }}
+            core_version: ${{ steps.versions.outputs.core }}
+            release_pr_number: ${{ steps.release_pr.outputs.number }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
               with:
                   fetch-depth: 0
 
@@ -139,9 +152,9 @@ jobs:
 
             - name: Setup Node.js
               if: steps.context.outputs.should_run == 'true'
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
-                  node-version: "20"
+                  node-version: "22.14.0"
                   registry-url: "https://registry.npmjs.org"
 
             - name: Read workspace package versions
@@ -329,7 +342,7 @@ jobs:
 
             - name: Update npm for OIDC support
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
-              run: npm install -g npm@latest
+              run: npm install -g npm@11.5.1
 
             - name: Publish catalyst-core to npm
               id: publish_core
@@ -430,41 +443,33 @@ jobs:
                   git tag "create-catalyst-app@$CCA_VERSION"
                   git push origin "create-catalyst-app@$CCA_VERSION"
 
-            - name: Send Flock notification
-              id: notify
-              if: success() && steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
+            - name: Resolve release PR number
+              id: release_pr
+              if: success() && steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.context.outputs.dry_run != 'true'
               env:
-                  PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
-                  PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
-                  CORE_VERSION: ${{ steps.versions.outputs.core }}
-                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
-                  CHANNEL: ${{ steps.context.outputs.channel }}
-                  GITHUB_ACTOR_NAME: ${{ github.actor }}
-                  GITHUB_REF_NAME: ${{ github.ref_name }}
-                  GITHUB_REPOSITORY_NAME: ${{ github.repository }}
-                  FLOCK_WEBHOOK_URL: ${{ secrets.FLOCK_WEBHOOK_URL }}
+                  GH_TOKEN: ${{ github.token }}
+                  INPUT_RELEASE_PR_NUMBER: ${{ inputs.release_pr_number }}
               run: |
-                  SUMMARY_LINES=()
+                  PR_NUMBER="$INPUT_RELEASE_PR_NUMBER"
 
-                  if [ "$PUBLISH_CORE" == "true" ]; then
-                    SUMMARY_LINES+=("catalyst-core@$CORE_VERSION ($CHANNEL)")
+                  if [ -n "$PR_NUMBER" ] && ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+                    echo "::error::release_pr_number must be numeric when provided"
+                    exit 1
                   fi
 
-                  if [ "$PUBLISH_CCA" == "true" ]; then
-                    SUMMARY_LINES+=("create-catalyst-app@$CCA_VERSION ($CHANNEL)")
+                  if [ -z "$PR_NUMBER" ]; then
+                    PR_NUMBER=$(gh api \
+                      -H "Accept: application/vnd.github+json" \
+                      "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+                      --jq '.[0].number // ""' 2>/dev/null || true)
                   fi
 
-                  SUMMARY=$(printf '%s\n' "${SUMMARY_LINES[@]}")
-                  DESCRIPTION=$(printf '%s\n\nPublished by: %s\nBranch: %s' "$SUMMARY" "$GITHUB_ACTOR_NAME" "$GITHUB_REF_NAME")
-                  PAYLOAD=$(jq -n \
-                    --arg text "✅ Package Publish Completed" \
-                    --arg title "$GITHUB_REPOSITORY_NAME" \
-                    --arg description "$DESCRIPTION" \
-                    '{text: $text, attachments: [{title: $title, description: $description, color: "#00C851"}]}')
+                  if [ -z "$PR_NUMBER" ]; then
+                    echo "::error::Could not resolve pull request number for commit $GITHUB_SHA"
+                    exit 1
+                  fi
 
-                  curl -X POST "$FLOCK_WEBHOOK_URL" \
-                    -H "Content-Type: application/json" \
-                    -d "$PAYLOAD"
+                  echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
             - name: Final summary
               if: always()
@@ -492,3 +497,13 @@ jobs:
                   if [ "$PUBLISH_CCA" == "true" ]; then
                     echo "create-catalyst-app=$CCA_VERSION"
                   fi
+
+    trigger_release_automation:
+        needs: publish
+        if: success() && needs.publish.outputs.should_run == 'true' && needs.publish.outputs.publish_core == 'true' && needs.publish.outputs.dry_run != 'true'
+        uses: ./.github/workflows/release-automation.yml
+        with:
+            version: ${{ needs.publish.outputs.core_version }}
+            npm_tag: ${{ needs.publish.outputs.channel }}
+            pr_number: ${{ needs.publish.outputs.release_pr_number }}
+            commit_sha: ${{ github.sha }}

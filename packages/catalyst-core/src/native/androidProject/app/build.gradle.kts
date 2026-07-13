@@ -10,7 +10,7 @@ buildscript {
     }
 }
 
-val configPath: String? by project.properties
+val configPath = findProperty("configPath") as? String
 val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
 val keyAlias: String? by project.properties
 val keyPassword: String? by project.properties
@@ -29,15 +29,32 @@ fun isAllowBackupEnabled(): Boolean {
 
 fun isNotificationsEnabled(): Boolean {
     return try {
-        if (configPath == null) return false
-        val configFile = File(configPath!!)
-        if (!configFile.exists()) return false
+        if (configPath != null) {
+            val configFile = File(configPath)
+            if (configFile.exists()) {
+                val json = JSONObject(configFile.readText())
+                if (json.has("WEBVIEW_CONFIG")) {
+                    val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
+                    return webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+                }
+            }
+        }
 
-        val json = JSONObject(configFile.readText())
-        if (!json.has("WEBVIEW_CONFIG")) return false
+        val generatedBuildProps = File("${project.projectDir}/catalyst-build.properties")
+        if (generatedBuildProps.exists()) {
+            val props = Properties()
+            props.load(generatedBuildProps.inputStream())
+            return props.getProperty("notifications.enabled", "false").trim().lowercase() == "true"
+        }
 
-        val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
-        webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+        val webviewProps = File("${project.projectDir}/src/main/assets/webview_config.properties")
+        if (webviewProps.exists()) {
+            val props = Properties()
+            props.load(webviewProps.inputStream())
+            return props.getProperty("notifications.enabled", "false").trim().lowercase() == "true"
+        }
+
+        false
     } catch (e: Exception) {
         false
     }

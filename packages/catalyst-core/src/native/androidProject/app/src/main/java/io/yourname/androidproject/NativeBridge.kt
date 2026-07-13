@@ -214,7 +214,7 @@ class NativeBridge(
                 .filter { it.isNotEmpty() }
 
             accessControlEnabled = properties
-                .getProperty("accessControl.enabled", "true")
+                .getProperty("accessControl.enabled", "false")
                 .equals("true", ignoreCase = true)
 
             if (accessControlEnabled && allowedUrls.isNotEmpty()) {

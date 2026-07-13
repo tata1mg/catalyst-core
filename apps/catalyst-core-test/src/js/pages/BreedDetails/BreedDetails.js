@@ -1,5 +1,6 @@
 import React from "react"
 import { useCurrentRouteData, useParams, Link } from "@tata1mg/router"
+import { getDogApiBaseUrl, getDogImages } from "../../utils/dogApi"
 
 const BreedDetails = () => {
     const params = useParams()
@@ -41,7 +42,7 @@ const BreedDetails = () => {
 BreedDetails.clientFetcher = async ({ params }) => {
     try {
         const breedName = params.breed
-        const response = await fetch(`https://dog.ceo/api/breed/${breedName}/images`)
+        const response = await fetch(`${getDogApiBaseUrl()}/api/breed/${breedName}/images`)
         const data = await response.json()
         return data
     } catch (error) {
@@ -52,10 +53,7 @@ BreedDetails.clientFetcher = async ({ params }) => {
 
 BreedDetails.serverFetcher = async ({ params }) => {
     try {
-        const breedName = params.breed
-        const response = await fetch(`https://dog.ceo/api/breed/${breedName}/images`)
-        const data = await response.json()
-        return data
+        return getDogImages()
     } catch (error) {
         console.error("Error fetching breed details:", error)
         throw error

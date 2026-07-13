@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 
-
 const DEFAULT_DURATION = 300
 const DEFAULT_TIMEOUT_MULTIPLIER = 3
 const MIN_TIMEOUT = 800
@@ -159,7 +158,10 @@ export const useNativeTransition = (defaults = {}) => {
                         })
                     })
                 } catch (err) {
-                    console.error("🔀 useNativeTransition: startTransition failed, falling back to plain navigate:", err)
+                    console.error(
+                        "🔀 useNativeTransition: startTransition failed, falling back to plain navigate:",
+                        err
+                    )
                     setTransitioning(false)
                     router(to, routerOpts)
                 }
@@ -203,7 +205,9 @@ export const useNativeTransition = (defaults = {}) => {
         if (isNative) {
             try {
                 nativeBridge.transition.cancel()
-            } catch (_) { /* swallow — cancel is best-effort */ }
+            } catch (_) {
+                /* swallow — cancel is best-effort */
+            }
         } else {
             _cancelWebOverlay()
         }

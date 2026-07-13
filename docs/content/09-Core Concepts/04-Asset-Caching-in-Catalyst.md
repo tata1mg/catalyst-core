@@ -35,6 +35,11 @@ Universal apps can cache selected files through `cachePattern` in `WEBVIEW_CONFI
 
 This cache is implemented natively and is separate from the browser’s default storage.
 
+`cachePattern` remains a manual, global cache policy. Routes marked `offline: true` add a second
+route-scoped policy: while an offline-enabled route is active, Catalyst also caches same-origin GET
+subresources that look like document assets. API requests, non-GET requests, and document/data
+responses are excluded where native can identify them.
+
 ## What to Cache
 
 - Route JS chunks
