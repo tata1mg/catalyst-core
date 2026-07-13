@@ -33,6 +33,16 @@ Add `profiler.enabled` under `WEBVIEW_CONFIG`:
 
 Rebuild the native app after changing this value. The profiler is hard-disabled in Android release builds and iOS non-debug builds, even if the config value is `true`.
 
+Initialize the native bridge in the Catalyst app before using the profiler API:
+
+```js
+import WebBridge from "catalyst-core/WebBridge"
+
+WebBridge.init()
+```
+
+The profiler is exposed as `window.CatalystPerf` after the bridge initializes.
+
 ## Android: Chrome DevTools
 
 Android provides the complete combined view: Chrome’s browser tracks and Catalyst’s custom tracks appear in the same Performance recording.
