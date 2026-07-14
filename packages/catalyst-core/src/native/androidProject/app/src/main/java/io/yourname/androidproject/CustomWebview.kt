@@ -25,6 +25,7 @@ import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.CameraUtils
 import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.PerfEventBuffer
+import io.yourname.androidproject.utils.ProfilerNavigationState
 import org.json.JSONObject
 import kotlinx.coroutines.*
 import java.io.FileNotFoundException
@@ -53,6 +54,7 @@ class CustomWebView(
     private var isInitialPageLoaded: Boolean = false
     private var buildOptimisation: Boolean = false // Added property for build optimization
     private var profilerEnabled: Boolean = false
+    private val profilerNavigationState = ProfilerNavigationState()
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
     private var accessControlEnabled: Boolean = false
@@ -181,21 +183,26 @@ class CustomWebView(
         }
     }
 
+    private fun loadTopLevelUrl(url: String) {
+        if (BuildConfig.DEBUG) {
+            val navigation = profilerNavigationState.begin(url)
+            if (navigation.shouldReset) PerfEventBuffer.reset()
+            PerfEventBuffer.add(JSONObject().apply {
+                put("type", "boot-load-url")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("url", navigation.url)
+                put("thread", Thread.currentThread().name)
+            })
+        }
+        loadUrlInternal(url)
+    }
+
     fun loadUrl(url: String) {
         lastTargetUrl = url
         offlinePageVisible = false
         visibleOfflineSnapshotUrl = null
         activeOfflineRouteOrigin = null
-        if (BuildConfig.DEBUG) {
-            PerfEventBuffer.reset()
-            PerfEventBuffer.add(JSONObject().apply {
-                put("type", "boot-load-url")
-                put("nativeTime", android.os.SystemClock.elapsedRealtime())
-                put("url", url)
-                put("thread", Thread.currentThread().name)
-            })
-        }
-        loadUrlInternal(url)
+        loadTopLevelUrl(url)
     }
 
     fun updateLastTargetUrl(url: String) {
@@ -213,7 +220,7 @@ class CustomWebView(
             offlinePageVisible = true
             visibleOfflineSnapshotUrl = null
             activeOfflineRouteOrigin = null
-            loadUrlInternal(offlineAssetUrl)
+            loadTopLevelUrl(offlineAssetUrl)
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "📴 Showing offline page from assets: $offlineAssetPath")
             }
@@ -256,7 +263,7 @@ class CustomWebView(
             offlinePageVisible = false
             visibleOfflineSnapshotUrl = snapshotUrl
             updateActiveOfflineRoute(url, true)
-            loadUrlInternal(url)
+            loadTopLevelUrl(url)
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "📴 Loading cached offline route through request interceptor: $url")
             }
@@ -515,7 +522,7 @@ class CustomWebView(
                     }
                     offlinePageVisible = false
                     lastTargetUrl = target
-                    loadUrlInternal(target)
+                    loadTopLevelUrl(target)
                 } else if (BuildConfig.DEBUG) {
                     Log.w(TAG, "🔄 Retry requested but no target URL is known")
                 }

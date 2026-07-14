@@ -6,14 +6,14 @@
  *
  * Each insight is a point-in-time span with:
  *   - severity: 'critical' | 'warning' | 'info'
- *   - rule:     short machine-readable id (e.g. 'bridge-too-slow')
+ *   - rule:     short machine-readable id (e.g. 'slow-page-load')
  *   - message:  one-sentence human diagnosis
  *   - fix:      immediate actionable recommendation
  *   - evidence: the numbers that triggered the rule
  *
  * Insights are emitted in two modes:
  *   1. Reactive — emitted immediately when a threshold breach is detected
- *      (e.g. a bridge call times out, an fps-drop episode during interaction)
+ *      (e.g. an fps-drop episode during interaction)
  *   2. Summary — emitted once after SESSION_SUMMARY_DELAY_MS of inactivity
  *      to give a rolled-up view of what happened in the last session
  *
@@ -40,8 +40,6 @@ export class InsightsCollector {
         this._insightSeq = 0
 
         // Counters reset per session
-        this._bridgeTimeouts = 0
-        this._slowBridgeCalls = [] // [{ method, roundTripMs }]
         this._fpsDrops = [] // [{ minFps, durationMs }]
         this._slowLoads = [] // [{ url, durationMs }]
         this._loafsDuringNav = 0
@@ -61,34 +59,6 @@ export class InsightsCollector {
 
     // ─── Feed methods — called by index.js after routing native events ─────────
 
-    notifyBridgeCall({ method, roundTripMs, timedOut, startTime, endTime, callId, interactionId }) {
-        const source = { startTime, endTime, related: { callId, interactionId } }
-        if (timedOut) {
-            this._bridgeTimeouts++
-            this._emitReactive({
-                severity: "critical",
-                rule: "bridge-timeout",
-                message: `Bridge call '${method}' never returned`,
-                fix: "Check native handler for the method — it may be throwing silently or not calling the callback",
-                evidence: { method },
-                ...source,
-            })
-        } else if (roundTripMs > THRESHOLD.BRIDGE_SLOW_MS) {
-            this._slowBridgeCalls.push({ method, roundTripMs })
-            if (roundTripMs > 500) {
-                this._emitReactive({
-                    severity: "warning",
-                    rule: "bridge-too-slow",
-                    message: `Bridge call '${method}' took ${roundTripMs}ms (threshold ${THRESHOLD.BRIDGE_SLOW_MS}ms)`,
-                    fix: "Move heavy work off the main thread on the native side; batch calls to reduce round-trips",
-                    evidence: { method, roundTripMs, thresholdMs: THRESHOLD.BRIDGE_SLOW_MS },
-                    ...source,
-                })
-            }
-        }
-        this._scheduleSummary()
-    }
-
     notifyFpsDrop({
         minFps,
         avgFps,
@@ -107,7 +77,7 @@ export class InsightsCollector {
                 severity: "critical",
                 rule: "fps-drop-during-tap",
                 message: `FPS dropped to ${minFps.toFixed(1)} for ${Math.round(durationMs)}ms right after a tap`,
-                fix: "A bridge call or heavy computation is blocking the render thread after interaction — compare spans with the same interaction ID",
+                fix: "Heavy computation is blocking the render thread after interaction — compare spans with the same interaction ID",
                 evidence: { minFps, avgFps, durationMs, deltaFps, baselineFps },
                 ...source,
             })
@@ -126,7 +96,7 @@ export class InsightsCollector {
                 severity: "warning",
                 rule: "fps-spike-drop",
                 message: `Sudden FPS spike: dropped ${deltaFps.toFixed(1)}fps (${baselineFps?.toFixed(1)} → ${minFps.toFixed(1)}) in one frame window`,
-                fix: "A sudden spike drop — often a one-off heavy layout, image decode, or synchronous bridge call. Check Render track for a LoAF aligned with this episode.",
+                fix: "A sudden spike drop — often a one-off heavy layout or image decode. Check Render track for a LoAF aligned with this episode.",
                 evidence: { minFps, avgFps, durationMs, deltaFps, baselineFps },
                 ...source,
             })
@@ -192,7 +162,7 @@ export class InsightsCollector {
                 severity: "critical",
                 rule: "interaction-unresponsive",
                 message: `Tap on '${target}' took ${responseMs}ms to paint (threshold ${THRESHOLD.INTERACTION_SLOW_MS}ms)`,
-                fix: "A LoAF or bridge call is delaying the paint — check if the tap handler triggers a synchronous bridge call",
+                fix: "A LoAF is delaying the paint — inspect work overlapping the interaction",
                 evidence: { target, responseMs, thresholdMs: THRESHOLD.INTERACTION_SLOW_MS },
                 startTime,
                 endTime,
@@ -267,7 +237,7 @@ export class InsightsCollector {
             message: `Scroll jank: ${Math.round(frameDropCount)} frame drop(s), min ${minFps.toFixed(1)}fps during scroll`,
             fix:
                 minFps < 30
-                    ? "Severe scroll jank — check for synchronous bridge calls or layout thrash triggered during scroll. Look for LoAF spans on Render track overlapping the Input track scroll session."
+                    ? "Severe scroll jank — check for layout thrash triggered during scroll. Look for LoAF spans on Render track overlapping the Input track scroll session."
                     : "Scroll dropped below 55fps — common causes: sticky header recalc, cart badge updates, or image decode on scroll. Check Render track LoAF spans inside the scroll session.",
             evidence: { minFps, frameDropCount },
             startTime,
@@ -342,10 +312,6 @@ export class InsightsCollector {
 
     _titleFor(rule, evidence, message) {
         switch (rule) {
-            case "bridge-timeout":
-                return `Bridge timeout: ${evidence.method ?? "unknown"}`
-            case "bridge-too-slow":
-                return `Slow bridge: ${evidence.method ?? "unknown"} ${round(evidence.roundTripMs)}ms`
             case "fps-drop-during-tap":
                 return `FPS drop after tap: ${round(evidence.minFps)}fps`
             case "severe-fps-drop":
@@ -382,7 +348,6 @@ export class InsightsCollector {
     }
 
     _categoryFor(rule) {
-        if (rule.includes("bridge")) return "bridge"
         if (rule.includes("fps") || rule.includes("loaf") || rule.includes("layout")) return "render"
         if (rule.includes("page-load") || rule.includes("cold-start")) return "navigation"
         if (rule.includes("interaction") || rule.includes("tap")) return "interaction"
@@ -405,7 +370,6 @@ export class InsightsCollector {
         this._summaryTimer = null
 
         const problems = []
-        if (this._bridgeTimeouts > 0) problems.push(`${this._bridgeTimeouts} bridge timeout(s)`)
         if (this._fpsDrops.length > 0)
             problems.push(
                 `${this._fpsDrops.length} fps-drop episode(s), min ${Math.min(...this._fpsDrops.map((f) => f.minFps)).toFixed(0)}fps`
@@ -415,12 +379,11 @@ export class InsightsCollector {
         if (this._highMemory.length > 0)
             problems.push(`peak ${Math.max(...this._highMemory.map((m) => m.currentMb)).toFixed(0)}MB memory`)
 
-        const severity =
-            this._bridgeTimeouts > 0 || this._fpsDrops.some((f) => f.minFps < 20)
-                ? "critical"
-                : problems.length > 2
-                  ? "warning"
-                  : "info"
+        const severity = this._fpsDrops.some((f) => f.minFps < 20)
+            ? "critical"
+            : problems.length > 2
+              ? "warning"
+              : "info"
 
         const message =
             problems.length === 0
@@ -438,8 +401,6 @@ export class InsightsCollector {
             message,
             fix,
             evidence: {
-                bridgeTimeouts: this._bridgeTimeouts,
-                slowBridgeCalls: this._slowBridgeCalls.length,
                 fpsDropEpisodes: this._fpsDrops.length,
                 slowPageLoads: this._slowLoads.length,
                 slowInteractions: this._slowInteractions.length,
@@ -449,8 +410,6 @@ export class InsightsCollector {
         })
 
         // Reset counters for next session
-        this._bridgeTimeouts = 0
-        this._slowBridgeCalls = []
         this._fpsDrops = []
         this._slowLoads = []
         this._loafsDuringNav = 0

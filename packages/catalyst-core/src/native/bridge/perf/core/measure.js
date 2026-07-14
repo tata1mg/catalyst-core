@@ -177,13 +177,6 @@ export class Measure {
             return COLOR.TERTIARY
         }
 
-        // Bridge calls
-        if (name.startsWith(PREFIX.BRIDGE_CALL) || Number.isFinite(detail.roundTripMs)) {
-            if (detail.timedOut) return COLOR.ERROR
-            if ((detail.roundTripMs ?? duration) > THRESHOLD.BRIDGE_SLOW_MS) return COLOR.ERROR
-            return COLOR.SECONDARY
-        }
-
         // Browser network calls
         if (name.startsWith(PREFIX.NETWORK_TIMING)) {
             if (detail.ok === false || duration > THRESHOLD.FETCH_SLOW_MS) return COLOR.ERROR

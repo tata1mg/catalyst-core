@@ -18,7 +18,6 @@ export const TRACK = {
     MEMORY: "Memory",
     CACHE: "Cache",
     NETWORK: "Network",
-    BRIDGE: "Bridge",
     HOOK: "Hook",
     INTERACTION: "Interaction",
     INSIGHTS: "Insights",
@@ -41,7 +40,7 @@ export const PREFIX = {
     CACHE: "catalyst:cache",
     CACHE_GROUP: "catalyst:cache-group",
     NETWORK_TIMING: "catalyst:network",
-    BRIDGE_CALL: "catalyst:bridge-call",
+    NATIVE_API: "catalyst:native-api",
     HOOK_MOUNT: "catalyst:hook/mount",
     HOOK_LAZY: "catalyst:hook/lazy",
     INTERACTION: "catalyst:interaction",
@@ -65,8 +64,6 @@ export const THRESHOLD = {
     LCP_BAD_MS: 2500, // LCP > 2.5s = poor (Core Web Vitals)
     NAV_SESSION_BAD_MS: 2500, // navigation session > 2.5s = slow page
     FETCH_SLOW_MS: 300, // network fetch > 300ms = slow
-    BRIDGE_SLOW_MS: 100, // bridge round-trip > 100ms = slow
-    BRIDGE_TIMEOUT_MS: 3000, // bridge call with no response = timeout
     SCROLL_IDLE_MS: 150, // scroll ends after 150ms of no scroll events
     VIEWPORT_MIN_DELTA: 50, // ignore viewport resize < 50px (not keyboard)
     CACHE_GROUP_IDLE_MS: 300, // close cache group after 300ms idle
@@ -86,11 +83,11 @@ export const THRESHOLD = {
 //   error                                     → red
 //
 // Usage guide:
-//   error          = bad outcome (LoAF, miss, slow bridge, memory critical)
+//   error          = bad outcome (LoAF, miss, slow native API, memory critical)
 //   primary        = cache HIT memory (fastest path)
 //   primary-light  = cache HIT disk (good, slightly slower)
 //   primary-dark   = good LCP, clean scroll session
-//   secondary      = informational (bridge call ok, keyboard, viewport, mem/total normal)
+//   secondary      = informational (native API, keyboard, viewport, mem/total normal)
 //   primary        = mem/jvm (JVM heap — your Kotlin/Java code)
 //   tertiary-dark  = mem/native (V8 + Blink + JNI — WebView proxy; watch for growth)
 //   secondary-light = route transition, hook mount (neutral)

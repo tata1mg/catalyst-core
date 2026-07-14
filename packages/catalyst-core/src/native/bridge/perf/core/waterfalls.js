@@ -1,4 +1,4 @@
-const REQUEST_LANES = new Set(["network", "cache", "bridge", "native-api"])
+const REQUEST_LANES = new Set(["network", "cache", "native-api"])
 
 function durationOf(row) {
     if (Number.isFinite(row.durationMs)) return row.durationMs
@@ -111,9 +111,9 @@ function buildRequestWaterfall(data) {
         .sort(byStartTime)
 }
 
-function buildNativeBridgeWaterfall(data) {
+function buildNativeApiWaterfall(data) {
     return data.requests
-        .filter((request) => request.kind === "bridge" || request.kind === "native-api")
+        .filter((request) => request.kind === "native-api")
         .map((request) => toRow(request, request.kind, request.sessionId ?? null))
         .sort(byStartTime)
 }
@@ -227,7 +227,8 @@ export function buildWaterfall(data, type = "all") {
         case "native-bridge":
         case "bridge":
         case "api":
-            return buildNativeBridgeWaterfall(data)
+        case "native-api":
+            return buildNativeApiWaterfall(data)
         case "interactions":
         case "interaction":
             return buildInteractionWaterfall(data)
@@ -255,7 +256,7 @@ export function listWaterfalls() {
         "page-load",
         "navigation",
         "requests",
-        "native-bridge",
+        "native-api",
         "interactions",
         "render-jank",
         "scroll",

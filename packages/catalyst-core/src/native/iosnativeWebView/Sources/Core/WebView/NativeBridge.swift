@@ -299,6 +299,10 @@ extension NativeBridge: WKScriptMessageHandler {
         case "openFileWithIntent":
             fileHandler.openFileWithIntent(params: params)
         case "exportCatalystTrace":
+            guard CatalystConstants.Bridge.isTraceExportEnabled() else {
+                sendErrorCallback(eventName: "BRIDGE_ERROR", error: "Unsupported command: exportCatalystTrace", code: "UNSUPPORTED_COMMAND")
+                return
+            }
             fileHandler.exportCatalystTrace(params: params)
         case "requestHapticFeedback":
             let feedbackType = delegateHandler.extractFeedbackType(from: params)

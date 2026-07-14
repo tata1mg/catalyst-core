@@ -4,7 +4,7 @@ const THREADS = {
     render: 3,
     memory: 4,
     network: 5,
-    bridge: 6,
+    nativeApi: 6,
     insights: 7,
     events: 8,
 }
@@ -15,7 +15,7 @@ const THREAD_NAMES = {
     [THREADS.render]: "Render",
     [THREADS.memory]: "Memory",
     [THREADS.network]: "Network / Cache",
-    [THREADS.bridge]: "Bridge / Native API",
+    [THREADS.nativeApi]: "Native API execution",
     [THREADS.insights]: "Insights",
     [THREADS.events]: "Events",
 }
@@ -59,7 +59,7 @@ function sessionThread(kind) {
 }
 
 function requestThread(kind) {
-    if (kind === "bridge" || kind === "native-api") return THREADS.bridge
+    if (kind === "native-api") return THREADS.nativeApi
     return THREADS.network
 }
 

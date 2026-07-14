@@ -53,7 +53,7 @@ Android provides the complete combined view: Chrome’s browser tracks and Catal
 4. Use the app: navigate between routes, trigger native APIs, load data, scroll, and use the keyboard.
 5. Stop the recording and expand the **Catalyst** track group.
 
-Catalyst emits tracks for navigation, input, render, memory, cache, network, bridge, native API, hooks, interaction, and insights. Click a span to see its properties, including durations, IDs, outcomes, and related interaction IDs.
+Catalyst emits tracks for navigation, input, render, memory, cache, network, native API execution, hooks, interaction, and insights. Click a span to see its properties, including durations, IDs, and related interaction IDs.
 
 ![Catalyst Profiler in Chrome DevTools](/img/catalyst-profiler-chrome-performance.png)
 
@@ -76,10 +76,10 @@ On iOS, `downloadTrace()` writes the trace to the app’s documents area and pre
 | Startup and navigation | Cold start, WebView boot, page loads, page-load errors, route transitions, FCP, and LCP |
 | Interaction and input | Tap-to-next-frame response, long press, scroll sessions, keyboard sessions, and viewport resize |
 | Network and cache | `fetch`, XHR, memory-cache hits, disk-cache hits, cache misses, network fetches, and cache summaries |
-| Bridge and native APIs | Bridge round trips, timeouts, native API calls, callback outcomes, payload sizes, and native threads |
+| Native APIs | Immediate native handler execution, method, call ID, and native thread. This excludes JS transport, callback delivery, and UI completion. |
 | Rendering | FPS-drop episodes, long tasks, long animation frames, layout shifts, and hardware-acceleration changes |
 | Memory | Android JVM, WebView/native, and total process memory; iOS process memory snapshots |
-| Insights | Threshold-based findings for slow loads, bridge calls, interactions, FPS drops, memory, cache hit rate, and render issues |
+| Insights | Threshold-based findings for slow loads, interactions, FPS drops, memory, cache hit rate, and render issues |
 
 Native timestamps are aligned to the browser’s `performance.now()` timeline, so browser and Catalyst events can be compared directly.
 
@@ -128,11 +128,11 @@ window.CatalystPerf.waterfall("interactions")
 Available waterfall types:
 
 ```text
-page-load, navigation, requests, native-bridge, interactions,
+page-load, navigation, requests, native-api, interactions,
 render-jank, scroll, keyboard, cache, memory, all
 ```
 
-Waterfalls are grouped views that connect related work. For example, the interaction waterfall groups a tap with overlapping network, bridge, native API, render, and insight records.
+Waterfalls are grouped views that connect related work. For example, the interaction waterfall groups a tap with overlapping network, native API, render, and insight records.
 
 ### Export or Reset
 

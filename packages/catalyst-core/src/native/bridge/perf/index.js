@@ -5,7 +5,7 @@
  *   1. Create all collectors with shared dependencies injected
  *   2. Route native events to the correct collector
  *   3. Wire cross-collector notifications (LoAF → Scroll, Keyboard → Scroll,
- *      Bridge/Render → Interaction session, all events → Insights)
+ *      Render → Interaction session, all events → Insights)
  *   4. Expose WebPerfCollector.init(bridge) — called from WebBridge.init()
  *   5. Drain native batch buffer via __catalystPerfBatch + requestIdleCallback
  *   6. Keep a normalized queryable store for console APIs and future DevTools UI
@@ -14,7 +14,6 @@
  *
  * Native event routing (live path — __catalystPerfEvent):
  *   keyboard-show / keyboard-hide       → KeyboardCollector
- *   bridge-call-start / bridge-call-end → BridgeCollector
  *   cold-start → NavigationCollector (live — emitted after page finishes, JS is ready)
  *   page-load-start / page-load-end / page-load-error → NavigationCollector.onBatchEvent
  *     (buffered — emitted during WebView lifecycle before JS is ready, flushed post-load)
@@ -37,10 +36,9 @@
  *   RenderCollector.addLoafListener → HookCollector.onLoaf
  *   KeyboardCollector (scroll during keyboard) → ScrollCollector.onScrollDuringKeyboard
  *   NavigationCollector.isLoading → RenderCollector session context
- *   InteractionCollector.activeInteractionId → BridgeCollector spans
  *   InteractionCollector interaction range → RenderCollector spans
  *   InteractionCollector.activeInteractionId → NetworkTimingCollector fetch/XHR spans
- *   BridgeCollector / RenderCollector → InteractionCollector (onBridgeCall, onFpsDrop)
+ *   RenderCollector → InteractionCollector (onFpsDrop)
  *   CacheCollector.cache-summary → InsightsCollector.notifyCacheSummary
  *   All collectors → InsightsCollector (reactive warnings + session summary)
  *   All high-level collector outputs → PerfStore for waterfalls/tables/export
@@ -53,7 +51,6 @@ import { ScrollCollector } from "./collectors/ScrollCollector.js"
 import { KeyboardCollector } from "./collectors/KeyboardCollector.js"
 import { RenderCollector } from "./collectors/RenderCollector.js"
 import { CacheCollector } from "./collectors/CacheCollector.js"
-import { BridgeCollector } from "./collectors/BridgeCollector.js"
 import { HookCollector } from "./collectors/HookCollector.js"
 import { InteractionCollector } from "./collectors/InteractionCollector.js"
 import { InsightsCollector } from "./collectors/InsightsCollector.js"
@@ -79,7 +76,6 @@ class WebPerfCollector {
         this._keyboard = new KeyboardCollector(measure, nativeToWeb)
         this._render = new RenderCollector(measure, () => this._sessionContext(), nativeToWeb)
         this._cache = new CacheCollector(measure, nativeToWeb)
-        this._bridge = new BridgeCollector(measure, nativeToWeb)
         this._hook = new HookCollector(measure)
         this._interaction = new InteractionCollector(measure)
         this._insights = new InsightsCollector(measure)
@@ -104,26 +100,20 @@ class WebPerfCollector {
             }
         })
 
-        // Interaction session → BridgeCollector + RenderCollector
-        this._bridge.setInteractionSource(() => this._interaction)
+        // Interaction session → RenderCollector
         this._render.setInteractionSource(() => this._interaction)
         this._networkTiming.setInteractionSource(() => this._interaction)
-        this._api.setBridgeSource(() => this._bridge)
         this._api.setInteractionSource(() => this._interaction)
 
         // Normalized store feed for waterfalls, tables, export, and future DevTools UI.
         this._nav.setWaterfallSource((data) => this._store.recordNavigation(data))
         this._interaction.setWaterfallSource((data) => this._store.recordInteraction(data))
         this._networkTiming.setWaterfallSource((data) => this._store.recordNetwork(data))
-        this._bridge.setWaterfallSource((data) => this._store.recordBridge(data))
         this._api.setWaterfallSource((data) => this._store.recordNativeApi(data))
         this._render.setWaterfallSource((data) => this._store.recordRender(data))
         this._hook.setWaterfallSource((data) => this._store.recordHook(data))
         this._scroll.setWaterfallSource((data) => this._store.recordScroll(data))
         this._keyboard.setWaterfallSource((data) => this._store.recordKeyboard(data))
-
-        // Bridge → Insights
-        this._bridge.setInsightsSource((data) => this._insights.notifyBridgeCall(data))
 
         // Interaction → Insights (slow tap-to-paint)
         this._interaction.setInsightsSource((data) => this._insights.notifySlowInteraction(data))
@@ -172,7 +162,11 @@ class WebPerfCollector {
 
         // Native batch flush receiver — called by Kotlin after onPageFinished + 250ms delay.
         // Drains via requestIdleCallback so web render is not blocked.
-        window.__catalystPerfBatch = (jsonArrayString) => {
+        window.__catalystPerfBatch = (batchId, jsonArrayString) => {
+            if (jsonArrayString == null) {
+                jsonArrayString = batchId
+                batchId = null
+            }
             try {
                 console.log(
                     "[CatalystPerf] __catalystPerfBatch received, length=",
@@ -182,7 +176,15 @@ class WebPerfCollector {
                     typeof jsonArrayString === "string" ? JSON.parse(jsonArrayString) : jsonArrayString
                 if (!Array.isArray(events) || events.length === 0) {
                     console.warn("[CatalystPerf] __catalystPerfBatch — empty or invalid array")
-                    return
+                    return false
+                }
+                if (batchId) {
+                    this._acceptedBatchIds ??= new Set()
+                    if (this._acceptedBatchIds.has(batchId)) return true
+                    this._acceptedBatchIds.add(batchId)
+                    if (this._acceptedBatchIds.size > 100) {
+                        this._acceptedBatchIds.delete(this._acceptedBatchIds.values().next().value)
+                    }
                 }
                 const typeSummary = events.reduce((acc, e) => {
                     acc[e.type] = (acc[e.type] || 0) + 1
@@ -194,8 +196,10 @@ class WebPerfCollector {
                     JSON.stringify(typeSummary)
                 )
                 this._drainBatch(events)
+                return true
             } catch (e) {
                 console.warn("[CatalystPerf] Bad batch payload:", e)
+                return false
             }
         }
 
@@ -212,7 +216,6 @@ class WebPerfCollector {
         this._keyboard.init()
         this._render.init()
         this._cache.init()
-        this._bridge.init()
         this._hook.init()
         this._interaction.init()
         this._insights.init()
@@ -307,15 +310,6 @@ class WebPerfCollector {
                 // Legacy live path — only reached if buffer flush is disabled.
                 // In normal operation, cache events go via __catalystPerfBatch.
                 this._cache.onNativeEvent(event)
-                break
-
-            case "bridge-call-start":
-                this._bridge.onNativeEvent(event)
-                break
-
-            case "bridge-call-end":
-                this._bridge.onNativeEvent(event)
-                // Insights notified directly from BridgeCollector._emitSpan via setInsightsSource
                 break
 
             case "page-load-start":

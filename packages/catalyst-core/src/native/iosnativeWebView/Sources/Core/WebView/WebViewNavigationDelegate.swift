@@ -15,6 +15,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     private weak var cameraManager: NativeCameraManager?
     private var pageLoadStartMs: Int64?
     private var didEmitColdStart = false
+    private var hasStartedProfilerNavigation = false
 
     init(viewModel: WebViewModel, initialURL: URL?, cameraManager: NativeCameraManager? = nil) {
         self.viewModel = viewModel
@@ -256,6 +257,10 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         logWithTimestamp("📡 didStartProvisionalNavigation - loading started")
+        if hasStartedProfilerNavigation {
+            CatalystPerf.reset()
+        }
+        hasStartedProfilerNavigation = true
         let nativeNow = CatalystPerf.nativeTimeMs()
         pageLoadStartMs = nativeNow
         CatalystPerf.injectNativeTimeOffset(into: webView)

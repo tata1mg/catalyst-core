@@ -54,6 +54,21 @@ public enum CatalystConstants {
 
     // MARK: - Bridge Limits / Validation
     public enum Bridge {
+        public static let isDebugBuild: Bool = {
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
+        }()
+
+        public static func isTraceExportEnabled(
+            debugBuild: Bool = isDebugBuild,
+            profilerEnabled: Bool = ConfigConstants.Profiler.enabled
+        ) -> Bool {
+            debugBuild && profilerEnabled
+        }
+
         // Safety limit for inbound JS message size (128 KB)
         public static let maxMessageSize: Int = 128 * 1024
         // Command execution timeout window
@@ -74,7 +89,6 @@ public enum CatalystConstants {
                 "setScreenSecure",
                 "getScreenSecure",
                 "clearWebData",
-                "exportCatalystTrace",
                 "startVideoStream",
                 "stopVideoStream",
                 "flipVideoStream",
@@ -86,6 +100,10 @@ public enum CatalystConstants {
                 "commitTransition",
                 "cancelTransition"
             ]
+
+            if isTraceExportEnabled() {
+                commands.insert("exportCatalystTrace")
+            }
 
             // Check if notifications are enabled via config
             // When enabled, CatalystNotifications module will be available at app layer

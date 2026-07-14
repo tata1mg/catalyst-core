@@ -25,7 +25,7 @@
  *
  * Disabled session nesting:
  *   On pointerdown, a 2-second interaction session opens.
- *   BridgeCollector and RenderCollector query activeSessionId to tag their spans.
+ *   RenderCollector queries activeSessionId to tag its spans.
  *   Session closes after SESSION_WINDOW_MS (2s) or next pointerdown, whichever comes first.
  */
 
@@ -42,7 +42,6 @@ export class InteractionCollector {
         this._session = new Session(PREFIX.SESSION_INTERACTION, measure, TRACK.INTERACTION)
         this._sessionTimer = null
         this._sessionId = null
-        this._sessionBridgeCalls = 0
         this._sessionNetworkCalls = 0
         this._sessionFpsDrop = false
         this._activeInteraction = null
@@ -50,7 +49,7 @@ export class InteractionCollector {
         this._interactionSeq = 0
     }
 
-    // ─── Public API — queried by BridgeCollector + RenderCollector ─────────────
+    // ─── Public API — queried by native API and render collectors ──────────────
 
     get activeInteractionId() {
         return this._activeInteraction?.id ?? null
@@ -90,14 +89,6 @@ export class InteractionCollector {
         }
     }
 
-    /** Called by BridgeCollector when a bridge-call span completes. */
-    onBridgeCall() {
-        if (this._session.isOpen) {
-            this._sessionBridgeCalls++
-            this._session.set("bridgeCalls", this._sessionBridgeCalls)
-        }
-    }
-
     /** Called by NetworkTimingCollector when a fetch/XHR starts during an interaction. */
     onNetworkCall() {
         if (this._session.isOpen) {
@@ -117,7 +108,6 @@ export class InteractionCollector {
         this._closeSession()
 
         this._sessionId = `${Math.round(startTime)}`
-        this._sessionBridgeCalls = 0
         this._sessionNetworkCalls = 0
         this._sessionFpsDrop = false
 
@@ -125,7 +115,6 @@ export class InteractionCollector {
             {
                 target,
                 sessionId: this._sessionId,
-                bridgeCalls: 0,
                 networkCalls: 0,
                 fpsDrop: false,
             },
@@ -149,7 +138,6 @@ export class InteractionCollector {
             this._session.close(
                 {
                     sessionId: this._sessionId,
-                    bridgeCalls: this._sessionBridgeCalls,
                     networkCalls: this._sessionNetworkCalls,
                     fpsDrop: this._sessionFpsDrop,
                 },
@@ -160,7 +148,6 @@ export class InteractionCollector {
                 phase: "end",
                 target,
                 sessionId: this._sessionId,
-                bridgeCalls: this._sessionBridgeCalls,
                 networkCalls: this._sessionNetworkCalls,
                 fpsDrop: this._sessionFpsDrop,
                 startTime,
@@ -228,7 +215,6 @@ export class InteractionCollector {
                 phase: "end",
                 target,
                 sessionId: interactionId,
-                bridgeCalls: 0,
                 networkCalls: 0,
                 fpsDrop: false,
                 startTime,

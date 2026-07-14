@@ -258,9 +258,11 @@ class BridgeMessageValidator {
             )
         }
 
-        // Step 3: Validate message size. Trace export carries JSON, so it gets a scoped larger limit.
+        // Step 3: Trace export gets a larger limit only when that debug profiler command is enabled.
         let rawCommand = body["command"] as? String
-        let maxMessageSize = rawCommand == "exportCatalystTrace" ? 25 * 1024 * 1024 : CatalystConstants.Bridge.maxMessageSize
+        let maxMessageSize = rawCommand == "exportCatalystTrace" && CatalystConstants.Bridge.isTraceExportEnabled()
+            ? 25 * 1024 * 1024
+            : CatalystConstants.Bridge.maxMessageSize
         if let messageData = try? JSONSerialization.data(withJSONObject: message.body, options: []),
            messageData.count > maxMessageSize {
             logger.error("Message size exceeds limit: \(messageData.count) > \(maxMessageSize)")

@@ -2,7 +2,9 @@
  * ApiCollector.js
  *
  * Instruments native API call timing — how long each @JavascriptInterface
- * method takes from JS invocation to native callback dispatch.
+ * method takes from native receipt until its immediate native handler work is
+ * dispatched. It does not measure JS-to-native transport, JS callback delivery,
+ * or UI completion.
  *
  * Native events received (via __catalystPerfBatch drain):
  *   api-call { callId, method, nativeStartMs, nativeEndMs, durationMs, thread }
@@ -14,8 +16,8 @@
  *
  * Reading the track:
  *   Blue  = fast native call (<50ms)   — expected for sync APIs (getDeviceInfo, haptic)
- *   Grey  = medium native call (<200ms) — expected for async APIs with quick resolution
- *   Red   = slow native call (>200ms)  — investigate (googleSignIn, camera, file picker)
+ *   Grey  = medium native call (<200ms) — native work worth inspecting
+ *   Red   = slow native call (>200ms)  — native work worth inspecting
  */
 
 import { TRACK, PREFIX, COLOR } from "../core/constants.js"
@@ -35,10 +37,6 @@ export class ApiCollector {
         this._notifyWaterfall = fn
     }
 
-    setBridgeSource(fn) {
-        this._getBridge = fn
-    }
-
     setInteractionSource(fn) {
         this._getInteraction = fn
     }
@@ -49,14 +47,11 @@ export class ApiCollector {
 
         const startTime = this._nativeToWeb(nativeStartMs)
         const endTime = this._nativeToWeb(nativeEndMs)
-        const interactionId =
-            this._getBridge?.()?.interactionIdForCall(callId) ??
-            this._getInteraction?.()?.interactionIdForRange(startTime, endTime) ??
-            null
+        const interactionId = this._getInteraction?.()?.interactionIdForRange(startTime, endTime) ?? null
 
         const color = durationMs > 200 ? COLOR.ERROR : durationMs > 50 ? COLOR.SECONDARY : COLOR.PRIMARY_DARK
 
-        const startMark = `${PREFIX.BRIDGE_CALL}:api:${method}:start:${Math.round(startTime)}`
+        const startMark = `${PREFIX.NATIVE_API}:${method}:start:${Math.round(startTime)}`
         performance.mark(startMark, { startTime })
         this._notifyWaterfall?.({
             method,
@@ -66,7 +61,7 @@ export class ApiCollector {
             startTime,
             endTime,
             sessionId: interactionId,
-            parentOperation: `Bridge: ${method}`,
+            parentOperation: `Native execution: ${method}`,
         })
         this._measure.emit(
             `${interactionId ? `[${interactionId}] ` : ""}Native API: ${method} - ${durationMs}ms`,
@@ -74,7 +69,7 @@ export class ApiCollector {
             endTime,
             {
                 interactionId,
-                parentOperation: `Bridge: ${method}`,
+                parentOperation: `Native execution: ${method}`,
                 method,
                 durationMs,
                 callId,

@@ -1,7 +1,7 @@
 const SLOW_MS = {
     interaction: 300,
     request: 500,
-    bridge: 150,
+    nativeApi: 150,
     render: 50,
 }
 
@@ -60,8 +60,8 @@ function summarizeInteraction(interaction, data) {
         .filter((metric) => ["fps-drop", "long-task", "loaf", "layout-shift"].includes(metric.kind))
         .filter((metric) => related(metric, 300))
     const insights = data.insights.filter((insight) => related(insight, 300))
-    const bridgeTime = requests
-        .filter((request) => request.kind === "bridge" || request.kind === "native-api")
+    const nativeApiTime = requests
+        .filter((request) => request.kind === "native-api")
         .reduce((total, request) => total + durationOf(request), 0)
     const networkTime = requests
         .filter((request) => request.kind === "network")
@@ -77,7 +77,7 @@ function summarizeInteraction(interaction, data) {
         requestCount: requests.length,
         renderIssueCount: render.length,
         insightCount: insights.length,
-        bridgeTimeMs: round(bridgeTime),
+        nativeApiTimeMs: round(nativeApiTime),
         networkTimeMs: round(networkTime),
         slowestRequest: slowestRequest
             ? {
@@ -100,10 +100,8 @@ function buildFindings(data, interactionSummaries) {
         (interaction) => interaction.durationMs >= SLOW_MS.interaction
     )
     const slowRequests = data.requests.filter((request) => durationOf(request) >= SLOW_MS.request)
-    const slowBridge = data.requests.filter(
-        (request) =>
-            (request.kind === "bridge" || request.kind === "native-api") &&
-            durationOf(request) >= SLOW_MS.bridge
+    const slowNativeApi = data.requests.filter(
+        (request) => request.kind === "native-api" && durationOf(request) >= SLOW_MS.nativeApi
     )
     const renderIssues = data.metrics.filter((metric) =>
         ["fps-drop", "long-task", "loaf", "layout-shift"].includes(metric.kind)
@@ -125,11 +123,11 @@ function buildFindings(data, interactionSummaries) {
             detail: `${slowest.label} took ${round(durationOf(slowest))}ms`,
         })
     }
-    if (slowBridge.length > 0) {
-        const slowest = top(slowBridge, 1)[0]
+    if (slowNativeApi.length > 0) {
+        const slowest = top(slowNativeApi, 1)[0]
         findings.push({
             severity: "warning",
-            title: `${slowBridge.length} slow native call${slowBridge.length === 1 ? "" : "s"}`,
+            title: `${slowNativeApi.length} slow native call${slowNativeApi.length === 1 ? "" : "s"}`,
             detail: `${slowest.label} took ${round(durationOf(slowest))}ms`,
         })
     }

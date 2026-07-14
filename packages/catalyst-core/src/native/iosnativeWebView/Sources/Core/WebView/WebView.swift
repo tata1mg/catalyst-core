@@ -270,6 +270,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         deinit {
             // Ensure observer is removed even if dismantleUIView is skipped.
+            CatalystPerf.reset()
             stopPerfMonitoring()
             stopKeyboardPerfTracking()
             if isObserverAdded, let webView = nativeBridge?.webView {

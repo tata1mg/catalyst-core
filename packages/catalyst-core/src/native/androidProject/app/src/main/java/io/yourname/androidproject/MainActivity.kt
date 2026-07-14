@@ -297,6 +297,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
         // Boot timing: record activity onCreate as the earliest boot event
         if (BuildConfig.DEBUG) {
+            io.yourname.androidproject.utils.PerfEventBuffer.reset()
             io.yourname.androidproject.utils.PerfEventBuffer.add(org.json.JSONObject().apply {
                 put("type", "boot-activity-created")
                 put("nativeTime", android.os.SystemClock.elapsedRealtime())
@@ -471,6 +472,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
+        io.yourname.androidproject.utils.PerfEventBuffer.reset()
         // Log all performance metrics before destroying
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🏁 App shutting down - logging final metrics...")

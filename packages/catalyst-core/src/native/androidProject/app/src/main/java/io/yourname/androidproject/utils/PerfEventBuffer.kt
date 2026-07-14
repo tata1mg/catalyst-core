@@ -33,12 +33,15 @@ object PerfEventBuffer {
     private const val TAG = "PerfEventBuffer"
     private const val MAX_BUFFER_SIZE = 500
     private const val FLUSH_DELAY_MS = 250L
+    private const val FLUSH_RETRY_DELAY_MS = 250L
+    private const val MAX_FLUSH_RETRIES = 5
     private const val PERIODIC_FLUSH_INTERVAL_MS = 4000L
 
     private val buffer = ConcurrentLinkedQueue<JSONObject>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val flushed = AtomicBoolean(false)
     @Volatile private var profilerEnabled = false
+    private val deliveryState = PerfDeliveryState<JSONArray>()
 
     // Periodic flush state
     @Volatile private var periodicWebView: WebView? = null
@@ -47,10 +50,13 @@ object PerfEventBuffer {
         override fun run() {
             if (!isEnabled()) return
             val wv = periodicWebView ?: return
-            val currentSize = buffer.size
-            if (currentSize > lastFlushedSize) {
+            val pendingBatch = deliveryState.current()
+            if (pendingBatch != null) {
+                deliver(wv, pendingBatch)
+            } else if (buffer.size > lastFlushedSize) {
+                val currentSize = buffer.size
                 android.util.Log.d(TAG, "[PerfBuffer] periodicFlush() — $currentSize events since last flush")
-                flushIncremental(wv)
+                beginFlush(wv, includeCacheSummary = false)
             }
             mainHandler.postDelayed(this, PERIODIC_FLUSH_INTERVAL_MS)
         }
@@ -147,8 +153,7 @@ object PerfEventBuffer {
     }
 
     /**
-     * Record end of a bridge call — when notifyWeb/callback fires back to JS.
-     * Computes durationMs and adds an api-call event to the buffer.
+     * Record the end of immediate native bridge-handler work and add an api-call event.
      */
     fun bridgeCallDispatched(callId: String) {
         if (!isEnabled()) return
@@ -179,7 +184,7 @@ object PerfEventBuffer {
         }
         android.util.Log.d(TAG, "[PerfBuffer] scheduleFlush() scheduled in ${FLUSH_DELAY_MS}ms, bufferSize=${buffer.size}")
         mainHandler.postDelayed({
-            flush(webView)
+            beginFlush(webView, includeCacheSummary = true)
             // Start periodic flush loop for SPA navigations after initial load
             startPeriodicFlush(webView)
         }, FLUSH_DELAY_MS)
@@ -191,7 +196,7 @@ object PerfEventBuffer {
      */
     fun flushNow(webView: WebView) {
         if (!isEnabled()) return
-        mainHandler.post { flushIncremental(webView) }
+        mainHandler.post { beginFlush(webView, includeCacheSummary = false) }
     }
 
     /**
@@ -220,6 +225,7 @@ object PerfEventBuffer {
     fun reset() {
         stopPeriodicFlush()
         buffer.clear()
+        deliveryState.reset()
         pendingCalls.clear()
         flushed.set(false)
         lastFlushedSize = 0
@@ -232,69 +238,52 @@ object PerfEventBuffer {
 
     // ─── Flush ───────────────────────────────────────────────────────────────
 
-    /**
-     * Incremental flush — drains buffered events since last flush, no cache-summary appended.
-     * Used by periodic flush and flushNow(). Must run on main thread.
-     */
-    private fun flushIncremental(webView: WebView) {
+    /** Moves the current queue into an immutable in-flight batch until JS acknowledges it. */
+    private fun beginFlush(webView: WebView, includeCacheSummary: Boolean) {
         if (!isEnabled()) return
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { flushIncremental(webView) }
+            mainHandler.post { beginFlush(webView, includeCacheSummary) }
             return
         }
+        if (deliveryState.hasInFlight()) return
         val events = JSONArray()
         while (buffer.isNotEmpty()) {
             buffer.poll()?.let { events.put(it) }
         }
-        lastFlushedSize = 0 // buffer was drained
-
-        android.util.Log.d(TAG, "[PerfBuffer] flushIncremental() — ${events.length()} events")
+        if (includeCacheSummary) buildCacheSummaryEvent()?.let { events.put(it) }
         if (events.length() == 0) return
 
+        val batch = deliveryState.begin(events) ?: return
+        deliver(webView, batch)
+    }
+
+    private fun deliver(webView: WebView, batch: PerfDeliveryState.Batch<JSONArray>) {
+        if (!isEnabled() || !deliveryState.isCurrent(batch)) return
         try {
-            val jsonStr = events.toString()
-                .replace("\\", "\\\\")
-                .replace("'", "\\'")
+            val json = batch.payload.toString().replace("\\", "\\\\").replace("'", "\\'")
+            val batchId = JSONObject.quote(batch.id)
             webView.evaluateJavascript(
-                "window.__catalystPerfBatch && window.__catalystPerfBatch('$jsonStr')",
-                null
-            )
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "flushIncremental failed: ${e.message}")
+                "window.__catalystPerfBatch ? window.__catalystPerfBatch($batchId, '$json') : false",
+            ) { result ->
+                if (result == "true") acknowledge(batch) else retry(webView, batch)
+            }
+        } catch (_: Exception) {
+            retry(webView, batch)
         }
     }
 
-    private fun flush(webView: WebView) {
-        if (!isEnabled()) return
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { flush(webView) }
+    private fun acknowledge(batch: PerfDeliveryState.Batch<JSONArray>) {
+        if (deliveryState.acknowledge(batch)) {
+            lastFlushedSize = 0
+        }
+    }
+
+    private fun retry(webView: WebView, batch: PerfDeliveryState.Batch<JSONArray>) {
+        val retry = deliveryState.retry(batch, MAX_FLUSH_RETRIES)
+        if (retry == null) {
+            android.util.Log.w(TAG, "[PerfBuffer] batch ${batch.id} was not acknowledged; retaining until reset")
             return
         }
-        val events = JSONArray()
-        while (buffer.isNotEmpty()) {
-            buffer.poll()?.let { events.put(it) }
-        }
-        // Append cache summary as final event
-        buildCacheSummaryEvent()?.let { events.put(it) }
-
-        android.util.Log.d(TAG, "[PerfBuffer] flush() totalEvents=${events.length()} (hits=$cacheHits misses=$cacheMisses fetches=$cacheFetches)")
-
-        if (events.length() == 0) {
-            android.util.Log.d(TAG, "[PerfBuffer] flush() — nothing to flush, skipping")
-            return
-        }
-
-        try {
-            val jsonStr = events.toString()
-                .replace("\\", "\\\\")
-                .replace("'", "\\'")
-            android.util.Log.d(TAG, "[PerfBuffer] flush() calling __catalystPerfBatch with ${events.length()} events")
-            webView.evaluateJavascript(
-                "window.__catalystPerfBatch && window.__catalystPerfBatch('$jsonStr')",
-                null
-            )
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "flush failed: ${e.message}")
-        }
+        mainHandler.postDelayed({ deliver(webView, retry) }, FLUSH_RETRY_DELAY_MS)
     }
 }

@@ -200,28 +200,12 @@ export class PerfStore {
         })
     }
 
-    recordBridge(data) {
-        if (!data) return
-        this._add("requests", {
-            id: this._id("request"),
-            kind: "bridge",
-            label: `Bridge ${data.method ?? "call"}`,
-            method: data.method,
-            startTime: data.startTime,
-            endTime: data.endTime,
-            durationMs: data.durationMs,
-            sessionId: data.sessionId ?? null,
-            interactionId: data.sessionId ?? null,
-            detail: { ...data },
-        })
-    }
-
     recordNativeApi(data) {
         if (!data) return
         this._add("requests", {
             id: this._id("request"),
             kind: "native-api",
-            label: `Native ${data.method ?? "API"}`,
+            label: `Native execution: ${data.method ?? "API"}`,
             method: data.method,
             startTime: data.startTime,
             endTime: data.endTime,

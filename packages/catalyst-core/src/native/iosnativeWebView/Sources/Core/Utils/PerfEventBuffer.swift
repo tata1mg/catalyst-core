@@ -5,12 +5,17 @@ import MachO
 enum CatalystPerf {
     private static let maxBufferSize = 500
     private static let flushDelayMs: UInt64 = 250
+    private static let flushRetryDelayMs: UInt64 = 250
+    private static let maxFlushRetries = 5
     private static let periodicFlushIntervalMs: UInt64 = 4_000
     private static let lock = NSLock()
 
     private static var buffer: [[String: Any]] = []
     private static var pendingCalls: [String: (startMs: Int64, method: String)] = [:]
     private static var flushed = false
+    private static var flushGeneration = 0
+    private static var batchSequence = 0
+    private static var inFlight: PendingBatch?
     private static weak var periodicWebView: WKWebView?
     private static var periodicTask: Task<Void, Never>?
 
@@ -19,6 +24,13 @@ enum CatalystPerf {
     private static var cacheFetches = 0
     private static var cacheTotalMs: Int64 = 0
     private static var cacheTopSlow: [(durationMs: Int64, filename: String)] = []
+
+    private struct PendingBatch {
+        let id: String
+        let events: [[String: Any]]
+        let generation: Int
+        let retryCount: Int
+    }
 
     static func nativeTimeMs() -> Int64 {
         Int64(ProcessInfo.processInfo.systemUptime * 1000)
@@ -110,7 +122,7 @@ enum CatalystPerf {
 
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: flushDelayMs * 1_000_000)
-            flush(webView, includeCacheSummary: true)
+            beginFlush(webView, includeCacheSummary: true)
             startPeriodicFlush(webView)
         }
         #endif
@@ -121,7 +133,7 @@ enum CatalystPerf {
         guard ConfigConstants.Profiler.enabled else { return }
         guard let webView else { return }
         Task { @MainActor in
-            flush(webView, includeCacheSummary: false)
+            beginFlush(webView, includeCacheSummary: false)
         }
         #endif
     }
@@ -131,6 +143,8 @@ enum CatalystPerf {
         stopPeriodicFlush()
         lock.lock()
         buffer.removeAll()
+        flushGeneration += 1
+        inFlight = nil
         pendingCalls.removeAll()
         flushed = false
         cacheHits = 0
@@ -185,7 +199,14 @@ enum CatalystPerf {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: periodicFlushIntervalMs * 1_000_000)
                 guard let webView = periodicWebView else { return }
-                flush(webView, includeCacheSummary: false)
+                lock.lock()
+                let pendingBatch = inFlight
+                lock.unlock()
+                if let pendingBatch {
+                    deliver(pendingBatch, to: webView)
+                } else {
+                    beginFlush(webView, includeCacheSummary: false)
+                }
                 memorySnapshot(to: webView, label: "periodic")
             }
         }
@@ -198,18 +219,82 @@ enum CatalystPerf {
     }
 
     @MainActor
-    private static func flush(_ webView: WKWebView, includeCacheSummary: Bool) {
+    private static func beginFlush(_ webView: WKWebView, includeCacheSummary: Bool) {
         lock.lock()
+        guard inFlight == nil else {
+            lock.unlock()
+            return
+        }
         var events = buffer
         buffer.removeAll()
         if includeCacheSummary, let summary = buildCacheSummaryEventLocked() {
             events.append(summary)
         }
+        guard !events.isEmpty else {
+            lock.unlock()
+            return
+        }
+        batchSequence += 1
+        let batch = PendingBatch(
+            id: "catalyst-\(batchSequence)",
+            events: events,
+            generation: flushGeneration,
+            retryCount: 0
+        )
+        inFlight = batch
         lock.unlock()
 
-        guard !events.isEmpty, let json = jsonString(events) else { return }
-        let script = "window.__catalystPerfBatch && window.__catalystPerfBatch(\(javaScriptStringLiteral(json)));"
-        webView.evaluateJavaScript(script)
+        deliver(batch, to: webView)
+    }
+
+    @MainActor
+    private static func deliver(_ batch: PendingBatch, to webView: WKWebView) {
+        lock.lock()
+        let isCurrent = inFlight?.id == batch.id && batch.generation == flushGeneration
+        lock.unlock()
+        guard isCurrent, let json = jsonString(batch.events) else { return }
+
+        let script = "window.__catalystPerfBatch ? window.__catalystPerfBatch(\(javaScriptStringLiteral(batch.id)), \(javaScriptStringLiteral(json))) : false"
+        webView.evaluateJavaScript(script) { result, _ in
+            if (result as? Bool) == true {
+                acknowledge(batch)
+            } else {
+                retry(batch, to: webView)
+            }
+        }
+    }
+
+    private static func acknowledge(_ batch: PendingBatch) {
+        lock.lock()
+        if inFlight?.id == batch.id && batch.generation == flushGeneration {
+            inFlight = nil
+        }
+        lock.unlock()
+    }
+
+    private static func retry(_ batch: PendingBatch, to webView: WKWebView) {
+        lock.lock()
+        guard inFlight?.id == batch.id && batch.generation == flushGeneration else {
+            lock.unlock()
+            return
+        }
+        guard batch.retryCount < maxFlushRetries else {
+            lock.unlock()
+            return
+        }
+        let retryBatch = PendingBatch(
+            id: batch.id,
+            events: batch.events,
+            generation: batch.generation,
+            retryCount: batch.retryCount + 1
+        )
+        inFlight = retryBatch
+        lock.unlock()
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: flushRetryDelayMs * 1_000_000)
+            deliver(retryBatch, to: webView)
+        }
     }
 
     private static func updateCacheSummaryLocked(_ event: [String: Any]) {
