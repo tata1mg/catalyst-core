@@ -22,6 +22,10 @@ public enum ConfigConstants {
         public static let iosClientId = ""
     }
 
+    public enum Profiler {
+        public static let enabled = false
+    }
+
     public static let appInfo = "test-build"
     public static let cachePattern: [String] = []
     public static let LOCAL_IP = "localhost" // swiftlint:disable:this identifier_name

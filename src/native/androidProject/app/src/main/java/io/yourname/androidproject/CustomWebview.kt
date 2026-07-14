@@ -7,18 +7,26 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.webkit.*
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import androidx.webkit.WebResourceRequestCompat
 import android.widget.ProgressBar
 import androidx.webkit.WebViewAssetLoader
 import io.yourname.androidproject.WebCacheManager
 import io.yourname.androidproject.URLWhitelistManager
 import io.yourname.androidproject.matchesCachePattern
+import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.CameraUtils
 import io.yourname.androidproject.utils.NetworkUtils
+import io.yourname.androidproject.utils.PerfEventBuffer
+import io.yourname.androidproject.utils.ProfilerNavigationState
+import org.json.JSONObject
 import kotlinx.coroutines.*
 import java.io.FileNotFoundException
 import java.util.Properties
@@ -45,11 +53,15 @@ class CustomWebView(
     private var isInitialApiCalled: Boolean = false  // Flag to track initial page load
     private var isInitialPageLoaded: Boolean = false
     private var buildOptimisation: Boolean = false // Added property for build optimization
+    private var profilerEnabled: Boolean = false
+    private val profilerNavigationState = ProfilerNavigationState()
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
     private var accessControlEnabled: Boolean = false
     private val offlineAssetPath = "offline/offline.html"
     private val offlineAssetUrl = "file:///android_asset/$offlineAssetPath"
+    private var scrollSessionOpen = false
+    private lateinit var scrollGestureDetector: GestureDetector
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
     private var activeOfflineRouteOrigin: String? = null
@@ -62,8 +74,16 @@ class CustomWebView(
     private var assetLoadFailures = 0
 
     init {
+        if (BuildConfig.DEBUG) {
+            PerfEventBuffer.add(JSONObject().apply {
+                put("type", "boot-webview-constructed")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("thread", Thread.currentThread().name)
+            })
+        }
         setupFromProperties()
         cacheManager = WebCacheManager(context, properties)
+        if (profilerEnabled) metricsMonitor.attachWebView(webView)
         offlineCacheService = OfflineCacheService(context)
         setupWebView()
     }
@@ -90,6 +110,7 @@ class CustomWebView(
 
         // Parse buildOptimisation property
         buildOptimisation = properties.getProperty("buildOptimisation", "false").toBoolean()
+        profilerEnabled = PerfEventBuffer.isEnabled()
 
         // Load allowed URLs from properties
         allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
@@ -162,12 +183,26 @@ class CustomWebView(
         }
     }
 
+    private fun loadTopLevelUrl(url: String) {
+        if (BuildConfig.DEBUG) {
+            val navigation = profilerNavigationState.begin(url)
+            if (navigation.shouldReset) PerfEventBuffer.reset()
+            PerfEventBuffer.add(JSONObject().apply {
+                put("type", "boot-load-url")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("url", navigation.url)
+                put("thread", Thread.currentThread().name)
+            })
+        }
+        loadUrlInternal(url)
+    }
+
     fun loadUrl(url: String) {
         lastTargetUrl = url
         offlinePageVisible = false
         visibleOfflineSnapshotUrl = null
         activeOfflineRouteOrigin = null
-        loadUrlInternal(url)
+        loadTopLevelUrl(url)
     }
 
     fun updateLastTargetUrl(url: String) {
@@ -185,7 +220,7 @@ class CustomWebView(
             offlinePageVisible = true
             visibleOfflineSnapshotUrl = null
             activeOfflineRouteOrigin = null
-            loadUrlInternal(offlineAssetUrl)
+            loadTopLevelUrl(offlineAssetUrl)
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "📴 Showing offline page from assets: $offlineAssetPath")
             }
@@ -228,7 +263,7 @@ class CustomWebView(
             offlinePageVisible = false
             visibleOfflineSnapshotUrl = snapshotUrl
             updateActiveOfflineRoute(url, true)
-            loadUrlInternal(url)
+            loadTopLevelUrl(url)
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "📴 Loading cached offline route through request interceptor: $url")
             }
@@ -304,6 +339,7 @@ class CustomWebView(
 
     fun destroy() {
         job.cancel()
+        metricsMonitor.detachWebView()
         webView.destroy()
     }
 
@@ -335,6 +371,13 @@ class CustomWebView(
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "🚀 Hardware acceleration enabled - Thread: ${Thread.currentThread().name}")
             }
+            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                put("type", "hw-accel-change")
+                put("state", "on")
+                put("trigger", "cleanup")
+                put("thread", Thread.currentThread().name)
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+            })
         }
     }
 
@@ -345,6 +388,13 @@ class CustomWebView(
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "⚫ Hardware acceleration disabled - Thread: ${Thread.currentThread().name}")
             }
+            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                put("type", "hw-accel-change")
+                put("state", "off")
+                put("trigger", "cache-serve")
+                put("thread", Thread.currentThread().name)
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+            })
         }
     }
 
@@ -472,7 +522,7 @@ class CustomWebView(
                     }
                     offlinePageVisible = false
                     lastTargetUrl = target
-                    loadUrlInternal(target)
+                    loadTopLevelUrl(target)
                 } else if (BuildConfig.DEBUG) {
                     Log.w(TAG, "🔄 Retry requested but no target URL is known")
                 }
@@ -718,6 +768,13 @@ class CustomWebView(
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
+        if (profilerEnabled && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(
+                webView,
+                "window.__CATALYST_PROFILER_ENABLED = true;",
+                setOf("*")
+            )
+        }
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🌐 Setting up WebView on thread: ${Thread.currentThread().name}")
         }
@@ -1057,14 +1114,53 @@ class CustomWebView(
                     Log.d(TAG, "⏳ Page load started for: $url - Hardware Acceleration: $isHardwareAccelerationEnabled")
                     Log.d(FLOW_TAG, "PAGE started url=$url online=${NetworkUtils.getCurrentStatus(context).isOnline} offlinePageVisible=$offlinePageVisible visibleSnapshot=${visibleOfflineSnapshotUrl ?: "none"} activeOrigin=${activeOfflineRouteOrigin ?: "none"}")
                 }
+
+                if (profilerEnabled) {
+                    val nativeNow = android.os.SystemClock.elapsedRealtime()
+                    view?.evaluateJavascript(
+                        "window.__CATALYST_PROFILER_ENABLED = true; window.__NATIVE_TIME_OFFSET = $nativeNow - performance.now();",
+                        null
+                    )
+                }
+                if (profilerEnabled && url != null) {
+                    val nativeNow = android.os.SystemClock.elapsedRealtime()
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "boot-page-started")
+                        put("nativeTime", nativeNow)
+                        put("url", url)
+                    })
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "page-load-start")
+                        put("nativeTime", nativeNow)
+                        put("url", url)
+                    })
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
                 if(!isInitialPageLoaded){
                     isInitialPageLoaded = true
+                    metricsMonitor.markAppStartComplete()
                 }
                 url?.let { metricsMonitor.trackPageLoadEnd(it) }
+
+                val pageFinishedNative = android.os.SystemClock.elapsedRealtime()
+                if (profilerEnabled && url != null) {
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "boot-page-finished")
+                        put("nativeTime", pageFinishedNative)
+                        put("url", url)
+                    })
+                    val pageStart = view?.tag as? Long
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "page-load-end")
+                        put("nativeTime", pageFinishedNative)
+                        put("url", url)
+                        put("durationMs", if (pageStart != null) System.currentTimeMillis() - pageStart else 0L)
+                    })
+                    if (view != null) PerfEventBuffer.scheduleFlush(view)
+                }
                 if (BuildConfig.DEBUG) {
                     val startTime = view?.tag as? Long ?: return
                     val loadTime = System.currentTimeMillis() - startTime
@@ -1094,6 +1190,15 @@ class CustomWebView(
                     Log.e(TAG, "❌ Error loading ${request?.url}: ${error.errorCode} ${error.description}")
                     if (BuildConfig.DEBUG) {
                         Log.e(FLOW_TAG, "PAGE resource-error mainFrame=${request?.isForMainFrame} method=${request?.method} code=${error.errorCode} description=${error.description} url=${request?.url}")
+                    }
+                    if (view != null && request?.isForMainFrame == true) {
+                        BridgeUtils.emitPerfEvent(view, JSONObject().apply {
+                            put("type", "page-load-error")
+                            put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                            put("url", request.url?.toString() ?: "")
+                            put("errorCode", error.errorCode)
+                            put("description", error.description?.toString() ?: "")
+                        })
                     }
                 }
 
@@ -1204,5 +1309,39 @@ class CustomWebView(
 
         // Only enable WebView debugging in debug builds
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+
+        if (profilerEnabled) {
+            scrollGestureDetector = GestureDetector(context,
+                object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onScroll(
+                        e1: MotionEvent?,
+                        e2: MotionEvent,
+                        distanceX: Float,
+                        distanceY: Float
+                    ): Boolean {
+                        if (!scrollSessionOpen) {
+                            scrollSessionOpen = true
+                            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                                put("type", "scroll-start")
+                                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                            })
+                        }
+                        return false
+                    }
+                }
+            )
+            webView.setOnTouchListener { _, event ->
+                scrollGestureDetector.onTouchEvent(event)
+                if (scrollSessionOpen &&
+                    (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL)) {
+                    scrollSessionOpen = false
+                    BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                        put("type", "scroll-end")
+                        put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                    })
+                }
+                false
+            }
+        }
     }
 }

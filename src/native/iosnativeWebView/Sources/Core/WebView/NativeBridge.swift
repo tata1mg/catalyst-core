@@ -267,7 +267,10 @@ extension NativeBridge: WKScriptMessageHandler {
         logger.debug("Received validated command: \(command)")
 
         // Execute commands with proper error handling
+        let callId = "\(command):\(UUID().uuidString)"
+        CatalystPerf.bridgeCallReceived(callId: callId, method: command)
         executeCommand(command, params: params)
+        CatalystPerf.bridgeCallDispatched(callId: callId)
     }
 
     // MARK: - Command Execution
@@ -295,6 +298,12 @@ extension NativeBridge: WKScriptMessageHandler {
             commandHandler.pickFile(options: optionsString)
         case "openFileWithIntent":
             fileHandler.openFileWithIntent(params: params)
+        case "exportCatalystTrace":
+            guard CatalystConstants.Bridge.isTraceExportEnabled() else {
+                sendErrorCallback(eventName: "BRIDGE_ERROR", error: "Unsupported command: exportCatalystTrace", code: "UNSUPPORTED_COMMAND")
+                return
+            }
+            fileHandler.exportCatalystTrace(params: params)
         case "requestHapticFeedback":
             let feedbackType = delegateHandler.extractFeedbackType(from: params)
             commandHandler.requestHapticFeedback(feedbackType: feedbackType)
