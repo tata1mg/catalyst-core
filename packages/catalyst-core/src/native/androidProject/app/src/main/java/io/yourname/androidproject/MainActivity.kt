@@ -274,6 +274,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.setProperty("buildType", if (BuildConfig.DEBUG) "debug" else "release")
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
         }
+        io.yourname.androidproject.utils.PerfEventBuffer.configure(
+            properties.getProperty("profiler.enabled", "false").toBoolean()
+        )
 
         configureEdgeToEdge()
 
@@ -286,16 +289,29 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             })
         }
 
-        // Initialize MetricsMonitor
+        // Initialize MetricsMonitor — recordAppStart() resets the cold-start clock for this
+        // Activity lifecycle. The singleton may have been constructed in a previous session
+        // (hot restart / Activity recreation), so appStartTime would be stale without this.
         metricsMonitor = MetricsMonitor.getInstance(this)
+        metricsMonitor.recordAppStart()
+
+        // Boot timing: record activity onCreate as the earliest boot event
+        if (BuildConfig.DEBUG) {
+            io.yourname.androidproject.utils.PerfEventBuffer.reset()
+            io.yourname.androidproject.utils.PerfEventBuffer.add(org.json.JSONObject().apply {
+                put("type", "boot-activity-created")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("thread", Thread.currentThread().name)
+            })
+        }
 
         // Setup UI
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
         setContentView(binding.root)
         
-        // Initialize keyboard utility
-        keyboardUtil = KeyboardUtil(this, binding.webviewContainer)
+        // Initialize keyboard utility (pass webView so keyboard events reach WebPerfCollector)
+        keyboardUtil = KeyboardUtil(this, binding.webviewContainer, binding.webview)
         keyboardUtil.initialize()
         
         // Enable hardware acceleration for the window
@@ -351,6 +367,12 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (customWebView.canGoBack()) {
+                    if (BuildConfig.DEBUG) {
+                        BridgeUtils.emitPerfEvent(customWebView.getWebView(), org.json.JSONObject().apply {
+                            put("type", "navigation-back")
+                            put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                        })
+                    }
                     customWebView.goBack()
                 } else {
                     // Disable this callback and let the system handle back press
@@ -389,9 +411,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     customWebView.showOfflineRouteOrOfflinePage(currentUrl)
                 }
             }
-
-            metricsMonitor.markAppStartComplete()
-
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
             // TODO: Add HTML file workflow - error.html not available yet
@@ -453,6 +472,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
+        io.yourname.androidproject.utils.PerfEventBuffer.reset()
         // Log all performance metrics before destroying
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🏁 App shutting down - logging final metrics...")

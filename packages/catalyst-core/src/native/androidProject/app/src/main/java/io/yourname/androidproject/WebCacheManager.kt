@@ -5,7 +5,9 @@ import android.util.Log
 import android.util.LruCache
 import android.webkit.WebResourceResponse
 import io.yourname.androidproject.BuildConfig
+import io.yourname.androidproject.utils.PerfEventBuffer
 import kotlinx.coroutines.*
+import org.json.JSONObject
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
@@ -35,6 +37,24 @@ class WebCacheManager(private val context: Context, private val properties: java
     private val memoryCache: LruCache<String, CacheEntry> = LruCache<String, CacheEntry>(
         (Runtime.getRuntime().maxMemory() / 1024 / memoryFraction).toInt()
     )
+
+    private fun emitCachePerfEvent(type: String, url: String, startMs: Long, statusCode: Int? = null) {
+        if (!BuildConfig.DEBUG) return
+        PerfEventBuffer.add(JSONObject().apply {
+            put("type", type)
+            put("url", url)
+            put("nativeStartMs", startMs)
+            put("durationMs", android.os.SystemClock.elapsedRealtime() - startMs)
+            put("resourceType", when {
+                url.endsWith(".js") -> "script"
+                url.endsWith(".css") -> "stylesheet"
+                url.endsWith(".png") || url.endsWith(".jpg") || url.endsWith(".jpeg") || url.endsWith(".svg") -> "image"
+                else -> "other"
+            })
+            put("thread", Thread.currentThread().name)
+            statusCode?.let { put("statusCode", it) }
+        })
+    }
 
     init {
         try {
@@ -81,6 +101,7 @@ class WebCacheManager(private val context: Context, private val properties: java
     @Suppress("UNUSED_PARAMETER")
     fun getCachedResponseSync(url: String, headers: Map<String, String>): WebResourceResponse? {
         return try {
+            val startMs = android.os.SystemClock.elapsedRealtime()
             val cacheKey = generateCacheKey(url)
             val currentTime = System.currentTimeMillis()
 
@@ -94,6 +115,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                         Log.d(TAG, "✅ Serving from memory cache (sync): $url")
                         Log.d(FLOW_TAG, "ASSET cache-hit source=memory ageMs=$age url=$url")
                     }
+                    emitCachePerfEvent("cache-hit-memory", url, startMs)
                     return memoryCacheEntry.toResponse()
                 }
                 if (BuildConfig.DEBUG) {
@@ -113,6 +135,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                         Log.d(TAG, "✅ Serving from disk cache (sync): $url")
                         Log.d(FLOW_TAG, "ASSET cache-hit source=disk ageMs=$fileAge bytes=${cacheFile.length()} mime=${metadata.mimeType} encoding=${metadata.encoding} url=$url")
                     }
+                    emitCachePerfEvent("cache-hit-disk", url, startMs)
                     return response
                 }
                 if (BuildConfig.DEBUG) {
@@ -125,6 +148,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                 Log.d(TAG, "❌ No valid cache available (sync): $url")
                 Log.d(FLOW_TAG, "ASSET cache-miss url=$url")
             }
+            emitCachePerfEvent("cache-miss-fetch", url, startMs)
             null
         } catch (e: Exception) {
             Log.e(TAG, "Error in getCachedResponseSync for URL: $url: ${e.message}")
@@ -357,6 +381,7 @@ class WebCacheManager(private val context: Context, private val properties: java
         cacheKey: String
     ): WebResourceResponse? {
         var connection: HttpURLConnection? = null
+        val startMs = android.os.SystemClock.elapsedRealtime()
         try {
             connection = URL(url).openConnection() as HttpURLConnection
             headers.forEach { (key, value) ->
@@ -440,6 +465,7 @@ class WebCacheManager(private val context: Context, private val properties: java
                 if (BuildConfig.DEBUG) {
                     Log.d(FLOW_TAG, "ASSET network-fetch success status=${connection.responseCode} bytes=${responseBytes.size} contentType=$contentType replayMime=$mimeType replayEncoding=$encoding url=$url")
                 }
+                emitCachePerfEvent("network-fetch-complete", url, startMs, connection.responseCode)
                 return response
             }
             if (BuildConfig.DEBUG) {

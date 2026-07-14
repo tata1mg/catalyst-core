@@ -54,5 +54,6 @@ Use hooks from `catalyst-core/hooks` for platform-native features.
 
 ## Next
 
+- [Performance Profiling](/content/Core%20Concepts/performance-profiling)
 - [Universal App Deployment](/content/Deployment/universal-app-deployment)
 - [Best Practices for Universal Apps](/content/Best%20Practices/universal-app)
