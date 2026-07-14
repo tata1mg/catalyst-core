@@ -349,13 +349,7 @@ jobs:
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.release_state.outputs.core_version_exists != 'true' && steps.context.outputs.dry_run != 'true'
               env:
                   CHANNEL: ${{ steps.context.outputs.channel }}
-                  CORE_VERSION: ${{ steps.versions.outputs.core }}
-              run: |
-                  npm publish --workspace packages/catalyst-core --tag "$CHANNEL" --access public
-
-                  if [ "$CHANNEL" == "beta" ]; then
-                    npm dist-tag add "catalyst-core@$CORE_VERSION" latest
-                  fi
+              run: npm publish --workspace packages/catalyst-core --tag "$CHANNEL" --access public
 
             - name: Update catalyst-core dist-tag
               id: retag_core
@@ -421,13 +415,7 @@ jobs:
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true' && steps.release_state.outputs.cca_version_exists != 'true' && steps.context.outputs.dry_run != 'true'
               env:
                   CHANNEL: ${{ steps.context.outputs.channel }}
-                  CCA_VERSION: ${{ steps.versions.outputs.cca }}
-              run: |
-                  npm publish --workspace packages/create-catalyst-app --tag "$CHANNEL" --access public
-
-                  if [ "$CHANNEL" == "beta" ]; then
-                    npm dist-tag add "create-catalyst-app@$CCA_VERSION" latest
-                  fi
+              run: npm publish --workspace packages/create-catalyst-app --tag "$CHANNEL" --access public
 
             - name: Update create-catalyst-app dist-tag
               id: retag_cca
