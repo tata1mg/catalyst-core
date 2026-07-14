@@ -19,6 +19,7 @@ export function Body(props) {
         fetcherData = {},
         children,
         safeArea = DEFAULT_SAFE_AREA,
+        nativeWebView = false,
     } = props
 
     return (
@@ -26,7 +27,7 @@ export function Body(props) {
             <script
                 /* eslint-disable-next-line risxss/catch-potential-xss-react */
                 dangerouslySetInnerHTML={{
-                    __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}`,
+                    __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}; window.__CATALYST_NATIVE_WEBVIEW__ = ${nativeWebView ? "true" : "false"}`,
                 }}
             />
             {process.env.NODE_ENV === "development" && <script type="module" src="/client/index.js"></script>}
@@ -54,4 +55,5 @@ Body.propTypes = {
     fetcherData: PropTypes.object,
     children: PropTypes.node,
     safeArea: PropTypes.object,
+    nativeWebView: PropTypes.bool,
 }

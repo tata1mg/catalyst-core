@@ -213,7 +213,7 @@ class NativeBridge(
                 .filter { it.isNotEmpty() }
 
             accessControlEnabled = properties
-                .getProperty("accessControl.enabled", "true")
+                .getProperty("accessControl.enabled", "false")
                 .equals("true", ignoreCase = true)
 
             if (accessControlEnabled && allowedUrls.isNotEmpty()) {
@@ -332,8 +332,11 @@ class NativeBridge(
 
     @JavascriptInterface
     fun openCamera(options: String?) {
+        val callId = "openCamera:${android.os.SystemClock.elapsedRealtime()}"
+        BridgeUtils.bridgeCallReceived(callId, "openCamera")
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "open camera") {
             mainActivity.runOnUiThread {
+                BridgeUtils.bridgeCallDispatched(callId)
                 if (CameraUtils.hasCameraPermission(mainActivity)) {
                     launchCamera()
                 } else {
@@ -492,10 +495,13 @@ class NativeBridge(
 
     @JavascriptInterface
     fun getDeviceInfo(options: String?) {
+        val callId = "getDeviceInfo:${android.os.SystemClock.elapsedRealtime()}"
+        BridgeUtils.bridgeCallReceived(callId, "getDeviceInfo")
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_ERROR, "get device info") {
             mainActivity.runOnUiThread {
                 val deviceInfo = DeviceInfoUtils.getDeviceInfo(mainActivity, properties)
                 BridgeUtils.logDebug(TAG, "Device info retrieved: $deviceInfo")
+                BridgeUtils.bridgeCallDispatched(callId)
                 BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, deviceInfo.toString())
             }
         }

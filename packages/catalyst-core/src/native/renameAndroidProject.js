@@ -857,13 +857,23 @@ async function updateFileContents(projectPaths, androidConfig) {
                         ...newPackageParts
                     )
 
-                    // Create new package directory
-                    const newPackageDir = _path.default.dirname(newPackagePath)
-                    _fs.default.mkdirSync(newPackageDir, { recursive: true })
+                    const packagePathChanged =
+                        _path.default.resolve(oldPackagePath) !== _path.default.resolve(newPackagePath)
 
-                    // Move source files
-                    ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
-                    progress.log(`✅ Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
+                    if (packagePathChanged) {
+                        // Create new package directory
+                        const newPackageDir = _path.default.dirname(newPackagePath)
+                        _fs.default.mkdirSync(newPackageDir, { recursive: true })
+
+                        // Move source files
+                        ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
+                        progress.log(`✅ Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
+                    } else {
+                        progress.log(
+                            `Package path unchanged for ${sourceSet}; skipping source directory move`,
+                            "info"
+                        )
+                    }
 
                     // Update package declarations in source files
                     const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`

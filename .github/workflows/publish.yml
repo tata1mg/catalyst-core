@@ -27,6 +27,11 @@ on:
                 required: true
                 type: boolean
                 default: false
+            release_pr_number:
+                description: "Release PR number override for release automation"
+                required: false
+                type: string
+                default: ""
     push:
         branches:
             - main
@@ -149,7 +154,7 @@ jobs:
               if: steps.context.outputs.should_run == 'true'
               uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
-                  node-version: "20"
+                  node-version: "22.14.0"
                   registry-url: "https://registry.npmjs.org"
 
             - name: Read workspace package versions
@@ -337,7 +342,7 @@ jobs:
 
             - name: Update npm for OIDC support
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.dry_run != 'true'
-              run: npm install -g npm@latest
+              run: npm install -g npm@11.5.1
 
             - name: Publish catalyst-core to npm
               id: publish_core
@@ -443,11 +448,21 @@ jobs:
               if: success() && steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.context.outputs.dry_run != 'true'
               env:
                   GH_TOKEN: ${{ github.token }}
+                  INPUT_RELEASE_PR_NUMBER: ${{ inputs.release_pr_number }}
               run: |
-                  PR_NUMBER=$(gh api \
-                    -H "Accept: application/vnd.github+json" \
-                    "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
-                    --jq '.[0].number // ""' 2>/dev/null || true)
+                  PR_NUMBER="$INPUT_RELEASE_PR_NUMBER"
+
+                  if [ -n "$PR_NUMBER" ] && ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+                    echo "::error::release_pr_number must be numeric when provided"
+                    exit 1
+                  fi
+
+                  if [ -z "$PR_NUMBER" ]; then
+                    PR_NUMBER=$(gh api \
+                      -H "Accept: application/vnd.github+json" \
+                      "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+                      --jq '.[0].number // ""' 2>/dev/null || true)
+                  fi
 
                   if [ -z "$PR_NUMBER" ]; then
                     echo "::error::Could not resolve pull request number for commit $GITHUB_SHA"

@@ -3,6 +3,9 @@ const baseWebviewConfig = {
     LOCAL_IP: '192.168.XX.XX',
     appInfo: 'android-v2.1.0',
     useHttps: true,
+    profiler: {
+        enabled: false,
+    },
     android: {
         appName: 'My App',
         packageName: 'com.example.myapp',

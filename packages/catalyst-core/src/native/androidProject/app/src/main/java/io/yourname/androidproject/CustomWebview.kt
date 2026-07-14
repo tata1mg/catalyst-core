@@ -7,18 +7,26 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.webkit.*
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import androidx.webkit.WebResourceRequestCompat
 import android.widget.ProgressBar
 import androidx.webkit.WebViewAssetLoader
 import io.yourname.androidproject.WebCacheManager
 import io.yourname.androidproject.URLWhitelistManager
 import io.yourname.androidproject.matchesCachePattern
+import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.CameraUtils
 import io.yourname.androidproject.utils.NetworkUtils
+import io.yourname.androidproject.utils.PerfEventBuffer
+import io.yourname.androidproject.utils.ProfilerNavigationState
+import org.json.JSONObject
 import kotlinx.coroutines.*
 import java.io.FileNotFoundException
 import java.util.Properties
@@ -31,10 +39,12 @@ class CustomWebView(
 ) : CoroutineScope {
 
     private val TAG = "WebViewDebug"
+    private val FLOW_TAG = "CatalystOfflineFlow"
     private val job = SupervisorJob()
     override val coroutineContext = Dispatchers.Main + job
 
     private var cacheManager: WebCacheManager
+    private var offlineCacheService: OfflineCacheService
     private val metricsMonitor = MetricsMonitor.getInstance(context)
     private var buildType: String = "debug"  // Default to debug
     private var cachePatterns: List<String> = emptyList()
@@ -43,13 +53,19 @@ class CustomWebView(
     private var isInitialApiCalled: Boolean = false  // Flag to track initial page load
     private var isInitialPageLoaded: Boolean = false
     private var buildOptimisation: Boolean = false // Added property for build optimization
+    private var profilerEnabled: Boolean = false
+    private val profilerNavigationState = ProfilerNavigationState()
     private lateinit var assetLoader: WebViewAssetLoader
     private var allowedUrls: List<String> = emptyList()
     private var accessControlEnabled: Boolean = false
     private val offlineAssetPath = "offline/offline.html"
     private val offlineAssetUrl = "file:///android_asset/$offlineAssetPath"
+    private var scrollSessionOpen = false
+    private lateinit var scrollGestureDetector: GestureDetector
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
+    private var activeOfflineRouteOrigin: String? = null
+    private var visibleOfflineSnapshotUrl: String? = null
     private var defaultRequestHeaders: Map<String, String> = emptyMap()
     var onPageStarted: (() -> Unit)? = null
 
@@ -57,12 +73,18 @@ class CustomWebView(
     private var assetLoadAttempts = 0
     private var assetLoadFailures = 0
 
-    // Track ongoing cache fetches to prevent duplicates
-    private val ongoingCacheFetches = mutableSetOf<String>()
-
     init {
+        if (BuildConfig.DEBUG) {
+            PerfEventBuffer.add(JSONObject().apply {
+                put("type", "boot-webview-constructed")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("thread", Thread.currentThread().name)
+            })
+        }
         setupFromProperties()
         cacheManager = WebCacheManager(context, properties)
+        if (profilerEnabled) metricsMonitor.attachWebView(webView)
+        offlineCacheService = OfflineCacheService(context)
         setupWebView()
     }
 
@@ -88,6 +110,7 @@ class CustomWebView(
 
         // Parse buildOptimisation property
         buildOptimisation = properties.getProperty("buildOptimisation", "false").toBoolean()
+        profilerEnabled = PerfEventBuffer.isEnabled()
 
         // Load allowed URLs from properties
         allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
@@ -97,7 +120,7 @@ class CustomWebView(
 
         // Access control toggle
         accessControlEnabled = properties
-            .getProperty("accessControl.enabled", "true")
+            .getProperty("accessControl.enabled", "false")
             .equals("true", ignoreCase = true)
 
         // Initialize URLWhitelistManager with access control configuration
@@ -137,6 +160,15 @@ class CustomWebView(
 
     private fun loadUrlInternal(url: String) {
         val isNetworkUrl = url.startsWith("http://") || url.startsWith("https://")
+        val isOnline = NetworkUtils.getCurrentStatus(context).isOnline
+
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "WEBVIEW load-url start online=$isOnline url=$url headers=${defaultRequestHeaders.keys.sorted()}")
+        }
+
+        if (isNetworkUrl && isOnline) {
+            offlineCacheService.refreshManifestAsync(url, defaultRequestHeaders)
+        }
 
         if (isNetworkUrl && defaultRequestHeaders.isNotEmpty()) {
             if (BuildConfig.DEBUG) {
@@ -146,12 +178,31 @@ class CustomWebView(
         } else {
             webView.loadUrl(url)
         }
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "WEBVIEW load-url dispatched url=$url")
+        }
+    }
+
+    private fun loadTopLevelUrl(url: String) {
+        if (BuildConfig.DEBUG) {
+            val navigation = profilerNavigationState.begin(url)
+            if (navigation.shouldReset) PerfEventBuffer.reset()
+            PerfEventBuffer.add(JSONObject().apply {
+                put("type", "boot-load-url")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("url", navigation.url)
+                put("thread", Thread.currentThread().name)
+            })
+        }
+        loadUrlInternal(url)
     }
 
     fun loadUrl(url: String) {
         lastTargetUrl = url
         offlinePageVisible = false
-        loadUrlInternal(url)
+        visibleOfflineSnapshotUrl = null
+        activeOfflineRouteOrigin = null
+        loadTopLevelUrl(url)
     }
 
     fun updateLastTargetUrl(url: String) {
@@ -167,7 +218,9 @@ class CustomWebView(
         try {
             context.assets.open(offlineAssetPath).close()
             offlinePageVisible = true
-            loadUrlInternal(offlineAssetUrl)
+            visibleOfflineSnapshotUrl = null
+            activeOfflineRouteOrigin = null
+            loadTopLevelUrl(offlineAssetUrl)
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "📴 Showing offline page from assets: $offlineAssetPath")
             }
@@ -192,6 +245,32 @@ class CustomWebView(
 
     fun clearAllCache() {
         cacheManager.clearAll()
+        offlineCacheService.clearAll()
+        activeOfflineRouteOrigin = null
+        visibleOfflineSnapshotUrl = null
+    }
+
+    fun showOfflineRouteOrOfflinePage(url: String) {
+        val snapshotUrl = normalizeUrlWithoutFragment(url)
+        if (visibleOfflineSnapshotUrl == snapshotUrl) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "📴 Cached offline route snapshot already visible: $url")
+            }
+            return
+        }
+
+        if (offlineCacheService.hasRouteSnapshot(url)) {
+            offlinePageVisible = false
+            visibleOfflineSnapshotUrl = snapshotUrl
+            updateActiveOfflineRoute(url, true)
+            loadTopLevelUrl(url)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "📴 Loading cached offline route through request interceptor: $url")
+            }
+            return
+        }
+
+        showOfflinePage()
     }
 
     fun canGoBack(): Boolean = webView.canGoBack()
@@ -260,6 +339,7 @@ class CustomWebView(
 
     fun destroy() {
         job.cancel()
+        metricsMonitor.detachWebView()
         webView.destroy()
     }
 
@@ -291,6 +371,13 @@ class CustomWebView(
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "🚀 Hardware acceleration enabled - Thread: ${Thread.currentThread().name}")
             }
+            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                put("type", "hw-accel-change")
+                put("state", "on")
+                put("trigger", "cleanup")
+                put("thread", Thread.currentThread().name)
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+            })
         }
     }
 
@@ -301,26 +388,120 @@ class CustomWebView(
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "⚫ Hardware acceleration disabled - Thread: ${Thread.currentThread().name}")
             }
+            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                put("type", "hw-accel-change")
+                put("state", "off")
+                put("trigger", "cache-serve")
+                put("thread", Thread.currentThread().name)
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+            })
         }
     }
 
-    private fun shouldCacheUrl(url: String): Boolean {
+    private fun shouldCacheRequest(request: WebResourceRequest, url: String): Boolean {
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🔍 CACHE_CHECK: Checking if URL should be cached: $url")
             Log.d(TAG, "🔍 CACHE_CHECK: Cache patterns: $cachePatterns")
         }
 
-        val shouldCache = matchesCachePattern(url, cachePatterns)
+        val matchesPattern = matchesCachePattern(url, cachePatterns)
+        val offlineRouteSubresource = shouldCacheOfflineRouteSubresource(request, url)
+        val shouldCache = matchesPattern || offlineRouteSubresource
 
         if (BuildConfig.DEBUG) {
             if (shouldCache) {
-                Log.d(TAG, "✅ CACHE_CHECK: URL WILL be cached: $url")
+                Log.d(TAG, "✅ CACHE_CHECK: URL WILL be cached: $url (pattern=$matchesPattern, offlineRouteSubresource=$offlineRouteSubresource)")
+                Log.d(FLOW_TAG, "CACHE eligible=true pattern=$matchesPattern offlineRouteSubresource=$offlineRouteSubresource mainFrame=${request.isForMainFrame} method=${request.method} dest=${requestHeader(request, "Sec-Fetch-Dest") ?: "none"} accept=${requestHeader(request, "Accept") ?: "none"} activeOrigin=${activeOfflineRouteOrigin ?: "none"} url=$url")
             } else {
                 Log.d(TAG, "❌ CACHE_CHECK: URL will NOT be cached (no pattern match): $url")
+                Log.d(FLOW_TAG, "CACHE eligible=false pattern=$matchesPattern offlineRouteSubresource=$offlineRouteSubresource mainFrame=${request.isForMainFrame} method=${request.method} dest=${requestHeader(request, "Sec-Fetch-Dest") ?: "none"} accept=${requestHeader(request, "Accept") ?: "none"} activeOrigin=${activeOfflineRouteOrigin ?: "none"} url=$url")
             }
         }
 
         return shouldCache
+    }
+
+    private fun shouldCacheOfflineRouteSubresource(request: WebResourceRequest, url: String): Boolean {
+        if (request.isForMainFrame || request.method != "GET") return false
+        if (!isHttpUrl(url) || isApiCall(url) || isInternalOfflineRuntimeUrl(url)) return false
+
+        val activeOrigin = activeOfflineRouteOrigin ?: return false
+        if (originForUrl(url) != activeOrigin) return false
+
+        val destination = requestHeader(request, "Sec-Fetch-Dest")?.lowercase()
+        if (destination == "document" || destination == "empty") return false
+        if (destination in setOf("script", "style", "image", "font", "audio", "video", "track", "manifest")) {
+            return true
+        }
+
+        val accept = requestHeader(request, "Accept")?.lowercase().orEmpty()
+        if (accept.contains("text/html") ||
+            accept.contains("application/json") ||
+            accept.contains("text/event-stream")
+        ) {
+            return false
+        }
+        if (accept.contains("text/css") ||
+            accept.contains("javascript") ||
+            accept.contains("image/") ||
+            accept.contains("font/") ||
+            accept.contains("application/font") ||
+            accept.contains("application/wasm")
+        ) {
+            return true
+        }
+
+        return offlineCacheService.shouldCacheAssetUrl(url)
+    }
+
+    private fun requestHeader(request: WebResourceRequest, name: String): String? {
+        return request.requestHeaders.entries.firstOrNull {
+            it.key.equals(name, ignoreCase = true)
+        }?.value
+    }
+
+    private fun updateActiveOfflineRoute(url: String, active: Boolean) {
+        activeOfflineRouteOrigin = if (active) originForUrl(url) else null
+        if (BuildConfig.DEBUG) {
+            Log.d(FLOW_TAG, "ROUTE active=$active activeOrigin=${activeOfflineRouteOrigin ?: "none"} url=$url")
+        }
+    }
+
+    private fun isVisibleOfflineSnapshot(url: String?): Boolean {
+        if (url == null) return false
+        return visibleOfflineSnapshotUrl == normalizeUrlWithoutFragment(url)
+    }
+
+    private fun normalizeUrlWithoutFragment(url: String): String {
+        return try {
+            Uri.parse(url).buildUpon().fragment(null).build().toString()
+        } catch (_: Exception) {
+            url
+        }
+    }
+
+    private fun originForUrl(url: String): String? {
+        return try {
+            val uri = Uri.parse(url)
+            val scheme = uri.scheme?.lowercase() ?: return null
+            val authority = uri.authority ?: return null
+            if (scheme != "http" && scheme != "https") return null
+            "$scheme://$authority"
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun isHttpUrl(url: String): Boolean {
+        val scheme = Uri.parse(url).scheme?.lowercase()
+        return scheme == "http" || scheme == "https"
+    }
+
+    private fun isInternalOfflineRuntimeUrl(url: String): Boolean {
+        val path = Uri.parse(url).path ?: return false
+        return path == "/catalyst-offline-manifest.json" ||
+            path == "/catalyst-sw.js" ||
+            path == "/offline.html"
     }
 
     /**
@@ -341,7 +522,7 @@ class CustomWebView(
                     }
                     offlinePageVisible = false
                     lastTargetUrl = target
-                    loadUrlInternal(target)
+                    loadTopLevelUrl(target)
                 } else if (BuildConfig.DEBUG) {
                     Log.w(TAG, "🔄 Retry requested but no target URL is known")
                 }
@@ -502,11 +683,13 @@ class CustomWebView(
             serviceWorkerController.setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
                     val url = request.url.toString()
+                    val isOnline = NetworkUtils.getCurrentStatus(context).isOnline
 
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "🔧 SERVICE_WORKER: Intercepting request: $url")
                         Log.d(TAG, "🔧 SERVICE_WORKER: Method: ${request.method}")
                         Log.d(TAG, "🔧 SERVICE_WORKER: Headers: ${request.requestHeaders}")
+                        Log.d(FLOW_TAG, "SW intercept method=${request.method} online=$isOnline mainFrame=${request.isForMainFrame} url=$url")
                     }
 
                     // Check if URL is allowed
@@ -526,7 +709,7 @@ class CustomWebView(
                     }
 
                     // Check if this should be cached
-                    if (request.method == "GET" && shouldCacheUrl(url)) {
+                    if (request.method == "GET" && shouldCacheRequest(request, url)) {
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "🎯 SERVICE_WORKER: Using cache system for: $url")
                         }
@@ -540,49 +723,22 @@ class CustomWebView(
                             }
 
                             // Get cached response synchronously (non-blocking for ServiceWorker)
-                            val response = cacheManager.getCachedResponseSync(url, headers)
+                            val response = if (NetworkUtils.getCurrentStatus(context).isOnline) {
+                                cacheManager.getCachedResponseOrFetchSync(url, headers)
+                            } else {
+                                cacheManager.getCachedResponseSync(url, headers)
+                            }
                             if (response != null) {
                                 if (BuildConfig.DEBUG) {
                                     Log.d(TAG, "✅ SERVICE_WORKER: Served from cache: $url")
+                                    Log.d(FLOW_TAG, "SW response source=cache-or-fetch mime=${response.mimeType ?: "unknown"} encoding=${response.encoding ?: "unknown"} url=$url")
                                 }
                                 withCorsHeaders(response)
                             } else {
                                 if (BuildConfig.DEBUG) {
                                     Log.d(TAG, "❌ SERVICE_WORKER: Cache miss: $url")
+                                    Log.d(FLOW_TAG, "SW response source=network-fallback reason=cache-null url=$url")
                                 }
-
-                                // Trigger async cache population for next request (with deduplication)
-                                val shouldFetch = synchronized(ongoingCacheFetches) {
-                                    ongoingCacheFetches.add(url)
-                                }
-
-                                if (shouldFetch) {
-                                    if (BuildConfig.DEBUG) {
-                                        Log.d(TAG, "🔄 SERVICE_WORKER: Triggering async cache fetch for: $url")
-                                    }
-                                    launch(Dispatchers.IO) {
-                                        try {
-                                            cacheManager.getCachedResponse(url, headers)
-                                            if (BuildConfig.DEBUG) {
-                                                Log.d(TAG, "✅ SERVICE_WORKER: Async cache fetch completed: $url")
-                                            }
-                                        } catch (e: Exception) {
-                                            if (BuildConfig.DEBUG) {
-                                                Log.e(TAG, "❌ SERVICE_WORKER: Async cache fetch failed: $url - ${e.message}")
-                                            }
-                                        } finally {
-                                            synchronized(ongoingCacheFetches) {
-                                                ongoingCacheFetches.remove(url)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    if (BuildConfig.DEBUG) {
-                                        Log.d(TAG, "⏭️ SERVICE_WORKER: Cache fetch already in progress for: $url")
-                                    }
-                                }
-
-                                // Let this request fall back to network
                                 null
                             }
                         } catch (e: Exception) {
@@ -594,7 +750,7 @@ class CustomWebView(
                     } else {
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "⏭️ SERVICE_WORKER: Skipping cache for: $url")
-                            Log.d(TAG, "⏭️ SERVICE_WORKER: Method: ${request.method}, shouldCache: ${shouldCacheUrl(url)}")
+                            Log.d(TAG, "⏭️ SERVICE_WORKER: Method: ${request.method}, shouldCache: ${shouldCacheRequest(request, url)}")
                         }
                     }
 
@@ -612,6 +768,13 @@ class CustomWebView(
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
+        if (profilerEnabled && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(
+                webView,
+                "window.__CATALYST_PROFILER_ENABLED = true;",
+                setOf("*")
+            )
+        }
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🌐 Setting up WebView on thread: ${Thread.currentThread().name}")
         }
@@ -687,6 +850,7 @@ class CustomWebView(
                 request: WebResourceRequest
             ): WebResourceResponse? {
                 val url = request.url.toString()
+                val isOnline = NetworkUtils.getCurrentStatus(context).isOnline
 
                 // Track all network requests
                 metricsMonitor.recordNetworkRequest(url)
@@ -697,6 +861,7 @@ class CustomWebView(
                     Log.d(TAG, "🔄 INTERCEPT: Thread: ${Thread.currentThread().name}")
                     Log.d(TAG, "🔄 INTERCEPT: File extension: ${url.substringAfterLast('.', "none")}")
                     Log.d(TAG, "🔄 INTERCEPT: isInitialPageLoaded: $isInitialPageLoaded")
+                    Log.d(FLOW_TAG, "WV intercept method=${request.method} online=$isOnline mainFrame=${request.isForMainFrame} initialLoaded=$isInitialPageLoaded dest=${requestHeader(request, "Sec-Fetch-Dest") ?: "none"} accept=${requestHeader(request, "Accept") ?: "none"} url=$url")
                 }
 
                 if (!URLWhitelistManager.isUrlAllowed(url)) {
@@ -711,6 +876,51 @@ class CustomWebView(
                     } else {
                         Log.d(TAG, "⚙️ STEP_1_SKIP: Access control disabled, allowing URL: $url")
                     }
+                }
+
+                val isMainFrameDocument = request.isForMainFrame &&
+                    request.method == "GET" &&
+                    (request.url.scheme == "http" || request.url.scheme == "https") &&
+                    !isApiCall(url)
+
+                if (isMainFrameDocument) {
+                    val headers = defaultRequestHeaders.toMutableMap().apply {
+                        putAll(request.requestHeaders)
+                    }
+                    if (BuildConfig.DEBUG) {
+                        Log.d(FLOW_TAG, "DOCUMENT intercept online=$isOnline url=$url headers=${headers.keys.sorted()}")
+                    }
+
+                    if (isOnline) {
+                        offlineCacheService.refreshManifestIfMissing(url, headers)
+                        val isOfflineRoute = offlineCacheService.isOfflineRouteUrl(url)
+                        updateActiveOfflineRoute(url, isOfflineRoute)
+                        visibleOfflineSnapshotUrl = null
+                        if (BuildConfig.DEBUG) {
+                            Log.d(FLOW_TAG, "DOCUMENT online routeEligible=$isOfflineRoute action=allow-network-and-background-snapshot url=$url")
+                        }
+                        offlineCacheService.storeRouteSnapshotAsync(url, headers)
+                    } else {
+                        val snapshotResponse = offlineCacheService.getRouteSnapshotResponse(url)
+                        if (snapshotResponse != null) {
+                            updateActiveOfflineRoute(url, true)
+                            visibleOfflineSnapshotUrl = normalizeUrlWithoutFragment(url)
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "📴 INTERCEPT: Serving offline route snapshot: $url")
+                                Log.d(FLOW_TAG, "DOCUMENT offline response=route-snapshot mime=${snapshotResponse.mimeType ?: "unknown"} url=$url")
+                            }
+                            return withCorsHeaders(snapshotResponse)
+                        }
+                        updateActiveOfflineRoute(url, false)
+                        if (BuildConfig.DEBUG) {
+                            Log.d(FLOW_TAG, "DOCUMENT offline response=network-fallback reason=snapshot-miss url=$url")
+                        }
+                    }
+                } else if (request.isForMainFrame &&
+                    request.method == "GET" &&
+                    (request.url.scheme == "http" || request.url.scheme == "https")
+                ) {
+                    updateActiveOfflineRoute(url, false)
                 }
 
                 // TODO: Add HTML file workflow - index.html not available yet
@@ -747,12 +957,12 @@ class CustomWebView(
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "🔍 STEP_4_CHECK: Initial page not loaded yet, checking for static resources")
                         Log.d(TAG, "🔍 STEP_4_CHECK: isStaticResourceRequest($url) = ${isStaticResourceRequest(url)}")
-                        Log.d(TAG, "🔍 STEP_4_CHECK: shouldCacheUrl($url) = ${shouldCacheUrl(url)}")
+                        Log.d(TAG, "🔍 STEP_4_CHECK: shouldCacheRequest($url) = ${shouldCacheRequest(request, url)}")
                     }
 
                     // IMPORTANT: Skip asset loading if the URL matches a cache pattern
                     // This allows cached resources to be served from the cache system instead
-                    if (request.method == "GET" && isStaticResourceRequest(url) && !shouldCacheUrl(url)) {
+                    if (request.method == "GET" && isStaticResourceRequest(url) && !shouldCacheRequest(request, url)) {
                         val assetPath = extractAssetPath(url)
                         assetLoadAttempts++
 
@@ -790,7 +1000,7 @@ class CustomWebView(
                             }
                             // Unexpected error - fall through to cache check below
                         }
-                    } else if (shouldCacheUrl(url)) {
+                    } else if (shouldCacheRequest(request, url)) {
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "⏭️ STEP_4_SKIP: Skipping asset loading for cached URL: $url")
                         }
@@ -805,10 +1015,10 @@ class CustomWebView(
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "🔍 STEP_5_CACHE_CHECK: Evaluating cache conditions")
                     Log.d(TAG, "🔍 STEP_5_CACHE_CHECK: Request method: ${request.method} (need GET)")
-                    Log.d(TAG, "🔍 STEP_5_CACHE_CHECK: shouldCacheUrl($url) = ${shouldCacheUrl(url)}")
+                    Log.d(TAG, "🔍 STEP_5_CACHE_CHECK: shouldCacheRequest($url) = ${shouldCacheRequest(request, url)}")
                 }
 
-                if (request.method == "GET" && shouldCacheUrl(url)) {
+                if (request.method == "GET" && shouldCacheRequest(request, url)) {
                     // Track that this request was evaluated for caching
                     metricsMonitor.recordCacheEvaluation(url)
                     if (BuildConfig.DEBUG) {
@@ -831,44 +1041,26 @@ class CustomWebView(
                         }
 
                         // Use synchronous cache check to avoid blocking
-                        val response = cacheManager.getCachedResponseSync(url, headers)
+                        val response = if (NetworkUtils.getCurrentStatus(context).isOnline) {
+                            cacheManager.getCachedResponseOrFetchSync(url, headers)
+                        } else {
+                            cacheManager.getCachedResponseSync(url, headers)
+                        }
 
                         if (response != null) {
                             if (BuildConfig.DEBUG) {
                                 val duration = System.currentTimeMillis() - startTime
                                 Log.d(TAG, "✅ WEBVIEW_CLIENT: Served from cache in ${duration}ms: $url")
+                                Log.d(FLOW_TAG, "ASSET response source=cache-or-fetch online=${NetworkUtils.getCurrentStatus(context).isOnline} durationMs=$duration mime=${response.mimeType ?: "unknown"} encoding=${response.encoding ?: "unknown"} url=$url")
                             }
                             metricsMonitor.recordCacheHit(url)
                             return withCorsHeaders(response)
                         } else {
                             if (BuildConfig.DEBUG) {
-                                Log.d(TAG, "❌ WEBVIEW_CLIENT: Cache miss, triggering async fetch: $url")
+                                Log.d(TAG, "❌ WEBVIEW_CLIENT: Cache miss: $url")
+                                Log.d(FLOW_TAG, "ASSET response source=network-fallback reason=cache-null online=${NetworkUtils.getCurrentStatus(context).isOnline} url=$url")
                             }
                             metricsMonitor.recordCacheMiss(url)
-
-                            // Trigger async cache population for next time
-                            val shouldFetch = synchronized(ongoingCacheFetches) {
-                                ongoingCacheFetches.add(url)
-                            }
-
-                            if (shouldFetch) {
-                                launch(Dispatchers.IO) {
-                                    try {
-                                        cacheManager.getCachedResponse(url, headers)
-                                        if (BuildConfig.DEBUG) {
-                                            Log.d(TAG, "✅ WEBVIEW_CLIENT: Async cache fetch completed: $url")
-                                        }
-                                    } catch (e: Exception) {
-                                        if (BuildConfig.DEBUG) {
-                                            Log.e(TAG, "❌ WEBVIEW_CLIENT: Async cache fetch failed: $url - ${e.message}")
-                                        }
-                                    } finally {
-                                        synchronized(ongoingCacheFetches) {
-                                            ongoingCacheFetches.remove(url)
-                                        }
-                                    }
-                                }
-                            }
 
                             // Return null to let network handle this request
                             return null
@@ -897,7 +1089,7 @@ class CustomWebView(
                         Log.d(TAG, "❌ STEP_5_FAIL: URL doesn't match cache criteria, skipping cache")
                         Log.d(TAG, "❌ STEP_5_FAIL: URL: $url")
                         Log.d(TAG, "❌ STEP_5_FAIL: Request method: ${request.method} (need GET)")
-                        Log.d(TAG, "❌ STEP_5_FAIL: shouldCacheUrl result: ${shouldCacheUrl(url)}")
+                        Log.d(TAG, "❌ STEP_5_FAIL: shouldCacheRequest result: ${shouldCacheRequest(request, url)}")
                         Log.d(TAG, "❌ STEP_5_FAIL: This request will go through normal network loading")
                     }
                 }
@@ -909,6 +1101,9 @@ class CustomWebView(
                 super.onPageStarted(view, url, favicon)
                 if (url != null && url != offlineAssetUrl) {
                     offlinePageVisible = false
+                    if (!isVisibleOfflineSnapshot(url)) {
+                        visibleOfflineSnapshotUrl = null
+                    }
                     onPageStarted?.invoke()
                 }
                 progressBar.visibility = View.VISIBLE
@@ -917,6 +1112,28 @@ class CustomWebView(
                 url?.let { metricsMonitor.trackPageLoadStart(it) }
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "⏳ Page load started for: $url - Hardware Acceleration: $isHardwareAccelerationEnabled")
+                    Log.d(FLOW_TAG, "PAGE started url=$url online=${NetworkUtils.getCurrentStatus(context).isOnline} offlinePageVisible=$offlinePageVisible visibleSnapshot=${visibleOfflineSnapshotUrl ?: "none"} activeOrigin=${activeOfflineRouteOrigin ?: "none"}")
+                }
+
+                if (profilerEnabled) {
+                    val nativeNow = android.os.SystemClock.elapsedRealtime()
+                    view?.evaluateJavascript(
+                        "window.__CATALYST_PROFILER_ENABLED = true; window.__NATIVE_TIME_OFFSET = $nativeNow - performance.now();",
+                        null
+                    )
+                }
+                if (profilerEnabled && url != null) {
+                    val nativeNow = android.os.SystemClock.elapsedRealtime()
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "boot-page-started")
+                        put("nativeTime", nativeNow)
+                        put("url", url)
+                    })
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "page-load-start")
+                        put("nativeTime", nativeNow)
+                        put("url", url)
+                    })
                 }
             }
 
@@ -924,12 +1141,31 @@ class CustomWebView(
                 progressBar.visibility = View.GONE
                 if(!isInitialPageLoaded){
                     isInitialPageLoaded = true
+                    metricsMonitor.markAppStartComplete()
                 }
                 url?.let { metricsMonitor.trackPageLoadEnd(it) }
+
+                val pageFinishedNative = android.os.SystemClock.elapsedRealtime()
+                if (profilerEnabled && url != null) {
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "boot-page-finished")
+                        put("nativeTime", pageFinishedNative)
+                        put("url", url)
+                    })
+                    val pageStart = view?.tag as? Long
+                    PerfEventBuffer.add(JSONObject().apply {
+                        put("type", "page-load-end")
+                        put("nativeTime", pageFinishedNative)
+                        put("url", url)
+                        put("durationMs", if (pageStart != null) System.currentTimeMillis() - pageStart else 0L)
+                    })
+                    if (view != null) PerfEventBuffer.scheduleFlush(view)
+                }
                 if (BuildConfig.DEBUG) {
                     val startTime = view?.tag as? Long ?: return
                     val loadTime = System.currentTimeMillis() - startTime
                     Log.d(TAG, "✅ Page load finished for: $url - Load time: ${loadTime}ms - Hardware Acceleration: $isHardwareAccelerationEnabled")
+                    Log.d(FLOW_TAG, "PAGE finished url=$url loadTimeMs=$loadTime online=${NetworkUtils.getCurrentStatus(context).isOnline} offlinePageVisible=$offlinePageVisible visibleSnapshot=${visibleOfflineSnapshotUrl ?: "none"} activeOrigin=${activeOfflineRouteOrigin ?: "none"}")
                     Log.d(TAG, "📊 Asset loading stats: Attempted: $assetLoadAttempts, Failed: $assetLoadFailures (${String.format("%.1f", assetLoadFailures * 100.0 / assetLoadAttempts.coerceAtLeast(1))}%)")
                     Log.d(TAG, "📊 ${metricsMonitor.getCacheStats()}")
 
@@ -952,7 +1188,39 @@ class CustomWebView(
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (error != null) {
                     Log.e(TAG, "❌ Error loading ${request?.url}: ${error.errorCode} ${error.description}")
+                    if (BuildConfig.DEBUG) {
+                        Log.e(FLOW_TAG, "PAGE resource-error mainFrame=${request?.isForMainFrame} method=${request?.method} code=${error.errorCode} description=${error.description} url=${request?.url}")
+                    }
+                    if (view != null && request?.isForMainFrame == true) {
+                        BridgeUtils.emitPerfEvent(view, JSONObject().apply {
+                            put("type", "page-load-error")
+                            put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                            put("url", request.url?.toString() ?: "")
+                            put("errorCode", error.errorCode)
+                            put("description", error.description?.toString() ?: "")
+                        })
+                    }
                 }
+
+                val failedUrl = request?.url?.toString()
+                if (request?.isForMainFrame == true && isVisibleOfflineSnapshot(failedUrl)) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "📴 Ignoring repeated error for visible offline route snapshot: $failedUrl")
+                    }
+                    return
+                }
+
+                if (request?.isForMainFrame == true &&
+                    failedUrl != null &&
+                    failedUrl != offlineAssetUrl &&
+                    !NetworkUtils.getCurrentStatus(context).isOnline
+                ) {
+                    view?.post {
+                        showOfflineRouteOrOfflinePage(failedUrl)
+                    }
+                    return
+                }
+
                 super.onReceivedError(view, request, error)
             }
 
@@ -1004,6 +1272,7 @@ class CustomWebView(
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "Console: ${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}")
+                    Log.d(FLOW_TAG, "CONSOLE level=${consoleMessage?.messageLevel()} line=${consoleMessage?.lineNumber()} source=${consoleMessage?.sourceId()} message=${consoleMessage?.message()}")
                 }
                 return true
             }
@@ -1040,5 +1309,39 @@ class CustomWebView(
 
         // Only enable WebView debugging in debug builds
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+
+        if (profilerEnabled) {
+            scrollGestureDetector = GestureDetector(context,
+                object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onScroll(
+                        e1: MotionEvent?,
+                        e2: MotionEvent,
+                        distanceX: Float,
+                        distanceY: Float
+                    ): Boolean {
+                        if (!scrollSessionOpen) {
+                            scrollSessionOpen = true
+                            BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                                put("type", "scroll-start")
+                                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                            })
+                        }
+                        return false
+                    }
+                }
+            )
+            webView.setOnTouchListener { _, event ->
+                scrollGestureDetector.onTouchEvent(event)
+                if (scrollSessionOpen &&
+                    (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL)) {
+                    scrollSessionOpen = false
+                    BridgeUtils.emitPerfEvent(webView, JSONObject().apply {
+                        put("type", "scroll-end")
+                        put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                    })
+                }
+                false
+            }
+        }
     }
 }
