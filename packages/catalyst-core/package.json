@@ -44,8 +44,8 @@
         "express": "^4.18.2",
         "express-static-gzip": "^2.1.7",
         "picocolors": "^1.0.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0",
+        "react": "19.0.0",
+        "react-dom": "19.0.0",
         "react-helmet-async": "^1.3.0",
         "react-redux": "^9.2.0",
         "react-refresh": "^0.14.0",
@@ -87,12 +87,12 @@
     },
     "overrides": {
         "react-helmet-async": {
-            "react": "^19.0.0",
-            "react-dom": "^19.0.0"
+            "react": "19.0.0",
+            "react-dom": "19.0.0"
         },
         "react-redux": {
-            "react": "^19.0.0",
-            "react-dom": "^19.0.0"
+            "react": "19.0.0",
+            "react-dom": "19.0.0"
         }
     }
 }
