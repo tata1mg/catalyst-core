@@ -25,7 +25,7 @@
         "@routes": "src/js/routes/"
     },
     "dependencies": {
-        "catalyst-core": "0.2.0-beta.3",
+        "catalyst-core": "0.3.0-beta.1",
         "react": "19.0.0",
         "react-dom": "19.0.0"
     },
