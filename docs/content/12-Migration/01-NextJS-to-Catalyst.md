@@ -125,7 +125,7 @@ export default ProductsPage;
 **Catalyst Implementation:**
 ```javascript
 // pages/Products.jsx
-import { useCurrentRouteData } from "@tata1mg/router";
+import { useCurrentRouteData } from "catalyst-core";
 
 const ProductsPage = () => {
   const { data: products, isFetching, error } = useCurrentRouteData();
@@ -201,7 +201,7 @@ export const getServerSideProps = async (context) => {
 **Catalyst Implementation:**
 ```javascript
 // src/components/UserProfile.js
-import { useCurrentRouteData } from '@tata1mg/router'
+import { useCurrentRouteData } from 'catalyst-core'
 
 const UserProfile = () => {
   const { data } = useCurrentRouteData()
@@ -505,7 +505,7 @@ export default function Layout({ children }) {
 ```javascript
 // src/js/containers/App/index.js
 import React from "react"
-import { Outlet } from "@tata1mg/router"
+import { Outlet } from "catalyst-core"
 
 import Header from './Header'
 import Footer from './footer'

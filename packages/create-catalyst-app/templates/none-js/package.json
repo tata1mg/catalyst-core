@@ -6,8 +6,6 @@
         "build": "catalyst build",
         "serve": "catalyst serve",
         "lint": "eslint .",
-        "devBuild": "catalyst devBuild",
-        "devServe": "catalyst devServe",
         "buildApp": "catalyst buildApp",
         "buildApp:ios": "catalyst buildApp:ios",
         "buildApp:android": "catalyst buildApp:android",

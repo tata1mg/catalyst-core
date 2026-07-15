@@ -96,6 +96,11 @@ async function build() {
 
     console.log("✅ Server and client builds completed!")
 
+    await runBuildStep("node ./dist/scripts/generateOfflineManifest.js", {
+        ...spawnBase,
+        env: baseEnv,
+    })
+
     console.log("🎉 Build completed successfully!")
     console.log("📁 Built files are located in the 'build' directory")
     console.log("🚀 Run 'npm run serve' to start the production server")

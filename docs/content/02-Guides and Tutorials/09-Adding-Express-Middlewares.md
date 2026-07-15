@@ -8,15 +8,34 @@ id: adding-express-middlewares
 
 Catalyst uses Express.js under the hood, allowing you to add custom middlewares in `server/server.js`.
 
+The examples below use the ESM server contract in Catalyst `0.3.x`. Legacy `0.2.x` applications may
+retain CommonJS imports until they upgrade.
+
 ## Basic Setup
 
 Export an `addMiddlewares` function that receives the Express app instance:
 
 ```javascript title="server/server.js"
 import express from "express";
+import path from "path";
+import expressStaticGzip from "express-static-gzip";
 
 export function addMiddlewares(app) {
-  // Add your middlewares here
+  if (process.env.NODE_ENV === "production") {
+    app.use(
+      `${process.env.PUBLIC_STATIC_ASSET_PATH}/client`,
+      expressStaticGzip(
+        path.join(__dirname, `../${process.env.BUILD_OUTPUT_PATH}/client`),
+        {
+          enableBrotli: true,
+          orderPreference: ["br", "gz"],
+          serveStatic: { maxAge: "1y", etag: true },
+        }
+      )
+    );
+  }
+
+  app.use("/favicon.ico", express.static(path.join(__dirname, "../public/favicon.ico")));
 }
 ```
 
@@ -88,4 +107,3 @@ export function addMiddlewares(app) {
   app.use(headerMiddleware);
 }
 ```
-

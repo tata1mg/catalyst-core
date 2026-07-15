@@ -37,6 +37,14 @@ function versionOlderThan(a, b) {
     return false
 }
 
+const VITE_RUNTIME_VERSION = "0.3.0-beta.1"
+
+function catalystGeneration(version) {
+    const parsed = parseVersion(version)
+    if (!parsed) return "unknown"
+    return versionOlderThan(version, VITE_RUNTIME_VERSION) ? "legacy" : "current"
+}
+
 /**
  * Walk up the directory tree looking for a package.json that depends on Catalyst,
  * or the catalyst-core package source itself when developing this repo.
@@ -196,4 +204,6 @@ module.exports = {
     makeProjectHelpers,
     versionOlderThan,
     parseVersion,
+    catalystGeneration,
+    VITE_RUNTIME_VERSION,
 }

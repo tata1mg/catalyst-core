@@ -8,7 +8,7 @@ id: hooks
 
 Catalyst exposes two groups of hooks:
 
-- routing hooks from `@tata1mg/router`
+- routing hooks from `catalyst-core` in 0.3.x (`@tata1mg/router` in legacy 0.2.x)
 - native or universal app hooks from `catalyst-core/hooks`
 
 ## Hooks Overview
@@ -41,7 +41,7 @@ The `useRouterData` hook provides access to the data for all matched routes.
 #### Import
 
 ```javascript
-import { useRouterData } from "@tata1mg/router";
+import { useRouterData } from "catalyst-core";
 ```
 
 #### Return Value
@@ -51,7 +51,7 @@ Returns an object containing data for all active routes, keyed by route path.
 #### Usage
 
 ```javascript
-import { useRouterData } from "@tata1mg/router";
+import { useRouterData } from "catalyst-core";
 
 const Layout = () => {
   const routerData = useRouterData();
@@ -66,7 +66,7 @@ const Layout = () => {
 #### Import
 
 ```javascript
-import { useCurrentRouteData } from "@tata1mg/router";
+import { useCurrentRouteData } from "catalyst-core";
 ```
 
 #### Return Value
@@ -87,7 +87,7 @@ This hook only works inside the `RouterDataProvider` tree. If the app is not wra
 #### Usage
 
 ```javascript
-import { useCurrentRouteData } from "@tata1mg/router";
+import { useCurrentRouteData } from "catalyst-core";
 
 const ProductPage = () => {
   const { data, error, isFetching, isFetched, refetch, clear } = useCurrentRouteData();

@@ -79,6 +79,16 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const isProduction = process.env.NODE_ENV === "production"
+
+function serveBuildFile(app, buildPath, urlPath, fileName, headers = {}) {
+    app.get(urlPath, (_req, res, next) => {
+        const filePath = path.join(buildPath, fileName)
+        if (!fs.existsSync(filePath)) return next()
+        res.set(headers)
+        res.sendFile(filePath)
+    })
+}
+
 async function createServer() {
     const port = process.env.NODE_SERVER_PORT ?? 3005
     const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
@@ -116,6 +126,18 @@ async function createServer() {
         const publicAssetBase = `/${(process.env.PUBLIC_STATIC_ASSET_PATH || "/assets/")
             .replace(/^\/+|\/+$/g, "")
             .replace(/\/+/g, "/")}/client/assets`
+
+        serveBuildFile(app, buildPath, "/catalyst-offline-manifest.json", "catalyst-offline-manifest.json", {
+            "cache-control": "no-store",
+        })
+        serveBuildFile(app, buildPath, "/catalyst-sw.js", "catalyst-sw.js", {
+            "cache-control": "no-cache",
+            "service-worker-allowed": "/",
+        })
+        serveBuildFile(app, buildPath, "/offline.html", "offline.html", {
+            "cache-control": "no-cache",
+        })
+
         // Serve static assets — prefers pre-compressed .br / .gz files generated at build time
         app.use(
             publicAssetBase,

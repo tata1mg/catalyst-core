@@ -6,8 +6,6 @@
         "build": "catalyst build",
         "serve": "catalyst serve",
         "lint": "eslint .",
-        "devBuild": "catalyst devBuild",
-        "devServe": "catalyst devServe",
         "test": "playwright test"
     },
     "_moduleAliases": {
