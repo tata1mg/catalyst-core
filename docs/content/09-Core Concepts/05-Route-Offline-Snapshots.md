@@ -49,12 +49,12 @@ Examples:
 
 ## Build Output
 
-Production-style builds generate Catalyst-owned offline runtime files in `build/public`:
+Catalyst `0.3.x` production builds generate Catalyst-owned offline runtime files at the build root:
 
 - `catalyst-offline-manifest.json`
 - `catalyst-sw.js`
 
-If the app provides `public/offline.html`, Catalyst copies it to `build/public/offline.html` and
+If the app provides `public/offline.html`, Catalyst copies it to `build/offline.html` and
 uses it as the fallback when an eligible route has not been visited online yet.
 
 The manifest contains:
@@ -70,6 +70,11 @@ space while older snapshots can remain as last-known-good data until cleanup.
 
 The browser client registers `/catalyst-sw.js` only in production web builds, not inside native
 WebViews.
+
+Use `npm run build` followed by `npm run serve` when testing this behavior. `npm run start` is the
+Vite development path: it neither generates a fresh production manifest nor registers the service
+worker. After changing `offline` route metadata, rebuild before testing and visit the exact route
+online once so its SSR document and assets can be cached.
 
 The service worker:
 

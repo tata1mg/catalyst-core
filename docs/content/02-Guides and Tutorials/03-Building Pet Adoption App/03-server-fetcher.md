@@ -23,7 +23,7 @@ Replace `src/js/pages/Home/Home.js`:
 
 ```jsx title="src/js/pages/Home/Home.js"
 import React from "react";
-import { useCurrentRouteData } from "@tata1mg/router";
+import { useCurrentRouteData } from "catalyst-core";
 
 const Home = () => {
   const { data, error, isFetching } = useCurrentRouteData();

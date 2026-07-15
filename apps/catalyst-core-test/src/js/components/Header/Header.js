@@ -1,6 +1,6 @@
 // src/js/components/Header/Header.js
 import React from "react"
-import { Link } from "@tata1mg/router"
+import { Link } from "catalyst-core"
 
 const Header = () => {
     return (

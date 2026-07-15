@@ -10,11 +10,14 @@ Catalyst asset caching works differently on the web and in universal apps. On th
 
 ## Web Build Layer
 
-The standard web build produces hashed client assets and a server bundle. For web delivery:
+The Catalyst `0.3.x` Vite build produces hashed client assets and an SSR renderer. For web delivery:
 
-- serve emitted assets from `build/public/`
+- serve emitted assets from `build/client/`
 - use a correct `PUBLIC_STATIC_ASSET_URL`
 - let immutable hashed assets benefit from long-lived CDN caching
+
+Legacy Catalyst `0.2.x` webpack applications retain the `build/public/` asset layout until they
+upgrade. Deployment paths must match the installed Catalyst generation.
 
 ## Universal App Layer
 

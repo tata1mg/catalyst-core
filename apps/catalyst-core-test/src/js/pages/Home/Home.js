@@ -1,5 +1,5 @@
 import React from "react"
-import { Link, useCurrentRouteData } from "@tata1mg/router"
+import { Link, useCurrentRouteData } from "catalyst-core"
 import { getDogApiBaseUrl, getDogBreeds } from "../../utils/dogApi"
 
 const Home = () => {

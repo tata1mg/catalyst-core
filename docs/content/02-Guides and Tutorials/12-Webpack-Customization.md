@@ -1,10 +1,16 @@
 ---
-title: Webpack Customization
+title: Legacy Webpack Customization (0.2.x)
 slug: webpack-customization
 id: webpack-customization
 ---
 
-# Webpack Customization
+# Legacy Webpack Customization (Catalyst 0.2.x)
+
+:::warning Version scope
+This guide applies to Catalyst `0.2.x` and earlier. Catalyst `0.3.x` uses Vite; see
+[Vite Customization](./12-Vite-Customization.md). A `webpackConfig.js` filename may still be
+recognized during migration, but its legacy webpack callback contract is not supported by the Vite runtime.
+:::
 
 Catalyst allows targeted webpack customization through `webpackConfig.js`. This file is for project-specific build needs, not for rebuilding the framework’s defaults from scratch.
 

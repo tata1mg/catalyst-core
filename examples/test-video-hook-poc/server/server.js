@@ -1,10 +1,10 @@
-const express = require("express")
-const path = require("path")
+import express from "express"
+import path from "path"
+import { fileURLToPath } from "url"
 
-// Server middlewares are added here.
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
-function addMiddlewares(app) {
+export function addMiddlewares(app) {
     app.use("/favicon.ico", express.static(path.join(__dirname, "../public/favicon.ico")))
 }
-
-module.exports = { addMiddlewares }

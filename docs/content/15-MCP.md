@@ -31,6 +31,12 @@ The generated `mcp.js` entrypoint exposes Catalyst project context to MCP-compat
 - framework-specific configuration
 - routing and architecture concepts
 - build and universal app setup
+- version-scoped guidance for legacy Catalyst `0.2.x` and current `0.3.x` projects
+
+The MCP server reads the installed `catalyst-core` version before returning router, build, hydration,
+or conversion instructions. This keeps webpack-era `0.2.x` guidance separate from the Vite and
+integrated-router contracts in `0.3.x`. If the installed version cannot be determined, confirm the
+target version before applying generated migration steps.
 
 ## Connecting To MCP Clients
 

@@ -24,7 +24,6 @@ npm pack --workspace packages/catalyst-core --pack-destination "$PACK_DIR" --ign
 CORE_TARBALL=$(find "$PACK_DIR" -name "catalyst-core-*.tgz" -print -quit)
 
 cd "$FIXTURE_DIR"
-npm install
 npm install --no-save --package-lock=false "$CORE_TARBALL"
 
 # Run fixture app checks

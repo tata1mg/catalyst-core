@@ -3,84 +3,63 @@ title: Code Splitting
 slug: code-splitting
 id: code-splitting
 ---
+
 # Code Splitting
 
-Code splitting allows you to split your code into separate bundles that load on demand, reducing initial bundle size and improving performance.
+## Catalyst 0.3.x+
 
-Catalyst supports code splitting through `@loadable/component` for SSR-compatible lazy loading.
-
----
-
-## Route-based Code Splitting
-
-The most common approach - each route loads independently:
+Use `split()` from `catalyst-core` for Vite-aware code splitting that works with Catalyst SSR and
+client hydration.
 
 ```jsx title="src/js/routes/index.js"
-import loadable from "@loadable/component";
-import HomeFallback from "@Fallback/HomeFallback/HomeFallback.js";
+import { split } from "catalyst-core"
+import HomeFallback from "@Fallback/HomeFallback/HomeFallback.js"
 
-const Home = loadable(() => import("@pages/Home/Home.js"), {
-  ssr: false,
-  fallback: <HomeFallback />
-});
+const Home = split(() => import("@pages/Home/Home.js"), {
+    ssr: true,
+    fallback: <HomeFallback />,
+})
 
-const About = loadable(() => import("@pages/About/About.js"), {
-  ssr: false,
-  fallback: <div>Loading...</div>
-});
-
-const routes = [
-  {
-    path: "/",
-    end: true,
-    component: Home,
-  },
-  {
-    path: "/about",
-    component: About,
-  },
-];
-
-export default routes;
+const Chart = split(() => import("@components/Chart/Chart.js"), {
+    ssr: false,
+    fallback: <div>Loading chart...</div>,
+})
 ```
 
----
+The client entry must wait for split modules used by SSR before hydrating:
 
-## Component-based Code Splitting
+```jsx title="client/index.js"
+import { RouterProvider, hydrationReady } from "catalyst-core"
+import { hydrateRoot } from "react-dom/client"
 
-Load components conditionally based on application state:
-
-```jsx
-import loadable from "@loadable/component";
-
-const UserDetails = loadable(() => import("@components/UserDetails/UserDetails.js"), {
-  ssr: false,
-});
-
-const Profile = ({ isLoggedIn }) => {
-  if (isLoggedIn) {
-    return <UserDetails />;
-  }
-  return <button>Log In</button>;
-};
-
-export default Profile;
+window.addEventListener("load", () => {
+    hydrationReady().then(() => {
+        hydrateRoot(document.getElementById("app"), <RouterProvider router={router} />)
+    })
+})
 ```
 
----
-
-## Options
+### Options
 
 | Option | Type | Description |
-|--------|------|-------------|
-| `ssr` | boolean | Enable/disable server-side rendering for the component |
-| `fallback` | ReactNode | Component to show while loading |
+| --- | --- | --- |
+| `ssr` | boolean | Render on the server. Defaults to `true`. |
+| `fallback` | ReactNode | Content rendered while the split module loads. |
+| `rootOptions` | object | Intersection observer options for visibility-based loading. |
+| `onVisible` | function | Called when a visibility-loaded split component becomes visible. |
 
----
+Route components keep their `serverFetcher`, `clientFetcher`, and `setMetaData` statics when wrapped
+with `split()`.
+
+## Legacy Catalyst 0.2.x
+
+Catalyst `0.2.x` uses `@loadable/component` and `loadableReady()`. Keep that implementation while
+the application remains on `0.2.x`; replace it with `split()` and `hydrationReady()` as part of the
+`0.3.x` migration. Do not install `@loadable/component` in a `0.3.x` application.
 
 ## Best Practices
 
-1. **Split at route level first** - provides the biggest performance gains
-2. **Use meaningful fallbacks** - show loading skeletons that match the expected content
-3. **Disable SSR for client-only components** - charts, maps, or components using browser APIs
-4. **Monitor bundle sizes** - use `ANALYZE_BUNDLE=true` to inspect chunk sizes
+1. Split route-level components before small leaf components.
+2. Keep SSR enabled for above-the-fold and SEO-critical content.
+3. Use `ssr: false` for browser-only components and provide a hydration-stable fallback.
+4. Use meaningful loading skeletons that match the final component dimensions.

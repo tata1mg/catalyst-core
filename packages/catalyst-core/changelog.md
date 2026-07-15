@@ -1,3 +1,11 @@
+# 1.0.0-beta.1
+
+- Replaced the Webpack build and SSR pipeline with Vite and ESM.
+- Added React 19 Suspense-aware routing, split components, and manifest-based asset loading.
+- Added opt-in request, compression, flush, and bot-aware OpenTelemetry spans.
+- Preserved native application builds, internal plugins, Sentry exports, and safe-area SSR hydration.
+- Removed the legacy `devBuild` and `devServe` commands.
+
 # Changelog
 
 ## [0.1.0-beta.2] - 2026-05-06

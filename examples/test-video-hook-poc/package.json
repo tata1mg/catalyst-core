@@ -6,8 +6,6 @@
         "build": "npm run typecheck && catalyst build",
         "serve": "catalyst serve",
         "lint": "eslint .",
-        "devBuild": "catalyst devBuild",
-        "devServe": "catalyst devServe",
         "buildApp": "catalyst buildApp",
         "buildApp:ios": "catalyst buildApp:ios",
         "buildApp:android": "catalyst buildApp:android",
@@ -27,11 +25,9 @@
         "@store": "src/js/store/index.js"
     },
     "dependencies": {
-        "@loadable/component": "^5.16.3",
         "@reduxjs/toolkit": "^2.9.0",
         "@tailwindcss/postcss": "^4.1.4",
-        "@tata1mg/router": "0.1.0-beta",
-        "catalyst-core": "0.1.0-beta.7",
+        "catalyst-core": "0.2.0-beta.3",
         "react-redux": "^9.2.0",
         "tailwindcss": "^4.1.4",
         "react": "19.0.0",
@@ -55,13 +51,9 @@
             "react": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
             "react-dom": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
         },
-        "@loadable/component": {
-            "react": "^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
-            "react-dom": "^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
-        },
-        "@loadable/server": {
-            "react": "^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
-            "react-dom": "^16.3.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+        "react-redux": {
+            "react": "^19.0.0",
+            "react-dom": "^19.0.0"
         }
     }
 }
