@@ -1,9 +1,11 @@
-"use strict"
+import fs from "node:fs"
+import path from "node:path"
+import readline from "node:readline"
+import { createRequire } from "node:module"
+import { fileURLToPath } from "node:url"
+import { bold, cyan, dim, green, red, yellow } from "picocolors"
 
-const fs = require("fs")
-const path = require("path")
-const readline = require("node:readline")
-const { bold, cyan, dim, green, red, yellow } = require("picocolors")
+const require = createRequire(import.meta.url)
 const { discoverInternalPlugins, resolveInternalPluginsRoot } = require("../native/internalPluginUtils.js")
 
 const CONFIG_PATH = path.join(process.cwd(), "config", "config.json")
@@ -281,7 +283,7 @@ async function runInteractiveSession(session) {
 
 async function main() {
     const { raw: rawConfig, json: config } = readJsonFile(CONFIG_PATH, "App config")
-    const catalystCoreRoot = path.dirname(require.resolve("catalyst-core/package.json"))
+    const catalystCoreRoot = fileURLToPath(new URL("../..", import.meta.url))
     const pluginsRoot = resolveInternalPluginsRoot(catalystCoreRoot)
     const plugins = discoverInternalPlugins(pluginsRoot)
 

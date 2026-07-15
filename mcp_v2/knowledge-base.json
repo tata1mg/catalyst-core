@@ -177,7 +177,7 @@
     },
     {
         "section": "build_system",
-        "title": "Build NPM Scripts",
+        "title": "Legacy 0.2.x Build NPM Scripts",
         "content": "All catalyst npm scripts to add to package.json scripts block (each maps to: catalyst <scriptName>): devBuild \u2014 dev web build. devServe \u2014 dev server. buildApp \u2014 builds native app (both platforms). buildApp:android \u2014 Android native app build. buildApp:ios \u2014 iOS native app build. buildApp:android:release \u2014 Android release build. buildApp:ios:release \u2014 iOS release build. setupEmulator \u2014 sets up both emulators. setupEmulator:android \u2014 sets up Android AVD. setupEmulator:ios \u2014 sets up iOS simulator. NOTE: build:android / build:android:release / build:ios do NOT exist in catalyst \u2014 common mistake. The correct commands are buildApp:android and buildApp:ios. Missing any script = that npm run command fails.",
         "layer": "Build",
         "source": "static",
@@ -457,7 +457,7 @@
     },
     {
         "section": "routing",
-        "title": "Catalyst Routing Stack",
+        "title": "Legacy 0.2.x Catalyst Routing Stack",
         "content": "@tata1mg/router wraps React Router v6. Routes defined in src/js/routes/index.js as flat or nested array. RouterDataProvider in src/js/routes/utils.js wraps the entire app \u2014 required for data fetching to work. Without RouterDataProvider, serverFetcher/clientFetcher hooks silently return undefined.",
         "layer": "Runtime",
         "source": "static",
@@ -473,7 +473,7 @@
     },
     {
         "section": "routing",
-        "title": "RouterDataProvider Setup",
+        "title": "Legacy 0.2.x RouterDataProvider Setup",
         "content": "RouterDataProvider from @tata1mg/router wraps the app in src/js/routes/utils.js. Provides route-level data context to all child components. useCurrentRouteData() reads from this context. Missing RouterDataProvider = all useCurrentRouteData() calls return undefined, no error thrown.",
         "layer": "Runtime",
         "source": "static",
@@ -481,7 +481,7 @@
     },
     {
         "section": "routing",
-        "title": "App Shell with Outlet",
+        "title": "Legacy 0.2.x App Shell with Outlet",
         "content": "src/js/containers/App/index.js must render <Outlet /> from @tata1mg/router (not react-router-dom directly). Outlet renders the matched route component. Without Outlet, routing matches but nothing renders. App shell is also where global layout (nav, footer) lives.",
         "layer": "Component",
         "source": "static",
@@ -505,7 +505,7 @@
     },
     {
         "section": "data_fetching",
-        "title": "useCurrentRouteData Hook",
+        "title": "Legacy 0.2.x useCurrentRouteData Hook",
         "content": "import { useCurrentRouteData } from '@tata1mg/router'. Returns data resolved by serverFetcher/clientFetcher for the current route. Replaces all useState + useEffect data loading patterns. Available only inside RouterDataProvider tree. Returns undefined if RouterDataProvider missing.",
         "layer": "Runtime",
         "source": "static",
@@ -553,7 +553,7 @@
     },
     {
         "section": "server_structure",
-        "title": "Client Entry Files",
+        "title": "Legacy 0.2.x Client Entry Files",
         "content": "client/index.js hydrates SSR markup: import { hydrate } from '@tata1mg/router'; hydrate(<App />, document.getElementById('root')). client/styles.js imports global CSS: import '../src/styles/global.css'. Both files required. Missing client/index.js = blank page on web (no hydration). Missing client/styles.js = styles not bundled.",
         "layer": "Build",
         "source": "static",
@@ -854,7 +854,7 @@
     },
     {
         "section": "config_structure",
-        "title": "Migration Phase 0 \u2014 Bare Minimum to Boot App (No Bridge)",
+        "title": "Legacy 0.2.x Migration Phase 0 \u2014 Bare Minimum to Boot App (No Bridge)",
         "content": "Minimum steps to get a catalyst webview app running without any native bridge/hooks: (1) catalyst-core in package.json dependencies. (2) All native scripts in package.json scripts: buildApp:android, buildApp:ios, setupEmulator:android, setupEmulator:ios, devBuild, devServe. (3) config/config.json WEBVIEW_CONFIG with LOCAL_IP (not localhost), port, APPLICATION_UID, android block (appName, packageName, buildType, sdkPath, emulatorName), ios block (appName, appBundleId, simulatorName, buildType). (4) _moduleAliases correct in package.json \u2014 especially @api pointing to the right path. (5) accessControl.allowedUrls includes your API domains. App will load as a webview at this point \u2014 bridge features (camera, notifications, device info) will not work until Phase 2 (WebBridge init). This is the correct first milestone for any repo migration.",
         "layer": "Config",
         "source": "static",
@@ -937,7 +937,7 @@
     },
     {
         "section": "build_system",
-        "title": "Webpack Customization via webpackConfig.js",
+        "title": "Legacy 0.2.x Webpack Customization via webpackConfig.js",
         "content": "Every catalyst project has a webpackConfig.js at the project root. This is the ONLY supported way to customize webpack \u2014 do not modify catalyst-core internals.\n\nEXPORTED KEYS:\n- developmentPlugins[]: merged into dev client webpack (webpack-dev-server run)\n- ssrPlugins[]: merged into both dev SSR watcher and production SSR build\n- clientPlugins[]: merged into production client build\n- splitChunksConfig: object \u2014 replaces the default commonVendor+utilityVendor split chunk strategy entirely\n- transpileModules[]: array of package names to whitelist from nodeExternals in SSR builds (use for ESM-only deps that need transpilation)\n\nDEFAULT (from template): all arrays empty, no splitChunksConfig \u2014 uses catalyst-core defaults.\n\nREAL USAGE PATTERNS:\nmweb clientPlugins: HTMLWebpackPlugin (offline.html), InjectManifest/Workbox (service worker), RoutesManifestPlugin (routes manifest from src/js/routes/index.js), UploadAssetsPlugin (S3 upload of assets + build output post-build).\nmweb splitChunksConfig: custom commonVendor test regex, minChunks:2 on utilityVendor, minRemainingSize:20KB.\npsp-pfizer clientPlugins: dual CompressionPlugin (gzip + brotli for JS/CSS/HTML/SVG). splitChunksConfig only applied when NODE_ENV=production (conditional spread pattern).\n\nCSS MODULE RULES (base.babel.js, not overridable):\n- .scss under src/static/css/base and node_modules \u2192 global (no css-loader modules)\n- all other .scss \u2192 CSS Modules, localIdentName from catalystConfig.cssModulesIdentifierDev/Prod\n- SCSS globals injected via sass-loader additionalData: $font_url, $url_for (from scssParams.js)\n\nBASE CONFIG (src/webpack/base.babel.js) handles: JS/TS via babel-loader, SCSS, CSS, images (url-loader+img-loader), SVG (@svgr/webpack), fonts (url-loader+file-loader), HTML (html-loader).\nDefinePlugin exposes CLIENT_ENV_VARIABLES from config/config.json plus BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL, SENTRY_CONFIG to client bundle.",
         "layer": "Build",
         "source": "static",
@@ -961,7 +961,7 @@
     },
     {
         "section": "build_system",
-        "title": "React Compiler (opt-in via webpackConfig.js)",
+        "title": "Legacy 0.2.x React Compiler (opt-in via webpackConfig.js)",
         "content": "React Compiler is opt-in. Disabled by default \u2014 no babel-plugin-react-compiler is added unless explicitly enabled.\n\nENABLE: Add reactCompiler key to webpackConfig.js:\n  reactCompiler: true              // uses default options: { target: '19' }\n  reactCompiler: { target: '19' } // custom options object\n\nHOW IT WORKS: babel.config.client.js and babel.config.ssr.js both read customWebpackConfig.reactCompiler. If truthy, babel-plugin-react-compiler is added as a babel plugin to BOTH client and SSR builds. If the value is an object, it's passed as plugin options directly; otherwise defaults to { target: '19' }.\n\nPEER DEPS (already in catalyst-core, no install needed in app):\n- babel-plugin-react-compiler@^19.0.0-beta\n- react-compiler-runtime@^19.0.0-beta\n- eslint-plugin-react-compiler@^19.0.0-beta\n\nCURRENT USAGE: Neither mweb nor psp-pfizer enable React Compiler \u2014 both ship without the reactCompiler key.",
         "layer": "Build",
         "source": "static",
@@ -978,7 +978,7 @@
     },
     {
         "section": "build_system",
-        "title": "CLI Commands and Package Scripts",
+        "title": "Legacy 0.2.x CLI Commands and Package Scripts",
         "content": "The catalyst binary (bin/catalyst.js) is the sole entrypoint for all framework commands. Projects call it via npm scripts.\n\nWEB COMMANDS:\n- catalyst start      -> dev mode: webpack-dev-server (HMR) + node server\n- catalyst build      -> production webpack build (client + SSR)\n- catalyst serve      -> start node server (after build)\n- catalyst devBuild   -> production webpack build but assets served from local node server (IS_DEV_COMMAND=true)\n- catalyst devServe   -> same as devBuild but with webpack watch mode\n\nNATIVE COMMANDS:\n- catalyst buildApp              -> builds iOS + Android sequentially\n- catalyst buildApp:ios          -> iOS app build only\n- catalyst buildApp:android      -> Android app build only\n- catalyst setupEmulator         -> sets up iOS + Android emulators sequentially\n- catalyst setupEmulator:ios     -> iOS emulator setup only\n- catalyst setupEmulator:android -> Android emulator setup only\n\nINTERNALS:\n- Web commands resolve to dist/scripts/<command>.js (build.js, start.js, serve.js, devBuild.js, devServe.js)\n- Native commands resolve to dist/native/ (buildAppIos.js, buildAppAndroid.js, setupEmulatorIos.js, androidSetup.js)\n\nTYPICAL PROJECT package.json PATTERN:\n  \"start\": \"catalyst start\"\n  \"build\": \"export NODE_OPTIONS=\\\"--max-old-space-size=6020\\\" && catalyst build\"\n  \"serve\": \"catalyst serve\"\n  \"buildApp\": \"catalyst buildApp\"\n\nNOTE: serve:prod / serve:stag in project scripts are pm2-runtime commands \u2014 not catalyst CLI commands. These are project-level and not part of the framework.",
         "layer": "Build",
         "source": "static",
@@ -1000,7 +1000,7 @@
     },
     {
         "section": "framework_identity",
-        "title": "Project File Conventions and Structure",
+        "title": "Legacy 0.2.x Project File Conventions and Structure",
         "content": "Standard catalyst project layout:\n\nproject-root/\n\u251c\u2500\u2500 client/\n\u2502   \u251c\u2500\u2500 index.js        <- webpack entry: hydrates React app (hydrateRoot + loadableReady)\n\u2502   \u2514\u2500\u2500 styles.js       <- global CSS imports\n\u251c\u2500\u2500 server/\n\u2502   \u251c\u2500\u2500 index.js        <- exports preServerInit() \u2014 runs before express starts (use for OTel, DB init, Sentry)\n\u2502   \u251c\u2500\u2500 server.js       <- express server setup\n\u2502   \u2514\u2500\u2500 document.js     <- HTML document shell (Head, Body)\n\u251c\u2500\u2500 src/\n\u2502   \u2514\u2500\u2500 js/\n\u2502       \u251c\u2500\u2500 pages/      <- route-level components, one folder per page\n\u2502       \u251c\u2500\u2500 containers/ <- data-connected components (mweb uses these as page-level too)\n\u2502       \u251c\u2500\u2500 components/ <- presentational/shared components\n\u2502       \u251c\u2500\u2500 layouts/    <- layout wrappers used as nested route parents\n\u2502       \u2514\u2500\u2500 routes/     <- index.js exports routes array; utils.js for route helpers\n\u2502   \u2514\u2500\u2500 static/\n\u2502       \u251c\u2500\u2500 css/base/        <- global SCSS \u2014 NOT CSS-moduled (applied globally)\n\u2502       \u2514\u2500\u2500 css/resources/   <- SCSS variables/mixins auto-injected into all CSS modules via sass-resources-loader\n\u251c\u2500\u2500 config/\n\u2502   \u2514\u2500\u2500 config.json     <- app config: CLIENT_ENV_VARIABLES, WEBVIEW_CONFIG, ANALYZE_BUNDLE, etc.\n\u251c\u2500\u2500 api.js              <- API layer (aliased as @api)\n\u251c\u2500\u2500 webpackConfig.js    <- webpack customization hook\n\u2514\u2500\u2500 package.json        <- _moduleAliases defines path aliases for webpack + node\n\nMODULE ALIASES (defined in package.json._moduleAliases, resolved by webpack and registerAliases.js):\n  @api        -> api.js\n  @containers -> src/js/containers\n  @server     -> server\n  @config     -> config\n  @css        -> src/static/css\n  @routes     -> src/js/routes/\n\nKEY CONVENTIONS:\n- Pages use @loadable/component for code splitting. ssr:true enables SSR for that page; ssr:false serves fallback only.\n- client/index.js always uses hydrateRoot (not ReactDOM.render) wrapped in loadableReady.\n- server/index.js exports preServerInit() \u2014 the correct place for server-side init (OTel, Sentry, DB connections).\n- Routes in src/js/routes/index.js use nested structure: layout component as parent, pages as children.\n- Build output: build/public/ (client JS/CSS chunks), build/renderer/ (SSR handler.js + loadable-stats.json).\n- CSS co-located with components as .scss files (CSS Modules). Global styles go in src/static/css/base/.",
         "layer": "Framework",
         "source": "static",
@@ -1111,7 +1111,7 @@
     },
     {
         "section": "seo_metadata",
-        "title": "Server-Side Meta Tags \u2014 setMetaData()",
+        "title": "Legacy 0.2.x Server-Side Meta Tags \u2014 setMetaData()",
         "content": "Each page component can define a static `setMetaData` function that returns an array of JSX meta elements. These are collected server-side and injected into the HTML <head> before the page is streamed to the client.\n\nHOW IT WORKS:\n1. Route components define `Component.setMetaData = (fetcherData) => [...]`\n2. handler.js calls `getMetaData(allMatches, fetcherData)` from @tata1mg/router \u2014 collects setMetaData from all matched route components, passes fetcherData so tags can be dynamic.\n3. The resulting `allTags` array is passed to `renderMarkUp()` \u2192 `<Head metaTags={allTags} />`.\n4. `Head` renders them inside `<head>` before pageCss and preloadJSLinks.\n\nEXAMPLE (static title):\n```js\nHome.setMetaData = () => {\n  return [<title key=\"title\">Home</title>]\n}\n```\n\nEXAMPLE (dynamic OG tags using fetcherData):\n```js\nBreedDetails.setMetaData = ({ params, data }) => [\n  <title key=\"title\">{params.breed} \u2014 Dog Breeds</title>,\n  <meta key=\"og:title\" property=\"og:title\" content={params.breed} />,\n  <meta key=\"og:description\" property=\"og:description\" content={data?.message} />,\n]\n```\n\nNOTES:\n- Always add `key` prop to each tag (React list reconciliation).\n- fetcherData shape matches what `serverFetcher` returned for that route.\n- Tags from parent + child routes are merged \u2014 order follows route nesting.\n- `isBot` flag is passed to Head; use for bot-specific meta if needed.",
         "layer": "Component",
         "source": "static",
@@ -1130,7 +1130,7 @@
     },
     {
         "section": "seo_metadata",
-        "title": "Client-Side Meta Updates \u2014 MetaTag + custom document",
+        "title": "Legacy 0.2.x Client-Side Meta Updates \u2014 MetaTag + custom document",
         "content": "On the client side, meta tags are kept in sync across navigations via `<MetaTag />` from @tata1mg/router. For global head additions (fonts, preconnect, etc.), use the custom `server/document.js`.\n\nMETATAG COMPONENT (client SPA navigation):\n- Placed inside `RouterDataProvider` in `preparedRoutes` (src/js/routes/utils.js).\n- Automatically reads `setMetaData` from the newly matched route component and updates the DOM <head> on every client-side navigation.\n- No manual setup needed beyond adding `<MetaTag />` once in the route tree.\n\nCUSTOM DOCUMENT (server/document.js):\n- Optional file at `server/document.js` in the project root.\n- Receives all Head/Body props and lets you wrap or extend the default HTML shell.\n- Use for: global fonts, preconnect links, custom <html> attributes.\n\nEXAMPLE (server/document.js):\n```js\nimport React from 'react'\nimport { Head, Body } from 'catalyst-core'\n\nexport default function Document(props) {\n  return (\n    <html lang=\"en\">\n      <Head {...props}>\n        <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n        <link href=\"https://fonts.googleapis.com/css2?family=Poppins\" rel=\"stylesheet\" />\n      </Head>\n      <Body {...props} />\n    </html>\n  )\n}\n```\n\nWhen `Head` receives `children`, it renders them first, then `metaTags`, then pageCss, then preloadJSLinks \u2014 giving you full control over ordering.\n\nNOTES:\n- `MetaTag` is client-only; SSR uses `setMetaData` \u2192 `getMetaData` pipeline.\n- If no `server/document.js` is present, handler.js uses the default Head+Body layout.",
         "layer": "Component",
         "source": "static",
@@ -1170,5 +1170,116 @@
         "layer": "Config",
         "source": "extracted:src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt",
         "tags": ["config", "googleSignIn", "android", "oauth", "sign-in"]
+    },
+    {
+        "section": "framework_identity",
+        "title": "Catalyst Runtime Generations",
+        "content": "Always determine the installed catalyst-core version before giving web runtime guidance. Catalyst 0.2.x is the legacy webpack generation and uses @tata1mg/router plus @loadable/component. Catalyst 0.3.x, beginning with 0.3.0-beta.1, is the Vite/ESM generation: router APIs are exported by catalyst-core and split()/hydrationReady() replace loadable APIs. Do not combine instructions from the two generations. If no version can be detected, ask which version the project targets.",
+        "layer": "Framework",
+        "source": "static",
+        "tags": ["versions", "0.2.x", "0.3.x", "migration", "webpack", "vite"],
+        "github_files": ["packages/catalyst-core/package.json", "packages/catalyst-core/src/index.jsx"]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x Vite Build Runtime",
+        "content": "Catalyst 0.3.x uses Vite for development, client production output, and SSR output. catalyst start runs Vite in middleware mode with SSR and Fast Refresh. catalyst build runs client and server builds in parallel. Client assets are emitted under build/client, the production renderer under build/server, and Vite manifests under build/.vite. catalyst serve loads the built server renderer. This replaces the Catalyst 0.2.x webpack, Babel-register, loadable-stats, and build/public assumptions.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["0.3.x", "vite", "build", "ssr", "client", "server"],
+        "github_files": [
+            "packages/catalyst-core/src/scripts/start.js",
+            "packages/catalyst-core/src/scripts/build.js",
+            "packages/catalyst-core/src/scripts/serve.js",
+            "packages/catalyst-core/src/vite/vite.config.client.js",
+            "packages/catalyst-core/src/vite/vite.config.server.js"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x CLI Commands",
+        "content": "Current web commands are catalyst start, catalyst build, catalyst serve, and catalyst serve:inspect. devBuild and devServe are legacy 0.2.x commands and are not accepted by the 0.3.x CLI. Native commands remain buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["0.3.x", "cli", "start", "build", "serve", "native"],
+        "github_files": ["packages/catalyst-core/bin/catalyst.js"]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x Custom Vite Plugins",
+        "content": "Applications can provide buildConfig.js exporting { clientPlugins: [], ssrPlugins: [] }. clientPlugins are appended to the production client Vite configuration and ssrPlugins to the SSR configuration. The legacy filename webpackConfig.js is temporarily recognized as a compatibility filename, but in a 0.3.x project its exported value follows the Vite plugin contract; webpack configure/merge callbacks are not supported by the Vite runtime.",
+        "layer": "Config",
+        "source": "static",
+        "tags": ["0.3.x", "vite", "plugins", "buildConfig", "webpackConfig", "compatibility"],
+        "github_files": [
+            "packages/catalyst-core/src/vite/loadCustomViteConfig.js",
+            "packages/catalyst-core/src/vite/vite.config.client.js",
+            "packages/catalyst-core/src/vite/vite.config.server.js"
+        ]
+    },
+    {
+        "section": "routing",
+        "title": "Catalyst 0.3.x Integrated Router",
+        "content": "Catalyst 0.3.x removes the @tata1mg/router package dependency. catalyst-core exports React Router APIs plus RouterDataProvider, MetaTag, routing data hooks, metadata utilities, split, and hydrationReady. Existing route arrays and preparedRoutes structure remain, but imports must move from @tata1mg/router to catalyst-core. Keeping both router packages can create duplicate runtime contracts and invalid React element errors.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["0.3.x", "router", "react-router", "RouterDataProvider", "migration"],
+        "github_files": [
+            "packages/catalyst-core/src/index.jsx",
+            "packages/catalyst-core/src/web-router/components/RouterDataProvider.jsx"
+        ]
+    },
+    {
+        "section": "code_splitting",
+        "title": "Catalyst 0.3.x split and hydrationReady",
+        "content": "Use split(() => import('./Page'), options) from catalyst-core instead of @loadable/component. split supports SSR-aware lazy rendering, fallback, cache-key asset extraction, visibility loading, rootOptions, onVisible, and route component statics. Client hydration must await hydrationReady() before hydrateRoot so SSR-rendered split modules are synchronously available on the first client render. The Vite cache-key plugin injects source-based cache keys used by SSR asset extraction.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["0.3.x", "split", "hydrationReady", "suspense", "vite", "ssr"],
+        "github_files": [
+            "packages/catalyst-core/src/web-router/components/Split.jsx",
+            "packages/catalyst-core/src/vite/inject-cache-key-plugin.js"
+        ]
+    },
+    {
+        "section": "dependencies",
+        "title": "Catalyst 0.3.x React Runtime Contract",
+        "content": "Catalyst 0.3.x requires application dependencies react and react-dom to be pinned exactly to 19.0.0. Do not use caret or tilde ranges. Remove @tata1mg/router and @loadable/component. After upgrading, npm ls react react-dom should show one compatible React runtime; duplicate React 18/19 trees can cause invalid React child, invalid hook call, or hydration errors.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["0.3.x", "react", "react-dom", "19.0.0", "dependencies"],
+        "github_files": [
+            "packages/catalyst-core/package.json",
+            "packages/create-catalyst-app/templates/none-js/package.json"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x Offline Route Build Contract",
+        "content": "Route offline snapshots are a production feature. Mark routes with offline: true, then run catalyst build and catalyst serve. The build generates catalyst-offline-manifest.json and catalyst-sw.js at the build root and copies public/offline.html there when present. The browser service worker is not registered by catalyst start because development mode must not retain production caches. Native clients fetch the same root manifest URL but use native snapshot caches instead of the browser service worker.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["0.3.x", "offline", "service-worker", "manifest", "build", "serve"],
+        "github_files": [
+            "packages/catalyst-core/src/scripts/generateOfflineManifest.js",
+            "packages/catalyst-core/src/offline/registerServiceWorker.js",
+            "packages/catalyst-core/src/offline/catalyst-sw.js"
+        ]
+    },
+    {
+        "section": "known_errors",
+        "title": "Catalyst 0.3.x Mixed Package Install",
+        "content": "Symptom: package exports, CLI commands, SSR loading, or application startup fail after copying a local catalyst-core build. Cause: only dist was replaced, leaving an old package.json and bin/catalyst.js around the new ESM output. Fix: replace dist, bin, and package.json together. These files are one package-facing contract in 0.3.x.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["known-error", "0.3.x", "package", "exports", "bin", "local-testing"]
+    },
+    {
+        "section": "known_errors",
+        "title": "Offline Route Falls Back During catalyst start",
+        "content": "Symptom: an offline:true route shows offline.html or is not cached while testing with npm run start. Cause: catalyst start is development mode; it does not generate a fresh offline manifest and intentionally does not register the production service worker. Fix: run catalyst build after changing route metadata, then catalyst serve, visit the route online once, and test the exact URL offline.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["known-error", "0.3.x", "offline", "start", "build", "serve"]
     }
 ]

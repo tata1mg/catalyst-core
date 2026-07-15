@@ -1,7 +1,12 @@
 "use strict"
 const fs = require("fs")
 const path = require("path")
-const { makeProjectHelpers, versionOlderThan } = require("../lib/helpers")
+const {
+    makeProjectHelpers,
+    versionOlderThan,
+    catalystGeneration,
+    VITE_RUNTIME_VERSION,
+} = require("../lib/helpers")
 
 // Tasks that require a minimum catalyst-core version.
 // Key = task ID, value = { minVersion, reason, upgradeNote }
@@ -35,6 +40,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
     // ── Version gate: read installed catalyst-core version ────────────────────
     const installedVersion = _projectInfo.installedVersion || null
+    const generation = catalystGeneration(installedVersion)
 
     // ── Load project state once ────────────────────────────────────────────────
     const config = readJson("config/config.json")
@@ -78,14 +84,36 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
         },
 
         T2_ROUTER_DEP: () => {
-            if (!allDeps["@tata1mg/router"])
+            if (generation === "unknown")
+                return {
+                    status: "needs_review",
+                    native_risk: "Router ownership differs between Catalyst 0.2.x and 0.3.x.",
+                    reason: `Unable to determine the installed catalyst-core version. Confirm whether the target is legacy 0.2.x or current ${VITE_RUNTIME_VERSION}+ before changing router dependencies.`,
+                    review_context: {
+                        question: "Which catalyst-core version is this project targeting?",
+                        what_correct_looks_like:
+                            "0.2.x uses @tata1mg/router; 0.3.x+ removes it and imports Catalyst router APIs from catalyst-core.",
+                        what_gap_looks_like:
+                            "Router dependencies and imports are mixed across runtime generations.",
+                    },
+                }
+            if (generation === "legacy") {
+                if (!allDeps["@tata1mg/router"])
+                    return {
+                        status: "gap",
+                        native_risk: "Catalyst 0.2.x requires its external router package for SSR routing.",
+                        reason: "Legacy Catalyst detected but @tata1mg/router is missing",
+                    }
+                return { status: "completed", note: "Legacy 0.2.x external router dependency detected." }
+            }
+            if (allDeps["@tata1mg/router"])
                 return {
                     status: "gap",
                     native_risk:
-                        "react-router-dom does not support SSR + hydration required by catalyst-core. App routing will break on native.",
-                    reason: "@tata1mg/router not in package.json dependencies",
+                        "Catalyst 0.3.x owns the router implementation. Keeping @tata1mg/router can install a second routing runtime and produce incompatible React elements.",
+                    reason: "Remove @tata1mg/router and import router APIs from catalyst-core",
                 }
-            return { status: "completed" }
+            return { status: "completed", note: "Current 0.3.x integrated router contract detected." }
         },
 
         T3_ROUTES_FILE: () => {
@@ -107,6 +135,38 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk:
                         "Route file exists but no route array found — RouterDataProvider cannot build the route tree.",
                     reason: "src/js/routes/index.js exists but does not export a route array",
+                }
+            return { status: "completed" }
+        },
+
+        T2b_RUNTIME_DEPS: () => {
+            if (generation !== "current")
+                return {
+                    status: generation === "legacy" ? "completed" : "needs_review",
+                    reason:
+                        generation === "legacy"
+                            ? "Legacy 0.2.x dependency contract retained."
+                            : "Catalyst version is unknown; do not change React versions until the target is confirmed.",
+                    native_risk:
+                        generation === "unknown"
+                            ? "Applying React 19 requirements to an unknown Catalyst runtime can break SSR."
+                            : undefined,
+                    review_context:
+                        generation === "unknown"
+                            ? { question: "Is this project staying on 0.2.x or targeting 0.3.x?" }
+                            : undefined,
+                }
+            const invalid = []
+            if (allDeps.react !== "19.0.0") invalid.push(`react=${allDeps.react || "missing"}`)
+            if (allDeps["react-dom"] !== "19.0.0")
+                invalid.push(`react-dom=${allDeps["react-dom"] || "missing"}`)
+            if (allDeps["@loadable/component"]) invalid.push("@loadable/component is installed")
+            if (invalid.length)
+                return {
+                    status: "gap",
+                    native_risk:
+                        "Mixed React or legacy loadable runtimes can cause invalid React child, hook, or hydration failures.",
+                    reason: invalid.join(", "),
                 }
             return { status: "completed" }
         },
@@ -197,6 +257,40 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk:
                         "Client entry files are required for hydration. Without them the native WebView loads server HTML but JS never hydrates — app is non-interactive.",
                     reason: `Missing: ${missing.join(", ")}`,
+                }
+            const clientEntry = readText("client/index.js") || ""
+            if (generation === "current" && /@loadable\/component|loadableReady/.test(clientEntry))
+                return {
+                    status: "gap",
+                    native_risk:
+                        "Catalyst 0.3.x uses its Vite split hydration contract; loadableReady belongs to the legacy webpack runtime.",
+                    reason: "Replace loadableReady with hydrationReady from catalyst-core",
+                }
+            return { status: "completed" }
+        },
+
+        T7b_NATIVE_SCRIPTS: () => {
+            const scripts = pkg.scripts || {}
+            const required = [
+                "buildApp",
+                "buildApp:ios",
+                "buildApp:android",
+                "setupEmulator",
+                "setupEmulator:ios",
+                "setupEmulator:android",
+            ]
+            const missing = required.filter((name) => !scripts[name])
+            if (missing.length)
+                return {
+                    status: "gap",
+                    native_risk: `Native Catalyst commands are unavailable: ${missing.join(", ")}.`,
+                    reason: `Missing package scripts: ${missing.join(", ")}`,
+                }
+            if (generation === "current" && (scripts.devBuild || scripts.devServe))
+                return {
+                    status: "gap",
+                    native_risk: "devBuild and devServe were removed from the Catalyst 0.3.x CLI.",
+                    reason: "Remove devBuild/devServe and use start for development or build + serve for production",
                 }
             return { status: "completed" }
         },
@@ -657,6 +751,13 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
         project: pkg.name || root,
         scanned_at: new Date().toISOString(),
         catalyst_core_version: installedVersion || "unknown",
+        catalyst_generation: generation,
+        guidance:
+            generation === "unknown"
+                ? `Specify a target Catalyst version before applying router, build, or hydration changes. Current Vite guidance starts at ${VITE_RUNTIME_VERSION}.`
+                : generation === "legacy"
+                  ? "Using legacy Catalyst 0.2.x webpack/router guidance. Request an upgrade plan explicitly to target 0.3.x."
+                  : "Using current Catalyst 0.3.x Vite/integrated-router guidance.",
         project_context,
         ...(versionBanner ? { version_warning: versionBanner } : {}),
         summary: {

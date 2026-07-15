@@ -1,13 +1,15 @@
-import { createBrowserRouter } from "@tata1mg/router"
+import { createBrowserRouter } from "../index.jsx"
+import { preparedRoutes } from "@catalyst/template/src/js/routes/utils"
 import { registerCatalystServiceWorker } from "../offline/registerServiceWorker.js"
-const { preparedRoutes } = require(`${process.env.src_path}/src/js/routes/utils.js`)
 
 registerCatalystServiceWorker()
 
 /**
  * @returns returns browsers routers (client routes)
  */
-const clientRouter = ({ store, routerInitialState }) =>
-    createBrowserRouter(preparedRoutes({ store, routerInitialState }))
+const clientRouter = ({ routerInitialState }) => {
+    const browserRouter = createBrowserRouter(preparedRoutes({ routerInitialState }))
+    return browserRouter
+}
 
 export default clientRouter

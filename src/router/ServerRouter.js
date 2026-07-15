@@ -1,5 +1,5 @@
-import { useRoutes } from "@tata1mg/router"
-const { preparedRoutes } = require(`${process.env.src_path}/src/js/routes/utils.js`)
+import { useRoutes } from "../index.jsx"
+import { preparedRoutes } from "@catalyst/template/src/js/routes/utils"
 
 const ServerRouter = (reduxData) => {
     const { store, intialData } = reduxData

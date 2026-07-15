@@ -103,7 +103,7 @@ const INTENT_PATTERNS = {
     feedback:
         /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
     debug: /error|fail|broken|not work|crash|issue|bug|why|wrong/i,
-    build: /build|compile|webpack|bundle|android|ios|platform/i,
+    build: /build|compile|webpack|vite|bundle|android|ios|platform/i,
     sync: /sync|update.*doc|fetch.*doc|latest.*doc/i,
 }
 
@@ -141,7 +141,7 @@ const TOOLS = [
     {
         name: "get_conversion_tasks",
         description:
-            "Use when the developer asks: 'what do I need to convert?', 'what's left to do?', 'show me pending tasks', 'what do I fix next?', 'give me a fix guide'. Runs live detection on project files and returns only the tasks relevant to THIS project (features it actually uses). Not-applicable tasks (features the project doesn't use) are hidden by default.",
+            "Use when the developer asks: 'what do I need to convert?', 'what's left to do?', 'show me pending tasks', 'what do I fix next?', or asks to migrate between Catalyst versions. Detects the installed catalyst-core generation and keeps legacy 0.2.x webpack/router guidance separate from current 0.3.x Vite/integrated-router guidance.",
         inputSchema: {
             type: "object",
             properties: {
@@ -166,7 +166,7 @@ const TOOLS = [
     {
         name: "get_conversion_status",
         description:
-            "Use when the developer asks: 'how far along am I?', 'what have I completed?', 'show my conversion progress', 'what's done vs pending?'. Auto-detects which tasks apply to THIS project based on what web features it actually uses. Tasks for unused features are not_applicable and hidden by default.",
+            "Use when the developer asks: 'how far along am I?', 'what have I completed?', 'show my conversion progress', or 'what's done vs pending?'. Reports the detected Catalyst generation so 0.2.x and 0.3.x requirements are never mixed.",
         inputSchema: {
             type: "object",
             properties: {
@@ -224,7 +224,7 @@ const TOOLS = [
     {
         name: "get_build_flow",
         description:
-            "Use when the developer asks about building, serving, or deploying — e.g. 'how do I build for android?', 'walk me through the release build', 'how do I serve in production?', 'my android build is failing', 'how does the iOS debug build work?'. Returns step-by-step build flow adapted to the project's actual config, with warnings for missing config and related known errors.",
+            "Use when the developer asks about building, serving, or deploying. Returns version-aware flows: webpack-era behavior for Catalyst 0.2.x and Vite client/server behavior for Catalyst 0.3.x+, plus project config warnings and related known errors.",
         inputSchema: {
             type: "object",
             properties: {

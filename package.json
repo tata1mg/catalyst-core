@@ -1,7 +1,8 @@
 {
     "name": "catalyst-core",
-    "version": "0.2.0-beta.3",
-    "main": "dist/index.js",
+    "version": "0.3.0-beta.1",
+    "type": "module",
+    "main": "./dist/index.jsx",
     "description": "Web framework that provides great performance out of the box",
     "bin": {
         "catalyst": "bin/catalyst.js"
@@ -12,97 +13,59 @@
         "directory": "packages/catalyst-core"
     },
     "_moduleAliases": {
-        "@catalyst/template": ".",
-        "@catalyst/template/src": "src",
-        "@catalyst/template/routes": "src/js/routes",
-        "@catalyst/template/server": "server",
-        "@catalyst/template/store": "src/js/store",
-        "@catalyst/template/config": "config",
-        "@catalyst": ".",
-        "@catalyst/root": "../",
-        "@catalyst/router": "router",
-        "@catalyst/scripts": "scripts",
-        "@catalyst/server": "server",
-        "@catalyst/webpack": "webpack"
+        "@catalyst/template": "."
     },
     "exports": {
-        ".": "./dist/index.js",
+        ".": "./dist/index.jsx",
         "./package.json": "./package.json",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
+        "./document": "./dist/server/renderer/document/index.jsx",
         "./WebBridge": "./dist/native/bridge/WebBridge.js",
         "./hooks": "./dist/native/bridge/hooks.js",
-        "./sentry": "./dist/sentry.js",
+        "./sentry": "./dist/sentry.cjs",
         "./otel": "./dist/otel.js"
     },
     "scripts": {
         "lint": "eslint .",
+        "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
-        "prepare": "babel src --out-dir ./dist --ignore '**/.build/**' && mkdir -p dist/native && cp -r src/native/androidProject src/native/build.swift src/native/assets dist/native/ && mkdir -p dist/native/iosnativeWebView && tar -C src/native/iosnativeWebView --exclude='.build' --exclude='.package-config-hash' -cf - . | tar -C dist/native/iosnativeWebView -xf -",
+        "prepare": "rm -rf ./dist && cp -r ./src ./dist && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs",
         "prepublishOnly": "npm run prepare",
         "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
     },
     "license": "MIT",
     "dependencies": {
-        "@babel/cli": "^7.23.0",
-        "@babel/core": "^7.23.2",
-        "@babel/node": "^7.22.19",
-        "@babel/preset-env": "^7.23.2",
-        "@babel/preset-react": "^7.22.15",
-        "@babel/preset-typescript": "^7.24.7",
-        "@babel/register": "^7.22.15",
-        "@dr.pogodin/css-modules-require-hook": "^4.7.3",
-        "@loadable/babel-plugin": "^5.16.1",
-        "@loadable/component": "^5.15.3",
-        "@loadable/server": "^5.16.1",
-        "@loadable/webpack-plugin": "^5.15.2",
-        "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
-        "@svgr/webpack": "^8.1.0",
-        "@tata1mg/router": "0.1.0-beta",
-        "app-root-path": "^3.1.0",
-        "babel-loader": "^9.1.3",
-        "babel-plugin-react-compiler": "^19.0.0-beta-decd7b8-20250118",
+        "@vitejs/plugin-react": "^4.4.1",
         "body-parser": "^1.20.2",
-        "chokidar": "^3.6.0",
         "compression": "^1.7.4",
         "cookie-parser": "^1.4.6",
-        "cross-env": "^7.0.3",
-        "css-hot-loader": "^1.4.4",
-        "css-loader": "^6.8.1",
         "express": "^4.18.2",
         "express-static-gzip": "^2.1.7",
-        "file-loader": "^6.2.0",
-        "html-loader": "^4.2.0",
-        "img-loader": "^4.0.0",
-        "mini-css-extract-plugin": "^2.7.6",
-        "module-alias": "^2.2.3",
         "picocolors": "^1.0.0",
-        "postcss-loader": "^7.3.3",
-        "postcss-scss": "^4.0.9",
         "react": "19.0.0",
-        "react-compiler-runtime": "^19.0.0-beta-decd7b8-20250118",
         "react-dom": "19.0.0",
+        "react-helmet-async": "^1.3.0",
         "react-redux": "^9.2.0",
         "react-refresh": "^0.14.0",
         "react-router-dom": "^6.16.0",
-        "sass": "^1.69.5",
-        "sass-loader": "^13.3.2",
-        "sass-resources-loader": "^2.2.5",
+        "redux": "^4.2.1",
+        "sanitize-html": "^2.13.1",
+        "sass": "^1.89.2",
         "ua-parser-js": "^1.0.37",
-        "url": "^0.11.3",
-        "url-loader": "^4.1.1",
-        "webpack": "^5.88.2",
-        "webpack-bundle-analyzer": "^4.9.1",
-        "webpack-cli": "^5.1.4",
-        "webpack-dev-server": "^5.2.4",
-        "webpack-merge": "^5.9.0",
-        "webpack-node-externals": "^3.0.0",
+        "vite": "^6.4.3",
+        "vite-plugin-svgr": "^5.0.0",
         "winston": "^3.11.0",
         "winston-daily-rotate-file": "^5.0.0"
     },
     "devDependencies": {
+        "@babel/cli": "^7.23.0",
+        "@babel/core": "^7.23.2",
         "@babel/eslint-parser": "^7.19.1",
+        "@babel/preset-env": "^7.23.2",
+        "@babel/preset-react": "^7.22.15",
+        "@babel/preset-typescript": "^7.24.7",
         "@commitlint/cli": "^19.3.0",
         "@commitlint/config-conventional": "^19.2.2",
         "eslint": "^8.26.0",
@@ -112,20 +75,24 @@
         "eslint-plugin-react-hooks": "^4.6.0",
         "eslint-plugin-risxss": "^2.1.0",
         "eslint-plugin-security": "^3.0.0",
+        "husky": "^9.0.11",
+        "lint-staged": "^15.2.2",
         "prettier": "^3.2.5"
     },
+    "lint-staged": {
+        "*.{js,jsx}": [
+            "eslint .",
+            "prettier . --write"
+        ]
+    },
     "overrides": {
-        "@loadable/component": {
-            "react": "^16.3.0 || ^17.0.0 || ^18.0.0 || 19.0.0"
+        "react-helmet-async": {
+            "react": "19.0.0",
+            "react-dom": "19.0.0"
         },
-        "@loadable/server": {
-            "react": "^16.3.0 || ^17.0.0 || ^18.0.0 || 19.0.0"
-        },
-        "uuid": "11.1.1",
-        "file-type": "22.0.1",
-        "imagemin": "9.0.1",
-        "webpack-dev-server": {
-            "http-proxy-middleware": "3.0.7"
+        "react-redux": {
+            "react": "19.0.0",
+            "react-dom": "19.0.0"
         }
     }
 }

@@ -49,7 +49,9 @@ async function loadManifest(preferNetwork) {
                 cleanupOldCaches(manifest)
                 return manifest
             }
-        } catch (_) {}
+        } catch (_) {
+            // Fall back to the cached manifest below.
+        }
     }
 
     const cached = await cache.match(MANIFEST_URL)
@@ -62,7 +64,9 @@ async function cacheOfflineFallback() {
         const cache = await caches.open(`${CACHE_PREFIX}-fallback`)
         const response = await fetch(OFFLINE_URL, { cache: "no-store" })
         if (response.ok) await cache.put(OFFLINE_URL, response)
-    } catch (_) {}
+    } catch (_) {
+        // The offline fallback remains unavailable until a later successful install.
+    }
 }
 
 function routeCacheName(manifest) {

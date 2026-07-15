@@ -1,5 +1,10 @@
-const fs = require("fs")
-const path = require("path")
+import fs from "fs"
+import path from "path"
+import { createServer as createViteServer } from "vite"
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 function toRoutePath(basePath, routePath, isIndex) {
     if (isIndex || routePath === undefined || routePath === null || routePath === "") {
@@ -26,7 +31,7 @@ function routeRegex(pattern, exact = false) {
     return exact ? `^/${regex}$` : `^/${regex}(?:/.*)?$`
 }
 
-function collectOfflineRoutes(routes, basePath = "", parentOffline = false, result = []) {
+export function collectOfflineRoutes(routes, basePath = "", parentOffline = false, result = []) {
     for (const route of Array.isArray(routes) ? routes : []) {
         if (!route || typeof route !== "object") continue
 
@@ -35,8 +40,8 @@ function collectOfflineRoutes(routes, basePath = "", parentOffline = false, resu
             : parentOffline
         const isIndexRoute = route.index === true || route.path === ""
         const pattern = toRoutePath(basePath, route.path, isIndexRoute)
-
         const regex = routeRegex(pattern, isIndexRoute)
+
         if (offline && !result.some((item) => item.pattern === pattern && item.regex === regex)) {
             result.push({ pattern, regex })
         }
@@ -47,46 +52,45 @@ function collectOfflineRoutes(routes, basePath = "", parentOffline = false, resu
     return result
 }
 
-function loadAppRoutes() {
-    require("./loadScriptsBeforeServerStarts.js")
-
-    const emptyModule = () => null
-    ;[".css", ".scss", ".sass", ".less", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"].forEach((ext) => {
-        require.extensions[ext] = emptyModule
+async function loadAppRoutes(appRoot) {
+    const vite = await createViteServer({
+        configFile: path.resolve(__dirname, "../vite/vite.config.js"),
+        root: appRoot,
+        appType: "custom",
+        logLevel: "error",
+        server: {
+            middlewareMode: true,
+            hmr: false,
+        },
+        optimizeDeps: {
+            noDiscovery: true,
+        },
     })
 
-    require("@babel/register")({
-        babelrc: false,
-        extensions: [".js", ".jsx", ".ts", ".tsx"],
-        ignore: [/node_modules/],
-        presets: [
-            ["@babel/preset-env", { targets: { node: "current" } }],
-            ["@babel/preset-react", { runtime: "automatic" }],
-            ["@babel/preset-typescript", { isTSX: true, allExtensions: true }],
-        ],
-        plugins: ["@loadable/babel-plugin"],
-    })
-
-    const { getRoutes } = require(path.join(process.env.src_path, "src/js/routes/utils.js"))
-    return typeof getRoutes === "function" ? getRoutes() : []
+    try {
+        const routesModule = await vite.ssrLoadModule(path.join(appRoot, "src/js/routes/utils.js"))
+        return typeof routesModule.getRoutes === "function" ? routesModule.getRoutes() : []
+    } finally {
+        await vite.close()
+    }
 }
 
 function copyIfExists(source, destination) {
     if (fs.existsSync(source)) fs.copyFileSync(source, destination)
 }
 
-function main() {
-    const appConfig = require(path.join(process.env.src_path, "config/config.json"))
-    const publicDir = path.join(
-        process.env.src_path,
-        process.env.BUILD_OUTPUT_PATH || appConfig.BUILD_OUTPUT_PATH,
-        "public"
+export async function generateOfflineManifest() {
+    const appRoot = process.env.src_path
+    const appConfig = JSON.parse(fs.readFileSync(path.join(appRoot, "config/config.json"), "utf8"))
+    const buildDir = path.join(
+        appRoot,
+        process.env.BUILD_OUTPUT_PATH || appConfig.BUILD_OUTPUT_PATH || "build"
     )
-    const routes = collectOfflineRoutes(loadAppRoutes())
+    const routes = collectOfflineRoutes(await loadAppRoutes(appRoot))
 
-    fs.mkdirSync(publicDir, { recursive: true })
+    fs.mkdirSync(buildDir, { recursive: true })
     fs.writeFileSync(
-        path.join(publicDir, "catalyst-offline-manifest.json"),
+        path.join(buildDir, "catalyst-offline-manifest.json"),
         `${JSON.stringify(
             {
                 schemaVersion: 1,
@@ -98,10 +102,15 @@ function main() {
         )}\n`
     )
 
-    copyIfExists(path.join(process.env.src_path, "public/offline.html"), path.join(publicDir, "offline.html"))
-    fs.copyFileSync(path.join(__dirname, "../offline/catalyst-sw.js"), path.join(publicDir, "catalyst-sw.js"))
+    copyIfExists(path.join(appRoot, "public/offline.html"), path.join(buildDir, "offline.html"))
+    fs.copyFileSync(path.join(__dirname, "../offline/catalyst-sw.js"), path.join(buildDir, "catalyst-sw.js"))
 
     console.log(`Catalyst offline manifest generated: ${routes.length} route(s)`)
 }
 
-main()
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+    generateOfflineManifest().catch((error) => {
+        console.error("Failed to generate Catalyst offline manifest:", error)
+        process.exit(1)
+    })
+}

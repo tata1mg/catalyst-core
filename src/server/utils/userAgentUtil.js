@@ -42,6 +42,16 @@ const aiCrawlerBots = {
     MetaBot: "meta-externalagent",
 }
 
+// StatusCake synthetic monitoring user agents.
+// STATUS_CAKE_USER_AGENT_MOBILE matches the mobile pagespeed monitor — kept as a
+// named export so apps that compare UAs directly (mweb's document.js, App/index.js)
+// can import the same constant catalyst uses for its bot detection.
+export const STATUS_CAKE_USER_AGENT_MOBILE = "StatusCake_Pagespeed_Indev"
+const statusCakeBots = {
+    "StatusCake Pagespeed Mobile": STATUS_CAKE_USER_AGENT_MOBILE,
+    StatusCake: "StatusCake",
+}
+
 /**
  * check if user agent contains bot data
  * @param {string} ua - user agent
@@ -61,6 +71,13 @@ const getAICrawlerBot = (ua) => {
     return null
 }
 
+const getStatusCakeBot = (ua) => {
+    for (let key in statusCakeBots) {
+        if (ua.includes(statusCakeBots[key])) return key
+    }
+    return null
+}
+
 /**
  * returns object which contains google bot and user-agent info
  * @param {string} ua - user agent
@@ -70,6 +87,7 @@ export const getUserAgentDetails = (ua) => {
     const agentDetails = parser(ua)
     const googleBot = getGoogleBot(ua)
     const aiBot = getAICrawlerBot(ua)
+    const statusCakeBot = getStatusCakeBot(ua)
 
-    return { ...agentDetails, googleBot, aiBot }
+    return { ...agentDetails, googleBot, aiBot, statusCakeBot }
 }

@@ -1,41 +1,51 @@
-const path = require("path")
-const { spawnSync } = require("child_process")
-const { arrayToObject } = require("./scriptUtils")
-const { name } = require(`${process.cwd()}/package.json`)
-const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+import path from "path"
+import { spawnSync } from "child_process"
+import { arrayToObject } from "./scriptUtils.js"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { readFileSync } from "fs"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
+const preInitPath = path.resolve(__dirname, "preServerInit.js")
 
 /**
- * @description -  Serves production build of the application.
+ * @description - starts the application in production mode
  */
-
-function serve() {
+function startProd() {
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
     const dirname = path.resolve(__dirname, "../../")
 
-    // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Production serve keeps shell execution for existing script compatibility.
-    spawnSync(
-        "node",
-        [
-            "-r",
-            "./dist/scripts/loadScriptsBeforeServerStarts.js",
-            path.join(process.cwd(), BUILD_OUTPUT_PATH, "startServer.js"),
-        ],
-        {
-            cwd: dirname,
-            stdio: "inherit",
-            shell: true,
-            env: {
-                ...process.env,
-                src_path: process.cwd(),
-                BUILD_OUTPUT_PATH: BUILD_OUTPUT_PATH,
-                NODE_ENV: "production",
-                IS_DEV_COMMAND: false,
-                APPLICATION: name || "catalyst_app",
-                ...argumentsObject,
-            },
-        }
-    )
+    // Read package.json
+    const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
+    const { name } = packageJson
+
+    console.log("🚀 Starting production server...")
+
+    const inspectFlag = commandLineArguments.includes("--inspect") ? "--inspect" : ""
+    const command = `node ${inspectFlag} --import ${preInitPath} --loader ${loaderPath} ./dist/server/expressServer.js`
+    spawnSync(command, [], {
+        cwd: dirname,
+        stdio: "inherit",
+        shell: true,
+        env: {
+            ...process.env,
+            src_path: process.env.PWD,
+            NODE_ENV: "production",
+            IS_DEV_COMMAND: false,
+            APPLICATION: name || "catalyst_app",
+            ...argumentsObject,
+            filterKeys: JSON.stringify([
+                "src_path",
+                "NODE_ENV",
+                "IS_DEV_COMMAND",
+                "APPLICATION",
+                ...Object.keys(argumentsObject),
+            ]),
+        },
+    })
 }
 
-serve()
+startProd()

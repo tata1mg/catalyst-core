@@ -1,6 +1,6 @@
-const pc = require("picocolors")
-const winston = require("winston")
-const DailyRotateFile = require("winston-daily-rotate-file")
+import pc from "picocolors"
+import winston from "winston"
+import DailyRotateFile from "winston-daily-rotate-file"
 
 const { createLogger, format, transports } = winston
 
@@ -78,4 +78,4 @@ const configureLogger = (config = {}) => {
     return Logger
 }
 
-module.exports = { configureLogger }
+export { configureLogger }

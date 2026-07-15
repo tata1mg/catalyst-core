@@ -223,7 +223,8 @@ public enum ConfigConstants {
             }
 
             if (!addedKeys.has("profiler")) {
-                configContent += "\n    public enum Profiler {\n        public static let enabled = false\n    }"
+                configContent +=
+                    "\n    public enum Profiler {\n        public static let enabled = false\n    }"
                 addedKeys.add("profiler")
             }
 
