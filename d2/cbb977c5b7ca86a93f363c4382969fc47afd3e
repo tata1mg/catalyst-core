@@ -1,0 +1,82 @@
+examples/bug-repro-examples/src/js/routes/index.js
+  s_661097fa61bd2b::t_10522f81610185 2-26
+  s_661097fa61bd2b::t_0462d855fe3af1 1
+  s_661097fa61bd2b::t_422a48d5f0ef49 27-29
+examples/bug-repro-examples/src/js/containers/Bug308/Bug308.js
+  s_661097fa61bd2b::t_99db4d10f92245 1,3-4,12-16,20,29-33
+  s_661097fa61bd2b::t_7b735c247c0127 2,5-11,17-19,21-28
+examples/bug-repro-examples/src/js/containers/Bug296/Bug296.js
+  s_661097fa61bd2b::t_18e3c59561283d 1-24
+examples/bug-repro-examples/src/js/containers/Bug306/Bug306.js
+  s_661097fa61bd2b::t_44cabb16a5abe8 1-30
+examples/bug-repro-examples/babel.config.js.bug-307-repro
+  s_661097fa61bd2b::t_6fc4b33c6a4246 7-14
+  s_661097fa61bd2b::t_ce747096754f6b 4-6
+  s_661097fa61bd2b::t_67b724641328b0 15-17
+  s_661097fa61bd2b::t_179e972c2cf410 1-3
+examples/bug-repro-examples/server/index.js
+  s_661097fa61bd2b::t_622da307269020 2-3,10,12
+  s_661097fa61bd2b::t_487a20c8fb01db 4-9,11
+  s_661097fa61bd2b::t_d3f498f7157e3e 1
+examples/bug-repro-examples/README.md
+  s_661097fa61bd2b::t_ab0ddca9430bd9 21-22,24-32
+  s_661097fa61bd2b::t_41c22e1bceae67 1-20,23,33-103
+  s_661097fa61bd2b::t_3d003f2271afc9 104-106
+examples/bug-repro-examples/.eslintignore
+  s_661097fa61bd2b::t_60fe63be8c3d72 1
+examples/bug-repro-examples/.eslintrc
+  s_661097fa61bd2b::t_d01daafb95ea57 1-28
+examples/bug-repro-examples/.gitignore
+  s_661097fa61bd2b::t_b4aa5eb2ce506a 1-3
+examples/bug-repro-examples/api.js
+  s_661097fa61bd2b::t_c692e0aa560391 1-15
+examples/bug-repro-examples/client/index.js
+  s_661097fa61bd2b::t_06b8d4e9eb8b52 1-23
+examples/bug-repro-examples/client/styles.js
+  s_661097fa61bd2b::t_1b47dd6838965a 1-3
+examples/bug-repro-examples/package.json
+  s_661097fa61bd2b::t_cf7e2bf2437ae2 1-55
+examples/bug-repro-examples/postcss.config.js
+  s_661097fa61bd2b::t_cacf9693787477 1-5
+examples/bug-repro-examples/public/offline.html
+  s_661097fa61bd2b::t_25d12c8da11a30 1-56
+examples/bug-repro-examples/server/document.js
+  s_661097fa61bd2b::t_694a50b7d5f823 1-12
+examples/bug-repro-examples/server/server.js
+  s_661097fa61bd2b::t_2d36d2206ba8f3 1-8
+examples/bug-repro-examples/src/js/containers/App/index.js
+  s_661097fa61bd2b::t_e3178aea245364 1-16
+examples/bug-repro-examples/src/js/containers/Home/Home.js
+  s_661097fa61bd2b::t_3e4688922da04e 1-23
+examples/bug-repro-examples/src/js/containers/Home/Home.scss
+  s_661097fa61bd2b::t_31f95e9f51b86b 1-34
+examples/bug-repro-examples/src/js/routes/utils.js
+  s_661097fa61bd2b::t_907cfc469a0747 1-42
+examples/bug-repro-examples/src/static/css/base/index.scss
+  s_661097fa61bd2b::t_0508b2ad099767 1-2
+examples/bug-repro-examples/src/static/css/base/styles.scss
+  s_661097fa61bd2b::t_408c05cc739bae 1-3
+examples/bug-repro-examples/webpackConfig.js
+  s_661097fa61bd2b::t_4f5b3059d9d0ec 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d2cbb977c5b7ca86a93f363c4382969fc47afd3e",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_661097fa61bd2b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3f40349c-19f9-4510-94a2-4373fdf58c1e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
