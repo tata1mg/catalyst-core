@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "@tata1mg/router";
 
 export default function Overview({ onNext, theme = "dark" }) {
     const palette = [
@@ -71,6 +72,50 @@ export default function Overview({ onNext, theme = "dark" }) {
                             Geist Mono | code, metrics, labels
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Interactive AI Demos */}
+            <div className="mb-10">
+                <div className="text-[11px] tracking-wider uppercase text-neutral-500 font-semibold mb-4">
+                    Interactive AI Demos
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Link
+                        to="/chess"
+                        className="group flex flex-col justify-between p-6 rounded-2xl bg-[#10131D] border border-white/5 hover:border-indigo-500/30 hover:bg-indigo-950/10 transition shadow-2xl no-underline"
+                    >
+                        <div>
+                            <div className="flex items-center gap-2.5 mb-2">
+                                <span className="text-2xl">👑</span>
+                                <h3 className="text-lg font-semibold text-white group-hover:text-indigo-400 transition">AI Chess</h3>
+                            </div>
+                            <p className="text-[13px] text-neutral-400 leading-relaxed">
+                                Play chess against an AI opponent powered by local/cloud model inferences.
+                            </p>
+                        </div>
+                        <div className="mt-5 font-mono text-[11.5px] text-indigo-400 flex items-center gap-1">
+                            Play Game <span className="transition-transform group-hover:translate-x-1">→</span>
+                        </div>
+                    </Link>
+
+                    <Link
+                        to="/tic-tac-toe"
+                        className="group flex flex-col justify-between p-6 rounded-2xl bg-[#10131D] border border-white/5 hover:border-teal-500/30 hover:bg-teal-950/10 transition shadow-2xl no-underline"
+                    >
+                        <div>
+                            <div className="flex items-center gap-2.5 mb-2">
+                                <span className="text-2xl">⭕</span>
+                                <h3 className="text-lg font-semibold text-white group-hover:text-teal-400 transition">AI Tic-Tac-Toe</h3>
+                            </div>
+                            <p className="text-[13px] text-neutral-400 leading-relaxed">
+                                Challenge the AI in a fast-paced game of Tic-Tac-Toe with on-device capabilities.
+                            </p>
+                        </div>
+                        <div className="mt-5 font-mono text-[11.5px] text-teal-400 flex items-center gap-1">
+                            Play Game <span className="transition-transform group-hover:translate-x-1">→</span>
+                        </div>
+                    </Link>
                 </div>
             </div>
 

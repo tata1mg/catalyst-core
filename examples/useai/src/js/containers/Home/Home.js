@@ -142,6 +142,20 @@ export default function Home() {
                             >
                                 Open AI Test Dashboard 🧪
                             </Link>
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                                <Link
+                                    to="/chess"
+                                    className="text-center block cursor-pointer border border-[var(--border-2)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-white font-semibold text-[13px] py-2.5 rounded-xl shadow-md transition no-underline"
+                                >
+                                    👑 AI Chess
+                                </Link>
+                                <Link
+                                    to="/tic-tac-toe"
+                                    className="text-center block cursor-pointer border border-[var(--border-2)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-white font-semibold text-[13px] py-2.5 rounded-xl shadow-md transition no-underline"
+                                >
+                                    ⭕ Tic-Tac-Toe
+                                </Link>
+                            </div>
                         </div>
                     )}
 
