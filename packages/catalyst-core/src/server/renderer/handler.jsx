@@ -91,12 +91,14 @@ try {
 // Passthrough no-ops used when OTEL_ENABLE is not set; replaced below if enabled.
 let withObservability = (_service, fn) => fn
 let withSyncObservability = (_service, fn) => fn
+let createStreamErrorRecorder = null
 
 if (process.env.OTEL_ENABLE === true) {
     try {
         const otel = await import("../../otel.js")
         withObservability = otel.withObservability
         withSyncObservability = otel.withSyncObservability
+        createStreamErrorRecorder = otel.createStreamErrorRecorder
     } catch {
         // otel packages not installed — continue without tracing
     }
@@ -144,6 +146,26 @@ const getComponent = (store, context, req, fetcherData, isBot) => (
 )
 
 // ── Render and stream ──────────────────────────────────────────────────
+// Responses that already have a stream-error listener attached. Guarded via
+// WeakSet because renderMarkUp can run twice for one response (the fetcher
+// error path re-renders with a 404) and "error" listeners must not stack.
+const _observedResponses = new WeakSet()
+
+// Node swallows response stream errors (e.g. ERR_STREAM_WRITE_AFTER_END) when
+// res has no "error" listener: the write is dropped, nothing is logged, and a
+// truncated document ships silently. Log every stream error and, when tracing
+// is enabled, record it as an error span in the request's trace. Must be
+// called while the request span is still active so the span parents correctly.
+const observeResponseStreamErrors = (req, res) => {
+    if (_observedResponses.has(res)) return
+    _observedResponses.add(res)
+    const recordStreamError = createStreamErrorRecorder ? createStreamErrorRecorder(SSR_SERVICE) : null
+    res.on("error", (error) => {
+        console.error(`Response stream error while streaming SSR for ${req.originalUrl}:`, error)
+        if (recordStreamError) recordStreamError(error)
+    })
+}
+
 const _renderMarkUp = async (
     errorCode,
     req,
@@ -240,6 +262,7 @@ const _renderMarkUp = async (
         const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
+        observeResponseStreamErrors(req, res)
 
         return new Promise((resolve, reject) => {
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
