@@ -23,6 +23,7 @@ import {
     generateModulePreloadLinkElements,
 } from "./extract.js"
 import path from "path"
+import { Transform } from "node:stream"
 
 import CustomDocument from "@catalyst/template/server/document"
 
@@ -206,13 +207,17 @@ const _renderMarkUp = async (
         res.status(status)
 
         return new Promise((resolve, reject) => {
-            const { pipe } = renderToPipeableStream(<CompleteDocument />, {
-                onShellReady() {
-                    res.setHeader("content-type", "text/html")
-                    pipe(res)
+            // Single completion path: React's pipe() auto-ends `tail`, and
+            // `flush()` appends the deferred asset tags before that end
+            // signal propagates to `res` via the plain pipe below. This
+            // avoids the onShellReady/onAllReady race where React's own
+            // stream-end and a manual res.end() compete to close `res`
+            // (see issue #320).
+            const tail = new Transform({
+                transform(chunk, _enc, cb) {
+                    cb(null, chunk)
                 },
-
-                onAllReady() {
+                flush(cb) {
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
@@ -220,10 +225,10 @@ const _renderMarkUp = async (
 
                     // Tell client which components were SSR'd so split() can
                     // eagerly import them (prevents Suspense fallback flash)
-                    res.write(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
+                    this.push(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
                     if (chunkExtractor) {
                         const renderedKeys = chunkExtractor.getRenderedComponentKeys()
-                        res.write(
+                        this.push(
                             `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
                         )
                     }
@@ -234,19 +239,31 @@ const _renderMarkUp = async (
                         isBot
                     )
                     if (newCssPaths.length) {
-                        res.write(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                        this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        res.write(generateScriptStrings(deferredAssets.js))
+                        this.push(generateScriptStrings(deferredAssets.js))
                     }
 
-                    res.end()
+                    cb()
+                },
+            })
+            tail.pipe(res)
+
+            const { pipe } = renderToPipeableStream(<CompleteDocument />, {
+                onShellReady() {
+                    res.setHeader("content-type", "text/html")
+                    pipe(tail)
+                },
+
+                onAllReady() {
                     resolve()
                 },
 
                 onError(error) {
                     console.error("Error in renderToPipeableStream:", error)
                     safeCall(onRenderError, { req, res, store, error })
+                    tail.destroy(error)
                     reject(error)
                 },
             })
