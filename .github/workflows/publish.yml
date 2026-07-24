@@ -23,7 +23,7 @@ on:
                 type: boolean
                 default: false
             publish_mcp:
-                description: "Publish @catalyst/mcp (always to 'latest', independent of publish_channel)"
+                description: "Publish catalyst-mcp (always to 'latest', independent of publish_channel)"
                 required: true
                 type: boolean
                 default: false
@@ -119,10 +119,10 @@ jobs:
                       CHANNEL=$(node -p "const meta=require('./.release-meta.json'); meta.tag || ''")
                       PUBLISH_CORE=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['catalyst-core']?.publish))")
                       PUBLISH_CCA=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['create-catalyst-app']?.publish))")
-                      PUBLISH_MCP=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['@catalyst/mcp']?.publish))")
+                      PUBLISH_MCP=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['catalyst-mcp']?.publish))")
                       CORE_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['catalyst-core']?.version || ''")
                       CCA_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['create-catalyst-app']?.version || ''")
-                      MCP_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['@catalyst/mcp']?.version || ''")
+                      MCP_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['catalyst-mcp']?.version || ''")
                       REASON="auto publish on push via release metadata"
 
                       if [ -z "$CHANNEL" ]; then
@@ -221,12 +221,12 @@ jobs:
 
                   if [ "$PUBLISH_MCP" == "true" ]; then
                     if [ -z "$MCP_METADATA_VERSION" ]; then
-                      echo "::error::Release metadata is missing @catalyst/mcp version"
+                      echo "::error::Release metadata is missing catalyst-mcp version"
                       exit 1
                     fi
 
                     if [ "$MCP_VERSION" != "$MCP_METADATA_VERSION" ]; then
-                      echo "::error::Release metadata @catalyst/mcp version '$MCP_METADATA_VERSION' does not match package version '$MCP_VERSION'"
+                      echo "::error::Release metadata catalyst-mcp version '$MCP_METADATA_VERSION' does not match package version '$MCP_VERSION'"
                       exit 1
                     fi
                   fi
@@ -278,9 +278,9 @@ jobs:
                   fi
 
                   if [ "$PUBLISH_MCP" == "true" ]; then
-                    # @catalyst/mcp is versioned independently of the core/cca beta
+                    # catalyst-mcp is versioned independently of the core/cca beta
                     # release cycle and always publishes to the 'latest' dist-tag.
-                    validate_version "@catalyst/mcp" "$MCP_VERSION" "latest"
+                    validate_version "catalyst-mcp" "$MCP_VERSION" "latest"
                   fi
 
             - name: Check release state
@@ -333,7 +333,7 @@ jobs:
                   fi
 
                   if [ "$PUBLISH_MCP" == "true" ]; then
-                    check_package_state "@catalyst/mcp" "$MCP_VERSION" "latest" "catalyst-mcp@$MCP_VERSION" "mcp"
+                    check_package_state "catalyst-mcp" "$MCP_VERSION" "latest" "catalyst-mcp@$MCP_VERSION" "mcp"
                   fi
 
             - name: Validate release state
@@ -377,7 +377,7 @@ jobs:
                   fi
 
                   if [ "$PUBLISH_MCP" == "true" ]; then
-                    validate_state "@catalyst/mcp" "$MCP_VERSION" "$MCP_VERSION_EXISTS" "$MCP_TAG_EXISTS" "$MCP_DIST_TAG_MATCHES"
+                    validate_state "catalyst-mcp" "$MCP_VERSION" "$MCP_VERSION_EXISTS" "$MCP_TAG_EXISTS" "$MCP_DIST_TAG_MATCHES"
                   fi
 
             - name: Configure Git
@@ -479,17 +479,17 @@ jobs:
                   CHANNEL: ${{ steps.context.outputs.channel }}
               run: npm dist-tag add "create-catalyst-app@$CCA_VERSION" "$CHANNEL"
 
-            - name: Publish @catalyst/mcp to npm
+            - name: Publish catalyst-mcp to npm
               id: publish_mcp
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_mcp == 'true' && steps.release_state.outputs.mcp_version_exists != 'true' && steps.context.outputs.dry_run != 'true'
               run: npm publish --workspace packages/catalyst-core/mcp_v2 --tag latest --access public
 
-            - name: Update @catalyst/mcp dist-tag
+            - name: Update catalyst-mcp dist-tag
               id: retag_mcp
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_mcp == 'true' && steps.release_state.outputs.mcp_version_exists == 'true' && steps.release_state.outputs.mcp_dist_tag_matches != 'true' && steps.context.outputs.dry_run != 'true'
               env:
                   MCP_VERSION: ${{ steps.versions.outputs.mcp }}
-              run: npm dist-tag add "@catalyst/mcp@$MCP_VERSION" "latest"
+              run: npm dist-tag add "catalyst-mcp@$MCP_VERSION" "latest"
 
             - name: Create catalyst-core git tag
               id: tag_core
@@ -577,7 +577,7 @@ jobs:
                   fi
 
                   if [ "$PUBLISH_MCP" == "true" ]; then
-                    echo "@catalyst/mcp=$MCP_VERSION"
+                    echo "catalyst-mcp=$MCP_VERSION"
                   fi
 
     trigger_release_automation:

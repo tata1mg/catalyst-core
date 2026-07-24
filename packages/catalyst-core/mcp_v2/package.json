@@ -1,5 +1,5 @@
 {
-    "name": "@catalyst/mcp",
+    "name": "catalyst-mcp",
     "version": "1.0.0",
     "description": "MCP server with developer-workflow tools for catalyst-core projects — migration guidance, debugging, build config checks, task planning, and framework knowledge search.",
     "type": "commonjs",
