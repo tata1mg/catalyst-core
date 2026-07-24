@@ -1,4 +1,4 @@
-<!-- mcp-name: io.github.tata1mg/mcp -->
+<!-- mcp-name: io.github.mayankmahavar1mg/mcp -->
 
 # Catalyst MCP
 

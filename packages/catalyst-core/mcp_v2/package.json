@@ -1,6 +1,6 @@
 {
     "name": "catalyst-mcp",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "MCP server with developer-workflow tools for catalyst-core projects — migration guidance, debugging, build config checks, task planning, and framework knowledge search.",
     "type": "commonjs",
     "main": "mcp.js",
@@ -20,7 +20,7 @@
         "catalyst-core",
         "developer-tools"
     ],
-    "mcpName": "io.github.tata1mg/mcp",
+    "mcpName": "io.github.mayankmahavar1mg/mcp",
     "scripts": {
         "setup": "node setup.js",
         "start": "node mcp.js"

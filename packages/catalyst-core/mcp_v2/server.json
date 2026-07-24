@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.tata1mg/mcp",
+  "name": "io.github.mayankmahavar1mg/mcp",
   "description": "Developer-workflow MCP server for catalyst-core: migration guidance, debugging, and task planning.",
   "repository": {
     "url": "https://github.com/tata1mg/catalyst-core",
     "source": "github",
     "subfolder": "packages/catalyst-core/mcp_v2"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "catalyst-mcp",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "transport": {
         "type": "stdio"
       },
