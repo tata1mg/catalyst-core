@@ -2,11 +2,14 @@
 /**
  * Catalyst MCP v2 — mcp.js (entry point)
  *
- * Startup validation → module init → JSON-RPC loop over stdio.
+ * Startup validation → auto-setup (if needed) → module init → JSON-RPC loop over stdio.
  *
  * Hard fails if:
  *   - No Catalyst package in package.json (not a catalyst project)
- *   - context.db missing (setup.js not run)
+ *
+ * If context.db is missing, it is created and seeded automatically on first
+ * run (same logic as setup.js) so single-command install flows (Smithery,
+ * `npx catalyst-mcp`) work without a separate setup step.
  *
  * Tool routing: LLM reads tool name + description to route.
  * No classifier code at runtime — descriptions use intent language.
@@ -19,6 +22,7 @@ const Database = require("better-sqlite3")
 
 const MCP_PACKAGE = require("./package.json")
 const { findCatalystRoot } = require("./lib/helpers")
+const { seedKnowledgeBase } = require("./lib/seed")
 const conversion = require("./tools/conversion")
 const config = require("./tools/config")
 const debug = require("./tools/debug")
@@ -63,21 +67,30 @@ if (projectInfo.notInstalled) {
     process.exit(1)
 }
 
-if (!fs.existsSync(DB_PATH)) {
-    process.stderr.write(
-        JSON.stringify({
-            jsonrpc: "2.0",
-            error: {
-                code: -32000,
-                message: `context.db not found at ${DB_PATH}. Run setup first: node ${path.join(MCP_DIR, "setup.js")}`,
-            },
-            id: null,
-        }) + "\n"
-    )
-    process.exit(1)
+const dbIsNew = !fs.existsSync(DB_PATH)
+const db = new Database(DB_PATH, { readonly: false })
+
+if (dbIsNew) {
+    try {
+        const schema = fs.readFileSync(path.join(MCP_DIR, "schema.sql"), "utf8")
+        db.exec(schema)
+        seedKnowledgeBase(db, path.join(MCP_DIR, "knowledge-base.json"), projectInfo)
+        db.exec(`DROP TABLE IF EXISTS fk_fts`)
+    } catch (e) {
+        process.stderr.write(
+            JSON.stringify({
+                jsonrpc: "2.0",
+                error: {
+                    code: -32000,
+                    message: `First-run setup failed: ${e.message}. Try running setup manually: node ${path.join(MCP_DIR, "setup.js")}`,
+                },
+                id: null,
+            }) + "\n"
+        )
+        process.exit(1)
+    }
 }
 
-const db = new Database(DB_PATH, { readonly: false })
 const CONVERSION_TASKS = JSON.parse(fs.readFileSync(TASKS_PATH, "utf8"))
 
 // ── Module init ───────────────────────────────────────────────────────────────

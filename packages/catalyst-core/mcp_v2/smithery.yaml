@@ -1,0 +1,20 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+
+configSchema:
+  type: object
+  properties:
+    githubToken:
+      type: string
+      description: >-
+        Optional GitHub token used only by the create_github_issue tool.
+        Falls back to `gh auth token` if unset. Not required for any other tool.
+
+commandFunction: |-
+  config => ({
+    command: 'node',
+    args: ['mcp.js'],
+    env: config.githubToken ? { GITHUB_TOKEN: config.githubToken } : {}
+  })

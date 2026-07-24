@@ -10,9 +10,9 @@ Run this from a project that either **is** `catalyst-core` (the source repo) or 
 
 ## Install & run
 
-The server needs a one-time setup step to create and seed its local knowledge-base database (`context.db`) before it can answer any tool calls.
+The server needs a local knowledge-base database (`context.db`). If it doesn't exist yet, `mcp.js` creates and seeds it automatically on first run — no separate setup step required.
 
-**Recommended — via the `create-catalyst-app` CLI**, which fetches, installs, and runs setup automatically inside an existing project:
+**Recommended — via the `create-catalyst-app` CLI**, which fetches and installs it inside an existing project:
 
 ```bash
 npx create-catalyst-app catalyst-mcp
@@ -21,11 +21,10 @@ npx create-catalyst-app catalyst-mcp
 **Standalone**, from inside a project that is (or depends on) `catalyst-core`:
 
 ```bash
-npx catalyst-mcp        # installs the package
-node node_modules/catalyst-mcp/setup.js   # one-time setup — required before first run
+npx catalyst-mcp
 ```
 
-`setup.js` prints the exact MCP client config to use once it completes, e.g.:
+Client config:
 
 ```json
 {
@@ -36,7 +35,7 @@ node node_modules/catalyst-mcp/setup.js   # one-time setup — required before f
 }
 ```
 
-If setup hasn't been run, `mcp.js` fails fast at startup with a clear `context.db not found — run setup first` error rather than crashing silently.
+To force a re-seed (e.g. to pick up the latest knowledge base), run `node node_modules/catalyst-mcp/setup.js` manually at any time — it's idempotent.
 
 ## Tools
 
