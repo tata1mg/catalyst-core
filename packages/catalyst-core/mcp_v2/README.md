@@ -1,4 +1,4 @@
-<!-- mcp-name: io.github.tata1mg/catalyst-mcp -->
+<!-- mcp-name: io.github.tata1mg/mcp -->
 
 # Catalyst MCP
 
@@ -21,8 +21,8 @@ npx create-catalyst-app catalyst-mcp
 **Standalone**, from inside a project that is (or depends on) `catalyst-core`:
 
 ```bash
-npx @tata1mg/catalyst-mcp        # installs the package
-node node_modules/@tata1mg/catalyst-mcp/setup.js   # one-time setup — required before first run
+npx @catalyst/mcp        # installs the package
+node node_modules/@catalyst/mcp/setup.js   # one-time setup — required before first run
 ```
 
 `setup.js` prints the exact MCP client config to use once it completes, e.g.:
@@ -31,7 +31,7 @@ node node_modules/@tata1mg/catalyst-mcp/setup.js   # one-time setup — required
 {
   "catalyst-mcp": {
     "command": "node",
-    "args": ["node_modules/@tata1mg/catalyst-mcp/mcp.js"]
+    "args": ["node_modules/@catalyst/mcp/mcp.js"]
   }
 }
 ```

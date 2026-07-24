@@ -10,7 +10,7 @@
       "version": "0.3.0-beta.1",
       "templateCatalystCoreVersion": "0.3.0-beta.1"
     },
-    "@tata1mg/catalyst-mcp": {
+    "@catalyst/mcp": {
       "publish": false,
       "version": "1.0.0"
     }
