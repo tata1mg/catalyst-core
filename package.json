@@ -2,7 +2,8 @@
     "name": "catalyst-monorepo",
     "private": true,
     "workspaces": [
-        "packages/*"
+        "packages/*",
+        "packages/catalyst-core/mcp_v2"
     ],
     "scripts": {
         "setup": "node scripts/setup.js",

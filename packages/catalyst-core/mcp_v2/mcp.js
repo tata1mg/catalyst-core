@@ -17,6 +17,7 @@ const path = require("path")
 const readline = require("readline")
 const Database = require("better-sqlite3")
 
+const MCP_PACKAGE = require("./package.json")
 const { findCatalystRoot } = require("./lib/helpers")
 const conversion = require("./tools/conversion")
 const config = require("./tools/config")
@@ -610,9 +611,9 @@ rl.on("line", (line) => {
                 protocolVersion: "2024-11-05",
                 capabilities: { tools: {} },
                 serverInfo: {
-                    name: "catalyst-mcp",
-                    version: "2.0.0",
-                    description: `Catalyst MCP v2 — ${projectInfo.pkg.name || projectInfo.dir} (catalyst-core@${projectInfo.catalystVersion})`,
+                    name: MCP_PACKAGE.name,
+                    version: MCP_PACKAGE.version,
+                    description: `Catalyst MCP — ${projectInfo.pkg.name || projectInfo.dir} (catalyst-core@${projectInfo.catalystVersion})`,
                 },
             },
         })

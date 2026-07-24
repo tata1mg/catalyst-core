@@ -1,9 +1,26 @@
 {
-    "name": "catalyst-mcp",
-    "version": "2.0.0",
-    "description": "Catalyst MCP v2 — developer workflow tools for catalyst-core projects",
+    "name": "@tata1mg/catalyst-mcp",
+    "version": "1.0.0",
+    "description": "MCP server with developer-workflow tools for catalyst-core projects — migration guidance, debugging, build config checks, task planning, and framework knowledge search.",
     "type": "commonjs",
     "main": "mcp.js",
+    "bin": {
+        "catalyst-mcp": "mcp.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/catalyst-core/mcp_v2"
+    },
+    "license": "MIT",
+    "keywords": [
+        "mcp",
+        "model-context-protocol",
+        "catalyst",
+        "catalyst-core",
+        "developer-tools"
+    ],
+    "mcpName": "io.github.tata1mg/catalyst-mcp",
     "scripts": {
         "setup": "node setup.js",
         "start": "node mcp.js"

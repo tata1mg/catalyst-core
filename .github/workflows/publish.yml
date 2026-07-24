@@ -22,6 +22,11 @@ on:
                 required: true
                 type: boolean
                 default: false
+            publish_mcp:
+                description: "Publish @tata1mg/catalyst-mcp (always to 'latest', independent of publish_channel)"
+                required: true
+                type: boolean
+                default: false
             dry_run:
                 description: "Dry run"
                 required: true
@@ -53,6 +58,7 @@ jobs:
             should_run: ${{ steps.context.outputs.should_run }}
             dry_run: ${{ steps.context.outputs.dry_run }}
             publish_core: ${{ steps.context.outputs.publish_core }}
+            publish_mcp: ${{ steps.context.outputs.publish_mcp }}
             channel: ${{ steps.context.outputs.channel }}
             core_version: ${{ steps.versions.outputs.core }}
             release_pr_number: ${{ steps.release_pr.outputs.number }}
@@ -72,6 +78,7 @@ jobs:
                   INPUT_DRY_RUN: ${{ inputs.dry_run }}
                   INPUT_PUBLISH_CORE: ${{ inputs.publish_core }}
                   INPUT_PUBLISH_CCA: ${{ inputs.publish_cca }}
+                  INPUT_PUBLISH_MCP: ${{ inputs.publish_mcp }}
               run: |
                   SHOULD_RUN=false
                   CHANNEL=""
@@ -79,17 +86,20 @@ jobs:
                   REASON=""
                   PUBLISH_CORE=false
                   PUBLISH_CCA=false
+                  PUBLISH_MCP=false
                   CORE_METADATA_VERSION=""
                   CCA_METADATA_VERSION=""
+                  MCP_METADATA_VERSION=""
 
                   if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
                     CHANNEL="$INPUT_PUBLISH_CHANNEL"
                     DRY_RUN="$INPUT_DRY_RUN"
                     PUBLISH_CORE="$INPUT_PUBLISH_CORE"
                     PUBLISH_CCA="$INPUT_PUBLISH_CCA"
+                    PUBLISH_MCP="$INPUT_PUBLISH_MCP"
                     REASON="manual dispatch"
 
-                    if [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
+                    if [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ] || [ "$PUBLISH_MCP" == "true" ]; then
                       SHOULD_RUN=true
                     else
                       REASON="manual dispatch without any selected package"
@@ -109,13 +119,15 @@ jobs:
                       CHANNEL=$(node -p "const meta=require('./.release-meta.json'); meta.tag || ''")
                       PUBLISH_CORE=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['catalyst-core']?.publish))")
                       PUBLISH_CCA=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['create-catalyst-app']?.publish))")
+                      PUBLISH_MCP=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['@tata1mg/catalyst-mcp']?.publish))")
                       CORE_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['catalyst-core']?.version || ''")
                       CCA_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['create-catalyst-app']?.version || ''")
+                      MCP_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['@tata1mg/catalyst-mcp']?.version || ''")
                       REASON="auto publish on push via release metadata"
 
                       if [ -z "$CHANNEL" ]; then
                         REASON="release metadata missing channel"
-                      elif [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
+                      elif [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ] || [ "$PUBLISH_MCP" == "true" ]; then
                         SHOULD_RUN=true
                       else
                         REASON="release metadata selected no packages"
@@ -131,8 +143,10 @@ jobs:
                   echo "reason=$REASON" >> "$GITHUB_OUTPUT"
                   echo "publish_core=$PUBLISH_CORE" >> "$GITHUB_OUTPUT"
                   echo "publish_cca=$PUBLISH_CCA" >> "$GITHUB_OUTPUT"
+                  echo "publish_mcp=$PUBLISH_MCP" >> "$GITHUB_OUTPUT"
                   echo "core_metadata_version=$CORE_METADATA_VERSION" >> "$GITHUB_OUTPUT"
                   echo "cca_metadata_version=$CCA_METADATA_VERSION" >> "$GITHUB_OUTPUT"
+                  echo "mcp_metadata_version=$MCP_METADATA_VERSION" >> "$GITHUB_OUTPUT"
 
             - name: Validate branch
               if: steps.context.outputs.should_run == 'true'
@@ -163,18 +177,23 @@ jobs:
               run: |
                   CORE_VERSION=$(node -p "require('./packages/catalyst-core/package.json').version")
                   CCA_VERSION=$(node -p "require('./packages/create-catalyst-app/package.json').version")
+                  MCP_VERSION=$(node -p "require('./packages/catalyst-core/mcp_v2/package.json').version")
                   echo "core=$CORE_VERSION" >> "$GITHUB_OUTPUT"
                   echo "cca=$CCA_VERSION" >> "$GITHUB_OUTPUT"
+                  echo "mcp=$MCP_VERSION" >> "$GITHUB_OUTPUT"
 
             - name: Validate release metadata
               if: steps.context.outputs.should_run == 'true' && github.event_name == 'push'
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_MCP: ${{ steps.context.outputs.publish_mcp }}
                   CORE_METADATA_VERSION: ${{ steps.context.outputs.core_metadata_version }}
                   CCA_METADATA_VERSION: ${{ steps.context.outputs.cca_metadata_version }}
+                  MCP_METADATA_VERSION: ${{ steps.context.outputs.mcp_metadata_version }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  MCP_VERSION: ${{ steps.versions.outputs.mcp }}
               run: |
                   if [ "$PUBLISH_CORE" == "true" ]; then
                     if [ -z "$CORE_METADATA_VERSION" ]; then
@@ -200,6 +219,18 @@ jobs:
                     fi
                   fi
 
+                  if [ "$PUBLISH_MCP" == "true" ]; then
+                    if [ -z "$MCP_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata is missing @tata1mg/catalyst-mcp version"
+                      exit 1
+                    fi
+
+                    if [ "$MCP_VERSION" != "$MCP_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata @tata1mg/catalyst-mcp version '$MCP_METADATA_VERSION' does not match package version '$MCP_VERSION'"
+                      exit 1
+                    fi
+                  fi
+
             - name: Validate create-catalyst-app template versions
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true'
               run: |
@@ -211,8 +242,10 @@ jobs:
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_MCP: ${{ steps.context.outputs.publish_mcp }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  MCP_VERSION: ${{ steps.versions.outputs.mcp }}
                   CHANNEL: ${{ steps.context.outputs.channel }}
               run: |
                   validate_version() {
@@ -244,14 +277,22 @@ jobs:
                     validate_version "create-catalyst-app" "$CCA_VERSION" "$CHANNEL"
                   fi
 
+                  if [ "$PUBLISH_MCP" == "true" ]; then
+                    # @tata1mg/catalyst-mcp is versioned independently of the core/cca beta
+                    # release cycle and always publishes to the 'latest' dist-tag.
+                    validate_version "@tata1mg/catalyst-mcp" "$MCP_VERSION" "latest"
+                  fi
+
             - name: Check release state
               id: release_state
               if: steps.context.outputs.should_run == 'true'
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_MCP: ${{ steps.context.outputs.publish_mcp }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  MCP_VERSION: ${{ steps.versions.outputs.mcp }}
                   CHANNEL: ${{ steps.context.outputs.channel }}
               run: |
                   check_package_state() {
@@ -291,19 +332,28 @@ jobs:
                     check_package_state "create-catalyst-app" "$CCA_VERSION" "$CHANNEL" "create-catalyst-app@$CCA_VERSION" "cca"
                   fi
 
+                  if [ "$PUBLISH_MCP" == "true" ]; then
+                    check_package_state "@tata1mg/catalyst-mcp" "$MCP_VERSION" "latest" "catalyst-mcp@$MCP_VERSION" "mcp"
+                  fi
+
             - name: Validate release state
               if: steps.context.outputs.should_run == 'true'
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_MCP: ${{ steps.context.outputs.publish_mcp }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  MCP_VERSION: ${{ steps.versions.outputs.mcp }}
                   CORE_VERSION_EXISTS: ${{ steps.release_state.outputs.core_version_exists }}
                   CORE_TAG_EXISTS: ${{ steps.release_state.outputs.core_tag_exists }}
                   CORE_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.core_dist_tag_matches }}
                   CCA_VERSION_EXISTS: ${{ steps.release_state.outputs.cca_version_exists }}
                   CCA_TAG_EXISTS: ${{ steps.release_state.outputs.cca_tag_exists }}
                   CCA_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.cca_dist_tag_matches }}
+                  MCP_VERSION_EXISTS: ${{ steps.release_state.outputs.mcp_version_exists }}
+                  MCP_TAG_EXISTS: ${{ steps.release_state.outputs.mcp_tag_exists }}
+                  MCP_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.mcp_dist_tag_matches }}
               run: |
                   validate_state() {
                     PACKAGE_NAME="$1"
@@ -324,6 +374,10 @@ jobs:
 
                   if [ "$PUBLISH_CCA" == "true" ]; then
                     validate_state "create-catalyst-app" "$CCA_VERSION" "$CCA_VERSION_EXISTS" "$CCA_TAG_EXISTS" "$CCA_DIST_TAG_MATCHES"
+                  fi
+
+                  if [ "$PUBLISH_MCP" == "true" ]; then
+                    validate_state "@tata1mg/catalyst-mcp" "$MCP_VERSION" "$MCP_VERSION_EXISTS" "$MCP_TAG_EXISTS" "$MCP_DIST_TAG_MATCHES"
                   fi
 
             - name: Configure Git
@@ -425,6 +479,18 @@ jobs:
                   CHANNEL: ${{ steps.context.outputs.channel }}
               run: npm dist-tag add "create-catalyst-app@$CCA_VERSION" "$CHANNEL"
 
+            - name: Publish @tata1mg/catalyst-mcp to npm
+              id: publish_mcp
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_mcp == 'true' && steps.release_state.outputs.mcp_version_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              run: npm publish --workspace packages/catalyst-core/mcp_v2 --tag latest --access public
+
+            - name: Update @tata1mg/catalyst-mcp dist-tag
+              id: retag_mcp
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_mcp == 'true' && steps.release_state.outputs.mcp_version_exists == 'true' && steps.release_state.outputs.mcp_dist_tag_matches != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  MCP_VERSION: ${{ steps.versions.outputs.mcp }}
+              run: npm dist-tag add "@tata1mg/catalyst-mcp@$MCP_VERSION" "latest"
+
             - name: Create catalyst-core git tag
               id: tag_core
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.release_state.outputs.core_tag_exists != 'true' && steps.context.outputs.dry_run != 'true'
@@ -442,6 +508,15 @@ jobs:
               run: |
                   git tag "create-catalyst-app@$CCA_VERSION"
                   git push origin "create-catalyst-app@$CCA_VERSION"
+
+            - name: Create catalyst-mcp git tag
+              id: tag_mcp
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_mcp == 'true' && steps.release_state.outputs.mcp_tag_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  MCP_VERSION: ${{ steps.versions.outputs.mcp }}
+              run: |
+                  git tag "catalyst-mcp@$MCP_VERSION"
+                  git push origin "catalyst-mcp@$MCP_VERSION"
 
             - name: Resolve release PR number
               id: release_pr
@@ -480,8 +555,10 @@ jobs:
                   DRY_RUN: ${{ steps.context.outputs.dry_run }}
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_MCP: ${{ steps.context.outputs.publish_mcp }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  MCP_VERSION: ${{ steps.versions.outputs.mcp }}
               run: |
                   echo "status=$STATUS"
                   echo "reason=$REASON"
@@ -489,6 +566,7 @@ jobs:
                   echo "dry_run=$DRY_RUN"
                   echo "publish_core=$PUBLISH_CORE"
                   echo "publish_cca=$PUBLISH_CCA"
+                  echo "publish_mcp=$PUBLISH_MCP"
 
                   if [ "$PUBLISH_CORE" == "true" ]; then
                     echo "catalyst-core=$CORE_VERSION"
@@ -496,6 +574,10 @@ jobs:
 
                   if [ "$PUBLISH_CCA" == "true" ]; then
                     echo "create-catalyst-app=$CCA_VERSION"
+                  fi
+
+                  if [ "$PUBLISH_MCP" == "true" ]; then
+                    echo "@tata1mg/catalyst-mcp=$MCP_VERSION"
                   fi
 
     trigger_release_automation:
