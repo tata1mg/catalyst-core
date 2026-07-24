@@ -1,0 +1,51 @@
+{
+    "NODE_SERVER_HOSTNAME": "192.168.1.62",
+    "NODE_SERVER_PORT": 3005,
+    "WEBPACK_DEV_SERVER_HOSTNAME": "192.168.1.62",
+    "WEBPACK_DEV_SERVER_PORT": 3006,
+    "BUILD_OUTPUT_PATH": "build",
+    "PUBLIC_STATIC_ASSET_PATH": "/assets/",
+    "PUBLIC_STATIC_ASSET_URL": "http://192.168.1.62:3005",
+    "API_URL": "",
+    "ANALYZE_BUNDLE": false,
+    "DOCS_URL": "https://catalyst.1mg.com",
+    "CLIENT_ENV_VARIABLES": ["API_URL", "DOCS_URL"],
+    "WEBVIEW_CONFIG": {
+        "LOCAL_IP": "192.168.1.62",
+        "port": "3005",
+        "initial_url": "app",
+        "appInfo": "companion-v0.1.0",
+        "useHttps": false,
+        "profiler": {
+            "enabled": false
+        },
+        "notifications": {
+            "enabled": false
+        },
+        "edgeToEdge": {
+            "enabled": false
+        },
+        "plugins": {
+            "preview": true
+        },
+        "accessControl": {
+            "enabled": true,
+            "allowedUrls": ["http://192.168.1.62*", "http://192.168.1.62*"]
+        },
+        "android": {
+            "appName": "Catalyst Companion",
+            "packageName": "io.catalyst.companion",
+            "buildType": "debug",
+            "cachePattern": "*.css,*.js",
+            "sdkPath": "/Users/mayansharma/Library/Android/sdk",
+            "emulatorName": "android"
+        },
+        "ios": {
+            "appName": "Catalyst Companion",
+            "appBundleId": "io.catalyst.companion",
+            "buildType": "Debug",
+            "simulatorName": "iPhone 16",
+            "cachePattern": "*.css,*.js"
+        }
+    }
+}

@@ -302,7 +302,6 @@ function isValidExportName(name) {
 // Loader-scoped require for discovering CJS exports
 const loaderRequire = createRequire(import.meta.url)
 
-const CJS_PATTERN = /\b(module\.exports\b|exports\.\w+\s*=)/
 const REQUIRE_CALL_PATTERN = /\brequire\s*\(/
 
 // Shim __dirname and __filename for ESM app files (these globals only exist in CJS)
@@ -351,8 +350,8 @@ function generateCjsWrapper(filePath, url) {
 
 /**
  * Node.js loader hook for transforming source code.
- * - Wraps CJS modules (node_modules and app files) as ESM so named imports work.
- * - Transpiles JSX in .js/.js app files so Node can execute them.
+ * - Normalizes CJS modules from node_modules and application source to ESM.
+ * - Transpiles JSX in .js/.jsx application files so Node can execute them.
  */
 export async function load(url, context, defaultLoad) {
     // Only transform file:// URLs (skip node: builtins, data: urls, etc.)
@@ -369,10 +368,8 @@ export async function load(url, context, defaultLoad) {
 
     const isNodeModule = filePath.includes("/node_modules/")
 
-    // --- CJS detection and wrapping ---
-    // For node_modules: check via package.json "type" field
-    // For app files: check source content (because package.json may say "module"
-    //                but the file may still use CJS syntax during migration)
+    // For node_modules, package metadata and explicit .cjs extensions remain
+    // authoritative. Application source is normalized by esbuild below.
     if (ext === ".cjs" || (isNodeModule && isCjsModule(filePath))) {
         try {
             const source = generateCjsWrapper(filePath, url)
@@ -382,58 +379,26 @@ export async function load(url, context, defaultLoad) {
         }
     }
 
-    // For non-node_modules .js/.js files, read source to detect CJS or JSX
+    // Transform application .js/.jsx files as raw source before adding ESM
+    // shims. Esbuild can distinguish and lower CommonJS itself, while source
+    // inspection cannot reliably tell executable syntax from strings, comments,
+    // templates, regex literals, or JSX.
     if (!isNodeModule) {
         const source = readFileSync(filePath, "utf8")
 
-        // If source uses CJS module.exports/exports, wrap it in an ESM shim.
-        // We can't use createRequire here because the file lives in a "type":"module"
-        // package — Node's CJS require refuses to load it. Instead, we wrap the
-        // source inline so that `module.exports` becomes the default export.
-        if (CJS_PATTERN.test(source)) {
-            const shimmed = [
-                createRequireShim(source),
-                createDirnameShim(source),
-                `var module = { exports: {} };`,
-                `var exports = module.exports;`,
-                source,
-                `export default module.exports;`,
-            ].join("\n")
-
-            // Run through esbuild in case the CJS file also has JSX
-            try {
-                const result = transformSync(shimmed, {
-                    loader: "jsx",
-                    format: "esm",
-                    sourcefile: filePath,
-                    target: "node20",
-                })
-                return { format: "module", source: result.code, shortCircuit: true }
-            } catch {
-                // If esbuild fails, return the shimmed source as-is
-                return { format: "module", source: shimmed, shortCircuit: true }
-            }
-        }
-
-        // ESM app files: prepend __dirname/__filename shim + JSX transform
-        {
-            const transformed = `${createRequireShim(source)}\n${createDirnameShim(source)}\n${source}`
-            try {
-                const result = transformSync(transformed, {
-                    loader: "jsx",
-                    format: "esm",
-                    sourcefile: filePath,
-                    target: "node20",
-                })
-                return {
-                    format: "module",
-                    source: result.code,
-                    shortCircuit: true,
-                }
-            } catch {
-                // If esbuild fails, return with just the shim
-                return { format: "module", source: transformed, shortCircuit: true }
-            }
+        try {
+            const result = transformSync(source, {
+                loader: "jsx",
+                format: "esm",
+                sourcefile: filePath,
+                target: "node20",
+            })
+            const transformed = [createRequireShim(source), createDirnameShim(source), result.code]
+                .filter(Boolean)
+                .join("\n")
+            return { format: "module", source: transformed, shortCircuit: true }
+        } catch (error) {
+            throw new Error(`Failed to transform ${filePath}: ${error.message}`, { cause: error })
         }
     }
 

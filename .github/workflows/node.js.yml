@@ -27,6 +27,17 @@ jobs:
             - name: Scaffold and Build Smoke Test
               run: node -v && chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
 
+    catalyst-companion:
+        runs-on: ubuntu-latest
+        container:
+            image: mcr.microsoft.com/playwright:v1.52.0-noble
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Lint and Build Companion App
+              run: node -v && chmod +x ./scripts/test-companion-smoke.sh && ./scripts/test-companion-smoke.sh
+
     docs:
         runs-on: ubuntu-latest
 

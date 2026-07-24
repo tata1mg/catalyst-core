@@ -150,6 +150,7 @@ n8n*
 !scripts/test-web.sh
 !scripts/test-native.sh
 !scripts/test-build.sh
+!scripts/test-companion-smoke.sh
 openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift

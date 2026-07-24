@@ -1,0 +1,56 @@
+{
+    "name": "catalyst-companion",
+    "version": "1.0.0",
+    "scripts": {
+        "sync-core": "npm run core:build --prefix ../.. && mkdir -p ./vendor && npm pack ../../packages/catalyst-core --ignore-scripts --pack-destination ./vendor && mv ./vendor/catalyst-core-*.tgz ./vendor/catalyst-core.tgz && npm install ./vendor/catalyst-core.tgz",
+        "docs:generate": "node scripts/generate-docs-manifest.mjs",
+        "docs:check-links": "node scripts/check-docs-links.mjs",
+        "prestart": "npm run docs:generate",
+        "prebuild": "npm run docs:generate",
+        "start": "catalyst start",
+        "build": "catalyst build",
+        "serve": "catalyst serve",
+        "lint": "eslint .",
+        "buildApp": "catalyst buildApp",
+        "buildApp:ios": "catalyst buildApp:ios",
+        "buildApp:android": "catalyst buildApp:android",
+        "setupEmulator": "catalyst setupEmulator",
+        "setupEmulator:ios": "catalyst setupEmulator:ios",
+        "setupEmulator:android": "catalyst setupEmulator:android"
+    },
+    "_moduleAliases": {
+        "@api": "api.js",
+        "@containers": "src/js/containers",
+        "@server": "server",
+        "@config": "config",
+        "@css": "src/static/css",
+        "@routes": "src/js/routes/"
+    },
+    "dependencies": {
+        "@mdx-js/react": "^3.1.1",
+        "catalyst-core": "file:vendor/catalyst-core.tgz",
+        "prism-react-renderer": "^2.4.1",
+        "react": "19.0.0",
+        "react-dom": "19.0.0"
+    },
+    "devDependencies": {
+        "@mdx-js/mdx": "^3.1.1",
+        "eslint": "^8.26.0",
+        "eslint-plugin-react": "^7.34.1",
+        "eslint-plugin-react-hooks": "^4.6.0",
+        "github-slugger": "^2.0.0",
+        "gray-matter": "^4.0.3",
+        "rehype-slug": "^6.0.0",
+        "remark-directive": "^4.0.0",
+        "remark-frontmatter": "^5.0.0",
+        "remark-gfm": "^4.0.1",
+        "unist-util-visit": "^5.1.0"
+    },
+    "overrides": {
+        "react-helmet-async": {
+            "react": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+            "react-dom": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+        }
+    },
+    "description": "Companion shell for Catalyst: docs, showcase, and preview"
+}

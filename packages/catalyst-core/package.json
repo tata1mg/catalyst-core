@@ -23,6 +23,7 @@
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
         "./document": "./dist/server/renderer/document/index.jsx",
         "./WebBridge": "./dist/native/bridge/WebBridge.js",
+        "./PluginBridge": "./dist/native/plugin-bridge/PluginBridge.js",
         "./hooks": "./dist/native/bridge/hooks.js",
         "./sentry": "./dist/sentry.cjs",
         "./otel": "./dist/otel.js"
@@ -33,6 +34,7 @@
         "prettify": "prettier . --write",
         "prepare": "rm -rf ./dist && cp -r ./src ./dist && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs",
         "prepublishOnly": "npm run prepare",
+        "test:unit": "node --test tests/*.test.mjs",
         "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
     },
     "license": "MIT",
@@ -41,6 +43,7 @@
         "body-parser": "^1.20.2",
         "compression": "^1.7.4",
         "cookie-parser": "^1.4.6",
+        "esbuild": "^0.25.0",
         "express": "^4.18.2",
         "express-static-gzip": "^2.1.7",
         "picocolors": "^1.0.0",
