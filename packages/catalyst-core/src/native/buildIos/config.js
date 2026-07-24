@@ -158,7 +158,15 @@ public enum ConfigConstants {
                     if (key === "ios" || key === "android") continue
                     if (key === "notifications")
                         progress.log(`Processing notifications config: ${JSON.stringify(value)}`, "info")
-                    configContent += "\n" + generateSwiftProperty(key, value)
+                    const generatedValue =
+                        key === "splashScreen" && isPlainObject(value)
+                            ? {
+                                  ...value,
+                                  imageWidth: value.imageWidth || 120,
+                                  imageHeight: value.imageHeight || 120,
+                              }
+                            : value
+                    configContent += "\n" + generateSwiftProperty(key, generatedValue)
                     addedKeys.add(key)
                 }
             }
@@ -203,7 +211,7 @@ public enum ConfigConstants {
                 configContent += `\n    public static let splashScreenImageHeight: CGFloat = ${splashConfig.imageHeight || 120}`
                 configContent += `\n    public static let splashScreenCornerRadius: CGFloat = ${splashConfig.cornerRadius || 20}`
             } else {
-                configContent += `\n\n    // Splash Screen Configuration\n    public static let splashScreenEnabled = false\n    public static let splashScreenDuration: TimeInterval? = nil\n    public static let splashScreenBackgroundColor = "#ffffff"\n    public static let splashScreenImageWidth: CGFloat = 120\n    public static let splashScreenImageHeight: CGFloat = 120\n    public static let splashScreenCornerRadius: CGFloat = 20`
+                configContent += `\n\n    // Splash Screen Configuration\n    public enum SplashScreen {\n        public static let imageWidth = 120\n        public static let imageHeight = 120\n    }\n    public static let splashScreenEnabled = false\n    public static let splashScreenDuration: TimeInterval? = nil\n    public static let splashScreenBackgroundColor = "#ffffff"\n    public static let splashScreenImageWidth: CGFloat = 120\n    public static let splashScreenImageHeight: CGFloat = 120\n    public static let splashScreenCornerRadius: CGFloat = 20`
             }
 
             if (!addedKeys.has("notifications")) {

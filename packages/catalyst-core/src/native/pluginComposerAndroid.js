@@ -113,6 +113,19 @@ function validatePlugins(plugins) {
     const configKeys = new Set()
     const dependencies = new Map()
     const selectorKeys = new Map()
+    const activityOwners = new Map()
+
+    for (const plugin of plugins) {
+        for (const activity of plugin.android?.activities || []) {
+            const owner = activityOwners.get(activity.className)
+            if (owner && owner !== plugin.id) {
+                throw new Error(
+                    `Activity class collision for '${activity.className}': declared by both '${owner}' and '${plugin.id}'`
+                )
+            }
+            activityOwners.set(activity.className, plugin.id)
+        }
+    }
 
     for (const plugin of plugins) {
         if (pluginIds.has(plugin.id)) {
@@ -145,6 +158,16 @@ function validatePlugins(plugins) {
 
         if (new Set(plugin.commands).size !== plugin.commands.length) {
             throw new Error(`Duplicate command(s) detected within plugin '${plugin.id}'`)
+        }
+
+        const activityNames = new Set()
+        for (const activity of plugin.android?.activities || []) {
+            if (activityNames.has(activity.className)) {
+                throw new Error(
+                    `Duplicate activity class '${activity.className}' declared within plugin '${plugin.id}'`
+                )
+            }
+            activityNames.add(activity.className)
         }
 
         for (const dependency of plugin.android?.dependencies || []) {
@@ -196,18 +219,22 @@ function walkFiles(rootDir, predicate, results = []) {
     return results
 }
 
-function resolvePluginClassSourcePath(plugin) {
-    const className = plugin.android.className.split(".").pop()
+function resolveClassSourcePath(plugin, fullyQualifiedClassName) {
+    const className = fullyQualifiedClassName.split(".").pop()
     const candidateNames = new Set([`${className}.kt`, `${className}.java`])
     const candidates = walkFiles(plugin.android.sourceDir, (name) => candidateNames.has(name))
 
     if (candidates.length > 1) {
         throw new Error(
-            `Declared class '${plugin.android.className}' for selected plugin '${plugin.id}' resolved to multiple source files under ${plugin.android.sourceDir}`
+            `Declared class '${fullyQualifiedClassName}' for selected plugin '${plugin.id}' resolved to multiple source files under ${plugin.android.sourceDir}`
         )
     }
 
     return candidates[0] || null
+}
+
+function resolvePluginClassSourcePath(plugin) {
+    return resolveClassSourcePath(plugin, plugin.android.className)
 }
 
 function validateSelectedPluginSources(plugins) {
@@ -231,6 +258,14 @@ function validateSelectedPluginSources(plugins) {
             throw new Error(
                 `Declared class '${plugin.android.className}' for selected plugin '${plugin.id}' was not found as a .kt or .java file under ${plugin.android.sourceDir}`
             )
+        }
+
+        for (const activity of plugin.android.activities || []) {
+            if (!resolveClassSourcePath(plugin, activity.className)) {
+                throw new Error(
+                    `Declared activity '${activity.className}' for selected plugin '${plugin.id}' was not found as a .kt or .java file under ${plugin.android.sourceDir}`
+                )
+            }
         }
     }
 }
@@ -378,6 +413,48 @@ function updateAndroidManifestPermissions(manifestPath, selectedPermissions, all
     fs.writeFileSync(manifestPath, manifest)
 }
 
+function escapeXmlAttribute(value) {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+}
+
+function updateAndroidManifestActivities(manifestPath, selectedActivities) {
+    let manifest = fs.readFileSync(manifestPath, "utf8")
+
+    const beginMarker = "<!-- CATALYST_PLUGIN_ACTIVITIES_START -->"
+    const endMarker = "<!-- CATALYST_PLUGIN_ACTIVITIES_END -->"
+    const markerRegex =
+        /[ \t]*<!-- CATALYST_PLUGIN_ACTIVITIES_START -->[\s\S]*?<!-- CATALYST_PLUGIN_ACTIVITIES_END -->\s*\n?/g
+    manifest = manifest.replace(markerRegex, "")
+
+    if (selectedActivities.length > 0) {
+        const activityEntries = selectedActivities
+            .slice()
+            .sort((left, right) => left.className.localeCompare(right.className))
+            .map((activity) => {
+                const attributes = [
+                    `android:name="${escapeXmlAttribute(activity.className)}"`,
+                    `android:exported="${activity.exported ? "true" : "false"}"`,
+                ]
+                if (activity.process) {
+                    attributes.push(`android:process="${escapeXmlAttribute(activity.process)}"`)
+                }
+                if (activity.theme) {
+                    attributes.push(`android:theme="${escapeXmlAttribute(activity.theme)}"`)
+                }
+                return `        <activity\n            ${attributes.join("\n            ")} />`
+            })
+            .join("\n")
+
+        if (!/<\/application>/.test(manifest)) {
+            throw new Error(`Could not find </application> in ${manifestPath}`)
+        }
+        const managedBlock = `        ${beginMarker}\n${activityEntries}\n        ${endMarker}\n`
+        manifest = manifest.replace(/[ \t]*<\/application>/, `${managedBlock}    </application>`)
+    }
+
+    fs.writeFileSync(manifestPath, manifest)
+}
+
 function findDependenciesBlockRange(gradleText, gradlePath) {
     const headerMatch = gradleText.match(/^dependencies\s*\{/m)
     if (!headerMatch || headerMatch.index == null) {
@@ -482,6 +559,10 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
         manifestPath,
         selected.flatMap((plugin) => plugin.android?.permissions || []),
         discovered.flatMap((plugin) => plugin.android?.permissions || [])
+    )
+    updateAndroidManifestActivities(
+        manifestPath,
+        selected.flatMap((plugin) => plugin.android?.activities || [])
     )
     updateGradleDependencies(
         gradlePath,

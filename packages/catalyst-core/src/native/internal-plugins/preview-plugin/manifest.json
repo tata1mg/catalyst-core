@@ -1,0 +1,27 @@
+{
+    "id": "io.catalyst.preview",
+    "configKey": "preview",
+    "version": "1.0.0",
+    "displayName": "Preview Browser",
+    "description": "Opens external HTTPS content in an isolated, bridge-free native browser surface with its own storage, hardened WebView settings, and native controls.",
+    "category": "developer",
+    "platforms": ["android", "ios"],
+    "commands": ["openBrowser"],
+    "android": {
+        "className": "io.yourname.androidproject.plugins.internal.preview.PreviewPlugin",
+        "permissions": [],
+        "dependencies": [],
+        "activities": [
+            {
+                "className": "io.yourname.androidproject.plugins.internal.preview.PreviewActivity",
+                "exported": false,
+                "process": ":catalyst_preview",
+                "theme": "@style/Theme.MaterialComponents.DayNight.NoActionBar"
+            }
+        ]
+    },
+    "ios": {
+        "className": "PreviewPlugin",
+        "dependencies": []
+    }
+}

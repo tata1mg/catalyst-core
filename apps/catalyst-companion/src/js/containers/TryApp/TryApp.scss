@@ -1,0 +1,194 @@
+.home {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 16px 16px calc(32px + env(safe-area-inset-bottom));
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1c1e26;
+}
+
+.header {
+    padding: calc(12px + env(safe-area-inset-top)) 4px 12px;
+
+    h1 {
+        font-size: 22px;
+        margin: 0;
+    }
+}
+
+.card,
+.cardMuted {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(16, 18, 26, 0.08);
+
+    h2 {
+        margin: 0 0 8px;
+        font-size: 17px;
+    }
+
+    p {
+        margin: 0 0 12px;
+        font-size: 14px;
+        color: #565b6b;
+        line-height: 1.45;
+    }
+}
+
+.cardMuted {
+    opacity: 0.65;
+}
+
+.field {
+    display: block;
+    margin-bottom: 12px;
+
+    span {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        border: 1px solid #d5d8e0;
+        border-radius: 8px;
+        font-size: 15px;
+    }
+}
+
+.fieldInline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 14px;
+
+    input[type="number"] {
+        width: 90px;
+        padding: 6px 8px;
+        border: 1px solid #d5d8e0;
+        border-radius: 6px;
+    }
+}
+
+.splashOptions {
+    padding: 4px 0 4px 24px;
+}
+
+.btn,
+.btnPrimary {
+    display: inline-block;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #e8eaf0;
+    color: #1c1e26;
+}
+
+.btnPrimary {
+    background: #4f46e5;
+    color: #ffffff;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.bannerError,
+.bannerInfo {
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.bannerError {
+    background: #fdecec;
+    color: #9f1d1d;
+}
+
+.bannerInfo {
+    background: #e8f0fd;
+    color: #1d4d9f;
+}
+
+.recents {
+    margin-top: 16px;
+
+    h3 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #8a8f9e;
+        margin: 0 0 8px;
+    }
+
+    ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    li {
+        margin-bottom: 6px;
+    }
+}
+
+.recentLink {
+    background: none;
+    border: none;
+    padding: 4px 0;
+    color: #4f46e5;
+    font-size: 14px;
+    cursor: pointer;
+    word-break: break-all;
+    text-align: left;
+}
+
+.actionRow {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+
+    .btnPrimary {
+        flex: 1;
+    }
+}
+
+// While scanning, the native camera preview renders BEHIND the WebView, so the
+// page must be fully transparent with only the viewfinder chrome painted.
+.scanner {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+}
+
+:global(body):has(.scanner) {
+    background: transparent !important;
+}
+
+.scanFrame {
+    width: 240px;
+    height: 240px;
+    border: 3px solid rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.35);
+}
+
+.scanHint {
+    color: #ffffff;
+    font-size: 15px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
