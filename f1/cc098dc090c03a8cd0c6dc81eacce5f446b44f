@@ -1,0 +1,35 @@
+packages/catalyst-core/mcp_v2/package.json
+  s_9ca6bfe43a6ce6::t_c8d206bee10eb2 2
+  s_9ca6bfe43a6ce6::t_8aae85d4f6b76e 23
+packages/catalyst-core/mcp_v2/server.json
+  s_9ca6bfe43a6ce6::t_2c75b6ded01630 14
+  s_9ca6bfe43a6ce6::t_e70007685bb274 3
+.github/workflows/publish.yml
+  s_9ca6bfe43a6ce6::t_4796a7dadcbd14 26,122,125,224,229,281,283,336,380,482,487,492,580
+packages/catalyst-core/mcp_v2/README.md
+  s_9ca6bfe43a6ce6::t_2c285caeb6363c 24-25,34
+  s_9ca6bfe43a6ce6::t_040e6cc308fa34 1
+.release-meta.json
+  s_9ca6bfe43a6ce6::t_4796a7dadcbd14 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f1cc098dc090c03a8cd0c6dc81eacce5f446b44f",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_9ca6bfe43a6ce6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed9c426b-6b64-45b6-967c-ec1853266228",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
