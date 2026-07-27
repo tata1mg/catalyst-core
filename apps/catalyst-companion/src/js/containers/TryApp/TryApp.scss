@@ -2,26 +2,16 @@
     max-width: 560px;
     margin: 0 auto;
     padding: 16px 16px calc(32px + env(safe-area-inset-bottom));
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: #1c1e26;
+    color: var(--hub-text);
 }
 
-.header {
-    padding: calc(12px + env(safe-area-inset-top)) 4px 12px;
-
-    h1 {
-        font-size: 22px;
-        margin: 0;
-    }
-}
-
-.card,
-.cardMuted {
-    background: #ffffff;
+/* Web-only message card. */
+.card {
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(16, 18, 26, 0.08);
 
     h2 {
         margin: 0 0 8px;
@@ -29,83 +19,152 @@
     }
 
     p {
-        margin: 0 0 12px;
+        margin: 0;
         font-size: 14px;
-        color: #565b6b;
+        color: var(--hub-text-muted);
         line-height: 1.45;
     }
 }
 
-.cardMuted {
-    opacity: 0.65;
+.lede {
+    margin: 0 0 18px;
+    font-size: 14.5px;
+    color: var(--hub-text-muted);
+    line-height: 1.5;
 }
 
-.field {
-    display: block;
-    margin-bottom: 12px;
-
-    span {
-        display: block;
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 6px;
-    }
-
-    input {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 10px 12px;
-        border: 1px solid #d5d8e0;
-        border-radius: 8px;
-        font-size: 15px;
-    }
+/* Grouped rows, settings-app style. */
+.group {
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
 }
 
-.fieldInline {
+.row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    font-size: 14px;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 16px;
+    font-size: 15px;
 
-    input[type="number"] {
-        width: 90px;
-        padding: 6px 8px;
-        border: 1px solid #d5d8e0;
-        border-radius: 6px;
+    & + .row {
+        border-top: 1px solid var(--hub-border);
     }
 }
 
-.splashOptions {
-    padding: 4px 0 4px 24px;
+/* 16px font so iOS doesn't zoom the viewport on focus. */
+.urlInput {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    background: transparent;
+    padding: 15px 16px;
+    font-size: 16px;
+    color: var(--hub-text);
+
+    &:focus {
+        outline: none;
+    }
+
+    &::placeholder {
+        color: var(--hub-text-muted);
+    }
 }
 
-.btn,
-.btnPrimary {
-    display: inline-block;
+.switch {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 50px;
+    height: 30px;
+    margin: 0;
     border: none;
+    border-radius: 999px;
+    background: var(--hub-border);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s ease;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        transition: transform 0.2s ease;
+    }
+
+    &:checked {
+        background: var(--hub-primary);
+
+        &::after {
+            transform: translateX(20px);
+        }
+    }
+}
+
+.colorInput {
+    width: 44px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--hub-border);
     border-radius: 8px;
-    padding: 10px 18px;
+    background: transparent;
+}
+
+.durationInput {
+    width: 90px;
+    padding: 7px 10px;
+    border: 1px solid var(--hub-border);
+    border-radius: 8px;
+    background: var(--hub-background);
+    color: var(--hub-text);
     font-size: 15px;
+    text-align: right;
+}
+
+.btnPrimary,
+.btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    background: #e8eaf0;
-    color: #1c1e26;
+
+    &:active {
+        transform: scale(0.99);
+    }
 }
 
 .btnPrimary {
-    background: #4f46e5;
+    background: var(--hub-primary);
     color: #ffffff;
-    width: 100%;
-    margin-top: 4px;
+}
+
+.btn {
+    margin-top: 10px;
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+    color: var(--hub-text);
 }
 
 .bannerError,
 .bannerInfo {
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 13px;
-    margin-bottom: 12px;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 13.5px;
+    margin-bottom: 14px;
 }
 
 .bannerError {
@@ -119,46 +178,52 @@
 }
 
 .recents {
-    margin-top: 16px;
+    margin-top: 22px;
 
     h3 {
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: #8a8f9e;
+        color: var(--hub-text-muted);
         margin: 0 0 8px;
-    }
-
-    ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
-
-    li {
-        margin-bottom: 6px;
+        padding-left: 4px;
     }
 }
 
-.recentLink {
-    background: none;
-    border: none;
-    padding: 4px 0;
-    color: #4f46e5;
-    font-size: 14px;
-    cursor: pointer;
-    word-break: break-all;
-    text-align: left;
-}
-
-.actionRow {
+.recentRow {
     display: flex;
-    gap: 8px;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px 16px;
+    border: none;
+    background: none;
+    color: var(--hub-text);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
 
-    .btnPrimary {
-        flex: 1;
+    & + .recentRow {
+        border-top: 1px solid var(--hub-border);
     }
+
+    &:active {
+        background: var(--hub-border);
+    }
+}
+
+.recentUrl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recentChevron {
+    color: var(--hub-text-muted);
+    font-size: 20px;
+    line-height: 1;
 }
 
 // While scanning, the native camera preview renders BEHIND the WebView, so the
@@ -191,4 +256,15 @@
     color: #ffffff;
     font-size: 15px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.scanCancel {
+    border: none;
+    border-radius: 999px;
+    padding: 11px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.92);
+    color: #1c1e26;
+    cursor: pointer;
 }

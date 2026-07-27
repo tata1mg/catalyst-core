@@ -945,6 +945,13 @@ body {
     }
 }
 
+/* Shell variant of /showcase: presents as an app screen, not a web page. */
+.hub-showcase-app {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 6px 16px calc(32px + env(safe-area-inset-bottom));
+}
+
 /* Infima-style shims the ported homepage markup uses. */
 .container {
     max-width: 1140px;
@@ -1042,6 +1049,42 @@ html[data-shell="app"] {
     a.shell-only {
         display: inline-block;
     }
+
+    body {
+        -webkit-tap-highlight-color: transparent;
+        overscroll-behavior-y: none;
+    }
+
+    /* Pages that present as native screens bring their own chrome; the docs
+       navbar would read as "website". data-shell is stamped pre-paint, so
+       there is no flash of navbar before this applies. */
+    body:has(.app-screen) .hub-navbar {
+        display: none;
+    }
+}
+
+/* ── App-screen chrome (shell-mode pages with native presentation) ──── */
+
+.app-screen-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: calc(10px + env(safe-area-inset-top)) 0 14px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.app-screen-back {
+    font-size: 30px;
+    line-height: 1;
+    text-decoration: none;
+    color: var(--hub-primary);
+    padding: 2px 12px 6px 0;
+}
+
+.app-screen-title {
+    font-size: 20px;
+    font-weight: 700;
 }
 
 /* ── Companion home (/app) ──────────────────────────────────────────── */
@@ -1120,14 +1163,6 @@ html[data-shell="app"] {
     padding: 2px 8px;
     margin-left: 8px;
     vertical-align: middle;
-}
-
-.app-home-sample {
-    display: inline-block;
-    margin: 0 0 22px;
-    color: var(--hub-primary);
-    font-size: 14px;
-    text-decoration: none;
 }
 
 .app-home-secondary {

@@ -23,9 +23,6 @@ class PreviewPlugin : CatalystPlugin {
         private const val COMMAND_OPEN_BROWSER = "openBrowser"
         private const val CALLBACK_OPENED = "onOpened"
         private const val CALLBACK_ERROR = "onError"
-
-        const val MODE_PREVIEW = "preview"
-        const val MODE_DOCS = "docs"
     }
 
     override fun handle(command: String, data: JSONObject?, bridge: PluginBridgeContext) {
@@ -40,14 +37,6 @@ class PreviewPlugin : CatalystPlugin {
         if (url.isEmpty() || !"https".equals(parsedUrl.scheme, ignoreCase = true) || parsedUrl.host.isNullOrBlank()) {
             sendError(bridge, "Preview requires a valid https:// URL", "INVALID_URL")
             return
-        }
-
-        val mode = when (val rawMode = payload.optString("mode", MODE_PREVIEW).trim().lowercase()) {
-            MODE_PREVIEW, MODE_DOCS -> rawMode
-            else -> {
-                sendError(bridge, "Unsupported mode: $rawMode", "INVALID_MODE")
-                return
-            }
         }
 
         if (!isStorageIsolationSupported(bridge)) {
@@ -69,8 +58,9 @@ class PreviewPlugin : CatalystPlugin {
         try {
             val intent = Intent(bridge.activity, PreviewActivity::class.java).apply {
                 putExtra(PreviewActivity.EXTRA_URL, url)
-                putExtra(PreviewActivity.EXTRA_MODE, mode)
-                putExtra(PreviewActivity.EXTRA_EDGE_TO_EDGE, payload.optBoolean("edgeToEdge", false))
+                // Edge-to-edge by default: real apps draw under the system bars,
+                // and an inset page is what makes preview read as "a browser".
+                putExtra(PreviewActivity.EXTRA_EDGE_TO_EDGE, payload.optBoolean("edgeToEdge", true))
 
                 val splash = payload.optJSONObject("splash")
                 putExtra(PreviewActivity.EXTRA_SPLASH_ENABLED, splash?.optBoolean("enabled", false) ?: false)
@@ -85,7 +75,6 @@ class PreviewPlugin : CatalystPlugin {
                 CALLBACK_OPENED,
                 JSONObject().apply {
                     put("url", url)
-                    put("mode", mode)
                 }
             )
         } catch (error: Exception) {

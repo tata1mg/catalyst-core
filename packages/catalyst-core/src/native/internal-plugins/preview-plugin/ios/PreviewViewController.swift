@@ -3,14 +3,21 @@ import WebKit
 
 struct PreviewConfiguration {
     let url: URL
-    let mode: String
     let edgeToEdge: Bool
     let splashEnabled: Bool
     let splashBackgroundColor: String
     let splashDuration: TimeInterval
 }
 
-/// Isolated, bridge-free browser surface for Preview and Docs modes.
+/// Isolated, bridge-free surface for previewing external HTTPS apps.
+///
+/// Presentation is chrome-less by design — exactly like the trusted Catalyst
+/// WebView, the page IS the screen. There is no toolbar, URL display, or
+/// progress bar. Edge swipes walk page history; shaking the device opens a
+/// native menu (Reload / Close Preview) — the established dev-tool escape
+/// hatch on iOS, where a full-screen modal has no system back. A fading hint
+/// pill teaches the gesture once per session; failed loads show an error
+/// state with Retry/Close.
 ///
 /// Trust boundary properties, by construction:
 /// - Fresh WKWebView with a non-persistent (ephemeral) data store: nothing is
@@ -23,24 +30,19 @@ final class PreviewViewController: UIViewController {
 
     private let configuration: PreviewConfiguration
     private var webView: WKWebView?
-    private let toolbar = UIView()
-    private let expandPill = UIButton(type: .system)
-    private let titleLabel = UILabel()
-    private let backButton = UIButton(type: .system)
-    private let forwardButton = UIButton(type: .system)
-    private let progressView = UIProgressView(progressViewStyle: .bar)
     private let errorLabel = UILabel()
     private let retryButton = UIButton(type: .system)
+    private let closeButton = UIButton(type: .system)
+    private let hintLabel = UILabel()
     private var splashOverlay: UIView?
     private var splashShownAt: Date?
     private var pageLoadedOnce = false
     private var terminationRecoveries = 0
-    private var progressObservation: NSKeyValueObservation?
+    private var hintShown = false
 
     private let maxTerminationRecoveries = 2
 
     private var initialHost: String { configuration.url.host ?? "" }
-    private var isDocsMode: Bool { configuration.mode == PreviewPlugin.modeDocs }
 
     init(configuration: PreviewConfiguration) {
         self.configuration = configuration
@@ -52,109 +54,65 @@ final class PreviewViewController: UIViewController {
         fatalError("PreviewViewController must be created in code")
     }
 
-    deinit {
-        progressObservation?.invalidate()
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(white: 0.07, alpha: 1.0)
 
-        buildToolbar()
-        buildProgressBar()
         buildErrorViews()
         attachWebView()
         showSplashIfConfigured()
+        buildHintLabel()
         loadInitialUrl()
     }
 
-    // MARK: - UI construction
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // First responder is required to receive shake motion events.
+        becomeFirstResponder()
+        showHintOnce()
+    }
 
-    private func buildToolbar() {
-        toolbar.backgroundColor = UIColor(white: 0.07, alpha: 0.9)
-        toolbar.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(toolbar)
+    override var canBecomeFirstResponder: Bool { true }
 
-        NSLayoutConstraint.activate([
-            toolbar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            toolbar.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: 44),
-        ])
-
-        func toolbarButton(_ glyph: String, accessibility: String, action: Selector) -> UIButton {
-            let button = UIButton(type: .system)
-            button.setTitle(glyph, for: .normal)
-            button.accessibilityLabel = accessibility
-            button.setTitleColor(.white, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 20, weight: .regular)
-            button.addTarget(self, action: action, for: .touchUpInside)
-            button.widthAnchor.constraint(equalToConstant: 44).isActive = true
-            return button
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        guard motion == .motionShake else {
+            super.motionEnded(motion, with: event)
+            return
         }
-
-        let closeButton = toolbarButton("✕", accessibility: "Close preview", action: #selector(closeTapped))
-        backButton.setTitle("‹", for: .normal)
-        backButton.accessibilityLabel = "Back"
-        backButton.setTitleColor(.white, for: .normal)
-        backButton.titleLabel?.font = .systemFont(ofSize: 24, weight: .regular)
-        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        backButton.widthAnchor.constraint(equalToConstant: 44).isActive = true
-        forwardButton.setTitle("›", for: .normal)
-        forwardButton.accessibilityLabel = "Forward"
-        forwardButton.setTitleColor(.white, for: .normal)
-        forwardButton.titleLabel?.font = .systemFont(ofSize: 24, weight: .regular)
-        forwardButton.addTarget(self, action: #selector(forwardTapped), for: .touchUpInside)
-        forwardButton.widthAnchor.constraint(equalToConstant: 44).isActive = true
-        let reloadButton = toolbarButton("⟳", accessibility: "Reload", action: #selector(reloadTapped))
-        let collapseButton = toolbarButton("⌃", accessibility: "Hide preview controls", action: #selector(collapseTapped))
-
-        titleLabel.text = isDocsMode ? "Catalyst Docs" : initialHost
-        titleLabel.textColor = .white
-        titleLabel.font = .systemFont(ofSize: 14)
-        titleLabel.lineBreakMode = .byTruncatingTail
-
-        expandPill.setTitle("⌄", for: .normal)
-        expandPill.accessibilityLabel = "Show preview controls"
-        expandPill.setTitleColor(.white, for: .normal)
-        expandPill.backgroundColor = UIColor(white: 0.07, alpha: 0.8)
-        expandPill.layer.cornerRadius = 20
-        expandPill.isHidden = true
-        expandPill.translatesAutoresizingMaskIntoConstraints = false
-        expandPill.addTarget(self, action: #selector(expandTapped), for: .touchUpInside)
-        view.addSubview(expandPill)
-        NSLayoutConstraint.activate([
-            expandPill.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            expandPill.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -8),
-            expandPill.widthAnchor.constraint(equalToConstant: 40),
-            expandPill.heightAnchor.constraint(equalToConstant: 40),
-        ])
-
-        let stack = UIStackView(arrangedSubviews: [closeButton, backButton, forwardButton, titleLabel, reloadButton, collapseButton])
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.spacing = 4
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        toolbar.addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: toolbar.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: toolbar.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 4),
-            stack.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -4),
-        ])
+        presentPreviewMenu()
     }
 
-    private func buildProgressBar() {
-        progressView.translatesAutoresizingMaskIntoConstraints = false
-        progressView.trackTintColor = .clear
-        view.addSubview(progressView)
-        NSLayoutConstraint.activate([
-            progressView.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
-            progressView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            progressView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
+    // MARK: - Preview menu (shake gesture)
+
+    private func presentPreviewMenu() {
+        guard presentedViewController == nil else {
+            return
+        }
+        let sheet = UIAlertController(
+            title: initialHost,
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+        sheet.addAction(UIAlertAction(title: "Reload", style: .default) { [weak self] _ in
+            self?.hideError()
+            self?.webView?.reload()
+        })
+        sheet.addAction(UIAlertAction(title: "Close Preview", style: .destructive) { [weak self] _ in
+            self?.dismiss(animated: true)
+        })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        // iPad requires a popover anchor for action sheets.
+        sheet.popoverPresentationController?.sourceView = view
+        sheet.popoverPresentationController?.sourceRect = CGRect(
+            x: view.bounds.midX,
+            y: view.bounds.midY,
+            width: 0,
+            height: 0
+        )
+        present(sheet, animated: true)
     }
+
+    // MARK: - UI construction
 
     private func buildErrorViews() {
         errorLabel.textColor = .darkGray
@@ -169,8 +127,15 @@ final class PreviewViewController: UIViewController {
         retryButton.translatesAutoresizingMaskIntoConstraints = false
         retryButton.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
 
+        closeButton.setTitle("Close preview", for: .normal)
+        closeButton.setTitleColor(.systemRed, for: .normal)
+        closeButton.isHidden = true
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+
         view.addSubview(errorLabel)
         view.addSubview(retryButton)
+        view.addSubview(closeButton)
         NSLayoutConstraint.activate([
             errorLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             errorLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -178,7 +143,47 @@ final class PreviewViewController: UIViewController {
             errorLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             retryButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             retryButton.topAnchor.constraint(equalTo: errorLabel.bottomAnchor, constant: 12),
+            closeButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            closeButton.topAnchor.constraint(equalTo: retryButton.bottomAnchor, constant: 8),
         ])
+    }
+
+    private func buildHintLabel() {
+        hintLabel.text = "Shake for preview options"
+        hintLabel.textColor = .white
+        hintLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        hintLabel.textAlignment = .center
+        hintLabel.backgroundColor = UIColor(white: 0.07, alpha: 0.8)
+        hintLabel.layer.cornerRadius = 15
+        hintLabel.layer.masksToBounds = true
+        hintLabel.alpha = 0
+        hintLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(hintLabel)
+        NSLayoutConstraint.activate([
+            hintLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            hintLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            hintLabel.heightAnchor.constraint(equalToConstant: 30),
+            hintLabel.widthAnchor.constraint(equalToConstant: 210),
+        ])
+    }
+
+    private func showHintOnce() {
+        guard !hintShown else {
+            return
+        }
+        hintShown = true
+        view.bringSubviewToFront(hintLabel)
+        UIView.animate(withDuration: 0.3) {
+            self.hintLabel.alpha = 1
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.5, animations: {
+                self.hintLabel.alpha = 0
+            }, completion: { _ in
+                self.hintLabel.removeFromSuperview()
+            })
+        }
     }
 
     // MARK: - WebView lifecycle
@@ -200,10 +205,10 @@ final class PreviewViewController: UIViewController {
         webView.backgroundColor = .white
         webView.isOpaque = true
         webView.translatesAutoresizingMaskIntoConstraints = false
-        view.insertSubview(webView, belowSubview: toolbar)
+        view.insertSubview(webView, at: 0)
 
         // Full-bleed viewport: the page gets the real screen (including the
-        // system-bar areas when edge-to-edge is on); controls float above it.
+        // system-bar areas when edge-to-edge is on).
         let topAnchor = configuration.edgeToEdge
             ? view.topAnchor
             : view.safeAreaLayoutGuide.topAnchor
@@ -217,18 +222,10 @@ final class PreviewViewController: UIViewController {
             webView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
-            guard let self else { return }
-            self.progressView.progress = Float(webView.estimatedProgress)
-            self.progressView.isHidden = webView.estimatedProgress >= 1.0
-        }
-
         self.webView = webView
     }
 
     private func teardownWebView() {
-        progressObservation?.invalidate()
-        progressObservation = nil
         webView?.removeFromSuperview()
         webView = nil
     }
@@ -237,55 +234,26 @@ final class PreviewViewController: UIViewController {
         webView?.load(URLRequest(url: configuration.url))
     }
 
-    private func updateToolbarState() {
-        backButton.alpha = (webView?.canGoBack ?? false) ? 1.0 : 0.35
-        forwardButton.alpha = (webView?.canGoForward ?? false) ? 1.0 : 0.35
-    }
-
     private func showError(_ message: String) {
         errorLabel.text = message
         errorLabel.isHidden = false
         retryButton.isHidden = false
+        closeButton.isHidden = false
+        view.backgroundColor = .white
         maybeDismissSplash()
     }
 
     private func hideError() {
         errorLabel.isHidden = true
         retryButton.isHidden = true
+        closeButton.isHidden = true
+        view.backgroundColor = UIColor(white: 0.07, alpha: 1.0)
     }
 
     // MARK: - Actions
 
     @objc private func closeTapped() {
         dismiss(animated: true)
-    }
-
-    @objc private func collapseTapped() {
-        toolbar.isHidden = true
-        progressView.isHidden = true
-        expandPill.isHidden = false
-    }
-
-    @objc private func expandTapped() {
-        toolbar.isHidden = false
-        expandPill.isHidden = true
-    }
-
-    @objc private func backTapped() {
-        if webView?.canGoBack == true {
-            webView?.goBack()
-        }
-    }
-
-    @objc private func forwardTapped() {
-        if webView?.canGoForward == true {
-            webView?.goForward()
-        }
-    }
-
-    @objc private func reloadTapped() {
-        hideError()
-        webView?.reload()
     }
 
     @objc private func retryTapped() {
@@ -320,8 +288,6 @@ final class PreviewViewController: UIViewController {
         overlay.backgroundColor = Self.color(fromHex: configuration.splashBackgroundColor) ?? .white
         overlay.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(overlay)
-        view.bringSubviewToFront(toolbar)
-        view.bringSubviewToFront(expandPill)
         NSLayoutConstraint.activate([
             overlay.topAnchor.constraint(equalTo: view.topAnchor),
             overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -391,11 +357,6 @@ extension PreviewViewController: WKNavigationDelegate {
 
         switch url.scheme?.lowercased() {
         case "https":
-            if isDocsMode, navigationAction.targetFrame?.isMainFrame != false, url.host != initialHost {
-                confirmExternalOpen(url)
-                decisionHandler(.cancel)
-                return
-            }
             decisionHandler(.allow)
         case "tel", "mailto", "sms":
             confirmExternalOpen(url)
@@ -406,23 +367,15 @@ extension PreviewViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        progressView.isHidden = false
         hideError()
-        updateToolbarState()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         pageLoadedOnce = true
-        progressView.isHidden = true
-        if !isDocsMode {
-            titleLabel.text = webView.url?.host ?? initialHost
-        }
-        updateToolbarState()
         maybeDismissSplash()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        progressView.isHidden = true
         showError("Could not load page")
     }
 
@@ -431,7 +384,6 @@ extension PreviewViewController: WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        progressView.isHidden = true
         let nsError = error as NSError
         if nsError.code == NSURLErrorCancelled {
             return

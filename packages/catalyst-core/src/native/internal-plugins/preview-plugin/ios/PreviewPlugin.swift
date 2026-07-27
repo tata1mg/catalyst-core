@@ -14,9 +14,6 @@ final class PreviewPlugin: CatalystPlugin {
     private let openedCallback = "onOpened"
     private let errorCallback = "onError"
 
-    static let modePreview = "preview"
-    static let modeDocs = "docs"
-
     func handle(command: String, data: Any?, bridge: PluginBridgeContext) {
         guard command == commandOpenBrowser else {
             sendError(bridge, message: "Unsupported command: \(command)", code: "UNSUPPORTED_COMMAND")
@@ -33,17 +30,10 @@ final class PreviewPlugin: CatalystPlugin {
             return
         }
 
-        let rawMode = ((payload["mode"] as? String) ?? Self.modePreview).lowercased()
-        guard rawMode == Self.modePreview || rawMode == Self.modeDocs else {
-            sendError(bridge, message: "Unsupported mode: \(rawMode)", code: "INVALID_MODE")
-            return
-        }
-
         let splash = payload["splash"] as? [String: Any] ?? [:]
         let configuration = PreviewConfiguration(
             url: url,
-            mode: rawMode,
-            edgeToEdge: payload["edgeToEdge"] as? Bool ?? false,
+            edgeToEdge: payload["edgeToEdge"] as? Bool ?? true,
             splashEnabled: splash["enabled"] as? Bool ?? false,
             splashBackgroundColor: splash["backgroundColor"] as? String ?? "#ffffff",
             splashDuration: Self.milliseconds(splash["duration"]) ?? 1.0
@@ -64,7 +54,6 @@ final class PreviewPlugin: CatalystPlugin {
             presenter.present(controller, animated: true)
             bridge.callback(eventName: self.openedCallback, data: [
                 "url": url.absoluteString,
-                "mode": rawMode,
             ])
         }
     }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
+import { Link } from "catalyst-core"
 import { useVideoStream } from "catalyst-core/hooks"
 import css from "./TryApp.scss"
 
@@ -43,7 +44,7 @@ const normalizeUrl = (raw) => {
 
 function TryApp() {
     const [url, setUrl] = useState("")
-    const [edgeToEdge, setEdgeToEdge] = useState(false)
+    const [edgeToEdge, setEdgeToEdge] = useState(true)
     const [splashEnabled, setSplashEnabled] = useState(false)
     const [splashColor, setSplashColor] = useState("#ffffff")
     const [splashDuration, setSplashDuration] = useState(1000)
@@ -127,7 +128,7 @@ function TryApp() {
     }, [])
 
     const openBrowser = useCallback(
-        (targetUrl, mode) => {
+        (targetUrl) => {
             if (!isNativeShell()) {
                 setStatus({
                     kind: "info",
@@ -147,7 +148,6 @@ function TryApp() {
                     command: "openBrowser",
                     data: {
                         url: targetUrl,
-                        mode,
                         edgeToEdge,
                         splash: {
                             enabled: splashEnabled,
@@ -189,7 +189,7 @@ function TryApp() {
             ].slice(0, MAX_RECENTS)
             setRecents(nextRecents)
             saveRecents(nextRecents)
-            openBrowser(normalized, "preview")
+            openBrowser(normalized)
         },
         [openBrowser, recents]
     )
@@ -216,10 +216,12 @@ function TryApp() {
 
     if (scanning) {
         return (
-            <div className={css.scanner}>
+            // app-screen keeps the docs navbar hidden while the scanner replaces
+            // the normal page tree in the shell.
+            <div className={`app-screen ${css.scanner}`}>
                 <div className={css.scanFrame} />
                 <p className={css.scanHint}>Point at your app&apos;s QR code</p>
-                <button className={css.btn} onClick={toggleScan}>
+                <button className={css.scanCancel} onClick={toggleScan}>
                     Cancel
                 </button>
             </div>
@@ -238,20 +240,26 @@ function TryApp() {
                 </p>
             </div>
 
-            {status && (
-                <div
-                    className={`shell-only ${status.kind === "info" ? css.bannerInfo : css.bannerError}`}
-                >
-                    {status.message}
-                </div>
-            )}
+            {/* In the shell this presents as a native screen: own app bar, the
+                docs navbar is hidden via .app-screen, grouped rows + switches. */}
+            <section className="shell-only app-screen">
+                <header className="app-screen-bar">
+                    <Link to="/app" className="app-screen-back" aria-label="Back to App Home">
+                        ‹
+                    </Link>
+                    <span className="app-screen-title">Try Your Own App</span>
+                </header>
 
-            <section className={`shell-only ${css.card}`}>
-                <h2>Try Your Own App</h2>
-                <p>
-                    Load any deployed HTTPS app in an isolated native WebView — no bridges, no
-                    Catalyst state, storage cleared per session.
+                <p className={css.lede}>
+                    Load any deployed HTTPS app in an isolated native WebView — storage cleared
+                    per session.
                 </p>
+
+                {status && (
+                    <div className={status.kind === "info" ? css.bannerInfo : css.bannerError}>
+                        {status.message}
+                    </div>
+                )}
 
                 <form
                     onSubmit={(event) => {
@@ -259,88 +267,93 @@ function TryApp() {
                         openPreview(url)
                     }}
                 >
-                    <label className={css.field}>
-                        <span>App URL</span>
+                    <div className={css.group}>
                         <input
+                            className={css.urlInput}
                             type="url"
                             inputMode="url"
                             autoCapitalize="none"
                             autoCorrect="off"
                             placeholder="https://your-app.example.com"
+                            aria-label="App URL"
                             value={url}
                             onChange={(event) => setUrl(event.target.value)}
                         />
-                    </label>
+                    </div>
 
-                    <label className={css.fieldInline}>
-                        <input
-                            type="checkbox"
-                            checked={edgeToEdge}
-                            onChange={(event) => setEdgeToEdge(event.target.checked)}
-                        />
-                        <span>Edge-to-edge display</span>
-                    </label>
+                    <div className={css.group}>
+                        <label className={css.row}>
+                            <span>Edge-to-edge display</span>
+                            <input
+                                type="checkbox"
+                                className={css.switch}
+                                checked={edgeToEdge}
+                                onChange={(event) => setEdgeToEdge(event.target.checked)}
+                            />
+                        </label>
 
-                    <label className={css.fieldInline}>
-                        <input
-                            type="checkbox"
-                            checked={splashEnabled}
-                            onChange={(event) => setSplashEnabled(event.target.checked)}
-                        />
-                        <span>Simulated splash screen</span>
-                    </label>
+                        <label className={css.row}>
+                            <span>Simulated splash screen</span>
+                            <input
+                                type="checkbox"
+                                className={css.switch}
+                                checked={splashEnabled}
+                                onChange={(event) => setSplashEnabled(event.target.checked)}
+                            />
+                        </label>
 
-                    {splashEnabled && (
-                        <div className={css.splashOptions}>
-                            <label className={css.fieldInline}>
-                                <span>Color</span>
-                                <input
-                                    type="color"
-                                    value={splashColor}
-                                    onChange={(event) => setSplashColor(event.target.value)}
-                                />
-                            </label>
-                            <label className={css.fieldInline}>
-                                <span>Duration (ms)</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="10000"
-                                    step="100"
-                                    value={splashDuration}
-                                    onChange={(event) => setSplashDuration(event.target.value)}
-                                />
-                            </label>
-                        </div>
-                    )}
-
-                    <div className={css.actionRow}>
-                        <button className={css.btnPrimary} type="submit">
-                            Open Preview
-                        </button>
-                        {cameraIsNative && (
-                            <button className={css.btn} type="button" onClick={toggleScan}>
-                                Scan QR
-                            </button>
+                        {splashEnabled && (
+                            <>
+                                <label className={css.row}>
+                                    <span>Splash color</span>
+                                    <input
+                                        type="color"
+                                        className={css.colorInput}
+                                        value={splashColor}
+                                        onChange={(event) => setSplashColor(event.target.value)}
+                                    />
+                                </label>
+                                <label className={css.row}>
+                                    <span>Duration (ms)</span>
+                                    <input
+                                        type="number"
+                                        className={css.durationInput}
+                                        min="0"
+                                        max="10000"
+                                        step="100"
+                                        value={splashDuration}
+                                        onChange={(event) => setSplashDuration(event.target.value)}
+                                    />
+                                </label>
+                            </>
                         )}
                     </div>
+
+                    <button className={css.btnPrimary} type="submit">
+                        Open Preview
+                    </button>
+                    {cameraIsNative && (
+                        <button className={css.btn} type="button" onClick={toggleScan}>
+                            Scan QR Code
+                        </button>
+                    )}
                 </form>
 
                 {recents.length > 0 && (
                     <div className={css.recents}>
                         <h3>Recent</h3>
-                        <ul>
+                        <div className={css.group}>
                             {recents.map((entry) => (
-                                <li key={entry}>
-                                    <button
-                                        className={css.recentLink}
-                                        onClick={() => openPreview(entry)}
-                                    >
-                                        {entry}
-                                    </button>
-                                </li>
+                                <button
+                                    key={entry}
+                                    className={css.recentRow}
+                                    onClick={() => openPreview(entry)}
+                                >
+                                    <span className={css.recentUrl}>{entry}</span>
+                                    <span className={css.recentChevron}>›</span>
+                                </button>
                             ))}
-                        </ul>
+                        </div>
                     </div>
                 )}
             </section>

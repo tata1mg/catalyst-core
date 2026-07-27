@@ -3,8 +3,6 @@ import { Link } from "catalyst-core"
 import { ThemeProvider } from "../../components/docs/ThemeContext"
 import DocumentBootstrap from "../../components/hub/DocumentBootstrap"
 
-const SAMPLE_APP_URL = "https://www.1mg.com"
-
 /**
  * Companion home — the native app's start URL (WEBVIEW_CONFIG.initial_url).
  * Top-level route with its own chrome (not the docs navbar). Both variants
@@ -32,13 +30,6 @@ const AppHome = () => (
                         Load any deployed HTTPS app in an isolated native WebView — no bridges, no
                         shared state, storage cleared per session.
                     </p>
-                </Link>
-
-                <Link
-                    to={`/try?url=${encodeURIComponent(SAMPLE_APP_URL)}`}
-                    className="app-home-sample"
-                >
-                    Or try a sample app first →
                 </Link>
 
                 <div className="app-home-card app-home-card-muted">

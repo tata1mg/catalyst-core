@@ -3,7 +3,7 @@
     "configKey": "preview",
     "version": "1.0.0",
     "displayName": "Preview Browser",
-    "description": "Opens external HTTPS content in an isolated, bridge-free native browser surface with its own storage, hardened WebView settings, and native controls.",
+    "description": "Opens external HTTPS content full-screen in an isolated, bridge-free native WebView with its own storage and hardened settings — no browser chrome.",
     "category": "developer",
     "platforms": ["android", "ios"],
     "commands": ["openBrowser"],

@@ -29,21 +29,23 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.ProcessGlobalConfig
 import androidx.webkit.WebStorageCompat
 import androidx.webkit.WebViewFeature
 
 /**
- * Isolated, bridge-free browser surface for Preview and Docs modes.
+ * Isolated, bridge-free surface for previewing external HTTPS apps.
+ *
+ * Presentation is chrome-less by design — exactly like the trusted Catalyst
+ * WebView, the page IS the screen. There is no toolbar, URL display, or
+ * progress bar. The system back gesture walks page history and then closes
+ * the preview; a failed load shows an error state with Retry/Close.
  *
  * Trust boundary properties, by construction:
  * - Runs in the ':catalyst_preview' process with a unique WebView data
@@ -62,14 +64,12 @@ class PreviewActivity : AppCompatActivity() {
         private const val TAG = "PreviewActivity"
 
         const val EXTRA_URL = "preview.url"
-        const val EXTRA_MODE = "preview.mode"
         const val EXTRA_EDGE_TO_EDGE = "preview.edgeToEdge"
         const val EXTRA_SPLASH_ENABLED = "preview.splash.enabled"
         const val EXTRA_SPLASH_BACKGROUND_COLOR = "preview.splash.backgroundColor"
         const val EXTRA_SPLASH_DURATION = "preview.splash.duration"
 
         private const val DATA_DIRECTORY_SUFFIX = "catalyst_preview"
-        private const val MAX_RENDERER_RECOVERIES = 2
         private const val CLOSE_CLEAR_TIMEOUT_MS = 2000L
 
         // The suffix may be applied only once per process, before any
@@ -109,12 +109,6 @@ class PreviewActivity : AppCompatActivity() {
 
     private var webView: WebView? = null
     private lateinit var webViewContainer: FrameLayout
-    private lateinit var overlayBar: LinearLayout
-    private lateinit var expandPill: TextView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var titleView: TextView
-    private lateinit var backButton: TextView
-    private lateinit var forwardButton: TextView
     private lateinit var errorView: LinearLayout
     private lateinit var errorMessageView: TextView
     private var splashOverlay: FrameLayout? = null
@@ -123,10 +117,8 @@ class PreviewActivity : AppCompatActivity() {
 
     private lateinit var initialUrl: String
     private var initialHost: String = ""
-    private var mode: String = PreviewPlugin.MODE_PREVIEW
     private var edgeToEdge = false
     private var currentUrl: String = ""
-    private var rendererRecoveries = 0
     private var pageLoadedOnce = false
     private var splashShownAt = 0L
     private var splashDuration = 1000L
@@ -135,7 +127,6 @@ class PreviewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
-        mode = intent.getStringExtra(EXTRA_MODE) ?: PreviewPlugin.MODE_PREVIEW
         edgeToEdge = intent.getBooleanExtra(EXTRA_EDGE_TO_EDGE, false)
         currentUrl = initialUrl
         initialHost = Uri.parse(initialUrl).host.orEmpty()
@@ -157,7 +148,6 @@ class PreviewActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, !edgeToEdge)
 
         setContentView(buildLayout())
-        applyInsetHandling()
         setupBackNavigation()
 
         createWebView()
@@ -173,7 +163,7 @@ class PreviewActivity : AppCompatActivity() {
     private fun buildLayout(): View {
         // Full-bleed frame: the WebView occupies the entire window (including
         // system-bar areas when edge-to-edge is on) so preview pages experience
-        // the real viewport. Controls float above it and can collapse to a pill.
+        // the real viewport. The only other surface is the error state.
         val root = FrameLayout(this).apply {
             setBackgroundColor(Color.parseColor("#111318"))
         }
@@ -186,44 +176,6 @@ class PreviewActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
         root.addView(webViewContainer)
-
-        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 100
-            progress = 0
-            visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3))
-        }
-
-        overlayBar = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP
-            )
-        }
-        overlayBar.addView(buildToolbar())
-        overlayBar.addView(progressBar)
-        root.addView(overlayBar)
-
-        expandPill = TextView(this).apply {
-            text = "⌄"
-            contentDescription = "Show preview controls"
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#CC111318"))
-            visibility = View.GONE
-            layoutParams = FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP or Gravity.END).apply {
-                topMargin = dp(8)
-                rightMargin = dp(8)
-            }
-            setOnClickListener {
-                visibility = View.GONE
-                overlayBar.visibility = View.VISIBLE
-            }
-        }
-        root.addView(expandPill)
 
         errorView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -246,76 +198,20 @@ class PreviewActivity : AppCompatActivity() {
             text = "Retry"
             setOnClickListener {
                 errorView.visibility = View.GONE
+                // A dead renderer tears the WebView down; recreate on demand.
+                if (webView == null) {
+                    createWebView()
+                }
                 loadCurrentUrl()
             }
+        })
+        errorView.addView(Button(this).apply {
+            text = "Close preview"
+            setOnClickListener { closePreview() }
         })
         webViewContainer.addView(errorView)
 
         return root
-    }
-
-    private fun buildToolbar(): View {
-        val toolbar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#E6111318"))
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        fun toolbarButton(glyph: String, description: String, onClick: () -> Unit): TextView {
-            return TextView(this).apply {
-                text = glyph
-                contentDescription = description
-                setTextColor(Color.WHITE)
-                textSize = 20f
-                gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
-                setOnClickListener { onClick() }
-            }
-        }
-
-        toolbar.addView(toolbarButton("✕", "Close preview") { closePreview() })
-
-        backButton = toolbarButton("‹", "Back") { webView?.takeIf { it.canGoBack() }?.goBack() }
-        forwardButton = toolbarButton("›", "Forward") { webView?.takeIf { it.canGoForward() }?.goForward() }
-        toolbar.addView(backButton)
-        toolbar.addView(forwardButton)
-
-        titleView = TextView(this).apply {
-            text = if (mode == PreviewPlugin.MODE_DOCS) "Catalyst Docs" else initialHost
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(dp(8), 0, dp(8), 0)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        toolbar.addView(titleView)
-
-        toolbar.addView(toolbarButton("⟳", "Reload") { webView?.reload() })
-        toolbar.addView(toolbarButton("⌃", "Hide preview controls") {
-            overlayBar.visibility = View.GONE
-            expandPill.visibility = View.VISIBLE
-        })
-
-        return toolbar
-    }
-
-    private fun applyInsetHandling() {
-        if (!edgeToEdge) {
-            return
-        }
-        val root = findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            overlayBar.setPadding(0, bars.top, 0, 0)
-            (expandPill.layoutParams as FrameLayout.LayoutParams).topMargin = dp(8) + bars.top
-            insets
-        }
     }
 
     private fun setupBackNavigation() {
@@ -377,14 +273,7 @@ class PreviewActivity : AppCompatActivity() {
             // subframes never get dialogs — they either load (https) or drop.
             val isMainFrame = request.isForMainFrame
             return when (url.scheme?.lowercase()) {
-                "https" -> {
-                    if (mode == PreviewPlugin.MODE_DOCS && isMainFrame && url.host != initialHost) {
-                        confirmExternalOpen(url)
-                        true
-                    } else {
-                        false
-                    }
-                }
+                "https" -> false
                 "tel", "mailto", "sms" -> {
                     if (isMainFrame) {
                         confirmExternalOpen(url)
@@ -399,18 +288,11 @@ class PreviewActivity : AppCompatActivity() {
         }
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-            progressBar.visibility = View.VISIBLE
             url?.let { currentUrl = it }
-            updateToolbarState()
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
-            progressBar.visibility = View.GONE
             pageLoadedOnce = true
-            if (mode != PreviewPlugin.MODE_DOCS) {
-                titleView.text = url?.let { Uri.parse(it).host } ?: initialHost
-            }
-            updateToolbarState()
             maybeDismissSplash()
         }
 
@@ -420,7 +302,6 @@ class PreviewActivity : AppCompatActivity() {
             error: android.webkit.WebResourceError?
         ) {
             if (request?.isForMainFrame == true) {
-                progressBar.visibility = View.GONE
                 errorMessageView.text = "Could not load ${request.url?.host ?: "page"}"
                 errorView.visibility = View.VISIBLE
                 maybeDismissSplash()
@@ -431,31 +312,18 @@ class PreviewActivity : AppCompatActivity() {
             if (view !== webView) {
                 return true
             }
-            Log.w(TAG, "Preview renderer gone (crashed=${detail?.didCrash() ?: false}), recovering")
+            // User-driven recovery via the error screen's Retry (which recreates
+            // the WebView) — no automatic recreate loop to babysit.
+            Log.w(TAG, "Preview renderer gone (crashed=${detail?.didCrash() ?: false})")
             teardownWebView()
-            rendererRecoveries++
-            if (rendererRecoveries > MAX_RENDERER_RECOVERIES) {
-                Toast.makeText(this@PreviewActivity, "Preview stopped responding", Toast.LENGTH_LONG).show()
-                closePreview()
-                return true
-            }
-            createWebView()
-            loadCurrentUrl()
+            errorMessageView.text = "Preview stopped responding"
+            errorView.visibility = View.VISIBLE
+            maybeDismissSplash()
             return true
         }
     }
 
     private fun buildWebChromeClient(): WebChromeClient = object : WebChromeClient() {
-        override fun onProgressChanged(view: WebView?, newProgress: Int) {
-            progressBar.progress = newProgress
-        }
-
-        override fun onReceivedTitle(view: WebView?, title: String?) {
-            if (mode == PreviewPlugin.MODE_DOCS && !title.isNullOrBlank()) {
-                titleView.text = title
-            }
-        }
-
         override fun onPermissionRequest(request: PermissionRequest?) {
             request?.deny()
         }
@@ -486,11 +354,6 @@ class PreviewActivity : AppCompatActivity() {
         } catch (error: Exception) {
             Log.w(TAG, "Error destroying preview WebView: ${error.message}")
         }
-    }
-
-    private fun updateToolbarState() {
-        backButton.alpha = if (webView?.canGoBack() == true) 1f else 0.35f
-        forwardButton.alpha = if (webView?.canGoForward() == true) 1f else 0.35f
     }
 
     private fun loadCurrentUrl() {
