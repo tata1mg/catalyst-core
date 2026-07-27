@@ -1,10 +1,12 @@
 package io.yourname.androidproject.plugins.internal.preview
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -32,8 +34,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.webkit.ProcessGlobalConfig
 import androidx.webkit.WebStorageCompat
@@ -114,6 +118,21 @@ class PreviewActivity : AppCompatActivity() {
     private var splashOverlay: FrameLayout? = null
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var closeRequested = false
+    private var pendingGeolocationOrigin: String? = null
+    private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
+
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val origin = pendingGeolocationOrigin
+            val callback = pendingGeolocationCallback
+            pendingGeolocationOrigin = null
+            pendingGeolocationCallback = null
+
+            val granted =
+                permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                    permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            callback?.invoke(origin, granted, false)
+        }
 
     private lateinit var initialUrl: String
     private var initialHost: String = ""
@@ -253,7 +272,7 @@ class PreviewActivity : AppCompatActivity() {
             displayZoomControls = false
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
-            setGeolocationEnabled(false)
+            setGeolocationEnabled(true)
         }
 
         view.webViewClient = buildWebViewClient()
@@ -332,7 +351,7 @@ class PreviewActivity : AppCompatActivity() {
             origin: String?,
             callback: GeolocationPermissions.Callback?
         ) {
-            callback?.invoke(origin, false, false)
+            requestDemoLocation(origin, callback)
         }
 
         override fun onShowFileChooser(
@@ -343,6 +362,45 @@ class PreviewActivity : AppCompatActivity() {
             filePathCallback?.onReceiveValue(null)
             return true
         }
+    }
+
+    private fun requestDemoLocation(
+        origin: String?,
+        callback: GeolocationPermissions.Callback?
+    ) {
+        if (origin == null || callback == null || !isAllowedDemoLocationOrigin(origin)) {
+            callback?.invoke(origin, false, false)
+            return
+        }
+
+        val alreadyGranted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+        if (alreadyGranted) {
+            callback.invoke(origin, true, false)
+            return
+        }
+
+        pendingGeolocationCallback?.invoke(pendingGeolocationOrigin, false, false)
+        pendingGeolocationOrigin = origin
+        pendingGeolocationCallback = callback
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
+
+    private fun isAllowedDemoLocationOrigin(origin: String): Boolean {
+        val originUri = Uri.parse(origin)
+        val originHost = originUri.host?.lowercase() ?: return false
+        val currentHost = Uri.parse(currentUrl).host?.lowercase() ?: return false
+        return originUri.scheme.equals("https", ignoreCase = true) &&
+            originHost == currentHost &&
+            (originHost == "1mg.com" || originHost == "www.1mg.com")
     }
 
     private fun teardownWebView() {
@@ -429,6 +487,9 @@ class PreviewActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacksAndMessages(null)
+        pendingGeolocationCallback?.invoke(pendingGeolocationOrigin, false, false)
+        pendingGeolocationOrigin = null
+        pendingGeolocationCallback = null
         if (!closeRequested && webView != null) {
             // System-initiated destroy: best-effort clear only.
             clearBrowsingData {}

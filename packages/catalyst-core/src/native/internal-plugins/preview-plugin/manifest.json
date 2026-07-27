@@ -9,7 +9,10 @@
     "commands": ["openBrowser"],
     "android": {
         "className": "io.yourname.androidproject.plugins.internal.preview.PreviewPlugin",
-        "permissions": [],
+        "permissions": [
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION"
+        ],
         "dependencies": [],
         "activities": [
             {
