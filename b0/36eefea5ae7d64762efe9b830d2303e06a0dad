@@ -1,0 +1,39 @@
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/ios/PreviewViewController.swift
+  bfcf8d519e117510 12,14-20,35-36,41,64,68-73,75,77-79,82-83,85,87-94,96-110,112,115,130-134,138,146-166,170-188,208,241-242,249-250
+apps/catalyst-companion/src/js/containers/Showcase/Showcase.js
+  bfcf8d519e117510 2,5-6,8-26
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.js
+  bfcf8d519e117510 2,47,192,219-221,224,243-251,253,258-262,270,272,278,282,284-286,289,295,298-301,305-322,325-327,331-339,345,347,349-354,356
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/android/PreviewActivity.kt
+  bfcf8d519e117510 43,45-48,166,201-204,208-210,315-317,319-321
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.scss
+  bfcf8d519e117510 5,8-11,22,24,29-33,36-43,45-54,56,58-69,72-73,77-102,104-105,107-109,113-119,122-125,127-128,130-141,144-147,151,155-159,164-167,181,187,189,193-200,202-203,206,208-210,212-213,217-220,223-228,260-269
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/ios/PreviewPlugin.swift
+  bfcf8d519e117510 36
+apps/catalyst-companion/src/static/css/base/hub.scss
+  bfcf8d519e117510 948-954,1052-1087
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/android/PreviewPlugin.kt
+  bfcf8d519e117510 61-63
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/manifest.json
+  bfcf8d519e117510 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "b036eefea5ae7d64762efe9b830d2303e06a0dad",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 559,
+      "total_deletions": 632,
+      "accepted_lines": 432,
+      "overriden_lines": 0
+    }
+  }
+}
