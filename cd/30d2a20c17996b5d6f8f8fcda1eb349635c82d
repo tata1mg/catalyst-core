@@ -1,0 +1,67 @@
+apps/catalyst-companion/src/js/containers/Showcase/ShowcaseBar.js
+  bfcf8d519e117510 1-30
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.js
+  bfcf8d519e117510 7-10,34-86,95-101,115-118,131,133,147-150,152-154,157,159-160,164,265,281-318,321-330,361-364,368-407,409-436,438-439,445-446,457-458,462,464-467,470,472,474-477,481-498,503-504,506-507,510,512-516,532,534
+apps/catalyst-companion/src/js/layouts/HubLayout.js
+  bfcf8d519e117510 6,14
+packages/catalyst-core/src/server/expressServer.js
+  bfcf8d519e117510 9,11,85-119,273-288
+apps/catalyst-companion/src/js/containers/Showcase/sections/FilePickerShowcase.js
+  bfcf8d519e117510 1-127
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/ios/PreviewViewController.swift
+  bfcf8d519e117510 12-87,102-108,439-441,443-446,499-500,503
+apps/catalyst-companion/src/js/containers/Showcase/sections/VideoStreamShowcase.js
+  bfcf8d519e117510 1-176
+apps/catalyst-companion/src/js/containers/Showcase/Showcase.scss
+  bfcf8d519e117510 1-492
+apps/catalyst-companion/src/js/containers/AppHome/AppHome.js
+  bfcf8d519e117510 3,6,15-18,20,33-44,46-50,52,54-58,60-70,75-77,79,85-86,89
+apps/catalyst-companion/src/js/components/hub/BottomNav.js
+  bfcf8d519e117510 1-117
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.scss
+  bfcf8d519e117510 229-237,241-251,254-256,261-267,270-280,286-302,304-305,308-311,314-315,318,321-322,324-342
+apps/catalyst-companion/src/js/containers/Showcase/sections/NotificationShowcase.js
+  bfcf8d519e117510 1-82
+apps/catalyst-companion/src/static/css/base/hub.scss
+  bfcf8d519e117510 24-27,444-449,1063-1074,1088-1135,1189-1190,1193,1198-1200,1204,1245,1249-1252,1254-1255,1257
+apps/catalyst-companion/src/js/containers/Showcase/Showcase.js
+  bfcf8d519e117510 2-3,5-9,15-16,20-21
+apps/catalyst-companion/src/js/containers/Showcase/ShowcaseIndex.js
+  bfcf8d519e117510 1-88
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/android/PreviewPlugin.kt
+  bfcf8d519e117510 13-86,112,115
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/android/PreviewActivity.kt
+  bfcf8d519e117510 60-65,296,298-302,311
+packages/catalyst-core/src/native/internal-plugins/preview-plugin/ios/PreviewPlugin.swift
+  bfcf8d519e117510 7-10,29,32
+apps/catalyst-companion/src/js/containers/Showcase/sections/GoogleSignInShowcase.js
+  bfcf8d519e117510 1-69
+packages/catalyst-core/src/native/buildAndroid/assets.js
+  bfcf8d519e117510 604-607,609
+packages/catalyst-core/src/native/buildIos/build.js
+  bfcf8d519e117510 517-538,549-551,558
+apps/catalyst-companion/src/js/routes/index.js
+  bfcf8d519e117510 7-11,40-41,46,50-55,71-72,75-81
+packages/catalyst-core/package.json
+  bfcf8d519e117510 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "cd30d2a20c17996b5d6f8f8fcda1eb349635c82d",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 2098,
+      "total_deletions": 266,
+      "accepted_lines": 1975,
+      "overriden_lines": 0
+    }
+  }
+}
