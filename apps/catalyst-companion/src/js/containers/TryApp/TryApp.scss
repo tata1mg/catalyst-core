@@ -226,45 +226,118 @@
     line-height: 1;
 }
 
-// While scanning, the native camera preview renders BEHIND the WebView, so the
-// page must be fully transparent with only the viewfinder chrome painted.
-.scanner {
-    position: fixed;
-    inset: 0;
-    background: transparent;
+/* ── Inline camera stage (scan mode) ───────────────────────────────────
+   The stage sits in the normal app-screen flow so the bottom tab bar stays
+   visible and tappable; only the stage box goes transparent for the native
+   camera that renders BEHIND the WebView. */
+.stage {
+    position: relative;
+    height: 57vh;
+    border-radius: 16px;
+    overflow: hidden;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+    margin-bottom: 16px;
 }
 
+/* Streaming: the stage itself must not paint, and neither may html/body.
+   Kept as `.scanner` so the :has() selectors below stay the single source of
+   truth for "the camera is live on this page". */
+.scanner {
+    background: transparent;
+    border-color: transparent;
+}
+
+/* Both html AND body paint --hub-background; both must go transparent or the
+   canvas stays opaque and hides the native camera behind the WebView. */
+:global(html):has(.scanner),
 :global(body):has(.scanner) {
     background: transparent !important;
 }
 
-.scanFrame {
-    width: 240px;
-    height: 240px;
+/* With the body transparent, every sibling of the stage would sit on the raw
+   camera feed. These blocks re-assert the app surface so the title bar, hint
+   and toggle stay readable. The bottom tab bar paints its own background. */
+.opaque {
+    position: relative;
+    z-index: 1;
+    background: var(--hub-background);
+}
+
+.belowStage.opaque {
+    border-radius: 12px;
+    padding: 12px 12px 4px;
+    margin: -4px -12px 0;
+}
+
+/* Dim ring drawn INSIDE the stage via inset shadow, so it can never bleed over
+   the title bar, the controls below, or the tab bar. */
+.viewfinder {
+    width: min(240px, 62%);
+    aspect-ratio: 1;
     border: 3px solid rgba(255, 255, 255, 0.9);
     border-radius: 16px;
     box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.35);
 }
 
-.scanHint {
-    color: #ffffff;
-    font-size: 15px;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+.stagePlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    text-align: center;
 }
 
-.scanCancel {
-    border: none;
-    border-radius: 999px;
-    padding: 11px 28px;
+.stageIcon {
+    width: 40px;
+    height: 40px;
+    color: var(--hub-text-muted);
+}
+
+.stageTitle {
+    margin: 0;
     font-size: 15px;
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.92);
-    color: #1c1e26;
+    color: var(--hub-text-muted);
+}
+
+.stageNote {
+    margin: 0;
+    font-size: 13px;
+    color: var(--hub-text-muted);
+}
+
+.stageStart {
+    margin-top: 4px;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 26px;
+    font-size: 15px;
+    font-weight: 600;
+    background: var(--hub-primary);
+    color: #ffffff;
     cursor: pointer;
+
+    &:active {
+        transform: scale(0.99);
+    }
+}
+
+.hint {
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--hub-text-muted);
+
+    code {
+        font-size: 12.5px;
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--hub-card-background);
+        border: 1px solid var(--hub-border);
+    }
 }

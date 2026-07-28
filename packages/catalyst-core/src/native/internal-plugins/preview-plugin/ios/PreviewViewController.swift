@@ -9,7 +9,83 @@ struct PreviewConfiguration {
     let splashDuration: TimeInterval
 }
 
-/// Isolated, bridge-free surface for previewing external HTTPS apps.
+/// Shared URL policy for the preview surface, used by both the launcher
+/// (`PreviewPlugin`) and the per-navigation check below so the two can never
+/// drift apart. Declared here alongside `PreviewConfiguration`, which the two
+/// files already share.
+///
+/// The rule: `https` is allowed for any host; cleartext `http` is allowed only
+/// for private-network hosts, which is what makes dev-server previews
+/// (`http://192.168.1.80:5173`) work without weakening anything public.
+enum PreviewUrlPolicy {
+
+    /// True when `url` may be loaded as a top-level preview navigation.
+    static func isAllowedPreviewUrl(_ url: URL) -> Bool {
+        guard let host = url.host, !host.isEmpty else {
+            return false
+        }
+        switch url.scheme?.lowercased() {
+        case "https":
+            return true
+        case "http":
+            return isPrivateHost(host)
+        default:
+            return false
+        }
+    }
+
+    /// True for hosts that can only live on the local machine or the local
+    /// network: "localhost", any ".local" mDNS name, IPv4 loopback (127/8),
+    /// the RFC1918 ranges (10/8, 172.16/12, 192.168/16), and link-local
+    /// (169.254/16). Any other hostname — including one that merely looks like
+    /// an address, e.g. "10.0.0.5.evil.com" — is treated as public.
+    static func isPrivateHost(_ rawHost: String) -> Bool {
+        // A trailing dot is a legal FQDN root; strip it before comparing.
+        var host = rawHost.lowercased()
+        if host.hasSuffix(".") {
+            host.removeLast()
+        }
+        if host == "localhost" || host.hasSuffix(".local") {
+            return true
+        }
+
+        guard let octets = parseIPv4(host) else {
+            return false
+        }
+        switch (octets[0], octets[1]) {
+        case (127, _), (10, _):
+            return true
+        case (172, 16...31), (192, 168), (169, 254):
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Strict dotted-quad parse: exactly four decimal octets in 0...255.
+    /// Anything looser (hex forms, missing or extra parts, out-of-range values
+    /// such as "1721.6.0.1") returns nil rather than being coerced into an
+    /// address.
+    private static func parseIPv4(_ host: String) -> [Int]? {
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else {
+            return nil
+        }
+        var octets: [Int] = []
+        octets.reserveCapacity(4)
+        for part in parts {
+            guard !part.isEmpty, part.count <= 3,
+                  part.allSatisfy({ $0.isASCII && $0.isNumber }),
+                  let value = Int(part), value <= 255 else {
+                return nil
+            }
+            octets.append(value)
+        }
+        return octets
+    }
+}
+
+/// Isolated, bridge-free surface for previewing external apps.
 ///
 /// Presentation is chrome-less by design — exactly like the trusted Catalyst
 /// WebView, the page IS the screen. There is no toolbar, URL display, or
@@ -23,8 +99,13 @@ struct PreviewConfiguration {
 /// - Fresh WKWebView with a non-persistent (ephemeral) data store: nothing is
 ///   shared with the trusted Catalyst WebView and nothing survives the session.
 /// - No script message handlers or user scripts are ever registered.
-/// - HTTPS-only top-level navigation; media-capture permission denied;
-///   popups load in place or are dropped; external schemes require confirmation.
+/// - Top-level navigation is https for public hosts, plus cleartext http for
+///   private-network hosts (localhost, *.local, RFC1918, link-local) so a dev
+///   server can be previewed. That is safe here because this surface has its
+///   own ephemeral data store and no bridge, and trusting the LAN path is
+///   exactly the trust already placed in the dev server being previewed.
+/// - Media-capture permission denied; popups load in place or are dropped;
+///   external schemes require confirmation.
 /// - WebContent process termination is recovered by reloading.
 final class PreviewViewController: UIViewController {
 
@@ -355,9 +436,14 @@ extension PreviewViewController: WKNavigationDelegate {
             return
         }
 
-        switch url.scheme?.lowercased() {
-        case "https":
+        // Re-checked per navigation, not just at launch: a cleartext dev page
+        // must not be able to walk the preview to http://public.com.
+        if PreviewUrlPolicy.isAllowedPreviewUrl(url) {
             decisionHandler(.allow)
+            return
+        }
+
+        switch url.scheme?.lowercased() {
         case "tel", "mailto", "sms":
             confirmExternalOpen(url)
             decisionHandler(.cancel)
@@ -410,10 +496,11 @@ extension PreviewViewController: WKUIDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        // No popup windows in preview: load HTTPS popup targets in place, drop the rest.
+        // No popup windows in preview: load allowed popup targets in place
+        // (same policy as a top-level navigation), drop the rest.
         if navigationAction.targetFrame == nil,
            let url = navigationAction.request.url,
-           url.scheme?.lowercased() == "https" {
+           PreviewUrlPolicy.isAllowedPreviewUrl(url) {
             webView.load(navigationAction.request)
         }
         return nil

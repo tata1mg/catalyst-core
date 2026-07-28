@@ -21,6 +21,10 @@
     --hub-sidebar-background: #ffffff;
     --hub-code-background: #f5f6f7;
 
+    /* useNativeTransition's web fallback paints a fixed overlay in this color;
+       defaulting to #fff would flash white over a dark theme. */
+    --transition-overlay-color: var(--hub-background);
+
     /* Code block palette (github) — token classes styled in .doc-codeblock. */
     --code-bg: #f6f8fa;
     --code-fg: #24292e;
@@ -435,6 +439,12 @@ body {
         left: 16px;
         z-index: 55;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    /* In the Companion shell the bottom tab bar owns that corner — float the
+       menu toggle above it. */
+    html[data-shell="app"] .docs-mobile-sidebar-toggle {
+        bottom: calc(88px + env(safe-area-inset-bottom));
     }
 
     .docs-sidebar {
@@ -1050,6 +1060,18 @@ html[data-shell="app"] {
         display: inline-block;
     }
 
+    /* The tab bar lays out horizontally; the generic display:block above
+       would collapse it into stacked rows. */
+    nav.hub-bottom-nav.shell-only {
+        display: flex;
+    }
+
+    /* Keep the fixed tab bar from covering the end of any scrolling screen. */
+    .hub-shell,
+    .app-home {
+        padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+
     body {
         -webkit-tap-highlight-color: transparent;
         overscroll-behavior-y: none;
@@ -1061,6 +1083,54 @@ html[data-shell="app"] {
     body:has(.app-screen) .hub-navbar {
         display: none;
     }
+}
+
+/* ── Bottom tab bar (shell-only; global classes so the .shell-only display
+      override above can special-case the flex layout) ─────────────────── */
+
+.hub-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Below 40 on purpose: the Showcase camera stage overlay sits at 40 and
+       must cover the tab bar while streaming. */
+    z-index: 30;
+    display: flex;
+    background: var(--hub-navbar-background);
+    border-top: 1px solid var(--hub-border);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+}
+
+.hub-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    padding: 4px 0;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--hub-text-muted);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &.active {
+        color: var(--hub-primary);
+    }
+
+    svg {
+        width: 22px;
+        height: 22px;
+        display: block;
+    }
+}
+
+.hub-bottom-nav-icon {
+    display: block;
+    line-height: 0;
 }
 
 /* ── App-screen chrome (shell-mode pages with native presentation) ──── */
@@ -1116,15 +1186,22 @@ html[data-shell="app"] {
     margin: 0 0 22px;
 }
 
+/* Rendered as <button> so navigation can run through useNativeTransition;
+   these reset the UA button defaults back to the card presentation. */
 .app-home-card {
     display: block;
+    width: 100%;
     border: 1px solid var(--hub-border);
     border-radius: 14px;
     padding: 20px;
     margin-bottom: 14px;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
     text-decoration: none;
     color: var(--hub-text);
     background: var(--hub-card-background);
+    -webkit-tap-highlight-color: transparent;
 
     h2 {
         margin: 0 0 8px;
@@ -1165,12 +1242,19 @@ html[data-shell="app"] {
     vertical-align: middle;
 }
 
+/* Also used as a <button> in the shell variant (transition-driven nav). */
 .app-home-secondary {
     display: inline-block;
     margin-top: 18px;
-    color: var(--hub-primary);
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
     font-weight: 600;
+    cursor: pointer;
+    color: var(--hub-primary);
     text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .app-home-muted {

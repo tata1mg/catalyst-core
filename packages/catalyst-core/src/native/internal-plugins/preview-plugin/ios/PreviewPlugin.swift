@@ -3,9 +3,11 @@ import UIKit
 
 /// Launcher for the isolated Preview browser surface.
 ///
-/// The plugin never hosts preview state itself: it validates the request,
-/// resolves the active presentation controller, and presents
-/// `PreviewViewController` full screen. The trusted Catalyst WKWebView is
+/// The plugin never hosts preview state itself: it validates the request
+/// against `PreviewUrlPolicy` (https anywhere, cleartext http only for
+/// private-network hosts, for dev-server previews), resolves the active
+/// presentation controller, and presents `PreviewViewController` full
+/// screen. The trusted Catalyst WKWebView is
 /// left completely untouched. (The iOS framework file server starts lazily
 /// and is not running unless large-file transport was used, so no server
 /// shutdown is required here.)
@@ -24,9 +26,12 @@ final class PreviewPlugin: CatalystPlugin {
         let rawUrl = (payload["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         guard let url = URL(string: rawUrl),
-              url.scheme?.lowercased() == "https",
-              let host = url.host, !host.isEmpty else {
-            sendError(bridge, message: "Preview requires a valid https:// URL", code: "INVALID_URL")
+              PreviewUrlPolicy.isAllowedPreviewUrl(url) else {
+            sendError(
+                bridge,
+                message: "Preview requires an https:// URL (http:// is allowed for local-network addresses)",
+                code: "INVALID_URL"
+            )
             return
         }
 

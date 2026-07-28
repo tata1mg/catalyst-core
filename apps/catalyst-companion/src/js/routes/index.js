@@ -4,6 +4,11 @@ import docsRoutes from "../generated/docsRoutes"
 import Landing from "@containers/Landing/Landing"
 import TryApp from "@containers/TryApp/TryApp"
 import Showcase from "@containers/Showcase/Showcase"
+import ShowcaseIndex from "@containers/Showcase/ShowcaseIndex"
+import VideoStreamShowcase from "@containers/Showcase/sections/VideoStreamShowcase"
+import FilePickerShowcase from "@containers/Showcase/sections/FilePickerShowcase"
+import GoogleSignInShowcase from "@containers/Showcase/sections/GoogleSignInShowcase"
+import NotificationShowcase from "@containers/Showcase/sections/NotificationShowcase"
 import AppHome from "@containers/AppHome/AppHome"
 import NotFound from "@containers/NotFound/NotFound"
 
@@ -32,11 +37,22 @@ TryApp.setMetaData = () => [
     />,
 ]
 
-Showcase.setMetaData = () => [
-    <title key="title">Showcase | Catalyst</title>,
+const showcaseMeta = (title) => () => [
+    <title key="title">{title} | Catalyst</title>,
     <meta key="robots" name="robots" content="noindex, follow" />,
-    <meta key="description" name="description" content="Catalyst-built experiences." />,
+    <meta
+        key="description"
+        name="description"
+        content="Live demos of Catalyst's native capabilities in the Companion app."
+    />,
 ]
+
+Showcase.setMetaData = showcaseMeta("Showcase")
+ShowcaseIndex.setMetaData = showcaseMeta("Showcase")
+VideoStreamShowcase.setMetaData = showcaseMeta("Video Stream Showcase")
+FilePickerShowcase.setMetaData = showcaseMeta("File Picker Showcase")
+GoogleSignInShowcase.setMetaData = showcaseMeta("Google Sign-In Showcase")
+NotificationShowcase.setMetaData = showcaseMeta("Notification Showcase")
 
 const routes = [
     {
@@ -52,8 +68,17 @@ const routes = [
                 component: TryApp,
             },
             {
+                // Each capability is its own sub-route so switching sections
+                // goes through useNativeTransition (native snapshot slide).
                 path: "showcase",
                 component: Showcase,
+                children: [
+                    { index: true, component: ShowcaseIndex },
+                    { path: "video", component: VideoStreamShowcase },
+                    { path: "files", component: FilePickerShowcase },
+                    { path: "signin", component: GoogleSignInShowcase },
+                    { path: "notifications", component: NotificationShowcase },
+                ],
             },
             ...docsRoutes,
         ],

@@ -44,7 +44,7 @@ import androidx.webkit.WebStorageCompat
 import androidx.webkit.WebViewFeature
 
 /**
- * Isolated, bridge-free surface for previewing external HTTPS apps.
+ * Isolated, bridge-free surface for previewing external apps.
  *
  * Presentation is chrome-less by design — exactly like the trusted Catalyst
  * WebView, the page IS the screen. There is no toolbar, URL display, or
@@ -57,8 +57,12 @@ import androidx.webkit.WebViewFeature
  * - No JavaScript interfaces are ever registered on this WebView.
  * - No Catalyst machinery is attached: no whitelist, caches, offline
  *   snapshotting, service-worker interception, or custom headers.
- * - HTTPS-only top-level navigation; all permission prompts denied;
- *   downloads, file chooser, and popups disabled.
+ * - Top-level navigation is https for public hosts, plus cleartext http for
+ *   private-network hosts (localhost, *.local, RFC1918, link-local) so a dev
+ *   server can be previewed. That is safe here because this process is
+ *   isolated with its own ephemeral storage, and trusting the LAN path is
+ *   exactly the trust already placed in the dev server being previewed.
+ * - All permission prompts denied; downloads, file chooser, popups disabled.
  * - Browsing data is cleared before every session (survives process death)
  *   and again, best-effort, on close.
  */
@@ -289,10 +293,14 @@ class PreviewActivity : AppCompatActivity() {
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
             val url = request?.url ?: return true
             // The external-open policy applies to main-frame navigations only;
-            // subframes never get dialogs — they either load (https) or drop.
+            // subframes never get dialogs — they either load (allowed) or drop.
             val isMainFrame = request.isForMainFrame
+            // Re-checked per navigation, not just at launch: a cleartext dev
+            // page must not be able to walk the preview to http://public.com.
+            if (PreviewUrlPolicy.isAllowedPreviewUrl(url)) {
+                return false
+            }
             return when (url.scheme?.lowercase()) {
-                "https" -> false
                 "tel", "mailto", "sms" -> {
                     if (isMainFrame) {
                         confirmExternalOpen(url)
@@ -300,7 +308,7 @@ class PreviewActivity : AppCompatActivity() {
                     true
                 }
                 else -> {
-                    Log.w(TAG, "Blocked non-HTTPS navigation: ${url.scheme}")
+                    Log.w(TAG, "Blocked disallowed navigation: ${url.scheme}")
                     true
                 }
             }

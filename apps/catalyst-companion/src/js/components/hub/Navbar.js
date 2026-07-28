@@ -55,11 +55,6 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
             </button>
 
             <div className={`hub-navbar-items ${menuOpen ? "open" : ""}`}>
-                {/* Companion users enter at /app; this is their only persistent
-                    route home from the docs. Hidden on the web (shell-only). */}
-                <Link to="/app" className="shell-only" onClick={closeMenu}>
-                    App Home
-                </Link>
                 <Link to="/content/Introduction/why-catalyst" onClick={closeMenu}>
                     Documentation
                 </Link>
