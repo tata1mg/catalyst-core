@@ -102,6 +102,12 @@ class WebBridge {
 
         const { platform } = nativeBridge.getEnvironmentInfo()
 
+        if (window.__CATALYST_PROFILER_ENABLED === true) {
+            import("./perf/index.js").then(({ default: WebPerfCollector }) => {
+                WebPerfCollector.init(bridge)
+            })
+        }
+
         console.log("🌉 WebBridge created and attached to window")
         return { bridge, platform, getDeviceInfo: bridge.getDeviceInfo }
     }

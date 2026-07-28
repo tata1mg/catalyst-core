@@ -1,8 +1,62 @@
 ---
-title: Guide for migration from 0.0.1-beta.3 to 0.0.1-beta.4
+title: Catalyst Version Upgrades
 slug: 0.0.1-beta.4
 id: 0.0.1-beta.4
 ---
+
+# Catalyst Version Upgrades
+
+## Upgrading From 0.2.x To 0.3.0-beta.1
+
+Catalyst `0.3.x` migrates the web runtime from webpack/CommonJS to Vite/ESM. Treat the upgrade as a
+coordinated package, application-entry, and deployment change.
+
+### Runtime Dependencies
+
+```json title="package.json"
+{
+  "dependencies": {
+    "catalyst-core": "0.3.0-beta.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  }
+}
+```
+
+Remove `@tata1mg/router` and `@loadable/component`. Keep React and React DOM pinned exactly to
+`19.0.0` so the application and framework resolve one runtime.
+
+### Router And Hydration
+
+Import Catalyst router APIs from `catalyst-core`. Replace loadable components with `split()`, and
+replace `loadableReady()` with `hydrationReady()` before `hydrateRoot()`.
+
+```javascript
+import { RouterProvider, hydrationReady } from "catalyst-core"
+import { hydrateRoot } from "react-dom/client"
+
+window.addEventListener("load", () => {
+    hydrationReady().then(() => {
+        hydrateRoot(document.getElementById("app"), <RouterProvider router={router} />)
+    })
+})
+```
+
+### Build And Deployment
+
+- Move project plugins to the Vite `buildConfig.js` contract with `clientPlugins` and `ssrPlugins`.
+- Use `start` for development and `build` followed by `serve` for production validation.
+- Remove `devBuild` and `devServe`.
+- Serve browser assets from `build/client` and load the renderer from `build/server`.
+- Copy `dist`, `bin`, and `package.json` together when testing a local Catalyst package.
+- Test `offline: true` routes under `build` plus `serve`; service workers are disabled under `start`.
+
+See [Vite Customization](../02-Guides%20and%20Tutorials/12-Vite-Customization.md) and
+[Code Splitting](../07-Lazy%20Loading/01-Code-Splitting.md) for the current APIs.
+
+---
+
+## Legacy Upgrade: 0.0.1-beta.3 To 0.0.1-beta.4
 
 ### Changes
 
@@ -202,7 +256,6 @@ export const getRoutes = () => {
     return routes
 }
 ```
-
 
 
 

@@ -31,6 +31,10 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         let totalTime = (CFAbsoluteTimeGetCurrent() - start) * 1000
         logWithTimestamp("🏗️ WebView init completed (total: \(String(format: "%.2f", totalTime))ms, protocol: \(String(format: "%.2f", protocolTime))ms)")
+        CatalystPerf.add([
+            "type": "boot-activity-created",
+            "durationMs": totalTime,
+        ])
     }
     
     public func makeUIView(context: Context) -> WKWebView {
@@ -38,6 +42,14 @@ public struct WebView: UIViewRepresentable, Equatable {
         logWithTimestamp("🔨 makeUIView() started")
 
         let configuration = WKWebViewConfiguration()
+        configuration.setURLSchemeHandler(
+            OfflineURLSchemeHandler.shared,
+            forURLScheme: OfflineCacheService.offlineHTTPScheme
+        )
+        configuration.setURLSchemeHandler(
+            OfflineURLSchemeHandler.shared,
+            forURLScheme: OfflineCacheService.offlineHTTPSScheme
+        )
 
         // Hook kept for legacy behavior; currently a no-op on iOS 15+.
         WebKitConfig.applySharedProcessPoolIfNeeded(to: configuration)
@@ -46,12 +58,33 @@ public struct WebView: UIViewRepresentable, Equatable {
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
+        #if DEBUG
+        if ConfigConstants.Profiler.enabled {
+            configuration.userContentController.addUserScript(
+                WKUserScript(
+                    source: "window.__CATALYST_PROFILER_ENABLED = true;",
+                    injectionTime: .atDocumentStart,
+                    forMainFrameOnly: true
+                )
+            )
+        }
+        #endif
+
         let webViewCreateStart = CFAbsoluteTimeGetCurrent()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         let webViewCreateTime = (CFAbsoluteTimeGetCurrent() - webViewCreateStart) * 1000
         logWithTimestamp("📦 WKWebView created (took \(String(format: "%.2f", webViewCreateTime))ms)")
+        CatalystPerf.add([
+            "type": "boot-webview-constructed",
+            "durationMs": webViewCreateTime,
+        ])
 
         webView.navigationDelegate = navigationDelegate
+        #if DEBUG
+        if ConfigConstants.Profiler.enabled {
+            webView.scrollView.delegate = context.coordinator
+        }
+        #endif
         webView.allowsBackForwardNavigationGestures = true
         webView.isOpaque = false
         webView.backgroundColor = .clear
@@ -93,17 +126,32 @@ public struct WebView: UIViewRepresentable, Equatable {
                 let request = URLRequest(url: url)
                 logWithTimestamp("🚀 Calling webView.load()")
                 let loadStart = CFAbsoluteTimeGetCurrent()
+                CatalystPerf.add([
+                    "type": "boot-load-url",
+                    "url": url.absoluteString,
+                ])
                 webView.load(request)
                 let loadTime = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
                 logWithTimestamp("✅ webView.load() returned (took \(String(format: "%.2f", loadTime))ms)")
             } else {
                 logWithTimestamp("📴 Device offline on launch, showing offline page")
-                _ = navigationDelegate.showOfflinePage(in: webView)
+                if OfflineCacheService.shared.loadSnapshot(in: webView, for: url) {
+                    viewModel.setLoading(false, fromCache: true)
+                } else if navigationDelegate.showOfflinePage(in: webView) {
+                    viewModel.setLoading(false, fromCache: true)
+                } else {
+                    viewModel.setLoading(false, fromCache: false)
+                }
             }
         }
 
         let makeUIViewTime = (CFAbsoluteTimeGetCurrent() - makeUIViewStart) * 1000
         logWithTimestamp("🔨 makeUIView() completed (took \(String(format: "%.2f", makeUIViewTime))ms)")
+        #if DEBUG
+        if ConfigConstants.Profiler.enabled {
+            context.coordinator.startKeyboardPerfTracking(webView)
+        }
+        #endif
 
         return webView
     }
@@ -131,6 +179,9 @@ public struct WebView: UIViewRepresentable, Equatable {
         }
 
         // Clean up native bridge
+        coordinator.stopPerfMonitoring()
+        coordinator.stopKeyboardPerfTracking()
+        webView.scrollView.delegate = nil
         coordinator.nativeBridge?.unregister()
         coordinator.nativeBridge = nil
         coordinator.pluginBridge?.unregister()
@@ -149,6 +200,10 @@ public struct WebView: UIViewRepresentable, Equatable {
         var pluginBridge: PluginBridge?
         var hostingController: UIViewController?
         var isObserverAdded = false
+        private weak var perfWebView: WKWebView?
+        private var keyboardObserverTokens: [NSObjectProtocol] = []
+        private var scrollSessionOpen = false
+        private var fpsMonitor: DisplayLinkPerfMonitor?
 
         public init(_ parent: WebView) {
             self.parent = parent
@@ -175,6 +230,17 @@ public struct WebView: UIViewRepresentable, Equatable {
             pluginBridge.register()
             self.nativeBridge = bridge
             self.pluginBridge = pluginBridge
+            #if DEBUG
+            if ConfigConstants.Profiler.enabled {
+                self.fpsMonitor = DisplayLinkPerfMonitor(webView: webView)
+                self.fpsMonitor?.start()
+            }
+            #endif
+        }
+
+        func stopPerfMonitoring() {
+            fpsMonitor?.stop()
+            fpsMonitor = nil
         }
         
         @objc func handleCameraPinch(_ gesture: UIPinchGestureRecognizer) {
@@ -204,9 +270,83 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         deinit {
             // Ensure observer is removed even if dismantleUIView is skipped.
+            CatalystPerf.reset()
+            stopPerfMonitoring()
+            stopKeyboardPerfTracking()
             if isObserverAdded, let webView = nativeBridge?.webView {
                 webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
             }
         }
+    }
+}
+
+extension WebView.Coordinator: UIScrollViewDelegate {
+    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        guard !scrollSessionOpen else { return }
+        scrollSessionOpen = true
+        CatalystPerf.emit([
+            "type": "scroll-start",
+            "nativeTime": CatalystPerf.nativeTimeMs(),
+        ], to: perfWebView)
+    }
+
+    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            closeScrollSession()
+        }
+    }
+
+    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        closeScrollSession()
+    }
+
+    private func closeScrollSession() {
+        guard scrollSessionOpen else { return }
+        scrollSessionOpen = false
+        CatalystPerf.emit([
+            "type": "scroll-end",
+            "nativeTime": CatalystPerf.nativeTimeMs(),
+        ], to: perfWebView)
+    }
+
+    func startKeyboardPerfTracking(_ webView: WKWebView) {
+        perfWebView = webView
+        stopKeyboardPerfTracking()
+
+        let center = NotificationCenter.default
+        keyboardObserverTokens = [
+            center.addObserver(
+                forName: UIResponder.keyboardWillShowNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                self?.emitKeyboardEvent("keyboard-show", notification: notification)
+            },
+            center.addObserver(
+                forName: UIResponder.keyboardWillHideNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                self?.emitKeyboardEvent("keyboard-hide", notification: notification)
+            },
+        ]
+    }
+
+    func stopKeyboardPerfTracking() {
+        let center = NotificationCenter.default
+        keyboardObserverTokens.forEach { center.removeObserver($0) }
+        keyboardObserverTokens.removeAll()
+        perfWebView = nil
+    }
+
+    private func emitKeyboardEvent(_ type: String, notification: Notification) {
+        let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        let durationSeconds = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double
+        CatalystPerf.emit([
+            "type": type,
+            "nativeTime": CatalystPerf.nativeTimeMs(),
+            "keyboardHeight": frame?.height ?? 0,
+            "durationMs": Int((durationSeconds ?? 0) * 1000),
+        ], to: perfWebView)
     }
 }

@@ -6,6 +6,9 @@ id: data-fetching
 
 # Data Fetching
 
+The API examples below target Catalyst `0.3.x` and import route data hooks from `catalyst-core`.
+Legacy `0.2.x` applications use the same concepts through `@tata1mg/router`.
+
 Catalyst provides two fetcher functions for loading data:
 
 | Fetcher | When it runs |
@@ -74,7 +77,7 @@ HomePage.serverFetcher = async ({ params, searchParams }, { store }) => {
 Returns data for the current route:
 
 ```javascript
-import { useCurrentRouteData } from "@tata1mg/router";
+import { useCurrentRouteData } from "catalyst-core";
 
 const ProductPage = () => {
   const { data, error, isFetching, isFetched, refetch, clear } = useCurrentRouteData();
@@ -103,7 +106,7 @@ const ProductPage = () => {
 Returns data for all routes in the current tree:
 
 ```javascript
-import { useRouterData } from "@tata1mg/router";
+import { useRouterData } from "catalyst-core";
 
 const Layout = () => {
   const routerData = useRouterData();

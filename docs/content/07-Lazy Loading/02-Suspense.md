@@ -4,12 +4,14 @@ slug: suspense
 id: suspense
 ---
 
-Catalyst provides advanced Suspense support with intelligent SSR asset management powered by Vite. The latest version `v0.0.2-canary.1` introduces smart code splitting with per-component SSR control and automatic asset categorization.
+Catalyst `0.3.x` provides Suspense support with SSR asset management powered by Vite. Legacy
+Catalyst `0.2.x` applications should continue using their `@loadable/component` integration until
+they upgrade.
 
 ## Installation
 
 ```bash
-npx create-catalyst-app@v0.0.2-canary.1
+npm install catalyst-core@0.3.0-beta.1 react@19.0.0 react-dom@19.0.0
 ```
 
 ## Overview
@@ -29,7 +31,7 @@ Use the `split()` function instead of `React.lazy()` for enhanced SSR compatibil
 ### Basic Usage
 
 ```js
-import { split } from "catalyst"
+import { split } from "catalyst-core"
 
 // Basic split with SSR enabled (default)
 const LazyComponent = split(() => import("./LazyComponent"))
@@ -72,7 +74,7 @@ const ClientOnlyComponent = split(() => import("./ClientComponent"), {
 **Dashboard with Mixed SSR Strategy:**
 
 ```js
-import { split } from "catalyst"
+import { split } from "catalyst-core"
 
 // Critical above-the-fold content - SSR enabled
 const DashboardHeader = split(() => import("./DashboardHeader"), {
@@ -146,7 +148,7 @@ const App = () => (
 ### After (Catalyst split)
 
 ```js
-import { split } from "catalyst"
+import { split } from "catalyst-core"
 
 const LazyComponent = split(() => import("./LazyComponent"), {
     ssr: true, // or false based on your needs

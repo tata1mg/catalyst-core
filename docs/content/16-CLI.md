@@ -11,6 +11,8 @@ Catalyst workflows are split between the framework CLI and project-level npm scr
 
 ## Core Commands
 
+These commands apply to Catalyst `0.3.x`:
+
 | Command | Purpose |
 |---------|---------|
 | `npx create-catalyst-app@latest` | Create a new Catalyst project |
@@ -28,8 +30,7 @@ Most apps wrap the CLI in package scripts:
     "start": "catalyst start",
     "build": "catalyst build",
     "serve": "catalyst serve",
-    "devBuild": "catalyst devBuild",
-    "devServe": "catalyst devServe",
+    "buildApp": "catalyst buildApp",
     "buildApp:android": "catalyst buildApp:android",
     "buildApp:ios": "catalyst buildApp:ios"
   }
@@ -37,6 +38,12 @@ Most apps wrap the CLI in package scripts:
 ```
 
 Your exact script names can differ, but the flow should remain clear and predictable for the team.
+
+### Legacy Catalyst 0.2.x
+
+`devBuild` and `devServe` are webpack-era commands available to legacy `0.2.x` applications. They
+were removed in `0.3.x`; use `start` for Vite development and `build` followed by `serve` for a
+production-style run.
 
 ## Universal App Commands
 
@@ -52,6 +59,9 @@ For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. 
 1. Run `catalyst build`.
 2. Start the server with `catalyst serve` or your process manager.
 3. In production deployments, teams commonly run the server through PM2 or a container entrypoint.
+
+In `0.3.x`, `catalyst build` emits separate Vite client and SSR outputs and generates the offline
+manifest. Service workers and route offline snapshots are not enabled by `catalyst start`.
 
 ## Related Docs
 

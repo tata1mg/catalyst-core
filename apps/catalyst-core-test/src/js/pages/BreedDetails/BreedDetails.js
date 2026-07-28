@@ -1,10 +1,11 @@
 import React from "react"
-import { useCurrentRouteData, useParams, Link } from "@tata1mg/router"
+import { useCurrentRouteData, useParams, Link } from "catalyst-core"
 import { getDogApiBaseUrl, getDogImages } from "../../utils/dogApi"
 
 const BreedDetails = () => {
     const params = useParams()
-    const { API_URL, NODE_SERVER_HOSTNAME } = process.env
+    const API_URL = process.env.API_URL
+    const NODE_SERVER_HOSTNAME = process.env.NODE_SERVER_HOSTNAME
     const { data, error, isFetching } = useCurrentRouteData()
 
     if (isFetching) return <div className="container">Loading breed details...</div>

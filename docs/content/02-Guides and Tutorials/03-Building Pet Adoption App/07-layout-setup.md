@@ -17,12 +17,11 @@ Create `src/js/layouts/MainLayout/MainLayout.js`:
 
 ```jsx title="src/js/layouts/MainLayout/MainLayout.js"
 import React from "react";
-import { Outlet } from "@tata1mg/router";
-import loadable from "@loadable/component";
+import { Outlet, split } from "catalyst-core";
 import Header from "../../components/Header/Header";
 
 // Lazy load the Footer component
-const Footer = loadable(() => import("../../components/Footer/Footer"), {
+const Footer = split(() => import("../../components/Footer/Footer"), {
   fallback: <div>Loading footer...</div>,
   ssr: false,
 });
@@ -52,7 +51,7 @@ Create `src/js/components/Header/Header.js`:
 
 ```jsx title="src/js/components/Header/Header.js"
 import React from "react";
-import { Link } from "@tata1mg/router";
+import { Link } from "catalyst-core";
 
 const Header = () => {
   return (

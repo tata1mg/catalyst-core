@@ -1,6 +1,11 @@
 "use strict"
 
-const { makeProjectHelpers, findCatalystRoot } = require("../lib/helpers")
+const {
+    makeProjectHelpers,
+    findCatalystRoot,
+    catalystGeneration,
+    VITE_RUNTIME_VERSION,
+} = require("../lib/helpers")
 
 let _db
 
@@ -18,7 +23,7 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: "catalyst start",
             label: "Start dev server",
-            detail: "Starts webpack-dev-server + SSR Node server on NODE_SERVER_PORT. Hot reload enabled.",
+            detail: "Starts the Vite middleware-mode development server and Catalyst SSR server on NODE_SERVER_PORT. Hot reload and React Fast Refresh are enabled.",
         },
         {
             step: 2,
@@ -33,7 +38,7 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: "catalyst build",
             label: "Production build",
-            detail: "Runs webpack in production mode. Outputs to build/ (or OUTPUT_PATH from config). Includes SSR bundle + client chunks.",
+            detail: "Runs parallel Vite client and SSR builds. Outputs client assets to build/client, the renderer to build/server, Vite manifests under build/.vite, and offline runtime files at the build root.",
         },
         {
             step: 2,
@@ -48,7 +53,7 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: "catalyst build",
             label: "Build",
-            detail: "Production webpack build. Set BUILD_ENV=production in env or config.",
+            detail: "Production Vite client and SSR build. Set BUILD_ENV=production in env or config.",
         },
         {
             step: 2,
@@ -69,7 +74,7 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: "catalyst build",
             label: "Build",
-            detail: "Same webpack build — staging is config-only, not a different build target.",
+            detail: "Same Vite build — staging is config-only, not a different build target.",
         },
         {
             step: 2,
@@ -94,7 +99,7 @@ const MASTER_FLOWS = {
         },
         {
             step: 3,
-            cmd: "npm run build:android",
+            cmd: "npm run buildApp:android",
             label: "Android debug build",
             detail: "Runs buildAppAndroid.js: validates ADB + emulator path from sdkPath, launches emulator (emulatorName), copies web assets to androidProject/, runs Gradle debug build, installs APK.",
         },
@@ -123,11 +128,11 @@ const MASTER_FLOWS = {
             step: 3,
             cmd: "catalyst build",
             label: "Build web assets",
-            detail: "Production webpack build. Assets bundled into AAB.",
+            detail: "Production web build. Assets are consumed by the Android release build.",
         },
         {
             step: 4,
-            cmd: "npm run build:android:release",
+            cmd: "npm run buildApp:android",
             label: "Android release build",
             detail: "Skips emulator validation. Runs Gradle release build. Calls buildAndroidAAB() — renames project, creates/verifies keystore, signs AAB. Output goes to ./deployment/.",
         },
@@ -154,7 +159,7 @@ const MASTER_FLOWS = {
         },
         {
             step: 3,
-            cmd: "npm run build:ios",
+            cmd: "npm run buildApp:ios",
             label: "iOS simulator build",
             detail: "Runs buildAppIos.js: generates ConfigConstants.swift from config (bundleId, URL, port, protocol), launches simulator (simulatorName), cleans Xcode artifacts, compiles with xcodebuild, installs .app, launches.",
         },
@@ -176,7 +181,7 @@ const MASTER_FLOWS = {
         { step: 2, cmd: "catalyst build", label: "Build web assets", detail: "Production build." },
         {
             step: 3,
-            cmd: "npm run build:ios",
+            cmd: "npm run buildApp:ios",
             label: "iOS release build",
             detail: "Same script — build type is driven by WEBVIEW_CONFIG.ios.buildType. Generates ConfigConstants.swift with production URL and bundleId. Xcode compiles Release scheme.",
         },
@@ -194,6 +199,47 @@ const MASTER_FLOWS = {
         },
     ],
 }
+
+const LEGACY_WEB_FLOWS = {
+    web_dev: [
+        {
+            step: 1,
+            cmd: "catalyst start",
+            label: "Start legacy dev server",
+            detail: "Starts the Catalyst 0.2.x webpack development and SSR servers with hot reload.",
+        },
+        {
+            step: 2,
+            cmd: null,
+            label: "Browser / WebView loads",
+            detail: "The browser or native WebView loads the configured development origin.",
+        },
+    ],
+    web_build: [
+        {
+            step: 1,
+            cmd: "catalyst build",
+            label: "Legacy production build",
+            detail: "Runs the Catalyst 0.2.x webpack build, including loadable metadata and SSR output.",
+        },
+        {
+            step: 2,
+            cmd: "catalyst serve",
+            label: "Serve legacy build",
+            detail: "Serves the webpack-era production output for smoke testing.",
+        },
+    ],
+    web_prod: null,
+    web_staging: null,
+}
+LEGACY_WEB_FLOWS.web_prod = MASTER_FLOWS.web_prod.map((step) => ({
+    ...step,
+    detail: step.detail.replace("Vite client and SSR", "legacy webpack"),
+}))
+LEGACY_WEB_FLOWS.web_staging = MASTER_FLOWS.web_staging.map((step) => ({
+    ...step,
+    detail: step.detail.replace("Vite", "legacy webpack"),
+}))
 
 // ─── Architecture diagrams ───────────────────────────────────────────────────
 
@@ -293,18 +339,18 @@ const MASTER_DIAGRAMS = {
         layers: [
             {
                 layer: "web",
-                label: "Webpack (catalyst build)",
-                detail: "Produces: build/public/ (client chunks), build/server.js (SSR bundle). Loadable-stats.json for code-splitting.",
+                label: "Vite (catalyst build)",
+                detail: "Runs client and SSR builds in parallel. Produces build/client, build/server, Vite manifests, categorized assets, and root offline runtime files.",
             },
             {
                 layer: "prepare",
                 label: "catalyst-core prepare",
-                detail: "Compiles catalyst-core/src/ → dist/ via Babel. Copies src/native/ → dist/native/ (androidProject, iosnativeWebView, assets). This is the framework build, not the app build.",
+                detail: "Copies the ESM web runtime into dist and Babel-compiles native/CommonJS compatibility outputs. Package metadata, bin, and dist form one package contract.",
             },
             {
                 layer: "copy",
                 label: "Dev copy workflow",
-                detail: "After prepare: copy catalyst-core/dist/ → test-app/node_modules/catalyst-core/. Also copy package.json (required for Node 20 exports map — ERR_PACKAGE_PATH_NOT_EXPORTED fix).",
+                detail: "After prepare, copy dist, bin, and package.json together. Copying only dist creates a mixed package with incompatible exports and CLI code.",
             },
             {
                 layer: "native",
@@ -316,12 +362,11 @@ const MASTER_DIAGRAMS = {
             "[Framework dev] Edit catalyst-core/src/",
             "→ npm run prepare (in catalyst-core)",
             "→ dist/ updated",
-            "→ Copy dist/ → test-app/node_modules/catalyst-core/",
-            "→ Copy package.json → test-app/node_modules/catalyst-core/package.json",
+            "→ Replace test-app node_modules/catalyst-core dist + bin + package.json together",
             "",
             "[App build] In app project root:",
-            "→ catalyst build  (webpack, outputs build/)",
-            "→ npm run build:android / build:ios",
+            "→ catalyst build (Vite client + SSR output)",
+            "→ npm run buildApp:android / buildApp:ios",
             "→ native build script reads WEBVIEW_CONFIG from config/config.json",
             "→ copies build/ assets into native project",
             "→ compiles native project (Gradle / xcodebuild)",
@@ -405,6 +450,33 @@ const MASTER_DIAGRAMS = {
     },
 }
 
+const LEGACY_BUILD_PIPELINE = {
+    title: "Legacy Build Pipeline (Catalyst 0.2.x)",
+    description: "The webpack-era Catalyst build and native consumption flow.",
+    layers: [
+        {
+            layer: "web",
+            label: "Webpack",
+            detail: "Produces webpack client chunks, SSR output, and @loadable/component metadata.",
+        },
+        {
+            layer: "prepare",
+            label: "Babel prepare",
+            detail: "Compiles catalyst-core source into the legacy dist package.",
+        },
+        {
+            layer: "native",
+            label: "Native build",
+            detail: "buildApp:android and buildApp:ios consume the prepared web and native assets.",
+        },
+    ],
+    flow: [
+        "catalyst build (webpack)",
+        "→ catalyst serve for production-style validation",
+        "→ npm run buildApp:android or npm run buildApp:ios",
+    ],
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getProjectContext(root) {
@@ -464,6 +536,14 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
     }
 
     const ctx = getProjectContext(catalystRoot.dir)
+    const installedVersion = catalystRoot.installedVersion || catalystRoot.catalystVersion
+    const generation = catalystGeneration(installedVersion)
+    if (generation === "unknown") {
+        return {
+            error: "catalyst_version_required",
+            message: `Unable to determine whether this project targets legacy 0.2.x or current ${VITE_RUNTIME_VERSION}+. Confirm the target version before applying build guidance.`,
+        }
+    }
     const p = (platform || "web").toLowerCase()
     const m = (mode || "dev").toLowerCase() // dev | build | production | staging | release
 
@@ -578,7 +658,11 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
         mode: flow_key,
         project_root: catalystRoot.dir,
         catalyst_version: catalystRoot.catalystVersion,
-        steps: MASTER_FLOWS[flow_key],
+        catalyst_generation: generation,
+        steps:
+            generation === "legacy" && LEGACY_WEB_FLOWS[flow_key]
+                ? LEGACY_WEB_FLOWS[flow_key]
+                : MASTER_FLOWS[flow_key],
         project_config: notes,
         warnings: warnings.length ? warnings : undefined,
         related_errors: related_errors.length ? related_errors : undefined,
@@ -594,6 +678,7 @@ function handle_get_architecture_diagram({ feature, symptom } = {}) {
     }
 
     const ctx = getProjectContext(catalystRoot.dir)
+    const generation = catalystGeneration(catalystRoot.installedVersion || catalystRoot.catalystVersion)
 
     // Match feature to a diagram key
     const f = (feature || "").toLowerCase()
@@ -625,7 +710,17 @@ function handle_get_architecture_diagram({ feature, symptom } = {}) {
         }
     }
 
-    const diagram = MASTER_DIAGRAMS[diagram_key]
+    if (diagram_key === "build_pipeline" && generation === "unknown") {
+        return {
+            error: "catalyst_version_required",
+            message: `Build architecture differs between legacy 0.2.x and current ${VITE_RUNTIME_VERSION}+. Confirm the target Catalyst version.`,
+        }
+    }
+
+    const diagram =
+        diagram_key === "build_pipeline" && generation === "legacy"
+            ? LEGACY_BUILD_PIPELINE
+            : MASTER_DIAGRAMS[diagram_key]
 
     // ── Annotate with project-specific context ────────────────────────────────
     const project_context = []
@@ -671,6 +766,7 @@ function handle_get_architecture_diagram({ feature, symptom } = {}) {
 
     return {
         feature,
+        catalyst_generation: generation,
         matched_diagram: diagram_key,
         title: diagram.title,
         description: diagram.description,

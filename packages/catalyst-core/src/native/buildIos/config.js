@@ -222,6 +222,12 @@ public enum ConfigConstants {
                 addedKeys.add("googleSignIn")
             }
 
+            if (!addedKeys.has("profiler")) {
+                configContent +=
+                    "\n    public enum Profiler {\n        public static let enabled = false\n    }"
+                addedKeys.add("profiler")
+            }
+
             if (!addedKeys.has("edgeToEdge")) {
                 progress.log("EdgeToEdge not found in config, adding default (false)", "info")
                 configContent +=

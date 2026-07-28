@@ -29,7 +29,6 @@ if [ -z "$CORE_TARBALL" ] || [ ! -f "$CORE_TARBALL" ]; then
 fi
 
 cd "$FIXTURE_DIR"
-npm install
 npm install --no-save --package-lock=false "$CORE_TARBALL"
 
 # Run fixture app checks

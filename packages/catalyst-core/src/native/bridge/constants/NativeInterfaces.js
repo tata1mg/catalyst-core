@@ -132,6 +132,9 @@ export const NATIVE_CALLBACKS = {
     ON_AI_ERROR: "ON_AI_ERROR",
     ON_AI_PROGRESS: "ON_AI_PROGRESS",
     ON_AI_LOG: "ON_AI_LOG",
+
+    // Perf telemetry callbacks (native → web)
+    CATALYST_PERF_EVENT: "CATALYST_PERF_EVENT",
 }
 
 // Interface Categories for easier management

@@ -386,6 +386,19 @@ final class BridgeMessageValidatorTests: XCTestCase {
         XCTAssertEqual(result.command, "openCamera")
     }
 
+    func testTraceExportAvailabilityRequiresDebugProfiler() {
+        XCTAssertTrue(CatalystConstants.Bridge.isTraceExportEnabled(debugBuild: true, profilerEnabled: true))
+        XCTAssertFalse(CatalystConstants.Bridge.isTraceExportEnabled(debugBuild: false, profilerEnabled: true))
+        XCTAssertFalse(CatalystConstants.Bridge.isTraceExportEnabled(debugBuild: true, profilerEnabled: false))
+    }
+
+    func testTraceExportAllowlistMatchesAvailabilityGate() {
+        XCTAssertEqual(
+            CatalystConstants.Bridge.validCommands.contains("exportCatalystTrace"),
+            CatalystConstants.Bridge.isTraceExportEnabled()
+        )
+    }
+
     // ========================================
     // MARK: - Helper Methods
     // ========================================

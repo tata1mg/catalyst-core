@@ -1,5 +1,5 @@
 import React from "react"
-import { Outlet } from "@tata1mg/router"
+import { Outlet } from "catalyst-core"
 
 const App = () => {
     return (

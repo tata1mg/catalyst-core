@@ -11,17 +11,20 @@
             "field: API_URL must be present"
         ],
         "fix_guide": "Create config/config.json with: { NODE_SERVER_PORT: 3000, API_URL: 'https://api.example.com', CLIENT_ENV_KEYS: [], PUBLIC_STATIC_ASSET_URL: '', WEBVIEW_CONFIG: { port: 3000, accessControl: { enabled: true, allowedUrls: [] } } }",
-        "verify_hint": "Run `npm run devServe`. Server should start without 'Cannot find module config' or 'missing required field' errors. Check terminal output — catalyst-core logs the config it loaded at boot.",
+        "verify_hint": "Run `npm run start` on Catalyst 0.3.x, or `npm run devServe` on legacy 0.2.x. The server should start without config errors.",
         "depends_on": []
     },
     {
         "id": "T2_ROUTER_DEP",
         "tier": 1,
-        "title": "@tata1mg/router installed in package.json",
+        "title": "Router dependency matches the Catalyst runtime generation",
         "detect_pattern": "package_json_dep",
-        "how_to_check": ["package.json dependencies or devDependencies must include @tata1mg/router"],
-        "fix_guide": "Run: npm install @tata1mg/router. Then replace all react-router-dom imports with @tata1mg/router. Replace BrowserRouter/Routes/Route setup with RouterDataProvider + routes array in src/js/routes/index.js.",
-        "verify_hint": "Run `npm run devServe`. No 'Cannot resolve @tata1mg/router' errors in build output. If react-router-dom was the previous router, confirm no leftover BrowserRouter/Routes imports remain — they will conflict.",
+        "how_to_check": [
+            "Catalyst 0.2.x: package.json includes @tata1mg/router and Catalyst router APIs import from it",
+            "Catalyst 0.3.x+: package.json does not include @tata1mg/router and Catalyst router APIs import from catalyst-core"
+        ],
+        "fix_guide": "Version-specific: for Catalyst 0.2.x install @tata1mg/router and import RouterDataProvider, Outlet, navigation, and data hooks from it. For Catalyst 0.3.x+, remove @tata1mg/router and import those APIs from catalyst-core. Never mix the two router generations.",
+        "verify_hint": "Run the development command for the installed generation. Confirm there are no unresolved router imports, duplicate React-element errors, or blank route outlets.",
         "depends_on": ["T1_CONFIG"]
     },
     {
@@ -34,7 +37,21 @@
             "pattern: file must export an array (export default [ or module.exports = [)"
         ],
         "fix_guide": "Create src/js/routes/index.js: import HomePage from '../pages/Home'; export default [{ path: '/', component: HomePage, exact: true }]. Add one entry per page component. Each component needs serverFetcher/clientFetcher attached (see T4_DATA_FETCHING).",
-        "verify_hint": "Run `npm run devServe` and open the first route in browser (e.g. http://localhost:3000/). Page should render — not a blank screen or 404. Check browser console for 'No routes matched' warnings which mean the route array is empty or paths are wrong.",
+        "verify_hint": "Run `npm run start` on 0.3.x or `npm run devServe` on 0.2.x and open the first route. Check for blank output, 404s, or 'No routes matched' warnings.",
+        "depends_on": ["T2_ROUTER_DEP"]
+    },
+    {
+        "id": "T2b_RUNTIME_DEPS",
+        "tier": 1,
+        "title": "React runtime matches the Catalyst generation",
+        "detect_pattern": "package_json_dep + version_check",
+        "how_to_check": [
+            "Catalyst 0.3.x+: react and react-dom are exactly 19.0.0",
+            "Catalyst 0.3.x+: @tata1mg/router and @loadable/component are absent",
+            "Catalyst 0.2.x: retain the React and loadable versions supported by that release"
+        ],
+        "fix_guide": "For Catalyst 0.3.x+, set react and react-dom to exactly 19.0.0 without ^ or ~, remove @tata1mg/router and @loadable/component, and reinstall so the application and catalyst-core resolve one React runtime. Do not apply these dependency changes to an application staying on 0.2.x.",
+        "verify_hint": "Run npm ls react react-dom. A 0.3.x application should resolve React 19.0.0 without duplicate or invalid runtime copies.",
         "depends_on": ["T2_ROUTER_DEP"]
     },
     {
@@ -51,7 +68,7 @@
             "signal: files with .serverFetcher = or .clientFetcher = (converted pages)",
             "llm judges: is any useEffect+fetch file a page component that needs conversion?"
         ],
-        "fix_guide": "For each page component: 1) Remove useState+useEffect data loading. 2) Attach static function: HomePage.serverFetcher = async ({ params, searchParams }, { store }) => { return await fetchApi(); }. 3) In component body: const data = useCurrentRouteData() from @tata1mg/router. This is a full rewrite of every page's data layer.",
+        "fix_guide": "For each page component: remove initial useEffect data loading, attach serverFetcher/clientFetcher statics, and read route data with useCurrentRouteData(). Import the hook from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+.",
         "verify_hint": "Open a migrated page in browser. Open DevTools Network tab — on first load there should be NO XHR/fetch calls for page data (data arrives server-rendered in HTML). View Page Source and confirm the page content (not just a loading skeleton) is present in the raw HTML. If content is missing from source, serverFetcher is not attached or not running.",
         "depends_on": ["T3_ROUTES_FILE"]
     },
@@ -64,21 +81,21 @@
             "file: src/js/routes/utils.js must exist",
             "pattern: RouterDataProvider must be imported and used in utils.js"
         ],
-        "fix_guide": "Create src/js/routes/utils.js: import { RouterDataProvider } from '@tata1mg/router'; import routes from './index'; export default function AppRouter() { return <RouterDataProvider routes={routes} />; }. Without this, useCurrentRouteData() returns undefined everywhere.",
+        "fix_guide": "Create src/js/routes/utils.js using the CCA preparedRoutes pattern. Import RouterDataProvider and MetaTag from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+. Wrap App and pass routerInitialState plus fetcherArgs when a store is used.",
         "verify_hint": "In a page component that uses useCurrentRouteData(), console.log the return value. It should be the data object returned by serverFetcher — not undefined. If undefined, RouterDataProvider is not wrapping the tree or the route entry is missing the component reference.",
         "depends_on": ["T3_ROUTES_FILE"]
     },
     {
         "id": "T6_APP_SHELL",
         "tier": 1,
-        "title": "App shell renders <Outlet /> from @tata1mg/router",
+        "title": "App shell renders the generation-appropriate <Outlet />",
         "detect_pattern": "file_exists + code_pattern",
         "how_to_check": [
             "file: src/js/containers/App/index.js must exist",
-            "pattern: Outlet must be imported from @tata1mg/router",
+            "pattern: Outlet comes from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+",
             "pattern: <Outlet /> must be rendered in the component"
         ],
-        "fix_guide": "In src/js/containers/App/index.js: import { Outlet } from '@tata1mg/router'. Render <Outlet /> where route content should appear (replacing any <Switch> or <Routes> block). Keep global layout (nav, footer) around it.",
+        "fix_guide": "Render <Outlet /> where route content belongs. Import it from @tata1mg/router on Catalyst 0.2.x or catalyst-core on 0.3.x+. Keep global layout around the outlet.",
         "verify_hint": "Open the app in browser. Global layout (header, footer, nav) should appear on every page. The area where page content changes should not be blank. If page content area is empty, <Outlet /> is missing or placed incorrectly in the App shell.",
         "depends_on": ["T5_ROUTER_DATA_PROVIDER"]
     },
@@ -92,8 +109,8 @@
             "file: server/server.js must exist",
             "file: server/document.js must exist"
         ],
-        "fix_guide": "Create all 3 files: (1) server/index.js — export default { preServerInit: async () => {}, onRouteMatch: async (req, res) => {}, onServerError: (err) => {} }. (2) server/server.js — export const addMiddlewares = (app) => { /* add express middleware here */ }. (3) server/document.js — export default ({ html, head, scripts }) => `<!DOCTYPE html><html><head>${head}</head><body><div id='root'>${html}</div>${scripts}</body></html>`.",
-        "verify_hint": "Run `npm run devServe`. Server must start without 'Cannot find module ./server/index' errors. Hit http://localhost:3000/ — the response HTML should contain your document.js shell structure (check View Source). A blank body or missing <div id='root'> means document.js is not returning valid HTML.",
+        "fix_guide": "Create server/index.js, server/server.js, and server/document.js using the template for the installed generation. On 0.3.x these are ESM: server/index.js exports preServerInit, server/server.js exports addMiddlewares(app), and server/document.js exports a React document that renders Head and Body from catalyst-core. Preserve the legacy 0.2.x server contract when not upgrading.",
+        "verify_hint": "Run the generation-appropriate development command and inspect View Source. The response must contain the document shell and rendered application root.",
         "depends_on": ["T1_CONFIG"]
     },
     {
@@ -108,9 +125,10 @@
             "pattern: client/index.js must call WebBridge.init()",
             "pattern: client/index.js must use hydrateRoot from 'react-dom/client' (not ReactDOM.render or hydrate)",
             "pattern: client/index.js must import clientRouter from 'catalyst-core/router/ClientRouter'",
-            "pattern: client/index.js must wrap app in RouterProvider from '@tata1mg/router'"
+            "pattern: RouterProvider comes from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+",
+            "pattern: 0.2.x waits for loadableReady; 0.3.x+ waits for hydrationReady"
         ],
-        "fix_guide": "Create client/index.js:\nimport React from 'react';\nimport './styles';\nimport { hydrateRoot } from 'react-dom/client';\nimport { loadableReady } from '@loadable/component';\nimport { Provider } from 'react-redux';\nimport { RouterProvider } from '@tata1mg/router';\nimport { HelmetProvider } from 'react-helmet-async';\nimport clientRouter from 'catalyst-core/router/ClientRouter';\nimport WebBridge from 'catalyst-core/WebBridge';\nimport configureStore from '@store';\n\nwindow.addEventListener('load', () => {\n  loadableReady(() => {\n    const { __ROUTER_INITIAL_DATA__: routerInitialData, __INITIAL_STATE__ } = window;\n    const store = configureStore(__INITIAL_STATE__ || {});\n    const router = clientRouter({ store, routerInitialState: routerInitialData });\n    const Application = (\n      <Provider store={store} serverState={__INITIAL_STATE__}>\n        <HelmetProvider>\n          <React.StrictMode>\n            <RouterProvider router={router} />\n          </React.StrictMode>\n        </HelmetProvider>\n      </Provider>\n    );\n    WebBridge.init();\n    const container = document.getElementById('app');\n    hydrateRoot(container, Application);\n  });\n});\n\nCreate client/styles.js: import '../src/styles/global.css' (adjust path to your global stylesheet).\n\nCRITICAL: WebBridge.init() must be called before hydrateRoot — it registers native bridge event handlers. Missing this call means no JS-to-native communication (postMessage, camera, file picker, haptics all break silently on device).",
+        "fix_guide": "Use hydrateRoot and initialize WebBridge before hydration. On 0.2.x, import RouterProvider from @tata1mg/router and wait for loadableReady from @loadable/component. On 0.3.x+, import RouterProvider and hydrationReady from catalyst-core, then call hydrationReady().then(() => hydrateRoot(...)). Do not retain @loadable/component in the Vite runtime.",
         "verify_hint": "Open the app in browser. Open DevTools Console — there should be no 'hydrateRoot' mismatch warnings (if there are, server HTML and client render differ). Open DevTools Elements — the #app or #root div should have React content inside it (not empty). Click an interactive element — if nothing responds, hydration failed. Also confirm global styles are applied (CSS loads).",
         "depends_on": ["T6_APP_SHELL"]
     },
@@ -127,8 +145,8 @@
             "package.json scripts must include: setupEmulator:ios",
             "package.json scripts must include: setupEmulator:android"
         ],
-        "fix_guide": "Add to package.json scripts:\n\"devBuild\": \"catalyst devBuild\",\n\"devServe\": \"catalyst devServe\",\n\"buildApp\": \"catalyst buildApp\",\n\"buildApp:ios\": \"catalyst buildApp:ios\",\n\"buildApp:android\": \"catalyst buildApp:android\",\n\"setupEmulator\": \"catalyst setupEmulator\",\n\"setupEmulator:ios\": \"catalyst setupEmulator:ios\",\n\"setupEmulator:android\": \"catalyst setupEmulator:android\"\n\nThese scripts are required to run native builds and launch emulators. Without them, 'npm run buildApp:android' and MCP build flow commands will fail with 'missing script' errors.",
-        "verify_hint": "Run `npm run devBuild` — should start webpack compilation without 'missing script' error. Run `npm run devServe` — server should start on NODE_SERVER_PORT. Both commands should be found by npm, not fail with 'ERR_INVALID_ARG_TYPE' or 'script not found'.",
+        "fix_guide": "Add buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android scripts. Legacy 0.2.x may also expose devBuild/devServe. Current 0.3.x removes those commands: use catalyst start for development and catalyst build followed by catalyst serve for production validation.",
+        "verify_hint": "Run `npm run start`, then verify the required platform command resolves. On 0.3.x, devBuild/devServe should not be present.",
         "depends_on": ["T1_CONFIG"]
     },
     {

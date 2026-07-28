@@ -1,4 +1,7 @@
 **/node_modules/
+**/build/**
+**/.build/**
+packages/catalyst-core/dist/
 
 # Docs generated output and migrated content/static assets
 docs/.docusaurus/

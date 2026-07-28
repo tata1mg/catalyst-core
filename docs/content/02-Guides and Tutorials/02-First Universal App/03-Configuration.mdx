@@ -220,6 +220,26 @@ Omitting `duration` on iOS auto-dismisses when WebView loads.
 
 ---
 
+## Performance Profiler
+
+Enable the Catalyst Profiler for a debug build:
+
+```json title="config/config.json"
+{
+  "WEBVIEW_CONFIG": {
+    "profiler": {
+      "enabled": true
+    }
+  }
+}
+```
+
+Use [Performance Profiling](/content/Core%20Concepts/performance-profiling) for the Android Chrome DevTools workflow, iOS trace export, captured signals, and the `window.CatalystPerf` API.
+
+The profiler is disabled by default and only runs in debug builds. Rebuild the native app after changing the setting.
+
+---
+
 ## Whitelisting
 
 Control network access and navigation through URL whitelisting.

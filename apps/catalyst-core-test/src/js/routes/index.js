@@ -1,16 +1,16 @@
 import React from "react"
-import loadable from "@loadable/component"
+import { split } from "catalyst-core"
 import MainLayout from "../layouts/MainLayout/MainLayout"
 
-const Home = loadable(() => import("../pages/Home/Home"), {
+const Home = split(() => import("../pages/Home/Home"), {
     ssr: true,
 })
 
-const BreedDetails = loadable(() => import("../pages/BreedDetails/BreedDetails"), {
+const BreedDetails = split(() => import("../pages/BreedDetails/BreedDetails"), {
     ssr: true,
 })
 
-const About = loadable(() => import("../pages/About/About"), {
+const About = split(() => import("../pages/About/About"), {
     ssr: false,
     fallback: <div>Loading about page...</div>,
 })
@@ -21,7 +21,6 @@ const routes = [
         component: MainLayout,
         children: [
             {
-                path: "",
                 index: true,
                 component: Home,
             },

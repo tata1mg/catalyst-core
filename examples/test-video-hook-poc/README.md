@@ -43,7 +43,7 @@ npm install
 
 ### 3. Sync local catalyst-core build
 
-This step builds catalyst-core from source and injects it into this app's `node_modules` — replacing the npm-installed version with your local changes.
+This step builds and installs a local catalyst-core package, including its dependency graph, without changing this app's manifest or lockfile.
 
 ```bash
 npm run sync-core
@@ -52,9 +52,8 @@ npm run sync-core
 What it does:
 
 1. Clears `packages/catalyst-core/dist` (removes stale build)
-2. Clears `node_modules/catalyst-core` (removes stale installed copy)
-3. Builds catalyst-core fresh
-4. Copies the full package into `node_modules/catalyst-core`
+2. Builds catalyst-core fresh
+3. Packs and installs the local package into `node_modules/catalyst-core`
 
 Run this every time you make changes to catalyst-core.
 
@@ -98,7 +97,7 @@ Test in emulator/simulator
 To test against a published npm version instead of local source, change the version in `package.json`:
 
 ```json
-"catalyst-core": "0.1.0-canary.7"
+"catalyst-core": "0.2.0-beta.3"
 ```
 
 Then run `npm install` (skip `sync-core`).

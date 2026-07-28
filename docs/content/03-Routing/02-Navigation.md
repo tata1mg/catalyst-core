@@ -7,6 +7,9 @@ sidebar_position: 2
 
 # Navigation
 
+The examples use the integrated router in Catalyst `0.3.x`. For `0.2.x`, keep the equivalent imports
+from `@tata1mg/router` until upgrading.
+
 Catalyst uses [React Router v6](https://reactrouter.com/en/main) for navigation. You can navigate using the `Link` component, `useNavigate` hook, or within fetcher functions.
 
 ---
@@ -16,7 +19,7 @@ Catalyst uses [React Router v6](https://reactrouter.com/en/main) for navigation.
 Use `Link` for declarative navigation:
 
 ```jsx
-import { Link } from "@tata1mg/router";
+import { Link } from "catalyst-core";
 
 function Navigation() {
   return (
@@ -36,7 +39,7 @@ function Navigation() {
 Use `useNavigate` for programmatic navigation:
 
 ```jsx
-import { useNavigate } from "@tata1mg/router";
+import { useNavigate } from "catalyst-core";
 
 function LoginButton() {
   const navigate = useNavigate();

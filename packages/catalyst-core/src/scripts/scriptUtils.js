@@ -1,9 +1,8 @@
-const fs = require("fs")
-const path = require("path")
-const util = require("node:util")
-const { spawnSync } = require("child_process")
-const { gray, cyan } = require("picocolors")
-const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+import fs from "fs"
+import path from "path"
+import util from "node:util"
+import pkg from "picocolors"
+const { gray, cyan } = pkg
 
 // Function to get file size synchronously
 function getFileSizeSync(filePath) {
@@ -18,13 +17,13 @@ function getFileSizeSync(filePath) {
 
 export const printBundleInformation = () => {
     let bundleList = []
-    const directoryPath = path.join(process.cwd(), `${BUILD_OUTPUT_PATH}/public`)
+    const directoryPath = path.join(process.env.src_path, `build/public`)
 
     try {
         const files = fs.readdirSync(directoryPath)
         files.forEach((file) => {
             if (!file.includes("txt") && !file.includes("json")) {
-                const filePath = `${directoryPath}${path.sep}${file}`
+                const filePath = path.join(directoryPath, file)
                 const fileSize = getFileSizeSync(filePath)
                 if (fileSize !== null) {
                     bundleList.push({ file, fileSize })
@@ -37,7 +36,7 @@ export const printBundleInformation = () => {
 
     bundleList.sort((a, b) => b.fileSize - a.fileSize)
     bundleList.forEach(({ file, fileSize }) => {
-        const fileName = `${gray(`${BUILD_OUTPUT_PATH}/public/`)}${cyan(file)}`
+        const fileName = `${gray(`build/public/`)}${cyan(file)}`
         const fileSizeInKb = (fileSize / 1024).toFixed(2)
         const size = `\t${fileSizeInKb} kB`.padEnd(16)
 
@@ -52,45 +51,4 @@ export function arrayToObject(array) {
         if (value) obj[key] = value
     })
     return obj
-}
-
-const BUILD_FAILURE_MESSAGE = "\nBuild Failed!"
-
-function shouldFailBuild(result) {
-    return result.error || result.signal || (result.status !== null && result.status !== 0)
-}
-
-function logBuildFailure(result, failureMessage = BUILD_FAILURE_MESSAGE) {
-    console.error(failureMessage)
-
-    if (result.error) {
-        console.error(`Error: ${result.error?.message || result.error}\n`)
-    }
-
-    if (result.signal) {
-        console.error(`Signal: ${result.signal}\n`)
-    }
-
-    if (result.status !== null) {
-        console.error(`Exit code: ${result.status}\n`)
-    }
-}
-
-export const runBuildCommands = ({ commands, cwd, env, failureMessage = BUILD_FAILURE_MESSAGE }) => {
-    const command = commands.join(" && ")
-
-    // nosemgrep
-    const result = spawnSync(command, [], {
-        cwd,
-        stdio: "inherit",
-        shell: true,
-        env,
-    })
-
-    if (shouldFailBuild(result)) {
-        logBuildFailure(result, failureMessage)
-        process.exit(result.status || 1)
-    }
-
-    return result
 }

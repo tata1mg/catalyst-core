@@ -1,15 +1,5 @@
 **/node_modules
 dist
-webpack
-router
-scripts
-server
-types
-
-caching.js
-router.js
-logger.js
-index.js
 loadable-stats.json
 
 logs

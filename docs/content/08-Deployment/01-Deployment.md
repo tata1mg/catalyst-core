@@ -16,12 +16,18 @@ Use this flow to deploy a Catalyst web app consisting of the SSR server and the 
 
 ## Build Output
 
-Catalyst produces:
+Catalyst `0.3.x` produces:
 
-- client assets under `build/public/`
-- the server bundle under `build/server.js`
+- client assets under `build/client/`
+- the server renderer under `build/server/`
+- Vite client and SSR manifests under `build/.vite/`
+- `catalyst-offline-manifest.json` and `catalyst-sw.js` at the build root
 
-If you use code splitting, Catalyst also emits the stats needed to resolve route chunks correctly at runtime.
+The Vite manifests and Catalyst asset metadata resolve route chunks and CSS during SSR.
+
+Legacy Catalyst `0.2.x` applications retain their webpack output layout, including
+`build/public/` and loadable metadata. Do not change deployment paths until the application is
+upgraded to `0.3.x`.
 
 ## Required Configuration
 
