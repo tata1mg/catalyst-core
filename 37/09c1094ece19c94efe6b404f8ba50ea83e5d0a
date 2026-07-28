@@ -1,0 +1,27 @@
+examples/useai/package.json
+  s_86b74f01bfbd31::t_f6a5159c4ffdf8 32,38-40,44-45
+  s_86b74f01bfbd31::t_876e86824fbf1f 34
+examples/useai/src/static/css/base/index.scss
+  s_86b74f01bfbd31::t_c264d2e1c5ea8a 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "3709c1094ece19c94efe6b404f8ba50ea83e5d0a",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_86b74f01bfbd31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1cc7e9c-6501-4d06-afe6-5f1c35cbf871",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
