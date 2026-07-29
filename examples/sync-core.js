@@ -59,7 +59,7 @@ try {
     encoding: 'utf8',
   }).trim().split('\n').pop();
   const tarballPath = path.join(packDir, tarballName);
-  execSync(`npm install --no-save --package-lock=false "${tarballPath}"`, {
+  execSync(`npm install --no-save --legacy-peer-deps --package-lock=false "${tarballPath}"`, {
     cwd: EXAMPLE_DIR,
     stdio: 'inherit',
   });
