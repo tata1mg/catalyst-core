@@ -1,6 +1,7 @@
 import fs from "fs"
 import path from "path"
 import React from "react"
+import { Transform } from "node:stream"
 
 import extractAssets, { cacheAndFetchAssets } from "./extract"
 import { withObservability, withSyncObservability } from "../../otel"
@@ -212,17 +213,16 @@ const getComponent = (store, context, req, fetcherData) => {
     )
 }
 
-const tracedResWriteFirstFoldCss = withSyncObservability(
+const tracedTailPushFirstFoldCss = withSyncObservability(
     SSR_SERVICE,
-    (res, chunk) => res.write(chunk),
+    (tail, chunk) => tail.push(chunk),
     "res.write.firstFoldCss"
 )
-const tracedResWriteFirstFoldJS = withSyncObservability(
+const tracedTailPushFirstFoldJS = withSyncObservability(
     SSR_SERVICE,
-    (res, chunk) => res.write(chunk),
+    (tail, chunk) => tail.push(chunk),
     "res.write.firstFoldJS"
 )
-const tracedResEnd = withSyncObservability(SSR_SERVICE, (res) => res.end(), "res.end")
 
 const renderMarkUp = async (
     errorCode,
@@ -294,26 +294,41 @@ const renderMarkUp = async (
         res.status(status)
 
         return new Promise((resolve, reject) => {
+            // Single completion path: React's pipe() auto-ends `tail`, and `flush()`
+            // appends the first-fold CSS/JS before that end signal propagates to `res`
+            // via the plain pipe below. This avoids the onShellReady/onAllReady race
+            // where React's own stream-end and a manual res.end() compete to close
+            // `res` (whichever lost was silently dropped, truncating the response).
+            const tail = new Transform({
+                transform(chunk, _enc, cb) {
+                    cb(null, chunk)
+                },
+                flush(cb) {
+                    // All Suspense boundaries have resolved. Append inline CSS and script
+                    // tags at the end of the stream so the browser can start executing JS.
+                    const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
+                    tracedTailPushFirstFoldCss(this, firstFoldCss)
+                    tracedTailPushFirstFoldJS(this, firstFoldJS)
+                    cb()
+                },
+            })
+            tail.pipe(res)
+
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
                 onShellReady() {
                     // Start streaming the HTML shell (everything above Suspense boundaries)
                     // as soon as it's ready to minimise TTFB.
                     res.setHeader("content-type", "text/html")
-                    pipe(res)
+                    pipe(tail)
                 },
                 onAllReady() {
-                    // All Suspense boundaries have resolved. Append inline CSS and script
-                    // tags at the end of the stream so the browser can start executing JS.
-                    const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
-                    tracedResWriteFirstFoldCss(res, firstFoldCss)
-                    tracedResWriteFirstFoldJS(res, firstFoldJS)
-                    tracedResEnd(res)
                     resolve()
                 },
                 onError(error) {
                     logger.error({ message: `\n Error while renderToPipeableStream : ${error.toString()}` })
                     // function defined by user which needs to run if rendering fails
                     safeCall(onRenderError, { req, res, store, error })
+                    tail.destroy(error)
                     reject(error)
                 },
             })
