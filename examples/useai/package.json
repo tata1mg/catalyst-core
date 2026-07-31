@@ -28,7 +28,6 @@
         "@store": "src/js/store/index.js"
     },
     "dependencies": {
-        "@catalyst/cloud-ai": "0.1.0",
         "@loadable/component": "^5.16.3",
         "@reduxjs/toolkit": "^2.10.1",
         "@tailwindcss/postcss": "^4.1.4",
