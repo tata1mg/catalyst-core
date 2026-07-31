@@ -1,0 +1,36 @@
+examples/useai/package.json
+  s_ab6389172ecdb9::t_746c648a030769 31
+examples/useai/src/js/components/AITest/InferenceSettingsBottomSheet.js
+  s_ab6389172ecdb9::t_675e89fbe71206 120-121,130,132-134,136,153
+examples/useai/src/js/components/AITest/Panel.js
+  s_ab6389172ecdb9::t_d769f738632535 49
+examples/useai/src/js/containers/AITest/AITest.js
+  s_ab6389172ecdb9::t_8244a0242fd550 329,345
+examples/useai/src/js/containers/Home/Home.js
+  s_ab6389172ecdb9::t_e96797cf4f7955 99,316
+examples/useai/src/js/containers/TicTacToe/TicTacToe.js
+  s_ab6389172ecdb9::t_21e75bfb44629c 18-21,24-26,28,30,49,110-111,133-134,154,160,162,277,279
+examples/useai/src/js/pages/HealthRecords/HealthRecords.js
+  s_ab6389172ecdb9::t_3ba7d7c1343cee 216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "d0c1a722d1f70495c76476024a508c97db46f1bd",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_ab6389172ecdb9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e710102-8fb3-4044-b21b-12591b62ccb6",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
