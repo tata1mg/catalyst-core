@@ -15,14 +15,19 @@ export default function TicTacToe() {
     const [provider, setProvider] = useState("openai"); // 'openai' or 'gemini'
     const [gameStatus, setGameStatus] = useState("active"); // 'active' | 'won' | 'lost' | 'draw'
     const [winningLine, setWinningLine] = useState(null);
-    const [stats, setStats] = useState(() => {
+    const [stats, setStats] = useState({ playerWins: 0, aiWins: 0, draws: 0 });
+
+    // Load stats on mount
+    useEffect(() => {
         try {
             const saved = localStorage.getItem("tictactoe_stats");
-            return saved ? JSON.parse(saved) : { playerWins: 0, aiWins: 0, draws: 0 };
+            if (saved) {
+                setStats(JSON.parse(saved));
+            }
         } catch {
-            return { playerWins: 0, aiWins: 0, draws: 0 };
+            // Ignore error
         }
-    });
+    }, []);
 
     // Save stats
     useEffect(() => {
@@ -41,7 +46,7 @@ export default function TicTacToe() {
         systemPrompt: "You are an AI playing Tic Tac Toe. You play to win and block opponents. Keep responses minimal."
     });
 
-    const { generate, loading, error, output, reset, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
+    const { generate, loading, error, output, reset, clearError, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
 
     // Track AI thinking states manually to sync with hook lifecycle
     const [aiThinking, setAiThinking] = useState(false);
@@ -96,12 +101,13 @@ export default function TicTacToe() {
 
     // AI logic
     const triggerAIMove = async (currentBoard) => {
-        setAiThinking(true);
         const emptyIndices = currentBoard
             .map((cell, idx) => cell === null ? idx : null)
             .filter(val => val !== null);
 
         if (emptyIndices.length === 0) return;
+
+        setAiThinking(true);
 
         const promptMsg = `The game is Tic Tac Toe. You are 'O' and the player is 'X'.
 The current board state is represented as a 9-element array (indices 0 to 8):
@@ -124,7 +130,8 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
     // Listen to AI response completion
     const lastOutputRef = useRef("");
     useEffect(() => {
-        if (aiThinking && !loading && !error) {
+        if (aiThinking && !loading && !error && output && output !== lastOutputRef.current) {
+            lastOutputRef.current = output;
             // When loading finishes, evaluate output
             setAiThinking(false);
             
@@ -144,14 +151,15 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                 console.warn(`AI returned invalid or empty cell: "${rawOutput}". Fallback engaged.`);
                 makeFallbackMove(board, emptyIndices);
             }
-        } else if (error) {
+        } else if (aiThinking && error) {
             setAiThinking(false);
             const emptyIndices = board
                 .map((cell, idx) => cell === null ? idx : null)
                 .filter(val => val !== null);
             makeFallbackMove(board, emptyIndices);
+            clearError();
         }
-    }, [loading, error, output]);
+    }, [aiThinking, loading, error, output]);
 
     const executeAIMove = (index) => {
         const nextBoard = [...board];
@@ -266,9 +274,9 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                                                 ? "bg-indigo-500 text-white shadow-md"
                                                 : "text-[var(--text-2)] hover:text-white"
                                         }`}
-                                        title="OpenAI (GPT-4o)"
+                                        title="OpenAI (GPT-4o-mini)"
                                     >
-                                        OpenAI (GPT-4o)
+                                        OpenAI (GPT-4o-mini)
                                     </button>
                                     <button
                                         type="button"

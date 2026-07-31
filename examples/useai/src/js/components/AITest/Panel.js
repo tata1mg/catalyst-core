@@ -46,7 +46,7 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
                 hint: "structured data, body is a markdown table",
             },
             CodeBlock: {
-                attrs: { language: "string" , updateMove : {  pawe : "king/quern" , to : " up/down"}},
+                attrs: { language: "string" },
                 hint: "code or commands, body is raw code",
             },
         }

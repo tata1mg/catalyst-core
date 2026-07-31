@@ -117,6 +117,8 @@ export default function InferenceSettingsBottomSheet({
                                             animate={{ opacity: 1, height: "auto" }}
                                             exit={{ opacity: 0, height: 0 }}
                                             transition={{ type: "spring", stiffness: 220, damping: 26 }}
+                                            role="radiogroup"
+                                            aria-label="Select Browser Model"
                                             className="overflow-hidden flex flex-col gap-2.5 mt-2"
                                         >
                                             <span className="text-[10px] tracking-wider uppercase text-[var(--text-3)] font-bold mb-1">
@@ -125,10 +127,13 @@ export default function InferenceSettingsBottomSheet({
                                             {LOCAL_MODELS.map((model) => {
                                                 const isSelected = selectedLocalModel === model.id;
                                                 return (
-                                                    <div
+                                                    <button
                                                         key={model.id}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={isSelected}
                                                         onClick={() => setSelectedLocalModel(model.id)}
-                                                        className={`relative flex items-center justify-between p-3.5 rounded-xl border cursor-pointer select-none transition duration-150 ${
+                                                        className={`relative flex items-center justify-between p-3.5 rounded-xl border cursor-pointer select-none transition duration-150 w-full text-left ${
                                                             isSelected
                                                                 ? "border-teal-500 bg-teal-500/10 text-white"
                                                                 : "bg-[var(--surface-2)] border-[var(--border)] hover:border-teal-500/30 text-[var(--text-2)] hover:text-white"
@@ -145,7 +150,7 @@ export default function InferenceSettingsBottomSheet({
                                                         <span className="font-mono text-[10px] text-[var(--text-3)]">
                                                             {model.size}
                                                         </span>
-                                                    </div>
+                                                    </button>
                                                 );
                                             })}
                                         </motion.div>

@@ -213,7 +213,7 @@ function insights(state = init, a) {
             {/* Insight cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {labs.map((card, i) => {
-                    const showSkeleton = ch01State === "loading" || (ch01State === "streaming" && i >= 4);
+                    const showSkeleton = ch01State === "loading" || (ch01State === "streaming" && i >= 4) || (ch01State === "error" && i >= 5);
                     const showText = ch01State === "complete" || (ch01State === "streaming" && i < 4) || (ch01State === "error" && i < 5);
                     const showCaret = ch01State === "streaming" && i === 3;
                     const isLocal = ch01State === "error" && i >= 4;

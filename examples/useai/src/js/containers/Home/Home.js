@@ -96,7 +96,7 @@ export default function Home() {
         { name: "HbA1c", value: "5.9%", note: "Prediabetic range", color: "text-red-400", done: true },
         { name: "LDL", value: "142", note: "Above target", color: "text-red-400", done: true },
         { name: "TSH", value: "2.1", note: "In range", color: "text-emerald-400", done: true },
-    ].map(c => ({ ...c, dot: c.done ? (ch05SourceMobile === "local" ? "bg-teal-400" : "bg-indigo-400") : "bg-neutral-600" }));
+    ].map(c => ({ ...c, dot: c.done ? (ch03ModeMobile === "local" ? "bg-teal-400" : "bg-indigo-400") : "bg-neutral-600" }));
 
     // Chapter 6 helper TTFT bars for mobile view
     const ttftBarsMobile = [
@@ -313,7 +313,7 @@ export default function Home() {
                                             onClick={() => setCh03ModeMobile(k)}
                                             className={`flex-1 cursor-pointer font-mono text-[11px] font-semibold py-2 rounded-lg border-0 transition capitalize ${
                                                 active
-                                                    ? "bg-indigo-50 text-white shadow-md"
+                                                    ? "bg-indigo-500 text-white shadow-md"
                                                     : "bg-transparent text-neutral-400"
                                             }`}
                                         >

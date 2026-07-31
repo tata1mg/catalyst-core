@@ -326,7 +326,7 @@ export default function AITest() {
                         genConfig={genConfig}
                         systemPrompt={systemPrompt}
                         sessionMode={localSessionMode}
-                        onResetSession={() => setLocalSessionMode(m => m)}
+                        onResetSession={() => setLocalSessionMode("stateless")}
                     />
                 )}
                 {useNative && (
@@ -342,7 +342,7 @@ export default function AITest() {
                         genConfig={genConfig}
                         systemPrompt={systemPrompt}
                         sessionMode={nativeSessionMode}
-                        onResetSession={() => setNativeSessionMode(m => { return m })}
+                        onResetSession={() => setNativeSessionMode("stateless")}
                     />
                 )}
                 {!useCloud && !useLocal && !useNative && (
