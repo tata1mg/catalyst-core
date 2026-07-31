@@ -1096,7 +1096,7 @@ html[data-shell="app"] {
     /* Below 40 on purpose: the Showcase camera stage overlay sits at 40 and
        must cover the tab bar while streaming. */
     z-index: 30;
-    display: flex;
+    /* Visibility stays in the data-shell rule; display here leaks the nav onto web. */
     background: var(--hub-navbar-background);
     border-top: 1px solid var(--hub-border);
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));

@@ -41,6 +41,14 @@ function readPlainObject(value, fieldName, sourcePath) {
     return value
 }
 
+function readBoolean(value, fieldName, sourcePath, defaultValue = false) {
+    if (value == null) return defaultValue
+    if (typeof value !== "boolean") {
+        throw new Error(`'${fieldName}' must be a boolean in ${sourcePath}`)
+    }
+    return value
+}
+
 function cloneJsonValue(value, fieldName, sourcePath) {
     try {
         return JSON.parse(JSON.stringify(value))
@@ -129,47 +137,6 @@ function readIosDependencies(value, fieldName, sourcePath) {
     })
 }
 
-function readAndroidActivities(value, fieldName, sourcePath) {
-    if (value == null) {
-        return []
-    }
-    if (!Array.isArray(value)) {
-        throw new Error(`'${fieldName}' must be an array in ${sourcePath}`)
-    }
-
-    return value.map((entry, index) => {
-        const entryField = `${fieldName}[${index}]`
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-            throw new Error(`'${entryField}' must be an object in ${sourcePath}`)
-        }
-
-        if (entry.exported != null && typeof entry.exported !== "boolean") {
-            throw new Error(`'${entryField}.exported' must be a boolean in ${sourcePath}`)
-        }
-
-        const processName =
-            entry.process == null
-                ? null
-                : mustBeNonEmptyString(entry.process, `${entryField}.process`, sourcePath)
-        if (processName != null && !/^:?[a-zA-Z_][a-zA-Z0-9_.]*$/.test(processName)) {
-            throw new Error(`'${entryField}.process' is not a valid process name in ${sourcePath}`)
-        }
-
-        const theme =
-            entry.theme == null ? null : mustBeNonEmptyString(entry.theme, `${entryField}.theme`, sourcePath)
-        if (theme != null && !/^@(?:[a-zA-Z0-9_.]+:)?style\/[a-zA-Z0-9_.]+$/.test(theme)) {
-            throw new Error(`'${entryField}.theme' must be a style resource reference in ${sourcePath}`)
-        }
-
-        return {
-            className: mustBeNonEmptyString(entry.className, `${entryField}.className`, sourcePath),
-            exported: entry.exported === true,
-            process: processName,
-            theme,
-        }
-    })
-}
-
 function derivePackageIdentityFromUrl(url, fieldName, sourcePath) {
     const sanitizedUrl = url.replace(/\/+$/, "")
     const packageIdentity = sanitizedUrl
@@ -239,6 +206,11 @@ function parsePluginManifest(pluginDir) {
             ? {
                   // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pluginDir is discovered from the internal plugin root and the child directory is fixed.
                   sourceDir: path.join(pluginDir, "android"),
+                  allowCleartext: readBoolean(
+                      androidConfig.allowCleartext,
+                      "android.allowCleartext",
+                      manifestPath
+                  ),
                   permissions: readStringArray(
                       androidConfig.permissions,
                       "android.permissions",
@@ -250,11 +222,6 @@ function parsePluginManifest(pluginDir) {
                       manifestPath
                   ),
                   className: mustBeNonEmptyString(androidConfig.className, "android.className", manifestPath),
-                  activities: readAndroidActivities(
-                      androidConfig.activities,
-                      "android.activities",
-                      manifestPath
-                  ),
               }
             : null,
         ios: iosConfig

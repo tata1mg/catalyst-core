@@ -38,8 +38,8 @@ const AppHome = () => {
                     >
                         <h2>Try Your Own App</h2>
                         <p>
-                            Load any deployed HTTPS app in an isolated native WebView — no bridges,
-                            no shared state, storage cleared per session.
+                            Scan a QR from <code>npm start</code> or paste a URL — your app runs
+                            here with the full native bridge and its own config applied.
                         </p>
                     </button>
 
@@ -72,9 +72,9 @@ const AppHome = () => {
                 <main className="web-only app-home-main">
                     <h1>Catalyst Companion</h1>
                     <p>
-                        The Companion app lets you preview any deployed HTTPS app in an isolated
-                        native WebView on a real device — scan a QR code, tweak display options, and
-                        see it running in seconds.
+                        The Companion app previews any Catalyst app on a real device — scan the QR
+                        from your dev server and it runs with the full native bridge, using the
+                        config your server provides.
                     </p>
                     <p className="app-home-muted">Coming soon to the App Store and Google Play.</p>
                     <Link to="/content/Introduction/why-catalyst" className="app-home-secondary">

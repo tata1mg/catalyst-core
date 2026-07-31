@@ -11,6 +11,9 @@ public class WebViewModel: ObservableObject {
     @Published public var loadingProgress: Double = 0.0
     @Published public var lastLoadedURL: URL?
     @Published public var isLoadingFromCache: Bool = false
+    @Published public private(set) var rootURL = WebViewModel.configuredStartURL
+    @Published public private(set) var edgeToEdgeEnabled = RuntimeConfig.edgeToEdgeEnabled
+    @Published public private(set) var webViewGeneration = 0
 
     // Safe area insets
     @Published public var safeAreaInsets: SafeAreaInsets = .zero
@@ -24,8 +27,14 @@ public class WebViewModel: ObservableObject {
     private let safeAreaLeftKey = "safe_area_left"
     private let safeAreaCachedKey = "safe_area_cached"
 
-    // Callback for safe area updates (set by NativeBridge)
     public var onSafeAreaUpdate: ((SafeAreaInsets) -> Void)?
+    private var replacementCompletion: (() -> Void)?
+
+    private static var configuredStartURL: String {
+        let initial = ConfigConstants.initial_url
+        guard !initial.isEmpty else { return ConfigConstants.url }
+        return ConfigConstants.url + (initial.hasPrefix("/") ? initial : "/\(initial)")
+    }
 
     public init() {
         // Load cached safe area insets on initialization
@@ -71,6 +80,36 @@ public class WebViewModel: ObservableObject {
         isLoading = false
         loadingProgress = 0
         isLoadingFromCache = false
+    }
+
+    public func replaceWebView(
+        url: String,
+        edgeToEdgeEnabled: Bool,
+        completion: (() -> Void)? = nil
+    ) {
+        rootURL = url
+        self.edgeToEdgeEnabled = edgeToEdgeEnabled
+        canGoBack = false
+        lastLoadedURL = nil
+        navigationHistory.removeAll()
+        isLoading = true
+        loadingProgress = 0
+        replacementCompletion = completion
+        webViewGeneration += 1
+    }
+
+    public func restoreConfiguredWebView(completion: (() -> Void)? = nil) {
+        replaceWebView(
+            url: Self.configuredStartURL,
+            edgeToEdgeEnabled: ConfigConstants.EdgeToEdge.enabled,
+            completion: completion
+        )
+    }
+
+    func didCreateWebView() {
+        calculateSafeAreaInsets()
+        replacementCompletion?()
+        replacementCompletion = nil
     }
 
     // MARK: - Safe Area Methods
@@ -132,7 +171,6 @@ public class WebViewModel: ObservableObject {
     /// Calculate safe area insets from the current window
     /// This should be called after the window is fully laid out
     public func calculateSafeAreaInsets() {
-        let edgeToEdgeEnabled = ConfigConstants.EdgeToEdge.enabled
         let newInsets = SafeAreaUtils.getSafeAreaInsetsFromKeyWindow(edgeToEdgeEnabled: edgeToEdgeEnabled)
 
         #if DEBUG

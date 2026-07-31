@@ -5,7 +5,6 @@
     color: var(--hub-text);
 }
 
-/* Web-only message card. */
 .card {
     background: var(--hub-card-background);
     border: 1px solid var(--hub-border);
@@ -33,7 +32,6 @@
     line-height: 1.5;
 }
 
-/* Grouped rows, settings-app style. */
 .group {
     background: var(--hub-card-background);
     border: 1px solid var(--hub-border);
@@ -42,20 +40,7 @@
     margin-bottom: 16px;
 }
 
-.row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 13px 16px;
-    font-size: 15px;
-
-    & + .row {
-        border-top: 1px solid var(--hub-border);
-    }
-}
-
-/* 16px font so iOS doesn't zoom the viewport on focus. */
+/* Prevent iOS input zoom. */
 .urlInput {
     width: 100%;
     box-sizing: border-box;
@@ -74,62 +59,6 @@
     }
 }
 
-.switch {
-    appearance: none;
-    -webkit-appearance: none;
-    flex-shrink: 0;
-    width: 50px;
-    height: 30px;
-    margin: 0;
-    border: none;
-    border-radius: 999px;
-    background: var(--hub-border);
-    position: relative;
-    cursor: pointer;
-    transition: background 0.2s ease;
-
-    &::after {
-        content: "";
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: #ffffff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-        transition: transform 0.2s ease;
-    }
-
-    &:checked {
-        background: var(--hub-primary);
-
-        &::after {
-            transform: translateX(20px);
-        }
-    }
-}
-
-.colorInput {
-    width: 44px;
-    height: 30px;
-    padding: 0;
-    border: 1px solid var(--hub-border);
-    border-radius: 8px;
-    background: transparent;
-}
-
-.durationInput {
-    width: 90px;
-    padding: 7px 10px;
-    border: 1px solid var(--hub-border);
-    border-radius: 8px;
-    background: var(--hub-background);
-    color: var(--hub-text);
-    font-size: 15px;
-    text-align: right;
-}
-
 .btnPrimary,
 .btn {
     display: block;
@@ -144,6 +73,15 @@
 
     &:active {
         transform: scale(0.99);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: default;
+
+        &:active {
+            transform: none;
+        }
     }
 }
 
@@ -212,6 +150,15 @@
     &:active {
         background: var(--hub-border);
     }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: default;
+
+        &:active {
+            background: none;
+        }
+    }
 }
 
 .recentUrl {
@@ -226,10 +173,6 @@
     line-height: 1;
 }
 
-/* ── Inline camera stage (scan mode) ───────────────────────────────────
-   The stage sits in the normal app-screen flow so the bottom tab bar stays
-   visible and tappable; only the stage box goes transparent for the native
-   camera that renders BEHIND the WebView. */
 .stage {
     position: relative;
     height: 57vh;
@@ -243,24 +186,17 @@
     margin-bottom: 16px;
 }
 
-/* Streaming: the stage itself must not paint, and neither may html/body.
-   Kept as `.scanner` so the :has() selectors below stay the single source of
-   truth for "the camera is live on this page". */
 .scanner {
     background: transparent;
     border-color: transparent;
 }
 
-/* Both html AND body paint --hub-background; both must go transparent or the
-   canvas stays opaque and hides the native camera behind the WebView. */
+/* Reveal the native camera behind the WebView. */
 :global(html):has(.scanner),
 :global(body):has(.scanner) {
     background: transparent !important;
 }
 
-/* With the body transparent, every sibling of the stage would sit on the raw
-   camera feed. These blocks re-assert the app surface so the title bar, hint
-   and toggle stay readable. The bottom tab bar paints its own background. */
 .opaque {
     position: relative;
     z-index: 1;
@@ -273,8 +209,6 @@
     margin: -4px -12px 0;
 }
 
-/* Dim ring drawn INSIDE the stage via inset shadow, so it can never bleed over
-   the title bar, the controls below, or the tab bar. */
 .viewfinder {
     width: min(240px, 62%);
     aspect-ratio: 1;

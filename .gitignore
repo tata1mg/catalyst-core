@@ -8,6 +8,10 @@ examples/*/build/
 examples/*/logs/
 examples/*/package-lock.json
 
+# Catalyst Companion local configuration
+apps/catalyst-companion/config/config.json
+apps/catalyst-companion/google-services.json
+
 # Docs app local config and generated output
 docs/config/config.json
 docs/build/

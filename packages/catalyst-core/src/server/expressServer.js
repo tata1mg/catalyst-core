@@ -162,6 +162,32 @@ function shouldPrintQr(env = process.env, isTTY = process.stdout.isTTY) {
     return Boolean(isTTY)
 }
 
+const PREVIEW_CONFIG_SCHEMA = 1
+
+function readWebviewConfig(srcPath = process.env.src_path) {
+    try {
+        const configPath = path.join(srcPath, "config", "config.json")
+        const { WEBVIEW_CONFIG } = JSON.parse(fs.readFileSync(configPath, "utf8"))
+        return WEBVIEW_CONFIG ?? {}
+    } catch {
+        return {}
+    }
+}
+
+export function buildPreviewConfig(webviewConfig = {}) {
+    const config = { ...webviewConfig }
+    delete config.android
+    delete config.ios
+    return { schema: PREVIEW_CONFIG_SCHEMA, config }
+}
+
+function servePreviewConfig(app) {
+    app.get("/__catalyst/preview-config", (_req, res) => {
+        res.set("Cache-Control", "no-store")
+        res.json(buildPreviewConfig(readWebviewConfig()))
+    })
+}
+
 function serveBuildFile(app, buildPath, urlPath, fileName, headers = {}) {
     app.get(urlPath, (_req, res, next) => {
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fileName is always a hardcoded literal passed at each serveBuildFile call site, never derived from the request.
@@ -185,6 +211,8 @@ async function createServer() {
 
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
+
+    if (!isProduction) servePreviewConfig(app)
 
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)

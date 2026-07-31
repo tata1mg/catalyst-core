@@ -1,5 +1,11 @@
 ## Getting Started
 
+Create your local configuration before running the app:
+
+```bash
+cp config/config_template.json config/config.json
+```
+
 Commence development by initiating the the following commands:
 
 For running the application in development mode, run:

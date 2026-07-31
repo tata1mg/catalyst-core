@@ -8,13 +8,13 @@
     "PUBLIC_STATIC_ASSET_URL": "http://localhost:3005",
     "API_URL": "",
     "ANALYZE_BUNDLE": false,
-    "DOCS_URL": "https://catalyst.1mg.com",
+    "DOCS_URL": "",
     "CLIENT_ENV_VARIABLES": ["API_URL", "DOCS_URL"],
     "WEBVIEW_CONFIG": {
         "LOCAL_IP": "localhost",
         "port": "3005",
         "initial_url": "app",
-        "appInfo": "companion-v0.1.0",
+        "appInfo": "",
         "useHttps": false,
         "profiler": {
             "enabled": false
@@ -26,26 +26,32 @@
             "enabled": false
         },
         "plugins": {
-            "preview": true
+            "companion": true
+        },
+        "googleSignIn": {
+            "enabled": false,
+            "clientId": "",
+            "iosClientId": ""
         },
         "accessControl": {
-            "enabled": true,
-            "allowedUrls": ["http://localhost*", "http://localhost*"]
+            "enabled": false,
+            "allowedUrls": []
         },
         "android": {
             "appName": "Catalyst Companion",
             "packageName": "io.catalyst.companion",
             "buildType": "debug",
-            "cachePattern": "*.css,*.js",
-            "sdkPath": "/Users/mayansharma/Library/Android/sdk",
-            "emulatorName": "android"
+            "cachePattern": "",
+            "sdkPath": "",
+            "emulatorName": ""
         },
         "ios": {
             "appName": "Catalyst Companion",
             "appBundleId": "io.catalyst.companion",
+            "developmentTeam": "",
             "buildType": "Debug",
-            "simulatorName": "iPhone 16",
-            "cachePattern": "*.css,*.js"
+            "simulatorName": "",
+            "cachePattern": ""
         }
     }
 }

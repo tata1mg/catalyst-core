@@ -158,14 +158,21 @@ public enum ConfigConstants {
                     if (key === "ios" || key === "android") continue
                     if (key === "notifications")
                         progress.log(`Processing notifications config: ${JSON.stringify(value)}`, "info")
-                    const generatedValue =
-                        key === "splashScreen" && isPlainObject(value)
-                            ? {
-                                  ...value,
-                                  imageWidth: value.imageWidth || 120,
-                                  imageHeight: value.imageHeight || 120,
-                              }
-                            : value
+                    let generatedValue = value
+                    if (key === "splashScreen" && isPlainObject(value)) {
+                        generatedValue = {
+                            ...value,
+                            imageWidth: value.imageWidth || 120,
+                            imageHeight: value.imageHeight || 120,
+                        }
+                    } else if (key === "googleSignIn" && isPlainObject(value)) {
+                        generatedValue = {
+                            enabled: false,
+                            clientId: "",
+                            iosClientId: "",
+                            ...value,
+                        }
+                    }
                     configContent += "\n" + generateSwiftProperty(key, generatedValue)
                     addedKeys.add(key)
                 }
