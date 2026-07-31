@@ -230,6 +230,7 @@ export function useCloudAI({
                 if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
                 setOutput(outputAccRef.current)
                 setStreaming(false)
+                completed = true
             } catch (err) {
                 if (err.name === "AbortError") return
                 setError(err)

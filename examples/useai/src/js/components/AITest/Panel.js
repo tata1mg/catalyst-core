@@ -66,6 +66,12 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
     }, [run, prompt, generate, mergedGenConfig]);
 
     useEffect(() => {
+        return () => {
+            cancel();
+        };
+    }, [cancel]);
+
+    useEffect(() => {
         if (outputContainerRef.current) {
             outputContainerRef.current.scrollTop = outputContainerRef.current.scrollHeight;
         }

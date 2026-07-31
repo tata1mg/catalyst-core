@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LOCAL_MODELS } from "../../constants/ai";
 
@@ -15,6 +15,15 @@ export default function InferenceSettingsBottomSheet({
     setSelectedLocalModel,
     isNativeAvailable
 }) {
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape") onClose();
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, onClose]);
+
     return (
         <AnimatePresence>
             {isOpen && (
