@@ -22,11 +22,15 @@ function isNativeAIAvailable() {
     return nb && typeof nb.isAIAvailable === "function" && nb.isAIAvailable()
 }
 
-// __CATALYST_PACKAGES__ is only substituted by webpack's DefinePlugin. catalyst-core
-// is externalized (nodeExternals) from the SSR bundle, so on the server this file is
-// require()'d directly by Node — the global never exists there. Fall back to a direct
-// require() attempt (still resolves against the app's real node_modules) in that case.
-const _pkg = (typeof __CATALYST_PACKAGES__ !== "undefined" ? __CATALYST_PACKAGES__.cloudAI : true)
+// __CATALYST_PACKAGES__ is substituted by webpack's DefinePlugin / Vite's `define` in
+// client bundles only. catalyst-core is externalized (nodeExternals) from the SSR
+// bundle, so on the server this file is loaded directly by Node — including via Vite's
+// ssrLoadModule, which executes real ESM with no bundler transform and no `require`
+// shim. useAI() always discards the SSR result anyway (returns emptyHook() when
+// `window` is undefined), so only ever attempt the client-side `require` — a bare
+// `require()` reached during SSR would throw ReferenceError rather than a catchable
+// MODULE_NOT_FOUND, since this package is "type": "module".
+const _pkg = typeof window !== "undefined" && (typeof __CATALYST_PACKAGES__ === "undefined" || __CATALYST_PACKAGES__.cloudAI)
     ? (() => {
         try {
             return require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
@@ -47,7 +51,9 @@ export function useAI(options = {}) {
 
     const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
     const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
-    const nativeResult = _pkg ? _pkg.useNativeAI(options) : emptyHook()
+    const nativeResult = _pkg
+        ? _pkg.useNativeAI({ ...options, enabled: mode === "native" })
+        : emptyHook()
 
     if (typeof window === "undefined") return emptyHook()
 

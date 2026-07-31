@@ -12,7 +12,7 @@
  *   3. Installs a packed local package with its dependency graph
  */
 
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -32,7 +32,7 @@ function rimraf(dir) {
   // Delegates to safe-rimraf.js, which retries on ENOTEMPTY/EBUSY/EPERM — an IDE's
   // file watcher (e.g. auto-importing the Android project under dist/native) can
   // recreate files mid-delete, which plain `rm -rf` and `find -delete` both lose to.
-  execSync(`node "${path.join(REPO_ROOT, 'scripts', 'safe-rimraf.js')}" "${dir}"`, { stdio: 'inherit' }); // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+  execFileSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'safe-rimraf.js'), dir], { stdio: 'inherit' });
 }
 
 // 1. Clear dist

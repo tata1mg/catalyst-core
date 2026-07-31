@@ -1,7 +1,7 @@
 import { defineConfig, transformWithEsbuild } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
-import { builtinModules } from "node:module"
+import { builtinModules, createRequire } from "node:module"
 
 /**
  * Treat all .scss imports as CSS modules (webpack compat).
@@ -180,19 +180,32 @@ export const getClientEnvVariables = () => {
     // Derive AI_PUBLIC_CONFIG: only the browser block from AI_CONFIG, no API keys
     let aiConfig = {}
     try {
-        aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+        const parsedConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+        if (parsedConfig && typeof parsedConfig === "object" && !Array.isArray(parsedConfig)) {
+            aiConfig = parsedConfig
+        } else {
+            console.warn("[catalyst-core] AI_CONFIG must be a JSON object, ignoring it")
+        }
     } catch (e) {
         console.warn(`[catalyst-core] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
     }
     const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
     envVarDefinitions[`process.env.AI_PUBLIC_CONFIG`] = JSON.stringify(JSON.stringify(aiPublicConfig))
 
-    // Detect which @catalyst/* AI packages are installed in the app's node_modules.
+    // Detect which @catalyst/* AI packages are installed for the app, including
+    // hoisted/workspace installs — not just a direct app-local node_modules copy.
     // Results are injected as __CATALYST_PACKAGES__.* literals so dead code
     // referencing missing packages can be branched around at runtime.
-    const appNodeModules = path.resolve(process.env.src_path || process.cwd(), "node_modules")
+    const appRequire = createRequire(path.join(process.env.src_path || process.cwd(), "package.json"))
+    let cloudAIInstalled = false
+    try {
+        appRequire.resolve("@catalyst/cloud-ai")
+        cloudAIInstalled = true
+    } catch {
+        cloudAIInstalled = false
+    }
     envVarDefinitions["__CATALYST_PACKAGES__"] = JSON.stringify({
-        cloudAI: fs.existsSync(path.join(appNodeModules, "@catalyst", "cloud-ai")),
+        cloudAI: cloudAIInstalled,
     })
 
     return envVarDefinitions

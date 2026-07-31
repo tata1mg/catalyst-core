@@ -19,14 +19,15 @@ const { addMiddlewares } = await import(path.join(process.env.src_path, "server/
 function mountAIRouter(app) {
     let cloudAIPath
     try {
-        cloudAIPath = cjsRequire.resolve(
-            path.join(process.env.src_path || process.cwd(), "node_modules/@catalyst/cloud-ai/src/route.js")
-        )
+        cloudAIPath = cjsRequire.resolve("@catalyst/cloud-ai/route", {
+            paths: [process.env.src_path || process.cwd()],
+        })
     } catch (resolveErr) {
         if (resolveErr.code !== "MODULE_NOT_FOUND") {
             console.error("[catalyst-core/ai] Unexpected error resolving @catalyst/cloud-ai:", resolveErr)
+        } else {
+            console.debug("[catalyst-core/ai] @catalyst/cloud-ai not installed — AI routes unavailable")
         }
-        // @catalyst/cloud-ai not installed — AI routes unavailable
         return
     }
 
@@ -34,10 +35,21 @@ function mountAIRouter(app) {
         const aiRouter = cjsRequire(cloudAIPath)
         let aiConfig = {}
         try {
-            aiConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+            const parsedConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+            if (parsedConfig && typeof parsedConfig === "object" && !Array.isArray(parsedConfig)) {
+                aiConfig = parsedConfig
+            } else {
+                console.warn("[catalyst-core/ai] AI_CONFIG must be a JSON object, ignoring it")
+            }
         } catch (e) {
             console.warn(`[catalyst-core/ai] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
         }
+
+        if (aiConfig.enabled === false) {
+            console.log("[catalyst-core/ai] AI_CONFIG.enabled is false, skipping AI router")
+            return
+        }
+
         const aiBasePath = aiConfig.basePath || "/ai"
         console.log(`[catalyst-core/ai] mounting AI router at ${aiBasePath}`)
         app.use(aiBasePath, aiRouter)

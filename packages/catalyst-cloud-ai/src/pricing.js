@@ -1,7 +1,7 @@
 // Hardcoded USD price per 1M tokens. Update manually when providers change pricing.
 const PRICING = {
     "gpt-4o-mini": { input: 0.15, cachedInput: 0.075, output: 0.60 },
-    "gpt-5": { input: 0.625, cachedInput: 0.625, output: 5.00 },
+    "gpt-5": { input: 1.25, cachedInput: 0.125, output: 10.00 },
     "gemini-3.5-flash": { input: 1.50, cachedInput: 0.15, output: 9.00 },
 }
 

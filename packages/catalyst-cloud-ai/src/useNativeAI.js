@@ -25,6 +25,7 @@ export function useNativeAI({
     systemPrompt = "",
     sessionMode = "stateless",
     defaultGenConfig = {},
+    enabled = true,
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
 
@@ -45,6 +46,8 @@ export function useNativeAI({
     const historyRef = useRef([])
 
     useEffect(() => {
+        if (!enabled) return
+
         if (!window.NativeBridge?.initAI) {
             setError(new Error(
                 "[@catalyst/cloud-ai/useNativeAI] window.NativeBridge.initAI not found. " +
@@ -105,7 +108,7 @@ export function useNativeAI({
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_LOG)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_ERROR)
         }
-    }, [])
+    }, [enabled])
 
     const generate = useCallback(
         async ({ messages, genConfig: callGenConfig = {} }) => {
