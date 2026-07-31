@@ -1,0 +1,44 @@
+packages/catalyst-core/src/server/expressServer.js
+  s_2db858c7992682::t_7c40a4ea8b7d9f 23-24,28-29,38-43,47-52
+  s_2db858c7992682::t_7af0d11305a9bc 22
+packages/catalyst-cloud-ai/src/pricing.js
+  s_2db858c7992682::t_20de66ae78dbc3 4
+packages/catalyst-cloud-ai/src/useNativeAI.js
+  s_2db858c7992682::t_c7d994cec64047 49-50
+  s_2db858c7992682::t_8a084ee27ec877 28
+  s_2db858c7992682::t_0da5f9c4eac037 111
+packages/catalyst-core/src/vite/vite.config.js
+  s_2db858c7992682::t_27186f222429e3 183-188,195-196,199-206,208
+  s_2db858c7992682::t_5a7efef763d4df 4
+packages/catalyst-core/src/native/bridge/hooks/useAI.js
+  s_2db858c7992682::t_65064999f87a9c 25
+  s_2db858c7992682::t_7889ef3780486f 54-56
+  s_2db858c7992682::t_3af9c590b5a52a 26-33
+examples/sync-core.js
+  s_2db858c7992682::t_c49b6e10f85f3e 35
+  s_2db858c7992682::t_8c011ffdfef2ab 15
+packages/catalyst-cloud-ai/src/metrics.js
+  s_2db858c7992682::t_ee7c683a7a1540 6
+  s_2db858c7992682::t_d4bed8a41ee913 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "dffe5e72e0c0994cb5bf920077ed1b9aaf2ffd9f",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_2db858c7992682": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53641c65-080e-4ca0-908d-43d156fe031e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
