@@ -2,6 +2,10 @@ const express = require("express")
 
 const router = express.Router()
 
+// Hard ceiling on how long a single /stream request may run upstream — protects
+// against a hung provider connection holding a request open indefinitely.
+const STREAM_TIMEOUT_MS = 120_000
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function getAIConfig() {
@@ -20,6 +24,15 @@ function getProviderConfig(provider) {
     const cfg = getAIConfig()?.providers?.[provider]
     if (!cfg || !cfg.apiKey) return null
     return cfg
+}
+
+// Returns an error string if the request body is invalid, otherwise null.
+function validateRequestBody(req, cfg) {
+    const { messages, model } = req.body ?? {}
+    if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
+    const resolvedModel = model || cfg.defaultModel
+    if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
+    return null
 }
 
 function sseHeaders(res) {
@@ -91,8 +104,8 @@ function normalizeGeminiInteractionUsage(usage, model) {
 
 // ─── OpenAI adapters ─────────────────────────────────────────────────────────
 
-async function openaiStream({ apiKey, model, messages, genConfig, conversationId, res }) {
-    if (conversationId !== undefined) {
+async function openaiStream({ apiKey, model, messages, genConfig, conversationId, stateful, res, signal }) {
+    if (stateful) {
         // stateful: Responses API
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
@@ -110,6 +123,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
+            signal,
         })
         if (!response.ok) throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
 
@@ -162,6 +176,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
+            signal,
         })
         if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`)
 
@@ -197,8 +212,8 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
     res.end()
 }
 
-async function openaiGenerate({ apiKey, model, messages, genConfig, conversationId }) {
-    if (conversationId !== undefined) {
+async function openaiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful }) {
+    if (stateful) {
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
             model,
@@ -260,7 +275,7 @@ function geminiInteractionsSystemInstruction(messages) {
     return sys ? sys.content : undefined
 }
 
-async function geminiStream({ apiKey, model, messages, genConfig, conversationId, stateful, res }) {
+async function geminiStream({ apiKey, model, messages, genConfig, conversationId, stateful, res, signal }) {
     if (stateful) {
         // stateful: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
@@ -283,6 +298,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
+            signal,
         })
         if (!response.ok) throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
 
@@ -333,6 +349,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
+            signal,
         })
         if (!response.ok) throw new Error(`Gemini API error (${response.status}): ${await response.text()}`)
 
@@ -446,17 +463,41 @@ router.post("/:provider/stream", async (req, res) => {
     const cfg = getProviderConfig(provider)
     if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
 
+    const validationError = validateRequestBody(req, cfg)
+    if (validationError) { res.status(400).json({ error: validationError }); return }
+
     const { messages, genConfig = {}, conversationId, model } = req.body
     const stateful = "conversationId" in req.body
     const resolvedModel = model || cfg.defaultModel
 
+    const abortController = new AbortController()
+    const timeout = setTimeout(() => abortController.abort(), STREAM_TIMEOUT_MS)
+    // res "close" fires when the response socket actually closes (client disconnect
+    // or response finished) — req "close" fires as soon as the request body has been
+    // fully read, which for a small JSON POST body happens almost immediately and
+    // would abort the stream before it starts.
+    res.on("close", () => abortController.abort())
+
     sseHeaders(res)
     try {
-        await adapter.stream({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful, res })
+        await adapter.stream({
+            apiKey: cfg.apiKey,
+            model: resolvedModel,
+            messages,
+            genConfig,
+            conversationId,
+            stateful,
+            res,
+            signal: abortController.signal,
+        })
     } catch (err) {
         console.error("[@catalyst/cloud-ai] %s stream error:", provider, err.message)
-        res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`)
-        res.end()
+        if (!res.writableEnded) {
+            res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`)
+            res.end()
+        }
+    } finally {
+        clearTimeout(timeout)
     }
 })
 
@@ -468,6 +509,9 @@ router.post("/:provider/generate", async (req, res) => {
 
     const cfg = getProviderConfig(provider)
     if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
+
+    const validationError = validateRequestBody(req, cfg)
+    if (validationError) { res.status(400).json({ error: validationError }); return }
 
     const { messages, genConfig = {}, conversationId, model } = req.body
     const stateful = "conversationId" in req.body

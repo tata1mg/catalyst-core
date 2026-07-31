@@ -171,8 +171,12 @@ class NativeBridge(
             ) { _, method, args ->
                 val a = args ?: emptyArray()
                 when (method.name) {
-                    "onReady" -> BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_AI_READY,
-                        """{"url":"${a[0]}","port":${a[1]},"sessionId":"${a[2]}"}""")
+                    "onReady" -> {
+                        val payload = org.json.JSONObject().apply {
+                            put("url", a[0]); put("port", a[1]); put("sessionId", a[2])
+                        }
+                        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_AI_READY, payload)
+                    }
                     "onProgress" -> {
                         val payload = org.json.JSONObject().apply {
                             put("phase", a[0]); put("percent", a[1])
@@ -1364,17 +1368,23 @@ class NativeBridge(
 
     @JavascriptInterface
     fun initAI(optionsRaw: String?) {
-        aiBridge?.javaClass?.getMethod("initAI", String::class.java)?.invoke(aiBridge, optionsRaw)
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "initialize AI") {
+            aiBridge?.javaClass?.getMethod("initAI", String::class.java)?.invoke(aiBridge, optionsRaw)
+        }
     }
 
     @JavascriptInterface
     fun generateNative(optionsRaw: String?) {
-        aiBridge?.javaClass?.getMethod("generateNative", String::class.java)?.invoke(aiBridge, optionsRaw)
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "generate with native AI") {
+            aiBridge?.javaClass?.getMethod("generateNative", String::class.java)?.invoke(aiBridge, optionsRaw)
+        }
     }
 
     @JavascriptInterface
     fun clearNativeConversation() {
-        aiBridge?.javaClass?.getMethod("clearConversation")?.invoke(aiBridge)
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "clear native conversation") {
+            aiBridge?.javaClass?.getMethod("clearConversation")?.invoke(aiBridge)
+        }
     }
 
     /**

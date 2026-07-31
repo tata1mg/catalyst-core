@@ -130,7 +130,7 @@ export default function AITest() {
                                 setUseNative(true);
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
-                                useNative
+                                useNative && !useCloud && !useLocal
                                     ? "bg-purple-500 border-purple-500 text-white shadow-sm"
                                     : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white"
                             } disabled:opacity-50 disabled:cursor-not-allowed`}

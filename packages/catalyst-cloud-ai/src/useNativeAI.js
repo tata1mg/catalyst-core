@@ -45,6 +45,14 @@ export function useNativeAI({
     const conversationIdRef = useRef(null)
     const historyRef = useRef([])
 
+    useEffect(() => () => {
+        if (rafRef.current) {
+            typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame(rafRef.current) : clearTimeout(rafRef.current)
+            rafRef.current = null
+        }
+        if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+    }, [])
+
     useEffect(() => {
         if (!enabled) return
 

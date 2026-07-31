@@ -23,6 +23,20 @@ function shallowEqual(a, b) {
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
 
+// Hard ceiling on a single generate/stream request — protects against a hung
+// connection leaving loading/streaming state stuck forever.
+const REQUEST_TIMEOUT_MS = 120_000
+const ERROR_BODY_MAX_LEN = 500
+
+async function readErrorBody(response) {
+    try {
+        const text = await response.text()
+        return text.length > ERROR_BODY_MAX_LEN ? text.slice(0, ERROR_BODY_MAX_LEN) + "…" : text
+    } catch {
+        return ""
+    }
+}
+
 export function useCloudAI({
     basePath = "/ai",
     provider: providerProp = "openai",
@@ -78,6 +92,7 @@ export function useCloudAI({
             const generationId = ++activeGenerationRef.current
             const controller = new AbortController()
             abortControllerRef.current = controller
+            const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
             const genConfig = { ...mergedGenConfig, ...callGenConfig }
             const provider = providerRef.current
@@ -99,6 +114,7 @@ export function useCloudAI({
             let tokenCount = 0
             let ttftMs = null
             let usage = null
+            let completed = false
 
             try {
                 if (!isStreamMode) {
@@ -115,7 +131,10 @@ export function useCloudAI({
                         signal: controller.signal,
                     })
 
-                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`)
+                    if (!response.ok) {
+                        const errBody = await readErrorBody(response)
+                        throw new Error(`HTTP error! Status: ${response.status}${errBody ? ` — ${errBody}` : ""}`)
+                    }
                     setLoading(false)
 
                     const data = await response.json()
@@ -146,7 +165,11 @@ export function useCloudAI({
                     signal: controller.signal,
                 })
 
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`)
+                if (!response.ok) {
+                    const errBody = await readErrorBody(response)
+                    throw new Error(`HTTP error! Status: ${response.status}${errBody ? ` — ${errBody}` : ""}`)
+                }
+                if (!response.body) throw new Error("Response has no body to stream")
 
                 setLoading(false)
                 setStreaming(true)
@@ -172,6 +195,7 @@ export function useCloudAI({
                                 if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
                                 setOutput(outputAccRef.current)
                                 setStreaming(false)
+                                completed = true
                                 return
                             }
                             try {
@@ -198,6 +222,7 @@ export function useCloudAI({
                         }
                     }
                 } finally {
+                    await reader.cancel().catch(() => {})
                     reader.releaseLock()
                 }
 
@@ -211,24 +236,27 @@ export function useCloudAI({
                 setStreaming(false)
                 setLoading(false)
             } finally {
+                clearTimeout(timeoutId)
                 if (activeGenerationRef.current === generationId) {
-                    const genMs = Math.round(performance.now() - t0)
-                    if (usage) {
-                        const streamMetrics = computeMetrics(usage, { ttftMs, genMs })
-                        setMetrics(streamMetrics)
-                        if (streamMetrics) historyRef.current.push(streamMetrics)
-                    } else if (tokenCount > 0) {
-                        // usage frame never arrived (e.g. unverified Interactions API usage shape) —
-                        // fall back to our own token-count-based tps so the UI isn't left blank
-                        const tps = parseFloat((tokenCount / (genMs / 1000)).toFixed(1))
-                        const fallbackMetrics = {
-                            provider, model: modelRef.current, ttftMs, genMs, tps,
-                            promptTokens: null, cachedTokens: null, completionTokens: tokenCount,
-                            reasoningTokens: null, totalTokens: tokenCount, cost: null, cacheSavings: null,
-                            device: null, dtype: null, loadMs: null, downloadBytes: null,
+                    if (completed) {
+                        const genMs = Math.round(performance.now() - t0)
+                        if (usage) {
+                            const streamMetrics = computeMetrics(usage, { ttftMs, genMs })
+                            setMetrics(streamMetrics)
+                            if (streamMetrics) historyRef.current.push(streamMetrics)
+                        } else if (tokenCount > 0) {
+                            // usage frame never arrived (e.g. unverified Interactions API usage shape) —
+                            // fall back to our own token-count-based tps so the UI isn't left blank
+                            const tps = parseFloat((tokenCount / (genMs / 1000)).toFixed(1))
+                            const fallbackMetrics = {
+                                provider, model: modelRef.current, ttftMs, genMs, tps,
+                                promptTokens: null, cachedTokens: null, completionTokens: tokenCount,
+                                reasoningTokens: null, totalTokens: tokenCount, cost: null, cacheSavings: null,
+                                device: null, dtype: null, loadMs: null, downloadBytes: null,
+                            }
+                            setMetrics(fallbackMetrics)
+                            historyRef.current.push(fallbackMetrics)
                         }
-                        setMetrics(fallbackMetrics)
-                        historyRef.current.push(fallbackMetrics)
                     }
                     if (abortControllerRef.current === controller) abortControllerRef.current = null
                 }
@@ -241,6 +269,7 @@ export function useCloudAI({
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         setStreaming(false)
+        setLoading(false)
     }, [])
 
     const reset = useCallback(() => {

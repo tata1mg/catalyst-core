@@ -1,5 +1,8 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { aggregateWebSessionMetrics } from "./metrics.js"
+
+const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
+const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
 
 // EXPERIMENTAL: in-browser inference via Transformers.js is not efficient or reliable yet —
 // generation quality/instruction-following degrades noticeably on larger models (e.g. Llama 3)
@@ -35,7 +38,7 @@ async function loadPipeline(model) {
     for (const { device, dtype } of backends) {
         try {
             self.postMessage({ type: "log", msg: "[worker] trying device=" + device + " dtype=" + dtype });
-            let totalBytes = 0;
+            const fileTotals = {};
             const dlStart = performance.now();
 
             pipe = await mod.pipeline("text-generation", model, {
@@ -44,7 +47,7 @@ async function loadPipeline(model) {
                 progress_callback: (info) => {
                     const { status, file, name, loaded, total } = info;
                     const pct = total > 0 ? Math.round((loaded / total) * 100) : null;
-                    if (total) totalBytes = Math.max(totalBytes, total);
+                    if (total) fileTotals[file || name] = total;
                     if (status === "initiate") {
                         self.postMessage({ type: "progress", file: file || name, percent: 0, status: "initiate" });
                         self.postMessage({ type: "log", msg: "[worker] download initiate: " + (file || name) });
@@ -60,6 +63,7 @@ async function loadPipeline(model) {
             loadedModel = model;
             loadedDevice = device;
             const loadMs = Math.round(performance.now() - dlStart);
+            const totalBytes = Object.values(fileTotals).reduce((sum, n) => sum + n, 0);
             self.postMessage({ type: "model_ready", device, dtype, loadMs, totalBytes });
             self.postMessage({ type: "log", msg: "[worker] pipeline ready — device=" + device + " loadMs=" + loadMs });
             return;
@@ -84,7 +88,7 @@ self.onmessage = async (e) => {
             try {
                 const overrideFn = new Function("return (" + formatPrompt + ")")();
                 const text = overrideFn(messages);
-                pipeInput = { text_inputs: text };
+                pipeInput = text;
                 self.postMessage({ type: "log", msg: "[worker] using custom formatPrompt (" + text.length + " chars)" });
             } catch (err) {
                 self.postMessage({ type: "log", msg: "[worker] formatPrompt failed (" + err.message + "), falling back to tokenizer template" });
@@ -101,8 +105,9 @@ self.onmessage = async (e) => {
             }
         }
 
-        const preview = JSON.stringify(pipeInput).slice(0, 120);
-        self.postMessage({ type: "log", msg: "[worker] pipe input: " + preview });
+        const pipeInputType = typeof pipeInput === "string" ? "string" : Array.isArray(pipeInput) ? "messages[]" : typeof pipeInput;
+        const pipeInputLength = typeof pipeInput === "string" ? pipeInput.length : Array.isArray(pipeInput) ? pipeInput.length : 0;
+        self.postMessage({ type: "log", msg: "[worker] pipe input: type=" + pipeInputType + " length=" + pipeInputLength });
         self.postMessage({ type: "streaming_start" });
 
         let tokenCount = 0;
@@ -176,7 +181,12 @@ export function useWebAI({
     defaultGenConfig = {},
     sessionMode = "stateless",
 } = {}) {
-    const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
+    // stable merged genConfig — only changes when values actually change
+    const hookGenConfig = useMemo(
+        () => ({ ...defaultGenConfig, ...genConfigProp }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [JSON.stringify(defaultGenConfig), JSON.stringify(genConfigProp)]
+    )
 
     const [output, setOutput] = useState("")
     const [streaming, setStreaming] = useState(false)
@@ -193,6 +203,14 @@ export function useWebAI({
     const historyRef = useRef([])
     const messagesRef = useRef([])
     const conversationIdRef = useRef(null)
+
+    useEffect(() => () => {
+        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+    }, [])
+
+    const formatPromptRef = useRef(formatPrompt)
+    formatPromptRef.current = formatPrompt
 
     const generate = useCallback(
         ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
@@ -218,11 +236,18 @@ export function useWebAI({
             setModelReady(false)
             cancelledRef.current = false
             outputAccRef.current = ""
-            if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+            if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
 
             const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null }
 
-            const worker = new Worker(getWorkerBlobUrl(), { type: "module" })
+            let worker
+            try {
+                worker = new Worker(getWorkerBlobUrl(), { type: "module" })
+            } catch (err) {
+                setError(new Error("[@catalyst/cloud-ai/useWebAI] module worker unavailable: " + (err.message || String(err))))
+                setLoading(false)
+                return
+            }
             workerRef.current = worker
 
             worker.onmessage = (e) => {
@@ -253,7 +278,6 @@ export function useWebAI({
                     case "token":
                         outputAccRef.current += msg.text
                         if (!rafRef.current) {
-                            const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
                             rafRef.current = schedule(() => {
                                 rafRef.current = null
                                 setOutput(outputAccRef.current)
@@ -261,9 +285,7 @@ export function useWebAI({
                         }
                         break
                     case "done":
-                        if (rafRef.current) {
-                            typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame(rafRef.current) : clearTimeout(rafRef.current)
-                        }
+                        if (rafRef.current) { cancelSchedule(rafRef.current) }
                         rafRef.current = null
                         setOutput(outputAccRef.current)
                         metricsAcc.tps = msg.tps
@@ -272,7 +294,12 @@ export function useWebAI({
                         setMetrics({ ...metricsAcc })
                         historyRef.current.push({ ...metricsAcc })
                         if (sessionMode === "stateful") {
-                            if (!conversationIdRef.current) conversationIdRef.current = crypto.randomUUID()
+                            if (!conversationIdRef.current) {
+                                conversationIdRef.current =
+                                    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                                        ? crypto.randomUUID()
+                                        : `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+                            }
                             messagesRef.current = [...resolvedMessages, { role: "assistant", content: outputAccRef.current }]
                         }
                         setStreaming(false)
@@ -296,6 +323,7 @@ export function useWebAI({
                 setError(new Error(e.message || "Worker crashed"))
                 setStreaming(false)
                 setLoading(false)
+                worker.terminate()
                 workerRef.current = null
             }
 
@@ -304,22 +332,22 @@ export function useWebAI({
                 model: resolvedModel,
                 messages: resolvedMessages,
                 genConfig,
-                formatPrompt: typeof formatPrompt === "function" ? formatPrompt.toString() : null,
+                formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
             })
         },
-        [modelProp, formatPrompt, hookGenConfig, sessionMode]
+        [modelProp, hookGenConfig, sessionMode]
     )
 
     const cancel = useCallback(() => {
         cancelledRef.current = true
-        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
         setStreaming(false)
     }, [])
 
     const reset = useCallback(() => {
         cancelledRef.current = true
-        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         outputAccRef.current = ""
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
         conversationIdRef.current = null
@@ -327,6 +355,8 @@ export function useWebAI({
         setOutput("")
         setError(null)
         setMetrics(null)
+        setModelReady(false)
+        setDownloadProgress(null)
         setStreaming(false)
         setLoading(false)
     }, [])

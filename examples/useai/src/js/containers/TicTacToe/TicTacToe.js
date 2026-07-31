@@ -123,6 +123,7 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
             });
         } catch (e) {
             console.error("AI move fetch failed, using fallback", e);
+            setAiThinking(false);
             makeFallbackMove(currentBoard, emptyIndices);
         }
     };
@@ -220,6 +221,7 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
         setGameStatus("active");
         setWinningLine(null);
         setAiThinking(false);
+        lastOutputRef.current = "";
         reset();
     };
 
