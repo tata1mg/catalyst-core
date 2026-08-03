@@ -51,6 +51,12 @@ export const ERROR_CODES = {
     RUNTIME_NATIVE_INTERNAL_ERROR: "RUNTIME-NATIVE-015",
     RUNTIME_NATIVE_CAMERA_UNAVAILABLE: "RUNTIME-NATIVE-016",
     RUNTIME_NATIVE_CAMERA_IN_USE: "RUNTIME-NATIVE-017",
+
+    RUNTIME_NATIVE_BRIDGE_INVALID_CALLBACK: "RUNTIME-NATIVE-018",
+    RUNTIME_NATIVE_BRIDGE_HANDLER_NOT_REGISTERED: "RUNTIME-NATIVE-019",
+    RUNTIME_NATIVE_BRIDGE_HANDLER_THREW: "RUNTIME-NATIVE-020",
+    RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION: "RUNTIME-NATIVE-021",
+    RUNTIME_NATIVE_BRIDGE_INIT_FAILED: "RUNTIME-NATIVE-022",
 }
 
 // One entry per catalyst-owned code. Foreign/wrapped errors (see wrapForeignError)
@@ -364,6 +370,42 @@ export const ERROR_DEFINITIONS = {
         defaultDetails: "Camera is being used by another application",
         recoverable: true,
         suggestedAction: "Close other camera apps and try again",
+    },
+
+    [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_CALLBACK]: {
+        category: "RUNTIME-NATIVE",
+        defaultMessage: "Invalid callback interface",
+        defaultDetails: "The native platform invoked WebBridge.callback() with an interface name that isn't recognized.",
+        recoverable: false,
+        suggestedAction: "Check the interface name against the registered NATIVE_CALLBACKS list; this usually indicates a native/JS version mismatch.",
+    },
+    [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_NOT_REGISTERED]: {
+        category: "RUNTIME-NATIVE",
+        defaultMessage: "No handler registered for this bridge interface",
+        defaultDetails: "The native platform called back on an interface that has no JS-side handler registered yet.",
+        recoverable: true,
+        suggestedAction: "Ensure WebBridge.register() is called for this interface before the native call arrives.",
+    },
+    [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_THREW]: {
+        category: "RUNTIME-NATIVE",
+        defaultMessage: "A registered bridge callback handler threw",
+        defaultDetails: "The JS handler registered for this native callback interface threw an error while processing the callback.",
+        recoverable: true,
+        suggestedAction: "Fix the error thrown inside the registered handler (see the cause above).",
+    },
+    [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION]: {
+        category: "RUNTIME-NATIVE",
+        defaultMessage: "Invalid bridge callback registration",
+        defaultDetails: "WebBridge.register() was called with a non-function callback or an unrecognized interface name.",
+        recoverable: true,
+        suggestedAction: "Pass a function as the callback and a valid interface name from NATIVE_CALLBACKS.",
+    },
+    [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INIT_FAILED]: {
+        category: "RUNTIME-NATIVE",
+        defaultMessage: "WebBridge could not be initialized",
+        defaultDetails: "WebBridge.init() was called outside a browser environment (no `window` available).",
+        recoverable: false,
+        suggestedAction: "Call WebBridge.init() in a browser environment, before using bridge features.",
     },
 }
 
