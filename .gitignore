@@ -145,6 +145,7 @@ loadable-stats.json
 n8n*
 *.sh
 !scripts/test-catalyst-core.sh
+!scripts/test-catalyst-ai.sh
 !scripts/test-cca-smoke.sh
 !scripts/test-all.sh
 !scripts/test-web.sh

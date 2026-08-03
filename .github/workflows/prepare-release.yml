@@ -52,6 +52,26 @@ on:
                 description: "Custom create-catalyst-app version"
                 required: false
                 type: string
+            prepare_ai:
+                description: "Prepare @catalyst/ai"
+                required: true
+                type: boolean
+                default: false
+            ai_version_bump:
+                description: "@catalyst/ai version bump type"
+                required: true
+                type: choice
+                options:
+                    - patch
+                    - minor
+                    - major
+                    - release
+                    - custom
+                default: custom
+            ai_custom_version:
+                description: "Custom @catalyst/ai version"
+                required: false
+                type: string
             dry_run:
                 description: "Dry run"
                 required: true
@@ -80,6 +100,9 @@ jobs:
                   CORE_CUSTOM_VERSION: ${{ inputs.core_custom_version }}
                   CCA_VERSION_BUMP: ${{ inputs.cca_version_bump }}
                   CCA_CUSTOM_VERSION: ${{ inputs.cca_custom_version }}
+                  PREPARE_AI: ${{ inputs.prepare_ai }}
+                  AI_VERSION_BUMP: ${{ inputs.ai_version_bump }}
+                  AI_CUSTOM_VERSION: ${{ inputs.ai_custom_version }}
               run: |
                   validate_custom_version() {
                     PACKAGE_LABEL="$1"
@@ -116,7 +139,7 @@ jobs:
                     fi
                   }
 
-                  if [ "$PREPARE_CORE" != "true" ] && [ "$PREPARE_CCA" != "true" ]; then
+                  if [ "$PREPARE_CORE" != "true" ] && [ "$PREPARE_CCA" != "true" ] && [ "$PREPARE_AI" != "true" ]; then
                     echo "::error::Select at least one package to prepare"
                     exit 1
                   fi
@@ -126,7 +149,7 @@ jobs:
                     exit 1
                   fi
 
-                  if [ "$RELEASE_TAG" != "latest" ] && { { [ "$PREPARE_CORE" == "true" ] && [ "$CORE_VERSION_BUMP" == "release" ]; } || { [ "$PREPARE_CCA" == "true" ] && [ "$CCA_VERSION_BUMP" == "release" ]; }; }; then
+                  if [ "$RELEASE_TAG" != "latest" ] && { { [ "$PREPARE_CORE" == "true" ] && [ "$CORE_VERSION_BUMP" == "release" ]; } || { [ "$PREPARE_CCA" == "true" ] && [ "$CCA_VERSION_BUMP" == "release" ]; } || { [ "$PREPARE_AI" == "true" ] && [ "$AI_VERSION_BUMP" == "release" ]; }; }; then
                     echo "::error::'release' bump is only valid for latest releases"
                     exit 1
                   fi
@@ -137,6 +160,10 @@ jobs:
 
                   if [ "$PREPARE_CCA" == "true" ]; then
                     validate_custom_version "create-catalyst-app" "$CCA_VERSION_BUMP" "$CCA_CUSTOM_VERSION"
+                  fi
+
+                  if [ "$PREPARE_AI" == "true" ]; then
+                    validate_custom_version "@catalyst/ai" "$AI_VERSION_BUMP" "$AI_CUSTOM_VERSION"
                   fi
 
             - name: Setup Node.js
@@ -155,9 +182,13 @@ jobs:
                   CORE_CUSTOM_VERSION: ${{ inputs.core_custom_version }}
                   CCA_VERSION_BUMP: ${{ inputs.cca_version_bump }}
                   CCA_CUSTOM_VERSION: ${{ inputs.cca_custom_version }}
+                  PREPARE_AI: ${{ inputs.prepare_ai }}
+                  AI_VERSION_BUMP: ${{ inputs.ai_version_bump }}
+                  AI_CUSTOM_VERSION: ${{ inputs.ai_custom_version }}
               run: |
                   CORE_PACKAGE_NAME="catalyst-core"
                   CCA_PACKAGE_NAME="create-catalyst-app"
+                  AI_PACKAGE_NAME="@catalyst/ai"
 
                   set_target_version() {
                     WORKSPACE_NAME="$1"
@@ -259,6 +290,10 @@ jobs:
                     set_target_version "packages/create-catalyst-app" "$CCA_PACKAGE_NAME" "./packages/create-catalyst-app/package.json" "$CCA_VERSION_BUMP" "$CCA_CUSTOM_VERSION" "cca"
                   fi
 
+                  if [ "$PREPARE_AI" == "true" ]; then
+                    set_target_version "packages/catalyst-ai" "$AI_PACKAGE_NAME" "./packages/catalyst-ai/package.json" "$AI_VERSION_BUMP" "$AI_CUSTOM_VERSION" "ai"
+                  fi
+
             - name: Resolve create-catalyst-app template catalyst dependency
               id: template_core
               if: inputs.prepare_cca
@@ -324,8 +359,10 @@ jobs:
               env:
                   PREPARE_CORE: ${{ inputs.prepare_core }}
                   PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  PREPARE_AI: ${{ inputs.prepare_ai }}
                   CORE_VERSION: ${{ steps.versions.outputs.core_version }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai_version }}
               run: |
                   check_version_available() {
                     PACKAGE_NAME="$1"
@@ -347,16 +384,23 @@ jobs:
                     check_version_available "$PACKAGE_NAME" "$CCA_VERSION"
                   fi
 
+                  if [ "$PREPARE_AI" == "true" ]; then
+                    PACKAGE_NAME="@catalyst/ai"
+                    check_version_available "$PACKAGE_NAME" "$AI_VERSION"
+                  fi
+
             - name: Write release metadata
               env:
                   RELEASE_TAG: ${{ inputs.release_tag }}
                   PREPARE_CORE: ${{ inputs.prepare_core }}
                   PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  PREPARE_AI: ${{ inputs.prepare_ai }}
                   CORE_VERSION: ${{ steps.versions.outputs.core_version }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai_version }}
                   TEMPLATE_CORE_VERSION: ${{ steps.template_core.outputs.version }}
               run: |
-                  export RELEASE_TAG PREPARE_CORE PREPARE_CCA CORE_VERSION CCA_VERSION TEMPLATE_CORE_VERSION
+                  export RELEASE_TAG PREPARE_CORE PREPARE_CCA PREPARE_AI CORE_VERSION CCA_VERSION AI_VERSION TEMPLATE_CORE_VERSION
 
                   node - <<'NODE'
                   const fs = require("fs")
@@ -381,6 +425,13 @@ jobs:
                     }
                   }
 
+                  if (process.env.PREPARE_AI === "true") {
+                    metadata.packages["@catalyst/ai"] = {
+                      publish: true,
+                      version: process.env.AI_VERSION,
+                    }
+                  }
+
                   fs.writeFileSync(".release-meta.json", `${JSON.stringify(metadata, null, 2)}\n`)
                   NODE
 
@@ -396,10 +447,12 @@ jobs:
               env:
                   PREPARE_CORE: ${{ inputs.prepare_core }}
                   PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  PREPARE_AI: ${{ inputs.prepare_ai }}
                   CORE_VERSION: ${{ steps.versions.outputs.core_version }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai_version }}
               run: |
-                  /usr/bin/git add .release-meta.json package-lock.json packages/catalyst-core/package.json packages/create-catalyst-app/package.json packages/create-catalyst-app/templates/*/package.json
+                  /usr/bin/git add .release-meta.json package-lock.json packages/catalyst-core/package.json packages/create-catalyst-app/package.json packages/create-catalyst-app/templates/*/package.json packages/catalyst-ai/package.json
 
                   if git diff --cached --quiet; then
                     echo "::error::No version changes to commit"
@@ -413,6 +466,9 @@ jobs:
                   if [ "$PREPARE_CCA" == "true" ]; then
                     PACKAGE_LABELS+=("create-catalyst-app@$CCA_VERSION")
                   fi
+                  if [ "$PREPARE_AI" == "true" ]; then
+                    PACKAGE_LABELS+=("@catalyst/ai@$AI_VERSION")
+                  fi
 
                   git commit -m "chore: prepare release ${PACKAGE_LABELS[*]} [skip ci]"
                   git push
@@ -425,10 +481,13 @@ jobs:
                   DRY_RUN: ${{ inputs.dry_run }}
                   PREPARE_CORE: ${{ inputs.prepare_core }}
                   PREPARE_CCA: ${{ inputs.prepare_cca }}
+                  PREPARE_AI: ${{ inputs.prepare_ai }}
                   CORE_CURRENT: ${{ steps.versions.outputs.core_current }}
                   CORE_TARGET: ${{ steps.versions.outputs.core_version }}
                   CCA_CURRENT: ${{ steps.versions.outputs.cca_current }}
                   CCA_TARGET: ${{ steps.versions.outputs.cca_version }}
+                  AI_CURRENT: ${{ steps.versions.outputs.ai_current }}
+                  AI_TARGET: ${{ steps.versions.outputs.ai_version }}
                   COMMIT_OUTCOME: ${{ steps.commit_prepare.outcome }}
               run: |
                   echo "status=$STATUS"
@@ -441,6 +500,10 @@ jobs:
 
                   if [ "$PREPARE_CCA" == "true" ]; then
                     echo "create-catalyst-app: $CCA_CURRENT -> $CCA_TARGET"
+                  fi
+
+                  if [ "$PREPARE_AI" == "true" ]; then
+                    echo "@catalyst/ai: $AI_CURRENT -> $AI_TARGET"
                   fi
 
                   echo "commit_prepare=${COMMIT_OUTCOME:-not run}"

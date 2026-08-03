@@ -22,6 +22,11 @@ on:
                 required: true
                 type: boolean
                 default: false
+            publish_ai:
+                description: "Publish @catalyst/ai"
+                required: true
+                type: boolean
+                default: false
             dry_run:
                 description: "Dry run"
                 required: true
@@ -53,8 +58,10 @@ jobs:
             should_run: ${{ steps.context.outputs.should_run }}
             dry_run: ${{ steps.context.outputs.dry_run }}
             publish_core: ${{ steps.context.outputs.publish_core }}
+            publish_ai: ${{ steps.context.outputs.publish_ai }}
             channel: ${{ steps.context.outputs.channel }}
             core_version: ${{ steps.versions.outputs.core }}
+            ai_version: ${{ steps.versions.outputs.ai }}
             release_pr_number: ${{ steps.release_pr.outputs.number }}
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -72,6 +79,7 @@ jobs:
                   INPUT_DRY_RUN: ${{ inputs.dry_run }}
                   INPUT_PUBLISH_CORE: ${{ inputs.publish_core }}
                   INPUT_PUBLISH_CCA: ${{ inputs.publish_cca }}
+                  INPUT_PUBLISH_AI: ${{ inputs.publish_ai }}
               run: |
                   SHOULD_RUN=false
                   CHANNEL=""
@@ -79,17 +87,20 @@ jobs:
                   REASON=""
                   PUBLISH_CORE=false
                   PUBLISH_CCA=false
+                  PUBLISH_AI=false
                   CORE_METADATA_VERSION=""
                   CCA_METADATA_VERSION=""
+                  AI_METADATA_VERSION=""
 
                   if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
                     CHANNEL="$INPUT_PUBLISH_CHANNEL"
                     DRY_RUN="$INPUT_DRY_RUN"
                     PUBLISH_CORE="$INPUT_PUBLISH_CORE"
                     PUBLISH_CCA="$INPUT_PUBLISH_CCA"
+                    PUBLISH_AI="$INPUT_PUBLISH_AI"
                     REASON="manual dispatch"
 
-                    if [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
+                    if [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ] || [ "$PUBLISH_AI" == "true" ]; then
                       SHOULD_RUN=true
                     else
                       REASON="manual dispatch without any selected package"
@@ -109,13 +120,15 @@ jobs:
                       CHANNEL=$(node -p "const meta=require('./.release-meta.json'); meta.tag || ''")
                       PUBLISH_CORE=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['catalyst-core']?.publish))")
                       PUBLISH_CCA=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['create-catalyst-app']?.publish))")
+                      PUBLISH_AI=$(node -p "const meta=require('./.release-meta.json'); String(Boolean(meta.packages?.['@catalyst/ai']?.publish))")
                       CORE_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['catalyst-core']?.version || ''")
                       CCA_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['create-catalyst-app']?.version || ''")
+                      AI_METADATA_VERSION=$(node -p "const meta=require('./.release-meta.json'); meta.packages?.['@catalyst/ai']?.version || ''")
                       REASON="auto publish on push via release metadata"
 
                       if [ -z "$CHANNEL" ]; then
                         REASON="release metadata missing channel"
-                      elif [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ]; then
+                      elif [ "$PUBLISH_CORE" == "true" ] || [ "$PUBLISH_CCA" == "true" ] || [ "$PUBLISH_AI" == "true" ]; then
                         SHOULD_RUN=true
                       else
                         REASON="release metadata selected no packages"
@@ -131,8 +144,10 @@ jobs:
                   echo "reason=$REASON" >> "$GITHUB_OUTPUT"
                   echo "publish_core=$PUBLISH_CORE" >> "$GITHUB_OUTPUT"
                   echo "publish_cca=$PUBLISH_CCA" >> "$GITHUB_OUTPUT"
+                  echo "publish_ai=$PUBLISH_AI" >> "$GITHUB_OUTPUT"
                   echo "core_metadata_version=$CORE_METADATA_VERSION" >> "$GITHUB_OUTPUT"
                   echo "cca_metadata_version=$CCA_METADATA_VERSION" >> "$GITHUB_OUTPUT"
+                  echo "ai_metadata_version=$AI_METADATA_VERSION" >> "$GITHUB_OUTPUT"
 
             - name: Validate branch
               if: steps.context.outputs.should_run == 'true'
@@ -163,18 +178,23 @@ jobs:
               run: |
                   CORE_VERSION=$(node -p "require('./packages/catalyst-core/package.json').version")
                   CCA_VERSION=$(node -p "require('./packages/create-catalyst-app/package.json').version")
+                  AI_VERSION=$(node -p "require('./packages/catalyst-ai/package.json').version")
                   echo "core=$CORE_VERSION" >> "$GITHUB_OUTPUT"
                   echo "cca=$CCA_VERSION" >> "$GITHUB_OUTPUT"
+                  echo "ai=$AI_VERSION" >> "$GITHUB_OUTPUT"
 
             - name: Validate release metadata
               if: steps.context.outputs.should_run == 'true' && github.event_name == 'push'
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_AI: ${{ steps.context.outputs.publish_ai }}
                   CORE_METADATA_VERSION: ${{ steps.context.outputs.core_metadata_version }}
                   CCA_METADATA_VERSION: ${{ steps.context.outputs.cca_metadata_version }}
+                  AI_METADATA_VERSION: ${{ steps.context.outputs.ai_metadata_version }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai }}
               run: |
                   if [ "$PUBLISH_CORE" == "true" ]; then
                     if [ -z "$CORE_METADATA_VERSION" ]; then
@@ -200,6 +220,18 @@ jobs:
                     fi
                   fi
 
+                  if [ "$PUBLISH_AI" == "true" ]; then
+                    if [ -z "$AI_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata is missing @catalyst/ai version"
+                      exit 1
+                    fi
+
+                    if [ "$AI_VERSION" != "$AI_METADATA_VERSION" ]; then
+                      echo "::error::Release metadata @catalyst/ai version '$AI_METADATA_VERSION' does not match package version '$AI_VERSION'"
+                      exit 1
+                    fi
+                  fi
+
             - name: Validate create-catalyst-app template versions
               if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_cca == 'true'
               run: |
@@ -211,8 +243,10 @@ jobs:
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_AI: ${{ steps.context.outputs.publish_ai }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai }}
                   CHANNEL: ${{ steps.context.outputs.channel }}
               run: |
                   validate_version() {
@@ -244,14 +278,20 @@ jobs:
                     validate_version "create-catalyst-app" "$CCA_VERSION" "$CHANNEL"
                   fi
 
+                  if [ "$PUBLISH_AI" == "true" ]; then
+                    validate_version "@catalyst/ai" "$AI_VERSION" "$CHANNEL"
+                  fi
+
             - name: Check release state
               id: release_state
               if: steps.context.outputs.should_run == 'true'
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_AI: ${{ steps.context.outputs.publish_ai }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai }}
                   CHANNEL: ${{ steps.context.outputs.channel }}
               run: |
                   check_package_state() {
@@ -291,19 +331,28 @@ jobs:
                     check_package_state "create-catalyst-app" "$CCA_VERSION" "$CHANNEL" "create-catalyst-app@$CCA_VERSION" "cca"
                   fi
 
+                  if [ "$PUBLISH_AI" == "true" ]; then
+                    check_package_state "@catalyst/ai" "$AI_VERSION" "$CHANNEL" "catalyst-ai@$AI_VERSION" "ai"
+                  fi
+
             - name: Validate release state
               if: steps.context.outputs.should_run == 'true'
               env:
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_AI: ${{ steps.context.outputs.publish_ai }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai }}
                   CORE_VERSION_EXISTS: ${{ steps.release_state.outputs.core_version_exists }}
                   CORE_TAG_EXISTS: ${{ steps.release_state.outputs.core_tag_exists }}
                   CORE_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.core_dist_tag_matches }}
                   CCA_VERSION_EXISTS: ${{ steps.release_state.outputs.cca_version_exists }}
                   CCA_TAG_EXISTS: ${{ steps.release_state.outputs.cca_tag_exists }}
                   CCA_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.cca_dist_tag_matches }}
+                  AI_VERSION_EXISTS: ${{ steps.release_state.outputs.ai_version_exists }}
+                  AI_TAG_EXISTS: ${{ steps.release_state.outputs.ai_tag_exists }}
+                  AI_DIST_TAG_MATCHES: ${{ steps.release_state.outputs.ai_dist_tag_matches }}
               run: |
                   validate_state() {
                     PACKAGE_NAME="$1"
@@ -324,6 +373,10 @@ jobs:
 
                   if [ "$PUBLISH_CCA" == "true" ]; then
                     validate_state "create-catalyst-app" "$CCA_VERSION" "$CCA_VERSION_EXISTS" "$CCA_TAG_EXISTS" "$CCA_DIST_TAG_MATCHES"
+                  fi
+
+                  if [ "$PUBLISH_AI" == "true" ]; then
+                    validate_state "@catalyst/ai" "$AI_VERSION" "$AI_VERSION_EXISTS" "$AI_TAG_EXISTS" "$AI_DIST_TAG_MATCHES"
                   fi
 
             - name: Configure Git
@@ -443,6 +496,30 @@ jobs:
                   git tag "create-catalyst-app@$CCA_VERSION"
                   git push origin "create-catalyst-app@$CCA_VERSION"
 
+            - name: Publish @catalyst/ai to npm
+              id: publish_ai
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_ai == 'true' && steps.release_state.outputs.ai_version_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: npm publish --workspace packages/catalyst-ai --tag "$CHANNEL" --access public
+
+            - name: Update @catalyst/ai dist-tag
+              id: retag_ai
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_ai == 'true' && steps.release_state.outputs.ai_version_exists == 'true' && steps.release_state.outputs.ai_dist_tag_matches != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  AI_VERSION: ${{ steps.versions.outputs.ai }}
+                  CHANNEL: ${{ steps.context.outputs.channel }}
+              run: npm dist-tag add "@catalyst/ai@$AI_VERSION" "$CHANNEL"
+
+            - name: Create catalyst-ai git tag
+              id: tag_ai
+              if: steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_ai == 'true' && steps.release_state.outputs.ai_tag_exists != 'true' && steps.context.outputs.dry_run != 'true'
+              env:
+                  AI_VERSION: ${{ steps.versions.outputs.ai }}
+              run: |
+                  git tag "catalyst-ai@$AI_VERSION"
+                  git push origin "catalyst-ai@$AI_VERSION"
+
             - name: Resolve release PR number
               id: release_pr
               if: success() && steps.context.outputs.should_run == 'true' && steps.context.outputs.publish_core == 'true' && steps.context.outputs.dry_run != 'true'
@@ -480,8 +557,10 @@ jobs:
                   DRY_RUN: ${{ steps.context.outputs.dry_run }}
                   PUBLISH_CORE: ${{ steps.context.outputs.publish_core }}
                   PUBLISH_CCA: ${{ steps.context.outputs.publish_cca }}
+                  PUBLISH_AI: ${{ steps.context.outputs.publish_ai }}
                   CORE_VERSION: ${{ steps.versions.outputs.core }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai }}
               run: |
                   echo "status=$STATUS"
                   echo "reason=$REASON"
@@ -489,6 +568,7 @@ jobs:
                   echo "dry_run=$DRY_RUN"
                   echo "publish_core=$PUBLISH_CORE"
                   echo "publish_cca=$PUBLISH_CCA"
+                  echo "publish_ai=$PUBLISH_AI"
 
                   if [ "$PUBLISH_CORE" == "true" ]; then
                     echo "catalyst-core=$CORE_VERSION"
@@ -496,6 +576,10 @@ jobs:
 
                   if [ "$PUBLISH_CCA" == "true" ]; then
                     echo "create-catalyst-app=$CCA_VERSION"
+                  fi
+
+                  if [ "$PUBLISH_AI" == "true" ]; then
+                    echo "@catalyst/ai=$AI_VERSION"
                   fi
 
     trigger_release_automation:
