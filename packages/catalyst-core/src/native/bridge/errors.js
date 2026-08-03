@@ -1,181 +1,51 @@
 /**
  * Standardized Error System for Catalyst Framework
  * Translates native errors into web developer-friendly messages
+ *
+ * Codes/definitions now live in ../../errors/registry.js as RUNTIME-NATIVE-xxx
+ * (shared taxonomy across CLI/build/server/native, see RFC #155). This module
+ * keeps its own ERROR_CODES map for backwards-compatible imports, aliased to
+ * the shared codes, plus the native-error string-sniffing logic in
+ * translateError(), which is the one piece of real value here.
  */
+import { ERROR_CODES as SHARED_ERROR_CODES, createError } from "../../errors/index.js"
 
-// Error categories for logical grouping
-export const ERROR_CATEGORIES = {
-    PERMISSION: "PERMISSION",
-    NETWORK: "NETWORK",
-    FILE_SYSTEM: "FILE_SYSTEM",
-    USER_ACTION: "USER_ACTION",
-    VALIDATION: "VALIDATION",
-    SYSTEM: "SYSTEM",
-    UNKNOWN: "UNKNOWN",
-}
-
-// Standardized error codes
+// Backwards-compatible local names, aliased to the shared RUNTIME-NATIVE-xxx codes.
 export const ERROR_CODES = {
-    // Permission errors
-    PERMISSION_DENIED: "PERMISSION_DENIED",
-    PERMISSION_REQUIRED: "PERMISSION_REQUIRED",
-
-    // Network errors
-    NETWORK_UNAVAILABLE: "NETWORK_UNAVAILABLE",
-    DOWNLOAD_FAILED: "DOWNLOAD_FAILED",
-
-    // File system errors
-    FILE_NOT_FOUND: "FILE_NOT_FOUND",
-    FILE_TOO_LARGE: "FILE_TOO_LARGE",
-    STORAGE_FULL: "STORAGE_FULL",
-    FILE_CORRUPTED: "FILE_CORRUPTED",
-
-    // User action errors
-    OPERATION_CANCELLED: "OPERATION_CANCELLED",
-    NO_FILE_SELECTED: "NO_FILE_SELECTED",
-
-    // Validation errors
-    INVALID_FILE_TYPE: "INVALID_FILE_TYPE",
-    INVALID_PARAMETERS: "INVALID_PARAMETERS",
-
-    // System errors
-    BRIDGE_UNAVAILABLE: "BRIDGE_UNAVAILABLE",
-    FEATURE_UNSUPPORTED: "FEATURE_UNSUPPORTED",
-    INTERNAL_ERROR: "INTERNAL_ERROR",
-
-    // Camera specific errors
-    CAMERA_UNAVAILABLE: "CAMERA_UNAVAILABLE",
-    CAMERA_IN_USE: "CAMERA_IN_USE",
-}
-
-// Error definitions with user-friendly messages and recovery actions
-export const ERROR_DEFINITIONS = {
-    [ERROR_CODES.PERMISSION_DENIED]: {
-        category: ERROR_CATEGORIES.PERMISSION,
-        defaultMessage: "Permission denied",
-        defaultDetails: "Required permission was not granted by the user",
-        recoverable: true,
-        suggestedAction: "Grant permission in device settings and try again",
-    },
-
-    [ERROR_CODES.PERMISSION_REQUIRED]: {
-        category: ERROR_CATEGORIES.PERMISSION,
-        defaultMessage: "Permission required",
-        defaultDetails: "This operation requires additional permissions",
-        recoverable: true,
-        suggestedAction: "Grant the required permission to continue",
-    },
-
-    [ERROR_CODES.NETWORK_UNAVAILABLE]: {
-        category: ERROR_CATEGORIES.NETWORK,
-        defaultMessage: "No internet connection",
-        defaultDetails: "Network connection is required for this operation",
-        recoverable: true,
-        suggestedAction: "Check your internet connection and try again",
-    },
-
-    [ERROR_CODES.FILE_NOT_FOUND]: {
-        category: ERROR_CATEGORIES.FILE_SYSTEM,
-        defaultMessage: "File not found",
-        defaultDetails: "The requested file could not be located",
-        recoverable: false,
-        suggestedAction: "The file may have been moved or deleted",
-    },
-
-    [ERROR_CODES.FILE_TOO_LARGE]: {
-        category: ERROR_CATEGORIES.VALIDATION,
-        defaultMessage: "File too large",
-        defaultDetails: "File exceeds the maximum size limit",
-        recoverable: true,
-        suggestedAction: "Choose a smaller file or compress the current file",
-    },
-
-    [ERROR_CODES.STORAGE_FULL]: {
-        category: ERROR_CATEGORIES.FILE_SYSTEM,
-        defaultMessage: "Storage full",
-        defaultDetails: "Device storage is full and cannot save the file",
-        recoverable: true,
-        suggestedAction: "Free up some storage space and try again",
-    },
-
-    [ERROR_CODES.OPERATION_CANCELLED]: {
-        category: ERROR_CATEGORIES.USER_ACTION,
-        defaultMessage: "Operation cancelled",
-        defaultDetails: "The operation was cancelled by the user",
-        recoverable: true,
-        suggestedAction: "Try again if you want to complete the operation",
-    },
-
-    [ERROR_CODES.INVALID_FILE_TYPE]: {
-        category: ERROR_CATEGORIES.VALIDATION,
-        defaultMessage: "Invalid file type",
-        defaultDetails: "The selected file type is not supported",
-        recoverable: true,
-        suggestedAction: "Choose a file with a supported format",
-    },
-
-    [ERROR_CODES.BRIDGE_UNAVAILABLE]: {
-        category: ERROR_CATEGORIES.SYSTEM,
-        defaultMessage: "Native feature unavailable",
-        defaultDetails: "The native bridge is not available or not initialized",
-        recoverable: false,
-        suggestedAction: "Use web fallback if available",
-    },
-
-    [ERROR_CODES.FEATURE_UNSUPPORTED]: {
-        category: ERROR_CATEGORIES.SYSTEM,
-        defaultMessage: "Feature not supported",
-        defaultDetails: "This feature is not supported on the current platform",
-        recoverable: false,
-        suggestedAction: "Try using an alternative method or device",
-    },
-
-    [ERROR_CODES.CAMERA_UNAVAILABLE]: {
-        category: ERROR_CATEGORIES.SYSTEM,
-        defaultMessage: "Camera unavailable",
-        defaultDetails: "Camera hardware is not available or accessible",
-        recoverable: false,
-        suggestedAction: "Check if your device has a camera and try again",
-    },
-
-    [ERROR_CODES.CAMERA_IN_USE]: {
-        category: ERROR_CATEGORIES.SYSTEM,
-        defaultMessage: "Camera in use",
-        defaultDetails: "Camera is being used by another application",
-        recoverable: true,
-        suggestedAction: "Close other camera apps and try again",
-    },
-
-    [ERROR_CODES.INTERNAL_ERROR]: {
-        category: ERROR_CATEGORIES.UNKNOWN,
-        defaultMessage: "An unexpected error occurred",
-        defaultDetails: "An internal error occurred while processing the request",
-        recoverable: true,
-        suggestedAction: "Try again or contact support if the problem persists",
-    },
+    PERMISSION_DENIED: SHARED_ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED,
+    PERMISSION_REQUIRED: SHARED_ERROR_CODES.RUNTIME_NATIVE_PERMISSION_REQUIRED,
+    NETWORK_UNAVAILABLE: SHARED_ERROR_CODES.RUNTIME_NATIVE_NETWORK_UNAVAILABLE,
+    DOWNLOAD_FAILED: SHARED_ERROR_CODES.RUNTIME_NATIVE_DOWNLOAD_FAILED,
+    FILE_NOT_FOUND: SHARED_ERROR_CODES.RUNTIME_NATIVE_FILE_NOT_FOUND,
+    FILE_TOO_LARGE: SHARED_ERROR_CODES.RUNTIME_NATIVE_FILE_TOO_LARGE,
+    STORAGE_FULL: SHARED_ERROR_CODES.RUNTIME_NATIVE_STORAGE_FULL,
+    FILE_CORRUPTED: SHARED_ERROR_CODES.RUNTIME_NATIVE_FILE_CORRUPTED,
+    OPERATION_CANCELLED: SHARED_ERROR_CODES.RUNTIME_NATIVE_OPERATION_CANCELLED,
+    NO_FILE_SELECTED: SHARED_ERROR_CODES.RUNTIME_NATIVE_NO_FILE_SELECTED,
+    INVALID_FILE_TYPE: SHARED_ERROR_CODES.RUNTIME_NATIVE_INVALID_FILE_TYPE,
+    INVALID_PARAMETERS: SHARED_ERROR_CODES.RUNTIME_NATIVE_INVALID_PARAMETERS,
+    BRIDGE_UNAVAILABLE: SHARED_ERROR_CODES.RUNTIME_NATIVE_BRIDGE_UNAVAILABLE,
+    FEATURE_UNSUPPORTED: SHARED_ERROR_CODES.RUNTIME_NATIVE_FEATURE_UNSUPPORTED,
+    INTERNAL_ERROR: SHARED_ERROR_CODES.RUNTIME_NATIVE_INTERNAL_ERROR,
+    CAMERA_UNAVAILABLE: SHARED_ERROR_CODES.RUNTIME_NATIVE_CAMERA_UNAVAILABLE,
+    CAMERA_IN_USE: SHARED_ERROR_CODES.RUNTIME_NATIVE_CAMERA_IN_USE,
 }
 
 /**
- * Create a standardized error object
+ * Create a standardized error object (CatalystError instance) for a
+ * RUNTIME-NATIVE-xxx code, with the native error attached as `cause`.
  * @param {string} code - Error code from ERROR_CODES
  * @param {string} userMessage - Custom user-friendly message (optional)
  * @param {any} nativeError - Original native error for debugging
  * @param {string} customDetails - Custom details (optional)
- * @returns {Object} Standardized error object
+ * @returns {import("../../errors/index.js").CatalystError}
  */
 export const createStandardError = (code, userMessage = null, nativeError = null, customDetails = null) => {
-    const errorInfo = ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS[ERROR_CODES.INTERNAL_ERROR]
-
-    return {
-        code,
-        category: errorInfo.category,
-        message: userMessage || errorInfo.defaultMessage,
-        details: customDetails || errorInfo.defaultDetails,
-        recoverable: errorInfo.recoverable,
-        action: errorInfo.suggestedAction,
-        nativeError: nativeError,
-        timestamp: new Date().toISOString(),
-    }
+    return createError(code, {
+        message: userMessage,
+        details: customDetails,
+        cause: nativeError,
+    })
 }
 
 /**

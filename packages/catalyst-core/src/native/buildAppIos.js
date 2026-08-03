@@ -33,7 +33,12 @@ async function main() {
         await syncPluginResources(pluginComposition)
         await buildForIOS(pluginComposition)
     } catch (error) {
-        progress.log("Build failed: " + error.message, "error")
+        // src/native is a CJS-only subtree (see src/native/package.json) and cannot
+        // synchronously require() the ESM errors/index.js module under Node 20, so
+        // we format inline here rather than reconstructing that module system boundary.
+        // Code IOS-000 = generic "upstream Xcode/CocoaPods toolchain error" wrapper —
+        // see errors/IOS/IOS-000.md. We never reinterpret the underlying message.
+        progress.log(`[IOS-000] Build failed (upstream: Xcode/CocoaPods)\n→ ${error.message}`, "error")
         process.exit(1)
     }
     process.exit(0)
