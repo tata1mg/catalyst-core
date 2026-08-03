@@ -130,6 +130,51 @@ try {
 const allAliases = { ..._moduleAliases, ...catalyst_moduleAliases }
 
 import { imageUrl, fontUrl } from "./scssParams.js"
+import { createRequire } from "module"
+
+// Tailwind v4's zero-config scanner (`@tailwindcss/postcss`) walks up from
+// `dirname(from)` — the directory of the file PostCSS is currently compiling —
+// unless given an explicit `base`. Vite passes each CSS file's own resolved
+// path as `from`, so for catalyst-core's conventional layout (global
+// stylesheet under `src/static/css`, components under `src/js`, no shared
+// parent short of the app root) the scanner never reaches component files and
+// silently drops every class actually used in JSX. Webpack's postcss-loader
+// doesn't populate `from` the same way, which is why this only regresses
+// under Vite. We resolve the app's own postcss.config.js ourselves and patch
+// in `base: process.env.src_path` so the scan root covers the whole app.
+// Only the `{ pluginName: options }` shorthand can be patched this way —
+// array-form configs (`[require(...)()]`) have already closed over their
+// options — so anything else is left alone and Vite falls back to its normal
+// auto-loaded postcss.config.js resolution.
+const resolvePostcssPlugins = () => {
+    const configPath = path.join(process.env.src_path, "postcss.config.js")
+    if (!fs.existsSync(configPath)) return null
+
+    const appRequire = createRequire(configPath)
+
+    try {
+        const userConfig = appRequire(configPath)
+        const pluginsConfig = userConfig?.plugins
+
+        if (!pluginsConfig || Array.isArray(pluginsConfig) || typeof pluginsConfig !== "object") {
+            return null
+        }
+
+        return Object.entries(pluginsConfig).map(([name, options]) => {
+            const plugin = appRequire(name)
+            const finalOptions =
+                name === "@tailwindcss/postcss" && (!options || options.base === undefined)
+                    ? { ...options, base: process.env.src_path }
+                    : options
+            return plugin(finalOptions)
+        })
+    } catch (error) {
+        console.warn(`Failed to patch postcss config at ${configPath}:`, error.message)
+        return null
+    }
+}
+
+const postcssPlugins = resolvePostcssPlugins()
 
 const alias = () => {
     if (!allAliases || typeof allAliases !== "object") {
@@ -408,6 +453,7 @@ export default defineConfig({
             localsConvention: "camelCase",
             generateScopedName: "[name]__[local]___[hash:base64:5]",
         },
+        ...(postcssPlugins ? { postcss: { plugins: postcssPlugins } } : {}),
         preprocessorOptions: {
             scss: {
                 additionalData: (content) =>

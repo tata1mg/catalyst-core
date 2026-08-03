@@ -30,15 +30,17 @@ Required Android release fields:
 
 ## iOS Release Flow
 
-1. Set `WEBVIEW_CONFIG.ios.buildType` to `Release`.
-2. Set a real `appBundleId`.
-3. If Google Sign-In is enabled, include `GoogleService-Info.plist`.
-4. Run `catalyst build`.
-5. Run `npm run buildApp:ios`.
-6. Archive and export the IPA from Xcode or `xcodebuild`.
-7. Upload the build to App Store Connect or TestFlight.
+1. Deploy the production web application over HTTPS.
+2. Finalize `WEBVIEW_CONFIG`, the bundle identifier, version, build number, capabilities, and app assets.
+3. Run `npm run buildApp:ios` from the consuming Catalyst app.
+4. Open the generated `iosnativeWebView.xcodeproj` and configure Release signing.
+5. Archive the `iosnativeWebView` scheme with a generic iOS device destination.
+6. Validate and upload the archive through Xcode.
+7. Complete TestFlight testing and the App Store Connect release.
 
-`WEBVIEW_CONFIG.ios.buildType` is case-sensitive. Use `Release`, not `release`.
+`npm run buildApp:ios` prepares the package-owned Xcode project and performs a Debug native build. It does not create the App Store archive. The production artifact is created by the scheme's Release Archive action in Xcode. This flow is the same for Catalyst `0.2.x` and `0.3.x`.
+
+See [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release) for the complete release procedure and checklist.
 
 ## What to Validate Before Release
 
