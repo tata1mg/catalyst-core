@@ -130,7 +130,6 @@ try {
 const allAliases = { ..._moduleAliases, ...catalyst_moduleAliases }
 
 import { imageUrl, fontUrl } from "./scssParams.js"
-import { createRequire } from "module"
 
 // Tailwind v4's zero-config scanner (`@tailwindcss/postcss`) walks up from
 // `dirname(from)` — the directory of the file PostCSS is currently compiling —
