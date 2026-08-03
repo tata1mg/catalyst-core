@@ -170,15 +170,63 @@
     {
         "section": "build_system",
         "title": "iOS Build Pipeline",
-        "content": "1) Generate ConfigConstants.swift from WEBVIEW_CONFIG 2) Launch simulator 3) Clean Xcode project 4) Compile with Xcode 5) Install app + launch. Located in: src/native/iosnativeWebView/",
+        "content": "npm run buildApp:ios generates ConfigConstants.swift and plugin metadata from WEBVIEW_CONFIG, syncs selected public/ios assets into the package-owned Xcode project, detects a physical device or launches a simulator, cleans Xcode artifacts, compiles with the Debug configuration, and installs and launches the .app. It does not bundle the full Catalyst web client and does not create an App Store archive. The generated project is located under the resolved catalyst-core package at dist/native/iosnativeWebView/iosnativeWebView.xcodeproj.",
         "layer": "Build",
         "source": "static",
-        "tags": ["ios", "build"]
+        "tags": ["ios", "build", "buildApp:ios", "debug", "xcode"],
+        "github_files": [
+            "packages/catalyst-core/src/native/buildAppIos.js",
+            "packages/catalyst-core/src/native/buildIos/build.js"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst iOS Production Release Flow (0.2.x and 0.3.x)",
+        "content": "Catalyst 0.2.x and 0.3.x use the same iOS production-release flow: (1) deploy the production web application and verify its HTTPS URL, (2) finalize WEBVIEW_CONFIG, bundle ID, app version/build, plugins, permissions, capabilities, icons, splash assets, access-control rules, and privacy declarations, (3) run npm run buildApp:ios from the consuming app root to prepare the package-owned native project and perform its Debug build, (4) open the resolved catalyst-core package's dist/native/iosnativeWebView/iosnativeWebView.xcodeproj, (5) confirm the iosnativeWebView scheme's Archive action uses Release, configure Release signing and capabilities, choose a generic iOS device destination, and run Product -> Archive, (6) Validate App and upload with Distribute App -> TestFlight & App Store, then (7) finish TestFlight testing, App Store Connect metadata, build selection, and App Review submission. buildApp:ios does not create the final App Store artifact.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "ios",
+            "release",
+            "production",
+            "0.2.x",
+            "0.3.x",
+            "buildApp:ios",
+            "xcode",
+            "archive",
+            "app-store",
+            "testflight"
+        ],
+        "github_files": [
+            "docs/content/08-Deployment/03-iOS-Production-Release.md",
+            "packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView.xcodeproj/xcshareddata/xcschemes/iosnativeWebView.xcscheme"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Generated iOS Project Signing and Persistence",
+        "content": "The generated Xcode project is package-owned state. Its shared xcconfig is regenerated with development-oriented code-signing defaults, and the bundled push entitlement can use aps-environment=development. Before an App Store archive, review the Release team, distribution signing, provisioning, capabilities, and entitlements in Xcode. Run the final npm run buildApp:ios before release-only Xcode changes: later Catalyst generation, package upgrades, or dependency installation can replace or regenerate native config constants, shared Xcode configuration, plist and entitlement content, generated plugin code/resources, selected project-file entries, and assets. Do not treat manual edits inside the generated project as durable app configuration.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "ios",
+            "release",
+            "signing",
+            "provisioning",
+            "entitlements",
+            "push-notifications",
+            "generated-project",
+            "regeneration"
+        ],
+        "github_files": [
+            "packages/catalyst-core/src/native/buildIos/config.js",
+            "packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/iosnativeWebView.entitlements"
+        ]
     },
     {
         "section": "build_system",
         "title": "Legacy 0.2.x Build NPM Scripts",
-        "content": "All catalyst npm scripts to add to package.json scripts block (each maps to: catalyst <scriptName>): devBuild \u2014 dev web build. devServe \u2014 dev server. buildApp \u2014 builds native app (both platforms). buildApp:android \u2014 Android native app build. buildApp:ios \u2014 iOS native app build. buildApp:android:release \u2014 Android release build. buildApp:ios:release \u2014 iOS release build. setupEmulator \u2014 sets up both emulators. setupEmulator:android \u2014 sets up Android AVD. setupEmulator:ios \u2014 sets up iOS simulator. NOTE: build:android / build:android:release / build:ios do NOT exist in catalyst \u2014 common mistake. The correct commands are buildApp:android and buildApp:ios. Missing any script = that npm run command fails.",
+        "content": "All catalyst npm scripts to add to package.json scripts block (each maps to: catalyst <scriptName>): devBuild \u2014 dev web build. devServe \u2014 dev server. buildApp \u2014 builds native apps. buildApp:android \u2014 Android native app build. buildApp:ios \u2014 iOS native project preparation and Debug build. buildApp:android:release \u2014 Android release build. setupEmulator \u2014 sets up both emulators. setupEmulator:android \u2014 sets up Android AVD. setupEmulator:ios \u2014 sets up iOS simulator. There is no separate buildApp:ios:release flow: run buildApp:ios, then create the production archive from the generated Xcode project's Release Archive action. NOTE: build:android / build:android:release / build:ios do NOT exist in catalyst \u2014 common mistake. Missing any script = that npm run command fails.",
         "layer": "Build",
         "source": "static",
         "tags": ["build", "scripts", "package.json", "native"]
@@ -434,7 +482,7 @@
     {
         "section": "config_structure",
         "title": "WEBVIEW_CONFIG Required Fields",
-        "content": "WEBVIEW_CONFIG field reference (from buildAppAndroid.js + buildAppIos.js source):\n\nTOP-LEVEL (both platforms):\n- port (string, required) \u2014 web server port e.g. \"3005\"\n- LOCAL_IP (string, required) \u2014 machine LAN IP e.g. \"192.168.0.11\". NOT localhost \u2014 emulator cannot resolve it\n- appInfo (string, required) \u2014 build identifier e.g. \"android-5Feb2026-v2.1.0\". Missing = iOS build breaks\n- useHttps (boolean, optional) \u2014 default false\n- cachePattern (string, optional) \u2014 comma-separated globs e.g. \"*.css\"\n- accessControl.enabled (boolean, optional) \u2014 default false\n- accessControl.allowedUrls (array, required if enabled) \u2014 URL patterns\n\nANDROID (WEBVIEW_CONFIG.android):\n- sdkPath (string, REQUIRED) \u2014 abs path to Android SDK. Build exits immediately without it\n- emulatorName (string, REQUIRED for debug) \u2014 AVD name. Run: emulator -list-avds\n- appName (string, optional) \u2014 default \"Catalyst Application\"\n- packageName (string, optional) \u2014 e.g. com.company.app. Derived from appName if missing\n- buildType (string, optional) \u2014 \"debug\" or \"release\". Default \"debug\"\n- keystore or keystoreConfig (required for release buildType only)\n- buildOptimisation (boolean, optional) \u2014 default false\n- cachePattern (string, optional)\n\nIOS (WEBVIEW_CONFIG.ios):\n- appBundleId (string, optional) \u2014 default \"com.debug.webview\". Must set for distribution\n- appName (string, optional) \u2014 default \"Catalyst Application\"\n- simulatorName (string, optional) \u2014 auto-detected if missing. e.g. \"iPhone 17 Pro\"\n- buildType (string, optional, CASE-SENSITIVE) \u2014 \"Debug\" or \"Release\". NOT lowercase \u2014 common mistake\n- deviceUDID (string, optional) \u2014 physical device builds only\n- developmentTeam (string, required if deviceUDID set) \u2014 Apple Developer Team ID\n- cachePattern (string, optional)",
+        "content": "WEBVIEW_CONFIG field reference (from buildAppAndroid.js + buildAppIos.js source):\n\nTOP-LEVEL (both platforms):\n- port (string, required) \u2014 web server port e.g. \"3005\"\n- LOCAL_IP (string, required) \u2014 machine LAN IP e.g. \"192.168.0.11\". NOT localhost \u2014 emulator cannot resolve it\n- appInfo (string, required) \u2014 build identifier e.g. \"android-5Feb2026-v2.1.0\". Missing = iOS build breaks\n- useHttps (boolean, optional) \u2014 default false\n- cachePattern (string, optional) \u2014 comma-separated globs e.g. \"*.css\"\n- accessControl.enabled (boolean, optional) \u2014 default false\n- accessControl.allowedUrls (array, required if enabled) \u2014 URL patterns\n\nANDROID (WEBVIEW_CONFIG.android):\n- sdkPath (string, REQUIRED) \u2014 abs path to Android SDK. Build exits immediately without it\n- emulatorName (string, REQUIRED for debug) \u2014 AVD name. Run: emulator -list-avds\n- appName (string, optional) \u2014 default \"Catalyst Application\"\n- packageName (string, optional) \u2014 e.g. com.company.app. Derived from appName if missing\n- buildType (string, optional) \u2014 \"debug\" or \"release\". Default \"debug\"\n- keystore or keystoreConfig (required for release buildType only)\n- buildOptimisation (boolean, optional) \u2014 default false\n- cachePattern (string, optional)\n\nIOS (WEBVIEW_CONFIG.ios):\n- appBundleId (string, optional) \u2014 default \"com.debug.webview\". Must set for distribution\n- appName (string, optional) \u2014 default \"Catalyst Application\"\n- simulatorName (string, optional) \u2014 auto-detected if missing. e.g. \"iPhone 17 Pro\"\n- buildType (string, optional) \u2014 may label copied Debug output but does not select the Xcode build configuration or create an App Store archive\n- deviceUDID (string, optional) \u2014 physical device builds only\n- developmentTeam (string, required if deviceUDID set) \u2014 Apple Developer Team ID\n- cachePattern (string, optional)\n\nFor iOS production, run buildApp:ios to prepare the generated project, then archive the iosnativeWebView scheme using its Release Archive action in Xcode.",
         "layer": "Config",
         "source": "static",
         "tags": ["config", "WEBVIEW_CONFIG", "android", "ios", "required", "fields"]
