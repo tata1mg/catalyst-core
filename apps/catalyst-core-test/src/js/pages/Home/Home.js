@@ -1,6 +1,6 @@
 import React from "react"
 import { Link, useCurrentRouteData } from "catalyst-core"
-import { getDogApiBaseUrl, getDogBreeds } from "../../utils/dogApi"
+import { api } from "catalyst-core/api"
 
 const Home = () => {
     const { data, error, isFetching } = useCurrentRouteData()
@@ -29,25 +29,20 @@ const Home = () => {
     )
 }
 
-Home.clientFetcher = async () => {
+// Same call on client and server: in the browser this is a normal fetch; during
+// SSR the api client dispatches directly to the handler in server/api/index.js
+// in-process (loopback), skipping the network round-trip entirely.
+const fetchBreeds = async () => {
     try {
-        const response = await fetch(`${getDogApiBaseUrl()}/api/breeds/list/all`)
-        const data = await response.json()
-        return data
+        return await api.get("/api/breeds/list/all")
     } catch (error) {
         console.error("Error fetching dog breeds:", error)
         throw error
     }
 }
 
-Home.serverFetcher = async () => {
-    try {
-        return getDogBreeds()
-    } catch (error) {
-        console.error("Error fetching dog breeds:", error)
-        throw error
-    }
-}
+Home.clientFetcher = fetchBreeds
+Home.serverFetcher = fetchBreeds
 
 Home.setMetaData = () => {
     return [<title key="title">Home</title>]

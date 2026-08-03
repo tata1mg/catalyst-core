@@ -1,6 +1,6 @@
 import React from "react"
 import { useCurrentRouteData, useParams, Link } from "catalyst-core"
-import { getDogApiBaseUrl, getDogImages } from "../../utils/dogApi"
+import { api } from "catalyst-core/api"
 
 const BreedDetails = () => {
     const params = useParams()
@@ -40,25 +40,17 @@ const BreedDetails = () => {
     )
 }
 
-BreedDetails.clientFetcher = async ({ params }) => {
+// Same call on client and server — see Home.js for why.
+const fetchBreedImages = async ({ params }) => {
     try {
-        const breedName = params.breed
-        const response = await fetch(`${getDogApiBaseUrl()}/api/breed/${breedName}/images`)
-        const data = await response.json()
-        return data
+        return await api.get(`/api/breed/${params.breed}/images`)
     } catch (error) {
         console.error("Error fetching breed details:", error)
         throw error
     }
 }
 
-BreedDetails.serverFetcher = async ({ params }) => {
-    try {
-        return getDogImages()
-    } catch (error) {
-        console.error("Error fetching breed details:", error)
-        throw error
-    }
-}
+BreedDetails.clientFetcher = fetchBreedImages
+BreedDetails.serverFetcher = fetchBreedImages
 
 export default BreedDetails

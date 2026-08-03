@@ -31,6 +31,7 @@ import App from "@catalyst/template/src/js/containers/App/index"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
+import { runWithRequestContext } from "../requestContext.js"
 import { getManifest, getAssetManifest } from "../manifestCache.js"
 
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
@@ -341,56 +342,80 @@ async function _handler(req, res) {
         let fetcherData = {}
         const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
 
-        const cachedRoutes = getCachedRoutes()
-        const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
-        let allTags = []
+        // Everything below runs inside this request's ALS scope, so the universal
+        // api client (loopback dispatch) and route loaders can read req/res/store
+        // without them being threaded through every call — see
+        // docs/design-spec-data-fetching-v2.md §7.
+        await runWithRequestContext({ req, res, store }, async () => {
+            const cachedRoutes = getCachedRoutes()
+            const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
+            let allTags = []
 
-        safeCall(onRouteMatch, { req, res, matches: allMatches, store })
-
-        if (res.headersSent) return
-
-        try {
-            await tracedAppServerSideFunction({ store, req, res })
-            safeCall(onAppServerSideSuccess, { req, res, store })
+            safeCall(onRouteMatch, { req, res, matches: allMatches, store })
 
             if (res.headersSent) return
 
             try {
-                fetcherData = await tracedServerDataFetcher(
-                    { routes: cachedRoutes, req, res, url: req.originalUrl },
-                    { store }
-                )
+                await tracedAppServerSideFunction({ store, req, res })
+                safeCall(onAppServerSideSuccess, { req, res, store })
 
                 if (res.headersSent) return
 
-                const err = fetcherData?.[req.originalUrl]?.error
-                allTags = tracedGetMetaData(allMatches, fetcherData)
-                const chunkExtractor = collectAssets(req, allMatches)
-
-                if (err) {
-                    safeCall(onFetcherError, { req, res, store, error: err })
-
-                    if (res.headersSent) return
-
-                    const statusCode = err.status_code || 404
-                    await tracedRenderMarkUp(
-                        statusCode,
-                        req,
-                        res,
-                        allTags,
-                        fetcherData,
-                        store,
-                        allMatches,
-                        context,
-                        chunkExtractor
+                try {
+                    fetcherData = await tracedServerDataFetcher(
+                        { routes: cachedRoutes, req, res, url: req.originalUrl },
+                        { store }
                     )
-                } else {
-                    safeCall(onFetcherSuccess, { req, res, store })
 
                     if (res.headersSent) return
 
+                    const err = fetcherData?.[req.originalUrl]?.error
+                    allTags = tracedGetMetaData(allMatches, fetcherData)
+                    const chunkExtractor = collectAssets(req, allMatches)
+
+                    if (err) {
+                        safeCall(onFetcherError, { req, res, store, error: err })
+
+                        if (res.headersSent) return
+
+                        const statusCode = err.status_code || 404
+                        await tracedRenderMarkUp(
+                            statusCode,
+                            req,
+                            res,
+                            allTags,
+                            fetcherData,
+                            store,
+                            allMatches,
+                            context,
+                            chunkExtractor
+                        )
+                    } else {
+                        safeCall(onFetcherSuccess, { req, res, store })
+
+                        if (res.headersSent) return
+
+                        await tracedRenderMarkUp(
+                            null,
+                            req,
+                            res,
+                            allTags,
+                            fetcherData,
+                            store,
+                            allMatches,
+                            context,
+                            chunkExtractor
+                        )
+                    }
+                } catch (error) {
+                    console.error("Error in executing serverFetcher functions:", error)
+                    safeCall(onFetcherError, { req, res, store, error })
+
+                    if (res.headersSent) return
+
+                    const chunkExtractor = collectAssets(req, allMatches)
                     await tracedRenderMarkUp(
-                        null,
+                        404,
                         req,
                         res,
                         allTags,
@@ -402,14 +427,14 @@ async function _handler(req, res) {
                     )
                 }
             } catch (error) {
-                console.error("Error in executing serverFetcher functions:", error)
-                safeCall(onFetcherError, { req, res, store, error })
+                console.error("Error in executing serverSideFunction inside App:", error)
+                safeCall(onAppServerSideError, { req, res, store, error })
 
                 if (res.headersSent) return
 
                 const chunkExtractor = collectAssets(req, allMatches)
                 await tracedRenderMarkUp(
-                    404,
+                    error.status_code,
                     req,
                     res,
                     allTags,
@@ -420,25 +445,7 @@ async function _handler(req, res) {
                     chunkExtractor
                 )
             }
-        } catch (error) {
-            console.error("Error in executing serverSideFunction inside App:", error)
-            safeCall(onAppServerSideError, { req, res, store, error })
-
-            if (res.headersSent) return
-
-            const chunkExtractor = collectAssets(req, allMatches)
-            await tracedRenderMarkUp(
-                error.status_code,
-                req,
-                res,
-                allTags,
-                fetcherData,
-                store,
-                allMatches,
-                context,
-                chunkExtractor
-            )
-        }
+        })
     } catch (error) {
         console.error("Error in handling document request:", error)
         safeCall(onRequestError, { req, res, error })

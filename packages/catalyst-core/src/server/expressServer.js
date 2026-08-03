@@ -12,7 +12,20 @@ const { cyan, yellow, green } = pc
 
 import { validateMiddleware, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
+import { createApiRegistry } from "../api/registry.js"
+import { mountApiRegistry } from "../api/expressAdapter.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
+
+// ─── Load app-defined API routes (optional — apps that don't define any get an
+// empty registry) ───────────────────────────────────────────────────────────────
+let apiRoutes = []
+try {
+    const apiModule = await import(path.join(process.env.src_path, "server/api/index.js"))
+    apiRoutes = apiModule.default || []
+} catch {
+    // No server/api/index.js — apiRoutes stays empty
+}
+const apiRegistry = createApiRegistry(apiRoutes)
 
 // OpenTelemetry is opt-in (OTEL_ENABLE) — mirrors server/renderer/handler.jsx.
 // Passthrough no-op middleware when disabled or packages aren't installed.
@@ -102,6 +115,21 @@ async function createServer() {
 
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
+
+    // Attach the API registry to every request so loopback dispatch (called from
+    // inside SSR fetchers/loaders via the universal api client) can find it
+    // regardless of whether it ended up as the same physical module instance as
+    // this file once Vite has bundled the SSR entry — see
+    // docs/design-spec-data-fetching-v2.md §6.2.
+    app.use((req, _res, next) => {
+        req.__catalystApiRegistry = apiRegistry
+        next()
+    })
+
+    // Mount defineApi() routes before addMiddlewares so they take priority over
+    // any broader manual handler an app defines for the same path prefix (e.g. a
+    // catch-all `/api` handler still works as a fallback for unmatched routes).
+    mountApiRegistry(app, apiRegistry)
 
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)

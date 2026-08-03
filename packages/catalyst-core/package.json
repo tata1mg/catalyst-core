@@ -22,6 +22,7 @@
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
         "./document": "./dist/server/renderer/document/index.jsx",
+        "./api": "./dist/api/index.js",
         "./WebBridge": "./dist/native/bridge/WebBridge.js",
         "./hooks": "./dist/native/bridge/hooks.js",
         "./sentry": "./dist/sentry.cjs",
