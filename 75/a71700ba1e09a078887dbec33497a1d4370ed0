@@ -1,0 +1,41 @@
+errors/index.json
+  s_70d93a3e190f85::t_0a1682c4319cff 345-380,382,384
+  s_70d93a3e190f85::t_bce8f85ed2fab0 381,383
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-018.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-022.md
+  s_70d93a3e190f85::t_bce8f85ed2fab0 11,19
+  s_70d93a3e190f85::t_0a1682c4319cff 1-10,12-18
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-020.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-021.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+packages/catalyst-core/src/native/bridge/WebBridge.js
+  s_70d93a3e190f85::t_5f23df48564572 135-141,147-153,161-165
+  s_70d93a3e190f85::t_bff80f498067c5 187-193,199-205
+  s_70d93a3e190f85::t_d520f10f275424 102-104
+  s_70d93a3e190f85::t_b8139a6705de37 10
+  s_70d93a3e190f85::t_82ee6861b9b71c 91-97
+packages/catalyst-core/src/errors/registry.js
+  s_70d93a3e190f85::t_f3389a0ae24e91 374-405,407,409
+  s_70d93a3e190f85::t_568453af27db29 406,408
+  s_70d93a3e190f85::t_a72ff92bb62c27 54-59
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-019.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "75a71700ba1e09a078887dbec33497a1d4370ed0",
+  "prompts": {},
+  "sessions": {
+    "s_70d93a3e190f85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "37c96970-ee19-4da7-bbf2-8ad92f1d8075",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
