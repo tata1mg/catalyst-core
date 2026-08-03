@@ -1,0 +1,58 @@
+examples/useai/types.d.ts
+  s_2db858c7992682::t_f633b368bdda3c 7,9
+packages/catalyst-core/src/native/buildAndroid/index.js
+  s_2db858c7992682::t_3e21e1a7061fa5 81,83,87,90
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/CatalystAIBridge.kt
+  s_2db858c7992682::t_0d2bf3f09276b4 12
+.github/workflows/prepare-release.yml
+  s_2db858c7992682::t_88be7f4cee929a 56,61,72,166,191,388,429,470,506
+packages/catalyst-ai/package.json
+  s_2db858c7992682::t_59231762b656b0 2
+packages/catalyst-core/src/vite/vite.config.js
+  s_2db858c7992682::t_392a5acff087f8 195,202
+examples/sync-packages.js
+  s_2db858c7992682::t_3e2e8c82c13cab 4-5,12-13,30-31,50-51,53-54,58,71,80
+packages/catalyst-ai/README.md
+  s_2db858c7992682::t_b55b45cf2dba9c 1
+packages/catalyst-core/src/native/bridge/hooks/useAI.js
+  s_2db858c7992682::t_652e52c35a681c 36,43-45,62-63,73
+packages/catalyst-ai/src/useNativeAI.js
+  s_2db858c7992682::t_6a20a2a95db915 61,67,125
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_2db858c7992682::t_793c1becb11e62 19
+packages/catalyst-core/src/server/expressServer.js
+  s_2db858c7992682::t_22670fe5b9d755 18,22,27,29
+packages/catalyst-ai/scripts/check-peer.js
+  s_2db858c7992682::t_6a20a2a95db915 9
+packages/catalyst-ai/src/useWebAI.js
+  s_2db858c7992682::t_6a20a2a95db915 224,247,311,322
+.github/workflows/publish.yml
+  s_2db858c7992682::t_88be7f4cee929a 26,123,126,225,230,282,335,379,499,506,512,582
+scripts/test-catalyst-ai.sh
+  s_2db858c7992682::t_9ed3c6ea18e699 10
+packages/catalyst-ai/src/route.js
+  s_2db858c7992682::t_6a20a2a95db915 326,494,524
+package-lock.json
+  s_2db858c7992682::t_9e0f7f05b6eb8c 3054-3057
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "fbbbf5750f2a01ab0f3e98dd607cc729bba371f6",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_2db858c7992682": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53641c65-080e-4ca0-908d-43d156fe031e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
