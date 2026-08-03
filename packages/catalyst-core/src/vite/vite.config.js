@@ -192,14 +192,14 @@ export const getClientEnvVariables = () => {
     const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
     envVarDefinitions[`process.env.AI_PUBLIC_CONFIG`] = JSON.stringify(JSON.stringify(aiPublicConfig))
 
-    // Detect which @catalyst/* AI packages are installed for the app, including
+    // Detect which catalyst-* AI packages are installed for the app, including
     // hoisted/workspace installs — not just a direct app-local node_modules copy.
     // Results are injected as __CATALYST_PACKAGES__.* literals so dead code
     // referencing missing packages can be branched around at runtime.
     const appRequire = createRequire(path.join(process.env.src_path || process.cwd(), "package.json"))
     let aiPackageInstalled = false
     try {
-        appRequire.resolve("@catalyst/ai")
+        appRequire.resolve("catalyst-ai")
         aiPackageInstalled = true
     } catch {
         aiPackageInstalled = false

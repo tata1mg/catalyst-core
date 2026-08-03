@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Sync local @catalyst/* AI packages into this example app's node_modules.
+ * Sync local catalyst-ai (and future sibling AI packages) into this example
+ * app's node_modules.
  *
  * Run from inside any example folder:
  *   node ../sync-packages.js --packages ai
  *   node ../sync-packages.js --packages all
  *
  * What it does:
- *   1. Clears node_modules/@catalyst/<name>  (stale copy)
- *   2. Copies packages/catalyst-<name>/      into node_modules/@catalyst/<name>/
+ *   1. Clears node_modules/<name>  (stale copy)
+ *   2. Copies packages/<name>/     into node_modules/<name>/
  *      Skips: node_modules, .git
  *
  * No build step — these packages ship src directly (no dist).
@@ -26,8 +27,8 @@ const log = (msg) => console.log(`\n\x1b[36m▶ ${msg}\x1b[0m`);
 const ok  = (msg) => console.log(`\x1b[32m✔ ${msg}\x1b[0m`);
 const err = (msg) => { console.error(`\x1b[31m✖ ${msg}\x1b[0m`); process.exit(1); };
 
-// Map of short name → packages/ directory name
-// All AI hooks (useCloudAI, useWebAI, useNativeAI) live in @catalyst/ai
+// Map of short name → packages/ directory name (= published package name)
+// All AI hooks (useCloudAI, useWebAI, useNativeAI) live in catalyst-ai
 const PACKAGE_MAP = {
   'ai': 'catalyst-ai',
 };
@@ -46,15 +47,15 @@ function copyDir(src, dest) {
 }
 
 function syncPackage(shortName) {
-  const dirName = PACKAGE_MAP[shortName];
-  if (!dirName) err(`Unknown package "${shortName}". Valid: ${Object.keys(PACKAGE_MAP).join(', ')}`);
+  const packageName = PACKAGE_MAP[shortName];
+  if (!packageName) err(`Unknown package "${shortName}". Valid: ${Object.keys(PACKAGE_MAP).join(', ')}`);
 
-  const srcDir    = path.join(REPO_ROOT, 'packages', dirName);
-  const targetDir = path.join(EXAMPLE_DIR, 'node_modules', '@catalyst', shortName);
+  const srcDir    = path.join(REPO_ROOT, 'packages', packageName);
+  const targetDir = path.join(EXAMPLE_DIR, 'node_modules', packageName);
 
   if (!fs.existsSync(srcDir)) err(`Source not found: ${srcDir}`);
 
-  log(`Syncing @catalyst/${shortName}...`);
+  log(`Syncing ${packageName}...`);
 
   rimraf(targetDir);
   fs.mkdirSync(targetDir, { recursive: true });
@@ -67,7 +68,7 @@ function syncPackage(shortName) {
     entry.isDirectory() ? copyDir(s, d) : fs.copyFileSync(s, d);
   }
 
-  ok(`@catalyst/${shortName} → ${path.relative(REPO_ROOT, targetDir)}`);
+  ok(`${packageName} → ${path.relative(REPO_ROOT, targetDir)}`);
 
   // For ai, remind dev to wire up the android module (useNativeAI) in settings.gradle.kts
   if (shortName === 'ai') {
@@ -76,7 +77,7 @@ function syncPackage(shortName) {
       console.log(`\x1b[36m  ℹ  Android module at: ${path.relative(REPO_ROOT, androidDir)}\x1b[0m`);
       console.log(`\x1b[33m  ⚠  Add to settings.gradle.kts:\x1b[0m`);
       console.log(`       include(":catalyst-ai")`);
-      console.log(`       project(":catalyst-ai").projectDir = File("node_modules/@catalyst/ai/android")`);
+      console.log(`       project(":catalyst-ai").projectDir = File("node_modules/catalyst-ai/android")`);
     }
   }
 }

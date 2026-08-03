@@ -1,5 +1,5 @@
 {
-    "name": "@catalyst/ai",
+    "name": "catalyst-ai",
     "version": "0.1.0",
     "description": "AI provider for catalyst-core — cloud/web/native useAI hooks + OpenAI/Gemini SSE route",
     "main": "src/index.js",

@@ -15,18 +15,18 @@ import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
 
-// Mount AI route if @catalyst/ai is installed
+// Mount AI route if catalyst-ai is installed
 function mountAIRouter(app) {
     let aiPackagePath
     try {
-        aiPackagePath = cjsRequire.resolve("@catalyst/ai/route", {
+        aiPackagePath = cjsRequire.resolve("catalyst-ai/route", {
             paths: [process.env.src_path || process.cwd()],
         })
     } catch (resolveErr) {
         if (resolveErr.code !== "MODULE_NOT_FOUND") {
-            console.error("[catalyst-core/ai] Unexpected error resolving @catalyst/ai:", resolveErr)
+            console.error("[catalyst-core/ai] Unexpected error resolving catalyst-ai:", resolveErr)
         } else {
-            console.debug("[catalyst-core/ai] @catalyst/ai not installed — AI routes unavailable")
+            console.debug("[catalyst-core/ai] catalyst-ai not installed — AI routes unavailable")
         }
         return
     }

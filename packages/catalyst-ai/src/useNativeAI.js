@@ -58,13 +58,13 @@ export function useNativeAI({
 
         if (!window.NativeBridge?.initAI) {
             setError(new Error(
-                "[@catalyst/ai/useNativeAI] window.NativeBridge.initAI not found. " +
+                "[catalyst-ai/useNativeAI] window.NativeBridge.initAI not found. " +
                 "Update catalyst-core to >=0.2.0 and add the android module to settings.gradle.kts."
             ))
             return
         }
         if (!window.WebBridge) {
-            setError(new Error("[@catalyst/ai/useNativeAI] WebBridge not initialized — call WebBridge.init() before mounting useNativeAI"))
+            setError(new Error("[catalyst-ai/useNativeAI] WebBridge not initialized — call WebBridge.init() before mounting useNativeAI"))
             return
         }
 
@@ -122,7 +122,7 @@ export function useNativeAI({
         async ({ messages, genConfig: callGenConfig = {} }) => {
             const url = nativeStreamUrlRef.current
             if (!url) {
-                setError(new Error("[@catalyst/ai/useNativeAI] stream URL not ready — did initAI fire?"))
+                setError(new Error("[catalyst-ai/useNativeAI] stream URL not ready — did initAI fire?"))
                 return
             }
 

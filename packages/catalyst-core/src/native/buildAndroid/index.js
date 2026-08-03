@@ -78,16 +78,16 @@ function createAndroidBuild(config) {
         if (!aiEnabled) return
 
         const appNodeModules = path.join(process.cwd(), "node_modules")
-        const aiPackageSrc = path.join(appNodeModules, "@catalyst", "ai")
+        const aiPackageSrc = path.join(appNodeModules, "catalyst-ai")
         if (!fs.existsSync(aiPackageSrc)) {
-            progress.log("ai.enabled=true but @catalyst/ai not found in node_modules — skipping native AI sync", "warning")
+            progress.log("ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI sync", "warning")
             return
         }
 
-        const destDir = path.join(pwd, "node_modules", "@catalyst", "ai")
+        const destDir = path.join(pwd, "node_modules", "catalyst-ai")
         fs.mkdirSync(destDir, { recursive: true })
         copyDirSync(aiPackageSrc, destDir)
-        progress.log("@catalyst/ai synced to dist/native/node_modules for Gradle", "success")
+        progress.log("catalyst-ai synced to dist/native/node_modules for Gradle", "success")
     }
 
     function copyDirSync(src, dest) {

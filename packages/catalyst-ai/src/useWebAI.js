@@ -221,7 +221,7 @@ export function useWebAI({
 
             const resolvedModel = callModel || modelProp
             if (!resolvedModel) {
-                setError(new Error("[@catalyst/ai/useWebAI] no model specified — pass model prop or per-call model"))
+                setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
                 return
             }
 
@@ -244,7 +244,7 @@ export function useWebAI({
             try {
                 worker = new Worker(getWorkerBlobUrl(), { type: "module" })
             } catch (err) {
-                setError(new Error("[@catalyst/ai/useWebAI] module worker unavailable: " + (err.message || String(err))))
+                setError(new Error("[catalyst-ai/useWebAI] module worker unavailable: " + (err.message || String(err))))
                 setLoading(false)
                 return
             }
@@ -308,7 +308,7 @@ export function useWebAI({
                         workerRef.current = null
                         break
                     case "error":
-                        console.error("[@catalyst/ai/useWebAI] worker error:", msg.message)
+                        console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
                         setError(new Error(msg.message))
                         setStreaming(false)
                         setLoading(false)
@@ -319,7 +319,7 @@ export function useWebAI({
             }
 
             worker.onerror = (e) => {
-                console.error("[@catalyst/ai/useWebAI] worker uncaught error:", e)
+                console.error("[catalyst-ai/useWebAI] worker uncaught error:", e)
                 setError(new Error(e.message || "Worker crashed"))
                 setStreaming(false)
                 setLoading(false)

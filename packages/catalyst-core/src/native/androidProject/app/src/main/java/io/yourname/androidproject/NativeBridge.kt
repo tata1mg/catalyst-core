@@ -16,7 +16,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-// LiteRT imports removed — AI logic lives in @catalyst/ai (CatalystAIBridge plugin)
+// LiteRT imports removed — AI logic lives in catalyst-ai (CatalystAIBridge plugin)
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
