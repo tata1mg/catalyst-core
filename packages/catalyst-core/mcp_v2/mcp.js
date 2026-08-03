@@ -62,21 +62,53 @@ if (projectInfo.notInstalled) {
     process.exit(1)
 }
 
-if (!fs.existsSync(DB_PATH)) {
+const dbMissing = !fs.existsSync(DB_PATH)
+const dbEmpty = !dbMissing && fs.statSync(DB_PATH).size === 0
+
+if (dbMissing || dbEmpty) {
+    try {
+        require("./setup")
+    } catch (setupErr) {
+        process.stderr.write(
+            JSON.stringify({
+                jsonrpc: "2.0",
+                error: {
+                    code: -32000,
+                    message: `context.db ${dbEmpty ? "is empty" : "not found"} at ${DB_PATH}. Auto-setup failed: ${setupErr.message}. Run manually: node ${path.join(MCP_DIR, "setup.js")}`,
+                },
+                id: null,
+            }) + "\n"
+        )
+        // process.exit(1) instead of exitCode+return: this is top-level script code
+        // (not inside a function), and ESLint here rejects top-level return even
+        // though Node's CommonJS wrapper allows it. Matches the exit pattern used
+        // by the other startup-validation failures above (L49, L62).
+        process.exit(1)
+    }
+}
+
+let db
+try {
+    db = new Database(DB_PATH, { readonly: false })
+} catch (e) {
+    const isVersionMismatch =
+        e.code === "ERR_DLOPEN_FAILED" ||
+        e.message.includes("compiled against a different Node.js version") ||
+        e.message.includes("NODE_MODULE_VERSION")
     process.stderr.write(
         JSON.stringify({
             jsonrpc: "2.0",
             error: {
                 code: -32000,
-                message: `context.db not found at ${DB_PATH}. Run setup first: node ${path.join(MCP_DIR, "setup.js")}`,
+                message: isVersionMismatch
+                    ? `Native module mismatch for Node ${process.version}. Run: npm rebuild better-sqlite3`
+                    : `Failed to open context.db: ${e.message}`,
             },
             id: null,
         }) + "\n"
     )
     process.exit(1)
 }
-
-const db = new Database(DB_PATH, { readonly: false })
 const CONVERSION_TASKS = JSON.parse(fs.readFileSync(TASKS_PATH, "utf8"))
 
 // ── Module init ───────────────────────────────────────────────────────────────

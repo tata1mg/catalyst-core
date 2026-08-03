@@ -16,12 +16,15 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+// LiteRT imports removed — AI logic lives in catalyst-ai (CatalystAIBridge plugin)
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.Properties
+import java.util.ServiceLoader
 import java.util.concurrent.atomic.AtomicBoolean
 
 private data class FilePickerOptions(
@@ -150,6 +153,61 @@ class NativeBridge(
     }
     
     private var networkMonitor: NetworkMonitor? = null
+
+    // AI plugin — loaded via reflection so NativeBridge.kt compiles with no compile-time dep on
+    // :catalyst-ai. When the module is absent the try block returns null gracefully.
+    private val aiBridge: Any? = try {
+        @Suppress("UNCHECKED_CAST")
+        run {
+            val bridgeClass = Class.forName("io.catalyst.nativeai.AIBridge")
+            val callbacksClass = Class.forName("io.catalyst.nativeai.AIBridgeCallbacks")
+            @Suppress("UNCHECKED_CAST")
+            val loader = ServiceLoader.load(bridgeClass as Class<Any>)
+            val bridge = loader.iterator().takeIf { it.hasNext() }?.next() ?: return@run null
+
+            val callbacksProxy = java.lang.reflect.Proxy.newProxyInstance(
+                bridgeClass.classLoader,
+                arrayOf(callbacksClass)
+            ) { _, method, args ->
+                val a = args ?: emptyArray()
+                when (method.name) {
+                    "onReady" -> {
+                        val payload = org.json.JSONObject().apply {
+                            put("url", a[0]); put("port", a[1]); put("sessionId", a[2])
+                        }
+                        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_AI_READY, payload)
+                    }
+                    "onProgress" -> {
+                        val payload = org.json.JSONObject().apply {
+                            put("phase", a[0]); put("percent", a[1])
+                            put("bytesLoaded", a[2]); put("bytesTotal", a[3]); put("detail", a[4])
+                        }
+                        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_AI_PROGRESS, payload)
+                    }
+                    "onLog" -> {
+                        val payload = org.json.JSONObject().apply { put("message", a[0]) }
+                        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_AI_LOG, payload)
+                    }
+                    "onError" -> BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_AI_ERROR, a[0] as String)
+                    "isFrameworkServerRunning" -> FrameworkServerUtils.isRunning()
+                    "getFrameworkServerPort" -> FrameworkServerUtils.getServerPort()
+                    "getFrameworkServerSessionId" -> FrameworkServerUtils.getSessionId()
+                    "setNativeAiSupplier" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        FrameworkServerUtils.setNativeAiSupplier(
+                            a[0] as suspend (String, org.json.JSONObject, String?) -> Pair<String, kotlinx.coroutines.flow.Flow<String>>
+                        )
+                    }
+                    "setNativeSystemPrompt" -> FrameworkServerUtils.setNativeSystemPrompt(a[0] as String)
+                    else -> null
+                }
+            }
+
+            bridge.javaClass.getMethod("attach", android.app.Activity::class.java, android.webkit.WebView::class.java, callbacksClass)
+                .invoke(bridge, mainActivity, webView, callbacksProxy)
+            bridge
+        }
+    } catch (_: Throwable) { null }
 
     // Video stream manager
     private var nativeCameraManager: NativeCameraManager? = null
@@ -1298,6 +1356,34 @@ class NativeBridge(
                     insetsJson
                 )
             }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Native AI bridge methods — delegated to AIBridge plugin (ServiceLoader)
+    // -------------------------------------------------------------------------
+
+    @JavascriptInterface
+    fun isAIAvailable(): Boolean = aiBridge != null
+
+    @JavascriptInterface
+    fun initAI(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "initialize AI") {
+            aiBridge?.javaClass?.getMethod("initAI", String::class.java)?.invoke(aiBridge, optionsRaw)
+        }
+    }
+
+    @JavascriptInterface
+    fun generateNative(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "generate with native AI") {
+            aiBridge?.javaClass?.getMethod("generateNative", String::class.java)?.invoke(aiBridge, optionsRaw)
+        }
+    }
+
+    @JavascriptInterface
+    fun clearNativeConversation() {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "clear native conversation") {
+            aiBridge?.javaClass?.getMethod("clearConversation")?.invoke(aiBridge)
         }
     }
 

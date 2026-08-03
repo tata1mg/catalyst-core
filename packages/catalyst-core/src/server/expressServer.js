@@ -12,7 +12,51 @@ const { cyan, yellow, green } = pc
 
 import { validateMiddleware, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
+import { cjsRequire } from "./utils/cjsRequire.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
+
+// Mount AI route if catalyst-ai is installed
+function mountAIRouter(app) {
+    let aiPackagePath
+    try {
+        aiPackagePath = cjsRequire.resolve("catalyst-ai/route", {
+            paths: [process.env.src_path || process.cwd()],
+        })
+    } catch (resolveErr) {
+        if (resolveErr.code !== "MODULE_NOT_FOUND") {
+            console.error("[catalyst-core/ai] Unexpected error resolving catalyst-ai:", resolveErr)
+        } else {
+            console.debug("[catalyst-core/ai] catalyst-ai not installed — AI routes unavailable")
+        }
+        return
+    }
+
+    try {
+        const aiRouter = cjsRequire(aiPackagePath)
+        let aiConfig = {}
+        try {
+            const parsedConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+            if (parsedConfig && typeof parsedConfig === "object" && !Array.isArray(parsedConfig)) {
+                aiConfig = parsedConfig
+            } else {
+                console.warn("[catalyst-core/ai] AI_CONFIG must be a JSON object, ignoring it")
+            }
+        } catch (e) {
+            console.warn(`[catalyst-core/ai] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
+        }
+
+        if (aiConfig.enabled === false) {
+            console.log("[catalyst-core/ai] AI_CONFIG.enabled is false, skipping AI router")
+            return
+        }
+
+        const aiBasePath = aiConfig.basePath || "/ai"
+        console.log(`[catalyst-core/ai] mounting AI router at ${aiBasePath}`)
+        app.use(aiBasePath, aiRouter)
+    } catch (mountErr) {
+        console.error("[catalyst-core/ai] Failed to mount AI router:", mountErr)
+    }
+}
 
 // OpenTelemetry is opt-in (OTEL_ENABLE) — mirrors server/renderer/handler.jsx.
 // Passthrough no-op middleware when disabled or packages aren't installed.
@@ -105,6 +149,8 @@ async function createServer() {
 
     // All the middlewares defined by the user will run here.
     if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
+
+    mountAIRouter(app)
 
     // response.compress + response.flush spans straddle compression — they
     // attribute the time past the `handler` span (gzip/brotli, then egress).

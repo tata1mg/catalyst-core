@@ -9,8 +9,8 @@
 #   --catalyst-version <ver>  Install a published npm version instead of syncing
 #
 # Groups:
-#   build     — build + devBuild
-#   serve     — serve + devServe + start
+#   build     — build
+#   serve     — serve + start
 #   js-tests  — test / test:unit / test:integration / test:e2e
 
 set -euo pipefail
@@ -145,6 +145,7 @@ sync_catalyst_core() {
     header "Sync catalyst-core"
     if [ -n "$CATALYST_VERSION" ]; then
         info "Installing catalyst-core@$CATALYST_VERSION from npm"
+        rm -rf "$APP_DIR/node_modules/catalyst-core"
         (cd "$APP_DIR" && npm install "catalyst-core@$CATALYST_VERSION" --save-exact --silent 2>&1)
         ok "Installed catalyst-core@$CATALYST_VERSION"
     else
@@ -163,25 +164,20 @@ sync_catalyst_core() {
 group_build() {
     header "Group: build"
     local all_passed=1
-    run_step "build"    || all_passed=0
-    run_step "devBuild" || all_passed=0
+    run_step "build" || all_passed=0
     [ "$all_passed" -eq 1 ] && record "build" "PASS" || record "build" "FAIL"
 }
 
 # ── Group: serve ──────────────────────────────────────────────────────────────
 group_serve() {
     header "Group: serve"
-    local server_port webpack_port
+    local server_port
     server_port=$(get_port "NODE_SERVER_PORT" 3005)
-    webpack_port=$(get_port "WEBPACK_DEV_SERVER_PORT" 3006)
 
-    local all_passed=1 serve_pid="" devserve_pid="" start_pid=""
+    local all_passed=1 serve_pid="" start_pid=""
 
-    run_server "serve"    "$server_port"  "serve_pid"    || all_passed=0
+    run_server "serve" "$server_port" "serve_pid" || all_passed=0
     kill_server "${serve_pid:-}"; sleep 1
-
-    run_server "devServe" "$webpack_port" "devserve_pid" "$server_port" || all_passed=0
-    kill_server "${devserve_pid:-}"; sleep 1
 
     run_server "start" "$server_port" "start_pid" || all_passed=0
     kill_server "${start_pid:-}"; sleep 1

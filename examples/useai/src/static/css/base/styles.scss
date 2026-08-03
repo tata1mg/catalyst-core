@@ -1,0 +1,153 @@
+:root {
+  --bg: #0d0d10;
+  --bg-2: #0d0d10;
+  --surface: #16161a;
+  --surface-2: #1c1c21;
+  --surface-3: #22222b;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.12);
+  --text: #E9EBF1;
+  --text-2: #9197A6;
+  --text-3: #585F72;
+  --accent: #6366f1;
+  --accent-2: #818cf8;
+  --accent-dim: rgba(99, 102, 241, 0.14);
+  --accent-line: rgba(99, 102, 241, 0.45);
+  --teal: #2dd4bf;
+  --teal-dim: rgba(45, 212, 191, 0.14);
+  --amber: #F5B544;
+  --red: #FF6B7A;
+  --green: #46D483;
+  --code-bg: #0d0d10;
+  --code-border: rgba(255, 255, 255, 0.08);
+  --shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --glow: 0 0 0 1px var(--accent-line), 0 8px 30px -8px rgba(99, 102, 241, 0.45);
+}
+
+[data-theme="light"] {
+  --bg: #F1F3F8;
+  --bg-2: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-2: #F6F7FB;
+  --surface-3: #EDF0F6;
+  --border: rgba(16, 22, 40, 0.09);
+  --border-2: rgba(16, 22, 40, 0.15);
+  --text: #10141E;
+  --text-2: #5A6273;
+  --text-3: #9AA2B4;
+  --accent: #4F6BFF;
+  --accent-2: #3A52DB;
+  --accent-dim: rgba(79, 107, 255, 0.10);
+  --accent-line: rgba(79, 107, 255, 0.40);
+  --teal: #0D9488;
+  --teal-dim: rgba(13, 148, 136, 0.10);
+  --amber: #B9760A;
+  --red: #E5484D;
+  --green: #1A9E5F;
+  --code-bg: #0C0F18;
+  --code-border: rgba(255, 255, 255, 0.05);
+  --shadow: 0 22px 50px -24px rgba(20, 30, 60, 0.30), 0 6px 18px -10px rgba(20, 30, 60, 0.18);
+  --glow: 0 0 0 1px var(--accent-line), 0 8px 26px -10px rgba(79, 107, 255, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Global Keyframe Animations */
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -220px 0;
+  }
+  100% {
+    background-position: 220px 0;
+  }
+}
+
+@keyframes caret {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

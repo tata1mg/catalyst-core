@@ -1,6 +1,7 @@
 "use strict"
 
 const path = require("path")
+const fs = require("fs")
 const { runCommand, runInteractiveCommand } = require("../utils.js")
 const TerminalProgress = require("../TerminalProgress.js").default
 const { composeAndroidPlugins } = require("../pluginComposerAndroid.js")
@@ -72,6 +73,34 @@ function createAndroidBuild(config) {
         buildSignedAAB,
     } = createBuildPhase(ctx)
 
+    function syncAIPackageIfEnabled(wvConfig, progress) {
+        const aiEnabled = wvConfig?.ai?.enabled === true
+        if (!aiEnabled) return
+
+        const appNodeModules = path.join(process.cwd(), "node_modules")
+        const aiPackageSrc = path.join(appNodeModules, "catalyst-ai")
+        if (!fs.existsSync(aiPackageSrc)) {
+            progress.log("ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI sync", "warning")
+            return
+        }
+
+        const destDir = path.join(pwd, "node_modules", "catalyst-ai")
+        fs.mkdirSync(destDir, { recursive: true })
+        copyDirSync(aiPackageSrc, destDir)
+        progress.log("catalyst-ai synced to dist/native/node_modules for Gradle", "success")
+    }
+
+    function copyDirSync(src, dest) {
+        fs.mkdirSync(dest, { recursive: true })
+        for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+            if (entry.name === "node_modules" || entry.name === ".git") continue
+            const s = path.join(src, entry.name) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+            const d = path.join(dest, entry.name) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+            entry.isDirectory() ? copyDirSync(s, d) : fs.copyFileSync(s, d)
+        }
+    }
+
+
     async function buildAndroidApp() {
         let androidConfig = null
         let targetDevice = null
@@ -142,6 +171,7 @@ function createAndroidBuild(config) {
             })
             await processNotifications(wvConfig)
             progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
+            syncAIPackageIfEnabled(wvConfig, progress)
             progress.complete("copyAssets")
 
             let movedApkPath = null
@@ -389,6 +419,7 @@ function createAndroidBuild(config) {
                 log: (message, status = "info") => progress.log(message, status),
             })
             await processNotifications(wvConfig)
+            syncAIPackageIfEnabled(wvConfig, progress)
 
             progress.log("✅ buildAndroidForTesting complete — project ready for gradlew test", "success")
             return { success: true }

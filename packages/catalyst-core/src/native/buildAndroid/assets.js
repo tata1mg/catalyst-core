@@ -602,7 +602,7 @@ function createAssetsPhase(ctx) {
 
             for (const metadataName of metadataNames) {
                 const metadataRegex = new RegExp(
-                    `\\s*<meta-data\\s+[\\s\\S]*?android:name="${metadataName}"[\\s\\S]*?\\/>`,
+                    `\\s*<meta-data\\s+[^>]*?android:name="${metadataName}"[^>]*?\\/>`,
                     "gi"
                 )
                 manifestContent = manifestContent.replace(metadataRegex, "")

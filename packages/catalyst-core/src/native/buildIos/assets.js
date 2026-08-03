@@ -156,7 +156,7 @@ module.exports = function createAssetsPhase(ctx) {
 
     // ─── Notification assets ─────────────────────────────────────────────────
 
-    async function validateNotificationAsset(filePath, assetType) {
+    function validateNotificationAsset(filePath, assetType) {
         const stats = fs.statSync(filePath)
         const fileSizeKB = stats.size / 1024
         if (assetType === "icon" && fileSizeKB > 100)

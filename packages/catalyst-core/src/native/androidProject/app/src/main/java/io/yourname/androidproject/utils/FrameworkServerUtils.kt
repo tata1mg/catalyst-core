@@ -7,15 +7,21 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.http.ContentType
+import io.ktor.server.response.respondTextWriter
+import io.ktor.server.sse.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.channels.ServerSocketChannel
 import java.security.SecureRandom
-import java.util.*
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -36,6 +42,7 @@ object FrameworkServerUtils {
     private const val FRAMEWORK_PORT_RANGE_START = 3000
     private const val FRAMEWORK_PORT_RANGE_END = 3099
     private const val SESSION_TIMEOUT_MS = 30 * 60 * 1000L // 30 minutes
+    private const val AI_GENERATE_TIMEOUT_MS = 120 * 1000L // 2 minutes
     
     // Server state
     private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
@@ -49,7 +56,14 @@ object FrameworkServerUtils {
     // File management
     private val servedFiles = ConcurrentHashMap<String, ServedFile>()
     private var cacheDirectory: File? = null
-    
+
+    // Native AI — supplier set by NativeBridge before POST /ai/stream is called
+    // Returns (conversationId, tokenFlow) so the route can emit conversationId as an SSE event
+    private var nativeAiSupplier: (suspend (prompt: String, genConfig: JSONObject, conversationId: String?) -> Pair<String, Flow<String>>)? = null
+
+    // System prompt injected into every native AI request (built from attachmentComponents at initAI time)
+    private var nativeSystemPrompt: String = ""
+
     // Coroutine scope for server operations
     private val serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -60,7 +74,7 @@ object FrameworkServerUtils {
         val fileId: String,
         val createdAt: Long = System.currentTimeMillis()
     )
-    
+
     /**
      * Initialize and start the framework server
      * @param context Android context for file operations
@@ -223,7 +237,21 @@ object FrameworkServerUtils {
      * Get current session ID
      */
     fun getSessionId(): String = sessionId
-    
+
+    /**
+     * Register the native AI supplier. Called by NativeBridge once LiteRT-LM is ready.
+     * The supplier receives the prompt, gen-config, and optional incomingConversationId,
+     * and returns (activeConversationId, tokenFlow) so stateful sessions can be chained.
+     */
+    fun setNativeAiSupplier(supplier: suspend (prompt: String, genConfig: JSONObject, conversationId: String?) -> Pair<String, Flow<String>>) {
+        nativeAiSupplier = supplier
+    }
+
+    fun setNativeSystemPrompt(systemPrompt: String) {
+        nativeSystemPrompt = systemPrompt
+        Log.d(TAG, "System prompt set (${systemPrompt.length} chars)")
+    }
+
     // Private implementation methods
     
     private fun initializeCacheDirectory(context: Context) {
@@ -291,7 +319,145 @@ object FrameworkServerUtils {
     
     private fun startKtorServer() {
         server = embeddedServer(Netty, port = serverPort) {
+            install(SSE)
             routing {
+                // Native AI streaming endpoint — POST body: { "prompt": "...", "genConfig": {...} }
+                // Writes SSE manually over chunked response (Ktor SSE plugin only supports GET).
+                post("/framework-$sessionId/ai/stream") {
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+                    call.response.header(HttpHeaders.ContentType, "text/event-stream")
+                    call.response.header(HttpHeaders.CacheControl, "no-cache")
+                    call.response.header("X-Accel-Buffering", "no")
+
+                    val body = try {
+                        JSONObject(call.receiveText())
+                    } catch (e: Exception) {
+                        JSONObject()
+                    }
+                    val userPrompt = body.optString("prompt", "")
+                    val genConfig = body.optJSONObject("genConfig") ?: JSONObject()
+                    val incomingConvId = body.optString("conversationId", "").takeIf { it.isNotBlank() }
+                    if (nativeSystemPrompt.isNotBlank()) Log.d(TAG, "Injecting system prompt (${nativeSystemPrompt.length} chars)")
+                    val prompt = if (nativeSystemPrompt.isNotBlank()) "$nativeSystemPrompt\n\n$userPrompt" else userPrompt
+
+                    call.respondTextWriter(contentType = ContentType.Text.EventStream) {
+                        val supplier = nativeAiSupplier
+                        if (supplier == null) {
+                            write("data: {\"error\":\"Native AI not initialised — call initAI() first\"}\n\n")
+                            flush()
+                        } else if (prompt.isBlank()) {
+                            write("data: {\"error\":\"prompt is empty\"}\n\n")
+                            flush()
+                        } else {
+                            try {
+                                val (activeConvId, tokenFlow) = supplier(prompt, genConfig, incomingConvId)
+                                write("data: {\"conversationId\":${JSONObject.quote(activeConvId)}}\n\n")
+                                flush()
+                                tokenFlow.collect { token ->
+                                    write("data: {\"token\":${JSONObject.quote(token)}}\n\n")
+                                    flush()
+                                }
+                                write("data: {\"done\":true}\n\n")
+                                flush()
+                            } catch (e: java.io.IOException) {
+                                // Client disconnected — channel closed, nothing to write
+                                Log.d(TAG, "Native AI stream: client disconnected (${e.message})")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Native AI stream error", e)
+                                try {
+                                    write("data: {\"error\":${JSONObject.quote(e.message ?: "stream error")}}\n\n")
+                                    flush()
+                                } catch (_: java.io.IOException) {
+                                    // Channel already closed, ignore
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // OPTIONS preflight for ai/stream
+                options("/framework-$sessionId/ai/stream") {
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowMethods, "POST, OPTIONS")
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+                    call.response.header(HttpHeaders.AccessControlMaxAge, "86400")
+                    call.respond(HttpStatusCode.OK)
+                }
+
+                // Native AI non-streaming endpoint — POST body: { "prompt": "...", "genConfig": {...} }
+                // Drains nativeAiSupplier's tokenFlow fully, then returns a single JSON response.
+                post("/framework-$sessionId/ai/generate") {
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+
+                    val body = try {
+                        JSONObject(call.receiveText())
+                    } catch (e: Exception) {
+                        JSONObject()
+                    }
+                    val userPrompt = body.optString("prompt", "")
+                    val genConfig = body.optJSONObject("genConfig") ?: JSONObject()
+                    val incomingConvId = body.optString("conversationId", "").takeIf { it.isNotBlank() }
+                    if (nativeSystemPrompt.isNotBlank()) Log.d(TAG, "Injecting system prompt (${nativeSystemPrompt.length} chars)")
+                    val prompt = if (nativeSystemPrompt.isNotBlank()) "$nativeSystemPrompt\n\n$userPrompt" else userPrompt
+
+                    val supplier = nativeAiSupplier
+                    if (supplier == null) {
+                        call.respondText(
+                            JSONObject().put("error", "Native AI not initialised — call initAI() first").toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.ServiceUnavailable
+                        )
+                        return@post
+                    }
+                    if (prompt.isBlank()) {
+                        call.respondText(
+                            JSONObject().put("error", "prompt is empty").toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.BadRequest
+                        )
+                        return@post
+                    }
+
+                    try {
+                        val (activeConvId, tokenFlow) = supplier(prompt, genConfig, incomingConvId)
+                        val output = StringBuilder()
+                        var tokenCount = 0
+                        withTimeout(AI_GENERATE_TIMEOUT_MS) {
+                            tokenFlow.collect { token -> output.append(token); tokenCount++ }
+                        }
+                        val responseJson = JSONObject()
+                            .put("output", output.toString())
+                            .put("conversationId", activeConvId)
+                            .put("tokenCount", tokenCount)
+                        call.respondText(responseJson.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+                    } catch (e: TimeoutCancellationException) {
+                        Log.e(TAG, "Native AI generate timed out after ${AI_GENERATE_TIMEOUT_MS}ms", e)
+                        call.respondText(
+                            JSONObject().put("error", "generate timed out after ${AI_GENERATE_TIMEOUT_MS / 1000}s").toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.GatewayTimeout
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Native AI generate error", e)
+                        call.respondText(
+                            JSONObject().put("error", (e.message ?: "generate error")).toString(),
+                            ContentType.Application.Json,
+                            HttpStatusCode.InternalServerError
+                        )
+                    }
+                }
+
+                // OPTIONS preflight for ai/generate
+                options("/framework-$sessionId/ai/generate") {
+                    call.response.header(HttpHeaders.AccessControlAllowOrigin, allowedOrigin)
+                    call.response.header(HttpHeaders.AccessControlAllowMethods, "POST, OPTIONS")
+                    call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
+                    call.response.header(HttpHeaders.AccessControlMaxAge, "86400")
+                    call.respond(HttpStatusCode.OK)
+                }
+
                 get("/framework-$sessionId/file-{fileId}") {
                     val fileId = call.parameters["fileId"]
                     
@@ -385,22 +551,16 @@ object FrameworkServerUtils {
         val expiredFiles = servedFiles.filter { (_, servedFile) ->
             currentTime - servedFile.createdAt > SESSION_TIMEOUT_MS
         }
-        
         if (expiredFiles.isNotEmpty()) {
             Log.d(TAG, "Cleaning up ${expiredFiles.size} expired files")
-            
-            expiredFiles.forEach { (fileId, _) ->
-                removeServedFile(fileId)
-            }
+            expiredFiles.forEach { (fileId, _) -> removeServedFile(fileId) }
         }
+
     }
     
     private fun cleanupAllFiles() {
         Log.d(TAG, "Cleaning up all served files (${servedFiles.size} files)")
-        
-        servedFiles.keys.toList().forEach { fileId ->
-            removeServedFile(fileId)
-        }
+        servedFiles.keys.toList().forEach { fileId -> removeServedFile(fileId) }
         
         // Clean cache directory
         cacheDirectory?.listFiles()?.forEach { file ->

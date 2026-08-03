@@ -1,0 +1,27 @@
+{
+    "name": "catalyst-ai",
+    "version": "0.1.0",
+    "description": "AI provider for catalyst-core — cloud/web/native useAI hooks + OpenAI/Gemini SSE route",
+    "main": "src/index.js",
+    "exports": {
+        ".": "./src/index.js",
+        "./route": "./src/route.js"
+    },
+    "scripts": {
+        "preinstall": "node ./scripts/check-peer.js"
+    },
+    "peerDependencies": {
+        "catalyst-core": ">=0.3.0-0"
+    },
+    "peerDependenciesMeta": {
+        "catalyst-core": {
+            "optional": false
+        }
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tata1mg/catalyst-core.git",
+        "directory": "packages/catalyst-ai"
+    }
+}
