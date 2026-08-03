@@ -4,7 +4,7 @@
  * Sync local @catalyst/* AI packages into this example app's node_modules.
  *
  * Run from inside any example folder:
- *   node ../sync-packages.js --packages cloud-ai
+ *   node ../sync-packages.js --packages ai
  *   node ../sync-packages.js --packages all
  *
  * What it does:
@@ -27,9 +27,9 @@ const ok  = (msg) => console.log(`\x1b[32m✔ ${msg}\x1b[0m`);
 const err = (msg) => { console.error(`\x1b[31m✖ ${msg}\x1b[0m`); process.exit(1); };
 
 // Map of short name → packages/ directory name
-// All AI hooks (useCloudAI, useWebAI, useNativeAI) now live in cloud-ai
+// All AI hooks (useCloudAI, useWebAI, useNativeAI) live in @catalyst/ai
 const PACKAGE_MAP = {
-  'cloud-ai': 'catalyst-cloud-ai',
+  'ai': 'catalyst-ai',
 };
 
 function rimraf(dir) {
@@ -69,14 +69,14 @@ function syncPackage(shortName) {
 
   ok(`@catalyst/${shortName} → ${path.relative(REPO_ROOT, targetDir)}`);
 
-  // For cloud-ai, remind dev to wire up the android module (useNativeAI) in settings.gradle.kts
-  if (shortName === 'cloud-ai') {
+  // For ai, remind dev to wire up the android module (useNativeAI) in settings.gradle.kts
+  if (shortName === 'ai') {
     const androidDir = path.join(targetDir, 'android');
     if (fs.existsSync(androidDir)) {
       console.log(`\x1b[36m  ℹ  Android module at: ${path.relative(REPO_ROOT, androidDir)}\x1b[0m`);
       console.log(`\x1b[33m  ⚠  Add to settings.gradle.kts:\x1b[0m`);
-      console.log(`       include(":catalyst-cloud-ai")`);
-      console.log(`       project(":catalyst-cloud-ai").projectDir = File("node_modules/@catalyst/cloud-ai/android")`);
+      console.log(`       include(":catalyst-ai")`);
+      console.log(`       project(":catalyst-ai").projectDir = File("node_modules/@catalyst/ai/android")`);
     }
   }
 }
@@ -84,7 +84,7 @@ function syncPackage(shortName) {
 // Parse --packages flag
 const pkgIdx = process.argv.indexOf('--packages');
 if (pkgIdx === -1 || !process.argv[pkgIdx + 1]) {
-  err('Usage: node sync-packages.js --packages cloud-ai|all');
+  err('Usage: node sync-packages.js --packages ai|all');
 }
 
 const pkgArg = process.argv[pkgIdx + 1];

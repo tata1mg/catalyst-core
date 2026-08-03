@@ -197,15 +197,15 @@ export const getClientEnvVariables = () => {
     // Results are injected as __CATALYST_PACKAGES__.* literals so dead code
     // referencing missing packages can be branched around at runtime.
     const appRequire = createRequire(path.join(process.env.src_path || process.cwd(), "package.json"))
-    let cloudAIInstalled = false
+    let aiPackageInstalled = false
     try {
-        appRequire.resolve("@catalyst/cloud-ai")
-        cloudAIInstalled = true
+        appRequire.resolve("@catalyst/ai")
+        aiPackageInstalled = true
     } catch {
-        cloudAIInstalled = false
+        aiPackageInstalled = false
     }
     envVarDefinitions["__CATALYST_PACKAGES__"] = JSON.stringify({
-        cloudAI: cloudAIInstalled,
+        ai: aiPackageInstalled,
     })
 
     return envVarDefinitions

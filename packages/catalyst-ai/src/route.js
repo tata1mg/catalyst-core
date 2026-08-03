@@ -323,7 +323,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
                         res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
                     }
                     if (parsed.event_type === "interaction.completed" && parsed.interaction?.id) {
-                        console.log(`[@catalyst/cloud-ai] gemini session id: ${parsed.interaction.id}`)
+                        console.log(`[@catalyst/ai] gemini session id: ${parsed.interaction.id}`)
                         res.write(`data: ${JSON.stringify({ conversationId: parsed.interaction.id })}\n\n`)
                         const usage = normalizeGeminiInteractionUsage(parsed.interaction?.usage, model)
                         if (usage) res.write(`data: ${JSON.stringify({ usage })}\n\n`)
@@ -491,7 +491,7 @@ router.post("/:provider/stream", async (req, res) => {
             signal: abortController.signal,
         })
     } catch (err) {
-        console.error("[@catalyst/cloud-ai] %s stream error:", provider, err.message)
+        console.error("[@catalyst/ai] %s stream error:", provider, err.message)
         if (!res.writableEnded) {
             res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`)
             res.end()
@@ -521,7 +521,7 @@ router.post("/:provider/generate", async (req, res) => {
         const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
-        console.error("[@catalyst/cloud-ai] %s generate error:", provider, err.message)
+        console.error("[@catalyst/ai] %s generate error:", provider, err.message)
         res.status(500).json({ error: err.message })
     }
 })

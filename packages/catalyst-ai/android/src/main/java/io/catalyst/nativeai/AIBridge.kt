@@ -10,7 +10,7 @@ interface AIBridge {
     fun clearConversation()
 }
 
-/** Callbacks provided by the host app — decouples catalyst-cloud-ai from app internals. */
+/** Callbacks provided by the host app — decouples catalyst-ai from app internals. */
 interface AIBridgeCallbacks {
     fun onReady(streamUrl: String, port: Int, sessionId: String)
     fun onProgress(phase: String, percent: Int, bytesLoaded: Long, bytesTotal: Long, detail: String)

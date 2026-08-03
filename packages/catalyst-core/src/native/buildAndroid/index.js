@@ -73,21 +73,21 @@ function createAndroidBuild(config) {
         buildSignedAAB,
     } = createBuildPhase(ctx)
 
-    function syncCloudAIIfEnabled(wvConfig, progress) {
+    function syncAIPackageIfEnabled(wvConfig, progress) {
         const aiEnabled = wvConfig?.ai?.enabled === true
         if (!aiEnabled) return
 
         const appNodeModules = path.join(process.cwd(), "node_modules")
-        const cloudAISrc = path.join(appNodeModules, "@catalyst", "cloud-ai")
-        if (!fs.existsSync(cloudAISrc)) {
-            progress.log("ai.enabled=true but @catalyst/cloud-ai not found in node_modules — skipping native AI sync", "warning")
+        const aiPackageSrc = path.join(appNodeModules, "@catalyst", "ai")
+        if (!fs.existsSync(aiPackageSrc)) {
+            progress.log("ai.enabled=true but @catalyst/ai not found in node_modules — skipping native AI sync", "warning")
             return
         }
 
-        const destDir = path.join(pwd, "node_modules", "@catalyst", "cloud-ai")
+        const destDir = path.join(pwd, "node_modules", "@catalyst", "ai")
         fs.mkdirSync(destDir, { recursive: true })
-        copyDirSync(cloudAISrc, destDir)
-        progress.log("@catalyst/cloud-ai synced to dist/native/node_modules for Gradle", "success")
+        copyDirSync(aiPackageSrc, destDir)
+        progress.log("@catalyst/ai synced to dist/native/node_modules for Gradle", "success")
     }
 
     function copyDirSync(src, dest) {
@@ -171,7 +171,7 @@ function createAndroidBuild(config) {
             })
             await processNotifications(wvConfig)
             progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
-            syncCloudAIIfEnabled(wvConfig, progress)
+            syncAIPackageIfEnabled(wvConfig, progress)
             progress.complete("copyAssets")
 
             let movedApkPath = null
@@ -419,7 +419,7 @@ function createAndroidBuild(config) {
                 log: (message, status = "info") => progress.log(message, status),
             })
             await processNotifications(wvConfig)
-            syncCloudAIIfEnabled(wvConfig, progress)
+            syncAIPackageIfEnabled(wvConfig, progress)
 
             progress.log("✅ buildAndroidForTesting complete — project ready for gradlew test", "success")
             return { success: true }

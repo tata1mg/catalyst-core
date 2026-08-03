@@ -9,7 +9,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * AIBridge implementation shipped by @catalyst/cloud-ai.
+ * AIBridge implementation shipped by @catalyst/ai.
  * Self-registers via ServiceLoader — catalyst-core has zero knowledge of this class.
  *
  * ServiceLoader requires a no-arg constructor, so Activity/WebView/callbacks are injected

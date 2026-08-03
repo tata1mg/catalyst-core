@@ -47,7 +47,7 @@ while [ $# -gt 0 ]; do
             [ $# -lt 2 ] && { fail "--catalyst-version requires a version string"; exit 1; }
             CATALYST_VERSION="$2"; shift 2 ;;
         --packages)
-            [ $# -lt 2 ] && { fail "--packages requires a value (e.g. cloud-ai | all)"; exit 1; }
+            [ $# -lt 2 ] && { fail "--packages requires a value (e.g. ai | all)"; exit 1; }
             PACKAGES="$2"; shift 2 ;;
         --skip-native-tests) SKIP_NATIVE_TESTS=1; shift ;;
         *) fail "Unknown flag: $1"; exit 1 ;;

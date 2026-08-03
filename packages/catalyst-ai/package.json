@@ -1,7 +1,7 @@
 {
-    "name": "@catalyst/cloud-ai",
+    "name": "@catalyst/ai",
     "version": "0.1.0",
-    "description": "Cloud AI provider for catalyst-core — OpenAI SSE route + useCloudAI hook",
+    "description": "AI provider for catalyst-core — cloud/web/native useAI hooks + OpenAI/Gemini SSE route",
     "main": "src/index.js",
     "exports": {
         ".": "./src/index.js",
@@ -22,6 +22,6 @@
     "repository": {
         "type": "git",
         "url": "https://github.com/tata1mg/catalyst-core.git",
-        "directory": "packages/catalyst-cloud-ai"
+        "directory": "packages/catalyst-ai"
     }
 }

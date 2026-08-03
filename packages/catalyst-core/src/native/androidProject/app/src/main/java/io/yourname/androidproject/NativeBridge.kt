@@ -16,7 +16,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-// LiteRT imports removed — AI logic lives in @catalyst/cloud-ai (CatalystAIBridge plugin)
+// LiteRT imports removed — AI logic lives in @catalyst/ai (CatalystAIBridge plugin)
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
@@ -155,7 +155,7 @@ class NativeBridge(
     private var networkMonitor: NetworkMonitor? = null
 
     // AI plugin — loaded via reflection so NativeBridge.kt compiles with no compile-time dep on
-    // :catalyst-cloud-ai. When the module is absent the try block returns null gracefully.
+    // :catalyst-ai. When the module is absent the try block returns null gracefully.
     private val aiBridge: Any? = try {
         @Suppress("UNCHECKED_CAST")
         run {

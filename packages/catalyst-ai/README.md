@@ -1,4 +1,4 @@
-# @catalyst/cloud-ai
+# @catalyst/ai
 
 Multi-provider AI integration for catalyst-core apps — OpenAI/Gemini SSE routes plus
 `useCloudAI`, `useWebAI`, and `useNativeAI` React hooks.

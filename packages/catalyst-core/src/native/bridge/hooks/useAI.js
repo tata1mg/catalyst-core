@@ -30,19 +30,19 @@ function isNativeAIAvailable() {
 // `window` is undefined), so only ever attempt the client-side `require` — a bare
 // `require()` reached during SSR would throw ReferenceError rather than a catchable
 // MODULE_NOT_FOUND, since this package is "type": "module".
-const _pkg = typeof window !== "undefined" && (typeof __CATALYST_PACKAGES__ === "undefined" || __CATALYST_PACKAGES__.cloudAI)
+const _pkg = typeof window !== "undefined" && (typeof __CATALYST_PACKAGES__ === "undefined" || __CATALYST_PACKAGES__.ai)
     ? (() => {
         try {
-            return require(/* webpackIgnore: true */ "@catalyst/cloud-ai")
+            return require(/* webpackIgnore: true */ "@catalyst/ai")
         } catch (_) {
             return null
         }
     })()
     : null
 
-// provider: "transformers" → useWebAI   (@catalyst/cloud-ai)
-//           "native"       → useNativeAI (@catalyst/cloud-ai, falls back to useCloudAI if bridge unavailable)
-//           anything else  → useCloudAI  (@catalyst/cloud-ai, default)
+// provider: "transformers" → useWebAI   (@catalyst/ai)
+//           "native"       → useNativeAI (@catalyst/ai, falls back to useCloudAI if bridge unavailable)
+//           anything else  → useCloudAI  (@catalyst/ai, default)
 export function useAI(options = {}) {
     const { provider } = options
     const config = getBrowserConfig()
@@ -59,8 +59,8 @@ export function useAI(options = {}) {
 
     if (!_pkg) {
         console.error(
-            "\n[catalyst-core] useAI requires @catalyst/cloud-ai.\n" +
-            "Run: npm install @catalyst/cloud-ai\n"
+            "\n[catalyst-core] useAI requires @catalyst/ai.\n" +
+            "Run: npm install @catalyst/ai\n"
         )
         return emptyHook()
     }
@@ -70,7 +70,7 @@ export function useAI(options = {}) {
     return cloudResult
 }
 
-// Returned when @catalyst/cloud-ai is missing — keeps hook shape stable so callers don't crash
+// Returned when @catalyst/ai is missing — keeps hook shape stable so callers don't crash
 function emptyHook() {
     return {
         output: "",

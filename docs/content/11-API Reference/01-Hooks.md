@@ -476,7 +476,7 @@ Generate text through one of three providers, chosen with the `provider` option 
 | `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device LiteRT-LM engine, via an embedded Ktor server (`POST /framework-{sessionId}/ai/stream` or `/generate`) |
 | `"transformers"` | `useWebAI` — **experimental**: in-browser inference quality and WebGPU/WASM backend selection aren't reliable yet on larger models | In-browser, via a Web Worker running Transformers.js |
 
-Requires `@catalyst/cloud-ai` to be installed in the app.
+Requires `@catalyst/ai` to be installed in the app.
 
 #### Import
 
@@ -591,4 +591,4 @@ The model is instructed (via an injected system prompt) to wrap relevant output 
 
 #### Requirements
 
-Requires `@catalyst/cloud-ai` to be installed (`npm install @catalyst/cloud-ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
+Requires `@catalyst/ai` to be installed (`npm install @catalyst/ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
