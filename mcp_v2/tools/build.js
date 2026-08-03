@@ -149,19 +149,19 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: null,
             label: "Pre-check: config",
-            detail: 'Reads WEBVIEW_CONFIG.ios. Requires: appBundleId, simulatorName, buildType (default "debug").',
+            detail: "Reads WEBVIEW_CONFIG and WEBVIEW_CONFIG.ios. Confirm the development URL, appBundleId, simulatorName, plugins, and selected public/ios assets.",
         },
         {
             step: 2,
-            cmd: "catalyst build",
-            label: "Build web assets",
-            detail: "Compiles web app. iOS build embeds these.",
+            cmd: "npm run buildApp:ios",
+            label: "iOS simulator build",
+            detail: "Generates native configuration and plugin code in the package-owned Xcode project, syncs selected assets, compiles with Xcode's Debug configuration, installs the .app, and launches it.",
         },
         {
             step: 3,
-            cmd: "npm run buildApp:ios",
-            label: "iOS simulator build",
-            detail: "Runs buildAppIos.js: generates ConfigConstants.swift from config (bundleId, URL, port, protocol), launches simulator (simulatorName), cleans Xcode artifacts, compiles with xcodebuild, installs .app, launches.",
+            cmd: null,
+            label: "Remote web application",
+            detail: "The iOS shell loads the configured remote URL. buildApp:ios does not bundle the full Catalyst web client, so the target web application must be reachable.",
         },
         {
             step: 4,
@@ -175,27 +175,44 @@ const MASTER_FLOWS = {
         {
             step: 1,
             cmd: null,
-            label: "Pre-check: config",
-            detail: 'buildType must be "Release" (capital R — case-sensitive). appBundleId required. If googleSignIn enabled, GoogleService-Info.plist must be present.',
+            label: "Deploy the production web application",
+            detail: "Deploy the web application first and confirm its production URL is reachable over HTTPS. The iOS shell loads this remote URL; it does not embed the full web client bundle.",
         },
-        { step: 2, cmd: "catalyst build", label: "Build web assets", detail: "Production build." },
+        {
+            step: 2,
+            cmd: null,
+            label: "Pre-check: config",
+            detail: "Finalize WEBVIEW_CONFIG, appBundleId, app name, version, incremented build number, access-control rules, plugins, permissions, capabilities, icons, splash assets, and privacy declarations.",
+        },
         {
             step: 3,
             cmd: "npm run buildApp:ios",
-            label: "iOS release build",
-            detail: "Same script — build type is driven by WEBVIEW_CONFIG.ios.buildType. Generates ConfigConstants.swift with production URL and bundleId. Xcode compiles Release scheme.",
+            label: "Prepare the native project",
+            detail: "Run from the consuming Catalyst app root. This generates native configuration and plugin code, syncs selected assets, and performs a Debug native build. It does not create an App Store archive.",
         },
         {
             step: 4,
             cmd: null,
-            label: "Archive + export IPA",
-            detail: "Post-build: archive via Xcode Organizer or xcodebuild -exportArchive. Requires Apple distribution certificate + provisioning profile configured in Xcode.",
+            label: "Open the generated Xcode project",
+            detail: "Open node_modules/catalyst-core/dist/native/iosnativeWebView/iosnativeWebView.xcodeproj (or the resolved package equivalent). Confirm the iosnativeWebView scheme's Archive action uses Release.",
         },
         {
             step: 5,
             cmd: null,
-            label: "App Store submission",
-            detail: "Upload IPA via Transporter or Xcode Organizer. TestFlight for beta before release.",
+            label: "Configure signing and archive",
+            detail: "Select the correct Apple Developer team, distribution signing, capabilities, entitlements, bundle ID, version, and build. Choose a generic iOS device destination, then Product → Archive.",
+        },
+        {
+            step: 6,
+            cmd: null,
+            label: "Validate and upload",
+            detail: "In Xcode Organizer, run Validate App, then Distribute App → TestFlight & App Store and upload the build.",
+        },
+        {
+            step: 7,
+            cmd: null,
+            label: "Complete the release",
+            detail: "Wait for App Store Connect processing, test through TestFlight, complete store metadata and privacy disclosures, select the processed build, and submit it for App Review.",
         },
     ],
 }
@@ -495,6 +512,7 @@ function getProjectContext(root) {
         iosBuildType: (wv.ios?.buildType || "debug").toLowerCase(),
         hasKeystore: !!wv.android?.keystoreConfig,
         hasGoogleSignIn: !!wv.googleSignIn?.enabled,
+        hasNotifications: !!wv.notifications?.enabled,
         hasEcosystem: fileExists("ecosystem.config.js"),
         port: wv.port,
         useHttps: !!wv.useHttps,
@@ -618,7 +636,7 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
             )
         }
 
-        const isRelease = m === "release" || ctx.iosBuildType === "release"
+        const isRelease = m === "release"
         flow_key = isRelease ? "ios_release" : "ios_debug"
 
         if (!ctx.wv.ios?.appBundleId) {
@@ -634,13 +652,23 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
                 "googleSignIn.enabled=true but iosClientId may be missing — check WEBVIEW_CONFIG.googleSignIn.iosClientId."
             )
         }
-        if (isRelease && ctx.iosBuildType !== "release") {
+        if (isRelease && !ctx.useHttps) {
             warnings.push(
-                'ios.buildType is not "Release" (case-sensitive). Release builds require exactly "Release" — not "release".'
+                "WEBVIEW_CONFIG.useHttps is not enabled — the App Store flow requires a reachable HTTPS production web application."
+            )
+        }
+        if (isRelease && ctx.hasNotifications) {
+            warnings.push(
+                "Push notifications are enabled — review the generated aps-environment entitlement and Release provisioning before archiving."
             )
         }
 
         notes.push(`buildType detected: ${ctx.wv.ios?.buildType || "not set (defaults to debug)"}`)
+        if (isRelease) {
+            notes.push(
+                "ios.buildType does not select the App Store build configuration; buildApp:ios still performs a Debug build. Archive the generated project with the scheme's Release action."
+            )
+        }
         if (ctx.wv.ios?.appBundleId) notes.push(`appBundleId: ${ctx.wv.ios.appBundleId}`)
         if (ctx.wv.ios?.simulatorName) notes.push(`simulatorName: ${ctx.wv.ios.simulatorName}`)
         if (ctx.hasGoogleSignIn) notes.push("googleSignIn: enabled")
