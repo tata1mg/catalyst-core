@@ -1,7 +1,7 @@
 import { defineConfig, transformWithEsbuild } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
-import { builtinModules } from "node:module"
+import { builtinModules, createRequire } from "node:module"
 
 /**
  * Treat all .scss imports as CSS modules (webpack compat).
@@ -130,7 +130,6 @@ try {
 const allAliases = { ..._moduleAliases, ...catalyst_moduleAliases }
 
 import { imageUrl, fontUrl } from "./scssParams.js"
-import { createRequire } from "module"
 
 // Tailwind v4's zero-config scanner (`@tailwindcss/postcss`) walks up from
 // `dirname(from)` — the directory of the file PostCSS is currently compiling —
@@ -221,6 +220,37 @@ export const getClientEnvVariables = () => {
     envVarDefinitions[`process.env.PUBLIC_STATIC_ASSET_URL`] = JSON.stringify(
         process.env["PUBLIC_STATIC_ASSET_URL"]
     )
+
+    // Derive AI_PUBLIC_CONFIG: only the browser block from AI_CONFIG, no API keys
+    let aiConfig = {}
+    try {
+        const parsedConfig = JSON.parse(process.env.AI_CONFIG || "{}")
+        if (parsedConfig && typeof parsedConfig === "object" && !Array.isArray(parsedConfig)) {
+            aiConfig = parsedConfig
+        } else {
+            console.warn("[catalyst-core] AI_CONFIG must be a JSON object, ignoring it")
+        }
+    } catch (e) {
+        console.warn(`[catalyst-core] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
+    }
+    const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
+    envVarDefinitions[`process.env.AI_PUBLIC_CONFIG`] = JSON.stringify(JSON.stringify(aiPublicConfig))
+
+    // Detect which catalyst-* AI packages are installed for the app, including
+    // hoisted/workspace installs — not just a direct app-local node_modules copy.
+    // Results are injected as __CATALYST_PACKAGES__.* literals so dead code
+    // referencing missing packages can be branched around at runtime.
+    const appRequire = createRequire(path.join(process.env.src_path || process.cwd(), "package.json"))
+    let aiPackageInstalled = false
+    try {
+        appRequire.resolve("catalyst-ai")
+        aiPackageInstalled = true
+    } catch {
+        aiPackageInstalled = false
+    }
+    envVarDefinitions["__CATALYST_PACKAGES__"] = JSON.stringify({
+        ai: aiPackageInstalled,
+    })
 
     return envVarDefinitions
 }

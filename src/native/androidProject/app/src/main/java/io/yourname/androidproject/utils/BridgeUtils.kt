@@ -97,6 +97,14 @@ object BridgeUtils {
         ON_TRANSITION_CANCELLED("ON_TRANSITION_CANCELLED"),
         ON_TRANSITION_TIMEOUT("ON_TRANSITION_TIMEOUT"),
 
+        // Native AI events
+        ON_AI_READY("ON_AI_READY"),
+        ON_AI_ERROR("ON_AI_ERROR"),
+        ON_AI_TOKEN("ON_AI_TOKEN"),
+        ON_AI_DONE("ON_AI_DONE"),
+        ON_AI_PROGRESS("ON_AI_PROGRESS"),
+        ON_AI_LOG("ON_AI_LOG"),
+
         // Perf telemetry
         CATALYST_PERF_EVENT("CATALYST_PERF_EVENT"),
     }
