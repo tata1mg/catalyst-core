@@ -5,6 +5,7 @@ import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { readFileSync, existsSync, rmSync } from "fs"
 import { createRequire } from "module"
+import { wrapForeignError, formatError } from "../errors/index.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -93,8 +94,9 @@ async function build() {
                 env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "client" },
             }),
         ])
-    } catch {
+    } catch (err) {
         console.error("❌ Build failed!")
+        console.error(formatError(wrapForeignError("BUNDLE", err)))
         process.exit(1)
     }
 
