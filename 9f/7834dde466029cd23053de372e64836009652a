@@ -1,0 +1,25 @@
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.scss
+  bfcf8d519e117510 72-73,165-198,200,202-204,207-246,252-258,266-271,281-297,301-302,304-355,360,363-364,368-373,377-378,381,384,393-396,402
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.js
+  bfcf8d519e117510 235,293-297,300-301,307-310,312-318,320-321,323,325-327,329-330,333,340-348,351-354,357,360-361,364,366-371,396-398,401-410,424-425,436-437,445-446,448-454,456-458,460-461,463-467
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "9f7834dde466029cd23053de372e64836009652a",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 334,
+      "total_deletions": 240,
+      "accepted_lines": 278,
+      "overriden_lines": 0
+    }
+  }
+}
