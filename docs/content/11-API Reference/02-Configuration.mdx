@@ -25,6 +25,7 @@ These keys are part of the core web runtime:
 | `PUBLIC_STATIC_ASSET_URL` | `string` | Yes | Base URL for emitted static assets |
 | `CLIENT_ENV_VARIABLES` | `string[]` | Yes | Variables that should be exposed to the client bundle |
 | `ANALYZE_BUNDLE` | `boolean` | Yes | Enables bundle analysis output |
+| `CSP_NONCE_ENABLE` | `boolean` | No | Adds a per-request CSP nonce to every script tag Catalyst renders (not CSS). Defaults to `false`. See [Security](/content/Best%20Practices/security) |
 
 Application-specific values such as `API_URL` can also live in this file. They are available on the server through `process.env`.
 

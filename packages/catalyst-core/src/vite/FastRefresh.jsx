@@ -1,9 +1,10 @@
 import React from "react"
 
-const FastRefresh = () => {
+const FastRefresh = ({ nonce }) => {
     return (
         <script
             type="module"
+            nonce={nonce}
             // eslint-disable-next-line risxss/catch-potential-xss-react
             dangerouslySetInnerHTML={{
                 __html: `
