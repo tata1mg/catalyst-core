@@ -1,7 +1,6 @@
 node_modules
 build
 logs
-vendor
 
-# Machine-specific — copy config/config.example.json and set your LAN IP
+# Machine-specific — copy config/config.template.json and set your LAN IP
 config/config.json

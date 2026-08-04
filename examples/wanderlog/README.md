@@ -21,18 +21,23 @@ Set `sdkPath` too if you plan to build for Android.
 
 ## Running
 
-This example consumes the local workspace build of `catalyst-core`, not a
-published release, so sync it first:
-
 ```bash
 npm install
-npm run sync-core   # packs packages/catalyst-core and installs the tarball
+npm run sync-core   # required — see below
 npm run build
 npm run serve
 ```
 
-Re-run `sync-core` after any change to `packages/catalyst-core` — the
-dependency is a packed snapshot, not a live link.
+`sync-core` is not optional. `package.json` pins a published
+`catalyst-core` only so a fresh clone installs cleanly; that release does
+not contain the Companion preview flow. `sync-core` builds the local
+`packages/catalyst-core` and installs it over the top (`--no-save`, so
+your manifest and lockfile are untouched).
+
+Skip it and the app runs, but Companion cannot preview it.
+
+Re-run it after any change to `packages/catalyst-core` — what lands in
+`node_modules` is a snapshot, not a live link.
 
 Then open the app in Companion via the QR/preview flow, or load
 `http://YOUR_LAN_IP:3005` in a browser.
