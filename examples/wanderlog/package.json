@@ -1,0 +1,45 @@
+{
+    "name": "wanderlog",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "catalyst start",
+        "build": "catalyst build",
+        "serve": "catalyst serve",
+        "lint": "eslint .",
+        "buildApp": "catalyst buildApp",
+        "buildApp:ios": "catalyst buildApp:ios",
+        "buildApp:android": "catalyst buildApp:android",
+        "setupEmulator": "catalyst setupEmulator",
+        "setupEmulator:ios": "catalyst setupEmulator:ios",
+        "setupEmulator:android": "catalyst setupEmulator:android",
+        "sync-core": "npm run core:build --prefix ../.. && mkdir -p ./vendor && npm pack ../../packages/catalyst-core --ignore-scripts --pack-destination ./vendor && mv ./vendor/catalyst-core-*.tgz ./vendor/catalyst-core.tgz && npm install ./vendor/catalyst-core.tgz"
+    },
+    "_moduleAliases": {
+        "@api": "api.js",
+        "@containers": "src/js/containers",
+        "@server": "server",
+        "@config": "config",
+        "@css": "src/static/css",
+        "@routes": "src/js/routes/"
+    },
+    "dependencies": {
+        "@tailwindcss/postcss": "^4.1.4",
+        "catalyst-core": "file:vendor/catalyst-core.tgz",
+        "prop-types": "^15.8.1",
+        "react": "19.0.0",
+        "react-dom": "19.0.0",
+        "tailwindcss": "^4.1.4"
+    },
+    "devDependencies": {
+        "eslint": "^8.26.0",
+        "eslint-plugin-react": "^7.34.1",
+        "eslint-plugin-react-hooks": "^4.6.0"
+    },
+    "overrides": {
+        "react-helmet-async": {
+            "react": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+            "react-dom": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+        }
+    },
+    "description": "Wanderlog — a travel journal"
+}

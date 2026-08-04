@@ -1,0 +1,7 @@
+node_modules
+build
+logs
+vendor
+
+# Machine-specific — copy config/config.example.json and set your LAN IP
+config/config.json
