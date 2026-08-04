@@ -68,6 +68,7 @@ async function loadAppRoutes(appRoot) {
     })
 
     try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the app's own build root and the remainder is a hardcoded literal path, not request input.
         const routesModule = await vite.ssrLoadModule(path.join(appRoot, "src/js/routes/utils.js"))
         return typeof routesModule.getRoutes === "function" ? routesModule.getRoutes() : []
     } finally {

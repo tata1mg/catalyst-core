@@ -50,7 +50,9 @@ function syncPackage(shortName) {
   const packageName = PACKAGE_MAP[shortName];
   if (!packageName) err(`Unknown package "${shortName}". Valid: ${Object.keys(PACKAGE_MAP).join(', ')}`);
 
+  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - packageName is looked up from the fixed PACKAGE_MAP and guarded above; shortName comes from this local dev script's own CLI argv, not a request.
   const srcDir    = path.join(REPO_ROOT, 'packages', packageName);
+  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - packageName is looked up from the fixed PACKAGE_MAP and guarded above; shortName comes from this local dev script's own CLI argv, not a request.
   const targetDir = path.join(EXAMPLE_DIR, 'node_modules', packageName);
 
   if (!fs.existsSync(srcDir)) err(`Source not found: ${srcDir}`);
@@ -63,7 +65,9 @@ function syncPackage(shortName) {
   const SKIP = new Set(['node_modules', '.git']);
   for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
     if (SKIP.has(entry.name)) continue;
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from fs.readdirSync(srcDir), i.e. actual filenames already on disk in the local repo, not request input.
     const s = path.join(srcDir, entry.name);
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from fs.readdirSync(srcDir), i.e. actual filenames already on disk in the local repo, not request input.
     const d = path.join(targetDir, entry.name);
     entry.isDirectory() ? copyDir(s, d) : fs.copyFileSync(s, d);
   }
@@ -72,6 +76,7 @@ function syncPackage(shortName) {
 
   // For ai, remind dev to wire up the android module (useNativeAI) in settings.gradle.kts
   if (shortName === 'ai') {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - targetDir is derived earlier from the fixed PACKAGE_MAP lookup; 'android' is a hardcoded literal, not request input.
     const androidDir = path.join(targetDir, 'android');
     if (fs.existsSync(androidDir)) {
       console.log(`\x1b[36m  ℹ  Android module at: ${path.relative(REPO_ROOT, androidDir)}\x1b[0m`);

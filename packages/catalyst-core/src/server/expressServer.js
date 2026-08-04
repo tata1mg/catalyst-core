@@ -126,6 +126,7 @@ const isProduction = process.env.NODE_ENV === "production"
 
 function serveBuildFile(app, buildPath, urlPath, fileName, headers = {}) {
     app.get(urlPath, (_req, res, next) => {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fileName is always a hardcoded literal passed at each serveBuildFile call site, never derived from the request.
         const filePath = path.join(buildPath, fileName)
         if (!fs.existsSync(filePath)) return next()
         res.set(headers)

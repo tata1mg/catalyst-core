@@ -103,6 +103,7 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
         seen.add(asset)
         if (asset.startsWith("http")) continue
 
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - asset paths come from the Vite build manifest generated at build time, never from a request, so there is no user-controlled input here.
         const filePath = path.isAbsolute(asset) ? asset : path.join(basePath, asset.replace(/^\/+/, ""))
 
         try {

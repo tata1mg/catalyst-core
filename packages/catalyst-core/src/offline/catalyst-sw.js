@@ -99,6 +99,7 @@ function isOfflineRoute(url, manifest) {
     const { pathname } = new URL(url)
     return (manifest.routes || []).some((route) => {
         try {
+            // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp - route.regex is generated at build time by generateOfflineManifest.js's routeRegex(), which escapes every regex metacharacter in literal path segments and only ever emits flat (non-nested, non-repeating) patterns for :param and * segments — it cannot produce a catastrophic-backtracking shape. The manifest itself is same-origin build output, not user-submitted at runtime.
             return new RegExp(route.regex).test(pathname)
         } catch (_) {
             return false

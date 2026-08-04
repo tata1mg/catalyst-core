@@ -184,6 +184,7 @@ function slugify(input) {
 }
 
 function ensureFallbackDir(root) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the project_path MCP tool argument, an intentional/documented parameter letting a local developer's coding agent point this tool at any project directory it already has filesystem access to (see mcp.js inputSchema). Not a network-facing input; the caller already has direct fs access via other tools. FALLBACK_DIR is a hardcoded literal.
     const dir = path.join(root, FALLBACK_DIR)
     fs.mkdirSync(dir, { recursive: true })
     return dir
@@ -407,7 +408,9 @@ function appendSection(sections, heading, content) {
 }
 
 function isPathInside(root, candidate) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - this is the containment-check helper itself (used by callers below to reject paths outside root); root/candidate here are the values being validated, not yet trusted for file access.
     const resolvedRoot = path.resolve(root)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - this is the containment-check helper itself; candidate is the value being validated, not yet trusted for file access.
     const resolvedCandidate = path.resolve(candidate)
     const relative = path.relative(resolvedRoot, resolvedCandidate)
     return relative === "" || (relative && !relative.startsWith("..") && !path.isAbsolute(relative))
@@ -544,6 +547,7 @@ function normalizeImages(images, root) {
             continue
         }
 
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - raw is an MCP tool argument (attachment path) and root the project_path argument; the isPathInside() check on the next line rejects anything that resolves outside root before it is ever read.
         const absolutePath = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(root, raw)
         if (!isPathInside(root, absolutePath)) {
             localFiles.push({ path: raw, exists: false, rejected: true, reason: "outside_project_root" })
@@ -790,6 +794,7 @@ function collectRelatedFiles(root, query, explicitFiles) {
     const candidates = Array.isArray(explicitFiles) ? explicitFiles : []
     for (const file of candidates) {
         if (typeof file !== "string") continue
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - file is an MCP tool argument (explicit related-files list) and root the project_path argument; the isPathInside() check on the next line rejects anything that resolves outside root before it is ever read.
         const absolute = path.isAbsolute(file) ? path.resolve(file) : path.resolve(root, file)
         if (!isPathInside(root, absolute)) continue
         const content = safeReadText(absolute, 12000)
@@ -803,6 +808,7 @@ function collectRelatedFiles(root, query, explicitFiles) {
     const words = normalizeSearchText(query).split(/\s+/).filter(Boolean).slice(0, 5)
     if (words.length === 0) return files
 
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the project_path MCP tool argument, an intentional/documented parameter (see mcp.js inputSchema); "src" is a hardcoded literal.
     const srcDir = path.join(root, "src")
     const matches = []
     function walk(dir) {
@@ -814,6 +820,7 @@ function collectRelatedFiles(root, query, explicitFiles) {
         }
         for (const entry of entries) {
             if (entry.name === "node_modules" || entry.name === ".git") continue
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from fs.readdirSync(dir) above, i.e. actual filenames already on disk under srcDir, not request input.
             const full = path.join(dir, entry.name)
             if (entry.isDirectory()) {
                 walk(full)
@@ -832,7 +839,9 @@ function collectRelatedFiles(root, query, explicitFiles) {
 
 function gatherGithubIssueContext(args = {}) {
     const root = getProjectRoot(args)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the project_path MCP tool argument, an intentional/documented parameter (see mcp.js inputSchema); "package.json" is a hardcoded literal.
     const pkg = safeReadJson(path.join(root, "package.json"))
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the project_path MCP tool argument, an intentional/documented parameter (see mcp.js inputSchema); "config/config.json" is a hardcoded literal.
     const configJson = safeReadJson(path.join(root, "config", "config.json"))
     const branch = runGit(root, "git rev-parse --abbrev-ref HEAD")
     const commit = runGit(root, "git rev-parse --short HEAD")
@@ -875,6 +884,7 @@ function generateIssueMarkdown(args = {}) {
     const built = buildIssueBody(args, { enrich: true })
     const labels = resolveIssueLabels(args, built.body)
     const dir = ensureFallbackDir(root)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is the FALLBACK_DIR under the project_path MCP argument; the filename is a generated ISO timestamp plus slugify(title), which strips to [a-z0-9-] only, so it cannot contain path separators.
     const filePath = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${slugify(title)}.md`)
 
     const markdown = [

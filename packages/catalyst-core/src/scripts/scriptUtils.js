@@ -23,6 +23,7 @@ export const printBundleInformation = () => {
         const files = fs.readdirSync(directoryPath)
         files.forEach((file) => {
             if (!file.includes("txt") && !file.includes("json")) {
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - file comes from fs.readdirSync(directoryPath), i.e. actual filenames already on disk in the build output, not request input.
                 const filePath = path.join(directoryPath, file)
                 const fileSize = getFileSizeSync(filePath)
                 if (fileSize !== null) {

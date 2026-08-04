@@ -26,12 +26,20 @@ function getProviderConfig(provider) {
     return cfg
 }
 
+// Gemini and OpenAI model names are alphanumeric with dots/hyphens/colons/underscores
+// (e.g. "gemini-2.0-flash", "gpt-4o-mini"). Gemini's model is interpolated directly into
+// the request URL path (see geminiStream/geminiGenerate), so it must be constrained to
+// this charset before use — otherwise req.body.model could inject "/", "?", ".." or other
+// URL-structural characters into the request sent to Google's API.
+const MODEL_NAME_RE = /^[a-zA-Z0-9._:-]+$/
+
 // Returns an error string if the request body is invalid, otherwise null.
 function validateRequestBody(req, cfg) {
     const { messages, model } = req.body ?? {}
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
+    if (!MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
     return null
 }
 
@@ -333,6 +341,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
         }
     } else {
         // stateless: streamGenerateContent
+        // nosemgrep: javascript.express.security.audit.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`
         const sys = geminiSystemInstruction(messages)
         const body = {
@@ -414,6 +423,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         return { output: text, conversationId: data.id ?? null, usage: normalizeGeminiInteractionUsage(data.usage, model) }
     } else {
         // stateless non-streaming: generateContent
+        // nosemgrep: javascript.express.security.audit.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
         const sys = geminiSystemInstruction(messages)
         const body = {

@@ -56,6 +56,7 @@ function loadAliases() {
                 const resolvedPath = resolvePath(appRoot, ...aliasPath.split("/"))
                 aliasCache[alias] = resolvedPath
             } catch (error) {
+                // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - alias is a key from the developer's own package.json _moduleAliases config, not attacker-controlled; console.warn here does no printf-style substitution.
                 console.warn(`Failed to resolve alias ${alias}:`, error.message)
             }
         }
@@ -100,6 +101,7 @@ function resolveWithExtensions(basePath) {
 
     // Try index files inside a directory
     for (const ext of extensions) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - basePath is derived from module import specifiers resolved by the Node loader itself, never from a request.
         const candidate = join(basePath, `index${ext}`)
         if (existsSync(candidate)) {
             return candidate
@@ -119,10 +121,12 @@ function resolveAlias(specifier, parentURL) {
     for (const [alias, aliasPath] of Object.entries(aliases)) {
         if (specifier.startsWith(alias + "/") || specifier === alias) {
             const remainingPath = specifier === alias ? "" : specifier.slice(alias.length + 1)
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - specifier comes from an ES module import statement in the app's own source code, and aliasPath from the developer's package.json config, never from a request.
             const rawResolvedPath = join(aliasPath, remainingPath)
             const finalResolvedPath = resolveWithExtensions(rawResolvedPath)
 
             if (finalResolvedPath) {
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - finalResolvedPath is derived from the same alias/import resolution above, not request input.
                 return resolvePath(finalResolvedPath)
             }
         }
@@ -140,6 +144,7 @@ function resolveRelative(specifier, parentURL) {
     try {
         const parentPath = fileURLToPath(parentURL)
         const parentDir = dirname(parentPath)
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - specifier comes from an ES module import statement in the app's own source code, parentURL from the module loader itself, never from a request.
         const absolutePath = resolvePath(parentDir, specifier)
         return resolveWithExtensions(absolutePath)
     } catch {
@@ -225,6 +230,7 @@ export async function resolve(specifier, context, defaultResolve) {
  */
 function findNearestPackageType(dir) {
     while (dir !== dirname(dir)) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is walked up from the module's own filesystem location via dirname(), never from a request; "package.json" is a hardcoded literal.
         const pkgPath = join(dir, "package.json")
         if (existsSync(pkgPath)) {
             try {
