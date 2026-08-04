@@ -124,10 +124,17 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
 
 /**
  * <script type="module"> React elements for JS assets.
+ * @param {string[]} jsUrls
+ * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptElements = (jsUrls = []) =>
+export const generateScriptElements = (jsUrls = [], nonce) =>
     [...new Set(jsUrls)].map((url, i) =>
-        React.createElement("script", { key: `js-${i}`, type: "module", src: url })
+        React.createElement("script", {
+            key: `js-${i}`,
+            type: "module",
+            src: url,
+            ...(nonce ? { nonce } : {}),
+        })
     )
 
 // ── HTML strings (for streaming injection after body via res.write) ────
@@ -140,10 +147,14 @@ export const generateCssLinkStrings = (cssUrls = []) =>
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
+ * @param {string[]} jsUrls
+ * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptStrings = (jsUrls = []) =>
-    [...new Set(jsUrls)]
+export const generateScriptStrings = (jsUrls = [], nonce) => {
+    const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+    return [...new Set(jsUrls)]
         .map((url) => {
-            return `<script type="module" src="${url}"></script>`
+            return `<script type="module"${nonceAttr} src="${url}"></script>`
         })
         .join("")
+}

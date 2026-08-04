@@ -16,16 +16,22 @@ export function Body(props) {
         initialState = {},
 
         fetcherData = {},
+        nonce,
         children,
     } = props
 
     return (
         <body>
             {process.env.NODE_ENV === "development" && (
-                <script type="module" src={path.resolve(process.env.src_path, "client/index.js")}></script>
+                <script
+                    type="module"
+                    nonce={nonce}
+                    src={path.resolve(process.env.src_path, "client/index.js")}
+                ></script>
             )}
             {jsx}
             <script
+                nonce={nonce}
                 /* eslint-disable */
                 dangerouslySetInnerHTML={{
                     __html: `
@@ -46,5 +52,6 @@ Body.propTypes = {
     jsx: PropTypes.any,
     statusCode: PropTypes.string,
     fetcherData: PropTypes.object,
+    nonce: PropTypes.string,
     children: PropTypes.node,
 }

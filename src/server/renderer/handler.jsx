@@ -23,6 +23,7 @@ import {
     generateModulePreloadLinkElements,
 } from "./extract.js"
 import path from "path"
+import crypto from "node:crypto"
 import { Transform } from "node:stream"
 
 import CustomDocument from "@catalyst/template/server/document"
@@ -81,6 +82,12 @@ if (process.env.OTEL_ENABLE === true) {
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
 
+// Config-driven (config.json → CSP_NONCE_ENABLE): when on, every script Catalyst injects
+// carries a per-request nonce so the app can serve a nonce-based CSP without opening up
+// 'unsafe-inline'. Off by default — no behavior change unless explicitly enabled.
+const CSP_NONCE_ENABLE = process.env.CSP_NONCE_ENABLE === true
+const generateNonce = () => crypto.randomBytes(16).toString("base64")
+
 const traceHook = (fn, spanName) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
 
@@ -130,7 +137,8 @@ const _renderMarkUp = async (
     store,
     allMatches,
     context,
-    chunkExtractor
+    chunkExtractor,
+    nonce
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
@@ -151,7 +159,7 @@ const _renderMarkUp = async (
         buildDir
     )
 
-    const jsScripts = generateScriptElements(criticalAssets.js)
+    const jsScripts = generateScriptElements(criticalAssets.js, nonce)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
@@ -172,7 +180,7 @@ const _renderMarkUp = async (
     const jsx = getComponent(store, context, req, fetcherData, isBot)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
-    const finalProps = { ...shellStart, ...shellEnd, jsx, req, res }
+    const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, nonce }
 
     const CompleteDocument = () => {
         if (CustomDocument) {
@@ -190,12 +198,14 @@ const _renderMarkUp = async (
                     fetcherData={finalProps.fetcherData}
                     metaTags={finalProps.metaTags}
                     publicAssetPath={finalProps.publicAssetPath}
+                    nonce={finalProps.nonce}
                 />
                 <Body
                     initialState={finalProps.initialState}
                     jsx={finalProps.jsx}
                     statusCode={finalProps.statusCode}
                     fetcherData={finalProps.fetcherData}
+                    nonce={finalProps.nonce}
                 />
             </html>
         )
@@ -223,13 +233,17 @@ const _renderMarkUp = async (
                         ? chunkExtractor.getDeferredAssets()
                         : { js: [], css: [] }
 
+                    const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+
                     // Tell client which components were SSR'd so split() can
                     // eagerly import them (prevents Suspense fallback flash)
-                    this.push(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
+                    this.push(
+                        `<script${nonceAttr}>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`
+                    )
                     if (chunkExtractor) {
                         const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                         this.push(
-                            `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
+                            `<script${nonceAttr}>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
                         )
                     }
 
@@ -239,10 +253,10 @@ const _renderMarkUp = async (
                         isBot
                     )
                     if (newCssPaths.length) {
-                        this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                        this.push(`<style${nonceAttr}>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.js))
+                        this.push(generateScriptStrings(deferredAssets.js, nonce))
                     }
 
                     cb()
@@ -302,6 +316,12 @@ async function _handler(req, res) {
         let fetcherData = {}
         const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
 
+        // If app-level middleware already generated a nonce for its CSP header
+        // (res.locals.cspNonce), reuse it so the header and the script tags match.
+        // Otherwise generate one here and expose it the same way.
+        const nonce = CSP_NONCE_ENABLE ? res.locals.cspNonce || generateNonce() : undefined
+        if (nonce) res.locals.cspNonce = nonce
+
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.baseUrl) : []
         let allTags = []
@@ -343,7 +363,8 @@ async function _handler(req, res) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        nonce
                     )
                 } else {
                     safeCall(onFetcherSuccess, { req, res, store })
@@ -359,7 +380,8 @@ async function _handler(req, res) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        nonce
                     )
                 }
             } catch (error) {
@@ -378,7 +400,8 @@ async function _handler(req, res) {
                     store,
                     allMatches,
                     context,
-                    chunkExtractor
+                    chunkExtractor,
+                    nonce
                 )
             }
         } catch (error) {
@@ -397,7 +420,8 @@ async function _handler(req, res) {
                 store,
                 allMatches,
                 context,
-                chunkExtractor
+                chunkExtractor,
+                nonce
             )
         }
     } catch (error) {
