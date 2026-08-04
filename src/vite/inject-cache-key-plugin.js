@@ -45,9 +45,11 @@ function loadAliases() {
     for (const [alias, aliasPath] of Object.entries(allAliases)) {
         if (aliasPath && typeof aliasPath === "string") {
             try {
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the app's own build root and aliasPath comes from the developer's package.json config, not request/user input.
                 const resolvedPath = path.resolve(appRoot, ...aliasPath.split("/"))
                 aliasCache[alias] = resolvedPath
             } catch (error) {
+                // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - alias is a key from the developer's own package.json config, not attacker-controlled; console.warn here does no printf-style substitution.
                 console.warn(`Failed to resolve alias ${alias}:`, error.message)
             }
         }
@@ -87,6 +89,7 @@ function resolveWithExtensions(basePath) {
     }
 
     for (const ext of extensions) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - basePath is derived from module import specifiers resolved by this plugin's own alias/relative-import logic, never from a request.
         const candidate = path.join(basePath, `index${ext}`)
         if (existsSync(candidate)) {
             return candidate
@@ -107,9 +110,11 @@ function resolveToAbsolutePath(importPath, importerId) {
     for (const [alias, aliasPath] of Object.entries(aliases)) {
         if (importPath === alias || importPath.startsWith(alias + "/")) {
             const remainingPath = importPath === alias ? "" : importPath.slice(alias.length + 1)
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - importPath comes from the app's own module import graph and aliasPath from the developer's package.json config, never from a request.
             const rawResolved = path.join(aliasPath, remainingPath)
             const finalResolved = resolveWithExtensions(rawResolved)
             if (finalResolved) {
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - finalResolved is derived from the same alias/import resolution above, not request input.
                 return path.resolve(finalResolved)
             }
         }
@@ -118,6 +123,7 @@ function resolveToAbsolutePath(importPath, importerId) {
     // 2. Relative imports — resolve from the importer's directory
     if (importPath.startsWith("./") || importPath.startsWith("../")) {
         const importerDir = path.dirname(importerId)
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - importPath comes from the app's own module import graph and importerId from Vite's module resolution, never from a request.
         const absolutePath = path.resolve(importerDir, importPath)
         const resolved = resolveWithExtensions(absolutePath)
         if (resolved) {
@@ -149,6 +155,7 @@ function resolveImportPath(importPath, importerId) {
         // Fallback: strip leading ./ and return as-is
         return importPath.replace(/^\.\//, "")
     } catch (error) {
+        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - importPath comes from the app's own module import graph resolved by Vite at build time, not attacker-controlled; console.warn here does no printf-style substitution.
         console.warn(`Error resolving import path ${importPath}:`, error.message)
         return importPath.replace(/^\.\//, "")
     }

@@ -293,6 +293,7 @@ export function manifestCategorizationPlugin(options = {}) {
     // branch of the import graph, the affected CSS would vanish from server responses
     // with no runtime error — this check surfaces that as a build-time warning.
     function validateCssCoverage(categorizedManifest, buildDir) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - buildDir is the build tool's own output directory and the remaining segments are hardcoded literals, not request input.
         const cssDir = path.join(buildDir, "client", "assets", "css")
         if (!fs.existsSync(cssDir)) return
 
@@ -403,6 +404,7 @@ export function manifestCategorizationPlugin(options = {}) {
                             })
                         }
                     } catch (err) {
+                        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - importPath comes from the app's own module import graph resolved by Vite at build time, not attacker-controlled; console.log here does no printf-style substitution.
                         console.log(`❌ Error resolving ${importPath}:`, err.message)
                     }
                 })

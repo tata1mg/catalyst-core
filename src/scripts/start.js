@@ -22,11 +22,9 @@ function start() {
     const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
     const { name } = packageJson
 
-    const command = `node --import ${preInitPath} --loader ${loaderPath} ./dist/server/expressServer.js`
-    spawnSync(command, [], {
+    spawnSync("node", ["--import", preInitPath, "--loader", loaderPath, "./dist/server/expressServer.js"], {
         cwd: dirname,
         stdio: "inherit",
-        shell: true,
         env: {
             ...process.env,
             src_path: process.env.PWD,
