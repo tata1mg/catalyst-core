@@ -2,6 +2,14 @@ const express = require("express")
 
 const router = express.Router()
 
+// catalyst-core/errors is ESM-only; route.js stays CJS (loaded via require.resolve
+// in expressServer.js), so we load it lazily via dynamic import and cache the module.
+let errorsModulePromise = null
+function loadErrors() {
+    if (!errorsModulePromise) errorsModulePromise = import("catalyst-core/errors")
+    return errorsModulePromise
+}
+
 // Hard ceiling on how long a single /stream request may run upstream — protects
 // against a hung provider connection holding a request open indefinitely.
 const STREAM_TIMEOUT_MS = 120_000
@@ -50,6 +58,13 @@ function sseHeaders(res) {
     res.setHeader("Connection", "keep-alive")
     res.setHeader("X-Accel-Buffering", "no")
     res.flushHeaders()
+}
+
+// Wraps a non-ok provider response as a CatalystError (AI-000) and throws it,
+// preserving the upstream status/body verbatim as `cause`.
+async function throwProviderError(provider, response) {
+    const { wrapProviderError } = await loadErrors()
+    throw wrapProviderError(provider, response.status, await response.text())
 }
 
 // ─── usage normalization ──────────────────────────────────────────────────────
@@ -134,7 +149,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
             body: JSON.stringify(body),
             signal,
         })
-        if (!response.ok) throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("openai", response)
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -187,7 +202,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
             body: JSON.stringify(body),
             signal,
         })
-        if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("openai", response)
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -238,7 +253,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
         })
-        if (!response.ok) throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("openai", response)
         const data = await response.json()
         const output = data.output?.find((o) => o.type === "message")?.content?.find((c) => c.type === "output_text")?.text ?? ""
         return { output, conversationId: data.id ?? null, usage: normalizeOpenAIResponsesUsage(data.usage, model) }
@@ -257,7 +272,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
         })
-        if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("openai", response)
         const data = await response.json()
         return { output: data.choices?.[0]?.message?.content ?? "", conversationId: null, usage: normalizeOpenAIChatUsage(data.usage, model) }
     }
@@ -309,7 +324,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
             body: JSON.stringify(body),
             signal,
         })
-        if (!response.ok) throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("gemini", response)
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -361,7 +376,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
             body: JSON.stringify(body),
             signal,
         })
-        if (!response.ok) throw new Error(`Gemini API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("gemini", response)
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -418,7 +433,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
         })
-        if (!response.ok) throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("gemini", response)
         const data = await response.json()
         const text = data.steps?.find((s) => s.type === "model_output")?.content?.[0]?.text ?? ""
         return { output: text, conversationId: data.id ?? null, usage: normalizeGeminiInteractionUsage(data.usage, model) }
@@ -441,7 +456,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
         })
-        if (!response.ok) throw new Error(`Gemini API error (${response.status}): ${await response.text()}`)
+        if (!response.ok) await throwProviderError("gemini", response)
         const data = await response.json()
         return { output: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "", conversationId: null, usage: normalizeGeminiUsage(data.usageMetadata, model) }
     }
@@ -456,9 +471,20 @@ const PROVIDERS = {
 
 // ─── routes ───────────────────────────────────────────────────────────────────
 
+// Additive `code` field alongside the existing `{ error }` shape — does not
+// change the response contract, just gives clients an AI-xxx code to look up.
+async function sendCodedError(res, status, code, message) {
+    const { getDocUrl } = await loadErrors()
+    res.status(status).json({ error: message, code, docUrl: getDocUrl(code) })
+}
+
 // GET /ai/providers — returns list of configured provider ids, no keys exposed
-router.get("/providers", (req, res) => {
-    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
+router.get("/providers", async (req, res) => {
+    if (!isAIEnabled()) {
+        const { ERROR_CODES } = await loadErrors()
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
     const providers = Object.entries(getAIConfig()?.providers ?? {})
         .filter(([, cfg]) => cfg?.apiKey)
         .map(([id, cfg]) => ({ id, defaultModel: cfg.defaultModel ?? null }))
@@ -466,16 +492,26 @@ router.get("/providers", (req, res) => {
 })
 
 router.post("/:provider/stream", async (req, res) => {
-    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
+    const { ERROR_CODES } = await loadErrors()
+    if (!isAIEnabled()) {
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
     const { provider } = req.params
     const adapter = PROVIDERS[provider]
     if (!adapter) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
 
     const cfg = getProviderConfig(provider)
-    if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
+    if (!cfg) {
+        await sendCodedError(res, 404, ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED, `Provider "${provider}" not configured`)
+        return
+    }
 
     const validationError = validateRequestBody(req, cfg)
-    if (validationError) { res.status(400).json({ error: validationError }); return }
+    if (validationError) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, validationError)
+        return
+    }
 
     const { messages, genConfig = {}, conversationId, model } = req.body
     const stateful = "conversationId" in req.body
@@ -503,9 +539,15 @@ router.post("/:provider/stream", async (req, res) => {
             signal: abortController.signal,
         })
     } catch (err) {
-        console.error("[catalyst-ai] %s stream error:", provider, err.message)
+        // err.code is only an AI-xxx string when err is a CatalystError. On the
+        // client-disconnect path (res "close" -> abortController.abort()) fetch
+        // rejects with a DOMException whose .code is the numeric legacy value 20 —
+        // attaching that as `code` would be a bogus registry lookup for callers.
+        const { CatalystError } = await loadErrors()
+        const code = err instanceof CatalystError ? err.code : undefined
+        console.error("[catalyst-ai] %s stream error:", provider, code ? `[${code}] ${err.message}` : err.message)
         if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`)
+            res.write(`data: ${JSON.stringify({ error: err.message, code })}\n\n`)
             res.end()
         }
     } finally {
@@ -514,16 +556,26 @@ router.post("/:provider/stream", async (req, res) => {
 })
 
 router.post("/:provider/generate", async (req, res) => {
-    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
+    const { ERROR_CODES } = await loadErrors()
+    if (!isAIEnabled()) {
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
     const { provider } = req.params
     const adapter = PROVIDERS[provider]
     if (!adapter) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
 
     const cfg = getProviderConfig(provider)
-    if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
+    if (!cfg) {
+        await sendCodedError(res, 404, ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED, `Provider "${provider}" not configured`)
+        return
+    }
 
     const validationError = validateRequestBody(req, cfg)
-    if (validationError) { res.status(400).json({ error: validationError }); return }
+    if (validationError) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, validationError)
+        return
+    }
 
     const { messages, genConfig = {}, conversationId, model } = req.body
     const stateful = "conversationId" in req.body
@@ -534,8 +586,10 @@ router.post("/:provider/generate", async (req, res) => {
         const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
-        console.error("[catalyst-ai] %s generate error:", provider, err.message)
-        res.status(500).json({ error: err.message })
+        const { CatalystError } = await loadErrors()
+        const code = err instanceof CatalystError ? err.code : undefined
+        console.error("[catalyst-ai] %s generate error:", provider, code ? `[${code}] ${err.message}` : err.message)
+        res.status(500).json({ error: err.message, code })
     }
 })
 

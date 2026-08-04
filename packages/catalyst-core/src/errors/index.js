@@ -1,6 +1,6 @@
 import { ERROR_CODES, getDefinition, getDocUrl } from "./registry.js"
 
-export { ERROR_CODES }
+export { ERROR_CODES, getDocUrl }
 
 export class CatalystError extends Error {
     constructor(code, { message, details, recoverable, suggestedAction, category, docUrl, cause } = {}) {
@@ -67,6 +67,22 @@ export function wrapForeignError(stage, err) {
         cause: err,
     })
     return wrapped
+}
+
+/**
+ * Wrap a failed AI provider HTTP response (OpenAI/Gemini). Unlike
+ * wrapForeignError (build toolchains, which carry a named err.code), provider
+ * failures are an HTTP status + response body — we preserve both verbatim
+ * as `cause` rather than reinterpreting them.
+ */
+export function wrapProviderError(provider, status, bodyText) {
+    const cause = new Error(`${provider} API error (${status}): ${bodyText}`)
+    cause.provider = provider
+    cause.status = status
+    return createError(ERROR_CODES.AI_UPSTREAM_ERROR, {
+        message: `AI provider request failed (upstream: ${provider} ${status})`,
+        cause,
+    })
 }
 
 /**
