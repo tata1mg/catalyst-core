@@ -232,6 +232,7 @@ function TryApp() {
     }, [stopCamera])
 
     const showScan = useCallback(() => {
+        setStatus(null)
         setMode("scan")
         writeStorage(MODE_STORAGE_KEY, "scan")
     }, [])
@@ -289,139 +290,139 @@ function TryApp() {
                 </p>
             </div>
 
-            <section className="shell-only app-screen">
+            {/*
+             * Hidden outright while scanning. The overlay must stay transparent
+             * to reveal the native camera behind the WebView, so anything left
+             * mounted here would show through it.
+             */}
+            <section
+                className="shell-only app-screen"
+                hidden={isStreaming}
+                aria-hidden={isStreaming || undefined}
+            >
                 <header className="app-screen-bar">
                     <span className="app-screen-title">Try Your Own App</span>
                 </header>
 
+                <p className={css.lede}>
+                    Runs your app with the full native bridge — its config is fetched from the dev
+                    server and applied for the session.
+                </p>
+
+                <div className={css.segmented} role="tablist" aria-label="How to choose an app">
+                    <button
+                        className={`${css.segment} ${mode === "scan" ? css.segmentOn : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "scan"}
+                        onClick={showScan}
+                    >
+                        Scan QR
+                    </button>
+                    <button
+                        className={`${css.segment} ${mode === "manual" ? css.segmentOn : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "manual"}
+                        onClick={showManual}
+                    >
+                        Enter URL
+                    </button>
+                </div>
+
+                {cameraError && mode === "scan" && (
+                    <div className={css.bannerError}>
+                        {cameraError.message || "Camera unavailable"}
+                    </div>
+                )}
+                {banner}
+
                 {mode === "scan" ? (
-                    <>
-                        <div className={css.stage}>
-                            <div className={css.stagePlaceholder}>
-                                    <svg
-                                        className={css.stageIcon}
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.6"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        aria-hidden="true"
-                                    >
-                                        <path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.7l1.2-2h6.2l1.2 2h1.7A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
-                                        <circle cx="12" cy="12.5" r="3.5" />
-                                    </svg>
-                                    <p className={css.stageTitle}>
-                                        {isAwaitingConfirm ? "Confirm on device…" : "Camera is off"}
-                                    </p>
-                                    {cameraIsNative ? (
-                                        <button
-                                            className={css.stageStart}
-                                            type="button"
-                                            onClick={beginScan}
-                                            disabled={isAwaitingConfirm}
-                                        >
-                                            {isAwaitingConfirm ? "Waiting…" : "Start scanning"}
-                                        </button>
-                                    ) : (
-                                        <p className={css.stageNote}>
-                                            Scanning needs the Companion app
-                                        </p>
-                                    )}
-                                </div>
+                    <div className={css.panel}>
+                        <div className={css.qrMark} aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                                <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                                <path d="M14 14h3v3h-3zM18 18h3v3h-3z" strokeLinecap="round" />
+                            </svg>
                         </div>
 
-                        <div>
-                            {cameraError && (
-                                <div className={css.bannerError}>
-                                    {cameraError.message || "Camera unavailable"}
-                                </div>
-                            )}
-                            {banner}
-
-                            <p className={css.hint}>
-                                Run <code>npm start</code> in your Catalyst app and scan the QR
-                                from the terminal.
-                            </p>
-
-                            <button className={css.btn} type="button" onClick={showManual}>
-                                Enter URL manually
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <button className={css.btn} type="button" onClick={showScan}>
-                            Scan a QR instead
-                        </button>
-
-                        <p className={css.lede}>
-                            Runs your app right here with the full native bridge — its config is
-                            fetched from the dev server and applied for the session.
+                        <h3 className={css.panelTitle}>Scan your dev server QR</h3>
+                        <p className={css.panelBody}>
+                            Run <code className={css.code}>npm start</code> in your Catalyst app —
+                            the QR appears in your terminal.
                         </p>
 
-                        {banner}
-
-                        <form
-                            onSubmit={(event) => {
-                                event.preventDefault()
-                                openPreview(url)
-                            }}
-                        >
-                            <div className={css.group}>
-                                <input
-                                    className={css.urlInput}
-                                    type="url"
-                                    inputMode="url"
-                                    autoCapitalize="none"
-                                    autoCorrect="off"
-                                    placeholder="https://your-app.example.com"
-                                    aria-label="App URL"
-                                    aria-invalid={fieldError ? "true" : undefined}
-                                    aria-describedby={fieldError ? "try-url-error" : undefined}
-                                    value={url}
-                                    onChange={(event) => {
-                                        setUrl(event.target.value)
-                                        if (status?.kind === "field") setStatus(null)
-                                    }}
-                                />
-                            </div>
-
-                            {fieldError && (
-                                <div className={css.bannerError} id="try-url-error" role="alert">
-                                    {fieldError}
-                                </div>
-                            )}
-
+                        {cameraIsNative ? (
                             <button
                                 className={css.btnPrimary}
-                                type="submit"
+                                type="button"
+                                onClick={beginScan}
                                 disabled={isAwaitingConfirm}
                             >
-                                {isAwaitingConfirm ? "Confirm on device…" : "Open Preview"}
+                                {isAwaitingConfirm ? "Confirm on device…" : "Open camera"}
                             </button>
-                        </form>
+                        ) : (
+                            <p className={css.panelNote}>Scanning needs the Companion app</p>
+                        )}
+                    </div>
+                ) : (
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault()
+                            openPreview(url)
+                        }}
+                    >
+                        <div className={css.group}>
+                            <input
+                                className={css.urlInput}
+                                type="url"
+                                inputMode="url"
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                placeholder="https://your-app.example.com"
+                                aria-label="App URL"
+                                aria-invalid={fieldError ? "true" : undefined}
+                                aria-describedby={fieldError ? "try-url-error" : undefined}
+                                value={url}
+                                onChange={(event) => {
+                                    setUrl(event.target.value)
+                                    if (status?.kind === "field") setStatus(null)
+                                }}
+                            />
+                        </div>
 
-                        {recents.length > 0 && (
-                            <div className={css.recents}>
-                                <h3>Recent</h3>
-                                <div className={css.group}>
-                                    {recents.map((entry) => (
-                                        <button
-                                            key={entry}
-                                            className={css.recentRow}
-                                            type="button"
-                                            disabled={isAwaitingConfirm}
-                                            onClick={() => openPreview(entry)}
-                                        >
-                                            <span className={css.recentUrl}>{entry}</span>
-                                            <span className={css.recentChevron}>›</span>
-                                        </button>
-                                    ))}
-                                </div>
+                        {fieldError && (
+                            <div className={css.bannerError} id="try-url-error" role="alert">
+                                {fieldError}
                             </div>
                         )}
-                    </>
+
+                        <button className={css.btnPrimary} type="submit" disabled={isAwaitingConfirm}>
+                            {isAwaitingConfirm ? "Confirm on device…" : "Open Preview"}
+                        </button>
+                    </form>
+                )}
+
+                {recents.length > 0 && (
+                    <div className={css.recents}>
+                        <h3>Recent</h3>
+                        <div className={css.group}>
+                            {recents.map((entry) => (
+                                <button
+                                    key={entry}
+                                    className={css.recentRow}
+                                    type="button"
+                                    disabled={isAwaitingConfirm}
+                                    onClick={() => openPreview(entry)}
+                                >
+                                    <span className={css.recentUrl}>{entry}</span>
+                                    <span className={css.recentChevron}>›</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 )}
             </section>
 
@@ -432,25 +433,38 @@ function TryApp() {
              * camera and there is no way out of the scanner.
              */}
             {isStreaming && (
-                <div className={css.scanOverlay}>
-                    <button
-                        className={css.scanClose}
-                        type="button"
-                        onClick={stopCamera}
-                        aria-label="Close scanner"
-                    >
-                        ✕
-                    </button>
+                <div className={css.scanOverlay} role="dialog" aria-label="Scan a QR code">
+                    <div className={css.scanTop}>
+                        <button
+                            className={css.scanClose}
+                            type="button"
+                            onClick={stopCamera}
+                            aria-label="Close scanner"
+                        >
+                            ✕
+                        </button>
+                    </div>
 
-                    <div className={css.viewfinder} />
+                    <div className={css.scanCenter}>
+                        <div className={css.viewfinder}>
+                            <span className={`${css.corner} ${css.cornerTl}`} />
+                            <span className={`${css.corner} ${css.cornerTr}`} />
+                            <span className={`${css.corner} ${css.cornerBl}`} />
+                            <span className={`${css.corner} ${css.cornerBr}`} />
+                        </div>
 
-                    <p className={css.scanCaption}>
-                        Point at the QR code in your terminal
-                    </p>
+                        <p className={css.scanTitle}>Scan your dev server QR</p>
+                        <p className={css.scanCaption}>
+                            Run <code className={css.scanCode}>npm start</code> and point at the
+                            code in your terminal
+                        </p>
+                    </div>
 
-                    <button className={css.scanCancel} type="button" onClick={stopCamera}>
-                        Cancel
-                    </button>
+                    <div className={css.scanBottom}>
+                        <button className={css.scanManual} type="button" onClick={showManual}>
+                            Enter URL manually
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
