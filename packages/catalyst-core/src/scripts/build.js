@@ -17,6 +17,7 @@ const configJSON = JSON.parse(readFileSync(configPath), "utf-8")
  */
 function runBuildStep(command, options) {
     return new Promise((resolve, reject) => {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - command is always a hardcoded vite build string at call sites, never external input.
         const child = spawn(command, [], {
             ...options,
             shell: true,

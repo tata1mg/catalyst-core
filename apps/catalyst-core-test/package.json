@@ -17,12 +17,12 @@
         "@routes": "src/js/routes/"
     },
     "dependencies": {
-        "catalyst-core": "0.2.0-beta.3",
+        "catalyst-core": "0.3.0-beta.2",
         "react": "19.0.0",
         "react-dom": "19.0.0"
     },
     "devDependencies": {
-        "@playwright/test": "1.52.0",
+        "@playwright/test": "1.62.1",
         "@types/node": "^22.14.1",
         "eslint": "^8.26.0",
         "eslint-plugin-react": "^7.34.1",

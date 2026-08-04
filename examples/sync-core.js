@@ -52,6 +52,7 @@ function runWithRetry(cmd, options, beforeRetry) {
     try {
       // Capture output so a transient error can be detected even though we still
       // want it printed — inherited stdio gives us no way to inspect it after the fact.
+      // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - cmd is built internally from a mkdtempSync path and npm pack output, never from external/user input.
       const output = execSync(cmd, { ...options, stdio: 'pipe', encoding: 'utf8' });
       if (options.stdio === 'inherit') process.stdout.write(output);
       return;

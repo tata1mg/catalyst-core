@@ -1,6 +1,6 @@
 import fs from "fs"
 import path from "path"
-import { exec } from "child_process"
+import { exec, spawn } from "child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
 import { setupServer } from "./setupServer.js"
@@ -238,13 +238,15 @@ async function checkEmulator(ADB_PATH) {
 
 async function startEmulator(EMULATOR_PATH, androidConfig) {
     progress.log(`Starting emulator: ${androidConfig.emulatorName}...`)
-    // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - EMULATOR_PATH is derived from SDK configuration and emulatorName is local native setup config.
-    // eslint-disable-next-line security/detect-child-process
-    exec(`${EMULATOR_PATH} -avd ${androidConfig.emulatorName} -read-only > /dev/null &`, (error) => {
-        if (error) {
-            progress.log(`Error starting emulator: ${error}`, "error")
-        }
+    // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - spawn with an argv array (no shell), so androidConfig.emulatorName can't be interpreted as shell syntax even though it comes from a locally-editable config file.
+    const child = spawn(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {
+        detached: true,
+        stdio: "ignore",
     })
+    child.on("error", (error) => {
+        progress.log(`Error starting emulator: ${error}`, "error")
+    })
+    child.unref()
 }
 
 async function updateLocalProperties(sdkPath) {

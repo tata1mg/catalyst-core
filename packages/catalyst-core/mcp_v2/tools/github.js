@@ -161,6 +161,7 @@ function safeReadText(filePath, maxBytes = 8000) {
 
 function runGit(root, command) {
     try {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - command is always one of the fixed git/node/npm strings hardcoded at call sites, never external input.
         return execSync(command, {
             cwd: root,
             encoding: "utf8",
