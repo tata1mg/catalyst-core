@@ -12,7 +12,6 @@ const UNSUPPORTED_SHELL_MESSAGE =
     "Previews require the Catalyst Companion app — this app can't open them."
 const RECENTS_STORAGE_KEY = "catalyst-companion.recent-urls"
 const MODE_STORAGE_KEY = "catalyst-companion.try-mode"
-const SCAN_ACTIVATED_KEY = "catalyst-companion.try-scan-activated"
 const MAX_RECENTS = 8
 
 const isNativeShell = () =>
@@ -72,7 +71,6 @@ function TryApp() {
     const [status, setStatus] = useState(null)
     const [isAwaitingConfirm, setIsAwaitingConfirm] = useState(false)
     const [mode, setMode] = useState("scan")
-    const [scanActivated, setScanActivated] = useState(false)
 
     const bridgeRef = useRef(null)
     const openPreviewRef = useRef(() => {})
@@ -108,7 +106,6 @@ function TryApp() {
         setRecents(storedRecents)
 
         const storedMode = readStorage(MODE_STORAGE_KEY, "scan") === "manual" ? "manual" : "scan"
-        setScanActivated(readStorage(SCAN_ACTIVATED_KEY, "0") === "1")
 
         const prefill = new URLSearchParams(window.location.search).get("url")
         const prefilled = Boolean(prefill)
@@ -237,32 +234,7 @@ function TryApp() {
         writeStorage(MODE_STORAGE_KEY, "scan")
     }, [])
 
-    const autoStartedRef = useRef(false)
-    useEffect(() => {
-        if (mode !== "scan") {
-            autoStartedRef.current = false
-        }
-    }, [mode])
-
-    useEffect(() => {
-        if (
-            mode === "scan" &&
-            scanActivated &&
-            cameraIsNative &&
-            !cameraError &&
-            !autoStartedRef.current
-        ) {
-            autoStartedRef.current = true
-            startCamera({ facing: "back", format: "qr" })
-        }
-    }, [mode, scanActivated, cameraIsNative, cameraError, startCamera])
-
-    useEffect(() => {
-        if (isStreaming && !scanActivated) {
-            setScanActivated(true)
-            writeStorage(SCAN_ACTIVATED_KEY, "1")
-        }
-    }, [isStreaming, scanActivated])
+    // The camera opens only from the "Open camera" button — never on its own.
 
     useEffect(() => {
         return () => {
