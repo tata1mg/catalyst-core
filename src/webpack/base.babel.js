@@ -17,7 +17,10 @@ const isDev = process.env.NODE_ENV === "development"
 const isSSR = !!process.env.SSR || false
 
 export const basePlugins = [
-    // Expose only the whitelisted env vars to the client bundle
+    // Expose only the whitelisted env vars to the client bundle. This DefinePlugin also
+    // runs against the SSR (Node-target) bundle via the shared basePlugins array, so any
+    // process.env.X the framework's own server code reads at runtime — not just app env
+    // vars — must be listed here too, or it gets statically replaced with undefined.
     new webpack.DefinePlugin({
         "process.env": (
             [
@@ -28,6 +31,7 @@ export const basePlugins = [
                 "src_path",
                 "PWD",
                 "SENTRY_CONFIG",
+                "CSP_NONCE_ENABLE",
             ] || []
         ).reduce((clientEnvMap, env) => {
             clientEnvMap[env] = JSON.stringify(process.env[env])
