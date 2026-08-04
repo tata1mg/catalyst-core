@@ -1,0 +1,22 @@
+packages/catalyst-ai/src/route.js
+  s_b5de6de8068076::t_652e476c91959f 32-34,43
+packages/catalyst-core/src/scripts/build.js
+  s_b5de6de8068076::t_cd6946ae0ae640 7,15-20,22,25,27
+  s_b5de6de8068076::t_2fb74f354ec9bb 76-77,87,91,103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5b270955a20d62f59dd5837a1e6be9befbda1443",
+  "prompts": {},
+  "sessions": {
+    "s_b5de6de8068076": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e23a39fe-21be-4512-95bf-a19be3aa8852",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
