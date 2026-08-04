@@ -29,7 +29,7 @@ Recommended controls:
 
 ## Content-Security-Policy Nonce
 
-Every `<script>` and inline `<style>` Catalyst renders — critical and deferred JS, the SSR bot/component markers, `FastRefresh`, and the serialized initial state — can carry a per-request CSP nonce. This lets you ship a `script-src`/`style-src` policy without `'unsafe-inline'`.
+Every `<script>` Catalyst renders — critical and deferred JS, the SSR bot/component markers, `FastRefresh`, and the serialized initial state — can carry a per-request CSP nonce. This lets you ship a `script-src` policy without `'unsafe-inline'`. It does not cover CSS: Catalyst's inline `<style>` tags are never nonced, so a `style-src` policy still needs `'unsafe-inline'` (or another approach) if you inline styles.
 
 Enable it via `CSP_NONCE_ENABLE` in `config/config.json`:
 
@@ -48,7 +48,7 @@ export const addMiddlewares = (app) => {
   app.use((req, res, next) => {
     res.setHeader(
       "Content-Security-Policy",
-      `script-src 'self' 'nonce-${res.locals.cspNonce}'; style-src 'self' 'nonce-${res.locals.cspNonce}'`
+      `script-src 'self' 'nonce-${res.locals.cspNonce}'`
     );
     next();
   });

@@ -290,7 +290,7 @@ const _renderMarkUp = async (
                         isBot
                     )
                     if (newCssPaths.length) {
-                        this.push(`<style${nonceAttr}>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                        this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
                         this.push(generateScriptStrings(deferredAssets.js, nonce))

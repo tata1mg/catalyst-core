@@ -78,7 +78,7 @@ function Document(props) {
 export default Document;
 ```
 
-If [`CSP_NONCE_ENABLE`](/content/11-API%20Reference/02-Configuration.mdx) is on, apply `props.nonce` to any script or inline style you add here yourself — Catalyst only nonces the tags it renders, not custom ones:
+If [`CSP_NONCE_ENABLE`](/content/11-API%20Reference/02-Configuration.mdx) is on, apply `props.nonce` to any script you add here yourself — Catalyst only nonces the script tags it renders, not custom ones (and never nonces CSS/`<style>`):
 
 ```jsx title="server/document.js"
 <script src="https://analytics.example.com/script.js" async nonce={props.nonce} />
