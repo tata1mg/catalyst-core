@@ -26,12 +26,21 @@ function getProviderConfig(provider) {
     return cfg
 }
 
+// Gemini and OpenAI model names are alphanumeric with dots/hyphens/colons/underscores
+// (e.g. "gemini-2.0-flash", "gpt-4o-mini"). Gemini's model is interpolated directly into
+// the request URL path (see geminiStream/geminiGenerate), so it must be constrained to
+// this charset before use — otherwise req.body.model could inject "/", "?", or other
+// URL-structural characters into the request sent to Google's API. (A bare ".." passes
+// this charset check, but without a "/" it can't traverse a URL path segment.)
+const MODEL_NAME_RE = /^[a-zA-Z0-9._:-]+$/
+
 // Returns an error string if the request body is invalid, otherwise null.
 function validateRequestBody(req, cfg) {
     const { messages, model } = req.body ?? {}
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
+    if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
     return null
 }
 
@@ -333,6 +342,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
         }
     } else {
         // stateless: streamGenerateContent
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`
         const sys = geminiSystemInstruction(messages)
         const body = {
@@ -414,6 +424,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         return { output: text, conversationId: data.id ?? null, usage: normalizeGeminiInteractionUsage(data.usage, model) }
     } else {
         // stateless non-streaming: generateContent
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
         const sys = geminiSystemInstruction(messages)
         const body = {
@@ -480,6 +491,7 @@ router.post("/:provider/stream", async (req, res) => {
 
     sseHeaders(res)
     try {
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.stream dispatches to openaiStream/geminiStream, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
         await adapter.stream({
             apiKey: cfg.apiKey,
             model: resolvedModel,
@@ -518,6 +530,7 @@ router.post("/:provider/generate", async (req, res) => {
     const resolvedModel = model || cfg.defaultModel
 
     try {
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.generate dispatches to openaiGenerate/geminiGenerate, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
         const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {

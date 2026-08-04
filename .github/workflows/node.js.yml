@@ -8,7 +8,7 @@ jobs:
     catalyst-core:
         runs-on: ubuntu-latest
         container:
-            image: mcr.microsoft.com/playwright:v1.52.0-noble
+            image: mcr.microsoft.com/playwright:v1.62.1-noble
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -19,7 +19,7 @@ jobs:
     create-catalyst-app:
         runs-on: ubuntu-latest
         container:
-            image: mcr.microsoft.com/playwright:v1.52.0-noble
+            image: mcr.microsoft.com/playwright:v1.62.1-noble
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -30,7 +30,7 @@ jobs:
     catalyst-ai:
         runs-on: ubuntu-latest
         container:
-            image: mcr.microsoft.com/playwright:v1.52.0-noble
+            image: mcr.microsoft.com/playwright:v1.62.1-noble
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

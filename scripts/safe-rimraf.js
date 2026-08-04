@@ -25,6 +25,7 @@ function sleep(ms) {
 }
 
 function rimraf(targetPath) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - targetPath comes from this local CLI script's own argv, invoked directly by a developer or by the build's own package.json "prepare" script with a hardcoded path, never from a request.
     const resolved = path.resolve(targetPath)
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {

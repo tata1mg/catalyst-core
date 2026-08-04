@@ -52,6 +52,7 @@ function runWithRetry(cmd, options, beforeRetry) {
     try {
       // Capture output so a transient error can be detected even though we still
       // want it printed — inherited stdio gives us no way to inspect it after the fact.
+      // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - cmd is built internally from a mkdtempSync path and npm pack output, never from external/user input.
       const output = execSync(cmd, { ...options, stdio: 'pipe', encoding: 'utf8' });
       if (options.stdio === 'inherit') process.stdout.write(output);
       return;
@@ -85,6 +86,7 @@ const STAGING_DIR_RE = /^\..+-[a-zA-Z0-9]{8}$/
 function cleanNpmInstallStaging(nodeModulesDir, depth = 0) {
   if (depth > 6 || !fs.existsSync(nodeModulesDir)) return
   for (const entry of fs.readdirSync(nodeModulesDir)) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry comes from fs.readdirSync(nodeModulesDir), i.e. actual directory names already on disk, not request input.
     const entryPath = path.join(nodeModulesDir, entry)
     if (!fs.statSync(entryPath).isDirectory()) continue
 
@@ -94,6 +96,7 @@ function cleanNpmInstallStaging(nodeModulesDir, depth = 0) {
     }
 
     // entry is a package (or scope) dir — recurse into its own node_modules, if any
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entryPath is derived from fs.readdirSync above and 'node_modules' is a hardcoded literal, not request input.
     const nestedNodeModules = path.join(entryPath, 'node_modules')
     if (fs.existsSync(nestedNodeModules)) {
       cleanNpmInstallStaging(nestedNodeModules, depth + 1)

@@ -24,28 +24,30 @@ function startProd() {
 
     console.log("🚀 Starting production server...")
 
-    const inspectFlag = commandLineArguments.includes("--inspect") ? "--inspect" : ""
-    const command = `node ${inspectFlag} --import ${preInitPath} --loader ${loaderPath} ./dist/server/expressServer.js`
-    spawnSync(command, [], {
-        cwd: dirname,
-        stdio: "inherit",
-        shell: true,
-        env: {
-            ...process.env,
-            src_path: process.env.PWD,
-            NODE_ENV: "production",
-            IS_DEV_COMMAND: false,
-            APPLICATION: name || "catalyst_app",
-            ...argumentsObject,
-            filterKeys: JSON.stringify([
-                "src_path",
-                "NODE_ENV",
-                "IS_DEV_COMMAND",
-                "APPLICATION",
-                ...Object.keys(argumentsObject),
-            ]),
-        },
-    })
+    const inspectArgs = commandLineArguments.includes("--inspect") ? ["--inspect"] : []
+    spawnSync(
+        "node",
+        [...inspectArgs, "--import", preInitPath, "--loader", loaderPath, "./dist/server/expressServer.js"],
+        {
+            cwd: dirname,
+            stdio: "inherit",
+            env: {
+                ...process.env,
+                src_path: process.env.PWD,
+                NODE_ENV: "production",
+                IS_DEV_COMMAND: false,
+                APPLICATION: name || "catalyst_app",
+                ...argumentsObject,
+                filterKeys: JSON.stringify([
+                    "src_path",
+                    "NODE_ENV",
+                    "IS_DEV_COMMAND",
+                    "APPLICATION",
+                    ...Object.keys(argumentsObject),
+                ]),
+            },
+        }
+    )
 }
 
 startProd()

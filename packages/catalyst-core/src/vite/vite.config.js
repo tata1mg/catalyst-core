@@ -113,6 +113,7 @@ try {
     const packageJson = JSON.parse(packageJsonContent)
     _moduleAliases = packageJson._moduleAliases || {}
 } catch (error) {
+    // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - packageJsonConfig is a build-time-resolved local path, not attacker-controlled; console.warn here does no printf-style substitution.
     console.warn(`Failed to read or parse package.json from ${packageJsonConfig}:`, error.message)
 }
 
@@ -122,6 +123,7 @@ try {
     catalyst_moduleAliases = catalystPackageJson._moduleAliases || {}
 } catch (error) {
     console.warn(
+        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - catalystPackageJsonConfig is a build-time-resolved local path, not attacker-controlled; console.warn here does no printf-style substitution.
         `Failed to read or parse catalyst package.json from ${catalystPackageJsonConfig}:`,
         error.message
     )
@@ -146,6 +148,7 @@ import { imageUrl, fontUrl } from "./scssParams.js"
 // options — so anything else is left alone and Vite falls back to its normal
 // auto-loaded postcss.config.js resolution.
 const resolvePostcssPlugins = () => {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root set by the framework's own build tooling, not request/user input.
     const configPath = path.join(process.env.src_path, "postcss.config.js")
     if (!fs.existsSync(configPath)) return null
 
@@ -168,6 +171,7 @@ const resolvePostcssPlugins = () => {
             return plugin(finalOptions)
         })
     } catch (error) {
+        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - configPath is a build-time-resolved local path, not attacker-controlled; console.warn here does no printf-style substitution.
         console.warn(`Failed to patch postcss config at ${configPath}:`, error.message)
         return null
     }
@@ -183,9 +187,11 @@ const alias = () => {
     return Object.keys(allAliases).reduce((moduleEnvMap, alias) => {
         if (allAliases[alias] && typeof allAliases[alias] === "string") {
             try {
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root and allAliases comes from the developer's own package.json _moduleAliases config, not request/user input.
                 const aliasPath = path.join(process.env.src_path, ...allAliases[alias].split("/"))
                 moduleEnvMap[alias] = aliasPath
             } catch (error) {
+                // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - alias is a key from the developer's own package.json _moduleAliases config, not attacker-controlled; console.warn here does no printf-style substitution.
                 console.warn(`Failed to configure alias ${alias}:`, error.message)
             }
         }
