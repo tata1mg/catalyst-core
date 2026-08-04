@@ -4,6 +4,7 @@ import { arrayToObject } from "./scriptUtils.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { readFileSync, existsSync, rmSync } from "fs"
+import { createRequire } from "module"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -11,15 +12,19 @@ const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
 const configPath = path.join(process.env.PWD, "config/config.json")
 const configJSON = JSON.parse(readFileSync(configPath), "utf-8")
 
+// Resolve vite's actual JS entry point rather than spawning the "vite" command name,
+// which on Windows only resolves via the npm-installed .cmd shim (i.e. requires a shell).
+// Invoking process.execPath + this path directly works cross-platform with no shell.
+const require = createRequire(import.meta.url)
+const viteBinPath = path.join(path.dirname(require.resolve("vite/package.json")), "bin", "vite.js")
+
 /**
- * @param {string} command
+ * @param {string[]} args
  * @param {import('child_process').SpawnOptions} options
  */
-function runBuildStep(command, options) {
+function runBuildStep(args, options) {
     return new Promise((resolve, reject) => {
-        const [cmd, ...args] = command.split(" ")
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - cmd/args come from splitting a hardcoded vite build string at call sites, never external input. No shell is used.
-        const child = spawn(cmd, args, options)
+        const child = spawn(process.execPath, args, options)
         child.on("close", (code) => {
             if (code === 0) {
                 resolve()
@@ -68,8 +73,8 @@ async function build() {
         ]),
     }
 
-    const serverBuildCommand = `vite build --config ./dist/vite/vite.config.server.js --ssr`
-    const clientBuildCommand = `vite build --config ./dist/vite/vite.config.client.js`
+    const serverBuildArgs = [viteBinPath, "build", "--config", "./dist/vite/vite.config.server.js", "--ssr"]
+    const clientBuildArgs = [viteBinPath, "build", "--config", "./dist/vite/vite.config.client.js"]
     const spawnBase = {
         cwd: dirname,
         stdio: "inherit",
@@ -79,11 +84,11 @@ async function build() {
 
     try {
         await Promise.all([
-            runBuildStep(serverBuildCommand, {
+            runBuildStep(serverBuildArgs, {
                 ...spawnBase,
                 env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "ssr" },
             }),
-            runBuildStep(clientBuildCommand, {
+            runBuildStep(clientBuildArgs, {
                 ...spawnBase,
                 env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "client" },
             }),
@@ -95,7 +100,7 @@ async function build() {
 
     console.log("✅ Server and client builds completed!")
 
-    await runBuildStep("node ./dist/scripts/generateOfflineManifest.js", {
+    await runBuildStep(["./dist/scripts/generateOfflineManifest.js"], {
         ...spawnBase,
         env: baseEnv,
     })

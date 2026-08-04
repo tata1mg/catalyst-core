@@ -29,8 +29,9 @@ function getProviderConfig(provider) {
 // Gemini and OpenAI model names are alphanumeric with dots/hyphens/colons/underscores
 // (e.g. "gemini-2.0-flash", "gpt-4o-mini"). Gemini's model is interpolated directly into
 // the request URL path (see geminiStream/geminiGenerate), so it must be constrained to
-// this charset before use — otherwise req.body.model could inject "/", "?", ".." or other
-// URL-structural characters into the request sent to Google's API.
+// this charset before use — otherwise req.body.model could inject "/", "?", or other
+// URL-structural characters into the request sent to Google's API. (A bare ".." passes
+// this charset check, but without a "/" it can't traverse a URL path segment.)
 const MODEL_NAME_RE = /^[a-zA-Z0-9._:-]+$/
 
 // Returns an error string if the request body is invalid, otherwise null.
@@ -39,7 +40,7 @@ function validateRequestBody(req, cfg) {
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
-    if (!MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
+    if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
     return null
 }
 
