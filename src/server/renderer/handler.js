@@ -1,6 +1,7 @@
 import fs from "fs"
 import path from "path"
 import React from "react"
+import crypto from "node:crypto"
 import { Transform } from "node:stream"
 
 import extractAssets, { cacheAndFetchAssets } from "./extract"
@@ -113,6 +114,12 @@ const getCachedRoutes = () => {
 }
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server-otel`
+
+// Config-driven (config.json → CSP_NONCE_ENABLE): when on, every script/style Catalyst
+// injects carries a per-request nonce so the app can serve a nonce-based CSP without
+// opening up 'unsafe-inline'. Off by default — no behavior change unless explicitly enabled.
+const CSP_NONCE_ENABLE = process.env.CSP_NONCE_ENABLE === true
+const generateNonce = () => crypto.randomBytes(16).toString("base64")
 
 const traceHandlerHook = (fn, spanName) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
@@ -233,7 +240,8 @@ const renderMarkUp = async (
     store,
     matches,
     context,
-    webExtractor
+    webExtractor,
+    nonce
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     const isBot = deviceDetails.googleBot || deviceDetails.aiBot ? true : false
@@ -263,6 +271,7 @@ const renderMarkUp = async (
         jsx,
         initialState: state,
         fetcherData,
+        nonce,
     }
 
     let CompleteDocument = () => {
@@ -277,11 +286,13 @@ const renderMarkUp = async (
                         metaTags={finalProps.metaTags}
                         preloadJSLinks={finalProps.preloadJSLinks}
                         publicAssetPath={finalProps.publicAssetPath}
+                        nonce={finalProps.nonce}
                     />
                     <Body
                         jsx={finalProps.jsx}
                         fetcherData={finalProps.fetcherData}
                         initialState={finalProps.initialState}
+                        nonce={finalProps.nonce}
                     />
                 </html>
             )
@@ -306,7 +317,12 @@ const renderMarkUp = async (
                 flush(cb) {
                     // All Suspense boundaries have resolved. Append inline CSS and script
                     // tags at the end of the stream so the browser can start executing JS.
-                    const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({ webExtractor, res, isBot })
+                    const { firstFoldCss, firstFoldJS } = cacheAndFetchAssets({
+                        webExtractor,
+                        res,
+                        isBot,
+                        nonce,
+                    })
                     tracedTailPushFirstFoldCss(this, firstFoldCss)
                     tracedTailPushFirstFoldJS(this, firstFoldJS)
                     cb()
@@ -373,6 +389,12 @@ async function _handler(req, res) {
         const store = validateConfigureStore(createStore) ? createStore({}, req, res) : null
         const routes = getCachedRoutes()
 
+        // If app-level middleware already generated a nonce for its CSP header
+        // (res.locals.cspNonce), reuse it so the header and the script tags match.
+        // Otherwise generate one here and expose it the same way.
+        const nonce = CSP_NONCE_ENABLE ? res.locals.cspNonce || generateNonce() : undefined
+        if (nonce) res.locals.cspNonce = nonce
+
         // matches: routes that exactly match this URL — used for serverSideFunction execution.
         // allMatches: full nested match tree — used by getMetaData to collect meta tags.
         const matches = getMatchRoutes(routes, req, res, store, context, fetcherData)
@@ -431,7 +453,8 @@ async function _handler(req, res) {
                             store,
                             matches,
                             context,
-                            webExtractor
+                            webExtractor,
+                            nonce
                         )
                             .then(resolve)
                             .catch(reject)
@@ -454,7 +477,8 @@ async function _handler(req, res) {
                             store,
                             matches,
                             context,
-                            webExtractor
+                            webExtractor,
+                            nonce
                         )
                             .then(resolve)
                             .catch(reject)
@@ -479,7 +503,8 @@ async function _handler(req, res) {
                         store,
                         matches,
                         context,
-                        webExtractor
+                        webExtractor,
+                        nonce
                     )
                         .then(resolve)
                         .catch(reject)
@@ -504,7 +529,8 @@ async function _handler(req, res) {
                     store,
                     matches,
                     context,
-                    webExtractor
+                    webExtractor,
+                    nonce
                 )
                     .then(resolve)
                     .catch(reject)

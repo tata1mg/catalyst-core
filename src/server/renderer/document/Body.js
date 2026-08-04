@@ -6,13 +6,15 @@ import React from "react"
  * @param {object} initialState - initial state object for redux store
  * @param {object} firstFoldCss - style elements extracted for initial page load
  * @param {object} fetcherData - contains data from executing serverFetcher function
+ * @param {string} [nonce] - CSP nonce, applied to the inline initial-state script when CSP_NONCE_ENABLE is on
  * @param {object} children - contains any child elements defined within the component
  */
-export function Body({ jsx = "", initialState = {}, fetcherData = {}, children }) {
+export function Body({ jsx = "", initialState = {}, fetcherData = {}, nonce, children }) {
     return (
         <body>
             {jsx}
             <script
+                nonce={nonce}
                 /* eslint-disable */
                 dangerouslySetInnerHTML={{
                     __html: `

@@ -135,22 +135,30 @@ function buildInlineCSS(linkElements) {
  */
 export const cacheAndFetchAssets = withSyncObservability(
     SSR_SERVICE,
-    function cacheAndFetchAssets({ webExtractor, res, isBot }) {
+    function cacheAndFetchAssets({ webExtractor, res, isBot, nonce }) {
         let firstFoldCss = ""
         let firstFoldJS = ""
         const isProd = process.env.NODE_ENV === "production"
         const { routePath } = res.locals
+        // Forwarded as extraProps to @loadable/server, which appends it as an HTML
+        // attribute to every script/link/style tag it generates.
+        const nonceExtraProps = nonce ? { nonce } : {}
 
         const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
 
         if (routePath) {
             if (isProd) {
                 firstFoldCss = buildInlineCSS(linkElements)
-                if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
+                if (firstFoldCss?.length) {
+                    const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+                    firstFoldCss = `<style${nonceAttr}>${firstFoldCss}</style>`
+                }
             } else {
-                firstFoldCss = webExtractor.getStyleTags()
+                firstFoldCss = webExtractor.getStyleTags(nonceExtraProps)
             }
-            firstFoldJS = !isBot ? webExtractor.getScriptTags({ fetchpriority: "low" }) : ""
+            firstFoldJS = !isBot
+                ? webExtractor.getScriptTags({ fetchpriority: "low", ...nonceExtraProps })
+                : ""
         }
 
         return { firstFoldCss, firstFoldJS }
