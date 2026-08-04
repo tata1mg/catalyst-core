@@ -10,7 +10,7 @@ export function addMiddlewares(app) {
 
     // /api/breeds/list/all and /api/breed/:breed/images are now defined once in
     // server/api/index.js via defineApi() and served through the API registry
-    // (mounted before addMiddlewares runs) — see docs/design-spec-data-fetching-v2.md.
+    // (mounted before addMiddlewares runs, so they take priority over this catch-all).
 
     app.use("/api", (req, res) => {
         res.send({

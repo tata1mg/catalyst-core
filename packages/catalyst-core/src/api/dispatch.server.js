@@ -2,8 +2,7 @@ import { getRequestContext } from "../server/requestContext.js"
 import { ApiError } from "./errors.js"
 
 // res methods that write headers/status. Guarded so a handler that runs via a
-// deferred loopback call fails loudly instead of silently dropping a cookie —
-// see design-spec-data-fetching-v2.md §6.2 / OQ-6.
+// deferred loopback call fails loudly instead of silently dropping a cookie.
 const HEADER_MUTATING_METHODS = [
     "setHeader",
     "cookie",
@@ -58,7 +57,7 @@ const cloneResult = (result) => {
  * request (attached by expressServer.js) via ALS, so it works correctly regardless
  * of whether this module and the one that built the registry ended up as the same
  * physical module instance (they generally won't be, once Vite has bundled the SSR
- * entry — see design-spec §6.2).
+ * entry).
  *
  * @param {string} method
  * @param {string} pathname

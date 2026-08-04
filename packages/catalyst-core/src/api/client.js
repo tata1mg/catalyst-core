@@ -52,7 +52,7 @@ const fetchOverHttp = async (method, url, { query, body, headers } = {}) => {
  * Isomorphic dispatch: same call site works in a browser fetcher/loader and in an
  * SSR fetcher/loader. On the server, same-origin requests try an in-process
  * loopback call (see dispatch.server.js) before falling back to a real HTTP
- * request against the app's own server — see design-spec-data-fetching-v2.md §6.
+ * request against the app's own server.
  */
 // catalyst-core is consumed as an installed node_modules package, which Vite's SSR
 // pipeline externalizes by default (loaded via plain Node, no Vite transform) — so

@@ -119,8 +119,7 @@ async function createServer() {
     // Attach the API registry to every request so loopback dispatch (called from
     // inside SSR fetchers/loaders via the universal api client) can find it
     // regardless of whether it ended up as the same physical module instance as
-    // this file once Vite has bundled the SSR entry — see
-    // docs/design-spec-data-fetching-v2.md §6.2.
+    // this file once Vite has bundled the SSR entry.
     app.use((req, _res, next) => {
         req.__catalystApiRegistry = apiRegistry
         next()

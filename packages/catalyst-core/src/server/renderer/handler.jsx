@@ -327,8 +327,7 @@ async function _handler(req, res) {
 
         // Everything below runs inside this request's ALS scope, so the universal
         // api client (loopback dispatch) and route loaders can read req/res/store
-        // without them being threaded through every call — see
-        // docs/design-spec-data-fetching-v2.md §7.
+        // without them being threaded through every call.
         await runWithRequestContext({ req, res, store }, async () => {
             const cachedRoutes = getCachedRoutes()
             const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
