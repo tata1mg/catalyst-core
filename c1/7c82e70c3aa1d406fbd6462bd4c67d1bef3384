@@ -1,0 +1,80 @@
+packages/catalyst-core/src/server/renderer/extract.js
+  s_b5de6de8068076::t_b8e119a34f2f6f 106
+packages/catalyst-ai/src/route.js
+  s_b5de6de8068076::t_d6d361d1d766d9 29-35,42
+  s_b5de6de8068076::t_0deb925753795a 344,426
+packages/catalyst-core/src/scripts/generateOfflineManifest.js
+  s_b5de6de8068076::t_ce2970d4d38fd3 71
+packages/catalyst-core/src/vite/loadCustomViteConfig.js
+  s_b5de6de8068076::t_2b3dba1be65a37 13
+packages/catalyst-core/src/scripts/start.js
+  s_b5de6de8068076::t_e1b1a049d37a33 25
+packages/catalyst-core/src/server/expressServer.js
+  s_b5de6de8068076::t_a1848a2c5e96ec 129
+packages/catalyst-core/src/vite/node-loader.mjs
+  s_b5de6de8068076::t_bb5576e88b4880 233
+  s_b5de6de8068076::t_32d8dbd7eab874 104
+  s_b5de6de8068076::t_dce2f2319be601 147
+  s_b5de6de8068076::t_02579aa5b95821 59
+  s_b5de6de8068076::t_e2abd3d367f620 124,129
+packages/catalyst-core/src/scripts/scriptUtils.js
+  s_b5de6de8068076::t_2488ceb70d132a 26
+packages/catalyst-core/mcp_v2/tools/github.js
+  s_b5de6de8068076::t_afc2cdef99263b 811
+  s_b5de6de8068076::t_9ea64798ac67d6 797
+  s_b5de6de8068076::t_c05b3360266b70 887
+  s_b5de6de8068076::t_76adec061ef2cc 842,844
+  s_b5de6de8068076::t_da47c1ab7dd507 187
+  s_b5de6de8068076::t_fb6932cd0601a9 413
+  s_b5de6de8068076::t_fa68d8122467d7 411
+  s_b5de6de8068076::t_c45beb9bf439ac 550
+  s_b5de6de8068076::t_894578f936fc88 823
+scripts/safe-rimraf.js
+  s_b5de6de8068076::t_d3c2c3b5728e63 28
+packages/catalyst-core/src/vite/inject-cache-key-plugin.js
+  s_b5de6de8068076::t_dd79b297d7c12e 92
+  s_b5de6de8068076::t_9ee08120cf274a 48,52
+  s_b5de6de8068076::t_0bbf8340fda78e 126
+  s_b5de6de8068076::t_f5fab63ae14bc4 113,117
+  s_b5de6de8068076::t_1d46f1f5ba8e70 158
+packages/catalyst-core/src/offline/catalyst-sw.js
+  s_b5de6de8068076::t_eac5b0c29ae7d7 102
+packages/catalyst-core/src/scripts/serve.js
+  s_b5de6de8068076::t_ca1e6c9f24eb7f 27-34
+  s_b5de6de8068076::t_a79ea82b23e21c 35-50
+packages/catalyst-core/src/scripts/build.js
+  s_b5de6de8068076::t_510f46b2b3c778 20-22
+examples/sync-core.js
+  s_b5de6de8068076::t_df04998d0442df 99
+  s_b5de6de8068076::t_0902b7cf3a5bb0 89
+packages/catalyst-core/src/vite/manifest-categorization-plugin.js
+  s_b5de6de8068076::t_b30fcf68bd9967 407
+  s_b5de6de8068076::t_222d219a4aab00 296
+packages/catalyst-core/src/vite/vite.config.js
+  s_b5de6de8068076::t_33e040bea8ac32 116
+  s_b5de6de8068076::t_8b9f864f85761f 151
+  s_b5de6de8068076::t_7df4d2cb906226 174
+  s_b5de6de8068076::t_92618b0a7c4492 126
+  s_b5de6de8068076::t_8f963575e5eea7 190
+  s_b5de6de8068076::t_1fb4eece972a22 194
+examples/sync-packages.js
+  s_b5de6de8068076::t_8c6744de35c3a4 53,55
+  s_b5de6de8068076::t_12eaa47e4a6530 79
+  s_b5de6de8068076::t_1301dbb005c8cf 68,70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "c17c82e70c3aa1d406fbd6462bd4c67d1bef3384",
+  "prompts": {},
+  "sessions": {
+    "s_b5de6de8068076": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e23a39fe-21be-4512-95bf-a19be3aa8852",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
