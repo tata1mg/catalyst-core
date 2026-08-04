@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { aggregateWebSessionMetrics } from "./metrics.js"
+import { ERROR_CODES, createError } from "catalyst-core/errors"
 
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
@@ -244,7 +245,10 @@ export function useWebAI({
             try {
                 worker = new Worker(getWorkerBlobUrl(), { type: "module" })
             } catch (err) {
-                setError(new Error("[catalyst-ai/useWebAI] module worker unavailable: " + (err.message || String(err))))
+                setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, {
+                    message: "Constructing the module Worker failed: " + (err.message || String(err)),
+                    cause: err,
+                }))
                 setLoading(false)
                 return
             }
@@ -309,7 +313,7 @@ export function useWebAI({
                         break
                     case "error":
                         console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
-                        setError(new Error(msg.message))
+                        setError(createError(ERROR_CODES.AI_WEB_WORKER_CRASHED, { message: msg.message }))
                         setStreaming(false)
                         setLoading(false)
                         worker.terminate()
@@ -320,7 +324,10 @@ export function useWebAI({
 
             worker.onerror = (e) => {
                 console.error("[catalyst-ai/useWebAI] worker uncaught error:", e)
-                setError(new Error(e.message || "Worker crashed"))
+                setError(createError(ERROR_CODES.AI_WEB_WORKER_CRASHED, {
+                    message: e.message || "Worker crashed",
+                    cause: e,
+                }))
                 setStreaming(false)
                 setLoading(false)
                 worker.terminate()
