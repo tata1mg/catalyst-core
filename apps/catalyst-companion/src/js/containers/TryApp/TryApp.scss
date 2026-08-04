@@ -175,7 +175,8 @@
 
 .stage {
     position: relative;
-    height: 57vh;
+    height: 38vh;
+    min-height: 220px;
     border-radius: 16px;
     overflow: hidden;
     display: flex;
@@ -186,35 +187,87 @@
     margin-bottom: 16px;
 }
 
-.scanner {
+/* ---- Full-screen scanner (native camera renders BEHIND the WebView) ---- */
+
+.scanOverlay {
+    position: fixed;
+    inset: 0;
+    /* Above .hub-bottom-nav (30) so the tab bar cannot paint over the camera
+       and strand the user with no way to exit. */
+    z-index: 40;
     background: transparent;
-    border-color: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px
+        calc(20px + env(safe-area-inset-bottom));
 }
 
-/* Reveal the native camera behind the WebView. */
-:global(html):has(.scanner),
-:global(body):has(.scanner) {
+/* Both html AND body paint --hub-background; both must go transparent or the
+   canvas stays opaque and hides the native camera behind the WebView. */
+:global(html):has(.scanOverlay),
+:global(body):has(.scanOverlay) {
     background: transparent !important;
 }
 
-.opaque {
-    position: relative;
-    z-index: 1;
-    background: var(--hub-background);
-}
-
-.belowStage.opaque {
-    border-radius: 12px;
-    padding: 12px 12px 4px;
-    margin: -4px -12px 0;
-}
-
 .viewfinder {
-    width: min(240px, 62%);
+    width: min(268px, 72vw);
     aspect-ratio: 1;
     border: 3px solid rgba(255, 255, 255, 0.9);
-    border-radius: 16px;
-    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.35);
+    border-radius: 18px;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
+}
+
+.scanCaption {
+    margin: 0;
+    max-width: 280px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.scanClose {
+    position: absolute;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(20, 20, 28, 0.72);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:active {
+        transform: scale(0.94);
+    }
+}
+
+.scanCancel {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 14px;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(20, 20, 28, 0.82);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+
+    &:active {
+        transform: scale(0.99);
+    }
 }
 
 .stagePlaceholder {

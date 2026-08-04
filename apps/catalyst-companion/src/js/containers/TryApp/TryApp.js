@@ -290,17 +290,14 @@ function TryApp() {
             </div>
 
             <section className="shell-only app-screen">
-                <header className={`app-screen-bar ${isStreaming ? css.opaque : ""}`}>
+                <header className="app-screen-bar">
                     <span className="app-screen-title">Try Your Own App</span>
                 </header>
 
                 {mode === "scan" ? (
                     <>
-                        <div className={`${css.stage} ${isStreaming ? css.scanner : ""}`}>
-                            {isStreaming ? (
-                                <div className={css.viewfinder} />
-                            ) : (
-                                <div className={css.stagePlaceholder}>
+                        <div className={css.stage}>
+                            <div className={css.stagePlaceholder}>
                                     <svg
                                         className={css.stageIcon}
                                         viewBox="0 0 24 24"
@@ -332,10 +329,9 @@ function TryApp() {
                                         </p>
                                     )}
                                 </div>
-                            )}
                         </div>
 
-                        <div className={`${css.belowStage} ${isStreaming ? css.opaque : ""}`}>
+                        <div>
                             {cameraError && (
                                 <div className={css.bannerError}>
                                     {cameraError.message || "Camera unavailable"}
@@ -428,6 +424,35 @@ function TryApp() {
                     </>
                 )}
             </section>
+
+            {/*
+             * Full-screen while scanning. The native camera renders behind the
+             * WebView, so this layer must stay transparent and sit above the
+             * bottom nav (z-index 30) — otherwise the tab bar paints over the
+             * camera and there is no way out of the scanner.
+             */}
+            {isStreaming && (
+                <div className={css.scanOverlay}>
+                    <button
+                        className={css.scanClose}
+                        type="button"
+                        onClick={stopCamera}
+                        aria-label="Close scanner"
+                    >
+                        ✕
+                    </button>
+
+                    <div className={css.viewfinder} />
+
+                    <p className={css.scanCaption}>
+                        Point at the QR code in your terminal
+                    </p>
+
+                    <button className={css.scanCancel} type="button" onClick={stopCamera}>
+                        Cancel
+                    </button>
+                </div>
+            )}
         </div>
     )
 }
