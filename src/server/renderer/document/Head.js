@@ -7,17 +7,16 @@ import React from "react"
  * @param {object} preloadJSLinks - async scripts for loading chunks
  * @param {array} metaTags - user defined function which returns meta tags in array
  * @param {string} publicAssetPath - public asset path for assets
- * @param {string} [nonce] - CSP nonce, applied to the inline critical CSS tag when CSP_NONCE_ENABLE is on
  * @param {object} children - contains any child elements defined within the component
  */
-export function Head({ pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath, nonce, children }) {
+export function Head({ pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath, children }) {
     if (children) {
         return (
             <head>
                 {children}
                 {metaTags && metaTags}
                 {/* eslint-disable */}
-                {pageCss && <style nonce={nonce} dangerouslySetInnerHTML={{ __html: pageCss }} />}
+                {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
                 {!isBot && preloadJSLinks}
             </head>
         )
@@ -31,7 +30,7 @@ export function Head({ pageCss, preloadJSLinks, metaTags, isBot, publicAssetPath
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {metaTags && metaTags}
             {/* eslint-disable */}
-            {pageCss && <style nonce={nonce} dangerouslySetInnerHTML={{ __html: pageCss }} />}
+            {pageCss && <style dangerouslySetInnerHTML={{ __html: pageCss }} />}
             {!isBot && preloadJSLinks}
         </head>
     )

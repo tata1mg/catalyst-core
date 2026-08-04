@@ -141,7 +141,8 @@ export const cacheAndFetchAssets = withSyncObservability(
         const isProd = process.env.NODE_ENV === "production"
         const { routePath } = res.locals
         // Forwarded as extraProps to @loadable/server, which appends it as an HTML
-        // attribute to every script/link/style tag it generates.
+        // attribute to every script tag it generates. CSS is intentionally left
+        // unnonced — CSP_NONCE_ENABLE only covers scripts.
         const nonceExtraProps = nonce ? { nonce } : {}
 
         const linkElements = webExtractor.getLinkElements({ fetchpriority: "low" })
@@ -149,12 +150,9 @@ export const cacheAndFetchAssets = withSyncObservability(
         if (routePath) {
             if (isProd) {
                 firstFoldCss = buildInlineCSS(linkElements)
-                if (firstFoldCss?.length) {
-                    const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
-                    firstFoldCss = `<style${nonceAttr}>${firstFoldCss}</style>`
-                }
+                if (firstFoldCss?.length) firstFoldCss = `<style>${firstFoldCss}</style>`
             } else {
-                firstFoldCss = webExtractor.getStyleTags(nonceExtraProps)
+                firstFoldCss = webExtractor.getStyleTags()
             }
             firstFoldJS = !isBot
                 ? webExtractor.getScriptTags({ fetchpriority: "low", ...nonceExtraProps })

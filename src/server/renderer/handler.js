@@ -288,7 +288,6 @@ const renderMarkUp = async (
                         metaTags={finalProps.metaTags}
                         preloadJSLinks={finalProps.preloadJSLinks}
                         publicAssetPath={finalProps.publicAssetPath}
-                        nonce={finalProps.nonce}
                     />
                     <Body
                         jsx={finalProps.jsx}
