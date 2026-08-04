@@ -118,7 +118,9 @@ const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-
 // Config-driven (config.json → CSP_NONCE_ENABLE): when on, every script/style Catalyst
 // injects carries a per-request nonce so the app can serve a nonce-based CSP without
 // opening up 'unsafe-inline'. Off by default — no behavior change unless explicitly enabled.
-const CSP_NONCE_ENABLE = process.env.CSP_NONCE_ENABLE === true
+// Unlike the Vite build, this branch's loadEnvironmentVariables.js sets process.env[k]
+// directly, which Node.js coerces to a string — so config booleans arrive here as "true"/"false".
+const CSP_NONCE_ENABLE = process.env.CSP_NONCE_ENABLE === true || process.env.CSP_NONCE_ENABLE === "true"
 const generateNonce = () => crypto.randomBytes(16).toString("base64")
 
 const traceHandlerHook = (fn, spanName) =>
