@@ -341,7 +341,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
         }
     } else {
         // stateless: streamGenerateContent
-        // nosemgrep: javascript.express.security.audit.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`
         const sys = geminiSystemInstruction(messages)
         const body = {
@@ -423,7 +423,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         return { output: text, conversationId: data.id ?? null, usage: normalizeGeminiInteractionUsage(data.usage, model) }
     } else {
         // stateless non-streaming: generateContent
-        // nosemgrep: javascript.express.security.audit.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
         const sys = geminiSystemInstruction(messages)
         const body = {
@@ -490,6 +490,7 @@ router.post("/:provider/stream", async (req, res) => {
 
     sseHeaders(res)
     try {
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.stream dispatches to openaiStream/geminiStream, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
         await adapter.stream({
             apiKey: cfg.apiKey,
             model: resolvedModel,
@@ -528,6 +529,7 @@ router.post("/:provider/generate", async (req, res) => {
     const resolvedModel = model || cfg.defaultModel
 
     try {
+        // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.generate dispatches to openaiGenerate/geminiGenerate, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
         const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
