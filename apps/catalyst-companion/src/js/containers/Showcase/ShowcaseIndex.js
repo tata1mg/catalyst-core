@@ -1,6 +1,7 @@
 import React from "react"
 import { useNativeTransition } from "catalyst-core/hooks"
 import ShowcaseBar from "./ShowcaseBar"
+import kit from "../shared/appKit.scss"
 import css from "./Showcase.scss"
 
 const CAPABILITIES = [
@@ -59,11 +60,11 @@ const ShowcaseIndex = () => {
     return (
         <>
             <ShowcaseBar title="Showcase" back={false} />
-            <p className={css.lede}>
+            <p className={kit.lede}>
                 Every demo below runs on real native APIs through Catalyst&rsquo;s bridge —
                 tap one to try it on this device.
             </p>
-            <div className={css.group}>
+            <div className={kit.group}>
                 {CAPABILITIES.map((cap) => (
                     <button
                         key={cap.path}
@@ -77,7 +78,18 @@ const ShowcaseIndex = () => {
                             <p>{cap.blurb}</p>
                             <span className={css.navHook}>{cap.hook}</span>
                         </span>
-                        <span className={css.navChevron}>›</span>
+                        <span className={css.navChevron} aria-hidden="true">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="m9 5 7 7-7 7" />
+                            </svg>
+                        </span>
                     </button>
                 ))}
             </div>

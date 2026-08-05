@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { useFilePicker } from "catalyst-core/hooks"
 import ShowcaseBar from "../ShowcaseBar"
+import kit from "../../shared/appKit.scss"
 import css from "../Showcase.scss"
 
 const MIME_PRESETS = [
@@ -49,27 +50,27 @@ const FilePickerShowcase = () => {
     return (
         <>
             <ShowcaseBar title="File Picker" />
-            <p className={css.lede}>
+            <p className={kit.lede}>
                 Opens the native document picker and hands the selection back to the web
                 layer — no file input, no browser chrome.
             </p>
 
-            {error && <div className={css.bannerError}>{error}</div>}
+            {error && <div className={kit.bannerError}>{error}</div>}
             {!isNative && (
-                <div className={css.bannerInfo}>
+                <div className={kit.bannerInfo}>
                     The native picker needs the Companion app&rsquo;s bridge.
                 </div>
             )}
 
-            <div className={css.group}>
-                <div className={css.row}>
-                    <span className={css.rowLabel}>File type</span>
-                    <div className={css.seg} style={{ width: 230 }}>
+            <div className={kit.group}>
+                <div className={kit.row}>
+                    <span className={kit.rowLabel}>File type</span>
+                    <div className={`${kit.seg} ${kit.rowControl}`}>
                         {MIME_PRESETS.map((preset) => (
                             <button
                                 key={preset.value}
                                 type="button"
-                                className={`${css.segItem} ${mimeType === preset.value ? css.segItemActive : ""}`}
+                                className={`${kit.segItem} ${mimeType === preset.value ? kit.segItemOn : ""}`}
                                 onClick={() => setMimeType(preset.value)}
                             >
                                 {preset.label}
@@ -77,14 +78,14 @@ const FilePickerShowcase = () => {
                         ))}
                     </div>
                 </div>
-                <label className={css.row}>
-                    <span className={css.rowLabel}>
+                <label className={kit.row}>
+                    <span className={kit.rowLabel}>
                         Multiple files
                         <small>Allow selecting more than one</small>
                     </span>
                     <input
                         type="checkbox"
-                        className={css.switch}
+                        className={kit.switch}
                         checked={multiple}
                         onChange={(event) => setMultiple(event.target.checked)}
                     />
@@ -92,7 +93,7 @@ const FilePickerShowcase = () => {
             </div>
 
             {files.length > 0 && (
-                <div className={css.group}>
+                <div className={kit.group}>
                     {files.map((file, index) => {
                         const name = file.fileName || file.name || `file-${index + 1}`
                         return (
@@ -112,11 +113,11 @@ const FilePickerShowcase = () => {
                 </div>
             )}
 
-            <button type="button" className={css.btnPrimary} onClick={pick} disabled={loading || !isNative}>
+            <button type="button" className={kit.btnPrimary} onClick={pick} disabled={loading || !isNative}>
                 {loading ? "Opening picker…" : "Pick Files"}
             </button>
             {files.length > 0 && (
-                <button type="button" className={`${css.btn} ${css.btnDanger}`} onClick={clear}>
+                <button type="button" className={`${kit.btn} ${kit.btnDanger}`} onClick={clear}>
                     Clear Selection
                 </button>
             )}

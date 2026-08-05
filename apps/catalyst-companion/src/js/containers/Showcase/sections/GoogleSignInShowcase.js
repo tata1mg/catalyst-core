@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { useGoogleSignIn } from "catalyst-core/hooks"
 import ShowcaseBar from "../ShowcaseBar"
+import kit from "../../shared/appKit.scss"
 import css from "../Showcase.scss"
 
 const GoogleSignInShowcase = () => {
@@ -14,21 +15,21 @@ const GoogleSignInShowcase = () => {
     return (
         <>
             <ShowcaseBar title="Google Sign-In" />
-            <p className={css.lede}>
+            <p className={kit.lede}>
                 Account auth through the platform&rsquo;s native Google SDK — no redirect
                 dance, no embedded web login.
             </p>
 
-            {error && <div className={css.bannerError}>{error}</div>}
+            {error && <div className={kit.bannerError}>{error}</div>}
             {!isNative && (
-                <div className={css.bannerInfo}>
+                <div className={kit.bannerInfo}>
                     Requires the native Google SDK inside the Companion app.
                 </div>
             )}
 
             {user ? (
                 <>
-                    <div className={css.group}>
+                    <div className={kit.group}>
                         <div className={css.account}>
                             <span className={css.avatar}>{user.name?.[0]?.toUpperCase() || "U"}</span>
                             <span className={css.accountMeta}>
@@ -39,7 +40,7 @@ const GoogleSignInShowcase = () => {
                     </div>
                     <button
                         type="button"
-                        className={`${css.btn} ${css.btnDanger}`}
+                        className={`${kit.btn} ${kit.btnDanger}`}
                         onClick={() => {
                             setError(null)
                             clear()
@@ -52,7 +53,7 @@ const GoogleSignInShowcase = () => {
             ) : (
                 <button
                     type="button"
-                    className={css.btnPrimary}
+                    className={kit.btnPrimary}
                     onClick={() => {
                         setError(null)
                         execute()

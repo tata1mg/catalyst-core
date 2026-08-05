@@ -46,7 +46,18 @@ const Category = ({ node, currentUrl, depth }) => {
                 onClick={() => setOpen(!open)}
                 aria-expanded={open}
             >
-                <span className={`docs-sidebar-caret ${open ? "open" : ""}`}>›</span>
+                <span className={`docs-sidebar-caret ${open ? "open" : ""}`} aria-hidden="true">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <path d="m9 5 7 7-7 7" />
+                    </svg>
+                </span>
                 {node.label}
             </button>
             {open && <TreeLevel node={node} currentUrl={currentUrl} depth={depth + 1} />}

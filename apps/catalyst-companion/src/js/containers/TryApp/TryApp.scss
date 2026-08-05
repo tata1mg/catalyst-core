@@ -1,114 +1,94 @@
-.home {
-    max-width: 560px;
-    margin: 0 auto;
-    padding: 16px 16px calc(32px + env(safe-area-inset-bottom));
-    color: var(--hub-text);
-}
+/* TryApp-specific styles. Shared controls (groups, buttons, segments,
+   banners, inputs) come from ../shared/appKit.scss. */
 
+/* Web-only pitch card. */
 .card {
     background: var(--hub-card-background);
     border: 1px solid var(--hub-border);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    margin: 16px 0;
 
     h2 {
         margin: 0 0 8px;
-        font-size: 17px;
+        font-size: var(--text-xl);
     }
 
     p {
         margin: 0;
-        font-size: 14px;
+        font-size: var(--text-md);
         color: var(--hub-text-muted);
-        line-height: 1.45;
+        line-height: 1.5;
     }
 }
 
-.lede {
-    margin: 0 0 18px;
-    font-size: 14.5px;
-    color: var(--hub-text-muted);
-    line-height: 1.5;
-}
+/* ── Scan panel (camera not yet open) ───────────────────────────────── */
 
-.group {
+.panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 20px 24px;
+    border-radius: var(--radius-lg);
     background: var(--hub-card-background);
     border: 1px solid var(--hub-border);
-    border-radius: 14px;
-    overflow: hidden;
+}
+
+.qrMark {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
     margin-bottom: 16px;
+    border-radius: var(--radius-md);
+    background: var(--hub-primary-soft);
+    color: var(--hub-primary);
+
+    svg {
+        width: 32px;
+        height: 32px;
+    }
 }
 
-/* Prevent iOS input zoom. */
-.urlInput {
-    width: 100%;
-    box-sizing: border-box;
-    border: none;
-    background: transparent;
-    padding: 15px 16px;
-    font-size: 16px;
+.panelTitle {
+    margin: 0 0 6px;
+    font-size: var(--text-xl);
+    font-weight: 700;
     color: var(--hub-text);
-
-    &:focus {
-        outline: none;
-    }
-
-    &::placeholder {
-        color: var(--hub-text-muted);
-    }
 }
 
-.btnPrimary {
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-    border: none;
-    border-radius: 12px;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    background: var(--hub-primary);
-    color: #ffffff;
-
-    &:active {
-        transform: scale(0.99);
-    }
-
-    &:disabled {
-        opacity: 0.6;
-        cursor: default;
-
-        &:active {
-            transform: none;
-        }
-    }
+.panelBody {
+    margin: 0 0 20px;
+    max-width: 280px;
+    font-size: var(--text-md);
+    line-height: 1.5;
+    color: var(--hub-text-muted);
 }
 
-.bannerError,
-.bannerInfo {
-    border-radius: 10px;
-    padding: 11px 14px;
-    font-size: 13.5px;
-    margin-bottom: 14px;
+.panelNote {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--hub-text-muted);
 }
 
-.bannerError {
-    background: #fdecec;
-    color: #9f1d1d;
+.code {
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    background: var(--hub-background);
+    border: 1px solid var(--hub-border);
 }
 
-.bannerInfo {
-    background: #e8f0fd;
-    color: #1d4d9f;
-}
+/* ── Recents ────────────────────────────────────────────────────────── */
 
 .recents {
-    margin-top: 22px;
+    margin-top: 24px;
 
     h3 {
-        font-size: 13px;
+        font-size: var(--text-sm);
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
         color: var(--hub-text-muted);
@@ -123,25 +103,28 @@
     justify-content: space-between;
     gap: 12px;
     width: 100%;
-    box-sizing: border-box;
+    min-height: 50px;
     padding: 13px 16px;
     border: none;
     background: none;
+    font-family: inherit;
     color: var(--hub-text);
-    font-size: 14px;
+    font-size: var(--text-md);
     text-align: left;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color var(--dur-fast) var(--ease);
 
     & + .recentRow {
         border-top: 1px solid var(--hub-border);
     }
 
     &:active {
-        background: var(--hub-border);
+        background: var(--hub-primary-softer);
     }
 
     &:disabled {
-        opacity: 0.6;
+        opacity: 0.55;
         cursor: default;
 
         &:active {
@@ -157,97 +140,17 @@
 }
 
 .recentChevron {
+    flex-shrink: 0;
     color: var(--hub-text-muted);
-    font-size: 20px;
-    line-height: 1;
-}
-
-/* ---- Mode toggle ---- */
-
-.segmented {
-    display: flex;
-    gap: 4px;
-    padding: 4px;
-    margin-bottom: 18px;
-    border-radius: 12px;
-    background: var(--hub-card-background);
-    border: 1px solid var(--hub-border);
-}
-
-.segment {
-    flex: 1;
-    border: none;
-    border-radius: 9px;
-    padding: 10px;
-    font-family: inherit;
-    font-size: 14.5px;
-    font-weight: 600;
-    color: var(--hub-text-muted);
-    background: transparent;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.segmentOn {
-    background: var(--hub-primary);
-    color: #fff;
-}
-
-/* ---- Scan panel ---- */
-
-.panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 30px 20px 24px;
-    border-radius: 16px;
-    background: var(--hub-card-background);
-    border: 1px solid var(--hub-border);
-}
-
-.qrMark {
-    width: 52px;
-    height: 52px;
-    margin-bottom: 14px;
-    color: var(--hub-primary);
+    line-height: 0;
 
     svg {
-        width: 100%;
-        height: 100%;
+        width: 16px;
+        height: 16px;
     }
 }
 
-.panelTitle {
-    margin: 0 0 6px;
-    font-size: 17px;
-    font-weight: 700;
-    color: var(--hub-text);
-}
-
-.panelBody {
-    margin: 0 0 20px;
-    max-width: 280px;
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--hub-text-muted);
-}
-
-.panelNote {
-    margin: 0;
-    font-size: 13px;
-    color: var(--hub-text-muted);
-}
-
-.code {
-    padding: 1px 6px;
-    border-radius: 5px;
-    font-size: 12.5px;
-    background: var(--hub-background);
-    border: 1px solid var(--hub-border);
-}
-
-/* ---- Full-screen scanner (native camera renders BEHIND the WebView) ---- */
+/* ── Full-screen scanner (native camera renders BEHIND the WebView) ──── */
 
 /* html[data-shell="app"] .shell-only sets display:block, which outranks the
    plain `hidden` attribute — without this the scan page keeps painting
@@ -264,11 +167,10 @@
     z-index: 40;
     background: transparent;
     display: grid;
-    /* Fixed top and bottom rails; the middle row absorbs the slack so the
-       viewfinder stays optically centred on any screen height. */
-    grid-template-rows: auto 1fr auto;
-    padding: calc(10px + env(safe-area-inset-top)) 16px
-        calc(18px + env(safe-area-inset-bottom));
+    /* Top rail is fixed; the middle row absorbs the slack so the viewfinder
+       stays optically centred on any screen height. */
+    grid-template-rows: auto 1fr;
+    padding: calc(10px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
 }
 
 /* Both html AND body paint --hub-background; both must go transparent or the
@@ -289,21 +191,30 @@
     align-items: center;
     justify-content: center;
     gap: 20px;
+    /* Lift the viewfinder a touch above true centre — optically balanced
+       against the top rail. */
+    padding-bottom: 56px;
 }
 
-.scanBottom {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+@keyframes viewfinderIn {
+    from {
+        opacity: 0;
+        transform: scale(1.06);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .viewfinder {
     position: relative;
     width: min(262px, 70vw);
     aspect-ratio: 1;
-    border-radius: 22px;
+    border-radius: var(--radius-xl);
     /* Scrim everywhere except the cutout, so the QR area stays bright. */
     box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.55);
+    animation: viewfinderIn var(--dur-slow) var(--ease);
 }
 
 /* Corner brackets read as a scan target without boxing in the whole frame. */
@@ -319,7 +230,7 @@
     left: -1px;
     border-right: none;
     border-bottom: none;
-    border-radius: 22px 0 0 0;
+    border-radius: var(--radius-xl) 0 0 0;
 }
 
 .cornerTr {
@@ -327,7 +238,7 @@
     right: -1px;
     border-left: none;
     border-bottom: none;
-    border-radius: 0 22px 0 0;
+    border-radius: 0 var(--radius-xl) 0 0;
 }
 
 .cornerBl {
@@ -335,7 +246,7 @@
     left: -1px;
     border-right: none;
     border-top: none;
-    border-radius: 0 0 0 22px;
+    border-radius: 0 0 0 var(--radius-xl);
 }
 
 .cornerBr {
@@ -343,12 +254,23 @@
     right: -1px;
     border-left: none;
     border-top: none;
-    border-radius: 0 0 22px 0;
+    border-radius: 0 0 var(--radius-xl) 0;
+}
+
+/* The viewfinder paints its scrim with a 2000px box-shadow, which covers any
+   later sibling. Lift the copy into its own layer so it stays legible. */
+.scanCopy {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
 .scanTitle {
     margin: 0;
-    font-size: 18px;
+    font-size: var(--text-xl);
     font-weight: 700;
     color: #fff;
     text-align: center;
@@ -359,7 +281,7 @@
     margin: 0;
     max-width: 268px;
     text-align: center;
-    font-size: 14px;
+    font-size: var(--text-md);
     line-height: 1.5;
     color: rgba(255, 255, 255, 0.82);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
@@ -367,44 +289,33 @@
 
 .scanCode {
     padding: 1px 6px;
-    border-radius: 5px;
+    border-radius: var(--radius-xs);
     background: rgba(255, 255, 255, 0.16);
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     color: #fff;
 }
 
 .scanClose {
-    width: 38px;
-    height: 38px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
     border: none;
     border-radius: 50%;
     background: rgba(20, 20, 28, 0.68);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     color: #fff;
-    font-size: 16px;
-    line-height: 1;
     cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease);
+
+    svg {
+        width: 20px;
+        height: 20px;
+    }
 
     &:active {
-        transform: scale(0.94);
+        transform: scale(0.92);
     }
 }
-
-.scanManual {
-    width: 100%;
-    box-sizing: border-box;
-    border: 1px solid rgba(255, 255, 255, 0.26);
-    border-radius: 14px;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: 600;
-    color: #fff;
-    background: rgba(20, 20, 28, 0.78);
-    backdrop-filter: blur(10px);
-    cursor: pointer;
-
-    &:active {
-        transform: scale(0.99);
-    }
-}
-

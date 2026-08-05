@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react"
 import { useVideoStream } from "catalyst-core/hooks"
 import ShowcaseBar from "../ShowcaseBar"
+import kit from "../../shared/appKit.scss"
 import css from "../Showcase.scss"
 
 /**
@@ -40,6 +41,15 @@ const VideoStreamShowcase = () => {
             setZoom(streamState.zoom)
         }
     }, [streamState?.zoom])
+
+    // Signals the tab bar to leave the paint path — its backdrop-filter would
+    // otherwise composite opaquely over the native camera. See hub.scss.
+    useEffect(() => {
+        const root = document.documentElement
+        if (isStreaming) root.setAttribute("data-camera", "on")
+        else root.removeAttribute("data-camera")
+        return () => root.removeAttribute("data-camera")
+    }, [isStreaming])
 
     useEffect(() => {
         return () => {
@@ -110,27 +120,27 @@ const VideoStreamShowcase = () => {
     return (
         <>
             <ShowcaseBar title="Video Stream" />
-            <p className={css.lede}>
+            <p className={kit.lede}>
                 Streams the device camera behind the WebView with live zoom, torch, camera
                 flip, and QR/barcode detection.
             </p>
 
-            {error && <div className={css.bannerError}>{error}</div>}
+            {error && <div className={kit.bannerError}>{error}</div>}
             {!isNative && (
-                <div className={css.bannerInfo}>
+                <div className={kit.bannerInfo}>
                     Camera streaming needs the Companion app&rsquo;s native bridge.
                 </div>
             )}
 
-            <div className={css.group}>
-                <div className={css.row}>
-                    <span className={css.rowLabel}>Camera</span>
-                    <div className={css.seg} style={{ width: 180 }}>
+            <div className={kit.group}>
+                <div className={kit.row}>
+                    <span className={kit.rowLabel}>Camera</span>
+                    <div className={`${kit.seg} ${kit.rowControl}`}>
                         {["back", "front"].map((f) => (
                             <button
                                 key={f}
                                 type="button"
-                                className={`${css.segItem} ${facing === f ? css.segItemActive : ""}`}
+                                className={`${kit.segItem} ${facing === f ? kit.segItemOn : ""}`}
                                 onClick={() => setFacing(f)}
                             >
                                 {f === "back" ? "Back" : "Front"}
@@ -138,14 +148,14 @@ const VideoStreamShowcase = () => {
                         ))}
                     </div>
                 </div>
-                <div className={css.row}>
-                    <span className={css.rowLabel}>Scan format</span>
-                    <div className={css.seg} style={{ width: 220 }}>
+                <div className={kit.row}>
+                    <span className={kit.rowLabel}>Scan format</span>
+                    <div className={`${kit.seg} ${kit.rowControl}`}>
                         {["qr", "barcode", "all"].map((f) => (
                             <button
                                 key={f}
                                 type="button"
-                                className={`${css.segItem} ${format === f ? css.segItemActive : ""}`}
+                                className={`${kit.segItem} ${format === f ? kit.segItemOn : ""}`}
                                 onClick={() => setFormat(f)}
                             >
                                 {f.toUpperCase()}
@@ -156,9 +166,9 @@ const VideoStreamShowcase = () => {
             </div>
 
             {lastScan && (
-                <div className={css.group}>
-                    <div className={css.row}>
-                        <span className={css.rowLabel}>
+                <div className={kit.group}>
+                    <div className={kit.row}>
+                        <span className={kit.rowLabel}>
                             Last scan
                             <small>{lastScan}</small>
                         </span>
@@ -166,7 +176,7 @@ const VideoStreamShowcase = () => {
                 </div>
             )}
 
-            <button type="button" className={css.btnPrimary} onClick={handleStart} disabled={!isNative}>
+            <button type="button" className={kit.btnPrimary} onClick={handleStart} disabled={!isNative}>
                 Start Camera
             </button>
         </>

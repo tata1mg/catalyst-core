@@ -4,6 +4,53 @@ import { useNativeTransition } from "catalyst-core/hooks"
 import { ThemeProvider } from "../../components/docs/ThemeContext"
 import DocumentBootstrap from "../../components/hub/DocumentBootstrap"
 import BottomNav from "../../components/hub/BottomNav"
+import ScrollReset from "../../components/hub/ScrollReset"
+
+const IconScan = () => (
+    <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+    >
+        <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" />
+        <path d="M7 12h10" />
+    </svg>
+)
+
+const IconGrid = () => (
+    <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+    >
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+)
+
+const IconChevron = () => (
+    <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+    >
+        <path d="m9 5 7 7-7 7" />
+    </svg>
+)
 
 /**
  * Companion home — the native app's start URL (WEBVIEW_CONFIG.initial_url).
@@ -20,6 +67,7 @@ const AppHome = () => {
     return (
         <ThemeProvider>
             <DocumentBootstrap />
+            <ScrollReset />
             <div className="app-home">
                 <header className="app-home-header">
                     <img src="/img/logo-light.svg" alt="" className="hub-logo hub-logo-light" />
@@ -36,11 +84,19 @@ const AppHome = () => {
                         className="app-home-card app-home-card-primary"
                         onClick={() => navigate("/try", { direction: "right" })}
                     >
-                        <h2>Try Your Own App</h2>
-                        <p>
-                            Scan a QR from <code>npm start</code> or paste a URL — your app runs
-                            here with the full native bridge and its own config applied.
-                        </p>
+                        <span className="app-home-card-icon">
+                            <IconScan />
+                        </span>
+                        <span className="app-home-card-body">
+                            <h2>Try Your Own App</h2>
+                            <p>
+                                Scan a QR from <code>npm start</code> or paste a URL — your app
+                                runs here with the full native bridge and its own config applied.
+                            </p>
+                        </span>
+                        <span className="app-home-card-chevron">
+                            <IconChevron />
+                        </span>
                     </button>
 
                     <button
@@ -48,13 +104,21 @@ const AppHome = () => {
                         className="app-home-card"
                         onClick={() => navigate("/showcase", { direction: "right" })}
                     >
-                        <h2>
-                            Showcase <span className="app-home-badge">New</span>
-                        </h2>
-                        <p>
-                            Live demos of Catalyst&rsquo;s native capabilities — camera, files,
-                            sign-in, notifications.
-                        </p>
+                        <span className="app-home-card-icon">
+                            <IconGrid />
+                        </span>
+                        <span className="app-home-card-body">
+                            <h2>
+                                Showcase <span className="app-home-badge">New</span>
+                            </h2>
+                            <p>
+                                Live demos of Catalyst&rsquo;s native capabilities — camera, files,
+                                sign-in, notifications.
+                            </p>
+                        </span>
+                        <span className="app-home-card-chevron">
+                            <IconChevron />
+                        </span>
                     </button>
 
                     <button

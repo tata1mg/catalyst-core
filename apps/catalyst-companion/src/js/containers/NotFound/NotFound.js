@@ -15,7 +15,7 @@ const NotFound = () => (
         <main className="hub-not-found">
             <h1>404</h1>
             <p>This page doesn&apos;t exist.</p>
-            <Link to="/" className="button button--primary">
+            <Link to="/" className="hub-cta">
                 Back to home
             </Link>
         </main>

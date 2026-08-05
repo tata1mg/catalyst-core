@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { useVideoStream } from "catalyst-core/hooks"
+import kit from "../shared/appKit.scss"
 import css from "./TryApp.scss"
 
 const COMPANION_PLUGIN_ID = "io.catalyst.companion"
@@ -236,6 +237,15 @@ function TryApp() {
 
     // The camera opens only from the "Open camera" button — never on its own.
 
+    // Signals the tab bar to leave the paint path — its backdrop-filter would
+    // otherwise composite opaquely over the native camera. See hub.scss.
+    useEffect(() => {
+        const root = document.documentElement
+        if (isStreaming) root.setAttribute("data-camera", "on")
+        else root.removeAttribute("data-camera")
+        return () => root.removeAttribute("data-camera")
+    }, [isStreaming])
+
     useEffect(() => {
         return () => {
             if (isStreaming) {
@@ -245,14 +255,14 @@ function TryApp() {
     }, [isStreaming, stopCamera])
 
     const banner = status && status.kind !== "field" && (
-        <div className={status.kind === "info" ? css.bannerInfo : css.bannerError}>
+        <div className={status.kind === "info" ? kit.bannerInfo : kit.bannerError}>
             {status.message}
         </div>
     )
     const fieldError = status?.kind === "field" ? status.message : null
 
     return (
-        <div className={css.home}>
+        <div className={kit.screen}>
             <div className={`web-only ${css.card}`}>
                 <h2>Try Your Own App</h2>
                 <p>
@@ -276,14 +286,18 @@ function TryApp() {
                     <span className="app-screen-title">Try Your Own App</span>
                 </header>
 
-                <p className={css.lede}>
+                <p className={kit.lede}>
                     Runs your app with the full native bridge — its config is fetched from the dev
                     server and applied for the session.
                 </p>
 
-                <div className={css.segmented} role="tablist" aria-label="How to choose an app">
+                <div
+                    className={`${kit.seg} ${kit.segWide}`}
+                    role="tablist"
+                    aria-label="How to choose an app"
+                >
                     <button
-                        className={`${css.segment} ${mode === "scan" ? css.segmentOn : ""}`}
+                        className={`${kit.segItem} ${mode === "scan" ? kit.segItemOn : ""}`}
                         type="button"
                         role="tab"
                         aria-selected={mode === "scan"}
@@ -292,7 +306,7 @@ function TryApp() {
                         Scan QR
                     </button>
                     <button
-                        className={`${css.segment} ${mode === "manual" ? css.segmentOn : ""}`}
+                        className={`${kit.segItem} ${mode === "manual" ? kit.segItemOn : ""}`}
                         type="button"
                         role="tab"
                         aria-selected={mode === "manual"}
@@ -303,7 +317,7 @@ function TryApp() {
                 </div>
 
                 {cameraError && mode === "scan" && (
-                    <div className={css.bannerError}>
+                    <div className={kit.bannerError}>
                         {cameraError.message || "Camera unavailable"}
                     </div>
                 )}
@@ -328,7 +342,7 @@ function TryApp() {
 
                         {cameraIsNative ? (
                             <button
-                                className={css.btnPrimary}
+                                className={kit.btnPrimary}
                                 type="button"
                                 onClick={beginScan}
                                 disabled={isAwaitingConfirm}
@@ -346,9 +360,9 @@ function TryApp() {
                             openPreview(url)
                         }}
                     >
-                        <div className={css.group}>
+                        <div className={kit.group}>
                             <input
-                                className={css.urlInput}
+                                className={kit.input}
                                 type="url"
                                 inputMode="url"
                                 autoCapitalize="none"
@@ -366,12 +380,12 @@ function TryApp() {
                         </div>
 
                         {fieldError && (
-                            <div className={css.bannerError} id="try-url-error" role="alert">
+                            <div className={kit.bannerError} id="try-url-error" role="alert">
                                 {fieldError}
                             </div>
                         )}
 
-                        <button className={css.btnPrimary} type="submit" disabled={isAwaitingConfirm}>
+                        <button className={kit.btnPrimary} type="submit" disabled={isAwaitingConfirm}>
                             {isAwaitingConfirm ? "Confirm on device…" : "Open Preview"}
                         </button>
                     </form>
@@ -380,7 +394,7 @@ function TryApp() {
                 {recents.length > 0 && (
                     <div className={css.recents}>
                         <h3>Recent</h3>
-                        <div className={css.group}>
+                        <div className={kit.group}>
                             {recents.map((entry) => (
                                 <button
                                     key={entry}
@@ -390,7 +404,18 @@ function TryApp() {
                                     onClick={() => openPreview(entry)}
                                 >
                                     <span className={css.recentUrl}>{entry}</span>
-                                    <span className={css.recentChevron}>›</span>
+                                    <span className={css.recentChevron} aria-hidden="true">
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2.2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <path d="m9 5 7 7-7 7" />
+                                        </svg>
+                                    </span>
                                 </button>
                             ))}
                         </div>
@@ -413,7 +438,16 @@ function TryApp() {
                             onClick={stopCamera}
                             aria-label="Close scanner"
                         >
-                            ✕
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M6 6l12 12M18 6 6 18" />
+                            </svg>
                         </button>
                     </div>
 
@@ -425,17 +459,13 @@ function TryApp() {
                             <span className={`${css.corner} ${css.cornerBr}`} />
                         </div>
 
-                        <p className={css.scanTitle}>Scan your dev server QR</p>
-                        <p className={css.scanCaption}>
-                            Run <code className={css.scanCode}>npm start</code> and point at the
-                            code in your terminal
-                        </p>
-                    </div>
-
-                    <div className={css.scanBottom}>
-                        <button className={css.scanManual} type="button" onClick={showManual}>
-                            Enter URL manually
-                        </button>
+                        <div className={css.scanCopy}>
+                            <p className={css.scanTitle}>Scan your dev server QR</p>
+                            <p className={css.scanCaption}>
+                                Run <code className={css.scanCode}>npm start</code> and point at
+                                the code in your terminal
+                            </p>
+                        </div>
                     </div>
                 </div>
             )}

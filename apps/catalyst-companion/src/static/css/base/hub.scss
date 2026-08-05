@@ -1,25 +1,91 @@
-/* Catalyst Hub global styles: theme variables (ported from the docs site's
-   custom.css), navbar, docs layout, markdown typography, admonitions, search. */
+/* ═══════════════════════════════════════════════════════════════════════
+   Catalyst Hub global styles.
+
+   Layered as: design tokens → base/reset → chrome (navbar, tab bar) →
+   docs surfaces → app-screen chrome → Companion home. Screen-specific
+   styles live in per-container SCSS modules; shared shell components
+   (buttons, grouped lists, segmented controls) live in
+   containers/shared/appKit.scss.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Design tokens ──────────────────────────────────────────────────── */
 
 :root {
     color-scheme: light;
 
+    /* Type scale — the only font sizes used in the app. */
+    --text-2xs: 11px; /* badges, tab labels, pills */
+    --text-xs: 12px; /* metadata, captions */
+    --text-sm: 13px; /* secondary text, banners */
+    --text-md: 14px; /* row secondary, nav items */
+    --text-base: 15px; /* default body */
+    --text-lg: 16px; /* inputs + buttons (16px prevents iOS zoom) */
+    --text-xl: 17px; /* row titles, card titles */
+    --text-2xl: 20px; /* compact screen titles */
+    --text-3xl: 24px; /* screen large-titles */
+    --text-4xl: 30px; /* home hero */
+
+    /* Radius scale. */
+    --radius-xs: 6px; /* kbd, inline code, tiny chips */
+    --radius-sm: 10px; /* small controls, banners */
+    --radius-md: 14px; /* buttons, inputs, segments */
+    --radius-lg: 18px; /* cards, grouped lists, panels */
+    --radius-xl: 24px; /* modals, viewfinder */
+    --radius-full: 999px;
+
+    /* Motion. */
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --ease-spring: cubic-bezier(0.32, 1.32, 0.36, 1);
+    --dur-fast: 120ms;
+    --dur-med: 200ms;
+    --dur-slow: 320ms;
+
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    /* Brand — ONE accent, purple, both themes. */
+    --hub-primary: #5a5ae0;
+    --hub-primary-strong: #4646c8;
+    --hub-primary-soft: rgba(90, 90, 224, 0.1);
+    --hub-primary-softer: rgba(90, 90, 224, 0.06);
+    --hub-on-primary: #ffffff;
+    --hub-focus-ring: rgba(90, 90, 224, 0.4);
+
+    /* Surfaces + ink. */
+    --hub-background: #ffffff;
+    --hub-text: #1a1c25;
+    --hub-text-muted: #5d6272;
+    --hub-border: #e6e8ef;
+    --hub-border-strong: #d4d7e2;
+    --hub-card-background: #f5f6fa;
+    --hub-navbar-background: #ffffff;
+    --hub-chrome-bg: rgba(255, 255, 255, 0.85);
+    --hub-sidebar-background: #ffffff;
+    --hub-code-background: #f2f3f8;
+    --hub-scrim: rgba(15, 16, 28, 0.45);
+
+    /* Status. */
+    --hub-danger: #cf3d3d;
+    --hub-danger-soft: #fdecec;
+    --hub-danger-text: #9f1d1d;
+    --hub-info-soft: #e9f0fd;
+    --hub-info-text: #1d4d9f;
+    --hub-success: #1f9d61;
+
+    /* Elevation. */
+    --hub-shadow-1: 0 1px 2px rgba(23, 25, 35, 0.06);
+    --hub-shadow-2: 0 8px 24px rgba(23, 25, 35, 0.1);
+    --hub-shadow-3: 0 24px 64px rgba(23, 25, 35, 0.2);
+
+    /* Segmented control (iOS-style recessed track + raised thumb). */
+    --hub-seg-track: rgba(120, 125, 150, 0.14);
+    --hub-seg-thumb: #ffffff;
+
     /* Infima-compat variables the ported docs homepage CSS references. */
     --ifm-navbar-height: 60px;
-    --ifm-color-primary: #2e8555;
-    --ifm-color-primary-darker: #277148;
-    --ifm-color-success: #00a400;
-    --ifm-color-success-darker: #009400;
-
-    --hub-primary: #2e8555;
-    --hub-background: #ffffff;
-    --hub-text: #1c1e21;
-    --hub-text-muted: #565b6b;
-    --hub-border: #e3e5ea;
-    --hub-card-background: #f5f6f7;
-    --hub-navbar-background: #ffffff;
-    --hub-sidebar-background: #ffffff;
-    --hub-code-background: #f5f6f7;
+    --ifm-color-primary: var(--hub-primary);
+    --ifm-color-primary-darker: var(--hub-primary-strong);
+    --ifm-color-success: var(--hub-success);
+    --ifm-color-success-darker: #178a53;
 
     /* useNativeTransition's web fallback paints a fixed overlay in this color;
        defaulting to #fff would flash white over a dark theme. */
@@ -42,18 +108,39 @@
 :root[data-theme="dark"] {
     color-scheme: dark;
 
-    --ifm-color-primary: #7171ff;
-    --ifm-color-primary-darker: #5a5ae0;
-
     --hub-primary: #7171ff;
+    --hub-primary-strong: #8c8cff;
+    --hub-primary-soft: rgba(113, 113, 255, 0.14);
+    --hub-primary-softer: rgba(113, 113, 255, 0.08);
+    --hub-focus-ring: rgba(113, 113, 255, 0.5);
+
     --hub-background: #131320;
-    --hub-text: #e4e4e7;
-    --hub-text-muted: #9b9ba8;
-    --hub-border: #2b2b3a;
-    --hub-card-background: #232328;
+    --hub-text: #e8e8ee;
+    --hub-text-muted: #a2a3b4;
+    --hub-border: #2a2b3d;
+    --hub-border-strong: #3a3b54;
+    --hub-card-background: #1c1d2e;
     --hub-navbar-background: #131320;
+    --hub-chrome-bg: rgba(19, 19, 32, 0.85);
     --hub-sidebar-background: #131320;
-    --hub-code-background: #232328;
+    --hub-code-background: #1e1f31;
+    --hub-scrim: rgba(0, 0, 0, 0.6);
+
+    --hub-danger: #ff6b6b;
+    --hub-danger-soft: rgba(255, 107, 107, 0.14);
+    --hub-danger-text: #ffb3b3;
+    --hub-info-soft: rgba(90, 140, 255, 0.16);
+    --hub-info-text: #a9c4ff;
+    --hub-success: #3dd68c;
+
+    --hub-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --hub-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --hub-shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6);
+
+    --hub-seg-track: rgba(0, 0, 0, 0.3);
+    --hub-seg-thumb: #383a54;
+
+    --ifm-color-success-darker: #2fbf78;
 
     /* Code block palette (dracula). */
     --code-bg: #282a36;
@@ -69,16 +156,41 @@
     --code-operator: #ff79c6;
 }
 
+/* ── Base ───────────────────────────────────────────────────────────── */
+
 html,
 body {
     margin: 0;
     background: var(--hub-background);
     color: var(--hub-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: var(--text-base);
+}
+
+/* Every interactive element gets a visible keyboard-focus affordance. */
+:focus-visible {
+    outline: 2px solid var(--hub-primary);
+    outline-offset: 2px;
+}
+
+::selection {
+    background: var(--hub-primary-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 .hub-shell {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
 }
@@ -91,11 +203,17 @@ body {
     z-index: 60;
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 0 16px;
-    height: 60px;
+    gap: 12px;
+    padding: env(safe-area-inset-top) 16px 0;
+    height: calc(60px + env(safe-area-inset-top));
     background: var(--hub-navbar-background);
     border-bottom: 1px solid var(--hub-border);
+
+    @supports (backdrop-filter: blur(1px)) {
+        background: var(--hub-chrome-bg);
+        backdrop-filter: blur(18px) saturate(1.8);
+        -webkit-backdrop-filter: blur(18px) saturate(1.8);
+    }
 }
 
 .hub-navbar-brand {
@@ -105,7 +223,7 @@ body {
     text-decoration: none;
     color: var(--hub-text);
     font-weight: 700;
-    font-size: 17px;
+    font-size: var(--text-xl);
 }
 
 .hub-logo {
@@ -129,22 +247,32 @@ body {
     align-items: center;
     gap: 8px;
     width: 260px;
-    height: 38px;
+    height: 40px;
     background: var(--hub-card-background);
     color: var(--hub-text-muted);
     border: 1px solid var(--hub-border);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     padding: 0 12px;
     cursor: pointer;
-    font-size: 14px;
-    transition: border-color 0.15s ease;
+    font-size: var(--text-md);
+    font-family: inherit;
+    transition:
+        border-color var(--dur-med) var(--ease),
+        background-color var(--dur-med) var(--ease);
 
     &:hover {
         border-color: var(--hub-primary);
     }
 
     .hub-search-icon {
-        font-size: 17px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+
+        svg {
+            width: 16px;
+            height: 16px;
+        }
     }
 
     .hub-search-label {
@@ -157,9 +285,9 @@ body {
 
     .hub-search-kbd {
         font-family: inherit;
-        font-size: 11px;
+        font-size: var(--text-2xs);
         border: 1px solid var(--hub-border);
-        border-radius: 5px;
+        border-radius: var(--radius-xs);
         padding: 2px 6px;
         background: var(--hub-background);
         color: var(--hub-text-muted);
@@ -174,18 +302,50 @@ body {
 
     > a,
     .hub-dropdown > button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
         color: var(--hub-text);
         text-decoration: none;
-        font-size: 14.5px;
+        font-family: inherit;
+        font-size: var(--text-md);
+        font-weight: 500;
         padding: 8px 10px;
-        border-radius: 6px;
+        border-radius: var(--radius-xs);
         background: none;
         border: none;
         cursor: pointer;
+        transition: color var(--dur-fast) var(--ease);
 
         &:hover {
             color: var(--hub-primary);
         }
+    }
+}
+
+.hub-dropdown-caret {
+    display: grid;
+    place-items: center;
+    transition: transform var(--dur-med) var(--ease);
+
+    svg {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+.hub-dropdown.open .hub-dropdown-caret {
+    transform: rotate(180deg);
+}
+
+@keyframes hub-pop-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
     }
 }
 
@@ -197,20 +357,23 @@ body {
         position: absolute;
         top: 100%;
         left: 0;
-        min-width: 200px;
+        min-width: 210px;
         background: var(--hub-navbar-background);
         border: 1px solid var(--hub-border);
-        border-radius: 10px;
+        border-radius: var(--radius-sm);
+        box-shadow: var(--hub-shadow-2);
         padding: 6px;
         flex-direction: column;
+        transform-origin: top left;
+        animation: hub-pop-in var(--dur-med) var(--ease);
 
         a {
             display: block;
-            padding: 8px 10px;
+            padding: 9px 10px;
             color: var(--hub-text);
             text-decoration: none;
-            border-radius: 6px;
-            font-size: 14px;
+            border-radius: var(--radius-xs);
+            font-size: var(--text-md);
 
             &:hover {
                 background: var(--hub-card-background);
@@ -232,20 +395,39 @@ body {
 }
 
 .hub-theme-toggle {
+    display: grid;
+    place-items: center;
     background: none;
     border: 1px solid var(--hub-border);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     color: var(--hub-text);
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
-    font-size: 15px;
+    transition:
+        border-color var(--dur-med) var(--ease),
+        transform var(--dur-fast) var(--ease);
+
+    svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    &:hover {
+        border-color: var(--hub-primary);
+    }
+
+    &:active {
+        transform: scale(0.92);
+    }
 }
 
 .hub-github-link {
     color: var(--hub-text);
     text-decoration: none;
-    font-size: 14.5px;
+    font-size: var(--text-md);
+    font-weight: 500;
+    padding: 8px 4px;
 
     &:hover {
         color: var(--hub-primary);
@@ -254,16 +436,24 @@ body {
 
 .hub-navbar-burger {
     display: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
     background: none;
     border: none;
+    border-radius: var(--radius-sm);
     color: var(--hub-text);
-    font-size: 20px;
     cursor: pointer;
+
+    svg {
+        width: 22px;
+        height: 22px;
+    }
 }
 
 @media (max-width: 996px) {
     .hub-menu-toggle {
-        display: block;
+        display: grid;
         order: 5;
         margin-left: auto;
     }
@@ -282,11 +472,11 @@ body {
     .hub-navbar-items {
         display: none;
         position: fixed;
-        top: 60px;
+        top: calc(60px + env(safe-area-inset-top));
         left: 0;
         right: 0;
         bottom: 0;
-        background: var(--hub-navbar-background);
+        background: var(--hub-background);
         flex-direction: column;
         align-items: stretch;
         padding: 16px;
@@ -295,17 +485,21 @@ body {
 
         &.open {
             display: flex;
+            animation: hub-pop-in var(--dur-med) var(--ease);
         }
 
         > a,
         .hub-dropdown > button {
-            font-size: 16px;
-            padding: 12px;
+            font-size: var(--text-lg);
+            padding: 13px 12px;
+            border-radius: var(--radius-sm);
         }
 
         .hub-dropdown-menu {
             position: static;
             border: none;
+            box-shadow: none;
+            animation: none;
             padding-left: 16px;
         }
     }
@@ -347,8 +541,8 @@ body {
     border-right: 1px solid var(--hub-border);
     padding: 20px 12px 40px;
     position: sticky;
-    top: 60px;
-    height: calc(100vh - 60px);
+    top: calc(60px + env(safe-area-inset-top));
+    height: calc(100vh - 60px - env(safe-area-inset-top));
     overflow-y: auto;
 }
 
@@ -360,10 +554,13 @@ body {
 .docs-sidebar-link {
     display: block;
     padding: 7px 10px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     color: var(--hub-text-muted);
     text-decoration: none;
-    font-size: 14px;
+    font-size: var(--text-md);
+    transition:
+        color var(--dur-fast) var(--ease),
+        background-color var(--dur-fast) var(--ease);
 
     &:hover {
         color: var(--hub-primary);
@@ -372,7 +569,7 @@ body {
 
     &.active {
         color: var(--hub-primary);
-        background: var(--hub-card-background);
+        background: var(--hub-primary-softer);
         font-weight: 600;
     }
 }
@@ -396,11 +593,12 @@ body {
     background: none;
     border: none;
     color: var(--hub-text);
-    font-size: 14px;
+    font-family: inherit;
+    font-size: var(--text-md);
     font-weight: 600;
     padding: 7px 10px;
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
 
     &:hover {
         background: var(--hub-card-background);
@@ -412,8 +610,15 @@ body {
 }
 
 .docs-sidebar-caret {
-    display: inline-block;
-    transition: transform 0.15s ease;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    transition: transform var(--dur-med) var(--ease);
+
+    svg {
+        width: 13px;
+        height: 13px;
+    }
 
     &.open {
         transform: rotate(90deg);
@@ -422,23 +627,33 @@ body {
 
 .docs-mobile-sidebar-toggle {
     display: none;
+    align-items: center;
+    gap: 8px;
     margin: 12px 16px 0;
     background: var(--hub-card-background);
     border: 1px solid var(--hub-border);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     color: var(--hub-text);
-    padding: 8px 14px;
+    font-family: inherit;
+    font-size: var(--text-md);
+    font-weight: 500;
+    padding: 10px 14px;
     cursor: pointer;
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
 }
 
 @media (max-width: 996px) {
     .docs-mobile-sidebar-toggle {
-        display: inline-block;
+        display: inline-flex;
         position: fixed;
-        bottom: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom));
         left: 16px;
         z-index: 55;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+        box-shadow: var(--hub-shadow-2);
     }
 
     /* In the Companion shell the bottom tab bar owns that corner — float the
@@ -449,24 +664,27 @@ body {
 
     .docs-sidebar {
         position: fixed;
-        top: 60px;
+        top: calc(60px + env(safe-area-inset-top));
         left: 0;
         bottom: 0;
         width: min(84vw, 360px);
+        height: auto;
         transform: translateX(-100%);
-        transition: transform 0.2s ease;
+        transition: transform var(--dur-slow) var(--ease);
         z-index: 58;
 
         &.mobile-open {
             transform: translateX(0);
+            box-shadow: var(--hub-shadow-3);
         }
     }
 
     .docs-sidebar-backdrop {
         position: fixed;
-        inset: 60px 0 0;
-        background: rgba(0, 0, 0, 0.45);
+        inset: calc(60px + env(safe-area-inset-top)) 0 0;
+        background: var(--hub-scrim);
         z-index: 57;
+        animation: hub-fade-in var(--dur-med) var(--ease);
     }
 }
 
@@ -475,8 +693,14 @@ body {
     min-width: 0;
 }
 
+@media (max-width: 996px) {
+    .doc-main {
+        padding: 20px 16px 60px;
+    }
+}
+
 .doc-breadcrumbs {
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--hub-text-muted);
     margin-bottom: 18px;
 
@@ -492,10 +716,10 @@ body {
 
 .doc-toc {
     position: sticky;
-    top: 76px;
+    top: calc(76px + env(safe-area-inset-top));
     align-self: start;
     padding: 16px 16px 16px 0;
-    font-size: 13px;
+    font-size: var(--text-sm);
     max-height: calc(100vh - 90px);
     overflow-y: auto;
 
@@ -524,7 +748,7 @@ body {
 
 .doc-toc-title {
     font-weight: 700;
-    font-size: 12px;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 8px;
@@ -540,16 +764,19 @@ body {
 
 .doc-pagination-link {
     border: 1px solid var(--hub-border);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     padding: 12px 16px;
     text-decoration: none;
     color: var(--hub-text);
     font-weight: 600;
-    font-size: 14.5px;
+    font-size: var(--text-md);
+    transition:
+        border-color var(--dur-med) var(--ease),
+        color var(--dur-med) var(--ease);
 
     span {
         display: block;
-        font-size: 12px;
+        font-size: var(--text-xs);
         font-weight: 400;
         color: var(--hub-text-muted);
         margin-bottom: 4px;
@@ -568,16 +795,18 @@ body {
 /* ── Markdown content ───────────────────────────────────────────────── */
 
 .markdown-body {
-    line-height: 1.65;
-    font-size: 15.5px;
+    line-height: 1.7;
+    font-size: var(--text-lg);
 
     h1 {
         font-size: 2rem;
+        letter-spacing: -0.02em;
         margin-top: 0;
     }
 
     h2 {
         font-size: 1.5rem;
+        letter-spacing: -0.01em;
         margin-top: 2.2rem;
         padding-bottom: 0.3rem;
         border-bottom: 1px solid var(--hub-border);
@@ -590,7 +819,7 @@ body {
 
     h2[id],
     h3[id] {
-        scroll-margin-top: 76px;
+        scroll-margin-top: calc(76px + env(safe-area-inset-top));
     }
 
     a {
@@ -599,14 +828,14 @@ body {
 
     img {
         max-width: 100%;
-        border-radius: 8px;
+        border-radius: var(--radius-sm);
     }
 
     code {
         background: var(--hub-code-background);
-        border-radius: 5px;
+        border-radius: var(--radius-xs);
         padding: 0.15em 0.4em;
-        font-size: 0.9em;
+        font-size: 0.88em;
     }
 
     table {
@@ -632,7 +861,7 @@ body {
         padding: 4px 18px;
         border-left: 3px solid var(--hub-primary);
         background: var(--hub-card-background);
-        border-radius: 0 8px 8px 0;
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
         color: var(--hub-text-muted);
     }
 }
@@ -644,10 +873,10 @@ body {
     margin: 16px 0;
 
     pre {
-        border-radius: 10px;
+        border-radius: var(--radius-sm);
         padding: 16px;
         overflow-x: auto;
-        font-size: 13.5px;
+        font-size: var(--text-sm);
         line-height: 1.55;
         border: 1px solid var(--hub-border);
         margin: 0;
@@ -713,16 +942,25 @@ body {
     background: rgba(127, 127, 127, 0.18);
     color: inherit;
     border: none;
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 12px;
+    border-radius: var(--radius-xs);
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: var(--text-xs);
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease;
+    transition: opacity var(--dur-med) var(--ease);
 }
 
-.doc-codeblock:hover .doc-codeblock-copy {
+.doc-codeblock:hover .doc-codeblock-copy,
+.doc-codeblock-copy:focus-visible {
     opacity: 1;
+}
+
+/* Touch devices have no hover — keep the button reachable. */
+@media (hover: none) {
+    .doc-codeblock-copy {
+        opacity: 0.75;
+    }
 }
 
 .doc-codeblock-titled {
@@ -742,16 +980,16 @@ body {
     background: var(--hub-card-background);
     border: 1px solid var(--hub-border);
     border-bottom: none;
-    border-radius: 10px 10px 0 0;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     padding: 8px 16px;
-    font-size: 13px;
-    font-family: monospace;
+    font-size: var(--text-sm);
+    font-family: var(--font-mono);
 }
 
 /* ── Admonitions ────────────────────────────────────────────────────── */
 
 .admonition {
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     padding: 14px 18px;
     margin: 16px 0;
     border-left: 4px solid;
@@ -759,7 +997,7 @@ body {
 
     .admonition-title {
         font-weight: 700;
-        font-size: 13px;
+        font-size: var(--text-sm);
         text-transform: uppercase;
         letter-spacing: 0.04em;
         margin-bottom: 6px;
@@ -774,9 +1012,9 @@ body {
     border-color: #6b7280;
 }
 .admonition-tip {
-    border-color: #2e8555;
+    border-color: var(--hub-success);
     .admonition-title {
-        color: #2e8555;
+        color: var(--hub-success);
     }
 }
 .admonition-info {
@@ -793,22 +1031,43 @@ body {
     }
 }
 .admonition-danger {
-    border-color: #fa383e;
+    border-color: var(--hub-danger);
     .admonition-title {
-        color: #fa383e;
+        color: var(--hub-danger);
     }
 }
 
 /* ── Search modal ───────────────────────────────────────────────────── */
 
+@keyframes hub-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes hub-modal-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
 .search-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--hub-scrim);
     z-index: 100;
     display: flex;
     justify-content: center;
     padding-top: 12vh;
+    animation: hub-fade-in var(--dur-med) var(--ease);
 }
 
 .search-modal {
@@ -816,11 +1075,12 @@ body {
     max-height: 60vh;
     background: var(--hub-background);
     border: 1px solid var(--hub-border);
-    border-radius: 14px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--hub-shadow-3);
+    animation: hub-modal-in var(--dur-slow) var(--ease);
 }
 
 .search-input {
@@ -828,9 +1088,20 @@ body {
     border-bottom: 1px solid var(--hub-border);
     background: transparent;
     color: var(--hub-text);
+    caret-color: var(--hub-primary);
     padding: 16px 18px;
-    font-size: 16px;
-    outline: none;
+    font-family: inherit;
+    font-size: var(--text-lg);
+
+    /* The modal itself is the focus context; a ring inside it double-borders. */
+    &:focus-visible {
+        outline: none;
+        border-bottom-color: var(--hub-primary);
+    }
+
+    &::placeholder {
+        color: var(--hub-text-muted);
+    }
 }
 
 .search-results {
@@ -843,7 +1114,7 @@ body {
 .search-result {
     display: block;
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-xs);
     text-decoration: none;
 
     &:hover,
@@ -856,19 +1127,19 @@ body {
     display: block;
     color: var(--hub-text);
     font-weight: 600;
-    font-size: 14.5px;
+    font-size: var(--text-md);
 }
 
 .search-result-path {
     display: block;
     color: var(--hub-text-muted);
-    font-size: 12.5px;
+    font-size: var(--text-xs);
 }
 
 .search-empty {
     padding: 16px;
     color: var(--hub-text-muted);
-    font-size: 14px;
+    font-size: var(--text-md);
 }
 
 /* ── Video grid (Community page) ────────────────────────────────────── */
@@ -890,14 +1161,17 @@ body {
 .video-card {
     display: block;
     border: 1px solid var(--hub-border);
-    border-radius: 20px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     text-decoration: none;
     background: var(--hub-card-background);
-    transition: transform 0.15s ease;
+    transition:
+        transform var(--dur-med) var(--ease),
+        box-shadow var(--dur-med) var(--ease);
 
     &:hover {
         transform: translateY(-4px);
+        box-shadow: var(--hub-shadow-2);
     }
 }
 
@@ -919,10 +1193,10 @@ body {
     right: 10px;
     background: rgba(185, 28, 28, 0.92);
     color: #fff;
-    font-size: 11px;
+    font-size: var(--text-2xs);
     font-weight: 700;
     padding: 3px 8px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
 }
 
 .video-card-body {
@@ -932,13 +1206,13 @@ body {
 
 .video-card-title {
     margin: 0 0 6px;
-    font-size: 15.5px;
+    font-size: var(--text-base);
     color: var(--hub-text);
 }
 
 .video-card-meta {
     margin: 0;
-    font-size: 12.5px;
+    font-size: var(--text-xs);
     color: var(--hub-text-muted);
 }
 
@@ -953,13 +1227,6 @@ body {
     p {
         color: var(--hub-text-muted);
     }
-}
-
-/* Shell variant of /showcase: presents as an app screen, not a web page. */
-.hub-showcase-app {
-    max-width: 560px;
-    margin: 0 auto;
-    padding: 6px 16px calc(32px + env(safe-area-inset-bottom));
 }
 
 /* Infima-style shims the ported homepage markup uses. */
@@ -982,23 +1249,59 @@ body {
     }
 }
 
-/* CopyButton — ported verbatim from docs/src/components/CopyButton/styles.css. */
-.copy-button {
-    background: var(--ifm-color-primary);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
+/* Standalone CTA (404 page and anywhere a real button-link is needed). */
+.hub-cta {
+    display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    justify-content: center;
+    min-height: 48px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--hub-primary);
+    color: var(--hub-on-primary);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        background-color var(--dur-med) var(--ease),
+        transform var(--dur-fast) var(--ease);
 
     &:hover {
-        background: var(--ifm-color-primary-darker);
+        background: var(--hub-primary-strong);
+    }
+
+    &:active {
+        transform: scale(0.98);
+    }
+}
+
+/* CopyButton — used on the Landing hero install snippet. */
+.copy-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--hub-primary);
+    color: var(--hub-on-primary);
+    border: none;
+    border-radius: var(--radius-xs);
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+        background-color var(--dur-med) var(--ease),
+        transform var(--dur-fast) var(--ease);
+
+    svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    &:hover {
+        background: var(--hub-primary-strong);
         transform: translateY(-1px);
     }
 
@@ -1007,7 +1310,7 @@ body {
     }
 
     &.copied {
-        background: var(--ifm-color-success);
+        background: var(--hub-success);
     }
 
     &.copied:hover {
@@ -1030,12 +1333,12 @@ body {
     h1 {
         font-size: 5rem;
         margin: 0;
-        color: var(--ifm-color-primary);
+        color: var(--hub-primary);
     }
 
     p {
-        font-size: 1.1rem;
-        color: var(--hub-muted-color, inherit);
+        font-size: var(--text-xl);
+        color: var(--hub-text-muted);
         margin: 0 0 1rem;
     }
 }
@@ -1093,13 +1396,30 @@ html[data-shell="app"] {
     left: 0;
     right: 0;
     bottom: 0;
-    /* Below 40 on purpose: the Showcase camera stage overlay sits at 40 and
-       must cover the tab bar while streaming. */
+    /* Below 40 on purpose: the Showcase camera stage and Try scanner overlays
+       sit at 40 and must cover the tab bar while streaming. */
     z-index: 30;
     /* Visibility stays in the data-shell rule; display here leaks the nav onto web. */
     background: var(--hub-navbar-background);
     border-top: 1px solid var(--hub-border);
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+
+    @supports (backdrop-filter: blur(1px)) {
+        background: var(--hub-chrome-bg);
+        backdrop-filter: blur(18px) saturate(1.8);
+        -webkit-backdrop-filter: blur(18px) saturate(1.8);
+    }
+}
+
+/* backdrop-filter makes the tab bar a backdrop root: it samples and composites
+   the layers behind it, so it paints OPAQUE over the native camera no matter
+   what z-index says. The camera renders behind a transparent WebView, so the
+   only fix is to take the bar out of the paint path while streaming. The
+   overlay covers it anyway, so it is unreachable either way.
+   Driven by a plain data attribute — a [class*=] match on the CSS-module
+   hash gets dropped by the optimizer, since that name never appears literally. */
+html[data-camera="on"] .hub-bottom-nav {
+    display: none;
 }
 
 .hub-bottom-nav-item {
@@ -1107,30 +1427,54 @@ html[data-shell="app"] {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
     background: none;
     border: none;
     padding: 4px 0;
+    min-height: 50px;
     font-family: inherit;
-    font-size: 11px;
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    letter-spacing: 0.01em;
     color: var(--hub-text-muted);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-
-    &.active {
-        color: var(--hub-primary);
-    }
+    transition: color var(--dur-med) var(--ease);
 
     svg {
         width: 22px;
         height: 22px;
         display: block;
     }
+
+    &.active {
+        color: var(--hub-primary);
+
+        .hub-bottom-nav-icon {
+            background: var(--hub-primary-soft);
+        }
+    }
+
+    &:active .hub-bottom-nav-icon {
+        transform: scale(0.9);
+    }
 }
 
+/* Soft pill behind the active tab icon — reads native, animates on switch. */
 .hub-bottom-nav-icon {
-    display: block;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 28px;
+    border-radius: var(--radius-full);
     line-height: 0;
+    transition:
+        background-color var(--dur-med) var(--ease),
+        transform var(--dur-med) var(--ease-spring);
+}
+
+.hub-bottom-nav-label {
+    line-height: 1.2;
 }
 
 /* ── App-screen chrome (shell-mode pages with native presentation) ──── */
@@ -1138,32 +1482,47 @@ html[data-shell="app"] {
 .app-screen-bar {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: calc(10px + env(safe-area-inset-top)) 0 14px;
+    gap: 2px;
+    padding: calc(14px + env(safe-area-inset-top)) 0 12px;
     user-select: none;
     -webkit-user-select: none;
 }
 
 .app-screen-back {
-    font-size: 30px;
-    line-height: 1;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-left: -10px;
+    border-radius: var(--radius-full);
     text-decoration: none;
     color: var(--hub-primary);
-    padding: 2px 12px 6px 0;
+    transition: background-color var(--dur-fast) var(--ease);
+
+    svg {
+        width: 26px;
+        height: 26px;
+    }
+
+    &:active {
+        background: var(--hub-primary-soft);
+    }
 }
 
 .app-screen-title {
-    font-size: 20px;
+    font-size: var(--text-3xl);
     font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 /* ── Companion home (/app) ──────────────────────────────────────────── */
 
 .app-home {
     min-height: 100vh;
+    min-height: 100dvh;
     max-width: 620px;
     margin: 0 auto;
-    padding: 28px 20px 60px;
+    padding: calc(20px + env(safe-area-inset-top)) 20px 48px;
     display: flex;
     flex-direction: column;
 }
@@ -1173,8 +1532,8 @@ html[data-shell="app"] {
     align-items: center;
     gap: 10px;
     font-weight: 700;
-    font-size: 18px;
-    margin-bottom: 34px;
+    font-size: var(--text-xl);
+    margin-bottom: 30px;
 
     .hub-logo {
         height: 30px;
@@ -1182,19 +1541,23 @@ html[data-shell="app"] {
 }
 
 .app-home-main h1 {
-    font-size: 1.7rem;
+    font-size: var(--text-4xl);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
     margin: 0 0 22px;
 }
 
 /* Rendered as <button> so navigation can run through useNativeTransition;
    these reset the UA button defaults back to the card presentation. */
 .app-home-card {
-    display: block;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
     width: 100%;
     border: 1px solid var(--hub-border);
-    border-radius: 14px;
-    padding: 20px;
-    margin-bottom: 14px;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    margin-bottom: 12px;
     text-align: left;
     font: inherit;
     cursor: pointer;
@@ -1202,42 +1565,78 @@ html[data-shell="app"] {
     color: var(--hub-text);
     background: var(--hub-card-background);
     -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--dur-fast) var(--ease),
+        border-color var(--dur-med) var(--ease);
+
+    &:active {
+        transform: scale(0.985);
+    }
 
     h2 {
-        margin: 0 0 8px;
-        font-size: 1.15rem;
+        margin: 0 0 6px;
+        font-size: var(--text-xl);
+        font-weight: 650;
     }
 
     p {
         margin: 0;
         color: var(--hub-text-muted);
-        font-size: 14.5px;
+        font-size: var(--text-md);
         line-height: 1.5;
+    }
+}
+
+.app-home-card-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--hub-primary-soft);
+    color: var(--hub-primary);
+
+    svg {
+        width: 22px;
+        height: 22px;
+    }
+}
+
+.app-home-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-home-card-chevron {
+    align-self: center;
+    flex-shrink: 0;
+    color: var(--hub-text-muted);
+    line-height: 0;
+
+    svg {
+        width: 18px;
+        height: 18px;
     }
 }
 
 .app-home-card-primary {
     border-color: var(--hub-primary);
+    background: linear-gradient(135deg, var(--hub-primary-soft), var(--hub-primary-softer) 60%),
+        var(--hub-card-background);
     box-shadow: 0 0 0 1px var(--hub-primary);
-
-    &:active {
-        transform: scale(0.99);
-    }
-}
-
-.app-home-card-muted {
-    opacity: 0.75;
 }
 
 .app-home-badge {
-    font-size: 11px;
+    font-size: var(--text-2xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--hub-text-muted);
-    border: 1px solid var(--hub-border);
-    border-radius: 999px;
-    padding: 2px 8px;
+    color: var(--hub-primary);
+    background: var(--hub-primary-soft);
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 3px 9px;
     margin-left: 8px;
     vertical-align: middle;
 }
@@ -1246,7 +1645,7 @@ html[data-shell="app"] {
 .app-home-secondary {
     display: inline-block;
     margin-top: 18px;
-    padding: 0;
+    padding: 10px 0;
     background: none;
     border: none;
     font: inherit;

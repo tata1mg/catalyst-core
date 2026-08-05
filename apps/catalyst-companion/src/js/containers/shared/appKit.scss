@@ -1,0 +1,267 @@
+/* Shared shell-screen kit — the single source of truth for the controls that
+   used to be duplicated (and drifting) between TryApp.scss and Showcase.scss:
+   grouped lists, segmented controls, buttons, banners, inputs, switches.
+   Imported as a CSS module by every Companion screen. All values come from
+   the token system in hub.scss. */
+
+/* ── Screen scaffolding ─────────────────────────────────────────────── */
+
+/* One shared page frame so every tab agrees on gutters and rhythm. */
+.screen {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 0 16px 24px;
+    color: var(--hub-text);
+}
+
+.lede {
+    margin: 0 0 20px;
+    font-size: var(--text-base);
+    color: var(--hub-text-muted);
+    line-height: 1.55;
+}
+
+/* ── Grouped list (native settings-style) ───────────────────────────── */
+
+.group {
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 16px;
+    transition: border-color var(--dur-med) var(--ease);
+
+    &:focus-within {
+        border-color: var(--hub-primary);
+    }
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 52px;
+    padding: 12px 16px;
+    font-size: var(--text-base);
+
+    & + .row {
+        border-top: 1px solid var(--hub-border);
+    }
+}
+
+.rowLabel {
+    display: block;
+
+    small {
+        display: block;
+        margin-top: 2px;
+        font-size: var(--text-xs);
+        color: var(--hub-text-muted);
+    }
+}
+
+/* Right-hand slot for controls inside a row (e.g. a segmented control). */
+.rowControl {
+    flex: 1;
+    max-width: 240px;
+}
+
+/* ── Segmented control ──────────────────────────────────────────────── */
+
+.seg {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    background: var(--hub-seg-track);
+}
+
+.segItem {
+    flex: 1;
+    min-height: 34px;
+    border: none;
+    border-radius: calc(var(--radius-sm) - 3px);
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--hub-text-muted);
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        color var(--dur-med) var(--ease),
+        background-color var(--dur-med) var(--ease),
+        box-shadow var(--dur-med) var(--ease);
+
+    &:active:not(.segItemOn) {
+        color: var(--hub-text);
+    }
+}
+
+.segItemOn {
+    background: var(--hub-seg-thumb);
+    color: var(--hub-text);
+    box-shadow: var(--hub-shadow-1);
+}
+
+/* Full-width variant used as a top-of-screen mode switch. */
+.segWide {
+    margin-bottom: 20px;
+
+    .segItem {
+        min-height: 40px;
+        font-size: var(--text-md);
+    }
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+
+.btnPrimary,
+.btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 50px;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 13px 16px;
+    font-family: inherit;
+    font-size: var(--text-lg);
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--dur-fast) var(--ease),
+        background-color var(--dur-med) var(--ease),
+        opacity var(--dur-med) var(--ease);
+
+    &:active {
+        transform: scale(0.98);
+    }
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: default;
+
+        &:active {
+            transform: none;
+        }
+    }
+}
+
+.btnPrimary {
+    background: var(--hub-primary);
+    color: var(--hub-on-primary);
+}
+
+.btn {
+    margin-top: 10px;
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+    color: var(--hub-text);
+}
+
+.btnDanger {
+    color: var(--hub-danger);
+}
+
+/* ── Banners ────────────────────────────────────────────────────────── */
+
+@keyframes bannerIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.bannerError,
+.bannerInfo {
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    font-size: var(--text-sm);
+    line-height: 1.45;
+    margin-bottom: 14px;
+    animation: bannerIn var(--dur-med) var(--ease);
+}
+
+.bannerError {
+    background: var(--hub-danger-soft);
+    color: var(--hub-danger-text);
+}
+
+.bannerInfo {
+    background: var(--hub-info-soft);
+    color: var(--hub-info-text);
+}
+
+/* ── Inputs ─────────────────────────────────────────────────────────── */
+
+/* 16px font prevents iOS input zoom. Lives inside .group, whose
+   :focus-within border is the focus affordance. */
+.input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 15px 16px;
+    font-family: inherit;
+    font-size: var(--text-lg);
+    color: var(--hub-text);
+    caret-color: var(--hub-primary);
+
+    &:focus-visible {
+        outline: none;
+    }
+
+    &::placeholder {
+        color: var(--hub-text-muted);
+    }
+
+    & + .input {
+        border-top: 1px solid var(--hub-border);
+    }
+}
+
+/* ── Switch ─────────────────────────────────────────────────────────── */
+
+.switch {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 50px;
+    height: 30px;
+    margin: 0;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--hub-seg-track);
+    position: relative;
+    cursor: pointer;
+    transition: background-color var(--dur-med) var(--ease);
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        transition: transform var(--dur-med) var(--ease-spring);
+    }
+
+    &:checked {
+        background: var(--hub-primary);
+
+        &::after {
+            transform: translateX(20px);
+        }
+    }
+}

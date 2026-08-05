@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { useNotification } from "catalyst-core/hooks"
 import ShowcaseBar from "../ShowcaseBar"
+import kit from "../../shared/appKit.scss"
 import css from "../Showcase.scss"
 
 const NotificationShowcase = () => {
@@ -20,19 +21,19 @@ const NotificationShowcase = () => {
     return (
         <>
             <ShowcaseBar title="Local Notification" />
-            <p className={css.lede}>
+            <p className={kit.lede}>
                 Requests real OS notification permission and posts a local notification
                 straight from the web layer.
             </p>
 
             {!isNative && (
-                <div className={css.bannerInfo}>
+                <div className={kit.bannerInfo}>
                     System notifications need the Companion app&rsquo;s bridge.
                 </div>
             )}
-            {sent && <div className={css.bannerInfo}>Notification scheduled — check the shade.</div>}
+            {sent && <div className={kit.bannerInfo}>Notification scheduled — check the shade.</div>}
 
-            <div className={css.group}>
+            <div className={kit.group}>
                 <div className={css.permState}>
                     <strong>{permissionStatus || "undetermined"}</strong>
                     <span>notification permission</span>
@@ -42,7 +43,7 @@ const NotificationShowcase = () => {
             {!granted && (
                 <button
                     type="button"
-                    className={css.btnPrimary}
+                    className={kit.btnPrimary}
                     onClick={requestPermission}
                     disabled={!isNative}
                 >
@@ -50,26 +51,24 @@ const NotificationShowcase = () => {
                 </button>
             )}
 
-            <div className={css.group} style={{ marginTop: 16 }}>
+            <div className={`${kit.group} ${css.stackTop}`}>
                 <input
-                    className={css.input}
+                    className={kit.input}
                     placeholder="Title"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                 />
-                <div style={{ borderTop: "1px solid var(--hub-border)" }}>
-                    <input
-                        className={css.input}
-                        placeholder="Body"
-                        value={body}
-                        onChange={(event) => setBody(event.target.value)}
-                    />
-                </div>
+                <input
+                    className={kit.input}
+                    placeholder="Body"
+                    value={body}
+                    onChange={(event) => setBody(event.target.value)}
+                />
             </div>
 
             <button
                 type="button"
-                className={granted ? css.btnPrimary : css.btn}
+                className={granted ? kit.btnPrimary : kit.btn}
                 onClick={send}
                 disabled={!isNative}
             >

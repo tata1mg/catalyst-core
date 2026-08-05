@@ -1,6 +1,6 @@
 import React from "react"
 import { Outlet } from "catalyst-core"
-import css from "./Showcase.scss"
+import kit from "../shared/appKit.scss"
 
 /**
  * Showcase shell: web visitors get a pointer to the Companion app; inside the
@@ -17,7 +17,7 @@ const Showcase = () => (
             </p>
         </div>
 
-        <section className={`shell-only app-screen ${css.screen}`}>
+        <section className={`shell-only app-screen ${kit.screen}`}>
             <Outlet />
         </section>
     </>
