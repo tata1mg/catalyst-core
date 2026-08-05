@@ -5,6 +5,7 @@ import { ThemeProvider } from "../../components/docs/ThemeContext"
 import DocumentBootstrap from "../../components/hub/DocumentBootstrap"
 import BottomNav from "../../components/hub/BottomNav"
 import ScrollReset from "../../components/hub/ScrollReset"
+import OnboardingVideo from "../../components/hub/OnboardingVideo"
 
 const IconScan = () => (
     <svg
@@ -68,6 +69,9 @@ const AppHome = () => {
         <ThemeProvider>
             <DocumentBootstrap />
             <ScrollReset />
+            {/* /app is the shell's landing route, so this is the one place a
+                first-launch demo can mount without firing on the web site. */}
+            <OnboardingVideo />
             <div className="app-home">
                 <header className="app-home-header">
                     <img src="/img/logo-light.svg" alt="" className="hub-logo hub-logo-light" />
