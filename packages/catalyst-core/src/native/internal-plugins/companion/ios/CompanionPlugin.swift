@@ -20,6 +20,8 @@ private final class CompanionPreviewSession {
     private let errorEvent = "onPreviewError"
 
     private var requestInFlight = false
+    private static let resolveMinSeconds: TimeInterval = 0.55
+    private var resolvingOverlay: UIView?
     private var previewURL: URL?
     private weak var webViewModel: WebViewModel?
     private var chrome: CompanionChromeController?
@@ -49,12 +51,92 @@ private final class CompanionPreviewSession {
         }
 
         requestInFlight = true
+        // The QR resolves instantly, so without this the screen sits dead until
+        // the confirm alert appears and the scan feels like it did nothing.
+        showResolving(origin: origin)
+        let startedAt = Date()
         CompanionPreviewConfig.fetch(from: origin) { [weak self] config in
-            Task { @MainActor in
-                guard let self else { return }
-                self.showConfirmation(url: url, origin: origin, config: config, bridge: bridge)
+            // Hold the indicator briefly so a fast fetch still reads as a step
+            // rather than a flash.
+            let elapsed = Date().timeIntervalSince(startedAt)
+            let hold = max(0, Self.resolveMinSeconds - elapsed)
+            DispatchQueue.main.asyncAfter(deadline: .now() + hold) {
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.dismissResolving()
+                    self.showConfirmation(url: url, origin: origin, config: config, bridge: bridge)
+                }
             }
         }
+    }
+
+    /// Full-screen scrim with a spinner, shown while the runtime config loads.
+    @MainActor
+    private func showResolving(origin: URL) {
+        dismissResolving()
+        guard let window = keyWindow() else { return }
+
+        let overlay = UIView(frame: window.bounds)
+        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        overlay.backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.086, alpha: 0.9)
+        overlay.alpha = 0
+
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 14
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.color = .white
+        spinner.startAnimating()
+
+        let title = UILabel()
+        title.text = "Opening preview…"
+        title.textColor = .white
+        title.font = .systemFont(ofSize: 17, weight: .semibold)
+
+        let subtitle = UILabel()
+        subtitle.text = origin.absoluteString
+        subtitle.textColor = UIColor.white.withAlphaComponent(0.62)
+        subtitle.font = .systemFont(ofSize: 13)
+        subtitle.textAlignment = .center
+        subtitle.numberOfLines = 1
+        subtitle.lineBreakMode = .byTruncatingMiddle
+
+        stack.addArrangedSubview(spinner)
+        stack.addArrangedSubview(title)
+        stack.addArrangedSubview(subtitle)
+        stack.setCustomSpacing(18, after: spinner)
+        stack.setCustomSpacing(6, after: title)
+
+        overlay.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: overlay.leadingAnchor, constant: 32),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: overlay.trailingAnchor, constant: -32),
+        ])
+
+        window.addSubview(overlay)
+        resolvingOverlay = overlay
+        UIView.animate(withDuration: 0.16) { overlay.alpha = 1 }
+    }
+
+    @MainActor
+    private func dismissResolving() {
+        guard let overlay = resolvingOverlay else { return }
+        resolvingOverlay = nil
+        UIView.animate(withDuration: 0.14, animations: { overlay.alpha = 0 }) { _ in
+            overlay.removeFromSuperview()
+        }
+    }
+
+    private func keyWindow() -> UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
     }
 
     private func showConfirmation(
@@ -157,8 +239,8 @@ private final class CompanionPreviewSession {
     private func showPreviewMenu() {
         guard previewURL != nil, let presenter = topViewController() else { return }
         let sheet = UIAlertController(
-            title: "Catalyst Companion · Preview",
-            message: nil,
+            title: "Preview running",
+            message: previewURL?.absoluteString,
             preferredStyle: .actionSheet
         )
         sheet.addAction(UIAlertAction(title: "Exit Preview", style: .destructive) { [weak self] _ in
