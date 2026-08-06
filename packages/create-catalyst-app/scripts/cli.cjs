@@ -9,7 +9,7 @@ const path = require("path")
 const fs = require("fs")
 var validate = require("validate-npm-package-name")
 const packageJson = require("../package.json")
-const { createError, wrapForeignError, formatError } = require("./errors.cjs")
+const { CCAError, createError, wrapForeignError, formatError } = require("./errors.cjs")
 const packageRoot = path.join(__dirname, "..")
 const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)
 
@@ -170,7 +170,7 @@ const program = new Commander.Command()
                         runMcpSetup(newMcpDir, path.join(process.cwd(), projectName))
                     }
                 } catch (error) {
-                    const catalystError = error.code && error.code.startsWith("CCA-") ? error : wrapForeignError(error)
+                    const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
                     console.error(red(formatError(catalystError)))
                     process.exit(1)
                 } finally {
@@ -242,7 +242,7 @@ const program = new Commander.Command()
                 console.log(cyan(`Run cd ${projectName} && npm start to get started.`))
             }
         } catch (error) {
-            const catalystError = error.code && error.code.startsWith("CCA-") ? error : wrapForeignError(error)
+            const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
             console.error(red(formatError(catalystError)))
             process.exit(1)
         }
@@ -278,7 +278,7 @@ program
 
             runMcpSetup(mcpDir)
         } catch (error) {
-            const catalystError = error.code && error.code.startsWith("CCA-") ? error : createError("CCA-008", { cause: error })
+            const catalystError = error instanceof CCAError ? error : createError("CCA-008", { cause: error })
             console.error(red(formatError(catalystError)))
             process.exit(1)
         }

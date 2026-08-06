@@ -95,12 +95,12 @@ const ERROR_DEFINITIONS = {
 }
 
 function getDefinition(code) {
-    return ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS[ERROR_CODES.CCA_INVALID_NAME]
+    return ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS[ERROR_CODES.CCA_UPSTREAM_ERROR]
 }
 
 function getDocUrl(code) {
     const def = ERROR_DEFINITIONS[code]
-    if (!def) return null
+    if (!def) return docUrl(getDefinition(code).category, ERROR_CODES.CCA_UPSTREAM_ERROR)
     return docUrl(def.category, code)
 }
 
