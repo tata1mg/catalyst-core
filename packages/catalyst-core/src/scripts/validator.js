@@ -1,4 +1,4 @@
-import pc from "picocolors"
+import pc from "ansis"
 import { createError, formatError, ERROR_CODES } from "../errors/index.js"
 
 const handleError = (e) => {

@@ -1,4 +1,4 @@
-import * as pc from "picocolors"
+import * as pc from "ansis"
 
 class TerminalProgress {
     constructor(steps, title = "Setup Progress", options = {}) {

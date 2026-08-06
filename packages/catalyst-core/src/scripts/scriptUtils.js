@@ -1,7 +1,7 @@
 import fs from "fs"
 import path from "path"
 import util from "node:util"
-import pkg from "picocolors"
+import pkg from "ansis"
 const { gray, cyan } = pkg
 
 // Function to get file size synchronously
