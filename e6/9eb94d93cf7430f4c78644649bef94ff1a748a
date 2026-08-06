@@ -1,0 +1,50 @@
+packages/catalyst-core/src/scripts/serve.js
+  s_14d8f94172c67f::t_48a45c25bf72de 3
+  s_14d8f94172c67f::t_1185564124b913 19
+  s_14d8f94172c67f::t_486be116dbb708 41
+packages/catalyst-core/src/server/renderer/handler.jsx
+  s_14d8f94172c67f::t_557df566a39930 318,328,422,441,460
+  s_14d8f94172c67f::t_39565f3b886935 36-41,47-48,50
+  s_14d8f94172c67f::t_c1d4cf0b504069 42-46,49
+packages/catalyst-core/src/scripts/build.js
+  s_14d8f94172c67f::t_06d98c390a6596 3
+  s_14d8f94172c67f::t_97f28e6c5c7fd8 101
+  s_14d8f94172c67f::t_d43bee39b6309e 102
+  s_14d8f94172c67f::t_384469ac4083a3 46
+  s_14d8f94172c67f::t_c72bc27e2c7173 68
+packages/catalyst-core/src/scripts/start.js
+  s_14d8f94172c67f::t_519d1855f5b90a 3
+  s_14d8f94172c67f::t_553e6233aa557a 19,35
+packages/catalyst-core/src/errors/registry.js
+  s_14d8f94172c67f::t_4353ca225beeba 409-414
+packages/catalyst-core/src/server/utils/validator.js
+  s_14d8f94172c67f::t_d9a7c1dcb8ad5e 3-9,12-17
+  s_14d8f94172c67f::t_055ccecf5278d5 157-158
+  s_14d8f94172c67f::t_2ae41739b13f4a 177-178
+packages/catalyst-core/src/scripts/scriptUtils.js
+  s_14d8f94172c67f::t_d2f25f29015a21 79-100
+  s_14d8f94172c67f::t_6599419f9dcb1b 3,8-9
+  s_14d8f94172c67f::t_eb577f3182129e 60-78
+  s_14d8f94172c67f::t_1decaf8b67ec7a 10
+packages/catalyst-core/src/errors/index.js
+  s_14d8f94172c67f::t_16a0de1dff56eb 97,113-142,150-172,180-221
+  s_14d8f94172c67f::t_a1a3ed470ca6e7 1
+  s_14d8f94172c67f::t_3b80f05ac1d78a 143-149
+  s_14d8f94172c67f::t_661bf610efca01 173-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e69eb94d93cf7430f4c78644649bef94ff1a748a",
+  "prompts": {},
+  "sessions": {
+    "s_14d8f94172c67f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4804a397-64c7-4c5b-9188-1dd5aa57660b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
