@@ -32,6 +32,7 @@ import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
 import { getManifest, getAssetManifest } from "../manifestCache.js"
+import { wrapSSRError, formatError } from "../../errors/index.js"
 
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
 
@@ -299,7 +300,8 @@ const _renderMarkUp = async (
                 },
 
                 onError(error) {
-                    console.error("Error in renderToPipeableStream:", error)
+                    console.error(formatError(wrapSSRError("RENDER", error)))
+                    console.error(error)
                     safeCall(onRenderError, { req, res, store, error })
                     cleanupSafeArea()
                     tail.destroy(error)
@@ -309,7 +311,8 @@ const _renderMarkUp = async (
         })
     } catch (error) {
         cleanupSafeArea()
-        console.error("Error in rendering document on server:", error)
+        console.error(formatError(wrapSSRError("RENDER", error)))
+        console.error(error)
         safeCall(onRenderError, { req, res, store, error })
         return Promise.reject(error)
     }
@@ -403,7 +406,8 @@ async function _handler(req, res) {
                     )
                 }
             } catch (error) {
-                console.error("Error in executing serverFetcher functions:", error)
+                console.error(formatError(wrapSSRError("FETCHER", error)))
+                console.error(error)
                 safeCall(onFetcherError, { req, res, store, error })
 
                 if (res.headersSent) return
@@ -422,7 +426,8 @@ async function _handler(req, res) {
                 )
             }
         } catch (error) {
-            console.error("Error in executing serverSideFunction inside App:", error)
+            console.error(formatError(wrapSSRError("SERVER_SIDE_FUNCTION", error)))
+            console.error(error)
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
@@ -441,7 +446,8 @@ async function _handler(req, res) {
             )
         }
     } catch (error) {
-        console.error("Error in handling document request:", error)
+        console.error(formatError(wrapSSRError("REQUEST_HANDLING", error)))
+        console.error(error)
         safeCall(onRequestError, { req, res, error })
     }
 }

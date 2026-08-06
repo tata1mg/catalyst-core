@@ -69,6 +69,30 @@ export function wrapForeignError(stage, err) {
     return wrapped
 }
 
+const SSR_STAGE_CODE = {
+    RENDER: ERROR_CODES.RUNTIME_WEB_RENDER_FAILED,
+    FETCHER: ERROR_CODES.RUNTIME_WEB_FETCHER_FAILED,
+    SERVER_SIDE_FUNCTION: ERROR_CODES.RUNTIME_WEB_SERVER_SIDE_FUNCTION_FAILED,
+    REQUEST_HANDLING: ERROR_CODES.RUNTIME_WEB_REQUEST_HANDLING_FAILED,
+}
+
+/**
+ * Wrap an error caught during SSR (handler.jsx). Unlike wrapForeignError's
+ * build-stage wrapping, the caught error here could originate from the
+ * user's app code, a third-party dependency, or catalyst-core's own
+ * pipeline — there is no way to tell from the caught error object which.
+ * So, like the BUNDLE/IOS/ANDROID wrappers, we never reinterpret it: we
+ * attach a stage-specific code that identifies *where* in the SSR pipeline
+ * the failure happened, and preserve the original error as `cause`.
+ */
+export function wrapSSRError(stage, err) {
+    const code = SSR_STAGE_CODE[stage]
+    if (!code) {
+        throw new Error(`wrapSSRError: unknown stage "${stage}"`)
+    }
+    return createError(code, { cause: err })
+}
+
 /**
  * Wrap a failed AI provider HTTP response (OpenAI/Gemini). Unlike
  * wrapForeignError (build toolchains, which carry a named err.code), provider
@@ -88,6 +112,12 @@ export function wrapProviderError(provider, status, bodyText) {
 /**
  * Format a CatalystError for terminal output. Foreign-wrapped errors always
  * show the original upstream message/code, never a paraphrase of it.
+ *
+ * Note: this prints the cause's *message* only, not its stack. Callers
+ * logging a wrapped error to the console (see wrapSSRError call sites in
+ * handler.jsx) should also log `err.cause` itself alongside this output so
+ * the stack trace isn't lost — formatError is for the human-readable
+ * summary, not a replacement for full error inspection.
  */
 export function formatError(err) {
     const lines = [`[${err.code}] ${err.message}`]

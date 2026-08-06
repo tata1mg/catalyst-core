@@ -58,6 +58,11 @@ export const ERROR_CODES = {
     RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION: "RUNTIME-NATIVE-021",
     RUNTIME_NATIVE_BRIDGE_INIT_FAILED: "RUNTIME-NATIVE-022",
 
+    RUNTIME_WEB_RENDER_FAILED: "RUNTIME-WEB-001",
+    RUNTIME_WEB_FETCHER_FAILED: "RUNTIME-WEB-002",
+    RUNTIME_WEB_SERVER_SIDE_FUNCTION_FAILED: "RUNTIME-WEB-003",
+    RUNTIME_WEB_REQUEST_HANDLING_FAILED: "RUNTIME-WEB-004",
+
     AI_UPSTREAM_ERROR: "AI-000",
     AI_DISABLED: "AI-001",
     AI_PROVIDER_NOT_CONFIGURED: "AI-002",
@@ -491,6 +496,39 @@ export const ERROR_DEFINITIONS = {
             "The in-browser AI worker threw during model load or generation (e.g. all device backends failed, or an uncaught exception). See the cause above for the worker's reported message.",
         recoverable: true,
         suggestedAction: "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
+    },
+
+    [ERROR_CODES.RUNTIME_WEB_RENDER_FAILED]: {
+        category: "RUNTIME-WEB",
+        defaultMessage: "Rendering failed on the server",
+        defaultDetails:
+            "An error was thrown while streaming or rendering the document on the server. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        recoverable: true,
+        suggestedAction: "See the cause above for the error thrown during rendering.",
+    },
+    [ERROR_CODES.RUNTIME_WEB_FETCHER_FAILED]: {
+        category: "RUNTIME-WEB",
+        defaultMessage: "serverFetcher failed",
+        defaultDetails:
+            "An error was thrown while executing a route's serverFetcher function(s). This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        recoverable: true,
+        suggestedAction: "See the cause above for the error thrown inside serverFetcher.",
+    },
+    [ERROR_CODES.RUNTIME_WEB_SERVER_SIDE_FUNCTION_FAILED]: {
+        category: "RUNTIME-WEB",
+        defaultMessage: "App.serverSideFunction failed",
+        defaultDetails:
+            "An error was thrown while executing the app-level serverSideFunction hook. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        recoverable: true,
+        suggestedAction: "See the cause above for the error thrown inside serverSideFunction.",
+    },
+    [ERROR_CODES.RUNTIME_WEB_REQUEST_HANDLING_FAILED]: {
+        category: "RUNTIME-WEB",
+        defaultMessage: "Failed to handle document request",
+        defaultDetails:
+            "An unhandled error reached the top level of the SSR request handler. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        recoverable: false,
+        suggestedAction: "See the cause above for the underlying error.",
     },
 }
 
