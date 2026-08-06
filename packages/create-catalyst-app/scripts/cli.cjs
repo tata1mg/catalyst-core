@@ -9,7 +9,15 @@ const path = require("path")
 const fs = require("fs")
 var validate = require("validate-npm-package-name")
 const packageJson = require("../package.json")
-const { CCAError, createError, wrapForeignError, formatError } = require("./errors.cjs")
+const { CCAError, createError, wrapForeignError, formatError, resolveOutputMode, getDebugEnvInfo } = require("./errors.cjs")
+const outputMode = resolveOutputMode(process.argv)
+// Colored (red) prefix only applies in default mode — verbose/debug boxes
+// own their coloring internally (see errors.cjs#box).
+const printError = (err) => {
+    const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
+    const formatted = formatError(err, outputMode, debugEnv)
+    console.error(outputMode === "default" ? red(formatted) : formatted)
+}
 const packageRoot = path.join(__dirname, "..")
 const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)
 
@@ -67,27 +75,19 @@ const program = new Commander.Command()
             let isNameValid = validate(projectName)
             if (!isNameValid.validForNewPackages) {
                 const reasons = [...(isNameValid?.warnings || []), ...(isNameValid?.errors || [])]
-                console.error(
-                    red(
-                        formatError(
-                            createError("CCA-001", {
-                                details: reasons.length ? reasons.join("; ") : undefined,
-                            })
-                        )
-                    )
+                printError(
+                    createError("CCA-001", {
+                        details: reasons.length ? reasons.join("; ") : undefined,
+                    })
                 )
                 process.exit(1)
             }
             let projectPath = path.join(process.cwd(), projectName)
             if (fs.existsSync(projectPath)) {
-                console.error(
-                    red(
-                        formatError(
-                            createError("CCA-002", {
-                                message: `${projectName} already exists, try again.`,
-                            })
-                        )
-                    )
+                printError(
+                    createError("CCA-002", {
+                        message: `${projectName} already exists, try again.`,
+                    })
                 )
                 process.exit(1)
             }
@@ -171,7 +171,7 @@ const program = new Commander.Command()
                     }
                 } catch (error) {
                     const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
-                    console.error(red(formatError(catalystError)))
+                    printError(catalystError)
                     process.exit(1)
                 } finally {
                     deleteDirectory(tempDir)
@@ -243,7 +243,7 @@ const program = new Commander.Command()
             }
         } catch (error) {
             const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
-            console.error(red(formatError(catalystError)))
+            printError(catalystError)
             process.exit(1)
         }
     })
@@ -279,7 +279,7 @@ program
             runMcpSetup(mcpDir)
         } catch (error) {
             const catalystError = error instanceof CCAError ? error : createError("CCA-008", { cause: error })
-            console.error(red(formatError(catalystError)))
+            printError(catalystError)
             process.exit(1)
         }
     })

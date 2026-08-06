@@ -1,3 +1,5 @@
+const pc = require("ansis")
+
 const REPO_BLOB_BASE = "https://github.com/tata1mg/catalyst-core/blob/main/errors"
 
 function docUrl(category, code) {
@@ -150,11 +152,7 @@ function wrapForeignError(err) {
     })
 }
 
-/**
- * Format a CCAError for terminal output. Foreign-wrapped errors always show
- * the original upstream message/code, never a paraphrase of it.
- */
-function formatError(err) {
+function formatDefault(err) {
     const lines = [`[${err.code}] ${err.message}`]
     if (err.cause) {
         const causeMessage = err.cause.message || String(err.cause)
@@ -171,6 +169,137 @@ function formatError(err) {
     return lines.join("\n")
 }
 
+const BOX_WIDTH = 70
+
+function box(bodyLines) {
+    const top = pc.red(`┌${"─".repeat(BOX_WIDTH)}`)
+    const bottom = pc.red(`└${"─".repeat(BOX_WIDTH)}`)
+    const body = bodyLines.map((line) => (line === "" ? pc.red("│") : `${pc.red("│")} ${line}`))
+    return [top, ...body, bottom].join("\n")
+}
+
+function formatCauseChain(cause) {
+    const lines = []
+    let current = cause
+    let depth = 0
+    while (current) {
+        const prefix = depth === 0 ? "Caused by:" : `  ${"  ".repeat(depth - 1)}Caused by:`
+        lines.push(`${prefix} ${current.message || String(current)}`)
+        current = current.cause
+        depth += 1
+    }
+    return lines
+}
+
+/**
+ * Verbose output: boxed per RFC #155 §3.2 — code, category, timestamp,
+ * problem, suggested action, docs link. Mirrors catalyst-core's
+ * errors/index.js#formatVerbose (kept as a separate CJS implementation
+ * since this package can't depend on catalyst-core's ESM module).
+ */
+function formatVerbose(err) {
+    const lines = [
+        pc.bold(`❌ ${err.message}`),
+        `Code: ${err.code}`,
+        `Category: ${err.category || "UNKNOWN"}`,
+        `Time: ${new Date().toISOString()}`,
+        "",
+    ]
+    if (err.cause) {
+        lines.push(`Problem: ${err.cause.message || String(err.cause)}`)
+        lines.push("")
+    } else if (err.details) {
+        lines.push(`Problem: ${err.details}`)
+        lines.push("")
+    }
+    if (err.suggestedAction) {
+        lines.push("Solution:", `  ${err.suggestedAction}`, "")
+    }
+    if (err.docUrl) {
+        lines.push(`Docs: ${err.docUrl}`)
+    }
+    return box(lines)
+}
+
+/**
+ * Debug output: verbose + full cause chain + stack trace + environment
+ * info. Mirrors catalyst-core's errors/index.js#formatDebug.
+ */
+function formatDebug(err, env) {
+    const lines = [
+        pc.bold(`❌ ${err.message}`),
+        `Code: ${err.code}`,
+        `Category: ${err.category || "UNKNOWN"}`,
+        `Time: ${new Date().toISOString()}`,
+        "",
+    ]
+    if (err.cause) {
+        lines.push(...formatCauseChain(err.cause), "")
+    } else if (err.details) {
+        lines.push(`Problem: ${err.details}`, "")
+    }
+    if (err.suggestedAction) {
+        lines.push("Solution:", `  ${err.suggestedAction}`, "")
+    }
+    if (err.docUrl) {
+        lines.push(`Docs: ${err.docUrl}`, "")
+    }
+    if (env) {
+        lines.push("Environment:")
+        for (const [key, value] of Object.entries(env)) {
+            lines.push(`  ${key}: ${value}`)
+        }
+        lines.push("")
+    }
+    lines.push("Stack trace:")
+    const stack = (err.cause && err.cause.stack) || err.stack || "(no stack available)"
+    lines.push(...stack.split("\n").map((l) => `  ${l}`))
+    return box(lines)
+}
+
+/**
+ * Format a CCAError for terminal output. Foreign-wrapped errors always show
+ * the original upstream message/code, never a paraphrase of it.
+ *
+ * `mode` mirrors catalyst-core's formatError(err, mode, env) signature —
+ * defaults to "default" so existing single-arg call sites are unaffected.
+ */
+function formatError(err, mode = "default", env) {
+    if (mode === "debug") return formatDebug(err, env)
+    if (mode === "verbose") return formatVerbose(err)
+    return formatDefault(err)
+}
+
+/**
+ * Resolve output mode from CLI args, mirroring catalyst-core's
+ * scripts/scriptUtils.js#resolveOutputMode (bare --verbose/--debug flags,
+ * not key=value pairs).
+ */
+function resolveOutputMode(argv) {
+    const args = argv || process.argv
+    if (args.includes("--debug")) return "debug"
+    if (args.includes("--verbose")) return "verbose"
+    return "default"
+}
+
+/**
+ * Environment info for debug-mode output: CCA's own installed version, Node
+ * version, and platform. Mirrors catalyst-core's scriptUtils.js#getDebugEnvInfo.
+ */
+function getDebugEnvInfo() {
+    let ccaVersion = "unknown"
+    try {
+        ccaVersion = require("../package.json").version
+    } catch {
+        // package.json not resolvable — leave as "unknown"
+    }
+    return {
+        node: process.version,
+        platform: process.platform,
+        createCatalystApp: ccaVersion,
+    }
+}
+
 module.exports = {
     ERROR_CODES,
     ERROR_DEFINITIONS,
@@ -178,5 +307,7 @@ module.exports = {
     createError,
     wrapForeignError,
     formatError,
+    resolveOutputMode,
+    getDebugEnvInfo,
     getDocUrl,
 }
