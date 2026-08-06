@@ -9,6 +9,7 @@ const path = require("path")
 const fs = require("fs")
 var validate = require("validate-npm-package-name")
 const packageJson = require("../package.json")
+const { createError, wrapForeignError, formatError } = require("./errors.cjs")
 const packageRoot = path.join(__dirname, "..")
 const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)
 
@@ -65,13 +66,29 @@ const program = new Commander.Command()
             const projectName = config.folderName || (await promptProjectName())
             let isNameValid = validate(projectName)
             if (!isNameValid.validForNewPackages) {
-                isNameValid?.warnings?.forEach?.((item) => console.log(red(item)))
-                isNameValid?.errors?.forEach?.((item) => console.log(red(item)))
+                const reasons = [...(isNameValid?.warnings || []), ...(isNameValid?.errors || [])]
+                console.error(
+                    red(
+                        formatError(
+                            createError("CCA-001", {
+                                details: reasons.length ? reasons.join("; ") : undefined,
+                            })
+                        )
+                    )
+                )
                 process.exit(1)
             }
             let projectPath = path.join(process.cwd(), projectName)
             if (fs.existsSync(projectPath)) {
-                console.log(red(`${projectName} already exists, try again.`))
+                console.error(
+                    red(
+                        formatError(
+                            createError("CCA-002", {
+                                message: `${projectName} already exists, try again.`,
+                            })
+                        )
+                    )
+                )
                 process.exit(1)
             }
             const projectDescription = config.description || (await promptDescription())
@@ -153,7 +170,8 @@ const program = new Commander.Command()
                         runMcpSetup(newMcpDir, path.join(process.cwd(), projectName))
                     }
                 } catch (error) {
-                    console.error(`Error: ${error.message}`)
+                    const catalystError = error.code && error.code.startsWith("CCA-") ? error : wrapForeignError(error)
+                    console.error(red(formatError(catalystError)))
                     process.exit(1)
                 } finally {
                     deleteDirectory(tempDir)
@@ -184,8 +202,7 @@ const program = new Commander.Command()
 
                     return tarballFilePath
                 } catch (error) {
-                    console.error(`Error packing npm package: ${error.message}`)
-                    throw error
+                    throw createError("CCA-006", { cause: error })
                 }
             }
 
@@ -219,13 +236,14 @@ const program = new Commander.Command()
                         },
                     })
                 } catch (e) {
-                    console.log("An error occurred", e)
+                    throw createError("CCA-007", { cause: e })
                 }
 
                 console.log(cyan(`Run cd ${projectName} && npm start to get started.`))
             }
         } catch (error) {
-            console.error(red("An error occurred:"), error.message)
+            const catalystError = error.code && error.code.startsWith("CCA-") ? error : wrapForeignError(error)
+            console.error(red(formatError(catalystError)))
             process.exit(1)
         }
     })
@@ -260,7 +278,8 @@ program
 
             runMcpSetup(mcpDir)
         } catch (error) {
-            console.error(red("An error occurred:"), error.message)
+            const catalystError = error.code && error.code.startsWith("CCA-") ? error : createError("CCA-008", { cause: error })
+            console.error(red(formatError(catalystError)))
             process.exit(1)
         }
     })
@@ -388,16 +407,16 @@ async function promptMcp() {
 function validateOptions(cmd) {
     // Validate language option
     if (cmd.lang && !["js", "ts"].includes(cmd.lang.toLowerCase())) {
-        throw new Error('Invalid language option. Use "js" or "ts".')
+        throw createError("CCA-003")
     }
 
     // Validate state management option
     if (cmd.stateManagement && !["rtk", "redux", "none"].includes(cmd.stateManagement.toLowerCase())) {
-        throw new Error('Invalid state management option. Use "rtk", "redux", or "none".')
+        throw createError("CCA-004")
     }
 
     if (cmd.yes && typeof cmd.yes !== "boolean") {
-        throw new Error('Invalid option for "yes". Use "-y" or "--yes" to accept defaults.')
+        throw createError("CCA-005")
     }
 }
 
@@ -422,7 +441,7 @@ function createGitignore(projectName) {
     const gitignorePath = `${process.cwd()}${path.sep}${projectName}${path.sep}.gitignore`
 
     if (fs.existsSync(gitignorePath)) {
-        console.log(".gitignore already exists. Please rename or remove it before running the script.")
+        console.log(cyan(formatError(createError("CCA-009"))))
         return
     }
 

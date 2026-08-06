@@ -462,5 +462,85 @@
         "recoverable": true,
         "suggestedAction": "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-009.md"
+    },
+    "CCA-000": {
+        "category": "CCA",
+        "message": "An upstream command failed",
+        "details": "This wraps an error from npm, tar, or another upstream tool invoked by create-catalyst-app. See the printed upstream message for the actual cause.",
+        "recoverable": true,
+        "suggestedAction": "Read the upstream error message printed above and fix the underlying issue.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-000.md"
+    },
+    "CCA-001": {
+        "category": "CCA",
+        "message": "Invalid project name",
+        "details": "The project name is not a valid npm package name.",
+        "recoverable": true,
+        "suggestedAction": "Choose a project name that is a valid npm package name and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-001.md"
+    },
+    "CCA-002": {
+        "category": "CCA",
+        "message": "Target directory already exists",
+        "details": "A file or directory with the project name already exists in the current directory.",
+        "recoverable": true,
+        "suggestedAction": "Choose a different project name, or remove/rename the existing directory.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-002.md"
+    },
+    "CCA-003": {
+        "category": "CCA",
+        "message": "Invalid language option",
+        "details": "The --lang option must be \"js\" or \"ts\".",
+        "recoverable": true,
+        "suggestedAction": "Pass --lang js or --lang ts.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-003.md"
+    },
+    "CCA-004": {
+        "category": "CCA",
+        "message": "Invalid state management option",
+        "details": "The --state-management option must be \"rtk\", \"redux\", or \"none\".",
+        "recoverable": true,
+        "suggestedAction": "Pass a supported --state-management value.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-004.md"
+    },
+    "CCA-005": {
+        "category": "CCA",
+        "message": "Invalid --yes option",
+        "details": "The -y/--yes flag does not accept a non-boolean value.",
+        "recoverable": true,
+        "suggestedAction": "Use -y or --yes with no value to accept defaults.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-005.md"
+    },
+    "CCA-006": {
+        "category": "CCA",
+        "message": "Failed to pack create-catalyst-app",
+        "details": "npm pack could not produce the tarball used to scaffold the new project.",
+        "recoverable": true,
+        "suggestedAction": "Check your npm registry access/network connection and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-006.md"
+    },
+    "CCA-007": {
+        "category": "CCA",
+        "message": "Failed to extract template files",
+        "details": "The packed tarball could not be extracted into the new project directory.",
+        "recoverable": true,
+        "suggestedAction": "Ensure the target directory is writable and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-007.md"
+    },
+    "CCA-008": {
+        "category": "CCA",
+        "message": "MCP server setup failed",
+        "details": "Downloading, installing, or configuring the MCP server failed.",
+        "recoverable": true,
+        "suggestedAction": "Check your network connection and re-run `catalyst-mcp` inside the project.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-008.md"
+    },
+    "CCA-009": {
+        "category": "CCA",
+        "message": ".gitignore already exists",
+        "details": "The scaffolded project already contains a .gitignore file.",
+        "recoverable": true,
+        "suggestedAction": "Remove or rename the existing .gitignore before running again, or ignore this warning.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-009.md"
     }
 }
