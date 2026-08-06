@@ -542,5 +542,37 @@
         "recoverable": true,
         "suggestedAction": "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-009.md"
+    },
+    "RUNTIME-WEB-001": {
+        "category": "RUNTIME-WEB",
+        "message": "Rendering failed on the server",
+        "details": "An error was thrown while streaming or rendering the document on the server. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "recoverable": true,
+        "suggestedAction": "See the cause above for the error thrown during rendering.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-001.md"
+    },
+    "RUNTIME-WEB-002": {
+        "category": "RUNTIME-WEB",
+        "message": "serverFetcher failed",
+        "details": "An error was thrown while executing a route's serverFetcher function(s). This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "recoverable": true,
+        "suggestedAction": "See the cause above for the error thrown inside serverFetcher.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-002.md"
+    },
+    "RUNTIME-WEB-003": {
+        "category": "RUNTIME-WEB",
+        "message": "App.serverSideFunction failed",
+        "details": "An error was thrown while executing the app-level serverSideFunction hook. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "recoverable": true,
+        "suggestedAction": "See the cause above for the error thrown inside serverSideFunction.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-003.md"
+    },
+    "RUNTIME-WEB-004": {
+        "category": "RUNTIME-WEB",
+        "message": "Failed to handle document request",
+        "details": "An unhandled error reached the top level of the SSR request handler. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "recoverable": false,
+        "suggestedAction": "See the cause above for the underlying error.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-004.md"
     }
 }
