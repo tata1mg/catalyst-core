@@ -1,0 +1,67 @@
+packages/catalyst-core/src/server/renderer/handler.jsx
+  s_14d8f94172c67f::t_aa048f24f02d78 303-304,314-315,409-410,429-430,449-450
+  s_14d8f94172c67f::t_5a377a56246fd4 35
+packages/catalyst-core/src/errors/registry.js
+  s_14d8f94172c67f::t_b7b2391c6927c5 512-513,520-521
+  s_14d8f94172c67f::t_237f2908acb620 504-505
+  s_14d8f94172c67f::t_635827023433b3 390,501-503,506-511,514-519,522-527,530-532
+  s_14d8f94172c67f::t_19fd719322360e 54,61-64
+  s_14d8f94172c67f::t_e37b192bb3a23f 528-529
+errors/RUNTIME-WEB/RUNTIME-WEB-004.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+errors/RUNTIME-WEB/RUNTIME-WEB-002.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+packages/catalyst-core/src/errors/index.js
+  s_14d8f94172c67f::t_1a14fab60e92e2 72-95
+  s_14d8f94172c67f::t_135a1e96a3abb0 115-120
+errors/RUNTIME-WEB/RUNTIME-WEB-001.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+errors/RUNTIME-WEB/RUNTIME-WEB-003.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+packages/catalyst-core/package.json
+  s_14d8f94172c67f::t_e9dba961ee807f 42
+packages/catalyst-core/src/scripts/scriptUtils.js
+  s_14d8f94172c67f::t_3ba7c7989b8f80 4
+packages/create-catalyst-app/codemod/new-route/transformers/createRoute.js
+  s_14d8f94172c67f::t_ded3ef06fd1b7d 1
+packages/create-catalyst-app/codemod/new-route/utils.js
+  s_14d8f94172c67f::t_ded3ef06fd1b7d 3
+packages/catalyst-core/src/logger.js
+  s_14d8f94172c67f::t_634d10afbaa280 1
+packages/create-catalyst-app/package.json
+  s_14d8f94172c67f::t_8125a51ba0193c 15
+packages/catalyst-core/src/scripts/validator.js
+  s_14d8f94172c67f::t_f62221e944472e 1
+packages/catalyst-core/src/server/utils/validator.js
+  s_14d8f94172c67f::t_f11581544b573e 1
+packages/create-catalyst-app/codemod/new-route/template.js
+  s_14d8f94172c67f::t_ded3ef06fd1b7d 3
+packages/create-catalyst-app/codemod/new-route/transformers/createReducer.js
+  s_14d8f94172c67f::t_ded3ef06fd1b7d 1
+packages/create-catalyst-app/codemod/new-route/index.js
+  s_14d8f94172c67f::t_ded3ef06fd1b7d 3
+packages/catalyst-core/src/scripts/plugins.js
+  s_14d8f94172c67f::t_d64ee855195646 6
+packages/catalyst-core/src/server/expressServer.js
+  s_14d8f94172c67f::t_2b325321db0d71 9
+packages/create-catalyst-app/scripts/cli.cjs
+  s_14d8f94172c67f::t_e1b719a5d4a99e 6
+packages/catalyst-core/src/native/terminalProgress.js
+  s_14d8f94172c67f::t_bd1f0e6d4d3d33 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1d4c2b212e11e0b2ffaa3d4efe4072ab56c9d0bd",
+  "prompts": {},
+  "sessions": {
+    "s_14d8f94172c67f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4804a397-64c7-4c5b-9188-1dd5aa57660b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
