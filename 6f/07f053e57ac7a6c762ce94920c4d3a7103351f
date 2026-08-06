@@ -1,0 +1,29 @@
+packages/create-catalyst-app/scripts/errors.cjs
+  s_3eb875f74ec265::t_971fdac7d12cf2 98,103
+packages/catalyst-core/src/errors/generateDocs.js
+  s_3eb875f74ec265::t_461bf996e5c851 1
+  s_3eb875f74ec265::t_2337075b56f7bd 11
+  s_3eb875f74ec265::t_0395ed932ebd13 49-61,65-69
+  s_3eb875f74ec265::t_3d87f66b0ab8c6 88,90
+packages/create-catalyst-app/scripts/cli.cjs
+  s_3eb875f74ec265::t_d7f9a9999406a1 173,245,281
+  s_3eb875f74ec265::t_6bfe4ee245ab47 12
+errors/index.json
+  s_3eb875f74ec265::t_917ff115e1f2ad 2-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "6f07f053e57ac7a6c762ce94920c4d3a7103351f",
+  "prompts": {},
+  "sessions": {
+    "s_3eb875f74ec265": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c428fd8-30dd-4b00-ba36-72908a21e6f8",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
