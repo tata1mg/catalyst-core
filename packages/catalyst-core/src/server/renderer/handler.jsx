@@ -33,6 +33,21 @@ import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
 import { getManifest, getAssetManifest } from "../manifestCache.js"
 import { wrapSSRError, formatError } from "../../errors/index.js"
+import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js"
+
+// Resolved once at module load — spawned via serve.js/start.js, which
+// forward the mode as CATALYST_OUTPUT_MODE (no argv available at this
+// level; see scriptUtils.js#resolveOutputMode).
+const outputMode = resolveOutputMode(process.argv, process.env)
+// Debug mode's boxed output already embeds the full stack trace (see
+// errors/index.js#formatDebug), so only default/verbose need the original
+// error printed separately to avoid losing the stack.
+const logSSRError = (stage, error) => {
+    const wrapped = wrapSSRError(stage, error)
+    const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
+    console.error(formatError(wrapped, outputMode, debugEnv))
+    if (outputMode !== "debug") console.error(error)
+}
 
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
 
@@ -300,8 +315,7 @@ const _renderMarkUp = async (
                 },
 
                 onError(error) {
-                    console.error(formatError(wrapSSRError("RENDER", error)))
-                    console.error(error)
+                    logSSRError("RENDER", error)
                     safeCall(onRenderError, { req, res, store, error })
                     cleanupSafeArea()
                     tail.destroy(error)
@@ -311,8 +325,7 @@ const _renderMarkUp = async (
         })
     } catch (error) {
         cleanupSafeArea()
-        console.error(formatError(wrapSSRError("RENDER", error)))
-        console.error(error)
+        logSSRError("RENDER", error)
         safeCall(onRenderError, { req, res, store, error })
         return Promise.reject(error)
     }
@@ -406,8 +419,7 @@ async function _handler(req, res) {
                     )
                 }
             } catch (error) {
-                console.error(formatError(wrapSSRError("FETCHER", error)))
-                console.error(error)
+                logSSRError("FETCHER", error)
                 safeCall(onFetcherError, { req, res, store, error })
 
                 if (res.headersSent) return
@@ -426,8 +438,7 @@ async function _handler(req, res) {
                 )
             }
         } catch (error) {
-            console.error(formatError(wrapSSRError("SERVER_SIDE_FUNCTION", error)))
-            console.error(error)
+            logSSRError("SERVER_SIDE_FUNCTION", error)
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
@@ -446,8 +457,7 @@ async function _handler(req, res) {
             )
         }
     } catch (error) {
-        console.error(formatError(wrapSSRError("REQUEST_HANDLING", error)))
-        console.error(error)
+        logSSRError("REQUEST_HANDLING", error)
         safeCall(onRequestError, { req, res, error })
     }
 }

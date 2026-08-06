@@ -1,8 +1,12 @@
 import fs from "fs"
 import path from "path"
+import { fileURLToPath } from "url"
 import util from "node:util"
 import pkg from "ansis"
 const { gray, cyan } = pkg
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+let cachedCatalystCoreVersion
 
 // Function to get file size synchronously
 function getFileSizeSync(filePath) {
@@ -52,4 +56,45 @@ export function arrayToObject(array) {
         if (value) obj[key] = value
     })
     return obj
+}
+
+/**
+ * Resolve the output mode for error formatting from a bare boolean CLI flag
+ * (--debug/--verbose, matching the --inspect convention already used by
+ * serve.js — not arrayToObject, which requires --key=value and silently
+ * drops valueless flags) or an inherited CATALYST_OUTPUT_MODE env var, for
+ * scripts spawned as a child process (see serve.js/start.js forwarding it
+ * to expressServer.js). An explicit flag on argv wins over an inherited env
+ * value, so e.g. `catalyst serve --debug` overrides a parent that set
+ * CATALYST_OUTPUT_MODE=verbose.
+ */
+export function resolveOutputMode(argv = process.argv, env = process.env) {
+    if (argv.includes("--debug")) return "debug"
+    if (argv.includes("--verbose")) return "verbose"
+    if (env.CATALYST_OUTPUT_MODE === "debug" || env.CATALYST_OUTPUT_MODE === "verbose") {
+        return env.CATALYST_OUTPUT_MODE
+    }
+    return "default"
+}
+
+/**
+ * Environment info for debug-mode error output: catalyst-core's own
+ * installed version (read from this package's own package.json, not the
+ * consuming app's — so it reflects what's actually running, not just what
+ * the app's package.json range says), Node version, and platform.
+ */
+export function getDebugEnvInfo() {
+    if (cachedCatalystCoreVersion === undefined) {
+        try {
+            const pkgPath = path.resolve(__dirname, "../../package.json")
+            cachedCatalystCoreVersion = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).version
+        } catch {
+            cachedCatalystCoreVersion = "unknown"
+        }
+    }
+    return {
+        node: process.version,
+        platform: process.platform,
+        catalystCore: cachedCatalystCoreVersion,
+    }
 }

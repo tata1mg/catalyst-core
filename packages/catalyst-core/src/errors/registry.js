@@ -533,7 +533,12 @@ export const ERROR_DEFINITIONS = {
 }
 
 export function getDefinition(code) {
-    return ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS[ERROR_CODES.RUNTIME_NATIVE_INTERNAL_ERROR]
+    if (ERROR_DEFINITIONS[code]) return ERROR_DEFINITIONS[code]
+    // Fall back to a generic definition for unrecognized codes, but never
+    // inherit the fallback's own category — that would mislabel an unknown
+    // code as RUNTIME-NATIVE in verbose/debug output, which is misleading
+    // rather than merely imprecise.
+    return { ...ERROR_DEFINITIONS[ERROR_CODES.RUNTIME_NATIVE_INTERNAL_ERROR], category: "UNKNOWN" }
 }
 
 export function getDocUrl(code) {
