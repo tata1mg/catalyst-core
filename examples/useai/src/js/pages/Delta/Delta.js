@@ -152,7 +152,7 @@ export default function Delta() {
                                 </span>
                             </p>
                             <div className="font-mono text-[11px] text-neutral-600 mt-8 select-none">
-                                one stream | fills left -> right | structure arrives last
+                                one stream | fills left {"->"} right | structure arrives last
                             </div>
                         </div>
                     )}
