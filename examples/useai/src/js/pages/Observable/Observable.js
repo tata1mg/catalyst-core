@@ -1,4 +1,4 @@
-import React from "react";
+import React from "react"
 
 export default function Observable() {
     const ttftBars = [
@@ -9,45 +9,51 @@ export default function Observable() {
         { label: "500", h: "46%", color: "bg-[#6E8BFF]" },
         { label: "600", h: "30%", color: "bg-[#6E8BFF]" },
         { label: "700", h: "16%", color: "bg-[#6E8BFF]" },
-    ];
+    ]
 
     return (
         <div className="max-w-[1040px] mx-auto px-10 py-12 animate-[fadeIn_0.4s_ease-out]">
             {/* Page Header */}
             <div className="mb-8">
-                <div className="font-mono text-[13px] text-indigo-400 mb-2">
-                    06 / Observable by Default
-                </div>
+                <div className="font-mono text-[13px] text-indigo-400 mb-2">06 / Observable by Default</div>
                 <h1 className="text-4xl font-semibold tracking-tight text-white mb-2">
                     Every inference, measured.
                 </h1>
                 <p className="text-neutral-400 max-w-[58ch] leading-relaxed text-sm">
-                    Catalyst automatically instruments every AI call. See at a glance what ran where, how much it cost, and what latency users are experiencing.
+                    Catalyst automatically instruments every AI call. See at a glance what ran where, how much
+                    it cost, and what latency users are experiencing.
                 </p>
             </div>
 
             {/* Layout Grid: Stats + Charts */}
             <div className="grid grid-cols-1 md:grid-cols-[348px_1fr] gap-6 items-start">
-                
                 {/* Left side: Stats */}
                 <div className="flex flex-col gap-4">
                     {/* Metrics Grid */}
                     <div className="grid grid-cols-2 gap-3.5 select-none">
                         <div className="bg-[#10131D] border border-white/5 rounded-xl p-4 shadow-md">
                             <div className="font-mono text-2xl font-bold text-white mb-0.5">12</div>
-                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">inferences</div>
+                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">
+                                inferences
+                            </div>
                         </div>
                         <div className="bg-[#10131D] border border-white/5 rounded-xl p-4 shadow-md">
                             <div className="font-mono text-2xl font-bold text-white mb-0.5">$0.0031</div>
-                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">session cost</div>
+                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">
+                                session cost
+                            </div>
                         </div>
                         <div className="bg-[#10131D] border border-white/5 rounded-xl p-4 shadow-md">
                             <div className="font-mono text-2xl font-bold text-teal-400 mb-0.5">3</div>
-                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">local</div>
+                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">
+                                local
+                            </div>
                         </div>
                         <div className="bg-[#10131D] border border-white/5 rounded-xl p-4 shadow-md">
                             <div className="font-mono text-2xl font-bold text-indigo-400 mb-0.5">9</div>
-                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">cloud</div>
+                            <div className="text-[10.5px] text-neutral-500 font-medium uppercase tracking-wider">
+                                cloud
+                            </div>
                         </div>
                     </div>
 
@@ -72,7 +78,10 @@ export default function Observable() {
                     {/* Chart columns container */}
                     <div className="flex items-end gap-3.5 h-[160px] pb-1 border-b border-white/5">
                         {ttftBars.map((b, idx) => (
-                            <div key={idx} className="flex-1 flex flex-col items-center gap-3 h-full justify-end group">
+                            <div
+                                key={idx}
+                                className="flex-1 flex flex-col items-center gap-3 h-full justify-end group"
+                            >
                                 {/* Bar column */}
                                 <div
                                     className={`w-full rounded-t-sm transition duration-300 origin-bottom hover:scale-x-105 ${b.color}`}
@@ -98,8 +107,7 @@ export default function Observable() {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
-    );
+    )
 }

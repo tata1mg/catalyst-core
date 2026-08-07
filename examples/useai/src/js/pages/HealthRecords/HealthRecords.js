@@ -1,52 +1,94 @@
-import React, { useState, useRef, useEffect } from "react";
-import ShimmerSkeleton from "../../components/ShimmerSkeleton";
+import React, { useState, useRef, useEffect } from "react"
+import ShimmerSkeleton from "../../components/ShimmerSkeleton"
 
 export default function HealthRecords() {
-    const [ch01State, setCh01State] = useState("complete");
-    const [dividerPct, setDividerPct] = useState(42);
-    const containerRef = useRef(null);
-    const dragBarRef = useRef(null);
+    const [ch01State, setCh01State] = useState("complete")
+    const [dividerPct, setDividerPct] = useState(42)
+    const containerRef = useRef(null)
+    const dragBarRef = useRef(null)
 
     const handleMouseDown = (e) => {
-        e.preventDefault();
+        e.preventDefault()
         const move = (ev) => {
-            if (!containerRef.current) return;
-            const rect = containerRef.current.getBoundingClientRect();
-            let pct = ((ev.clientX - rect.left) / rect.width) * 100;
-            pct = Math.max(18, Math.min(78, pct));
-            setDividerPct(pct);
-        };
+            if (!containerRef.current) return
+            const rect = containerRef.current.getBoundingClientRect()
+            let pct = ((ev.clientX - rect.left) / rect.width) * 100
+            pct = Math.max(18, Math.min(78, pct))
+            setDividerPct(pct)
+        }
         const up = () => {
-            window.removeEventListener("mousemove", move);
-            window.removeEventListener("mouseup", up);
-        };
-        window.addEventListener("mousemove", move);
-        window.addEventListener("mouseup", up);
-    };
+            window.removeEventListener("mousemove", move)
+            window.removeEventListener("mouseup", up)
+        }
+        window.addEventListener("mousemove", move)
+        window.addEventListener("mouseup", up)
+    }
 
-    const ch01States = ["loading", "streaming", "complete", "error"];
-    
+    const ch01States = ["loading", "streaming", "complete", "error"]
+
     const ch01Meta = {
         loading: { text: "connecting…", color: "text-neutral-500", dotBg: "bg-neutral-500" },
         streaming: { text: "streaming | delta", color: "text-indigo-400", dotBg: "bg-indigo-400" },
         complete: { text: "complete | 6 cards", color: "text-teal-400", dotBg: "bg-teal-400" },
         error: { text: "fallback engaged", color: "text-amber-400", dotBg: "bg-amber-400" },
-    }[ch01State];
+    }[ch01State]
 
     const labs = [
-        { name: "Vitamin D (25-OH)", value: "18", unit: "ng/mL", flag: "LOW", ref: "30–100", note: "Below sufficiency. Consider 2000 IU daily; recheck in 8 weeks." },
-        { name: "HbA1c", value: "5.9", unit: "%", flag: "HIGH", ref: "<5.7", note: "Prediabetic range. Lifestyle review recommended before next panel." },
-        { name: "LDL Cholesterol", value: "142", unit: "mg/dL", flag: "HIGH", ref: "<100", note: "Elevated cardiovascular marker. Pairs with the HbA1c trend." },
-        { name: "TSH", value: "2.1", unit: "mIU/L", flag: "NORMAL", ref: "0.4–4.0", note: "Thyroid function within range. No action needed." },
-        { name: "Hemoglobin", value: "13.8", unit: "g/dL", flag: "NORMAL", ref: "13–17", note: "Healthy oxygen-carrying capacity." },
-        { name: "Ferritin", value: "22", unit: "ng/mL", flag: "LOW", ref: "30–400", note: "Low iron stores despite normal hemoglobin. Monitor." },
-    ];
+        {
+            name: "Vitamin D (25-OH)",
+            value: "18",
+            unit: "ng/mL",
+            flag: "LOW",
+            ref: "30–100",
+            note: "Below sufficiency. Consider 2000 IU daily; recheck in 8 weeks.",
+        },
+        {
+            name: "HbA1c",
+            value: "5.9",
+            unit: "%",
+            flag: "HIGH",
+            ref: "<5.7",
+            note: "Prediabetic range. Lifestyle review recommended before next panel.",
+        },
+        {
+            name: "LDL Cholesterol",
+            value: "142",
+            unit: "mg/dL",
+            flag: "HIGH",
+            ref: "<100",
+            note: "Elevated cardiovascular marker. Pairs with the HbA1c trend.",
+        },
+        {
+            name: "TSH",
+            value: "2.1",
+            unit: "mIU/L",
+            flag: "NORMAL",
+            ref: "0.4–4.0",
+            note: "Thyroid function within range. No action needed.",
+        },
+        {
+            name: "Hemoglobin",
+            value: "13.8",
+            unit: "g/dL",
+            flag: "NORMAL",
+            ref: "13–17",
+            note: "Healthy oxygen-carrying capacity.",
+        },
+        {
+            name: "Ferritin",
+            value: "22",
+            unit: "ng/mL",
+            flag: "LOW",
+            ref: "30–400",
+            note: "Low iron stores despite normal hemoglobin. Monitor.",
+        },
+    ]
 
     const flagColors = {
         HIGH: "text-red-400 border-red-500/20 bg-red-500/10",
         LOW: "text-amber-400 border-amber-500/20 bg-amber-500/10",
         NORMAL: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10",
-    };
+    }
 
     const codeOld = `// actions.js
 export const fetchInsights =
@@ -73,7 +115,7 @@ function insights(state = init, a) {
   }
 }
 // + middleware + selectors
-// + 6 SSE managers + backoff`;
+// + 6 SSE managers + backoff`
 
     const codeNew = `function LabInsights({ records }) {
   const { data, status } = useAI({
@@ -90,7 +132,7 @@ function insights(state = init, a) {
       ))}
     </InsightGrid>
   )
-}`;
+}`
 
     return (
         <div className="max-w-[1240px] mx-auto px-10 py-12 animate-[fadeIn_0.4s_ease-out]">
@@ -104,14 +146,15 @@ function insights(state = init, a) {
                         Same UI. A fraction of the code.
                     </h1>
                     <p className="text-neutral-400 max-w-[60ch] leading-relaxed text-sm">
-                        Drag the divider. Both implementations render the exact same insight cards below — one is 60+ lines of Redux, streaming and polling; the other is the hook.
+                        Drag the divider. Both implementations render the exact same insight cards below — one
+                        is 60+ lines of Redux, streaming and polling; the other is the hook.
                     </p>
                 </div>
-                
+
                 {/* State selector buttons */}
                 <div className="flex gap-2 flex-wrap">
                     {ch01States.map((k) => {
-                        const active = ch01State === k;
+                        const active = ch01State === k
                         return (
                             <button
                                 key={k}
@@ -124,7 +167,7 @@ function insights(state = init, a) {
                             >
                                 {k}
                             </button>
-                        );
+                        )
                     })}
                 </div>
             </div>
@@ -201,7 +244,8 @@ function insights(state = init, a) {
                         </div>
                         <div className="text-xs text-neutral-400">
                             Network dropped mid-stream.{" "}
-                            <span className="text-teal-400 font-medium">fallback: 'on-device'</span> picked it up with no error surfaced to the user.
+                            <span className="text-teal-400 font-medium">fallback: 'on-device'</span> picked it
+                            up with no error surfaced to the user.
                         </div>
                     </div>
                     <span className="font-mono text-[10px] text-teal-400 border border-teal-500/20 bg-teal-500/10 px-2.5 py-1 rounded-md shrink-0 select-none">
@@ -213,13 +257,19 @@ function insights(state = init, a) {
             {/* Insight cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {labs.map((card, i) => {
-                    const showSkeleton = ch01State === "loading" || (ch01State === "streaming" && i >= 4) || (ch01State === "error" && i >= 5);
-                    const showText = ch01State === "complete" || (ch01State === "streaming" && i < 4) || (ch01State === "error" && i < 5);
-                    const showCaret = ch01State === "streaming" && i === 3;
-                    const isLocal = ch01State === "error" && i >= 4;
-                    const src = isLocal ? "on-device" : "cloud";
-                    const srcColor = isLocal ? "bg-teal-400" : "bg-indigo-400";
-                    const flagStyle = flagColors[card.flag];
+                    const showSkeleton =
+                        ch01State === "loading" ||
+                        (ch01State === "streaming" && i >= 4) ||
+                        (ch01State === "error" && i >= 5)
+                    const showText =
+                        ch01State === "complete" ||
+                        (ch01State === "streaming" && i < 4) ||
+                        (ch01State === "error" && i < 5)
+                    const showCaret = ch01State === "streaming" && i === 3
+                    const isLocal = ch01State === "error" && i >= 4
+                    const src = isLocal ? "on-device" : "cloud"
+                    const srcColor = isLocal ? "bg-teal-400" : "bg-indigo-400"
+                    const flagStyle = flagColors[card.flag]
 
                     return (
                         <div
@@ -231,21 +281,27 @@ function insights(state = init, a) {
                                 <span className="text-[13.5px] font-semibold text-white/90 tracking-tight">
                                     {card.name}
                                 </span>
-                                <span className={`font-mono text-[9px] font-semibold px-2 py-0.5 border rounded-md ${flagStyle}`}>
+                                <span
+                                    className={`font-mono text-[9px] font-semibold px-2 py-0.5 border rounded-md ${flagStyle}`}
+                                >
                                     {card.flag}
                                 </span>
                             </div>
 
                             {/* Card Value Row */}
                             <div className="flex items-baseline gap-1.5 mb-3.5">
-                                <span className={`text-[26px] font-semibold tracking-tight font-mono ${
-                                    card.flag === "HIGH" ? "text-red-400" : card.flag === "LOW" ? "text-amber-400" : "text-emerald-400"
-                                }`}>
+                                <span
+                                    className={`text-[26px] font-semibold tracking-tight font-mono ${
+                                        card.flag === "HIGH"
+                                            ? "text-red-400"
+                                            : card.flag === "LOW"
+                                              ? "text-amber-400"
+                                              : "text-emerald-400"
+                                    }`}
+                                >
                                     {showSkeleton ? "—" : card.value}
                                 </span>
-                                <span className="text-xs text-neutral-500 font-medium">
-                                    {card.unit}
-                                </span>
+                                <span className="text-xs text-neutral-500 font-medium">{card.unit}</span>
                             </div>
 
                             {/* Note / Skeleton Content */}
@@ -267,9 +323,9 @@ function insights(state = init, a) {
                                 {src} | ref {card.ref}
                             </div>
                         </div>
-                    );
+                    )
                 })}
             </div>
         </div>
-    );
+    )
 }

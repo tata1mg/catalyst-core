@@ -30,15 +30,17 @@ function isNativeAIAvailable() {
 // `window` is undefined), so only ever attempt the client-side `require` — a bare
 // `require()` reached during SSR would throw ReferenceError rather than a catchable
 // MODULE_NOT_FOUND, since this package is "type": "module".
-const _pkg = typeof window !== "undefined" && (typeof __CATALYST_PACKAGES__ === "undefined" || __CATALYST_PACKAGES__.ai)
-    ? (() => {
-        try {
-            return require(/* webpackIgnore: true */ "catalyst-ai")
-        } catch (_) {
-            return null
-        }
-    })()
-    : null
+const _pkg =
+    typeof window !== "undefined" &&
+    (typeof __CATALYST_PACKAGES__ === "undefined" || __CATALYST_PACKAGES__.ai)
+        ? (() => {
+              try {
+                  return require(/* webpackIgnore: true */ "catalyst-ai")
+              } catch (_) {
+                  return null
+              }
+          })()
+        : null
 
 // provider: "transformers" → useWebAI   (catalyst-ai)
 //           "native"       → useNativeAI (catalyst-ai, falls back to useCloudAI if bridge unavailable)
@@ -51,17 +53,12 @@ export function useAI(options = {}) {
 
     const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
     const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
-    const nativeResult = _pkg
-        ? _pkg.useNativeAI({ ...options, enabled: mode === "native" })
-        : emptyHook()
+    const nativeResult = _pkg ? _pkg.useNativeAI({ ...options, enabled: mode === "native" }) : emptyHook()
 
     if (typeof window === "undefined") return emptyHook()
 
     if (!_pkg) {
-        console.error(
-            "\n[catalyst-core] useAI requires catalyst-ai.\n" +
-            "Run: npm install catalyst-ai\n"
-        )
+        console.error("\n[catalyst-core] useAI requires catalyst-ai.\n" + "Run: npm install catalyst-ai\n")
         return emptyHook()
     }
 

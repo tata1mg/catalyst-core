@@ -1,1 +1,1 @@
-export * from '../panels';
+export * from "../panels"

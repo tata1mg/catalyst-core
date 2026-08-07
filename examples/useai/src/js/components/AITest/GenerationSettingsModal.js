@@ -1,12 +1,7 @@
-import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React from "react"
+import { motion, AnimatePresence } from "framer-motion"
 
-export default function GenerationSettingsModal({
-    isOpen,
-    onClose,
-    genConfig,
-    setGenConfig
-}) {
+export default function GenerationSettingsModal({ isOpen, onClose, genConfig, setGenConfig }) {
     const handleReset = () => {
         setGenConfig({
             temperature: 0.3,
@@ -14,8 +9,8 @@ export default function GenerationSettingsModal({
             topP: 0.95,
             repetitionPenalty: 1.3,
             noRepeatNgramSize: 3,
-        });
-    };
+        })
+    }
 
     return (
         <AnimatePresence>
@@ -49,8 +44,18 @@ export default function GenerationSettingsModal({
                                     onClick={onClose}
                                     className="p-1 rounded-full text-[var(--text-3)] hover:text-white transition cursor-pointer"
                                 >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    <svg
+                                        className="w-5 h-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
                                     </svg>
                                 </button>
                             </div>
@@ -61,7 +66,9 @@ export default function GenerationSettingsModal({
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center text-[12px] font-medium text-[var(--text-2)]">
                                         <span>Temperature</span>
-                                        <span className="font-mono text-indigo-400 font-semibold">{genConfig.temperature.toFixed(2)}</span>
+                                        <span className="font-mono text-indigo-400 font-semibold">
+                                            {genConfig.temperature.toFixed(2)}
+                                        </span>
                                     </div>
                                     <input
                                         type="range"
@@ -69,7 +76,12 @@ export default function GenerationSettingsModal({
                                         max="1.0"
                                         step="0.05"
                                         value={genConfig.temperature}
-                                        onChange={(e) => setGenConfig(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+                                        onChange={(e) =>
+                                            setGenConfig((prev) => ({
+                                                ...prev,
+                                                temperature: parseFloat(e.target.value),
+                                            }))
+                                        }
                                         className="w-full h-1 bg-[var(--surface-3)] rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                     />
                                     <div className="flex justify-between text-[9px] text-[var(--text-3)] font-mono">
@@ -82,7 +94,9 @@ export default function GenerationSettingsModal({
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center text-[12px] font-medium text-[var(--text-2)]">
                                         <span>Top P</span>
-                                        <span className="font-mono text-indigo-400 font-semibold">{genConfig.topP.toFixed(2)}</span>
+                                        <span className="font-mono text-indigo-400 font-semibold">
+                                            {genConfig.topP.toFixed(2)}
+                                        </span>
                                     </div>
                                     <input
                                         type="range"
@@ -90,7 +104,12 @@ export default function GenerationSettingsModal({
                                         max="1.0"
                                         step="0.05"
                                         value={genConfig.topP}
-                                        onChange={(e) => setGenConfig(prev => ({ ...prev, topP: parseFloat(e.target.value) }))}
+                                        onChange={(e) =>
+                                            setGenConfig((prev) => ({
+                                                ...prev,
+                                                topP: parseFloat(e.target.value),
+                                            }))
+                                        }
                                         className="w-full h-1 bg-[var(--surface-3)] rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                     />
                                     <div className="flex justify-between text-[9px] text-[var(--text-3)] font-mono">
@@ -103,7 +122,9 @@ export default function GenerationSettingsModal({
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center text-[12px] font-medium text-[var(--text-2)]">
                                         <span>Repetition Penalty</span>
-                                        <span className="font-mono text-indigo-400 font-semibold">{genConfig.repetitionPenalty.toFixed(2)}</span>
+                                        <span className="font-mono text-indigo-400 font-semibold">
+                                            {genConfig.repetitionPenalty.toFixed(2)}
+                                        </span>
                                     </div>
                                     <input
                                         type="range"
@@ -111,7 +132,12 @@ export default function GenerationSettingsModal({
                                         max="1.5"
                                         step="0.05"
                                         value={genConfig.repetitionPenalty}
-                                        onChange={(e) => setGenConfig(prev => ({ ...prev, repetitionPenalty: parseFloat(e.target.value) }))}
+                                        onChange={(e) =>
+                                            setGenConfig((prev) => ({
+                                                ...prev,
+                                                repetitionPenalty: parseFloat(e.target.value),
+                                            }))
+                                        }
                                         className="w-full h-1 bg-[var(--surface-3)] rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                     />
                                     <div className="flex justify-between text-[9px] text-[var(--text-3)] font-mono">
@@ -126,16 +152,19 @@ export default function GenerationSettingsModal({
                                         <label className="flex items-center gap-2 cursor-pointer select-none">
                                             <input
                                                 type="checkbox"
-                                                checked={genConfig.maxTokens !== undefined && genConfig.maxTokens !== null}
+                                                checked={
+                                                    genConfig.maxTokens !== undefined &&
+                                                    genConfig.maxTokens !== null
+                                                }
                                                 onChange={(e) => {
                                                     if (e.target.checked) {
-                                                        setGenConfig(prev => ({ ...prev, maxTokens: 512 }));
+                                                        setGenConfig((prev) => ({ ...prev, maxTokens: 512 }))
                                                     } else {
-                                                        setGenConfig(prev => {
-                                                            const newConfig = { ...prev };
-                                                            delete newConfig.maxTokens;
-                                                            return newConfig;
-                                                        });
+                                                        setGenConfig((prev) => {
+                                                            const newConfig = { ...prev }
+                                                            delete newConfig.maxTokens
+                                                            return newConfig
+                                                        })
                                                     }
                                                 }}
                                                 className="w-3.5 h-3.5 rounded border-[var(--border)] bg-[var(--surface-3)] text-indigo-500 focus:ring-indigo-500 cursor-pointer"
@@ -143,7 +172,9 @@ export default function GenerationSettingsModal({
                                             <span>Max Tokens</span>
                                         </label>
                                         <span className="font-mono text-indigo-400 font-semibold">
-                                            {genConfig.maxTokens !== undefined && genConfig.maxTokens !== null ? genConfig.maxTokens : "Unlimited"}
+                                            {genConfig.maxTokens !== undefined && genConfig.maxTokens !== null
+                                                ? genConfig.maxTokens
+                                                : "Unlimited"}
                                         </span>
                                     </div>
                                     <input
@@ -151,14 +182,20 @@ export default function GenerationSettingsModal({
                                         min="64"
                                         max="2048"
                                         step="64"
-                                        disabled={genConfig.maxTokens === undefined || genConfig.maxTokens === null}
-                                        value={genConfig.maxTokens !== undefined && genConfig.maxTokens !== null ? genConfig.maxTokens : ""}
+                                        disabled={
+                                            genConfig.maxTokens === undefined || genConfig.maxTokens === null
+                                        }
+                                        value={
+                                            genConfig.maxTokens !== undefined && genConfig.maxTokens !== null
+                                                ? genConfig.maxTokens
+                                                : ""
+                                        }
                                         onChange={(e) => {
-                                            const val = parseInt(e.target.value, 10);
+                                            const val = parseInt(e.target.value, 10)
                                             if (!isNaN(val)) {
-                                                setGenConfig(prev => ({ ...prev, maxTokens: val }));
+                                                setGenConfig((prev) => ({ ...prev, maxTokens: val }))
                                             } else {
-                                                setGenConfig(prev => ({ ...prev, maxTokens: null }));
+                                                setGenConfig((prev) => ({ ...prev, maxTokens: null }))
                                             }
                                         }}
                                         placeholder="Unlimited"
@@ -174,7 +211,9 @@ export default function GenerationSettingsModal({
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center text-[12px] font-medium text-[var(--text-2)]">
                                         <span>No-repeat N-gram</span>
-                                        <span className="font-mono text-indigo-400 font-semibold">{genConfig.noRepeatNgramSize}</span>
+                                        <span className="font-mono text-indigo-400 font-semibold">
+                                            {genConfig.noRepeatNgramSize}
+                                        </span>
                                     </div>
                                     <input
                                         type="number"
@@ -183,8 +222,9 @@ export default function GenerationSettingsModal({
                                         step="1"
                                         value={genConfig.noRepeatNgramSize}
                                         onChange={(e) => {
-                                            const val = parseInt(e.target.value, 10);
-                                            if (!isNaN(val)) setGenConfig(prev => ({ ...prev, noRepeatNgramSize: val }));
+                                            const val = parseInt(e.target.value, 10)
+                                            if (!isNaN(val))
+                                                setGenConfig((prev) => ({ ...prev, noRepeatNgramSize: val }))
                                         }}
                                         className="w-full bg-[var(--surface-3)] border border-[var(--border)] focus:border-indigo-500 focus:outline-none rounded-lg px-3 py-1.5 text-[13px] text-white font-mono"
                                     />
@@ -217,5 +257,5 @@ export default function GenerationSettingsModal({
                 </>
             )}
         </AnimatePresence>
-    );
+    )
 }

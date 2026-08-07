@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { LOCAL_MODELS } from "../../constants/ai";
+import React, { useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { LOCAL_MODELS } from "../../constants/ai"
 
 export default function InferenceSettingsBottomSheet({
     isOpen,
@@ -13,16 +13,16 @@ export default function InferenceSettingsBottomSheet({
     setUseNative,
     selectedLocalModel,
     setSelectedLocalModel,
-    isNativeAvailable
+    isNativeAvailable,
 }) {
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) return
         const handleKeyDown = (e) => {
-            if (e.key === "Escape") onClose();
-        };
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, onClose]);
+            if (e.key === "Escape") onClose()
+        }
+        document.addEventListener("keydown", handleKeyDown)
+        return () => document.removeEventListener("keydown", handleKeyDown)
+    }, [isOpen, onClose])
 
     return (
         <AnimatePresence>
@@ -48,7 +48,7 @@ export default function InferenceSettingsBottomSheet({
                         dragElastic={0.2}
                         onDragEnd={(e, info) => {
                             if (info.offset.y > 100) {
-                                onClose();
+                                onClose()
                             }
                         }}
                         className="fixed bottom-0 left-0 right-0 z-50 bg-[#16161a] border-t border-[var(--border)] rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col pointer-events-auto"
@@ -64,8 +64,18 @@ export default function InferenceSettingsBottomSheet({
                                     onClick={onClose}
                                     className="p-1 rounded-full text-[var(--text-3)] hover:text-white transition cursor-pointer"
                                 >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    <svg
+                                        className="w-5 h-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
                                     </svg>
                                 </button>
                             </div>
@@ -79,8 +89,12 @@ export default function InferenceSettingsBottomSheet({
                                     <div className="flex items-center gap-3">
                                         <span className="text-lg">☁️</span>
                                         <div>
-                                            <span className="block text-[13px] font-semibold text-white">Cloud Inference</span>
-                                            <span className="block text-[10px] text-indigo-400 font-mono">OpenAI · gpt-4o-mini</span>
+                                            <span className="block text-[13px] font-semibold text-white">
+                                                Cloud Inference
+                                            </span>
+                                            <span className="block text-[10px] text-indigo-400 font-mono">
+                                                OpenAI · gpt-4o-mini
+                                            </span>
                                         </div>
                                     </div>
                                     {/* Toggle Switch */}
@@ -102,8 +116,12 @@ export default function InferenceSettingsBottomSheet({
                                     <div className="flex items-center gap-3">
                                         <span className="text-lg">🧠</span>
                                         <div>
-                                            <span className="block text-[13px] font-semibold text-white">Local Inference</span>
-                                            <span className="block text-[10px] text-teal-400 font-mono">Transformers.js · in-browser</span>
+                                            <span className="block text-[13px] font-semibold text-white">
+                                                Local Inference
+                                            </span>
+                                            <span className="block text-[10px] text-teal-400 font-mono">
+                                                Transformers.js · in-browser
+                                            </span>
                                         </div>
                                     </div>
                                     {/* Toggle Switch */}
@@ -134,7 +152,7 @@ export default function InferenceSettingsBottomSheet({
                                                 Select Browser Model
                                             </span>
                                             {LOCAL_MODELS.map((model) => {
-                                                const isSelected = selectedLocalModel === model.id;
+                                                const isSelected = selectedLocalModel === model.id
                                                 return (
                                                     <button
                                                         key={model.id}
@@ -160,7 +178,7 @@ export default function InferenceSettingsBottomSheet({
                                                             {model.size}
                                                         </span>
                                                     </button>
-                                                );
+                                                )
                                             })}
                                         </motion.div>
                                     )}
@@ -174,13 +192,19 @@ export default function InferenceSettingsBottomSheet({
                                         <span className="text-lg">📱</span>
                                         <div>
                                             <span className="block text-[13px] font-semibold text-white">
-                                                {isNativeAvailable ? "Native Inference" : "Native (Android only)"}
+                                                {isNativeAvailable
+                                                    ? "Native Inference"
+                                                    : "Native (Android only)"}
                                             </span>
-                                            <span className="block text-[10px] text-purple-400 font-mono">Ktor SSE · localhost</span>
+                                            <span className="block text-[10px] text-purple-400 font-mono">
+                                                Ktor SSE · localhost
+                                            </span>
                                         </div>
                                     </div>
                                     {/* Toggle Switch */}
-                                    <label className={`relative inline-flex items-center cursor-pointer select-none ${!isNativeAvailable ? "opacity-40 cursor-not-allowed" : ""}`}>
+                                    <label
+                                        className={`relative inline-flex items-center cursor-pointer select-none ${!isNativeAvailable ? "opacity-40 cursor-not-allowed" : ""}`}
+                                    >
                                         <input
                                             type="checkbox"
                                             disabled={!isNativeAvailable}
@@ -197,5 +221,5 @@ export default function InferenceSettingsBottomSheet({
                 </>
             )}
         </AnimatePresence>
-    );
+    )
 }

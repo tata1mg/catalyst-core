@@ -1,30 +1,30 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "@tata1mg/router";
-import { PROMPTS, LOCAL_MODELS } from "../../constants/ai";
-import Panel from "../../components/AITest/Panel";
-import PresetsBottomSheet from "../../components/AITest/PresetsBottomSheet";
-import InferenceSettingsBottomSheet from "../../components/AITest/InferenceSettingsBottomSheet";
-import GenerationSettingsModal from "../../components/AITest/GenerationSettingsModal";
-import SystemPromptSheet from "../../components/AITest/SystemPromptSheet";
+import React, { useState, useEffect } from "react"
+import { Link } from "@tata1mg/router"
+import { PROMPTS, LOCAL_MODELS } from "../../constants/ai"
+import Panel from "../../components/AITest/Panel"
+import PresetsBottomSheet from "../../components/AITest/PresetsBottomSheet"
+import InferenceSettingsBottomSheet from "../../components/AITest/InferenceSettingsBottomSheet"
+import GenerationSettingsModal from "../../components/AITest/GenerationSettingsModal"
+import SystemPromptSheet from "../../components/AITest/SystemPromptSheet"
 
 export default function AITest() {
-    const [prompt, setPrompt] = useState(PROMPTS[0]);
-    const [isNativeAvailable, setIsNativeAvailable] = useState(false);
+    const [prompt, setPrompt] = useState(PROMPTS[0])
+    const [isNativeAvailable, setIsNativeAvailable] = useState(false)
     useEffect(() => {
-        setIsNativeAvailable(!!window.NativeBridge);
-    }, []);
-    const [useCloud, setUseCloud] = useState(true);
-    const [useLocal, setUseLocal] = useState(false);
-    const [useNative, setUseNative] = useState(false);
-    const [cloudRun, setCloudRun] = useState(0);
-    const [localRun, setLocalRun] = useState(0);
-    const [nativeRun, setNativeRun] = useState(0);
-    const [activePrompt, setActivePrompt] = useState(PROMPTS[0]);
+        setIsNativeAvailable(!!window.NativeBridge)
+    }, [])
+    const [useCloud, setUseCloud] = useState(true)
+    const [useLocal, setUseLocal] = useState(false)
+    const [useNative, setUseNative] = useState(false)
+    const [cloudRun, setCloudRun] = useState(0)
+    const [localRun, setLocalRun] = useState(0)
+    const [nativeRun, setNativeRun] = useState(0)
+    const [activePrompt, setActivePrompt] = useState(PROMPTS[0])
 
     // Redesigned local inference states
-    const [selectedLocalModel, setSelectedLocalModel] = useState("onnx-community/Qwen2.5-0.5B-Instruct");
-    const [isPresetsOpen, setIsPresetsOpen] = useState(false);
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [selectedLocalModel, setSelectedLocalModel] = useState("onnx-community/Qwen2.5-0.5B-Instruct")
+    const [isPresetsOpen, setIsPresetsOpen] = useState(false)
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
     // Generation settings states
     const [genConfig, setGenConfig] = useState({
@@ -33,32 +33,32 @@ export default function AITest() {
         topP: 0.95,
         repetitionPenalty: 1.3,
         noRepeatNgramSize: 3,
-    });
-    const [isGenSettingsOpen, setIsGenSettingsOpen] = useState(false);
+    })
+    const [isGenSettingsOpen, setIsGenSettingsOpen] = useState(false)
 
     const [systemPrompt, setSystemPrompt] = useState(
         "You are a helpful assistant. Structure your response clearly."
-    );
-    const [isSystemPromptOpen, setIsSystemPromptOpen] = useState(false);
+    )
+    const [isSystemPromptOpen, setIsSystemPromptOpen] = useState(false)
 
-    const [cloudSessionMode, setCloudSessionMode] = useState("stateless");
-    const [nativeSessionMode, setNativeSessionMode] = useState("stateless");
-    const [localSessionMode, setLocalSessionMode] = useState("stateless");
+    const [cloudSessionMode, setCloudSessionMode] = useState("stateless")
+    const [nativeSessionMode, setNativeSessionMode] = useState("stateless")
+    const [localSessionMode, setLocalSessionMode] = useState("stateless")
 
-    const noneSelected = !useCloud && !useLocal && !useNative;
+    const noneSelected = !useCloud && !useLocal && !useNative
 
     const handleRun = (e) => {
-        e.preventDefault();
-        if (!prompt.trim() || noneSelected) return;
-        setActivePrompt(prompt);
-        if (useCloud) setCloudRun((n) => n + 1);
-        if (useLocal) setLocalRun((n) => n + 1);
-        if (useNative) setNativeRun((n) => n + 1);
-    };
+        e.preventDefault()
+        if (!prompt.trim() || noneSelected) return
+        setActivePrompt(prompt)
+        if (useCloud) setCloudRun((n) => n + 1)
+        if (useLocal) setLocalRun((n) => n + 1)
+        if (useNative) setNativeRun((n) => n + 1)
+    }
 
-    const activePanelsCount = (useCloud ? 1 : 0) + (useLocal ? 1 : 0) + (useNative ? 1 : 0);
-    const showMultiple = activePanelsCount > 1;
-    const showCompare = activePanelsCount > 1;
+    const activePanelsCount = (useCloud ? 1 : 0) + (useLocal ? 1 : 0) + (useNative ? 1 : 0)
+    const showMultiple = activePanelsCount > 1
+    const showCompare = activePanelsCount > 1
 
     return (
         <div className="max-w-[1200px] mx-auto px-6 py-12 animate-[fadeIn_0.5s_ease-out]">
@@ -94,9 +94,9 @@ export default function AITest() {
                         <button
                             type="button"
                             onClick={() => {
-                                setUseCloud(true);
-                                setUseLocal(false);
-                                setUseNative(false);
+                                setUseCloud(true)
+                                setUseLocal(false)
+                                setUseNative(false)
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
                                 useCloud && !useLocal && !useNative
@@ -109,9 +109,9 @@ export default function AITest() {
                         <button
                             type="button"
                             onClick={() => {
-                                setUseCloud(false);
-                                setUseLocal(true);
-                                setUseNative(false);
+                                setUseCloud(false)
+                                setUseLocal(true)
+                                setUseNative(false)
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
                                 !useCloud && useLocal && !useNative
@@ -125,9 +125,9 @@ export default function AITest() {
                             type="button"
                             disabled={!isNativeAvailable}
                             onClick={() => {
-                                setUseCloud(false);
-                                setUseLocal(false);
-                                setUseNative(true);
+                                setUseCloud(false)
+                                setUseLocal(false)
+                                setUseNative(true)
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
                                 useNative && !useCloud && !useLocal
@@ -137,15 +137,15 @@ export default function AITest() {
                         >
                             📱 {isNativeAvailable ? "Native" : "Native (Android only)"}
                         </button>
-                        
+
                         <div className="w-px h-4 bg-[var(--border)] mx-2" />
-                        
+
                         <button
                             type="button"
                             onClick={() => {
-                                setUseCloud(true);
-                                setUseLocal(true);
-                                setUseNative(false);
+                                setUseCloud(true)
+                                setUseLocal(true)
+                                setUseNative(false)
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
                                 useCloud && useLocal && !useNative
@@ -168,14 +168,21 @@ export default function AITest() {
                             <span>Inference Settings</span>
                             <span className="text-[var(--text-3)]">|</span>
                             <span className="text-[11px] font-mono text-[var(--text-2)]">
-                                {useCloud && useLocal && useNative ? "Cloud + Local + Native" :
-                                 useCloud && useLocal ? "Cloud + Local" :
-                                 useCloud && useNative ? "Cloud + Native" :
-                                 useLocal && useNative ? "Local + Native" :
-                                 useCloud ? "Cloud Only" :
-                                 useLocal ? `Local (${LOCAL_MODELS.find(m => m.id === selectedLocalModel)?.label})` :
-                                 useNative ? "Native Only" :
-                                 "None Selected"}
+                                {useCloud && useLocal && useNative
+                                    ? "Cloud + Local + Native"
+                                    : useCloud && useLocal
+                                      ? "Cloud + Local"
+                                      : useCloud && useNative
+                                        ? "Cloud + Native"
+                                        : useLocal && useNative
+                                          ? "Local + Native"
+                                          : useCloud
+                                            ? "Cloud Only"
+                                            : useLocal
+                                              ? `Local (${LOCAL_MODELS.find((m) => m.id === selectedLocalModel)?.label})`
+                                              : useNative
+                                                ? "Native Only"
+                                                : "None Selected"}
                             </span>
                         </button>
 
@@ -188,7 +195,10 @@ export default function AITest() {
                             <span>Generation Settings</span>
                             <span className="text-[var(--text-3)]">|</span>
                             <span className="text-[11px] font-mono text-[var(--text-2)]">
-                                Temp: {genConfig.temperature.toFixed(1)} · Max: {genConfig.maxTokens !== undefined && genConfig.maxTokens !== null ? genConfig.maxTokens : "None"}
+                                Temp: {genConfig.temperature.toFixed(1)} · Max:{" "}
+                                {genConfig.maxTokens !== undefined && genConfig.maxTokens !== null
+                                    ? genConfig.maxTokens
+                                    : "None"}
                             </span>
                         </button>
 
@@ -208,7 +218,9 @@ export default function AITest() {
                         {useCloud && (
                             <button
                                 type="button"
-                                onClick={() => setCloudSessionMode(m => m === "stateless" ? "stateful" : "stateless")}
+                                onClick={() =>
+                                    setCloudSessionMode((m) => (m === "stateless" ? "stateful" : "stateless"))
+                                }
                                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[13px] font-semibold transition cursor-pointer select-none ${
                                     cloudSessionMode === "stateful"
                                         ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
@@ -224,7 +236,11 @@ export default function AITest() {
                         {useNative && (
                             <button
                                 type="button"
-                                onClick={() => setNativeSessionMode(m => m === "stateless" ? "stateful" : "stateless")}
+                                onClick={() =>
+                                    setNativeSessionMode((m) =>
+                                        m === "stateless" ? "stateful" : "stateless"
+                                    )
+                                }
                                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[13px] font-semibold transition cursor-pointer select-none ${
                                     nativeSessionMode === "stateful"
                                         ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
@@ -240,7 +256,9 @@ export default function AITest() {
                         {useLocal && (
                             <button
                                 type="button"
-                                onClick={() => setLocalSessionMode(m => m === "stateless" ? "stateful" : "stateless")}
+                                onClick={() =>
+                                    setLocalSessionMode((m) => (m === "stateless" ? "stateful" : "stateless"))
+                                }
                                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[13px] font-semibold transition cursor-pointer select-none ${
                                     localSessionMode === "stateful"
                                         ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
@@ -290,7 +308,9 @@ export default function AITest() {
                     </div>
 
                     {noneSelected && (
-                        <p className="mt-3 text-[12px] text-yellow-400/80">Select at least one provider to run.</p>
+                        <p className="mt-3 text-[12px] text-yellow-400/80">
+                            Select at least one provider to run.
+                        </p>
                     )}
                 </form>
             </div>
@@ -357,8 +377,8 @@ export default function AITest() {
                 isOpen={isPresetsOpen}
                 onClose={() => setIsPresetsOpen(false)}
                 onSelectPreset={(selectedPreset) => {
-                    setPrompt(selectedPreset);
-                    setIsPresetsOpen(false);
+                    setPrompt(selectedPreset)
+                    setIsPresetsOpen(false)
                 }}
             />
 
@@ -393,5 +413,5 @@ export default function AITest() {
                 onChange={setSystemPrompt}
             />
         </div>
-    );
+    )
 }

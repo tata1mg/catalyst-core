@@ -1,0 +1,80 @@
+{
+    "$schema": "../../node_modules/oxlint/configuration_schema.json",
+    "plugins": ["react"],
+    "categories": {
+        "correctness": "error"
+    },
+    "jsPlugins": ["eslint-plugin-security", "eslint-plugin-risxss", "eslint-plugin-react-compiler"],
+    "rules": {
+        "react/display-name": "off",
+        "react/exhaustive-deps": "error",
+        // parity with previous .eslintrc: rules-of-hooks was never enabled there.
+        // Recommended follow-up: enable it — the first run flagged real conditional
+        // hook calls in src/native/bridge/hooks/ (useCamera, useDataProtection, ...).
+        "react/rules-of-hooks": "off",
+        "no-prototype-builtins": "off",
+        // not part of eslint:recommended (previous baseline); oxlint's correctness
+        // category enables it and it fires on statement-position ternaries.
+        "no-unused-expressions": "off",
+        // eslint v8 default was caughtErrors: "none"; oxlint defaults to the v9
+        // behavior ("all"), which flags ~25 pre-existing unused catch params.
+        "no-unused-vars": ["error", { "caughtErrors": "none" }],
+        "security/detect-possible-timing-attacks": "error",
+        "security/detect-child-process": "error",
+        "security/detect-eval-with-expression": "error",
+        "security/detect-new-buffer": "error",
+        "security/detect-no-csrf-before-method-override": "error",
+        "risxss/catch-potential-xss-react": "error",
+        "react/jsx-no-target-blank": "off",
+        "react-compiler/react-compiler": "error"
+    },
+    "env": {
+        "browser": true,
+        "es6": true,
+        "jest": true,
+        "node": true
+    },
+    "globals": {
+        "expect": "writable",
+        "__non_webpack_require__": "writable",
+        "logger": "readonly",
+        "AppCallbacks": "readonly"
+    },
+    "settings": {
+        "react": {
+            "linkComponents": [
+                "Hyperlink",
+                {
+                    "name": "Link",
+                    "linkAttribute": "to"
+                }
+            ]
+        }
+    },
+    "ignorePatterns": [
+        "dist",
+        "loadable-stats.json",
+        "logs",
+        "build",
+        ".env",
+        ".claude/",
+        ".vscode",
+        "context.md",
+        "n8n*",
+        "openai_response.json",
+        "simple_response.json",
+        "*.sh",
+        "*.hprof",
+        "*.xcshareddata",
+        "*.apk",
+        "*.ap_",
+        "*.dex",
+        "*.class",
+        "*.aab",
+        "src/native/iosnativeWebView/**/build/",
+        "src/native/iosnativeWebView/**/tmp/",
+        "src/native/iosnativeWebView/**/DerivedData",
+        "src/native/iosnativeWebView/**/.build/",
+        "**/androidProject/**"
+    ]
+}

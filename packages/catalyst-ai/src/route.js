@@ -40,7 +40,8 @@ function validateRequestBody(req, cfg) {
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
-    if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
+    if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel))
+        return "model contains invalid characters"
     return null
 }
 
@@ -134,7 +135,8 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
             body: JSON.stringify(body),
             signal,
         })
-        if (!response.ok) throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
+        if (!response.ok)
+            throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -151,7 +153,11 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
                 const trimmed = line.trim()
                 if (!trimmed || !trimmed.startsWith("data:")) continue
                 const payload = trimmed.slice(5).trim()
-                if (payload === "[DONE]") { res.write("data: [DONE]\n\n"); res.end(); return }
+                if (payload === "[DONE]") {
+                    res.write("data: [DONE]\n\n")
+                    res.end()
+                    return
+                }
                 try {
                     const parsed = JSON.parse(payload)
                     if (!sentConversationId && parsed.type === "response.created" && parsed.response?.id) {
@@ -203,7 +209,11 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
                 const trimmed = line.trim()
                 if (!trimmed || !trimmed.startsWith("data:")) continue
                 const payload = trimmed.slice(5).trim()
-                if (payload === "[DONE]") { res.write("data: [DONE]\n\n"); res.end(); return }
+                if (payload === "[DONE]") {
+                    res.write("data: [DONE]\n\n")
+                    res.end()
+                    return
+                }
                 try {
                     const parsed = JSON.parse(payload)
                     const token = parsed.choices?.[0]?.delta?.content
@@ -238,10 +248,17 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
         })
-        if (!response.ok) throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
+        if (!response.ok)
+            throw new Error(`OpenAI Responses API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
-        const output = data.output?.find((o) => o.type === "message")?.content?.find((c) => c.type === "output_text")?.text ?? ""
-        return { output, conversationId: data.id ?? null, usage: normalizeOpenAIResponsesUsage(data.usage, model) }
+        const output =
+            data.output?.find((o) => o.type === "message")?.content?.find((c) => c.type === "output_text")
+                ?.text ?? ""
+        return {
+            output,
+            conversationId: data.id ?? null,
+            usage: normalizeOpenAIResponsesUsage(data.usage, model),
+        }
     } else {
         const endpoint = "https://api.openai.com/v1/chat/completions"
         const body = {
@@ -259,7 +276,11 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
         })
         if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
-        return { output: data.choices?.[0]?.message?.content ?? "", conversationId: null, usage: normalizeOpenAIChatUsage(data.usage, model) }
+        return {
+            output: data.choices?.[0]?.message?.content ?? "",
+            conversationId: null,
+            usage: normalizeOpenAIChatUsage(data.usage, model),
+        }
     }
 }
 
@@ -309,7 +330,8 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
             body: JSON.stringify(body),
             signal,
         })
-        if (!response.ok) throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
+        if (!response.ok)
+            throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -325,10 +347,18 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
                 const trimmed = line.trim()
                 if (!trimmed || !trimmed.startsWith("data:")) continue
                 const payload = trimmed.slice(5).trim()
-                if (payload === "[DONE]") { res.write("data: [DONE]\n\n"); res.end(); return }
+                if (payload === "[DONE]") {
+                    res.write("data: [DONE]\n\n")
+                    res.end()
+                    return
+                }
                 try {
                     const parsed = JSON.parse(payload)
-                    if (parsed.event_type === "step.delta" && parsed.delta?.type === "text" && parsed.delta.text) {
+                    if (
+                        parsed.event_type === "step.delta" &&
+                        parsed.delta?.type === "text" &&
+                        parsed.delta.text
+                    ) {
                         res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
                     }
                     if (parsed.event_type === "interaction.completed" && parsed.interaction?.id) {
@@ -377,7 +407,11 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
                 const trimmed = line.trim()
                 if (!trimmed || !trimmed.startsWith("data:")) continue
                 const payload = trimmed.slice(5).trim()
-                if (payload === "[DONE]") { res.write("data: [DONE]\n\n"); res.end(); return }
+                if (payload === "[DONE]") {
+                    res.write("data: [DONE]\n\n")
+                    res.end()
+                    return
+                }
                 try {
                     const parsed = JSON.parse(payload)
                     const token = parsed.candidates?.[0]?.content?.parts?.[0]?.text
@@ -418,10 +452,15 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
         })
-        if (!response.ok) throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
+        if (!response.ok)
+            throw new Error(`Gemini Interactions API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
         const text = data.steps?.find((s) => s.type === "model_output")?.content?.[0]?.text ?? ""
-        return { output: text, conversationId: data.id ?? null, usage: normalizeGeminiInteractionUsage(data.usage, model) }
+        return {
+            output: text,
+            conversationId: data.id ?? null,
+            usage: normalizeGeminiInteractionUsage(data.usage, model),
+        }
     } else {
         // stateless non-streaming: generateContent
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE by validateRequestBody() before either route handler reaches here, so it can't contain "/", "?", ".." or other URL-structural characters. The host is a fixed literal.
@@ -443,7 +482,11 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         })
         if (!response.ok) throw new Error(`Gemini API error (${response.status}): ${await response.text()}`)
         const data = await response.json()
-        return { output: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "", conversationId: null, usage: normalizeGeminiUsage(data.usageMetadata, model) }
+        return {
+            output: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "",
+            conversationId: null,
+            usage: normalizeGeminiUsage(data.usageMetadata, model),
+        }
     }
 }
 
@@ -458,7 +501,10 @@ const PROVIDERS = {
 
 // GET /ai/providers — returns list of configured provider ids, no keys exposed
 router.get("/providers", (req, res) => {
-    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
+    if (!isAIEnabled()) {
+        res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." })
+        return
+    }
     const providers = Object.entries(getAIConfig()?.providers ?? {})
         .filter(([, cfg]) => cfg?.apiKey)
         .map(([id, cfg]) => ({ id, defaultModel: cfg.defaultModel ?? null }))
@@ -466,16 +512,28 @@ router.get("/providers", (req, res) => {
 })
 
 router.post("/:provider/stream", async (req, res) => {
-    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
+    if (!isAIEnabled()) {
+        res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." })
+        return
+    }
     const { provider } = req.params
     const adapter = PROVIDERS[provider]
-    if (!adapter) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
+    if (!adapter) {
+        res.status(404).json({ error: `Unknown provider: ${provider}` })
+        return
+    }
 
     const cfg = getProviderConfig(provider)
-    if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
+    if (!cfg) {
+        res.status(404).json({ error: `Provider "${provider}" not configured` })
+        return
+    }
 
     const validationError = validateRequestBody(req, cfg)
-    if (validationError) { res.status(400).json({ error: validationError }); return }
+    if (validationError) {
+        res.status(400).json({ error: validationError })
+        return
+    }
 
     const { messages, genConfig = {}, conversationId, model } = req.body
     const stateful = "conversationId" in req.body
@@ -514,16 +572,28 @@ router.post("/:provider/stream", async (req, res) => {
 })
 
 router.post("/:provider/generate", async (req, res) => {
-    if (!isAIEnabled()) { res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." }); return }
+    if (!isAIEnabled()) {
+        res.status(403).json({ error: "AI is disabled. Set AI_CONFIG.enabled=true to enable." })
+        return
+    }
     const { provider } = req.params
     const adapter = PROVIDERS[provider]
-    if (!adapter) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
+    if (!adapter) {
+        res.status(404).json({ error: `Unknown provider: ${provider}` })
+        return
+    }
 
     const cfg = getProviderConfig(provider)
-    if (!cfg) { res.status(404).json({ error: `Provider "${provider}" not configured` }); return }
+    if (!cfg) {
+        res.status(404).json({ error: `Provider "${provider}" not configured` })
+        return
+    }
 
     const validationError = validateRequestBody(req, cfg)
-    if (validationError) { res.status(400).json({ error: validationError }); return }
+    if (validationError) {
+        res.status(400).json({ error: validationError })
+        return
+    }
 
     const { messages, genConfig = {}, conversationId, model } = req.body
     const stateful = "conversationId" in req.body
@@ -531,7 +601,14 @@ router.post("/:provider/generate", async (req, res) => {
 
     try {
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.generate dispatches to openaiGenerate/geminiGenerate, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
-        const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
+        const result = await adapter.generate({
+            apiKey: cfg.apiKey,
+            model: resolvedModel,
+            messages,
+            genConfig,
+            conversationId,
+            stateful,
+        })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
         console.error("[catalyst-ai] %s generate error:", provider, err.message)

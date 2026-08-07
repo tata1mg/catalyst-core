@@ -2,7 +2,7 @@ const path = require("path")
 
 const quote = (file) => JSON.stringify(file)
 
-const eslintAllowed = [
+const oxlintAllowed = [
     "packages/catalyst-core/bin/",
     "packages/catalyst-core/mcp_v2/",
     "packages/catalyst-core/src/native/",
@@ -13,7 +13,7 @@ const eslintAllowed = [
     "apps/catalyst-core-test/tests/",
 ]
 
-const eslintAllowedFiles = new Set([
+const oxlintAllowedFiles = new Set([
     "packages/catalyst-core/src/otel.js",
     "packages/catalyst-core/src/sentry.js",
     "apps/catalyst-core-test/api.js",
@@ -21,15 +21,16 @@ const eslintAllowedFiles = new Set([
     "apps/catalyst-core-test/playwright.config.js",
 ])
 
+// lint-staged passes absolute paths; the allowlists above are repo-relative.
 function normalize(file) {
-    return file.split(path.sep).join("/")
+    return path.relative(__dirname, file).split(path.sep).join("/")
 }
 
-function toPrettierCommand(files) {
-    return files.length ? `npx prettier --write ${files.map(quote).join(" ")}` : null
+function toOxfmtCommand(files) {
+    return files.length ? `npx oxfmt ${files.map(quote).join(" ")}` : null
 }
 
-const docsPrettierIgnoredPrefixes = [
+const docsFormatIgnoredPrefixes = [
     "docs/.docusaurus/",
     "docs/api/",
     "docs/build/",
@@ -41,62 +42,41 @@ const docsPrettierIgnoredPrefixes = [
     "docs/static/",
 ]
 
-function isDocsPrettierIgnored(file) {
-    return docsPrettierIgnoredPrefixes.some((prefix) => file.startsWith(prefix))
+function isDocsFormatIgnored(file) {
+    return docsFormatIgnoredPrefixes.some((prefix) => file.startsWith(prefix))
 }
 
-function toPrettierCommandWithoutIgnoredDocs(files) {
-    return toPrettierCommand(files.map(normalize).filter((file) => !isDocsPrettierIgnored(file)))
+function toOxfmtCommandWithoutIgnoredDocs(files) {
+    return toOxfmtCommand(files.map(normalize).filter((file) => !isDocsFormatIgnored(file)))
+}
+
+function toLintAndFormatCommands(files) {
+    const normalizedFiles = files.map(normalize)
+    const oxlintFiles = normalizedFiles.filter(
+        (file) => oxlintAllowedFiles.has(file) || oxlintAllowed.some((prefix) => file.startsWith(prefix))
+    )
+
+    const commands = []
+
+    if (oxlintFiles.length) {
+        commands.push(`npx oxlint ${oxlintFiles.map(quote).join(" ")}`)
+    }
+
+    const formatCommand = toOxfmtCommand(normalizedFiles)
+
+    if (formatCommand) {
+        commands.push(formatCommand)
+    }
+
+    return commands
 }
 
 module.exports = {
-    "packages/catalyst-core/**/*.{js,jsx}": (files) => {
-        const normalizedFiles = files.map(normalize)
-        const eslintFiles = normalizedFiles.filter(
-            (file) => eslintAllowedFiles.has(file) || eslintAllowed.some((prefix) => file.startsWith(prefix))
-        )
-
-        const commands = []
-
-        if (eslintFiles.length) {
-            commands.push(
-                `npm exec --workspace packages/catalyst-core -- eslint ${eslintFiles.map(quote).join(" ")}`
-            )
-        }
-
-        const prettierCommand = toPrettierCommand(normalizedFiles)
-
-        if (prettierCommand) {
-            commands.push(prettierCommand)
-        }
-
-        return commands
-    },
+    "packages/catalyst-core/**/*.{js,jsx}": toLintAndFormatCommands,
     "packages/create-catalyst-app/**/*.{js,jsx,cjs,mjs}": (files) =>
-        toPrettierCommand(files.map(normalize)) || [],
-    "apps/catalyst-core-test/**/*.{js,jsx,cjs,mjs}": (files) => {
-        const normalizedFiles = files.map(normalize)
-        const eslintFiles = normalizedFiles.filter(
-            (file) => eslintAllowedFiles.has(file) || eslintAllowed.some((prefix) => file.startsWith(prefix))
-        )
-
-        const commands = []
-
-        if (eslintFiles.length) {
-            commands.push(
-                `npm exec --workspace packages/catalyst-core -- eslint ${eslintFiles.map(quote).join(" ")}`
-            )
-        }
-
-        const prettierCommand = toPrettierCommand(normalizedFiles)
-
-        if (prettierCommand) {
-            commands.push(prettierCommand)
-        }
-
-        return commands
-    },
-    "docs/**/*.{js,jsx,cjs,mjs,css,html}": (files) => toPrettierCommandWithoutIgnoredDocs(files) || [],
-    "scripts/**/*.{js,cjs,mjs}": (files) => toPrettierCommand(files.map(normalize)) || [],
-    "*.{json,md,yml,yaml}": (files) => toPrettierCommandWithoutIgnoredDocs(files) || [],
+        toOxfmtCommand(files.map(normalize)) || [],
+    "apps/catalyst-core-test/**/*.{js,jsx,cjs,mjs}": toLintAndFormatCommands,
+    "docs/**/*.{js,jsx,cjs,mjs,css,html}": (files) => toOxfmtCommandWithoutIgnoredDocs(files) || [],
+    "scripts/**/*.{js,cjs,mjs}": (files) => toOxfmtCommand(files.map(normalize)) || [],
+    "*.{json,md,yml,yaml}": (files) => toOxfmtCommandWithoutIgnoredDocs(files) || [],
 }

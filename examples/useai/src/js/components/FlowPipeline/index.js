@@ -1,24 +1,23 @@
-import React from "react";
+import React from "react"
 
 export default function FlowPipeline({ active = true, className = "" }) {
     return (
         <div className={`relative h-16 my-2 w-full ${className}`}>
-            <style dangerouslySetInnerHTML={{__html: `
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
                 @keyframes flowDash {
                     to {
                         stroke-dashoffset: -240;
                     }
                 }
-            `}} />
+            `,
+                }}
+            />
             <svg viewBox="0 0 1000 64" preserveAspectRatio="none" className="w-full h-full block">
                 {/* Background base path */}
-                <path
-                    d="M120 32 H 880"
-                    stroke="rgba(255,255,255,0.08)"
-                    strokeWidth="1.5"
-                    fill="none"
-                />
-                
+                <path d="M120 32 H 880" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" fill="none" />
+
                 {/* Animated data flow stream */}
                 {active && (
                     <path
@@ -29,7 +28,7 @@ export default function FlowPipeline({ active = true, className = "" }) {
                         strokeDasharray="6 14"
                         style={{
                             animation: "flowDash 1.4s linear infinite",
-                            opacity: 0.85
+                            opacity: 0.85,
                         }}
                     />
                 )}
@@ -41,5 +40,5 @@ export default function FlowPipeline({ active = true, className = "" }) {
                 <circle cx="820" cy="32" r="3" fill="#2DD4BF" />
             </svg>
         </div>
-    );
+    )
 }

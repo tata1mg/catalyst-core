@@ -3,30 +3,30 @@ import { Navigate } from "react-router-dom"
 import Home from "@containers/Home/Home"
 import Profile from "@containers/Profile/Profile"
 import {
-  VideoStreamPanel,
-  CameraPanel,
-  FilePickerPanel,
-  HapticPanel,
-  CameraPermissionPanel,
-  NetworkPanel,
-  DataProtectionPanel,
-  SafeAreaPanel,
-  DeviceInfoPanel,
-  NotificationPanel,
-  GoogleSignInPanel,
-  IntentPanel
+    VideoStreamPanel,
+    CameraPanel,
+    FilePickerPanel,
+    HapticPanel,
+    CameraPermissionPanel,
+    NetworkPanel,
+    DataProtectionPanel,
+    SafeAreaPanel,
+    DeviceInfoPanel,
+    NotificationPanel,
+    GoogleSignInPanel,
+    IntentPanel,
 } from "@containers/Home/panels"
 
 function ClientNavigate({ to, replace }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
-  if (!mounted) {
-    return null;
-  }
-  return <Navigate to={to} replace={replace} />;
+    if (!mounted) {
+        return null
+    }
+    return <Navigate to={to} replace={replace} />
 }
 
 const routes = [
@@ -47,7 +47,7 @@ const routes = [
             { path: "notify", component: NotificationPanel },
             { path: "google", component: GoogleSignInPanel },
             { path: "intent", component: IntentPanel },
-        ]
+        ],
     },
     {
         path: "/profile",

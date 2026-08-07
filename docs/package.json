@@ -28,7 +28,7 @@
         "clean-public-api-docs:version": "set DOC_TYPE=public&& docusaurus clean-api-docs:version",
         "clean-private-api-docs:version": "set DOC_TYPE=private&& docusaurus clean-api-docs:version",
         "public-swizzle-list": "npm run swizzle -- --list --config=publicDocs.config.js",
-        "format": "prettier . --write",
+        "format": "oxfmt",
         "dev:style": "node scripts/generateThemeCss.js"
     },
     "browserslist": {
@@ -62,7 +62,7 @@
         "node": ">=16.14"
     },
     "devDependencies": {
-        "prettier": "3.2.5"
+        "oxfmt": "0.62.0"
     },
     "overrides": {
         "serialize-javascript": "^7.0.3",
