@@ -1,6 +1,0 @@
-node_modules
-build
-logs
-
-# Machine-specific — copy config/config.template.json and set your LAN IP
-config/config.json
