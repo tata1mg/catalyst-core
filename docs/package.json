@@ -62,7 +62,7 @@
         "node": ">=16.14"
     },
     "devDependencies": {
-        "oxfmt": "^0.62.0"
+        "oxfmt": "0.62.0"
     },
     "overrides": {
         "serialize-javascript": "^7.0.3",
