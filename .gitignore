@@ -10,8 +10,8 @@ examples/*/package-lock.json
 
 # Docs app local config and generated output
 docs/config.json
+docs/config/config.json
 docs/server/config.json
-docs/login-page/src/config.json
 docs/static/js/config.js
 docs/build/
 docs/.docusaurus/
@@ -20,7 +20,6 @@ docs/docs/
 docs/api/
 docs/temp/
 docs/server/collection-files/
-docs/login-page/build/
 docs/.claude/
 docs/hyperframes/
 .sandbox/
@@ -156,4 +155,3 @@ simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
 *.xcshareddata
 **/node_modules
-/docs
