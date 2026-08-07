@@ -2,6 +2,8 @@ import React from "react"
 import { useLocation } from "catalyst-core"
 import { useNativeTransition } from "catalyst-core/hooks"
 
+import { DOCS_URL } from "../../constants/docs"
+
 /**
  * Shell-only bottom tab bar — the Companion's persistent navigation. Rendered
  * on every shell screen (HubLayout + the top-level /app route). Switching tabs
@@ -49,7 +51,8 @@ const TABS = [
     },
     {
         id: "docs",
-        to: "/content/Introduction/why-catalyst",
+        to: DOCS_URL,
+        external: true,
         label: "Docs",
         icon: (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -70,7 +73,7 @@ const activeIdFor = (pathname) => {
     if (pathname.startsWith("/showcase")) {
         return "showcase"
     }
-    if (pathname.startsWith("/content") || pathname === "/") {
+    if (pathname === "/") {
         return "docs"
     }
     return null
@@ -85,6 +88,14 @@ const BottomNav = () => {
 
     const onTab = (tab, toIndex) => {
         if (tab.id === activeId) {
+            return
+        }
+        // Docs live on a separate deployment, so this is a real page load rather
+        // than a client-side route change. Assigning location keeps it in the
+        // same WebView, which leaves the native back gesture working and lets
+        // the offline cache store the docs origin.
+        if (tab.external) {
+            window.location.assign(tab.to)
             return
         }
         // Direction mirrors the tab order so the slide matches the visual

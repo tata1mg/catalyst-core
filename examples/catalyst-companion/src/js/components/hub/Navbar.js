@@ -3,12 +3,14 @@ import { Link } from "catalyst-core"
 import { useTheme } from "../docs/ThemeContext"
 import SearchModal from "./SearchModal"
 
+import { DOCS_URL, docsPageUrl } from "../../constants/docs"
+
 /**
  * Hub navbar — ported from the docs site's navbar config, plus the two new
  * Hub items (Showcase, Try Your Own App).
  */
 const COMMUNITY_ITEMS = [
-    { label: "Conferences", to: "/content/conferences" },
+    { label: "Conferences", href: docsPageUrl("conferences"), external: false },
     { label: "Discord", href: "https://discord.gg/GTzYzP8X6s" },
     { label: "X (formerly Twitter)", href: "https://x.com/Catalyst448356" },
     { label: "GitHub Community", href: "https://github.com/tata1mg/catalyst-core/discussions" },
@@ -139,9 +141,9 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
             </button>
 
             <div className={`hub-navbar-items ${menuOpen ? "open" : ""}`}>
-                <Link to="/content/Introduction/why-catalyst" onClick={closeMenu}>
+                <a href={DOCS_URL} onClick={closeMenu}>
                     Documentation
-                </Link>
+                </a>
                 <a href="/#features" onClick={closeMenu}>
                     Features
                 </a>
@@ -159,16 +161,22 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
                                     {item.label}
                                 </Link>
                             ) : (
-                                <a key={item.label} href={item.href} target="_blank" rel="noreferrer">
+                                // Docs stay in this WebView; third-party links open away from it.
+                                <a
+                                    key={item.label}
+                                    href={item.href}
+                                    onClick={closeMenu}
+                                    {...(item.external === false ? {} : { target: "_blank", rel: "noreferrer" })}
+                                >
                                     {item.label}
                                 </a>
                             )
                         )}
                     </div>
                 </div>
-                <Link to="/content/contribution" onClick={closeMenu}>
+                <a href={docsPageUrl("contribution")} onClick={closeMenu}>
                     Contribute
-                </Link>
+                </a>
             </div>
 
             <div className="hub-navbar-right">

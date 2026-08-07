@@ -1,11 +1,12 @@
 import React from "react"
-import { Link } from "catalyst-core"
 import { useNativeTransition } from "catalyst-core/hooks"
 import { ThemeProvider } from "../../components/docs/ThemeContext"
 import DocumentBootstrap from "../../components/hub/DocumentBootstrap"
 import BottomNav from "../../components/hub/BottomNav"
 import ScrollReset from "../../components/hub/ScrollReset"
 import OnboardingVideo from "../../components/hub/OnboardingVideo"
+
+import { DOCS_URL } from "../../constants/docs"
 
 const IconScan = () => (
     <svg
@@ -125,15 +126,9 @@ const AppHome = () => {
                         </span>
                     </button>
 
-                    <button
-                        type="button"
-                        className="app-home-secondary"
-                        onClick={() =>
-                            navigate("/content/Introduction/why-catalyst", { direction: "right" })
-                        }
-                    >
+                    <a className="app-home-secondary" href={DOCS_URL}>
                         Browse Documentation →
-                    </button>
+                    </a>
                 </main>
 
                 {/* On the web: a short pitch, no dead store buttons until published. */}
@@ -145,9 +140,9 @@ const AppHome = () => {
                         config your server provides.
                     </p>
                     <p className="app-home-muted">Coming soon to the App Store and Google Play.</p>
-                    <Link to="/content/Introduction/why-catalyst" className="app-home-secondary">
+                    <a href={DOCS_URL} className="app-home-secondary">
                         Browse Documentation →
-                    </Link>
+                    </a>
                 </main>
 
                 <BottomNav />

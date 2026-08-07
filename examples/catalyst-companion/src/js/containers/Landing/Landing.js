@@ -1,7 +1,8 @@
 import React from "react"
-import { Link } from "catalyst-core"
 import CopyButton from "../../components/hub/CopyButton"
 import styles from "./Landing.scss"
+
+import { docsPageUrl } from "../../constants/docs"
 
 /**
  * 1:1 port of the docs site homepage (docs/src/pages/index.js) — same JSX
@@ -138,12 +139,12 @@ function HomepageHero() {
                         codebase.
                     </p>
                     <div className={styles.heroCta}>
-                        <Link
+                        <a
                             className={`button button--primary button--lg ${styles.ctaPrimary}`}
-                            to="/content/Introduction/getting-started"
+                            href={docsPageUrl("Introduction/getting-started")}
                         >
                             Get Started
-                        </Link>
+                        </a>
                         <a
                             className={`button button--secondary button--lg ${styles.ctaSecondary}`}
                             href="https://github.com/tata1mg/catalyst-core"
@@ -276,9 +277,9 @@ function HomepageFooter() {
                     <div className={styles.footerLinks}>
                         <div className={styles.footerLinkColumn}>
                             <h4>Docs</h4>
-                            <Link to="/content/Introduction/getting-started">Getting Started</Link>
-                            <Link to="/content/data-fetching">Data Fetching</Link>
-                            <Link to="/content/Introduction/universal-app">Universal App</Link>
+                            <a href={docsPageUrl("Introduction/getting-started")}>Getting Started</a>
+                            <a href={docsPageUrl("data-fetching")}>Data Fetching</a>
+                            <a href={docsPageUrl("Introduction/universal-app")}>Universal App</a>
                         </div>
                         <div className={styles.footerLinkColumn}>
                             <h4>Community</h4>
