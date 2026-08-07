@@ -1,0 +1,20 @@
+{
+  "trailingComma": "es5",
+  "tabWidth": 4,
+  "semi": false,
+  "singleQuote": true,
+  "printWidth": 80,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    ".docusaurus/",
+    "/node_modules",
+    "build/",
+    "api/",
+    "content/",
+    "docs/",
+    "login-page/build/",
+    "login-page/public/",
+    "public-docs/",
+    "static/"
+  ]
+}

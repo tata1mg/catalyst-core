@@ -9,7 +9,7 @@
         "directory": "packages/create-catalyst-app"
     },
     "scripts": {
-        "prettify": "prettier . --write"
+        "prettify": "oxfmt"
     },
     "dependencies": {
         "commander": "^8.2.0",
@@ -20,9 +20,6 @@
         "prompts": "^2.4.0",
         "tar": "^7.5.22",
         "validate-npm-package-name": "^5.0.0"
-    },
-    "devDependencies": {
-        "prettier": "^3.2.5"
     },
     "license": "MIT"
 }

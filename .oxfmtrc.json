@@ -1,0 +1,24 @@
+{
+    "$schema": "./node_modules/oxfmt/configuration_schema.json",
+    "trailingComma": "es5",
+    "tabWidth": 4,
+    "semi": false,
+    "arrowParens": "always",
+    "printWidth": 110,
+    "sortPackageJson": false,
+    "ignorePatterns": [
+        "**/node_modules/",
+        "**/build/**",
+        "**/.build/**",
+        "packages/catalyst-core/dist/",
+        "docs/.docusaurus/",
+        "docs/api/",
+        "docs/build/",
+        "docs/content/",
+        "docs/docs/",
+        "docs/login-page/build/",
+        "docs/login-page/public/",
+        "docs/public-docs/",
+        "docs/static/"
+    ]
+}
