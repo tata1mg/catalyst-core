@@ -2,9 +2,9 @@
 // Duplicated here (rather than imported) because this file ships to the
 // browser bundle and pricing.js is a Node/CJS-only module used by route.js.
 const PRICING = {
-    "gpt-4o-mini": { input: 0.15, cachedInput: 0.075, output: 0.60 },
-    "gpt-5": { input: 1.25, cachedInput: 0.125, output: 10.00 },
-    "gemini-3.5-flash": { input: 1.50, cachedInput: 0.15, output: 9.00 },
+    "gpt-4o-mini": { input: 0.15, cachedInput: 0.075, output: 0.6 },
+    "gpt-5": { input: 1.25, cachedInput: 0.125, output: 10.0 },
+    "gemini-3.5-flash": { input: 1.5, cachedInput: 0.15, output: 9.0 },
 }
 
 const DEFAULT_PRICING = { input: 0, cachedInput: 0, output: 0 }
@@ -31,9 +31,10 @@ export function computeMetrics(usage, timing = {}) {
 
     const cacheSavings = (usage.cachedTokens / 1e6) * (price.input - price.cachedInput)
 
-    const tps = billedOutputTokens > 0 && timing.genMs > 0
-        ? parseFloat((billedOutputTokens / (timing.genMs / 1000)).toFixed(1))
-        : null
+    const tps =
+        billedOutputTokens > 0 && timing.genMs > 0
+            ? parseFloat((billedOutputTokens / (timing.genMs / 1000)).toFixed(1))
+            : null
 
     return {
         provider: usage.provider ?? null,

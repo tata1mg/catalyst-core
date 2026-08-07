@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
 
-const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
+const ATTACHMENT_TAG_RE =
+    /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
 function parseAttachmentTag(_, component, attrStr, body) {
     const attrs = {}
@@ -45,26 +46,40 @@ export function useNativeAI({
     const conversationIdRef = useRef(null)
     const historyRef = useRef([])
 
-    useEffect(() => () => {
-        if (rafRef.current) {
-            typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame(rafRef.current) : clearTimeout(rafRef.current)
-            rafRef.current = null
-        }
-        if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
-    }, [])
+    useEffect(
+        () => () => {
+            if (rafRef.current) {
+                typeof cancelAnimationFrame !== "undefined"
+                    ? cancelAnimationFrame(rafRef.current)
+                    : clearTimeout(rafRef.current)
+                rafRef.current = null
+            }
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
+                abortControllerRef.current = null
+            }
+        },
+        []
+    )
 
     useEffect(() => {
         if (!enabled) return
 
         if (!window.NativeBridge?.initAI) {
-            setError(new Error(
-                "[catalyst-ai/useNativeAI] window.NativeBridge.initAI not found. " +
-                "Update catalyst-core to >=0.2.0 and add the android module to settings.gradle.kts."
-            ))
+            setError(
+                new Error(
+                    "[catalyst-ai/useNativeAI] window.NativeBridge.initAI not found. " +
+                        "Update catalyst-core to >=0.2.0 and add the android module to settings.gradle.kts."
+                )
+            )
             return
         }
         if (!window.WebBridge) {
-            setError(new Error("[catalyst-ai/useNativeAI] WebBridge not initialized — call WebBridge.init() before mounting useNativeAI"))
+            setError(
+                new Error(
+                    "[catalyst-ai/useNativeAI] WebBridge not initialized — call WebBridge.init() before mounting useNativeAI"
+                )
+            )
             return
         }
 
@@ -171,8 +186,15 @@ export function useNativeAI({
                     const genMs = Math.round(performance.now() - t0)
                     setOutput(data.output ?? "")
                     const tokenCountOut = data.tokenCount ?? 0
-                    const tps = tokenCountOut > 0 ? parseFloat((tokenCountOut / (genMs / 1000)).toFixed(1)) : 0
-                    const generateMetrics = { device: "native", ttftMs: genMs, tps, totalTokens: tokenCountOut, genMs }
+                    const tps =
+                        tokenCountOut > 0 ? parseFloat((tokenCountOut / (genMs / 1000)).toFixed(1)) : 0
+                    const generateMetrics = {
+                        device: "native",
+                        ttftMs: genMs,
+                        tps,
+                        totalTokens: tokenCountOut,
+                        genMs,
+                    }
                     setMetrics(generateMetrics)
                     historyRef.current.push(generateMetrics)
                     return
@@ -208,8 +230,17 @@ export function useNativeAI({
                                 if (data.done) {
                                     setStreaming(false)
                                     const genMs = Math.round(performance.now() - t0)
-                                    const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0
-                                    const streamMetrics = { device: "native", ttftMs, tps, totalTokens: tokenCount, genMs }
+                                    const tps =
+                                        tokenCount > 0
+                                            ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1))
+                                            : 0
+                                    const streamMetrics = {
+                                        device: "native",
+                                        ttftMs,
+                                        tps,
+                                        totalTokens: tokenCount,
+                                        genMs,
+                                    }
                                     setMetrics(streamMetrics)
                                     historyRef.current.push(streamMetrics)
                                     return
@@ -221,9 +252,15 @@ export function useNativeAI({
                                     if (ttftMs === null) ttftMs = Math.round(performance.now() - t0)
                                     tokenCount++
                                     outputAccRef.current += data.token
-                                    outputAccRef.current = outputAccRef.current.replace(ATTACHMENT_TAG_RE, parseAttachmentTag)
+                                    outputAccRef.current = outputAccRef.current.replace(
+                                        ATTACHMENT_TAG_RE,
+                                        parseAttachmentTag
+                                    )
                                     if (!rafRef.current) {
-                                        const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
+                                        const schedule =
+                                            typeof requestAnimationFrame !== "undefined"
+                                                ? requestAnimationFrame
+                                                : (fn) => setTimeout(fn, 16)
                                         rafRef.current = schedule(() => {
                                             rafRef.current = null
                                             setOutput(outputAccRef.current)
@@ -240,7 +277,9 @@ export function useNativeAI({
 
                 // flush any pending RAF before marking done
                 if (rafRef.current) {
-                    typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame(rafRef.current) : clearTimeout(rafRef.current)
+                    typeof cancelAnimationFrame !== "undefined"
+                        ? cancelAnimationFrame(rafRef.current)
+                        : clearTimeout(rafRef.current)
                     rafRef.current = null
                     setOutput(outputAccRef.current)
                 }
@@ -259,20 +298,28 @@ export function useNativeAI({
 
     const cancelRaf = () => {
         if (!rafRef.current) return
-        typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame(rafRef.current) : clearTimeout(rafRef.current)
+        typeof cancelAnimationFrame !== "undefined"
+            ? cancelAnimationFrame(rafRef.current)
+            : clearTimeout(rafRef.current)
         rafRef.current = null
     }
 
     const cancel = useCallback(() => {
         cancelRaf()
-        if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+        }
         setStreaming(false)
     }, [])
 
     const reset = useCallback(() => {
         cancelRaf()
         outputAccRef.current = ""
-        if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+        }
         conversationIdRef.current = null
         if (window.NativeBridge?.clearNativeConversation) {
             window.NativeBridge.clearNativeConversation()
@@ -301,8 +348,12 @@ export function useNativeAI({
         cancel,
         reset,
         clearError: useCallback(() => setError(null), []),
-        get conversationId() { return conversationIdRef.current },
+        get conversationId() {
+            return conversationIdRef.current
+        },
         getSessionMetrics: useCallback(() => aggregateNativeSessionMetrics(historyRef.current), []),
-        resetSessionMetrics: useCallback(() => { historyRef.current = [] }, []),
+        resetSessionMetrics: useCallback(() => {
+            historyRef.current = []
+        }, []),
     }
 }

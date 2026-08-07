@@ -1,6 +1,6 @@
-import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { PROMPTS } from "../../constants/ai";
+import React from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { PROMPTS } from "../../constants/ai"
 
 export default function PresetsBottomSheet({ isOpen, onClose, onSelectPreset }) {
     return (
@@ -27,7 +27,7 @@ export default function PresetsBottomSheet({ isOpen, onClose, onSelectPreset }) 
                         dragElastic={0.2}
                         onDragEnd={(e, info) => {
                             if (info.offset.y > 100) {
-                                onClose();
+                                onClose()
                             }
                         }}
                         className="fixed bottom-0 left-0 right-0 z-50 bg-[#16161a] border-t border-[var(--border)] rounded-t-3xl shadow-2xl max-h-[80vh] flex flex-col pointer-events-auto"
@@ -43,8 +43,18 @@ export default function PresetsBottomSheet({ isOpen, onClose, onSelectPreset }) 
                                     onClick={onClose}
                                     className="p-1 rounded-full text-[var(--text-3)] hover:text-white transition cursor-pointer"
                                 >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    <svg
+                                        className="w-5 h-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
                                     </svg>
                                 </button>
                             </div>
@@ -66,5 +76,5 @@ export default function PresetsBottomSheet({ isOpen, onClose, onSelectPreset }) 
                 </>
             )}
         </AnimatePresence>
-    );
+    )
 }

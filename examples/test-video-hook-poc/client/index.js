@@ -5,7 +5,7 @@ import { Provider } from "react-redux"
 import { RouterProvider } from "catalyst-core"
 import clientRouter from "catalyst-core/router/ClientRouter"
 import configureStore from "@store"
-import WebBridge from 'catalyst-core/WebBridge';
+import WebBridge from "catalyst-core/WebBridge"
 
 window.addEventListener("load", () => {
     const { __ROUTER_INITIAL_DATA__: routerInitialData, __INITIAL_STATE__ } = window

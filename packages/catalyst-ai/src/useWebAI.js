@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { aggregateWebSessionMetrics } from "./metrics.js"
 
-const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
+const schedule =
+    typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
 
 // EXPERIMENTAL: in-browser inference via Transformers.js is not efficient or reliable yet —
@@ -9,7 +10,8 @@ const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnima
 // versus useCloudAI/useNativeAI, and WebGPU/WASM backend selection is unpredictable across
 // devices. Treat this provider as a demo/fallback path, not production-ready, until revisited.
 
-const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js"
+const TRANSFORMERS_CDN =
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js"
 
 const WORKER_SCRIPT = `
 const TRANSFORMERS_CDN = "${TRANSFORMERS_CDN}";
@@ -204,10 +206,19 @@ export function useWebAI({
     const messagesRef = useRef([])
     const conversationIdRef = useRef(null)
 
-    useEffect(() => () => {
-        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
-        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
-    }, [])
+    useEffect(
+        () => () => {
+            if (rafRef.current) {
+                cancelSchedule(rafRef.current)
+                rafRef.current = null
+            }
+            if (workerRef.current) {
+                workerRef.current.terminate()
+                workerRef.current = null
+            }
+        },
+        []
+    )
 
     const formatPromptRef = useRef(formatPrompt)
     formatPromptRef.current = formatPrompt
@@ -221,12 +232,15 @@ export function useWebAI({
 
             const resolvedModel = callModel || modelProp
             if (!resolvedModel) {
-                setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
+                setError(
+                    new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model")
+                )
                 return
             }
 
             const genConfig = { ...hookGenConfig, ...callGenConfig }
-            const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...messages] : messages
+            const resolvedMessages =
+                sessionMode === "stateful" ? [...messagesRef.current, ...messages] : messages
 
             setLoading(true)
             setOutput("")
@@ -236,15 +250,31 @@ export function useWebAI({
             setModelReady(false)
             cancelledRef.current = false
             outputAccRef.current = ""
-            if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+            if (rafRef.current) {
+                cancelSchedule(rafRef.current)
+                rafRef.current = null
+            }
 
-            const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null }
+            const metricsAcc = {
+                device: null,
+                dtype: null,
+                loadMs: null,
+                downloadBytes: 0,
+                ttftMs: null,
+                tps: null,
+                totalTokens: null,
+                genMs: null,
+            }
 
             let worker
             try {
                 worker = new Worker(getWorkerBlobUrl(), { type: "module" })
             } catch (err) {
-                setError(new Error("[catalyst-ai/useWebAI] module worker unavailable: " + (err.message || String(err))))
+                setError(
+                    new Error(
+                        "[catalyst-ai/useWebAI] module worker unavailable: " + (err.message || String(err))
+                    )
+                )
                 setLoading(false)
                 return
             }
@@ -258,7 +288,8 @@ export function useWebAI({
                         break
                     case "progress":
                         setDownloadProgress({ file: msg.file, percent: msg.percent, status: msg.status })
-                        if (msg.total) metricsAcc.downloadBytes = Math.max(metricsAcc.downloadBytes, msg.total)
+                        if (msg.total)
+                            metricsAcc.downloadBytes = Math.max(metricsAcc.downloadBytes, msg.total)
                         break
                     case "model_ready":
                         metricsAcc.device = msg.device
@@ -285,7 +316,9 @@ export function useWebAI({
                         }
                         break
                     case "done":
-                        if (rafRef.current) { cancelSchedule(rafRef.current) }
+                        if (rafRef.current) {
+                            cancelSchedule(rafRef.current)
+                        }
                         rafRef.current = null
                         setOutput(outputAccRef.current)
                         metricsAcc.tps = msg.tps
@@ -300,7 +333,10 @@ export function useWebAI({
                                         ? crypto.randomUUID()
                                         : `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
                             }
-                            messagesRef.current = [...resolvedMessages, { role: "assistant", content: outputAccRef.current }]
+                            messagesRef.current = [
+                                ...resolvedMessages,
+                                { role: "assistant", content: outputAccRef.current },
+                            ]
                         }
                         setStreaming(false)
                         setLoading(false)
@@ -332,7 +368,8 @@ export function useWebAI({
                 model: resolvedModel,
                 messages: resolvedMessages,
                 genConfig,
-                formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
+                formatPrompt:
+                    typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
             })
         },
         [modelProp, hookGenConfig, sessionMode]
@@ -340,16 +377,28 @@ export function useWebAI({
 
     const cancel = useCallback(() => {
         cancelledRef.current = true
-        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
-        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        if (rafRef.current) {
+            cancelSchedule(rafRef.current)
+            rafRef.current = null
+        }
+        if (workerRef.current) {
+            workerRef.current.terminate()
+            workerRef.current = null
+        }
         setStreaming(false)
     }, [])
 
     const reset = useCallback(() => {
         cancelledRef.current = true
-        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+        if (rafRef.current) {
+            cancelSchedule(rafRef.current)
+            rafRef.current = null
+        }
         outputAccRef.current = ""
-        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        if (workerRef.current) {
+            workerRef.current.terminate()
+            workerRef.current = null
+        }
         conversationIdRef.current = null
         messagesRef.current = []
         setOutput("")
@@ -378,8 +427,12 @@ export function useWebAI({
         cancel,
         reset,
         clearError: useCallback(() => setError(null), []),
-        get conversationId() { return conversationIdRef.current },
+        get conversationId() {
+            return conversationIdRef.current
+        },
         getSessionMetrics: useCallback(() => aggregateWebSessionMetrics(historyRef.current), []),
-        resetSessionMetrics: useCallback(() => { historyRef.current = [] }, []),
+        resetSessionMetrics: useCallback(() => {
+            historyRef.current = []
+        }, []),
     }
 }

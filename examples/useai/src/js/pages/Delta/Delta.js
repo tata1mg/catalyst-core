@@ -1,48 +1,49 @@
-import React, { useState, useEffect, useRef } from "react";
-import ShimmerSkeleton from "../../components/ShimmerSkeleton";
-import StreamingText from "../../components/StreamingText";
+import React, { useState, useEffect, useRef } from "react"
+import ShimmerSkeleton from "../../components/ShimmerSkeleton"
+import StreamingText from "../../components/StreamingText"
 
 export default function Delta() {
-    const [ch03Mode, setCh03Mode] = useState("delta");
-    const [ch03Net, setCh03Net] = useState("online");
-    const [streamProgress, setStreamProgress] = useState(0);
-    const streamTimerRef = useRef(null);
+    const [ch03Mode, setCh03Mode] = useState("delta")
+    const [ch03Net, setCh03Net] = useState("online")
+    const [streamProgress, setStreamProgress] = useState(0)
+    const streamTimerRef = useRef(null)
 
-    const isOffline = ch03Net === "offline";
+    const isOffline = ch03Net === "offline"
 
-    const ch03Modes = ["classic", "stream", "delta"];
+    const ch03Modes = ["classic", "stream", "delta"]
 
-    const textToStream = "Your fasting glucose of 112 mg/dL sits just above range, and paired with an HbA1c of 5.9% suggests an early metabolic shift worth watching. LDL at 142 mg/dL adds a cardiovascular dimension…";
+    const textToStream =
+        "Your fasting glucose of 112 mg/dL sits just above range, and paired with an HbA1c of 5.9% suggests an early metabolic shift worth watching. LDL at 142 mg/dL adds a cardiovascular dimension…"
 
     // Manage streaming preview animation when mode is 'stream'
     useEffect(() => {
         if (ch03Mode === "stream") {
-            setStreamProgress(0);
+            setStreamProgress(0)
             streamTimerRef.current = setInterval(() => {
                 setStreamProgress((prev) => {
                     if (prev < textToStream.length) {
-                        return prev + 2;
+                        return prev + 2
                     } else {
-                        return 0; // Loop stream
+                        return 0 // Loop stream
                     }
-                });
-            }, 50);
+                })
+            }, 50)
         } else {
-            if (streamTimerRef.current) clearInterval(streamTimerRef.current);
+            if (streamTimerRef.current) clearInterval(streamTimerRef.current)
         }
 
         return () => {
-            if (streamTimerRef.current) clearInterval(streamTimerRef.current);
-        };
-    }, [ch03Mode]);
+            if (streamTimerRef.current) clearInterval(streamTimerRef.current)
+        }
+    }, [ch03Mode])
 
     const ch03Caption = {
         classic: "classic — one blocking request, render on completion",
         stream: "stream — a single token stream fills one block",
-        delta: isOffline 
-            ? "delta — streaming from on-device model (network cut)" 
-            : "delta — each card resolves on its own connection"
-    }[ch03Mode];
+        delta: isOffline
+            ? "delta — streaming from on-device model (network cut)"
+            : "delta — each card resolves on its own connection",
+    }[ch03Mode]
 
     // Cards data for delta mode
     const deltaCards = [
@@ -52,7 +53,7 @@ export default function Delta() {
         { name: "TSH", value: "2.1", note: "In range", color: "text-emerald-400", done: true },
         { name: "Ferritin", value: "", note: "", color: "", done: false },
         { name: "Hemoglobin", value: "", note: "", color: "", done: false },
-    ];
+    ]
 
     return (
         <div className="max-w-[1080px] mx-auto px-10 py-12 animate-[fadeIn_0.4s_ease-out]">
@@ -66,16 +67,17 @@ export default function Delta() {
                         Not faster. Different.
                     </h1>
                     <p className="text-neutral-400 max-w-[58ch] leading-relaxed text-sm">
-                        Three render strategies, same data. Delta mode lets each insight resolve independently — the page builds itself.
+                        Three render strategies, same data. Delta mode lets each insight resolve independently
+                        — the page builds itself.
                     </p>
                 </div>
-                
+
                 {/* Controls */}
                 <div className="flex flex-col gap-2.5 items-start md:items-end shrink-0">
                     {/* Render mode pills */}
                     <div className="flex gap-1 bg-neutral-900 border border-white/5 rounded-xl p-1 select-none">
                         {ch03Modes.map((k) => {
-                            const active = ch03Mode === k;
+                            const active = ch03Mode === k
                             return (
                                 <button
                                     key={k}
@@ -88,20 +90,22 @@ export default function Delta() {
                                 >
                                     {k}
                                 </button>
-                            );
+                            )
                         })}
                     </div>
 
                     {/* Network state toggle */}
                     <button
-                        onClick={() => setCh03Net(prev => prev === "online" ? "offline" : "online")}
+                        onClick={() => setCh03Net((prev) => (prev === "online" ? "offline" : "online"))}
                         className={`cursor-pointer flex items-center gap-2 font-mono text-[11.5px] px-3 py-1.5 rounded-lg border transition ${
                             isOffline
                                 ? "border-teal-500/20 bg-teal-500/10 text-teal-400 shadow-[0_0_15px_rgba(45,212,191,0.1)]"
                                 : "border-white/5 bg-[#10131D] text-neutral-400 hover:bg-neutral-800"
                         }`}
                     >
-                        <span className={`w-1.5 h-1.5 rounded-full ${isOffline ? "bg-teal-400 animate-pulse" : "bg-neutral-400"}`} />
+                        <span
+                            className={`w-1.5 h-1.5 rounded-full ${isOffline ? "bg-teal-400 animate-pulse" : "bg-neutral-400"}`}
+                        />
                         network: {ch03Net}
                     </button>
                 </div>
@@ -121,11 +125,8 @@ export default function Delta() {
 
             {/* Canvas Area */}
             <div className="bg-[#10131D] border border-white/5 rounded-2xl p-6.5 shadow-2xl min-h-[360px] flex flex-col justify-between">
-                
                 {/* Mode description caption */}
-                <div className="font-mono text-[11.5px] text-neutral-500 select-none mb-6">
-                    {ch03Caption}
-                </div>
+                <div className="font-mono text-[11.5px] text-neutral-500 select-none mb-6">{ch03Caption}</div>
 
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col justify-center">
@@ -161,7 +162,11 @@ export default function Delta() {
                     {ch03Mode === "delta" && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 animate-[fadeIn_0.3s_ease]">
                             {deltaCards.map((c, idx) => {
-                                const cardDot = c.done ? (isOffline ? "bg-teal-400" : "bg-indigo-400") : "bg-neutral-600";
+                                const cardDot = c.done
+                                    ? isOffline
+                                        ? "bg-teal-400"
+                                        : "bg-indigo-400"
+                                    : "bg-neutral-600"
                                 return (
                                     <div
                                         key={idx}
@@ -173,7 +178,7 @@ export default function Delta() {
                                             </span>
                                             <span className={`w-1.5 h-1.5 rounded-full ${cardDot}`} />
                                         </div>
-                                        
+
                                         {c.done ? (
                                             <div className="flex-1 flex flex-col justify-end mt-2 animate-[fadeUp_0.3s_ease]">
                                                 <div className={`font-mono text-xl font-bold ${c.color}`}>
@@ -189,7 +194,7 @@ export default function Delta() {
                                             </div>
                                         )}
                                     </div>
-                                );
+                                )
                             })}
                         </div>
                     )}
@@ -203,5 +208,5 @@ export default function Delta() {
                 )}
             </div>
         </div>
-    );
+    )
 }

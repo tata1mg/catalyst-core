@@ -2,7 +2,8 @@ import { useState, useRef, useCallback, useMemo } from "react"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
 import { computeMetrics, aggregateSessionMetrics } from "./metrics.js"
 
-const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
+const ATTACHMENT_TAG_RE =
+    /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
 function parseAttachmentTag(_, component, attrStr, body) {
     const attrs = {}
@@ -15,12 +16,14 @@ function parseAttachmentTag(_, component, attrStr, body) {
 function shallowEqual(a, b) {
     if (a === b) return true
     if (!a || !b) return false
-    const ka = Object.keys(a), kb = Object.keys(b)
+    const ka = Object.keys(a),
+        kb = Object.keys(b)
     if (ka.length !== kb.length) return false
     return ka.every((k) => a[k] === b[k])
 }
 
-const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
+const schedule =
+    typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
 
 // Hard ceiling on a single generate/stream request — protects against a hung
@@ -103,9 +106,15 @@ export function useCloudAI({
             setError(null)
             setMetrics(null)
             outputAccRef.current = ""
-            if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+            if (rafRef.current) {
+                cancelSchedule(rafRef.current)
+                rafRef.current = null
+            }
 
-            const builtSystemPrompt = buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+            const builtSystemPrompt = buildAttachmentSystemPrompt(
+                systemPromptRef.current,
+                attachmentComponentsRef.current
+            )
             const messagesWithSystem = builtSystemPrompt
                 ? [{ role: "system", content: builtSystemPrompt }, ...messages]
                 : messages
@@ -121,7 +130,8 @@ export function useCloudAI({
                     // non-streaming: POST /:provider/generate → JSON
                     const url = `${basePath}/${provider}/generate`
                     const body = { messages: messagesWithSystem, genConfig }
-                    if (sessionModeRef.current === "stateful") body.conversationId = conversationIdRef.current ?? null
+                    if (sessionModeRef.current === "stateful")
+                        body.conversationId = conversationIdRef.current ?? null
                     if (modelRef.current) body.model = modelRef.current
 
                     const response = await fetch(url, {
@@ -133,7 +143,9 @@ export function useCloudAI({
 
                     if (!response.ok) {
                         const errBody = await readErrorBody(response)
-                        throw new Error(`HTTP error! Status: ${response.status}${errBody ? ` — ${errBody}` : ""}`)
+                        throw new Error(
+                            `HTTP error! Status: ${response.status}${errBody ? ` — ${errBody}` : ""}`
+                        )
                     }
                     setLoading(false)
 
@@ -155,7 +167,8 @@ export function useCloudAI({
                 // streaming: POST /:provider/stream → SSE
                 const url = `${basePath}/${provider}/stream`
                 const body = { messages: messagesWithSystem, genConfig }
-                if (sessionModeRef.current === "stateful") body.conversationId = conversationIdRef.current ?? null
+                if (sessionModeRef.current === "stateful")
+                    body.conversationId = conversationIdRef.current ?? null
                 if (modelRef.current) body.model = modelRef.current
 
                 const response = await fetch(url, {
@@ -192,7 +205,10 @@ export function useCloudAI({
                             const payload = line.slice(6).trim()
                             if (payload === "[DONE]") {
                                 // flush any pending RAF before marking done
-                                if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+                                if (rafRef.current) {
+                                    cancelSchedule(rafRef.current)
+                                    rafRef.current = null
+                                }
                                 setOutput(outputAccRef.current)
                                 setStreaming(false)
                                 completed = true
@@ -200,14 +216,21 @@ export function useCloudAI({
                             }
                             try {
                                 const data = JSON.parse(payload)
-                                if (sessionModeRef.current === "stateful" && data.conversationId && activeGenerationRef.current === generationId) {
+                                if (
+                                    sessionModeRef.current === "stateful" &&
+                                    data.conversationId &&
+                                    activeGenerationRef.current === generationId
+                                ) {
                                     conversationIdRef.current = data.conversationId
                                 }
                                 if (typeof data.token === "string") {
                                     if (ttftMs === null) ttftMs = Math.round(performance.now() - t0)
                                     tokenCount++
                                     outputAccRef.current += data.token
-                                    outputAccRef.current = outputAccRef.current.replace(ATTACHMENT_TAG_RE, parseAttachmentTag)
+                                    outputAccRef.current = outputAccRef.current.replace(
+                                        ATTACHMENT_TAG_RE,
+                                        parseAttachmentTag
+                                    )
                                     if (!rafRef.current) {
                                         rafRef.current = schedule(() => {
                                             rafRef.current = null
@@ -227,7 +250,10 @@ export function useCloudAI({
                 }
 
                 // stream ended without [DONE] — flush and finalize
-                if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+                if (rafRef.current) {
+                    cancelSchedule(rafRef.current)
+                    rafRef.current = null
+                }
                 setOutput(outputAccRef.current)
                 setStreaming(false)
                 completed = true
@@ -250,10 +276,22 @@ export function useCloudAI({
                             // fall back to our own token-count-based tps so the UI isn't left blank
                             const tps = parseFloat((tokenCount / (genMs / 1000)).toFixed(1))
                             const fallbackMetrics = {
-                                provider, model: modelRef.current, ttftMs, genMs, tps,
-                                promptTokens: null, cachedTokens: null, completionTokens: tokenCount,
-                                reasoningTokens: null, totalTokens: tokenCount, cost: null, cacheSavings: null,
-                                device: null, dtype: null, loadMs: null, downloadBytes: null,
+                                provider,
+                                model: modelRef.current,
+                                ttftMs,
+                                genMs,
+                                tps,
+                                promptTokens: null,
+                                cachedTokens: null,
+                                completionTokens: tokenCount,
+                                reasoningTokens: null,
+                                totalTokens: tokenCount,
+                                cost: null,
+                                cacheSavings: null,
+                                device: null,
+                                dtype: null,
+                                loadMs: null,
+                                downloadBytes: null,
                             }
                             setMetrics(fallbackMetrics)
                             historyRef.current.push(fallbackMetrics)
@@ -267,16 +305,28 @@ export function useCloudAI({
     )
 
     const cancel = useCallback(() => {
-        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
-        if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+        if (rafRef.current) {
+            cancelSchedule(rafRef.current)
+            rafRef.current = null
+        }
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+        }
         setStreaming(false)
         setLoading(false)
     }, [])
 
     const reset = useCallback(() => {
-        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+        if (rafRef.current) {
+            cancelSchedule(rafRef.current)
+            rafRef.current = null
+        }
         outputAccRef.current = ""
-        if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+        }
         conversationIdRef.current = null
         setOutput("")
         setError(null)
@@ -310,6 +360,8 @@ export function useCloudAI({
         getSessionMetrics,
         resetSessionMetrics,
         clearError: useCallback(() => setError(null), []),
-        get conversationId() { return conversationIdRef.current },
+        get conversationId() {
+            return conversationIdRef.current
+        },
     }
 }

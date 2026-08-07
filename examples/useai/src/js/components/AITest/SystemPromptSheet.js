@@ -1,5 +1,5 @@
-import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React from "react"
+import { motion, AnimatePresence } from "framer-motion"
 
 export default function SystemPromptSheet({ open, onClose, value, onChange }) {
     return (
@@ -26,7 +26,7 @@ export default function SystemPromptSheet({ open, onClose, value, onChange }) {
                         dragElastic={0.2}
                         onDragEnd={(e, info) => {
                             if (info.offset.y > 100) {
-                                onClose();
+                                onClose()
                             }
                         }}
                         className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900 border-t border-[var(--border)] rounded-t-3xl shadow-2xl max-h-[80vh] flex flex-col pointer-events-auto text-white"
@@ -42,8 +42,18 @@ export default function SystemPromptSheet({ open, onClose, value, onChange }) {
                                     onClick={onClose}
                                     className="p-1 rounded-full text-[var(--text-3)] hover:text-white transition cursor-pointer"
                                 >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    <svg
+                                        className="w-5 h-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
                                     </svg>
                                 </button>
                             </div>
@@ -52,7 +62,8 @@ export default function SystemPromptSheet({ open, onClose, value, onChange }) {
                         {/* Content */}
                         <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto">
                             <p className="text-[12px] text-[var(--text-2)] leading-relaxed">
-                                Tweak the system instructions below to change the AI's behavior, formatting preferences, or persona at runtime.
+                                Tweak the system instructions below to change the AI's behavior, formatting
+                                preferences, or persona at runtime.
                             </p>
                             <textarea
                                 value={value}
@@ -60,7 +71,7 @@ export default function SystemPromptSheet({ open, onClose, value, onChange }) {
                                 placeholder="Enter system prompt instructions..."
                                 className="w-full min-h-[160px] bg-[var(--surface-2)] border border-[var(--border)] focus:border-indigo-500 focus:outline-none rounded-xl p-4 text-[13px] text-white leading-relaxed placeholder-[var(--text-3)] resize-y transition duration-200 font-mono"
                             />
-                            
+
                             <div className="flex justify-end mt-2">
                                 <button
                                     type="button"
@@ -75,5 +86,5 @@ export default function SystemPromptSheet({ open, onClose, value, onChange }) {
                 </>
             )}
         </AnimatePresence>
-    );
+    )
 }

@@ -1,25 +1,23 @@
-import React from "react";
-import PhoneFrame from "../../components/PhoneFrame";
+import React from "react"
+import PhoneFrame from "../../components/PhoneFrame"
 
 export default function CameraAI() {
     return (
         <div className="max-w-[1180px] mx-auto px-10 py-12 animate-[fadeIn_0.4s_ease-out]">
             {/* Page Header */}
             <div className="mb-10">
-                <div className="font-mono text-[13px] text-indigo-400 mb-2">
-                    02 / Camera + AI
-                </div>
+                <div className="font-mono text-[13px] text-indigo-400 mb-2">02 / Camera + AI</div>
                 <h1 className="text-4xl font-semibold tracking-tight text-white mb-2">
                     Native primitives that think.
                 </h1>
                 <p className="text-neutral-400 max-w-[62ch] leading-relaxed text-sm">
-                    Point the camera at a lab report. Structured values extract on-device the instant capture happens — no upload, no base64, no spinner. The data never leaves the phone.
+                    Point the camera at a lab report. Structured values extract on-device the instant capture
+                    happens — no upload, no base64, no spinner. The data never leaves the phone.
                 </p>
             </div>
 
             {/* Layout Grid: Callouts + Phone Mockup */}
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-10">
-                
                 {/* Left Callouts */}
                 <div className="flex flex-col gap-4.5 md:items-end text-left md:text-right">
                     <div className="bg-[#10131D] border border-white/5 rounded-xl p-4.5 shadow-lg max-w-[260px]">
@@ -27,10 +25,14 @@ export default function CameraAI() {
                             on-device extraction
                         </div>
                         <div className="text-[13px] text-neutral-400 leading-relaxed">
-                            Capture fires <code className="font-mono text-white bg-white/5 px-1 py-0.5 rounded text-[0.9em]">useAI(&#123; task:'vision.extract' &#125;)</code> against the frame buffer directly.
+                            Capture fires{" "}
+                            <code className="font-mono text-white bg-white/5 px-1 py-0.5 rounded text-[0.9em]">
+                                useAI(&#123; task:'vision.extract' &#125;)
+                            </code>{" "}
+                            against the frame buffer directly.
                         </div>
                     </div>
-                    
+
                     <div className="bg-[#10131D] border border-white/5 rounded-xl p-4.5 shadow-lg max-w-[260px]">
                         <div className="font-mono text-[10.5px] text-indigo-400 font-semibold mb-2 uppercase tracking-wide">
                             haptic.fire('success')
@@ -94,9 +96,11 @@ export default function CameraAI() {
                                 <span className="font-mono text-[10px] text-teal-400 font-semibold tracking-wider">
                                     ● EXTRACTED | on-device
                                 </span>
-                                <span className="font-mono text-[9px] text-neutral-500 font-medium">38ms</span>
+                                <span className="font-mono text-[9px] text-neutral-500 font-medium">
+                                    38ms
+                                </span>
                             </div>
-                            
+
                             <div className="flex items-start justify-between mb-2.5">
                                 <div>
                                     <div className="text-[13.5px] font-semibold text-white">
@@ -115,11 +119,12 @@ export default function CameraAI() {
                                     </span>
                                 </div>
                             </div>
-                            
+
                             <div className="h-[1px] bg-white/5 my-2.5" />
-                            
+
                             <p className="text-[11.5px] text-neutral-400 leading-relaxed">
-                                Slightly above fasting range. Suggest re-test and review with the metabolic trend.
+                                Slightly above fasting range. Suggest re-test and review with the metabolic
+                                trend.
                             </p>
                         </div>
                     </div>
@@ -135,18 +140,18 @@ export default function CameraAI() {
                             The framework locks screenshots the moment health data renders — no extra code.
                         </div>
                     </div>
-                    
+
                     <div className="bg-[#10131D] border border-white/5 rounded-xl p-4.5 shadow-lg max-w-[260px]">
                         <div className="font-mono text-[10.5px] text-indigo-400 font-semibold mb-2 uppercase tracking-wide">
                             no upload | 0 bytes out
                         </div>
                         <div className="text-[13px] text-neutral-400 leading-relaxed">
-                            Inference runs on the frame buffer. The image is never serialized or sent anywhere.
+                            Inference runs on the frame buffer. The image is never serialized or sent
+                            anywhere.
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
-    );
+    )
 }

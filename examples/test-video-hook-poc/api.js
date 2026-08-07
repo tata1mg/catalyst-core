@@ -1,7 +1,7 @@
 const fetchFunction = (url, options = {}) => {
     const baseURL = process.env.API_URL
     if (!baseURL) {
-        throw new Error('API_URL environment variable is not defined')
+        throw new Error("API_URL environment variable is not defined")
     }
     const finalUrl = new URL(url, baseURL).toString()
 
@@ -14,20 +14,22 @@ const fetchFunction = (url, options = {}) => {
         const timeoutId = setTimeout(() => controller.abort(), timeout)
 
         return fetch(finalUrl, { ...fetchOptions, signal: controller.signal })
-            .then(response => {
+            .then((response) => {
                 clearTimeout(timeoutId)
 
                 if (!response.ok) {
                     const contentType = response.headers.get("content-type")
                     if (contentType && contentType.includes("application/json")) {
-                        return response.json().then(errData => {
-                            const err = new Error(errData?.message || `Request failed with status ${response.status}`)
+                        return response.json().then((errData) => {
+                            const err = new Error(
+                                errData?.message || `Request failed with status ${response.status}`
+                            )
                             err.status = response.status
                             err.data = errData
                             throw err
                         })
                     } else {
-                        return response.text().then(textData => {
+                        return response.text().then((textData) => {
                             const err = new Error(textData || `Request failed with status ${response.status}`)
                             err.status = response.status
                             err.data = textData
@@ -38,18 +40,18 @@ const fetchFunction = (url, options = {}) => {
 
                 const contentType = response.headers.get("content-type")
                 if (contentType && contentType.includes("application/json")) {
-                    return response.json().then(parsedResponse => {
+                    return response.json().then((parsedResponse) => {
                         // Response Interceptor -  modify response here
                         return parsedResponse
                     })
                 } else {
-                    return response.text().then(parsedResponse => {
+                    return response.text().then((parsedResponse) => {
                         // Response Interceptor -  modify response here
                         return parsedResponse
                     })
                 }
             })
-            .catch(error => {
+            .catch((error) => {
                 clearTimeout(timeoutId)
 
                 if (attempt < retries) {

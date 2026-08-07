@@ -7,7 +7,7 @@ function Profile() {
             <div className={css.header}>
                 <h1 className={css.headerTitle}>Profile</h1>
             </div>
-            
+
             <div className={css.content}>
                 <div className={css.profileCard}>
                     <div className={css.avatar}>

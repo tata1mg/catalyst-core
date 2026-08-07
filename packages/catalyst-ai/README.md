@@ -11,7 +11,7 @@ authentication, session checks, or rate limiting. It only gates requests on
 `AI_CONFIG.enabled` and on a provider having a configured API key.
 
 `catalyst-core` mounts app-defined middleware (`addMiddlewares` from `server/server.js`)
-*before* this router, so any auth/session/rate-limit middleware your app registers via
+_before_ this router, so any auth/session/rate-limit middleware your app registers via
 `addMiddlewares` already applies to `/ai/*` routes. **If you expose these routes beyond a
 trusted internal network, add authentication and per-caller rate limiting in your app's
 `addMiddlewares` — the framework does not provide this for you.** Each request that reaches
