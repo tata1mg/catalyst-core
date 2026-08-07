@@ -2,7 +2,7 @@
     "name": "catalyst-companion",
     "version": "1.0.0",
     "scripts": {
-        "sync-core": "npm run core:build --prefix ../.. && mkdir -p ./vendor && npm pack ../../packages/catalyst-core --ignore-scripts --pack-destination ./vendor && mv ./vendor/catalyst-core-*.tgz ./vendor/catalyst-core.tgz && npm install ./vendor/catalyst-core.tgz",
+        "sync-core": "node ../sync-core.js",
         "docs:generate": "node scripts/generate-docs-manifest.mjs",
         "docs:check-links": "node scripts/check-docs-links.mjs",
         "prestart": "npm run docs:generate",
@@ -28,7 +28,7 @@
     },
     "dependencies": {
         "@mdx-js/react": "^3.1.1",
-        "catalyst-core": "file:vendor/catalyst-core.tgz",
+        "catalyst-core": "0.3.0-beta.3",
         "prism-react-renderer": "^2.4.1",
         "react": "19.0.0",
         "react-dom": "19.0.0"
