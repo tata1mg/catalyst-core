@@ -7,7 +7,7 @@
 set -e
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-APP_DIR="$ROOT_DIR/apps/catalyst-companion"
+APP_DIR="$ROOT_DIR/examples/catalyst-companion"
 
 cd "$ROOT_DIR"
 npm ci

@@ -10,7 +10,7 @@ Companion is a **superset Catalyst binary**: every supported plugin compiled
 in, all corresponding permissions declared, `google-services` applied,
 notifications + Google Sign-In wired — everything the build pipeline can
 already produce for a normal Catalyst app, produced once for Companion
-itself. A scan doesn't unlock a capability; it *selects and parameterizes*
+itself. A scan doesn't unlock a capability; it _selects and parameterizes_
 among capabilities that are already physically present in the binary. This
 is the same shape as Expo Go's fixed-SDK model, reached from the other
 direction.
@@ -35,7 +35,7 @@ MainActivity
    window.NativeBridge / window.PluginBridge callable from JS
 ```
 
-The bridge is a property of *the WebView MainActivity constructs*, not of
+The bridge is a property of _the WebView MainActivity constructs_, not of
 the URL it happens to load. Nothing about `PreviewActivity` today is a
 different kind of WebView — it is a second, deliberately stripped instance
 that skips `addJavascriptInterface` entirely. Routing the scanned URL
@@ -145,37 +145,38 @@ binary with no rebuild.
 
 ### Phase 1 — ships in the submitted binary
 
-| Item | Notes |
-|---|---|
-| Superset plugin compilation | Scoped deliberately (see Critical Decisions) — not reflexively "every plugin," to limit 2.5.2 / privacy-manifest exposure |
-| Config overlay reader (Android) | Merge `filesDir` overlay over `assets/webview_config.properties` at `MainActivity` startup |
-| Config overlay reader (iOS) | **New code** — `ConfigConstants.swift` is compiled-in only today; needs a runtime-readable fallback (plist/JSON in `Documents/`) checked before compiled defaults |
-| Cleartext / network-security-config (Android) | Required for LAN `http://LOCAL_IP:port` debug QR |
-| ATS exception + `NSLocalNetworkUsageDescription` (iOS) | Same, iOS side |
-| `catalyst-companion://` URL scheme + intent-filter (Android) | Cold deep link — external tap can launch straight into a preview, not just in-app QR scan |
-| URL scheme registration (iOS) | Same |
-| Native preview banner | Layered above WebView, safe-area/notch aware; page cannot hide it |
-| Native bottom sheet (exit/clear) | Wired to shake gesture **on both platforms** — only iOS has shake handling today, Android needs it added |
-| Self-restart primitive (Android) | Verify a clean full-process restart exists or add one — `WebView.setDataDirectorySuffix` is process-once, a half-restart will corrupt storage isolation |
-| Re-runnable bridge-attach + WKWebView-construct path (iOS) | iOS never restarts the process, so this path is exercised repeatedly across scans in one lifetime — needs an explicit test, not an assumption |
-| Emitted build-time constants | Compiled plugin ID list + Catalyst-core version, baked in so Phase 2 has something to diff against |
-| Decoded-config screen + confirm dialog (native chrome) | Gates a native action (restart / bridge attach), so the dialog itself ships now even though its content can evolve in Phase 2 |
+| Item                                                         | Notes                                                                                                                                                             |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Superset plugin compilation                                  | Scoped deliberately (see Critical Decisions) — not reflexively "every plugin," to limit 2.5.2 / privacy-manifest exposure                                         |
+| Config overlay reader (Android)                              | Merge `filesDir` overlay over `assets/webview_config.properties` at `MainActivity` startup                                                                        |
+| Config overlay reader (iOS)                                  | **New code** — `ConfigConstants.swift` is compiled-in only today; needs a runtime-readable fallback (plist/JSON in `Documents/`) checked before compiled defaults |
+| Cleartext / network-security-config (Android)                | Required for LAN `http://LOCAL_IP:port` debug QR                                                                                                                  |
+| ATS exception + `NSLocalNetworkUsageDescription` (iOS)       | Same, iOS side                                                                                                                                                    |
+| `catalyst-companion://` URL scheme + intent-filter (Android) | Cold deep link — external tap can launch straight into a preview, not just in-app QR scan                                                                         |
+| URL scheme registration (iOS)                                | Same                                                                                                                                                              |
+| Native preview banner                                        | Layered above WebView, safe-area/notch aware; page cannot hide it                                                                                                 |
+| Native bottom sheet (exit/clear)                             | Wired to shake gesture **on both platforms** — only iOS has shake handling today, Android needs it added                                                          |
+| Self-restart primitive (Android)                             | Verify a clean full-process restart exists or add one — `WebView.setDataDirectorySuffix` is process-once, a half-restart will corrupt storage isolation           |
+| Re-runnable bridge-attach + WKWebView-construct path (iOS)   | iOS never restarts the process, so this path is exercised repeatedly across scans in one lifetime — needs an explicit test, not an assumption                     |
+| Emitted build-time constants                                 | Compiled plugin ID list + Catalyst-core version, baked in so Phase 2 has something to diff against                                                                |
+| Decoded-config screen + confirm dialog (native chrome)       | Gates a native action (restart / bridge attach), so the dialog itself ships now even though its content can evolve in Phase 2                                     |
 
 ### Phase 2 — ships anytime after, no rebuild required
 
-| Item | Notes |
-|---|---|
-| QR manifest schema evolution | New config keys consumed by code already shipped in Phase 1 |
-| Version-drift comparison logic + UI | Reads the constant Phase 1 emitted; Phase 1 only emits, Phase 2 compares and renders |
-| Capability-diff toast copy/UX polish | Set-diff logic can ship in Phase 1; presentation polish is Phase 2 |
-| Companion's own web screens | Landing / TryApp / Showcase iteration — pure web, ships independent of any store review |
-| Config-only WebView property additions | User-agent, custom headers, etc. — new payload keys read by code already in the binary |
+| Item                                   | Notes                                                                                   |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
+| QR manifest schema evolution           | New config keys consumed by code already shipped in Phase 1                             |
+| Version-drift comparison logic + UI    | Reads the constant Phase 1 emitted; Phase 1 only emits, Phase 2 compares and renders    |
+| Capability-diff toast copy/UX polish   | Set-diff logic can ship in Phase 1; presentation polish is Phase 2                      |
+| Companion's own web screens            | Landing / TryApp / Showcase iteration — pure web, ships independent of any store review |
+| Config-only WebView property additions | User-agent, custom headers, etc. — new payload keys read by code already in the binary  |
 
 ## UI / layout changes ("feels native")
 
 Same native-vs-web split as phasing above.
 
 **Native chrome (Phase 1, because it's native code):**
+
 - Preview banner: thin strip near the status bar/notch, always drawn above
   the WebView as a sibling view (Android: layout addition in
   `MainActivity`; iOS: `UIView` pinned above `WKWebView`, respecting safe
@@ -188,6 +189,7 @@ Same native-vs-web split as phasing above.
   independent of any web content.
 
 **Web chrome (Phase 2, iterate freely):**
+
 - Existing `.app-screen` / `app-screen-bar` / `shell-only` / `web-only` /
   `data-shell` conventions already used by `TryApp.js` extend naturally —
   no new shell system needed.
@@ -197,7 +199,7 @@ Same native-vs-web split as phasing above.
 
 ## Critical decisions
 
-1. **Plugin superset scope.** Compile in *every* plugin (maximizes
+1. **Plugin superset scope.** Compile in _every_ plugin (maximizes
    coverage, maximizes 2.5.2 / privacy-manifest review risk) vs. a
    defensible named subset with real purpose strings (lower risk, but
    adding a plugin later means another Phase-1-style rebuild). Must be
@@ -208,7 +210,7 @@ Same native-vs-web split as phasing above.
    code that changes app behavior." Companion's scan → load-remote-JS →
    attach-bridge flow is the same shape. Mitigations already in the design
    (persistent banner, explicit confirm dialog, Companion not being
-   *solely* a code-execution shell) reduce but do not eliminate this risk.
+   _solely_ a code-execution shell) reduce but do not eliminate this risk.
    Submission notes should address it explicitly rather than hope it's not
    flagged.
 
