@@ -1,0 +1,25 @@
+examples/useai/src/js/pages/Delta/Delta.js
+  9bea288dc33b853b 155
+packages/catalyst-core/src/native/androidSetup.js
+  9bea288dc33b853b 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "32593f2a9f38c4a40d50f60cdbf32840ef3a836f",
+  "prompts": {
+    "9bea288dc33b853b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ae426556-d939-40f8-a185-18ec0063a79c",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
