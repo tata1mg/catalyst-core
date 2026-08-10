@@ -507,7 +507,7 @@ export const sharedViteConfig = {
 // The production build (vite.config.client.js) ignores this and spreads
 // sharedViteConfig directly.
 export default defineConfig(async () => {
-    const { devServer = {} } = await loadCustomViteConfig()
+    const { devServer = {}, ssrPlugins = [] } = await loadCustomViteConfig()
 
     return {
         ...sharedViteConfig,
@@ -516,5 +516,11 @@ export default defineConfig(async () => {
             frameworkPaths: [process.env.src_path, __dirname],
             isProduction,
         }),
+        // Apply the app's SSR plugins in dev too — the production build already
+        // does this in vite.config.server.js. This lets buildConfig.ssrPlugins
+        // inject SSR-only config (e.g. a plugin whose `config()` hook adds
+        // ssr.noExternal to bundle React-consuming deps so dev SSR shares the
+        // app's single React instance) without hardcoding anything in the framework.
+        plugins: [...(sharedViteConfig.plugins || []), ...ssrPlugins],
     }
 })
