@@ -30,7 +30,10 @@ export function Body(props) {
                     __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}; window.__CATALYST_NATIVE_WEBVIEW__ = ${nativeWebView ? "true" : "false"}`,
                 }}
             />
-            {process.env.NODE_ENV === "development" && <script type="module" src="/client/index.js"></script>}
+            {process.env.NODE_ENV === "development" && (
+                // Base pinned to Vite's resolved base by server/expressServer.js.
+                <script type="module" src={`${process.env.APP_MOUNT_PATH || ""}/client/index.js`}></script>
+            )}
             {jsx}
             <script
                 /* eslint-disable */
