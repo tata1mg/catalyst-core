@@ -362,6 +362,15 @@ export const isNodeOnlyExternal = (id) =>
     id === "@grpc/grpc-js" ||
     id.startsWith("@opentelemetry/")
 
+// React-consuming packages that must be bundled into the SSR output (ssr.noExternal)
+// rather than externalized. When left external, each package's `require("react")` resolves
+// relative to its own (often hoisted, monorepo-root) location — which in a mixed React 18/19
+// monorepo can be a different React instance than the app's react-dom/server, producing
+// "$$typeof" element mismatches ("Objects are not valid as a React child"). Bundling hoists
+// their `import "react"` into the SSR bundle so it resolves (via resolve.dedupe below) to the
+// app's single React instance across the whole server render tree.
+const ssrBundledReactDeps = ["react-router-dom", "react-router", "react-helmet-async"]
+
 export default defineConfig({
     // Parallel `vite build` (SSR + client) must use separate dirs or Vite will block on shared `node_modules/.vite`.
     cacheDir: path.join(
@@ -372,6 +381,9 @@ export default defineConfig({
     ssr: {
         // Keep selected React-side packages bundled for SSR (transformed by Vite, NOT pre-bundled)
         // noExternal: ["@tata1mg/slowboi-react"],
+        // Bundle React-consuming router/helmet packages so they share the app's single React
+        // instance (see ssrBundledReactDeps above for the full rationale).
+        noExternal: ssrBundledReactDeps,
         // Ensure Node-only instrumentation and low-level Node deps stay external so
         // the bundler never tries to resolve the optional (opt-in) OTEL packages.
         external: nodeOnlyExternalDeps,
