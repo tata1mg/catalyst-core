@@ -308,8 +308,36 @@ function isValidExportName(name) {
 // Loader-scoped require for discovering CJS exports
 const loaderRequire = createRequire(import.meta.url)
 
-const CJS_PATTERN = /\b(module\.exports\b|exports\.\w+\s*=)/
 const REQUIRE_CALL_PATTERN = /\brequire\s*\(/
+
+/**
+ * Decide whether a source file is really CommonJS by parsing it, not by
+ * regex-matching the raw text.
+ *
+ * A regex like /module\.exports\b/ cannot tell code from text, so any file that
+ * merely *mentions* module.exports inside a string, comment or template literal
+ * was misclassified as CJS. When such a file was real ESM with its own
+ * `export default`, the CJS shim appended a second one and Node failed the
+ * module with "Duplicate export of 'default'". Docs sites hit this constantly:
+ * a Markdown page documenting a CJS config compiles into a string literal in
+ * the bundled ESM output. Do not reintroduce source-regex detection.
+ *
+ * esbuild parses properly and lowers CJS itself, so a file it wraps in its
+ * __commonJS helper had no ESM syntax of its own — that is the CJS signal.
+ */
+function isCjsSource(source, filePath) {
+    try {
+        const { code } = transformSync(source, {
+            loader: "jsx",
+            format: "esm",
+            sourcefile: filePath,
+            target: "node20",
+        })
+        return /\bvar __commonJS =/.test(code)
+    } catch {
+        return false
+    }
+}
 
 // Shim __dirname and __filename for ESM app files (these globals only exist in CJS)
 const createDirnameShim = (source) => {
@@ -396,7 +424,7 @@ export async function load(url, context, defaultLoad) {
         // We can't use createRequire here because the file lives in a "type":"module"
         // package — Node's CJS require refuses to load it. Instead, we wrap the
         // source inline so that `module.exports` becomes the default export.
-        if (CJS_PATTERN.test(source)) {
+        if (isCjsSource(source, filePath)) {
             const shimmed = [
                 createRequireShim(source),
                 createDirnameShim(source),
