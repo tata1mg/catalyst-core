@@ -1,0 +1,61 @@
+examples/test-video-hook-poc/src/js/containers/Home/Home.js
+  s_f824ee2772036b::t_10efddd3c057da 1
+examples/test-video-hook-poc/src/js/containers/Home/panels/DataProtectionPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+packages/catalyst-core/src/web-router/types/components/RouterDataProvider.d.ts
+  s_f824ee2772036b::t_648a0a5d794e45 50,54,62,68
+packages/catalyst-core/src/web-router/types/hooks.d.ts
+  s_f824ee2772036b::t_648a0a5d794e45 1
+examples/test-video-hook-poc/src/js/containers/Home/components/SharedUI.js
+  s_f824ee2772036b::t_bbae3b96ea60dc 3
+examples/test-video-hook-poc/src/js/containers/Home/panels/CameraPermissionPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+examples/test-video-hook-poc/src/js/containers/Home/panels/NetworkPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+examples/test-video-hook-poc/package.json
+  s_f824ee2772036b::t_38a06c918107e4 32
+packages/catalyst-core/src/web-router/components/RouterDataProvider.jsx
+  s_f824ee2772036b::t_3f98a18d0515b9 44-45,47,52,142,153,193,217,238
+packages/catalyst-core/src/web-router/types/index.d.ts
+  s_f824ee2772036b::t_726d9cd0c2a510 1
+examples/test-video-hook-poc/src/js/containers/Home/panels/HapticPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+examples/test-video-hook-poc/src/js/containers/Home/panels/VideoStreamPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+examples/test-video-hook-poc/src/js/containers/Home/panels/FilePickerPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+examples/test-video-hook-poc/src/js/containers/Home/panels/SafeAreaPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+packages/catalyst-core/src/web-router/types/context.d.ts
+  s_f824ee2772036b::t_648a0a5d794e45 3,12
+packages/catalyst-core/package.json
+  s_f824ee2772036b::t_5003efa740c7af 52-53
+packages/catalyst-core/src/web-router/context.jsx
+  s_f824ee2772036b::t_3f98a18d0515b9 5
+packages/catalyst-core/src/web-router/components/MetaTag.jsx
+  s_f824ee2772036b::t_08e36ad2fe35c7 6
+examples/test-video-hook-poc/src/js/containers/Home/panels/CameraPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+examples/test-video-hook-poc/src/js/routes/index.js
+  s_f824ee2772036b::t_99e421c07ebf3b 2
+examples/test-video-hook-poc/src/js/containers/Home/panels/DeviceInfoPanel.js
+  s_f824ee2772036b::t_df34761cd51284 2
+package-lock.json
+  s_f824ee2772036b::t_ad757d1804e7d9 8891-8892
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0bcd267e57e5a6b567533cfbad06180eefa36886",
+  "prompts": {},
+  "sessions": {
+    "s_f824ee2772036b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5cf6c4ef-91cc-4b5a-b91d-979e695de1e4",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
