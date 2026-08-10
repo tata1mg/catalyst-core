@@ -1,0 +1,36 @@
+packages/catalyst-core/src/vite/node-loader.mjs
+  6f030b12aefb4e94 313-341,427
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "3de57f55b60893031748fbeaa67908710ef7efae",
+  "prompts": {
+    "6f030b12aefb4e94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6bf578e2-bb8e-48ee-af3d-17b349a75a48",
+        "model": "claude-opus-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 108,
+      "total_deletions": 80,
+      "accepted_lines": 76,
+      "overriden_lines": 0
+    },
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 328,
+      "total_deletions": 194,
+      "accepted_lines": 262,
+      "overriden_lines": 0
+    }
+  }
+}
