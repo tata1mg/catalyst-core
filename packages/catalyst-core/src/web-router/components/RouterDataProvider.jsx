@@ -41,15 +41,15 @@ const INITIAL_DATA_STATE = {
 /**
  * @typedef RouterFetcherProps
  * @property {any} route route object
- * @property {import("react-router-dom").Location} location the current location object, which represents the current URL in web browsers.
- * @property {import("react-router-dom").Params} params object of key/value pairs of the dynamic params from the current URL that were matched by the route path.
+ * @property {import("react-router").Location} location the current location object, which represents the current URL in web browsers.
+ * @property {import("react-router").Params} params object of key/value pairs of the dynamic params from the current URL that were matched by the route path.
  * @property {URLSearchParams} searchParams search parameters via URLSearchParams interface.
- * @property {import("react-router-dom").NavigateFunction} navigate function to navigate to other pages based on response.
+ * @property {import("react-router").NavigateFunction} navigate function to navigate to other pages based on response.
  */
 
 /**
  * @typedef ServerFetchDataProps
- * @property {import("react-router-dom").RouteObject[]} routes routes Array
+ * @property {import("react-router").RouteObject[]} routes routes Array
  * @property {string} url current url
  * @property {import("express").Request} req Express request object
  */
@@ -139,7 +139,7 @@ const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
 /**
  *
  * @param {RouteContextObject} routeContext route context object
- * @returns {import('react-router-dom').RouteMatch[]} Array of matched routes
+ * @returns {import('react-router').RouteMatch[]} Array of matched routes
  */
 const getMatchedRoutes = ({ matches, outlet }) => {
     if (outlet) {
@@ -150,7 +150,7 @@ const getMatchedRoutes = ({ matches, outlet }) => {
 
 /**
  * Generates route key for given route using pathname and query params
- * @param {import('react-router-dom').RouteMatch} match Router Match Object
+ * @param {import('react-router').RouteMatch} match Router Match Object
  * @param {string} searchParamsString Query params string
  * @returns {string} routerKey
  */
@@ -190,7 +190,7 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
 
     /**
      * @description HOF which returns a function to refetch the route data
-     * @param {import("react-router-dom").RouteObject} route
+     * @param {import("react-router").RouteObject} route
      * @param {string} routeKey
      * @returns
      */
@@ -214,7 +214,7 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
 
     /**
      * @description HOF which returns a function to clear the route data immediately or after given time in ms
-     * @param {import("react-router-dom").RouteObject} route
+     * @param {import("react-router").RouteObject} route
      * @param {string} routeKey
      * @returns
      */
@@ -235,7 +235,7 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
 
     /**
      * @description Check the config for refetching the data
-     * @param {import('react-router-dom').RouteObject} route
+     * @param {import('react-router').RouteObject} route
      * @returns {boolean}
      */
     const shouldFetch = (route) => {
