@@ -1,7 +1,7 @@
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
 import { defineConfig } from "vite"
-import baseConfig, { getClientEnvVariables } from "./vite.config.js"
+import { sharedViteConfig as baseConfig, getClientEnvVariables } from "./vite.config.js"
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"

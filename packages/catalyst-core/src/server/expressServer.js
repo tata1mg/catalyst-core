@@ -10,6 +10,7 @@ import pc from "picocolors"
 import fs from "fs"
 const { cyan, yellow, green } = pc
 
+import { toMountPathPrefix } from "../vite/resolveDevServerConfig.js"
 import { validateMiddleware, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
@@ -208,6 +209,12 @@ async function createServer() {
             appType: "custom",
             root: process.env.src_path,
         })
+
+        // Expose Vite's resolved base to the SSR renderer so the URLs it injects
+        // (client entry, react-refresh preamble) match the path Vite serves under.
+        // Vite normalizes base with a trailing slash; trim it for clean URL joins.
+        process.env.APP_MOUNT_PATH = toMountPathPrefix(vite.config.base)
+
         app.use(vite.middlewares)
     }
 

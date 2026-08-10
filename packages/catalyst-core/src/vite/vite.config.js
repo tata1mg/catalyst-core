@@ -2,6 +2,8 @@ import { defineConfig, transformWithEsbuild } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
 import { builtinModules, createRequire } from "node:module"
+import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
+import { resolveDevBase, buildDevServer } from "./resolveDevServerConfig.js"
 
 /**
  * Treat all .scss imports as CSS modules (webpack compat).
@@ -362,7 +364,10 @@ export const isNodeOnlyExternal = (id) =>
     id === "@grpc/grpc-js" ||
     id.startsWith("@opentelemetry/")
 
-export default defineConfig({
+// ─── Shared config ────────────────────────────────────────────────────────────
+// Exported for the production build (vite.config.client.js spreads this in).
+// Does NOT include `base` or `server` — those differ between dev and prod.
+export const sharedViteConfig = {
     // Parallel `vite build` (SSR + client) must use separate dirs or Vite will block on shared `node_modules/.vite`.
     cacheDir: path.join(
         process.env.src_path,
@@ -488,17 +493,34 @@ export default defineConfig({
         "**/*.woff2",
     ],
 
-    // Server configuration
-    server: {
-        hmr: !isProduction,
-        fs: {
-            allow: [process.env.src_path, __dirname],
-        },
-    },
-
     // Preview configuration for production preview
     preview: {
         port: process.env.NODE_SERVER_PORT ? parseInt(process.env.NODE_SERVER_PORT) : 3005,
         host: process.env.NODE_SERVER_HOSTNAME || "localhost",
     },
+}
+
+// ─── Dev server config ────────────────────────────────────────────────────────
+// Async factory so it can read the app's buildConfig.devServer for `base`, HMR
+// and other Vite server options. `base` comes solely from devServer.base; the
+// resolved value is propagated to the SSR renderer by server/expressServer.js.
+// The production build (vite.config.client.js) ignores this and spreads
+// sharedViteConfig directly.
+export default defineConfig(async () => {
+    const { devServer = {}, ssrPlugins = [] } = await loadCustomViteConfig()
+
+    return {
+        ...sharedViteConfig,
+        base: resolveDevBase(devServer),
+        server: buildDevServer(devServer, {
+            frameworkPaths: [process.env.src_path, __dirname],
+            isProduction,
+        }),
+        // Apply the app's SSR plugins in dev too — the production build already
+        // does this in vite.config.server.js. This lets buildConfig.ssrPlugins
+        // inject SSR-only config (e.g. a plugin whose `config()` hook adds
+        // ssr.noExternal to bundle React-consuming deps so dev SSR shares the
+        // app's single React instance) without hardcoding anything in the framework.
+        plugins: [...(sharedViteConfig.plugins || []), ...ssrPlugins],
+    }
 })
