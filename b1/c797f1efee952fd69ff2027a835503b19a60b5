@@ -1,0 +1,29 @@
+packages/catalyst-core/src/vite/vite.config.js
+  s_f824ee2772036b::t_6b9bce7d86ff8d 395
+  s_f824ee2772036b::t_1707e04fd759bc 428
+  s_f824ee2772036b::t_5bdea320b5c79f 289
+packages/catalyst-core/src/web-router/hooks.jsx
+  s_f824ee2772036b::t_0ed2327eda443d 1
+packages/catalyst-core/src/web-router/components/RouterDataProvider.jsx
+  s_f824ee2772036b::t_edf4e4eb2c545f 10
+packages/catalyst-core/src/native/bridge/hooks/useNativeTransition.js
+  s_f824ee2772036b::t_cc80f524205a8e 3
+packages/catalyst-core/src/index.jsx
+  s_f824ee2772036b::t_798c3e20932b14 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b1c797f1efee952fd69ff2027a835503b19a60b5",
+  "prompts": {},
+  "sessions": {
+    "s_f824ee2772036b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5cf6c4ef-91cc-4b5a-b91d-979e695de1e4",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
