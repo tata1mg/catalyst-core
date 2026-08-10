@@ -1,7 +1,11 @@
 import loadEnvironmentVariables from "../scripts/loadEnvironmentVariables.js"
 loadEnvironmentVariables()
 import { defineConfig } from "vite"
-import baseConfig, { getClientEnvVariables, isNodeOnlyExternal } from "./vite.config.js"
+// Spread the static shared config (a plain object), NOT the default export —
+// the default export is now an async dev-server factory function, and spreading
+// a function would silently drop cacheDir, resolve aliases, css, plugins and
+// build from the production SSR bundle. Mirrors vite.config.client.js.
+import { sharedViteConfig as baseConfig, getClientEnvVariables, isNodeOnlyExternal } from "./vite.config.js"
 import path from "path"
 import { fileURLToPath } from "url"
 import { dirname } from "path"

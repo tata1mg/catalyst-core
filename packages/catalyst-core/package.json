@@ -30,6 +30,7 @@
     "scripts": {
         "lint": "eslint .",
         "lint-staged": "lint-staged",
+        "test:unit": "node --test \"test/**/*.test.js\"",
         "prettify": "prettier . --write",
         "prepare": "node ../../scripts/safe-rimraf.js ./dist && cp -r ./src ./dist && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs",
         "prepublishOnly": "npm run prepare",
