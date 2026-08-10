@@ -9,17 +9,13 @@ examples/*/logs/
 examples/*/package-lock.json
 
 # Docs app local config and generated output
-docs/config.json
 docs/config/config.json
-docs/server/config.json
-docs/static/js/config.js
 docs/build/
-docs/.docusaurus/
-docs/public-docs/
-docs/docs/
-docs/api/
-docs/temp/
-docs/server/collection-files/
+docs/src/js/generated/
+docs/public/img/
+docs/public/docs-assets/
+docs/public/sitemap.xml
+docs/public/robots.txt
 docs/.claude/
 docs/hyperframes/
 .sandbox/
@@ -31,6 +27,8 @@ docs/hyperframes/
 !/scripts/create-release-sandbox.js
 !/scripts/release/
 !/scripts/release/sync-cca-templates.js
+!/scripts/docs-migration/
+!/scripts/docs-migration/**
 /server
 /types
 /dist
@@ -77,8 +75,7 @@ build/
 **/iosnativeWebView/.package-config-hash
 **/iosnativeWebView/.build/
 
-# Vendored Gemfile.locks inside node_modules and CocoaPods checkouts (not managed by us)
-docs/node_modules/lunr-languages/
+# Vendored Gemfile.locks inside CocoaPods checkouts (not managed by us)
 src/native/iosnativeWebView/.build/checkouts/
 
 # Built application files

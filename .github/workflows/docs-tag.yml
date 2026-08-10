@@ -30,7 +30,7 @@ jobs:
             - name: Build docs
               run: |
                   npm --prefix docs ci
-                  cp docs/config_template.json docs/config.json
+                  cp docs/config/config_template.json docs/config/config.json
                   npm run docs:build
 
             - name: Create docs git tag
