@@ -1,6 +1,6 @@
 /**
  * @typedef oneMgRouterContext
- * @property {import("react-router-dom").RouteMatch<string, import("react-router-dom").RouteObject>[]=} matchedRoutes
+ * @property {import("react-router").RouteMatch<string, import("react-router").RouteObject>[]=} matchedRoutes
  */
 /**
  * @description This is internal context made for sharing data among router components
@@ -8,5 +8,5 @@
  */
 export const OneMgRouterContext: import("react").Context<oneMgRouterContext>;
 export type oneMgRouterContext = {
-    matchedRoutes?: import("react-router-dom").RouteMatch<string, import("react-router-dom").RouteObject>[] | undefined;
+    matchedRoutes?: import("react-router").RouteMatch<string, import("react-router").RouteObject>[] | undefined;
 };

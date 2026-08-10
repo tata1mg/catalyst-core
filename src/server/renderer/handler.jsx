@@ -4,7 +4,7 @@ import { Provider } from "react-redux"
 import { Body } from "./document/Body.jsx"
 import { Head } from "./document/Head.jsx"
 
-import { StaticRouter } from "react-router-dom/server"
+import { StaticRouter } from "react-router"
 import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
