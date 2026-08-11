@@ -295,7 +295,7 @@ export default defineConfig({
         // node_modules root would have that copy forced onto catalyst-core's v7
         // import too, silently resolving to the wrong package version (wrong
         // export list, e.g. missing Link/StaticRouter) instead of an error.
-        dedupe: ["react", "react-dom", "react-router-dom", "@tata1mg/slowboi-react"],
+        dedupe: ["react", "react-dom", "react-router-dom"],
     },
     define: {
         ...getClientEnvVariables(),
