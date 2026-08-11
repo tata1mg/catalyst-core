@@ -432,7 +432,7 @@ export default defineConfig({
         // resolving to the wrong package version (wrong export list, e.g.
         // missing StaticRouter/Link) instead of an error. See tata1mg/1mg_web
         // fix/react-router-v7-upgrade-staging for the confirmed repro.
-        dedupe: ["react", "react-dom", "react-router-dom", "@tata1mg/slowboi-react"],
+        dedupe: ["react", "react-dom", "react-router-dom"],
     },
     define: {
         ...getClientEnvVariables(),
