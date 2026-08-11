@@ -1,0 +1,55 @@
+errors/CCA/CCA-003.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+errors/CCA/CCA-000.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+errors/CCA/CCA-005.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+errors/CCA/CCA-002.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+errors/CCA/CCA-008.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+errors/CCA/CCA-009.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+errors/CCA/CCA-004.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+errors/CCA/CCA-006.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+packages/create-catalyst-app/scripts/generateDocs.cjs
+  s_3eb875f74ec265::t_d7f4af1428bc0e 1-83
+errors/CCA/CCA-001.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+packages/create-catalyst-app/scripts/cli.cjs
+  s_3eb875f74ec265::t_a21c6ff20062ec 444
+  s_3eb875f74ec265::t_921c655aa69757 410,415,419
+  s_3eb875f74ec265::t_2f108317bac925 239,245-246
+  s_3eb875f74ec265::t_463f07632f25ca 12
+  s_3eb875f74ec265::t_05d5c1ecd99f45 205
+  s_3eb875f74ec265::t_703fba6b262659 281-282
+  s_3eb875f74ec265::t_334290507ab5cd 69-78,83-91
+  s_3eb875f74ec265::t_b531d6f8d556e2 173-174
+errors/index.json
+  s_3eb875f74ec265::t_d8f2cccf6235b7 465-544
+errors/CCA/CCA-007.md
+  s_3eb875f74ec265::t_d8f2cccf6235b7 1-19
+packages/create-catalyst-app/scripts/errors.cjs
+  s_3eb875f74ec265::t_685c54be77ef95 146,148
+  s_3eb875f74ec265::t_1e3b42701416bd 1-19,23,32-145,147,149-160,162-182
+  s_3eb875f74ec265::t_b6962f82fb5bb7 20-22,24-31
+  s_3eb875f74ec265::t_3a703fe693457d 161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c32632e543f7db4825f0453e206284b395f80ce8",
+  "prompts": {},
+  "sessions": {
+    "s_3eb875f74ec265": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c428fd8-30dd-4b00-ba36-72908a21e6f8",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

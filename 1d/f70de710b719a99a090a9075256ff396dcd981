@@ -1,0 +1,25 @@
+.gitignore
+  bfcf8d519e117510 13
+scripts/docs-migration/README.md
+  bfcf8d519e117510 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "1df70de710b719a99a090a9075256ff396dcd981",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 3,
+      "accepted_lines": 30,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,79 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_2db858c7992682::t_9fbfb2b3a1f2b8 1371-1373,1378-1380,1385-1387
+  s_2db858c7992682::t_29eaaeefab076f 174-179
+packages/catalyst-cloud-ai/README.md
+  s_2db858c7992682::t_ee9d96b95b2eb3 1-30
+packages/catalyst-cloud-ai/src/useCloudAI.js
+  s_2db858c7992682::t_9bcfc88e8c1ac3 117
+  s_2db858c7992682::t_aa15f2514f4c68 95
+  s_2db858c7992682::t_8c6dc5826293d8 239
+  s_2db858c7992682::t_64af27b8b92893 241-258
+  s_2db858c7992682::t_fc437f914dff82 26-39
+  s_2db858c7992682::t_54e50951618f00 134-137
+  s_2db858c7992682::t_e57d213e957b01 172
+  s_2db858c7992682::t_f46e0760ddb7d8 225
+  s_2db858c7992682::t_daaef0c766b2df 168-171
+  s_2db858c7992682::t_37894a46b8c781 198
+  s_2db858c7992682::t_837e7686002a9c 272
+packages/catalyst-cloud-ai/src/route.js
+  s_2db858c7992682::t_19f51ad896dcc4 215-216
+  s_2db858c7992682::t_c33c85093e0b0c 475-479
+  s_2db858c7992682::t_976d475296fd9c 29-37
+  s_2db858c7992682::t_f4ea5f111cd2eb 301
+  s_2db858c7992682::t_c8944a68f681d4 352
+  s_2db858c7992682::t_e870bb249ff542 466-468
+  s_2db858c7992682::t_e5d0902da2a7af 513-515
+  s_2db858c7992682::t_c08dc94ecd5731 108
+  s_2db858c7992682::t_43b30b84cd6f7b 5-8
+  s_2db858c7992682::t_a7a29298ce1580 126
+  s_2db858c7992682::t_b46498653b1111 107
+  s_2db858c7992682::t_d05ee2f7763376 278
+  s_2db858c7992682::t_82f96e6df0a9ff 179
+  s_2db858c7992682::t_35f2400b21f5c7 473-474,480,483-492,495-500
+packages/catalyst-cloud-ai/src/useNativeAI.js
+  s_2db858c7992682::t_3edae1ec434902 48-55
+examples/useai/src/js/containers/TicTacToe/TicTacToe.js
+  s_2db858c7992682::t_7755bd3d9bb0b1 224
+  s_2db858c7992682::t_449d06b2de5107 126
+examples/useai/src/js/containers/AITest/AITest.js
+  s_2db858c7992682::t_60520e6a678dd7 133
+packages/catalyst-cloud-ai/src/useWebAI.js
+  s_2db858c7992682::t_0e7f042a6c26f9 243-250
+  s_2db858c7992682::t_e9587e17047054 297-302
+  s_2db858c7992682::t_8df0217e16b118 207-211
+  s_2db858c7992682::t_c627d582141915 335,338
+  s_2db858c7992682::t_f608a5f4ec7d85 343,350
+  s_2db858c7992682::t_5fc7bbc2252094 184-189,212-213
+  s_2db858c7992682::t_cd777ffa5155cd 1,4-5
+  s_2db858c7992682::t_25f8dc25ea44f1 239
+  s_2db858c7992682::t_a3928a5378c0c9 326
+  s_2db858c7992682::t_edf8cecca3afd2 358-359
+  s_2db858c7992682::t_7552307f87d1b1 66
+  s_2db858c7992682::t_d5f185ca12698d 288
+  s_2db858c7992682::t_93e3eee5ec84c3 41,50
+  s_2db858c7992682::t_2a1b7d05718f1f 108-110
+  s_2db858c7992682::t_79c81c9c4f4456 91
+  s_2db858c7992682::t_283c838bf56bbb 6
+  s_2db858c7992682::t_0a12af37cc07d9 214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "fd74d83a163046f001a3ce3bdbdfeac65893714f",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_2db858c7992682": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53641c65-080e-4ca0-908d-43d156fe031e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

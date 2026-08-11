@@ -1,0 +1,19 @@
+examples/sync-core.js
+  s_47532df3159d4c::t_5b88647378ba06 62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "922a067717aeb7cdf887a05af0b701323ee046db",
+  "prompts": {},
+  "sessions": {
+    "s_47532df3159d4c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "449718bd-ae0d-45f6-8183-0c118409a656",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

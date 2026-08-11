@@ -1,0 +1,31 @@
+examples/catalyst-companion/src/js/components/hub/BottomNav.js
+  bfcf8d519e117510 5-6,54-55,93-100
+examples/catalyst-companion/src/js/containers/Landing/Landing.js
+  bfcf8d519e117510 5,142,144,147,280-282
+examples/catalyst-companion/src/js/components/hub/Navbar.js
+  bfcf8d519e117510 6-7,13,144,146,164,168-169,177,179
+examples/catalyst-companion/src/js/containers/AppHome/AppHome.js
+  bfcf8d519e117510 9-10,129,131,143,145
+examples/catalyst-companion/src/js/constants/docs.js
+  bfcf8d519e117510 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "776f835303e630ef1b3f1d67481a3c82e1fa534f",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 55,
+      "total_deletions": 27,
+      "accepted_lines": 49,
+      "overriden_lines": 0
+    }
+  }
+}

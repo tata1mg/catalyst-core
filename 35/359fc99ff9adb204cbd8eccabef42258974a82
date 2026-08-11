@@ -1,0 +1,30 @@
+packages/catalyst-cloud-ai/src/useCloudAI.js
+  s_2db858c7992682::t_bbaf1f7200a78f 233
+examples/useai/src/js/components/AITest/Panel.js
+  s_2db858c7992682::t_9c7cc21e0b0e40 69-74
+examples/useai/src/js/components/AITest/InferenceSettingsBottomSheet.js
+  s_2db858c7992682::t_4c0b3c87ec15d4 1,18-26
+examples/useai/api.js
+  s_2db858c7992682::t_6c821fbf6e2dff 8-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "35359fc99ff9adb204cbd8eccabef42258974a82",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_2db858c7992682": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53641c65-080e-4ca0-908d-43d156fe031e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

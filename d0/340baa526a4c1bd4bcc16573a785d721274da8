@@ -1,0 +1,44 @@
+oxc-migration-benchmark.md
+  9bea288dc33b853b 1-89
+.lintstagedrc.cjs
+  9bea288dc33b853b 5,16,24,26,29-30,33,45-46,49-50,53-57,59,61-63,65,67-69,71-72,75,77-81
+packages/catalyst-core/.oxlintrc.json
+  9bea288dc33b853b 1-80
+packages/create-catalyst-app/package.json
+  9bea288dc33b853b 12
+packages/catalyst-core/package.json
+  9bea288dc33b853b 31,33,74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "d0340baa526a4c1bd4bcc16573a785d721274da8",
+  "prompts": {
+    "9bea288dc33b853b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ae426556-d939-40f8-a185-18ec0063a79c",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 220,
+      "total_deletions": 86,
+      "accepted_lines": 211,
+      "overriden_lines": 0
+    },
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,19 @@
+src/vite/vite.config.js
+  s_dbc1b8d9d00cc3::t_d6b921a89c6f42 293-298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1a2fd764333204db5db9d75a2f06368a5a15f75f",
+  "prompts": {},
+  "sessions": {
+    "s_dbc1b8d9d00cc3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2be7ad0a-212a-4461-9e5c-1512c8a6b4a2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": null
+    }
+  }
+}

@@ -1,0 +1,36 @@
+packages/catalyst-core/src/native/buildAppIos.js
+  s_14d8f94172c67f::t_5a3a4a72193eef 5
+  s_14d8f94172c67f::t_446eded1f2762f 37-43
+  s_14d8f94172c67f::t_ff0182cac828d6 44
+packages/create-catalyst-app/scripts/cli.cjs
+  s_14d8f94172c67f::t_e0d9d4c5bf0d32 12-20
+  s_14d8f94172c67f::t_982d1e57e0688c 174,246,282
+  s_14d8f94172c67f::t_c2497a0642754a 87-90
+  s_14d8f94172c67f::t_e03b1239d5b05f 78-81
+packages/catalyst-core/src/native/buildAppAndroid.js
+  s_14d8f94172c67f::t_745430037c5ce1 13
+  s_14d8f94172c67f::t_64da7df032503a 2
+packages/catalyst-core/src/native/buildErrorFormat.js
+  s_14d8f94172c67f::t_4865d911e67828 1-50
+packages/create-catalyst-app/scripts/errors.cjs
+  s_14d8f94172c67f::t_5398238cbb6adb 1-2
+  s_14d8f94172c67f::t_515d2d0e7c1ba0 267
+  s_14d8f94172c67f::t_a12b1ef52fb9dc 301-302
+  s_14d8f94172c67f::t_cb0127ba609856 155,172-266,268-300,310-311
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "3c5eb81f1248dc05e0a20c2c5298d2c284cae357",
+  "prompts": {},
+  "sessions": {
+    "s_14d8f94172c67f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4804a397-64c7-4c5b-9188-1dd5aa57660b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

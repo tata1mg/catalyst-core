@@ -1,0 +1,24 @@
+examples/useai/package.json
+  s_2db858c7992682::t_f1e815af0b0ea0 35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "679d703d3157a06ecdd0c71157f8dbeb43ac8191",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_2db858c7992682": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53641c65-080e-4ca0-908d-43d156fe031e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

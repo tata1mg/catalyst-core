@@ -1,0 +1,37 @@
+packages/catalyst-core/src/server/renderer/handler.jsx
+  s_14d8f94172c67f::t_aa048f24f02d78 303-304,314-315,409-410,429-430,449-450
+  s_14d8f94172c67f::t_5a377a56246fd4 35
+packages/catalyst-core/src/errors/registry.js
+  s_14d8f94172c67f::t_b7b2391c6927c5 385-386,393-394
+  s_14d8f94172c67f::t_237f2908acb620 377-378
+  s_14d8f94172c67f::t_635827023433b3 373-376,379-384,387-392,395-400,403-405
+  s_14d8f94172c67f::t_19fd719322360e 54-58
+  s_14d8f94172c67f::t_e37b192bb3a23f 401-402
+errors/RUNTIME-WEB/RUNTIME-WEB-004.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+errors/RUNTIME-WEB/RUNTIME-WEB-002.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+packages/catalyst-core/src/errors/index.js
+  s_14d8f94172c67f::t_1a14fab60e92e2 72-95
+  s_14d8f94172c67f::t_135a1e96a3abb0 99-104
+errors/RUNTIME-WEB/RUNTIME-WEB-001.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+errors/RUNTIME-WEB/RUNTIME-WEB-003.md
+  s_14d8f94172c67f::t_1481e09da54708 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8893b60d38d85cfcd275fb7b436b4545ad0829a4",
+  "prompts": {},
+  "sessions": {
+    "s_14d8f94172c67f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4804a397-64c7-4c5b-9188-1dd5aa57660b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,46 @@
+src/index.jsx
+  s_dbc1b8d9d00cc3::t_bed89b469ba4fc 1
+package.json
+  s_dbc1b8d9d00cc3::t_e5d172d8c00807 41-42
+src/web-router/context.jsx
+  s_dbc1b8d9d00cc3::t_12427ca3471929 5
+src/web-router/types/hooks.d.ts
+  s_dbc1b8d9d00cc3::t_12427ca3471929 1
+src/web-router/types/index.d.ts
+  s_dbc1b8d9d00cc3::t_12427ca3471929 1
+src/vite/vite.config.js
+  s_dbc1b8d9d00cc3::t_e4eb22fad81711 159
+  s_dbc1b8d9d00cc3::t_9a27b0354ec7af 261
+  s_dbc1b8d9d00cc3::t_947fc6d7191579 293
+src/web-router/components/MetaTag.jsx
+  s_dbc1b8d9d00cc3::t_bed89b469ba4fc 6
+src/web-router/hooks.jsx
+  s_dbc1b8d9d00cc3::t_bed89b469ba4fc 1
+src/server/renderer/handler.jsx
+  s_dbc1b8d9d00cc3::t_bed89b469ba4fc 7
+src/web-router/types/context.d.ts
+  s_dbc1b8d9d00cc3::t_12427ca3471929 3,11
+src/web-router/components/RouterDataProvider.jsx
+  s_dbc1b8d9d00cc3::t_d16d4a70412838 10
+  s_dbc1b8d9d00cc3::t_12427ca3471929 44-45,47,52,142,153,193,217,238
+src/web-router/types/components/RouterDataProvider.d.ts
+  s_dbc1b8d9d00cc3::t_12427ca3471929 42,46,54,60
+package-lock.json
+  s_dbc1b8d9d00cc3::t_7dafb8401600ee 24-25,5680-5682,5684-5685,5688,5691-5697,5701-5703,5705,5708,5711-5724,6013-6017
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9edd15a6c73fada45590b6b1118edaf78e5428aa",
+  "prompts": {},
+  "sessions": {
+    "s_dbc1b8d9d00cc3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2be7ad0a-212a-4461-9e5c-1512c8a6b4a2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

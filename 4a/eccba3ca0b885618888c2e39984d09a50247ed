@@ -1,0 +1,25 @@
+packages/catalyst-core/src/native/internal-plugins/companion/ios/CompanionPlugin.swift
+  bfcf8d519e117510 23-24,54-57,59-63,66,68,73-139,242-243
+packages/catalyst-core/src/native/internal-plugins/companion/android/CompanionPlugin.kt
+  bfcf8d519e117510 45,55,99-102,105-108,110,125-175,309-320,322-325,328-336,338-339,343,350-352,358-365,368-370,376-398,412
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "4aeccba3ca0b885618888c2e39984d09a50247ed",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1846,
+      "total_deletions": 1461,
+      "accepted_lines": 1797,
+      "overriden_lines": 0
+    }
+  }
+}
