@@ -1,0 +1,96 @@
+packages/catalyst-core/src/native/utils.js
+  aaa6482ba169b5a1 10-36,39,49,89,98-99,101-104,107-112,114-130,133-137,139-141,160-166,169-171
+packages/catalyst-core/src/scripts/build.js
+  aaa6482ba169b5a1 6-7,12-17,21,23-26,36-41,44-48,61,166-219,223,272-274,277,282,284-288,290-291,312,314,319-329,331-334,336,338
+packages/catalyst-core/src/scripts/start.js
+  aaa6482ba169b5a1 2,7,11-12,14,19-25,36-49,58,60-61,65-69
+packages/catalyst-core/src/native/renameAndroidProject.js
+  aaa6482ba169b5a1 19-28,292-293
+packages/catalyst-core/src/cli/theme.js
+  aaa6482ba169b5a1 1-21,26-95,97-106
+packages/catalyst-core/src/cli/diagnostic.js
+  aaa6482ba169b5a1 1-140,142-150,153-155,169-174,180,182-201,203-211
+packages/catalyst-core/src/scripts/generateOfflineManifest.js
+  aaa6482ba169b5a1 63
+packages/create-catalyst-app/scripts/cli.cjs
+  aaa6482ba169b5a1 5,48-49,68-71,73-74,79,84-86,88,90,121-128,131-134,138-140,142,154-156,160-164,166-167,308-324,327-335,341,343-345,347,349-359,361,364-375,378-391,393-396,400-404,407,411-412,414-416,418,420,424-425,427,429,433-436,438
+packages/catalyst-core/src/server/expressServer.js
+  aaa6482ba169b5a1 15,19-23,26,28-40,314,316-322,329-332,339-349,352,354-357,359-360
+packages/catalyst-core/src/cli/README.md
+  aaa6482ba169b5a1 1-69,87-95
+packages/catalyst-core/src/native/buildAndroid/build.js
+  aaa6482ba169b5a1 3,130-133,143-159,161-183,185-215,217,219-235,237-244,246-250,258,268-270,272,289,476-478
+packages/catalyst-core/src/scripts/preServerInit.js
+  aaa6482ba169b5a1 12,14-19
+packages/catalyst-core/src/native/buildAppIos.js
+  aaa6482ba169b5a1 8,36-40
+packages/catalyst-core/src/native/buildIos/config.js
+  aaa6482ba169b5a1 332-334,336
+packages/catalyst-core/src/scripts/serve.js
+  aaa6482ba169b5a1 2,6-7,11-13,16,21-26,37-38,42-43,45-56,59,67,71,74-76,96
+terminal-output-notes.md
+  aaa6482ba169b5a1 1-676
+packages/catalyst-core/src/native/terminalProgress.js
+  aaa6482ba169b5a1 1-25,37,44-47,51-53,64,82-93,95-100,104-130,133-135,138-139,144-146,183-187,189-190,192-195,198-199,202-203,207-218
+packages/catalyst-core/src/native/buildIos/build.js
+  aaa6482ba169b5a1 18,120-122,138
+packages/catalyst-core/src/native/buildIos/plugins.js
+  aaa6482ba169b5a1 254-256,259
+packages/catalyst-core/src/scripts/loadEnvironmentVariables.js
+  aaa6482ba169b5a1 30-32,36
+packages/catalyst-core/src/cli/buildErrors.js
+  aaa6482ba169b5a1 1-2,5-44,62-67,69,72-80,82-85,87-91,93-94,98-135
+packages/catalyst-core/src/scripts/scriptUtils.js
+  aaa6482ba169b5a1 49-81
+packages/catalyst-core/src/native/buildIos/index.js
+  aaa6482ba169b5a1 3,63-65,68-72,76-77,84,99-101,108-129,131-156,161-162,164-165,256
+packages/catalyst-core/src/native/buildAppAndroid.js
+  aaa6482ba169b5a1 4,13-18
+packages/catalyst-core/src/logger.js
+  aaa6482ba169b5a1 16-45,107-109
+packages/catalyst-core/src/cli/spinner.js
+  aaa6482ba169b5a1 1-6,11-61,68,70-85,87-119
+packages/catalyst-core/src/cli/hints.js
+  aaa6482ba169b5a1 1-20,29-68
+packages/catalyst-core/src/vite/resolveDevServerConfig.js
+  aaa6482ba169b5a1 41
+.gitignore
+  aaa6482ba169b5a1 47-49
+packages/catalyst-core/src/cli/package.json
+  aaa6482ba169b5a1 1-3
+packages/catalyst-core/src/cli/devOutput.js
+  aaa6482ba169b5a1 1-2,4,16-38,43-47,51-62,72-79,85-88,90-92,94-118,124-180,202-204,208-209,211-216,220-226,254,270,341-342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "8b59473c976b8e6c870dd817dfd8e6df291df9d4",
+  "prompts": {
+    "4bccbeb6277d28dd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "30bd4e72-1519-4276-bd32-783802fbc472",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 411,
+      "total_deletions": 298,
+      "accepted_lines": 70,
+      "overriden_lines": 6
+    },
+    "aaa6482ba169b5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76950fb3-d502-4d86-8c9f-26e803728751",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 4379,
+      "total_deletions": 1019,
+      "accepted_lines": 3289,
+      "overriden_lines": 79
+    }
+  }
+}
