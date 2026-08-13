@@ -31,6 +31,10 @@ const createClientConfig = async () => {
             sourcemap: false,
             manifest: true,
             ssrManifest: true,
+            // Parallel client and server builds share this directory -- emptying it
+            // would delete the other bundle. Declared explicitly so Vite does not
+            // warn about an outDir outside the project root.
+            emptyOutDir: false,
             outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
 
             // cssCodeSplit: true (default) — each chunk gets its own CSS file.
@@ -38,6 +42,20 @@ const createClientConfig = async () => {
             // per-chunk CSS is fine — more files but each is small and cacheable.
 
             rollupOptions: {
+                // Advisory warnings about third-party code the app author
+                // cannot act on: a dependency's misplaced /*#__PURE__*/ comment
+                // and unused re-exports from our own entry. Genuine problems
+                // (unresolved imports, circular deps, missing exports) still
+                // surface.
+                onwarn(warning, defaultHandler) {
+                    const ignored = new Set([
+                        "INVALID_ANNOTATION",
+                        "UNUSED_EXTERNAL_IMPORT",
+                        "MODULE_LEVEL_DIRECTIVE",
+                    ])
+                    if (ignored.has(warning.code)) return
+                    defaultHandler(warning)
+                },
                 input: {
                     main: path.join(process.env.src_path, "client/index.js"),
                 },

@@ -1,6 +1,7 @@
 import fs from "fs"
 import path from "path"
 import util from "node:util"
+import { pathToFileURL } from "url"
 import pkg from "picocolors"
 const { gray, cyan } = pkg
 
@@ -43,6 +44,39 @@ export const printBundleInformation = () => {
 
         console.log(util.format(size, fileName))
     })
+}
+
+/**
+ * Propagate a spawnSync result to this process's exit code.
+ *
+ * Without this the wrapper always exits 0, so a server that failed to boot
+ * still reads as a successful run to CI and to shell `&&` chains.
+ *
+ * @param {import('child_process').SpawnSyncReturns<Buffer>} result
+ * @param {string} label - what was being started, for the error message
+ */
+
+/**
+ * A `--import` argument that registers a module loader.
+ *
+ * `--loader` is deprecated and makes Node print a four-line
+ * ExperimentalWarning to stderr for every process that uses it -- which meant
+ * 18 lines of warnings in a single `catalyst build`, since the flag is passed
+ * to both bundles and the manifest step. register() is the supported form and
+ * is silent.
+ *
+ * @param {string} loaderPath - absolute path to the loader module
+ */
+export function loaderImportArg(loaderPath) {
+    const url = pathToFileURL(loaderPath).href
+    return (
+        `data:text/javascript,` +
+        encodeURIComponent(
+            `import { register } from "node:module";` +
+                `import { pathToFileURL } from "node:url";` +
+                `register(${JSON.stringify(url)}, pathToFileURL("./"));`
+        )
+    )
 }
 
 export function arrayToObject(array) {

@@ -476,7 +476,7 @@
         "title": "Full config/config.json Schema",
         "content": "config/config.json contains all runtime config. Required keys (enforced by validator.js at startup \u2014 missing any = server crash): NODE_SERVER_HOSTNAME (string), NODE_SERVER_PORT (number), WEBPACK_DEV_SERVER_HOSTNAME (string), WEBPACK_DEV_SERVER_PORT (number), BUILD_OUTPUT_PATH (string, e.g. 'build'), PUBLIC_STATIC_ASSET_PATH (string, e.g. '/assets/'), PUBLIC_STATIC_ASSET_URL (string, CDN base URL), CLIENT_ENV_VARIABLES (array of env var names to expose to client bundle), ANALYZE_BUNDLE (boolean). Optional top-level keys: API_URL (string, app convention not enforced), WEBVIEW_CONFIG (object, required for native builds \u2014 contains splashScreen, appInfo, android, ios, etc.). Common mistake: CLIENT_ENV_KEYS is WRONG \u2014 the actual key is CLIENT_ENV_VARIABLES. Common mistake: splashScreen is NOT a top-level key \u2014 it lives inside WEBVIEW_CONFIG. Example: { NODE_SERVER_HOSTNAME: 'localhost', NODE_SERVER_PORT: 3000, WEBPACK_DEV_SERVER_HOSTNAME: 'localhost', WEBPACK_DEV_SERVER_PORT: 3001, BUILD_OUTPUT_PATH: 'build', PUBLIC_STATIC_ASSET_PATH: '/assets/', PUBLIC_STATIC_ASSET_URL: 'https://cdn.example.com', CLIENT_ENV_VARIABLES: ['API_URL'], ANALYZE_BUNDLE: false }",
         "layer": "Config",
-        "source": "extracted:src/scripts/validator.js",
+        "source": "extracted:src/server/utils/validator.js",
         "tags": ["config", "schema", "required-fields"]
     },
     {
@@ -729,7 +729,7 @@
         "title": "moduleAliases \u2014 Required Path Aliases in package.json",
         "content": "package.json must have a _moduleAliases key (used by module-alias package) with these 6 required entries (enforced by validator.js \u2014 missing any = server crash): @api -> api/ (WARNING: common bug \u2014 @api accidentally set to src/static/css in legacy repos, causes all API imports to break silently), @containers -> src/js/containers, @server -> server, @config -> config, @css -> src/static/css, @routes -> src/js/routes/. Additional aliases (@store, @utils, @components, etc.) are optional but recommended. Dollar-prefix aliases (, , , , ) are server-side only \u2014 do not import in client code. Restriction: alias names containing catalyst are reserved. Migration check: always verify @api points to the actual API module, not a static asset path.",
         "layer": "Config",
-        "source": "extracted:src/scripts/validator.js",
+        "source": "extracted:src/server/utils/validator.js",
         "tags": ["module-aliases", "package-json", "required", "config"]
     },
     {

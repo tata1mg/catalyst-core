@@ -259,7 +259,6 @@ function discoverInternalPlugins(corePluginsRoot, log = () => {}) {
         }
     }
 
-    log(`Discovered ${plugins.length} internal plugin manifest(s)`, "info")
     return plugins
 }
 

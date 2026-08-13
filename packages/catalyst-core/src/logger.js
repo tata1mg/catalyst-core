@@ -13,6 +13,36 @@ const { createLogger, format, transports } = winston
  * @returns loggerInstance
  *
  */
+/**
+ * Render a log argument as text.
+ *
+ * JSON.stringify was wrong in two ways that mattered: an Error serializes to
+ * "{}" (message and stack are non-enumerable), so error logs said nothing at
+ * all, and a circular reference made the logger itself throw -- turning a
+ * logged problem into a crash.
+ */
+function formatLogMessage(msg) {
+    if (typeof msg === "string") return msg
+    if (msg instanceof Error) return msg.stack || `${msg.name}: ${msg.message}`
+
+    try {
+        const seen = new WeakSet()
+        const text = JSON.stringify(msg, (key, value) => {
+            if (value instanceof Error) return value.stack || `${value.name}: ${value.message}`
+            if (typeof value === "bigint") return value.toString()
+            if (typeof value === "object" && value !== null) {
+                if (seen.has(value)) return "[Circular]"
+                seen.add(value)
+            }
+            return value
+        })
+        // stringify returns undefined for functions and symbols.
+        return text === undefined ? String(msg) : text
+    } catch (error) {
+        return String(msg)
+    }
+}
+
 const configureLogger = (config = {}) => {
     const { enableDebugLogs = true, enableFileLogging = true, enableConsoleLogging = true } = config
 
@@ -55,22 +85,28 @@ const configureLogger = (config = {}) => {
         errorLogger.add(fileTransport("error"))
     }
 
+    // Winston serializes with format.json(), which renders an Error as {} for
+    // the same reason JSON.stringify does. Pass the formatted text so the file
+    // logs say what the console says.
     const Logger = {
         debug: () => {},
         error: (msg) => {
-            console.log(pc.red(pc.bold("ERROR: " + JSON.stringify(msg))))
-            errorLogger.error(msg)
+            const text = formatLogMessage(msg)
+            console.log(pc.red(pc.bold("ERROR: " + text)))
+            errorLogger.error(text)
         },
         info: (msg) => {
-            console.log(pc.green(pc.bold("INFO: " + JSON.stringify(msg))))
-            infoLogger.info(msg)
+            const text = formatLogMessage(msg)
+            console.log(pc.green(pc.bold("INFO: " + text)))
+            infoLogger.info(text)
         },
     }
 
     if (enableDebugLogs && JSON.parse(enableDebugLogs)) {
         Logger.debug = (msg) => {
-            console.log(pc.yellow(pc.bold("DEBUG: " + JSON.stringify(msg))))
-            debugLogger.debug(msg)
+            const text = formatLogMessage(msg)
+            console.log(pc.yellow(pc.bold("DEBUG: " + text)))
+            debugLogger.debug(text)
         }
     }
 

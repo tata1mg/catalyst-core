@@ -9,5 +9,12 @@ try {
 } catch {
     // No hooks file — preServerInit remains undefined
 }
-await loadEnvironmentVariables()
+try {
+    await loadEnvironmentVariables()
+} catch {
+    // loadEnvironmentVariables already printed an actionable message. Letting
+    // this propagate would print the raw stack again as an unhandled rejection.
+    process.exit(1)
+}
+
 safeCall(preServerInit)

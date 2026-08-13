@@ -13,9 +13,9 @@ module.exports = function createBuildPhase(ctx) {
         SCHEME_NAME,
         APP_BUNDLE_ID,
         IPHONE_MODEL,
-        url,
         progress,
         runCommand,
+        runCommandStreaming,
     } = ctx
 
     // ─── Simulator helpers ────────────────────────────────────────────────────
@@ -29,26 +29,21 @@ module.exports = function createBuildPhase(ctx) {
                 if (line.includes(modelName) && line.includes("Booted")) {
                     const m = line.match(UUID_RE)
                     if (m) {
-                        console.log(`Found booted simulator of model ${modelName}`)
                         return m[0]
                     }
                 }
             }
-            console.log(
-                `No booted simulator of model ${modelName} found, checking for any booted simulator...`
-            )
+            progress.status("looking for any booted simulator")
             for (const line of lines) {
                 if (line.includes("Booted")) {
                     const m = line.match(UUID_RE)
                     if (m) {
-                        console.log("Found another booted simulator, will use it instead")
                         return m[0]
                     }
                 }
             }
             return null
         } catch (error) {
-            console.log("No booted simulators found")
             return null
         }
     }
@@ -63,7 +58,6 @@ module.exports = function createBuildPhase(ctx) {
             }
             return null
         } catch (error) {
-            console.log("Failed to get booted simulator info:", error.message)
             return null
         }
     }
@@ -115,7 +109,7 @@ module.exports = function createBuildPhase(ctx) {
     async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
         const bootedInfo = await getBootedSimulatorInfo()
         if (!bootedInfo) throw new Error("No booted simulator found")
-        console.log(`Building with destination: platform=iOS Simulator,id=${bootedInfo.udid}`)
+        progress.status(`simulator ${bootedInfo.udid.slice(0, 8)}`)
         const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
         progress.log(
             isNotificationsEnabled
@@ -123,16 +117,17 @@ module.exports = function createBuildPhase(ctx) {
                 : "Building without notifications (Firebase excluded)",
             "info"
         )
-        return runCommand(
-            makeBuildCommand(scheme, sdk, bundleId, derivedDataPath, projectName, bootedInfo.udid, "build"),
-            { maxBuffer: 1024 * 1024 * 10 }
+        // Streamed: xcodebuild runs for minutes, and buffered output made that
+        // look like a hang with nothing on screen until it finished.
+        return runCommandStreaming(
+            makeBuildCommand(scheme, sdk, bundleId, derivedDataPath, projectName, bootedInfo.udid, "build")
         )
     }
 
     async function buildProjectForTesting(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
         const bootedInfo = await getBootedSimulatorInfo()
         if (!bootedInfo) throw new Error("No booted simulator found")
-        console.log(`Building for testing with destination: platform=iOS Simulator,id=${bootedInfo.udid}`)
+        progress.status(`simulator ${bootedInfo.udid.slice(0, 8)}`)
         const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
         progress.log(
             isNotificationsEnabled
@@ -140,7 +135,7 @@ module.exports = function createBuildPhase(ctx) {
                 : "Building for testing without notifications",
             "info"
         )
-        return runCommand(
+        return runCommandStreaming(
             makeBuildCommand(
                 scheme,
                 sdk,
@@ -149,8 +144,7 @@ module.exports = function createBuildPhase(ctx) {
                 projectName,
                 bootedInfo.udid,
                 "build-for-testing"
-            ),
-            { maxBuffer: 1024 * 1024 * 10 }
+            )
         )
     }
 
@@ -159,7 +153,7 @@ module.exports = function createBuildPhase(ctx) {
         try {
             const derivedDataPath = path.join(os.homedir(), "Library/Developer/Xcode/DerivedData")
             try {
-                progress.log("Building for specified simulator...", "info")
+                progress.status("building for specified simulator")
                 await buildProject(
                     SCHEME_NAME,
                     "iphonesimulator",
@@ -188,25 +182,6 @@ module.exports = function createBuildPhase(ctx) {
             progress.complete("build")
         } catch (error) {
             progress.fail("build", error.message)
-            progress.printTreeContent("Troubleshooting Guide", [
-                "Build failed. Please try the following steps:",
-                {
-                    text: 'Run "npm run setupEmulator:ios" to reconfigure iOS settings',
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                {
-                    text: "Check if Xcode is properly installed and updated",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                { text: "Verify selected simulator exists", indent: 1, prefix: "└─ ", color: "yellow" },
-                "\nVerify Configuration:",
-                { text: `Selected Simulator: ${IPHONE_MODEL}`, indent: 1, prefix: "├─ ", color: "gray" },
-                { text: `Server URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
-            ])
             throw error
         }
     }
@@ -280,26 +255,22 @@ module.exports = function createBuildPhase(ctx) {
     }
 
     async function uninstallExistingApp() {
-        console.log("Uninstalling the app if it exists...")
+        progress.status("uninstalling previous build")
         await runCommand(`xcrun simctl uninstall booted "${APP_BUNDLE_ID}"`)
     }
 
     async function installApp(APP_PATH) {
-        console.log("Installing the app...")
-        try {
-            await runCommand(`xcrun simctl install booted "${APP_PATH}"`)
-        } catch (error) {
-            console.error("Error installing the app:", error)
-            throw error
-        }
+        progress.status("installing")
+        await runCommand(`xcrun simctl install booted "${APP_PATH}"`)
     }
 
     async function waitForInstallation() {
-        console.log("Waiting for the app to be fully installed...")
+        progress.status("waiting for install")
         for (let i = 0; i < 30; i++) {
             try {
-                execSync(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - APP_BUNDLE_ID is generated from trusted native config.
-                console.log("App installed successfully.")
+                execSync(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`, {
+                    stdio: ["ignore", "pipe", "ignore"],
+                }) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - APP_BUNDLE_ID is generated from trusted native config.
                 break
             } catch (error) {
                 if (i === 29) throw new Error("Timeout: App installation took too long.")
@@ -309,34 +280,34 @@ module.exports = function createBuildPhase(ctx) {
     }
 
     async function handleLaunchError(error) {
-        console.error("Error launching the app:", error)
-        console.log("Checking app container...")
+        progress.status("checking app container")
         try {
             await runCommand(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`)
         } catch {
-            console.log("App container not found")
+            progress.log("App container not found", "warning")
         }
         throw error
     }
 
     async function verifyAppLaunch() {
-        console.log("Waiting for the app to launch...")
+        progress.status("waiting for launch")
         for (let i = 0; i < 10; i++) {
             try {
-                const launchResult = execSync(`xcrun simctl launch booted "${APP_BUNDLE_ID}"`).toString() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                const launchResult = execSync(`xcrun simctl launch booted "${APP_BUNDLE_ID}"`, {
+                    stdio: ["ignore", "pipe", "ignore"],
+                }).toString() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
                 if (launchResult.includes("already launched")) {
-                    console.log("App launched successfully.")
                     break
                 }
             } catch (error) {
-                if (i === 9) console.log("Warning: App launch might have failed or taken too long.")
+                if (i === 9) progress.log("App launch may have failed or timed out", "warning")
             }
             await new Promise((resolve) => setTimeout(resolve, 1000))
         }
     }
 
     async function launchAndVerifyApp() {
-        console.log("Launching the app...")
+        progress.status("launching")
         try {
             await runCommand(`xcrun simctl launch booted "${APP_BUNDLE_ID}"`)
             await verifyAppLaunch()
@@ -346,7 +317,7 @@ module.exports = function createBuildPhase(ctx) {
     }
 
     async function focusSimulator() {
-        console.log("Focusing on Simulator...")
+        progress.status("focusing simulator")
         await runCommand(`osascript -e 'tell application "Simulator" to activate'`)
     }
 
@@ -374,13 +345,15 @@ module.exports = function createBuildPhase(ctx) {
         progress.start("deviceDetection")
         const { iosConfig } = ctx
         try {
-            progress.log("Scanning for connected physical devices...", "info")
+            progress.status("scanning for connected physical devices")
             let physicalDevices = []
             const configuredUDID = iosConfig.deviceUDID
             if (configuredUDID) {
                 progress.log(`Using configured device UDID: ${configuredUDID}`, "info")
                 try {
-                    const instrumentsOutput = execSync("instruments -s devices").toString()
+                    const instrumentsOutput = execSync("instruments -s devices", {
+                        stdio: ["ignore", "pipe", "ignore"],
+                    }).toString()
                     if (instrumentsOutput.includes(configuredUDID)) {
                         const deviceLine = instrumentsOutput
                             .split("\n")
@@ -391,7 +364,7 @@ module.exports = function createBuildPhase(ctx) {
                             const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device"
                             const deviceVersion = versionMatch ? versionMatch[1] : "Unknown"
                             progress.log(
-                                `✅ Found configured physical device: ${deviceName} (${deviceVersion})`,
+                                `Found configured physical device: ${deviceName} (${deviceVersion})`,
                                 "success"
                             )
                             physicalDevices.push({
@@ -404,7 +377,7 @@ module.exports = function createBuildPhase(ctx) {
                             return physicalDevices[0]
                         }
                     } else {
-                        progress.log(`⚠️  Configured device UDID not found in connected devices`, "warning")
+                        progress.log(`Configured device UDID not found in connected devices`, "warning")
                         progress.log("Falling back to auto-detection...", "info")
                     }
                 } catch (error) {
@@ -412,12 +385,14 @@ module.exports = function createBuildPhase(ctx) {
                     progress.log("Falling back to auto-detection...", "info")
                 }
             } else {
-                progress.log("No device UDID configured, using auto-detection", "info")
+                progress.status("no device udid configured, using auto-detection")
             }
 
             const tryInstruments = () => {
                 try {
-                    const out = execSync("instruments -s devices").toString()
+                    const out = execSync("instruments -s devices", {
+                        stdio: ["ignore", "pipe", "ignore"],
+                    }).toString()
                     return out
                         .split("\n")
                         .filter((line) => {
@@ -446,7 +421,7 @@ module.exports = function createBuildPhase(ctx) {
                     const xcodebuildOutput = execSync(
                         `xcodebuild -scheme "${SCHEME_NAME}" -showdestinations` // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - SCHEME_NAME is generated from trusted iOS project config.
                     ).toString()
-                    progress.log("Scanning xcodebuild destinations for physical devices...", "info")
+                    progress.status("scanning xcodebuild destinations for physical devices")
                     for (const line of xcodebuildOutput.split("\n")) {
                         const m = line.match(
                             /\{\s*platform:iOS,\s*arch:(\w+),\s*id:([A-F0-9-]+),\s*name:(.+?)\s*\}/
@@ -455,7 +430,7 @@ module.exports = function createBuildPhase(ctx) {
                             const [, arch, udid, name] = m
                             progress.log(`Found device candidate: ${name.trim()} - ${udid}`, "info")
                             if (!udid.includes("placeholder") && udid.length > 20) {
-                                progress.log(`✅ Valid physical device: ${name.trim()}`, "success")
+                                progress.log(`Valid physical device: ${name.trim()}`, "success")
                                 physicalDevices.push({
                                     name: name.trim(),
                                     version: "Unknown",
@@ -532,8 +507,9 @@ module.exports = function createBuildPhase(ctx) {
         PRODUCT_BUNDLE_IDENTIFIER=${bundleId} \
         ONLY_ACTIVE_ARCH=YES \
         build`
-        progress.log(`Executing command: ${buildCommand}`, "info")
-        return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 })
+        // The full command is a dozen wrapped lines of build settings; the
+        // streamed output below is what actually tells you how it is going.
+        return runCommandStreaming(buildCommand)
     }
 
     async function findPhysicalDeviceAppPath() {
@@ -624,7 +600,7 @@ module.exports = function createBuildPhase(ctx) {
     async function launchIOSSimulator(simulatorName) {
         progress.start("launchSimulator")
         try {
-            progress.log("Launching iOS Simulator...")
+            progress.status("launching simulator")
             const simulatorsJson = JSON.parse(execSync("xcrun simctl list devices -j").toString())
             let foundSimulator = null,
                 foundSimulatorId = null,
@@ -639,7 +615,7 @@ module.exports = function createBuildPhase(ctx) {
                 })
             })
             if (!foundSimulator) {
-                console.log(`Configured simulator "${simulatorName}" not found.`)
+                progress.log(`Configured simulator "${simulatorName}" not found`, "warning")
                 return
             }
             if (!isBooted) {
@@ -676,11 +652,10 @@ module.exports = function createBuildPhase(ctx) {
             } else {
                 progress.log(`Simulator ${simulatorName} is already booted`, "success")
             }
-            progress.log("Opening Simulator.app...")
+            progress.status("opening Simulator.app")
             await runCommand("open -a Simulator")
             await new Promise((resolve) => setTimeout(resolve, 1000))
             await runCommand("osascript -e 'tell application \"Simulator\" to activate'")
-            progress.log("iOS Simulator launched successfully.", "success")
             progress.complete("launchSimulator")
         } catch (error) {
             progress.fail("launchSimulator", error.message)

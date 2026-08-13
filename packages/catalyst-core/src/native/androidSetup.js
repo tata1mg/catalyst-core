@@ -1,40 +1,32 @@
 import fs from "fs"
 import path from "path"
-import { exec, spawn } from "child_process"
+import { spawn } from "child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
-import TerminalProgress from "./TerminalProgress.js"
+import TerminalProgress from "./terminalProgress.js"
 import { setupServer } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
 const configPath = `${process.env.PWD}/config/config.json`
 
+// Sentence case, verb first: these read as a sequence of actions, not as
+// headings.
 const steps = {
-    java: "Check Java Environment",
-    config: "Initialize Configuration",
-    androidTools: "Validate Android Tools",
-    emulator: "Configure Android Emulator",
-    properties: "Update Local Properties",
-    saveConfig: "Save Configuration",
-    setupServer: "Setup Server",
+    java: "Check Java environment",
+    config: "Initialize configuration",
+    androidTools: "Validate Android tools",
+    emulator: "Configure Android emulator",
+    properties: "Update local.properties",
+    saveConfig: "Save configuration",
+    setupServer: "Set up server",
 }
 
-const progressPaddingConfig = {
-    titlePaddingTop: 2,
-    titlePaddingBottom: 1,
-    stepPaddingLeft: 4,
-    stepSpacing: 1,
-    errorPaddingLeft: 6,
-    bottomMargin: 2,
-}
-
-const progress = new TerminalProgress(steps, "Catalyst Universal Android Setup", progressPaddingConfig)
+const progress = new TerminalProgress(steps, "catalyst setupEmulator", { subject: "android" })
 
 async function checkJavaInstallation() {
     try {
         runCommand("java -version")
         runCommand("javac -version")
-        progress.log("Java is installed and configured", "success")
         return true
     } catch (error) {
         progress.log("Java installation not found or not properly configured", "error")
@@ -98,7 +90,7 @@ async function installJava() {
         // Verify Java configuration
         try {
             const javaVersion = runCommand("java -version")
-            progress.log("Java installed and configured successfully", "success")
+            progress.log("Installed Java 17 (Zulu)", "info")
             progress.log(`Java Version: ${javaVersion}`, "info")
             progress.log(`IMPORTANT: Please run the following commands to complete setup:`, "warning")
             progress.log(`1. source ${shellProfile}`, "info")
@@ -170,7 +162,6 @@ async function saveConfig(newConfig) {
         }
 
         fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2))
-        progress.log("Configuration saved successfully", "success")
     } catch (error) {
         progress.log("Failed to save configuration: " + error.message, "error")
         process.exit(1)
@@ -196,7 +187,6 @@ function validateAndroidTools(androidConfig) {
 
     try {
         runCommand(`${ADB_PATH} version`)
-        progress.log("ADB is valid", "success")
     } catch (error) {
         throw new Error(`ADB is not working properly: ${error.message}`)
     }
@@ -207,7 +197,6 @@ function validateAndroidTools(androidConfig) {
 
     try {
         runCommand(`${EMULATOR_PATH} -version`)
-        progress.log("Emulator is valid", "success")
     } catch (error) {
         throw new Error(`Emulator is not working properly: ${error.message}`)
     }
@@ -217,12 +206,11 @@ function validateAndroidTools(androidConfig) {
         if (!avdOutput.includes(androidConfig.emulatorName)) {
             throw new Error(`Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`)
         }
-        progress.log(`Emulator "${androidConfig.emulatorName}" exists`, "success")
+        progress.log(`Using emulator "${androidConfig.emulatorName}"`, "info")
     } catch (error) {
         throw new Error(`Error checking emulator AVD: ${error.message}`)
     }
 
-    progress.log("Android tools validation completed successfully!", "success")
     return { EMULATOR_PATH, ADB_PATH }
 }
 
@@ -253,7 +241,6 @@ async function updateLocalProperties(sdkPath) {
     progress.start("properties")
     try {
         runCommand(`cd ${pwd}/androidProject && ./gradlew updateSdkPath -PsdkPath="${sdkPath}"`)
-        progress.log("Updated local.properties successfully", "success")
         progress.complete("properties")
     } catch (error) {
         progress.fail("properties", `Failed to update local.properties: ${error.message}`)
@@ -280,7 +267,7 @@ async function setupAndroidEnvironment() {
             progress.log("No emulator running, attempting to start one...")
             await startEmulator(EMULATOR_PATH, config.android)
         } else {
-            progress.log("Emulator already running, proceeding with installation...", "success")
+            progress.log("Emulator already running", "info")
         }
         progress.complete("emulator")
 
@@ -293,20 +280,22 @@ async function setupAndroidEnvironment() {
         progress.complete("saveConfig")
 
         progress.start("setupServer")
-        await setupServer(configPath)
+        await setupServer(configPath, (message) => progress.log(message, "info"))
         progress.complete("setupServer")
 
-        progress.printTreeContent("Configuration Explanation", [
-            "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
-            { text: "port: Port number for the WebView server", indent: 1, prefix: "├─ ", color: "gray" },
-            { text: "android: Android-specific configuration", indent: 1, prefix: "└─ ", color: "gray" },
-            { text: "buildType: Build type (debug/release)", indent: 2, prefix: "├─ ", color: "gray" },
-            { text: "sdkPath: Android SDK path", indent: 2, prefix: "├─ ", color: "gray" },
-            { text: "emulatorName: Selected Android emulator name", indent: 2, prefix: "└─ ", color: "gray" },
+        // What was configured, not what the keys mean -- the explanation
+        // belongs in the docs, not in every successful run's transcript.
+        // validateAndCompleteConfig returns { port, android: {...} } -- flat,
+        // not nested under WEBVIEW_CONFIG.
+        const androidCfg = config.android || {}
+        progress.printTreeContent("Config  config/config.json", [
+            { text: `port           ${config.port ?? ""}`, color: "gray" },
+            { text: `buildType      ${androidCfg.buildType ?? ""}`, color: "gray" },
+            { text: `sdkPath        ${androidCfg.sdkPath ?? ""}`, color: "gray" },
+            { text: `emulatorName   ${androidCfg.emulatorName ?? ""}`, color: "gray" },
         ])
 
-        progress.printTreeContent("Final Configuration", [JSON.stringify(config, null, 2)])
-
+        progress.summary("Ready", "Run catalyst buildApp:android to install the app")
         process.exit(0)
     } catch (error) {
         if (progress.currentStep) {

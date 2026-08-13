@@ -1,7 +1,7 @@
 import { execSync } from "child_process"
 import fs from "fs"
 import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
-import TerminalProgress from "./TerminalProgress.js"
+import TerminalProgress from "./terminalProgress.js"
 
 const configPath = `${process.env.PWD}/config/config.json`
 const { setupServer } = require("./setupServer.js")
@@ -9,23 +9,15 @@ const { setupServer } = require("./setupServer.js")
 const ITEMS_PER_PAGE = 10
 
 const steps = {
-    platform: "Check Platform Compatibility",
-    config: "Initialize Configuration",
-    simulator: "Configure iOS Simulator",
-    launch: "Launch iOS Simulator",
-    saveConfig: "Saving configuration",
-    setupServer: "Setup Server",
-}
-const progressPaddingConfig = {
-    titlePaddingTop: 2,
-    titlePaddingBottom: 1,
-    stepPaddingLeft: 4,
-    stepSpacing: 1,
-    errorPaddingLeft: 6,
-    bottomMargin: 2,
+    platform: "Check platform compatibility",
+    config: "Initialize configuration",
+    simulator: "Configure iOS simulator",
+    launch: "Launch iOS simulator",
+    saveConfig: "Save configuration",
+    setupServer: "Set up server",
 }
 
-const progress = new TerminalProgress(steps, "Catalyst Universal Ios Setup", progressPaddingConfig)
+const progress = new TerminalProgress(steps, "catalyst setupEmulator", { subject: "ios" })
 async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, "utf8")
     const config = JSON.parse(configFile)
@@ -93,24 +85,16 @@ async function setupIOSEnvironment() {
         progress.complete("saveConfig")
 
         progress.start("setupServer")
-        await setupServer(configPath)
-        progress.start("setupServer")
+        await setupServer(configPath, (message) => progress.log(message, "info"))
+        progress.complete("setupServer")
 
-        progress.printTreeContent("Configuration Explanation", [
-            "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
-            { text: "port: Port number for the WebView server", indent: 1, prefix: "├─ ", color: "gray" },
-            { text: "ios: iOS-specific configuration", indent: 1, prefix: "└─ ", color: "gray" },
-            { text: "buildType: Build type (debug/release)", indent: 2, prefix: "├─ ", color: "gray" },
-            {
-                text: "appBundleId: iOS application bundle identifier",
-                indent: 2,
-                prefix: "├─ ",
-                color: "gray",
-            },
-            { text: "simulatorName: Selected iOS simulator name", indent: 2, prefix: "└─ ", color: "gray" },
+        const iosCfg = config.ios || {}
+        progress.printTreeContent("Config  config/config.json", [
+            { text: `port            ${config.port ?? ""}`, color: "gray" },
+            { text: `appBundleId     ${iosCfg.appBundleId ?? ""}`, color: "gray" },
+            { text: `simulatorName   ${iosCfg.simulatorName ?? ""}`, color: "gray" },
         ])
-
-        progress.printTreeContent("Final Configuration", [JSON.stringify(config, null, 2)])
+        progress.summary("Ready", "Run catalyst buildApp:ios to install the app")
         process.exit(0)
     } catch (error) {
         if (progress.currentStep) {
@@ -150,15 +134,15 @@ async function getRuntime() {
     if (!availableRuntime) {
         const runningSimulators = execSync("xcrun simctl list devices booted").toString()
         if (runningSimulators.includes("(Booted)") && parsedRuntimes.length > 0) {
-            console.log(`Using runtime: ${parsedRuntimes[0].name}`)
+            progress.status(`runtime ${parsedRuntimes[0].name}`)
             return parsedRuntimes[0]
         }
 
-        console.error("No available iOS runtime found. Please install one through Xcode.")
+        progress.log("No available iOS runtime found. Install one through Xcode.", "error")
         process.exit(1)
     }
 
-    console.log(`Using runtime: ${availableRuntime.name}`)
+    progress.status(`runtime ${availableRuntime.name}`)
     return availableRuntime
 }
 
@@ -261,7 +245,7 @@ async function configureSimulator(config) {
 // }
 
 async function launchIOSSimulator(simulatorName) {
-    progress.log("Launching iOS Simulator...")
+    progress.status("launching simulator")
     try {
         // Get all simulators including both available and booted ones
         const allSimulatorInfo = execSync("xcrun simctl list devices -j").toString()
@@ -302,19 +286,19 @@ async function launchIOSSimulator(simulatorName) {
         })
 
         if (!foundSimulator) {
-            console.log(`Configured simulator "${simulatorName}" not found.`)
+            progress.log(`Configured simulator "${simulatorName}" not found`, "warning")
             return
         }
 
         if (!isBooted) {
-            console.log(`Booting simulator: ${simulatorName}`)
+            progress.status(`booting ${simulatorName}`)
             runCommand(`xcrun simctl boot ${foundSimulatorId}`)
         } else {
-            console.log(`Simulator ${simulatorName} is already booted`)
+            progress.status("already booted")
         }
 
         // Open Simulator.app and focus
-        progress.log("Opening Simulator.app...")
+        progress.status("opening Simulator.app")
         runCommand("open -a Simulator")
 
         // Give the simulator a moment to open/focus
@@ -322,10 +306,8 @@ async function launchIOSSimulator(simulatorName) {
 
         // Activate the Simulator.app window to bring it to front
         runCommand("osascript -e 'tell application \"Simulator\" to activate'")
-
-        console.log("iOS Simulator launched successfully.")
     } catch (error) {
-        console.error("Failed to launch iOS Simulator. Error:", error.message)
+        progress.log(`Failed to launch iOS Simulator: ${error.message}`, "error")
     }
     // process.exit(0);
 }

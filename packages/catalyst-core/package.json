@@ -1,6 +1,9 @@
 {
     "name": "catalyst-core",
     "version": "0.3.0-beta.4",
+    "engines": {
+        "node": ">=20"
+    },
     "type": "module",
     "main": "./dist/index.jsx",
     "description": "Web framework that provides great performance out of the box",

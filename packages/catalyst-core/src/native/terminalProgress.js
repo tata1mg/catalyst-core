@@ -1,72 +1,67 @@
-import * as pc from "picocolors"
+// Plain ESM imports of a CommonJS module: this file is authored as ESM but
+// babel-compiled to CJS by `npm run prepare` (src/native/package.json pins
+// "type": "commonjs"), so these become require() calls and the interop is
+// babel's. import.meta is unavailable after that transform, hence no
+// createRequire here.
+import theme from "../cli/theme.js"
+import spinnerModule from "../cli/spinner.js"
 
+const { GUTTER, glyph, t, header, duration, isInteractive } = theme
+const { Spinner } = spinnerModule
+
+/**
+ * Step-by-step progress for the native builds.
+ *
+ * Append-only by design. An earlier version redrew the whole step tree in
+ * place on every change, which meant the renderer had to own a multi-line
+ * region of the screen -- and every interleaving with child output (gradle,
+ * xcodebuild) became a cursor-math bug. Here each step settles into a single
+ * permanent line as it finishes, and the only live thing is a one-line spinner
+ * that owns nothing but its own row. Streamed output can therefore appear
+ * between steps with nothing to corrupt.
+ *
+ * The public API (start/complete/fail/log/pause/resume/printTreeContent) is
+ * unchanged, because the native build code calls it from ~400 places.
+ */
 class TerminalProgress {
+    /**
+     * @param {object} steps          - id -> description
+     * @param {string} title          - the invocation, e.g. "catalyst buildApp"
+     * @param {object} [options]
+     * @param {string} [options.subject] - the target, e.g. "android"
+     */
     constructor(steps, title = "Setup Progress", options = {}) {
         this.steps = new Map(
             Object.entries(steps).map(([id, description]) => [
                 id,
-                {
-                    id,
-                    description,
-                    status: "pending",
-                    error: null,
-                },
+                { id, description, status: "pending", error: null, startedAt: 0 },
             ])
         )
         this.title = title
+        this.subject = options.subject
+        this.startedAt = Date.now()
         this.currentStep = null
-        this.isPaused = false
-        this.lineCount = 0
-        this.lastRender = ""
-
-        // Default styling options
-        this.options = {
-            titlePaddingTop: options.titlePaddingTop ?? 1,
-            titlePaddingBottom: options.titlePaddingBottom ?? 1,
-            stepPaddingLeft: options.stepPaddingLeft ?? 2,
-            stepSpacing: options.stepSpacing ?? 0,
-            errorPaddingLeft: options.errorPaddingLeft ?? 4,
-            bottomMargin: options.bottomMargin ?? 1,
-        }
+        this.isInteractive = options.isInteractive ?? isInteractive()
+        this.spinner = new Spinner(process.stdout)
+        this.headerPrinted = false
+        this.pauseDepth = 0
     }
 
-    static icons = {
-        completed: "✓",
-        running: "◆",
-        pending: "○",
-        error: "✗",
-        info: "ℹ",
-        warning: "⚠",
-        prompt: "?",
-    }
-
-    printTreeContent(title, content) {
-        // Add top padding
-        console.log("\n".repeat(this.options.titlePaddingTop))
-
-        // Print the title
-        console.log(`${pc.cyan(pc.bold(title))}`)
-
-        // Process and print each line of content
-        for (const line of content) {
-            if (typeof line === "string") {
-                console.log(`${" ".repeat(this.options.stepPaddingLeft)}${line}`)
-            } else if (typeof line === "object") {
-                const { text, indent = 0, prefix = "", color = "white" } = line
-                const indentation = " ".repeat(this.options.stepPaddingLeft + indent * 3)
-                const coloredText = pc[color] ? pc[color](text) : text
-                console.log(`${indentation}${prefix}${coloredText}`)
-            }
-        }
+    ensureHeader() {
+        if (this.headerPrinted) return
+        this.headerPrinted = true
+        process.stdout.write(header(this.title, this.subject))
     }
 
     start(id) {
         const step = this.steps.get(id)
         if (!step) throw new Error(`Step ${id} not found`)
 
+        this.ensureHeader()
         this.currentStep = step
         step.status = "running"
-        this.render()
+        step.startedAt = Date.now()
+        this.spinner.start(step.description)
     }
 
     complete(id) {
@@ -74,10 +69,7 @@ class TerminalProgress {
         if (!step) throw new Error(`Step ${id} not found`)
 
         step.status = "completed"
-        if (this.currentStep === step) {
-            this.currentStep = null
-        }
-        this.render()
+        this.settle(step, "done")
     }
 
     fail(id, error) {
@@ -86,137 +78,144 @@ class TerminalProgress {
 
         step.status = "error"
         step.error = error
-        if (this.currentStep === step) {
-            this.currentStep = null
+        this.settle(step, "fail")
+
+        // A bare exit-code message says nothing the ✗ line has not already
+        // said, and the diagnostic that follows repeats it verbatim as its
+        // headline. Only print detail that adds something.
+        if (error && !/^Command failed with exit code \d+$/.test(String(error).trim())) {
+            console.log(`${GUTTER}${t.dim(glyph.last)} ${t.bad(error)}`)
         }
-        this.render()
     }
 
+    settle(step, state) {
+        this.ensureHeader()
+        if (this.currentStep === step) this.currentStep = null
+
+        if (this.spinner.active) {
+            this.spinner.stop(state, step.description)
+        } else {
+            const mark = state === "fail" ? t.bad(glyph.fail) : t.ok(glyph.done)
+            const elapsed = step.startedAt ? `  ${t.dim(duration(Date.now() - step.startedAt))}` : ""
+            console.log(`${GUTTER}${mark} ${step.description}${elapsed}`)
+        }
+    }
+
+    /**
+     * A note that belongs with the current step rather than being a step.
+     * Printed beneath the running line, marked as subordinate.
+     */
+    log(message, type = "info") {
+        this.ensureHeader()
+
+        const mark =
+            type === "success"
+                ? t.ok(glyph.done)
+                : type === "error"
+                  ? t.bad(glyph.fail)
+                  : type === "warning"
+                    ? t.warn(glyph.warn)
+                    : type === "prompt"
+                      ? t.warn("?")
+                      : t.dim(glyph.info)
+
+        // Stand the spinner down for exactly one line, then bring it back, so
+        // the message lands above the live row instead of fighting it.
+        const wasSpinning = this.spinner.active
+        if (wasSpinning) this.spinner.pause()
+
+        console.log(`${GUTTER}${t.dim(glyph.pipe)} ${mark} ${message}`)
+
+        if (wasSpinning) this.spinner.resume()
+    }
+
+    /**
+     * Stand the renderer down so a child process can write to the terminal.
+     * Nestable: only the outermost resume restarts the animation.
+     */
     pause() {
-        this.isPaused = true
-        this.render()
-        console.log("")
+        this.pauseDepth++
+        if (this.pauseDepth > 1) return
+        this.spinner.pause()
     }
 
     resume() {
-        this.isPaused = false
+        if (this.pauseDepth === 0) return
+        this.pauseDepth--
+        if (this.pauseDepth > 0) return
+        this.spinner.resume()
+    }
+
+    /**
+     * Show what the running step is doing right now, on the spinner's own row.
+     *
+     * This replaces streaming a child's output: the row is rewritten, never
+     * appended to, so a build that emits hundreds of lines costs one line of
+     * screen. Ignored when there is no live spinner, and a null detail leaves
+     * the label alone.
+     */
+    status(detail) {
+        if (!detail || !this.currentStep) return
+        this.spinner.update(`${this.currentStep.description}  ${t.dim(detail)}`)
+    }
+
+    /**
+     * The closing line every command ends on: what happened, how long it took,
+     * and the one command to run next.
+     */
+    summary(result, nextStep) {
+        this.ensureHeader()
+        const elapsed = duration(Date.now() - this.startedAt)
+        console.log(`${GUTTER}${t.ok(glyph.done)} ${t.bold(`${result} in ${elapsed}`)}`)
+        if (nextStep) {
+            // Name exactly one command in the accent. Colour each fragment
+            // separately -- wrapping dim() around text that already contains a
+            // reset would end the dim early and leave the tail uncoloured.
+            const parts = nextStep.split(/(catalyst [\w:]+)/)
+            const line = parts.map((part, index) => (index % 2 === 1 ? t.accent(part) : t.dim(part))).join("")
+            console.log(`${GUTTER}  ${line}`)
+        }
         console.log("")
-        this.render()
     }
 
-    getStepIcon(step) {
-        const icon = TerminalProgress.icons[step.status] || TerminalProgress.icons.pending
-        switch (step.status) {
-            case "completed":
-                return pc.green(icon)
-            case "error":
-                return pc.red(icon)
-            case "running":
-                return pc.blue(icon)
-            default:
-                return pc.gray(icon)
-        }
-    }
+    /** A titled block of key/value detail, used for build summaries. */
+    printTreeContent(title, content) {
+        this.ensureHeader()
+        // A block is a settled thing; the spinner must be off its row first, or
+        // the live line eats the blank separator above the title.
+        this.spinner.stop()
+        console.log(`\n${GUTTER}${t.bold(title)}`)
 
-    clearLines() {
-        if (this.lineCount > 0 && process.stdout.isTTY && process.stdout.moveCursor) {
-            process.stdout.moveCursor(0, -this.lineCount)
-            process.stdout.cursorTo(0)
-            process.stdout.clearScreenDown()
-        }
-    }
+        for (const [index, line] of content.entries()) {
+            const isLast = index === content.length - 1
 
-    log(message, type = "info") {
-        this.pause()
-
-        let icon
-        let color
-
-        switch (type) {
-            case "success":
-                icon = TerminalProgress.icons.completed
-                color = pc.green
-                break
-            case "error":
-                icon = TerminalProgress.icons.error
-                color = pc.red
-                break
-            case "warning":
-                icon = TerminalProgress.icons.warning
-                color = pc.yellow
-                break
-            case "prompt":
-                icon = TerminalProgress.icons.prompt
-                color = pc.yellow
-                break
-            default:
-                icon = TerminalProgress.icons.info
-                color = pc.blue
-        }
-
-        console.log(`${" ".repeat(this.options.stepPaddingLeft)}${color(icon)} ${message}`)
-        this.resume()
-    }
-
-    render() {
-        if (this.isPaused) return
-
-        this.clearLines()
-
-        let output = ""
-        let currentLineCount = 0
-
-        // Add top padding
-        output += "\n".repeat(this.options.titlePaddingTop)
-        currentLineCount += this.options.titlePaddingTop
-
-        // Render title
-        output += `${pc.bold(pc.cyan(this.title))}\n`
-        output += `${pc.gray("─".repeat(this.title.length))}\n`
-        currentLineCount += 2
-
-        // Add padding after title
-        output += "\n".repeat(this.options.titlePaddingBottom)
-        currentLineCount += this.options.titlePaddingBottom
-
-        // Render steps
-        for (const step of this.steps.values()) {
-            const icon = this.getStepIcon(step)
-            const description =
-                step.status === "error"
-                    ? pc.red(step.description)
-                    : step.status === "completed"
-                      ? pc.green(step.description)
-                      : step.status === "running"
-                        ? pc.blue(step.description)
-                        : pc.gray(step.description)
-
-            const stepPadding = " ".repeat(this.options.stepPaddingLeft)
-            output += `${stepPadding}${icon} ${description}\n`
-            currentLineCount++
-
-            if (step.status === "error" && step.error) {
-                const errorPadding = " ".repeat(this.options.errorPaddingLeft)
-                output += `${errorPadding}${pc.red("↳")} ${pc.red(step.error)}\n`
-                currentLineCount++
+            if (typeof line === "string") {
+                // A bare string is a section label rather than a leaf.
+                console.log(line.startsWith("\n") ? `${GUTTER}${t.dim(line.trim())}` : `${GUTTER}${line}`)
+                continue
             }
 
-            // Add spacing between steps
-            if (this.options.stepSpacing > 0) {
-                output += "\n".repeat(this.options.stepSpacing)
-                currentLineCount += this.options.stepSpacing
-            }
+            const { text, color = "white" } = line
+            const paint = color === "white" ? (s) => s : t[colorAlias(color)] || ((s) => s)
+            console.log(`${GUTTER}${t.dim(isLast ? glyph.last : glyph.branch)} ${paint(text)}`)
         }
+        console.log("")
+    }
+}
 
-        // Add bottom margin
-        output += "\n".repeat(this.options.bottomMargin)
-        currentLineCount += this.options.bottomMargin
-
-        if (output !== this.lastRender) {
-            process.stdout.write(output)
-            this.lastRender = output
-            this.lineCount = currentLineCount
-        }
+/** Map the legacy colour names used across the native build to the theme. */
+function colorAlias(name) {
+    switch (name) {
+        case "green":
+            return "ok"
+        case "red":
+            return "bad"
+        case "yellow":
+            return "warn"
+        case "cyan":
+            return "accent"
+        default:
+            return "dim"
     }
 }
 

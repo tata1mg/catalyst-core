@@ -1,5 +1,6 @@
 "use strict"
 
+const { execSync, spawn } = require("child_process")
 const fs = require("fs")
 const path = require("path")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
@@ -13,7 +14,7 @@ function createBuildPhase(ctx) {
 
     async function detectPhysicalDevice(ADB_PATH) {
         try {
-            progress.log("Detecting physical devices...", "info")
+            progress.status("detecting physical devices")
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
             const devices = ctx.runCommand(`${ADB_PATH} devices -l`)
             const lines = devices
@@ -126,27 +127,135 @@ function createBuildPhase(ctx) {
         }
     }
 
-    async function startEmulator(EMULATOR_PATH, androidConfig) {
+    const EMULATOR_BOOT_TIMEOUT_MS = 180000
+    const EMULATOR_POLL_INTERVAL_MS = 2000
+
+    /**
+     * The task name from a gradle line, or null for lines worth ignoring.
+     * "> Task :app:compileDebugKotlin" becomes "app:compileDebugKotlin".
+     */
+    function gradleTask(line) {
+        const match = /^>\s*Task\s+:(\S+)/.exec(line.trim())
+        return match ? match[1] : null
+    }
+
+    /**
+     * Run something that writes directly to the terminal, with the progress
+     * tree stood down for the duration.
+     *
+     * The resume must happen on the failure path too -- a build that throws
+     * while paused would otherwise leave the tree silent for the rest of the
+     * run, hiding exactly the output someone needs when a build fails.
+     */
+    async function withStreamedOutput(fn) {
+        progress.pause()
+        try {
+            return await fn()
+        } finally {
+            progress.resume()
+        }
+    }
+
+    async function startEmulator(EMULATOR_PATH, androidConfig, ADB_PATH) {
         progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
-        // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - EMULATOR_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-        return ctx
-            .runInteractiveCommand(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {})
-            .then(() => {
+
+        // The emulator runs until the user closes it, so it must never be
+        // awaited -- doing so hangs every cold-start build forever. Detach it
+        // and unref it so this process can still exit, then poll adb for boot.
+        // stderr stays piped: an emulator that refuses to start (bad AVD name,
+        // missing system image) explains why there, and discarding it would
+        // turn a one-line error into a silent wait for the boot timeout.
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - EMULATOR_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
+        const emulator = spawn(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {
+            detached: true,
+            stdio: ["ignore", "ignore", "pipe"],
+        })
+
+        let spawnError = null
+        let earlyExit = null
+        let stderrOutput = ""
+
+        emulator.stderr.on("data", (data) => {
+            stderrOutput += data.toString()
+            if (stderrOutput.length > 4096) stderrOutput = stderrOutput.slice(-4096)
+        })
+        emulator.on("error", (error) => {
+            spawnError = error
+        })
+        // A healthy emulator never exits while we wait, so any exit here means
+        // it failed to launch. Stop polling and report what it said.
+        emulator.on("exit", (code) => {
+            if (code !== 0) earlyExit = code
+        })
+        emulator.unref()
+
+        const deadline = Date.now() + EMULATOR_BOOT_TIMEOUT_MS
+
+        while (Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, EMULATOR_POLL_INTERVAL_MS))
+
+            if (spawnError) {
+                const message =
+                    spawnError.code === "ENOENT"
+                        ? `Emulator binary not found: ${EMULATOR_PATH}`
+                        : `Failed to start emulator: ${spawnError.message}`
+                progress.log(message, "error")
+                throw new Error(message)
+            }
+
+            if (earlyExit !== null) {
+                const detail = stderrOutput.trim().split("\n").slice(-3).join("\n")
+                const message = detail
+                    ? `Emulator exited with code ${earlyExit}:\n${detail}`
+                    : `Emulator exited with code ${earlyExit} before finishing boot`
+                progress.log(message, "error")
+                throw new Error(message)
+            }
+
+            if (await isEmulatorBooted(ADB_PATH)) {
                 progress.log("Emulator started successfully", "success")
+                return
+            }
+        }
+
+        const message = `Emulator did not finish booting within ${EMULATOR_BOOT_TIMEOUT_MS / 1000}s`
+        progress.log(message, "error")
+        throw new Error(message)
+    }
+
+    async function isEmulatorBooted(ADB_PATH) {
+        // Deliberately not ctx.runCommand: it logs two lines on every failure,
+        // and failures here are the normal case while the emulator boots.
+        try {
+            // Quoted: an SDK installed under a path with spaces would
+            // otherwise split into separate arguments.
+            // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
+            const devices = execSync(`"${ADB_PATH}" devices`, {
+                encoding: "utf8",
+                stdio: ["ignore", "pipe", "ignore"],
             })
-            .catch((error) => {
-                progress.log("Error starting emulator: " + error.message, "error")
-                throw error
+            if (!devices.includes("emulator")) return false
+
+            // "device" in `adb devices` only means adb connected; sys.boot_completed
+            // is what says the OS is actually ready to install onto.
+            // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
+            const booted = execSync(`"${ADB_PATH}" shell getprop sys.boot_completed`, {
+                encoding: "utf8",
+                stdio: ["ignore", "pipe", "ignore"],
             })
+            return booted.trim() === "1"
+        } catch (error) {
+            // adb errors while the emulator is still coming up are expected.
+            return false
+        }
     }
 
     async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
-        progress.log("Setting up emulator...", "info")
+        progress.status("setting up emulator")
         const emulatorRunning = await checkEmulator(ADB_PATH)
         if (!emulatorRunning) {
             progress.log("No emulator running, attempting to start one...", "info")
-            await startEmulator(EMULATOR_PATH, androidConfig)
-            await new Promise((resolve) => setTimeout(resolve, 5000))
+            await startEmulator(EMULATOR_PATH, androidConfig, ADB_PATH)
         } else {
             progress.log("Emulator already running", "success")
         }
@@ -154,10 +263,13 @@ function createBuildPhase(ctx) {
     }
 
     async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice = null) {
-        progress.log("Building and installing app...", "info")
+        progress.status("building and installing app")
         try {
+            // --quiet was the Android silence: it suppresses gradle's task and
+            // error output entirely. --console=rich emits ANSI redraws, which
+            // are meaningless on a pipe; plain gives one line per task.
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
-            let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --quiet --console=rich`
+            let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --console=plain`
 
             if (targetDevice && targetDevice.type === "physical") {
                 buildCommand = buildCommand.replace(
@@ -166,10 +278,20 @@ function createBuildPhase(ctx) {
                 )
             }
 
-            await ctx.runInteractiveCommand("sh", ["-c", buildCommand], { "BUILD SUCCESSFUL": "" })
-            progress.log("App build and installation completed successfully!", "success")
+            // Gradle emits hundreds of lines that nobody reads on success and
+            // that the error path re-derives from error.output anyway. Show the
+            // current task on the spinner's own row instead of scrolling them.
+            await ctx.runInteractiveCommand(
+                "sh",
+                ["-c", buildCommand],
+                { "BUILD SUCCESSFUL": "" },
+                { onLine: (line) => progress.status(gradleTask(line)) }
+            )
         } catch (error) {
-            throw new Error("Error building/installing app: " + error.message)
+            // Re-wrapping with a new Error dropped `output`, and with it the
+            // compiler errors. Keep the original and let the reporter mine it.
+            error.stage = "Building and installing the app"
+            throw error
         }
     }
 
@@ -186,12 +308,11 @@ function createBuildPhase(ctx) {
         }
 
         try {
-            progress.log("Launching app on emulator...", "info")
+            progress.status("launching app on emulator")
             const packageName = `${ANDROID_PACKAGE}${buildType === "debug" ? ".debug" : ""}`
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
             const launchCommand = `${ADB_PATH} shell monkey -p ${packageName} 1`
             await ctx.runInteractiveCommand("sh", ["-c", launchCommand], {})
-            progress.log("App launched successfully on emulator!", "success")
         } catch (error) {
             progress.log(`Warning: Could not auto-launch app: ${error.message}`, "warning")
             progress.log("App was installed successfully, but auto-launch failed", "info")
@@ -339,9 +460,12 @@ function createBuildPhase(ctx) {
             try {
                 // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
                 const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
-                await ctx.runInteractiveCommand("sh", ["-c", generateConfigCommand], {
-                    "BUILD SUCCESSFUL": "",
-                })
+                await ctx.runInteractiveCommand(
+                    "sh",
+                    ["-c", generateConfigCommand],
+                    { "BUILD SUCCESSFUL": "" },
+                    { onLine: (line) => progress.status(gradleTask(line)) }
+                )
                 progress.log("Webview config generated successfully", "success")
             } catch (configError) {
                 progress.log(`Warning: Webview config generation failed: ${configError.message}`, "warning")
@@ -349,11 +473,14 @@ function createBuildPhase(ctx) {
             }
 
             const aabConfig = await createAABConfig(androidConfig)
-            await buildAndroidAAB(aabConfig)
+            // buildAndroidAAB shells out to `./gradlew bundleRelease` and prints
+            // its own progress lines, so it owns the screen for its duration.
+            await withStreamedOutput(() => buildAndroidAAB(aabConfig))
 
             progress.log("Signed AAB build completed successfully!", "success")
         } catch (error) {
-            throw new Error("Error building signed AAB: " + error.message)
+            error.stage = "Building the signed AAB"
+            throw error
         }
     }
 

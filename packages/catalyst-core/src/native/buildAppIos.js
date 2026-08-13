@@ -2,9 +2,10 @@ const path = require("path")
 const { createIosBuild, pwd } = require("./buildIos/index.js")
 const { composeIosPlugins } = require("./pluginComposerIos.js")
 const { resolveInternalPluginsRoot, resolvePluginConfig } = require("./internalPluginUtils.js")
+const { loadAppConfig } = require("../cli/appConfig.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
 
 async function main() {
     const build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH })
@@ -19,7 +20,6 @@ async function main() {
     } = build
 
     try {
-        progress.log("Starting build process...", "info")
         const pluginConfig = resolvePluginConfig(WEBVIEW_CONFIG)
         const pluginComposition = composeIosPlugins({
             corePluginsRoot: resolveInternalPluginsRoot(catalystCorePath),
@@ -33,7 +33,11 @@ async function main() {
         await syncPluginResources(pluginComposition)
         await buildForIOS(pluginComposition)
     } catch (error) {
-        progress.log("Build failed: " + error.message, "error")
+        // buildForIOS already logged this via progress.log at buildIos/index.js,
+        // so re-printing here produced the same failure twice.
+        if (process.env.CATALYST_DEBUG && error.stack) {
+            console.error(error.stack)
+        }
         process.exit(1)
     }
     process.exit(0)

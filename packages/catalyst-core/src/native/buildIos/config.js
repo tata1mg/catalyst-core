@@ -207,7 +207,6 @@ public enum ConfigConstants {
             }
 
             if (!addedKeys.has("notifications")) {
-                progress.log("Notifications not found in config, adding default (false)", "info")
                 configContent +=
                     "\n    public enum Notifications {\n        public static let enabled = false\n    }"
                 addedKeys.add("notifications")
@@ -216,7 +215,6 @@ public enum ConfigConstants {
             }
 
             if (!addedKeys.has("googleSignIn")) {
-                progress.log("Google Sign-In not found in config, adding defaults (disabled)", "info")
                 configContent +=
                     '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n        public static let iosClientId = ""\n    }'
                 addedKeys.add("googleSignIn")
@@ -233,8 +231,6 @@ public enum ConfigConstants {
                 configContent +=
                     "\n    public enum EdgeToEdge {\n        public static let enabled = false\n    }"
                 addedKeys.add("edgeToEdge")
-            } else {
-                progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
             }
 
             if (!addedKeys.has("initial_url")) {
@@ -251,7 +247,6 @@ public enum ConfigConstants {
             configContent += `\n}`
 
             fs.writeFileSync(appConfigPath, configContent, "utf8")
-            progress.log("Configuration constants generated successfully (SPM Package)", "success")
             progress.complete("config")
         } catch (error) {
             progress.fail("config", error.message)
@@ -334,12 +329,11 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPort
 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
 `
             fs.writeFileSync(xconfigPath, xconfigContent, "utf8")
-            console.log(
-                `✅ Generated Shared.xcconfig with Swift ${swiftVersion}, iOS ${deploymentTarget}, Bundle ID: ${bundleId}`
-            )
+            // Detail the step's own check line already covers, so it rides the
+            // spinner row rather than escaping the gutter at column 0.
+            progress.status(`xcconfig · Swift ${swiftVersion} · iOS ${deploymentTarget}`)
         } catch (error) {
-            console.error(`❌ Failed to generate Shared.xcconfig: ${error.message}`)
-            throw error
+            throw new Error(`Failed to generate Shared.xcconfig: ${error.message}`)
         }
     }
 
