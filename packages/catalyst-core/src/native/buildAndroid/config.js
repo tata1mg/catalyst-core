@@ -33,7 +33,7 @@ function createConfigPhase(ctx) {
         const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
         const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`
 
-        progress.log("Validating Android tools...", "info")
+        progress.status("validating tools")
 
         if (!ANDROID_SDK) {
             throw new Error("Android SDK path is not configured")
@@ -49,7 +49,6 @@ function createConfigPhase(ctx) {
 
         try {
             ctx.runCommand(`${ADB_PATH} version`)
-            progress.log("ADB validation successful", "success")
         } catch (error) {
             throw new Error(`ADB is not working properly: ${error.message}`)
         }
@@ -62,7 +61,6 @@ function createConfigPhase(ctx) {
 
             try {
                 ctx.runCommand(`${EMULATOR_PATH} -version`)
-                progress.log("Emulator validation successful", "success")
             } catch (error) {
                 throw new Error(`Emulator is not working properly: ${error.message}`)
             }
@@ -82,7 +80,6 @@ function createConfigPhase(ctx) {
             progress.log("Skipping emulator validation for release build", "info")
         }
 
-        progress.log("Android tools validation completed successfully!", "success")
         return { ANDROID_SDK, ADB_PATH, EMULATOR_PATH }
     }
 

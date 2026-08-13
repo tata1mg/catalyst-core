@@ -1,5 +1,8 @@
 import path from "path"
 import fs from "fs"
+import { createRequire } from "module"
+
+const { diagnostic } = createRequire(import.meta.url)("../cli/diagnostic.js")
 
 /**
  * @description stores all config.json key value into process.env before server starts.
@@ -45,7 +48,24 @@ const loadEnvironmentVariables = async () => {
         // still keeping every pre-existing process.env entry via the spread.
         process.env = { ...process.env, ...newConfig }
     } catch (error) {
-        console.error("Error loading environment variables:", error)
+        // This runs before the server starts, for both `start` and `serve`, so
+        // a missing or malformed config used to greet the user with a raw
+        // ENOENT/SyntaxError stack trace as the very first thing they saw.
+        process.stderr.write(
+            diagnostic({
+                message:
+                    error.code === "ENOENT"
+                        ? "Config file not found"
+                        : error instanceof SyntaxError
+                          ? `Config file is not valid JSON: ${error.message}`
+                          : `Could not load configuration: ${error.message}`,
+                file: appConfigPath,
+                hint:
+                    error.code === "ENOENT"
+                        ? "Every Catalyst app needs a config/config.json at its root."
+                        : undefined,
+            })
+        )
         throw error
     }
 }

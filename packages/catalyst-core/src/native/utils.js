@@ -7,13 +7,46 @@ const rl = readline.createInterface({
     output: process.stdout,
 })
 
+// Retain only the tail of a child's output: it is used for diagnostics, and a
+// long gradle build would otherwise hold every byte it ever printed in memory.
+const MAX_OUTPUT_BUFFER_BYTES = 1024 * 1024
+
+// Prompts are short, so only a small trailing window is ever worth matching.
+// This is load-bearing, not belt-and-braces: handlePrompts only trims the
+// buffer when something matches, and a normal build never prompts at all --
+// so without the cap the match buffer accumulates the entire build output and
+// indexOf rescans all of it on every chunk.
+const MAX_PROMPT_MATCH_BYTES = 8 * 1024
+
+// Signing commands carry keystore passwords on the command line, and this is
+// the one place every native command is echoed on failure. Redact here so a
+// wrong password cannot put the real one in the terminal or in CI logs.
+const SECRET_ARG_PATTERNS = [
+    /(-storepass\s+)("[^"]*"|\S+)/gi,
+    /(-keypass\s+)("[^"]*"|\S+)/gi,
+    /(signing\.store\.password=)("[^"]*"|\S+)/gi,
+    /(signing\.key\.password=)("[^"]*"|\S+)/gi,
+    /(--password[=\s]+)("[^"]*"|\S+)/gi,
+]
+
+function redactSecrets(text) {
+    if (typeof text !== "string") return text
+    return SECRET_ARG_PATTERNS.reduce((acc, pattern) => acc.replace(pattern, "$1***"), text)
+}
+
 function runCommand(command) {
+    // Redacted before it reaches the log file too -- the log is a build
+    // artifact that gets attached to bug reports and uploaded by CI.
     try {
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native setup/build uses fixed internal command strings; preserve existing shell behavior.
-        return execSync(command, { encoding: "utf8" })
+        // stderr is captured, not inherited. Many tools (java -version, for
+        // one) write to stderr on success, and an inherited fd puts that text
+        // at column 0 -- straight through whatever the spinner is drawing.
+        // The caller decides what, if anything, is worth showing.
+        return execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
     } catch (error) {
-        console.error(`Error executing command: ${command}`)
-        console.error(`Error message: ${error.message}`)
+        console.error(`Error executing command: ${redactSecrets(command)}`)
+        console.error(`Error message: ${redactSecrets(error.message)}`)
         throw error
     }
 }
@@ -36,45 +69,109 @@ async function promptUser(question) {
     })
 }
 
-async function runInteractiveCommand(command, args, promptResponses = {}) {
+/**
+ * Run a command, keeping its output rather than printing it.
+ *
+ * @param {string} command
+ * @param {string[]} args
+ * @param {object} [promptResponses] - text to answer prompts with
+ * @param {object} [options]
+ * @param {(line: string) => void} [options.onLine] - called per output line.
+ *   Without it the output is captured silently. Gradle and xcodebuild emit
+ *   hundreds of lines that nobody reads on success and that are redundant on
+ *   failure -- the error path mines `error.output`, which is retained either
+ *   way. Callers that want progress pass a handler that summarises, rather
+ *   than letting the raw stream scroll.
+ */
+async function runInteractiveCommand(command, args, promptResponses = {}, { onLine } = {}) {
     return new Promise((resolve, reject) => {
+        // Named `child`, not `process`: the previous name shadowed the global
+        // `process` for the whole function body.
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native build commands are fixed internal commands passed with argv arrays.
-        const process = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })
+        const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })
 
-        let buffer = ""
+        let promptBuffer = ""
         let outputBuffer = ""
+        const partial = { stdout: "", stderr: "" }
 
-        process.stdout.on("data", (data) => {
-            buffer += data.toString()
-            outputBuffer += data.toString()
-            console.log(data.toString())
-            handlePrompts(process, buffer, promptResponses)
+        const consume = (data, stream) => {
+            const text = data.toString()
+
+            // Hold back a trailing partial line until its newline arrives.
+            // Printing raw chunks splits lines mid-write and injects blanks.
+            const lines = (partial[stream] + text).split("\n")
+            partial[stream] = lines.pop()
+            if (onLine) {
+                for (const line of lines) onLine(line)
+            }
+
+            // Previously unbounded: a long gradle build retained every byte.
+            outputBuffer += text
+            if (outputBuffer.length > MAX_OUTPUT_BUFFER_BYTES) {
+                outputBuffer = outputBuffer.slice(-MAX_OUTPUT_BUFFER_BYTES)
+            }
+
+            promptBuffer = handlePrompts(child, promptBuffer + text, promptResponses)
+            if (promptBuffer.length > MAX_PROMPT_MATCH_BYTES) {
+                promptBuffer = promptBuffer.slice(-MAX_PROMPT_MATCH_BYTES)
+            }
+        }
+
+        child.stdout.on("data", (data) => consume(data, "stdout"))
+        child.stderr.on("data", (data) => consume(data, "stderr"))
+
+        // Without this the promise never settles when the binary is missing or
+        // not executable, so a missing gradle/adb hangs the CLI indefinitely.
+        child.on("error", (error) => {
+            if (error.code === "ENOENT") {
+                reject(new Error(`Command not found: ${command}`, { cause: error }))
+            } else {
+                reject(new Error(`Failed to start ${command}: ${error.message}`, { cause: error }))
+            }
         })
 
-        process.stderr.on("data", (data) => {
-            buffer += data.toString()
-            outputBuffer += data.toString()
-            console.error(data.toString())
-            handlePrompts(process, buffer, promptResponses)
-        })
+        child.on("close", (code) => {
+            // Flush whatever never got its closing newline.
+            for (const stream of ["stdout", "stderr"]) {
+                if (partial[stream]) {
+                    if (onLine) onLine(partial[stream])
+                    partial[stream] = ""
+                }
+            }
 
-        process.on("close", (code) => {
             if (code === 0) {
                 resolve(outputBuffer)
-            } else {
-                reject(new Error(`Command failed with exit code ${code}`))
+                return
             }
+
+            // Carry the output on the error. Without it the caller only has
+            // "exit code 1" and the compiler error that actually broke the
+            // build is lost -- which is why failures used to mean opening
+            // Android Studio to find out what happened.
+            const failure = new Error(`Command failed with exit code ${code}`)
+            failure.code = code
+            failure.output = outputBuffer
+            reject(failure)
         })
     })
 }
 
-function handlePrompts(process, buffer, promptResponses) {
+/**
+ * Answer a prompt found in the accumulated output.
+ *
+ * Returns the buffer to keep looking in. The match must be consumed: the buffer
+ * grows with every chunk, so leaving a matched prompt in it re-answers that
+ * prompt on every subsequent chunk, spraying `y\n` into the child's stdin.
+ */
+function handlePrompts(child, buffer, promptResponses) {
     for (const [prompt, response] of Object.entries(promptResponses)) {
-        if (buffer.includes(prompt)) {
-            process.stdin.write(response + "\n")
-            return
+        const index = buffer.indexOf(prompt)
+        if (index !== -1) {
+            child.stdin.write(response + "\n")
+            return buffer.slice(index + prompt.length)
         }
     }
+    return buffer
 }
 
 async function runSdkManagerCommand(sdkManagerPath, args) {
@@ -196,4 +293,5 @@ export {
     runSdkManagerCommand,
     runInteractiveCommand,
     validateAndCompleteConfig,
+    redactSecrets,
 }

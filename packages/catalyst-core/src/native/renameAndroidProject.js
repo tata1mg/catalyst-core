@@ -4,6 +4,7 @@
 var _fs = _interopRequireDefault(require("fs"))
 var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
+var _theme = require("../cli/theme.js")
 
 function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e }
@@ -14,31 +15,55 @@ class SimpleProgress {
     constructor(title) {
         this.title = title
         this.currentStep = null
-        console.log(`\n=== ${title} ===\n`)
+        this.startedAt = 0
+        // Deferred: this module is imported by the Android build, which prints
+        // its own header. Printing here on import produced two headers, the
+        // first of them for work that had not started and often never runs.
+        this.headerShown = false
+    }
+
+    ensureHeader() {
+        if (this.headerShown) return
+        this.headerShown = true
+        console.log(_theme.header(this.title))
     }
 
     start(stepId) {
+        this.ensureHeader()
         this.currentStep = { id: stepId }
-        console.log(`⏳ Starting: ${stepId}`)
+        this.startedAt = Date.now()
+        console.log(`${_theme.GUTTER}${_theme.t.accent(_theme.glyph.running)} ${stepId}`)
     }
 
     complete(stepId) {
-        console.log(`✅ Completed: ${stepId}`)
+        this.ensureHeader()
+        console.log(_theme.step(stepId, this.startedAt ? Date.now() - this.startedAt : null))
         this.currentStep = null
     }
 
     fail(stepId, message) {
-        console.log(`❌ Failed: ${stepId} - ${message}`)
+        this.ensureHeader()
+        console.log(_theme.step(stepId, null, "fail"))
+        if (message)
+            console.log(`${_theme.GUTTER}${_theme.t.dim(_theme.glyph.last)} ${_theme.t.bad(message)}`)
     }
 
     log(message, type = "info") {
-        const prefix =
-            type === "error" ? "❌" : type === "warning" ? "⚠️ " : type === "success" ? "✅" : "ℹ️ "
-        console.log(`  ${prefix} ${message}`)
+        this.ensureHeader()
+        const mark =
+            type === "error"
+                ? _theme.t.bad(_theme.glyph.fail)
+                : type === "warning"
+                  ? _theme.t.warn(_theme.glyph.warn)
+                  : type === "success"
+                    ? _theme.t.ok(_theme.glyph.done)
+                    : _theme.t.dim(_theme.glyph.info)
+        console.log(`${_theme.GUTTER}${_theme.t.dim(_theme.glyph.pipe)} ${mark} ${message}`)
     }
 
     printTreeContent(title, items) {
-        console.log(`\n📋 ${title}:`)
+        this.ensureHeader()
+        console.log(`\n${_theme.GUTTER}${_theme.t.bold(title)}`)
         items.forEach((item) => {
             if (typeof item === "string") {
                 console.log(item)
@@ -257,14 +282,16 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             const effectiveKeyPassword = keystoreConfig.storePassword
 
             const bundleCommand = [
-                "./gradlew bundleRelease --quiet --console=rich",
+                "./gradlew bundleRelease --console=plain",
                 `-Pandroid.injected.signing.store.file="${keystorePath}"`,
                 `-Pandroid.injected.signing.store.password="${keystoreConfig.storePassword}"`,
                 `-Pandroid.injected.signing.key.alias="${keystoreConfig.keyAlias}"`,
                 `-Pandroid.injected.signing.key.password="${effectiveKeyPassword}"`,
             ].join(" ")
 
-            progress.log(`Executing: ${bundleCommand}`, "info")
+            // Never log this command as-is: it carries the keystore and key
+            // passwords, which would put them in the terminal and in CI logs.
+            progress.log("Executing: ./gradlew bundleRelease (signing args redacted)", "info")
             ;(0, _utils.runCommand)(bundleCommand)
             progress.log("Bundle build completed", "success")
 
@@ -490,10 +517,10 @@ async function diagnoseAndroidProject(projectPath) {
 
         if (found) {
             diagnostics.foundFiles.push({ ...pattern, foundFile })
-            progress.log(`✅ Found: ${pattern.description}${foundFile ? ` (${foundFile})` : ""}`, "success")
+            progress.log(`Found: ${pattern.description}${foundFile ? ` (${foundFile})` : ""}`, "success")
         } else {
             diagnostics.missingFiles.push(pattern)
-            progress.log(`❌ Missing: ${pattern.description}`, "warning")
+            progress.log(`Missing: ${pattern.description}`, "warning")
         }
     }
 
@@ -687,10 +714,7 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         filesToCheck.forEach((file) => {
             const fullPath = _path.default.join(tempDir, file.path)
             const exists = _fs.default.existsSync(fullPath)
-            progress.log(
-                `  ${file.desc}: ${exists ? "✅ Found" : "⚠️  Not found"}`,
-                exists ? "info" : "warning"
-            )
+            progress.log(`  ${file.desc}: ${exists ? "found" : "not found"}`, exists ? "info" : "warning")
         })
 
         // List all files in temp directory for debugging
@@ -827,7 +851,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                     `applicationId = "${packageName}"`
                 )
                 _fs.default.writeFileSync(buildGradlePath, content, "utf8")
-                progress.log(`✅ Updated build.gradle.kts with package: ${packageName}`, "success")
+                progress.log(`Updated build.gradle.kts with package: ${packageName}`, "success")
             }
 
             // Update source directory structure for all source sets
@@ -867,7 +891,7 @@ async function updateFileContents(projectPaths, androidConfig) {
 
                         // Move source files
                         ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
-                        progress.log(`✅ Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
+                        progress.log(`Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
                     } else {
                         progress.log(
                             `Package path unchanged for ${sourceSet}; skipping source directory move`,
@@ -893,7 +917,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                     }
                     totalUpdatedFiles += updatedCount
                     progress.log(
-                        `✅ Updated package declarations in ${updatedCount} ${sourceSet} files`,
+                        `Updated package declarations in ${updatedCount} ${sourceSet} files`,
                         "success"
                     )
 
@@ -909,7 +933,7 @@ async function updateFileContents(projectPaths, androidConfig) {
             }
 
             if (totalUpdatedFiles > 0) {
-                progress.log(`✅ Total package declarations updated: ${totalUpdatedFiles} files`, "success")
+                progress.log(`Total package declarations updated: ${totalUpdatedFiles} files`, "success")
             }
 
             // Update AndroidManifest.xml
@@ -925,7 +949,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                 if (content.includes(OLD_PACKAGE)) {
                     content = content.replace(new RegExp(OLD_PACKAGE, "g"), packageName)
                     _fs.default.writeFileSync(manifestPath, content, "utf8")
-                    progress.log(`✅ Updated AndroidManifest.xml with package: ${packageName}`, "success")
+                    progress.log(`Updated AndroidManifest.xml with package: ${packageName}`, "success")
                 }
             }
 
@@ -936,7 +960,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                 if (content.includes(OLD_PACKAGE)) {
                     content = content.replace(new RegExp(OLD_PACKAGE.replace(/\./g, "\\."), "g"), packageName)
                     _fs.default.writeFileSync(proguardPath, content, "utf8")
-                    progress.log(`✅ Updated proguard-rules.pro with package: ${packageName}`, "success")
+                    progress.log(`Updated proguard-rules.pro with package: ${packageName}`, "success")
                 }
             }
         }

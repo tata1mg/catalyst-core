@@ -134,7 +134,6 @@ function createAssetsPhase(ctx) {
 
             ctx.runCommand(`mkdir -p ${destDir}`)
             fs.copyFileSync(sourcePath, destPath)
-            progress.log(`${fileName} copied to Android assets`, "success")
         } catch (error) {
             progress.log(`Warning: Error copying ${fileName}: ${error.message}`, "warning")
         }
@@ -242,9 +241,6 @@ function createAssetsPhase(ctx) {
             if (hasCustomIcons) {
                 progress.log("Applied Android launcher icons from public/android/appIcons.", "success")
             }
-            if (usedFallback) {
-                progress.log("Used bundled Catalyst fallback icon for launcher.", "info")
-            }
         } catch (error) {
             progress.log(`Warning: Error copying app icon assets: ${error.message}`, "warning")
         }
@@ -291,7 +287,6 @@ function createAssetsPhase(ctx) {
                     fs.mkdirSync(appDir, { recursive: true })
                 }
                 fs.copyFileSync(rootGoogleServicesPath, androidGoogleServicesPath)
-                progress.log("Copied google-services.json to androidProject/app/", "success")
                 return true
             } else if (fs.existsSync(androidGoogleServicesPath)) {
                 progress.log("google-services.json already exists in androidProject/app/", "info")
@@ -324,7 +319,6 @@ function createAssetsPhase(ctx) {
             await cleanupNotificationAssets()
 
             if (!hasNotificationConfig) {
-                progress.log("Notifications disabled - cleaned up notification configurations", "info")
                 return
             }
 
@@ -353,7 +347,6 @@ function createAssetsPhase(ctx) {
             ].join("\n")
 
             fs.writeFileSync(propertiesPath, propertiesContent)
-            progress.log("Updated generated Android build properties", "success")
         } catch (error) {
             throw new Error(`Failed to write generated Android build properties: ${error.message}`)
         }

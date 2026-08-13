@@ -41,6 +41,9 @@ logger.js
 !packages/catalyst-core/src/logger.js
 
 /logs
+
+# Native build logs written by the CLI
+
 /loadable-stats.json
 /index.js
 packages/*/dist
