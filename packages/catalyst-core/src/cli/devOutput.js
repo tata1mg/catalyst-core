@@ -58,7 +58,8 @@ const STACK_FRAME = /^\s+at\s/
 const ERROR_LINE = /^(?:Uncaught\s+)?(?:[A-Z]\w*)?Error:\s*(.+)$/
 const ERROR_DETAIL_FIELD = /^\s*(code|errno|syscall|address|port|stack):\s/
 const ERROR_OBJECT_EDGE = /^\s*[{}]\s*\w*$/
-const CAUGHT_EXCEPTION = /^(?:Caught exception|Exception origin|unhandledRejection)/
+const CAUGHT_EXCEPTION = /^(?:Caught exception|Exception origin)/
+const UNHANDLED_REJECTION = /^unhandledRejection in Catalyst\s*(.*)$/
 
 // The house-style diagnostic the server itself renders: "  error <scope>",
 // then indented detail. Recognised so it is forwarded verbatim.
@@ -103,6 +104,18 @@ function formatDevLine(line, state) {
     if (ERROR_DETAIL_FIELD.test(trimmed)) return null
     if (ERROR_OBJECT_EDGE.test(trimmed)) return null
     if (CAUGHT_EXCEPTION.test(trimmed)) return null
+
+    // The server logs this once and stays alive, so there is no exit handler
+    // to report it later -- swallowing it lost the failure entirely.
+    const rejection = UNHANDLED_REJECTION.exec(trimmed)
+    if (rejection) {
+        const detail = rejection[1] && rejection[1] !== "{}" ? ` ${rejection[1]}` : ""
+        state.lastError = `Unhandled promise rejection${detail}`
+        // Same rule as a raw Error line: before the banner the exit handler
+        // renders it once, so printing here would duplicate it.
+        if (!state.flushed) return null
+        return `${GUTTER}${t.bad(glyph.fail)} Unhandled promise rejection${t.dim(detail)}`
+    }
     // A bare number is what `console.log(process.stderr.fd)` in the server's
     // uncaughtException handler emits.
     if (/^\d+$/.test(trimmed)) return null
