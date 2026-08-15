@@ -1,0 +1,44 @@
+import React from "react"
+import { RouterDataProvider, RouteDataProvider, MetaTag } from "catalyst-core"
+import App from "@containers/App"
+import routes from "./index.js"
+
+/**
+ * Shapes the route config into react-router-dom RouteObject[] — the same shape
+ * useRoutes() (client) and useRoutes() via <StaticRouter> (server) both consume.
+ * https://reactrouter.com/en/main/hooks/use-routes
+ */
+
+export const preparedRoutes = ({ store, routerInitialState, loaderData }) => {
+    const getPreparedRoutes = (routes) => {
+        return routes.map((route, index) => {
+            const Component = route.component
+            const routeToRender = {
+                ...route,
+                element: <Component key={index} />,
+            }
+            if (route.children) {
+                routeToRender.children = getPreparedRoutes(route.children)
+            }
+            return routeToRender
+        })
+    }
+
+    return [
+        {
+            element: (
+                <RouterDataProvider config={{}} initialState={routerInitialState}>
+                    <RouteDataProvider initialData={loaderData} store={store}>
+                        <MetaTag />
+                        <App />
+                    </RouteDataProvider>
+                </RouterDataProvider>
+            ),
+            children: getPreparedRoutes(routes),
+        },
+    ]
+}
+
+export const getRoutes = () => {
+    return routes
+}
