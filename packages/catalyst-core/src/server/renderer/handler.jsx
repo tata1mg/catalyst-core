@@ -33,6 +33,7 @@ import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
 import { getManifest, getAssetManifest } from "../manifestCache.js"
 import { buildLoaderPromiseMap } from "../../web-router/loader/buildLoaderPromiseMap.js"
+import { encodeDeferredScript } from "../../web-router/loader/deferredStream.server.js"
 
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
 
@@ -256,7 +257,7 @@ const _renderMarkUp = async (
                 transform(chunk, _enc, cb) {
                     cb(null, chunk)
                 },
-                flush(cb) {
+                async flush(cb) {
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
@@ -283,6 +284,20 @@ const _renderMarkUp = async (
                     }
                     if (!isBot) {
                         this.push(generateScriptStrings(deferredAssets.js))
+                    }
+
+                    // Every route loader's promise (critical and deferred alike) is
+                    // already settled by this point — flush() only runs once React's
+                    // own pipe has finished writing, which per onAllReady semantics
+                    // means every use()'d Suspense boundary has resolved. One snapshot
+                    // for hydration, not a live stream — see deferredStream.server.js.
+                    if (loaderPromiseMap && Object.keys(loaderPromiseMap).length > 0) {
+                        try {
+                            const deferredScript = await encodeDeferredScript(loaderPromiseMap)
+                            if (deferredScript) this.push(deferredScript)
+                        } catch (error) {
+                            console.error("Error encoding deferred loader data:", error)
+                        }
                     }
 
                     cb()
