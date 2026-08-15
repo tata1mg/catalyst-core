@@ -1,72 +1,37 @@
-import { useNavigate, useLocation } from "react-router-dom"
+import { useCallback, useTransition } from "react"
+import { useNavigate } from "react-router-dom"
 
 /**
- * @param {number} delay
+ * `navigate()` wrapped in React's own `startTransition` — a client-side
+ * navigation that suspends (a loader's critical data isn't resolved yet)
+ * keeps the current page on screen instead of unmounting it into a Suspense
+ * fallback, and `isPending` flips true for the duration. This is what the
+ * commented-out `document.startViewTransition`-based implementation this
+ * replaced was reaching for (a signal that a navigation is in flight) without
+ * needing a separate view-transition/animation system to get it — React 19's
+ * built-in `useTransition` already provides exactly that pending signal, no
+ * loader/animation-specific plumbing required. RFC 0001 deliberately doesn't
+ * build view-transition animation support; a real one would layer on top of
+ * this hook, not replace it.
+ *
+ * Returns a tuple, not a plain function, unlike this hook's previous no-op
+ * version (`() => useNavigate()`) — that was a dead stub with zero real
+ * callers in this repo, so this isn't a breaking change to a working API.
+ *
+ * @returns {[(to: any, options?: any) => void, boolean]} `[navigateWithTransition, isPending]`
  */
-function wait(delay) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, delay)
-    })
-}
-
-// function navigationDirection(param) {
-//     if (typeof param === "string") {
-//         return "forward-navigation"
-//     } else if (typeof param === "number") {
-//         return param < 0 ? "backward-navigation" : param > 0 ? "forward-navigation" : "Same_page_navigation"
-//     } else {
-//         return "Invalid_param"
-//     }
-// }
-
-// export function useNavigateWithTransition() {
-//     const navigate = useNavigate()
-//     const { setIsExitComplete, updateScrollPosition } = useScrollRestorationContext()
-//     const location = useLocation()
-//     function transition(route, options = {}) {
-//         if (document.startViewTransition && options.skipTransition) {
-//             const directionForNavigation = navigationDirection(route)
-//             //decide whether to use backward transition or forward transition or no transition in case route is 0
-//             if (directionForNavigation === "Same_page_navigation") {
-//                 navigate(route, options)
-//                 return
-//             }
-//             //select the root element and give it the viewTransitionNameb by the directionForNavigation
-//             const rootElementRef = document.querySelector(":root")
-//             rootElementRef.style.viewTransitionName = directionForNavigation
-
-//             const viewTransition = document.startViewTransition(async function updateCallback() {
-//                 // Update scroll position for the current route
-//                 updateScrollPosition(location.key, parseInt(window.scrollY, 10))
-//                 delete options.skipTransition
-//                 navigate(route, options)
-//                 await wait(50)
-//             })
-
-//             // A Promise that fulfills once the pseudo-element tree is created and the transition animation is about to start.
-//             viewTransition.ready.then(() => {
-//                 if (directionForNavigation === "backward-navigation") {
-//                     setIsExitComplete(true)
-//                 } else {
-//                     window.scrollTo({ top: 0, left: 0, behavior: "auto" })
-//                 }
-//             })
-
-//             //A Promise that fulfills once the transition animation is finished, and the new page view is visible and interactive to the user.
-//             viewTransition.finished.finally(() => {
-//                 // Clear the temporary tag
-//                 if (rootElementRef) rootElementRef.style.viewTransitionName = ""
-//             })
-//         } else {
-//             // fallback for old browser
-//             delete options.skipTransition
-//             navigate(route, options)
-//         }
-//     }
-
-//     return transition
-// }
-
 export const useNavigateWithTransition = () => {
-    return useNavigate()
+    const navigate = useNavigate()
+    const [isPending, startTransition] = useTransition()
+
+    const navigateWithTransition = useCallback(
+        (to, options) => {
+            startTransition(() => {
+                navigate(to, options)
+            })
+        },
+        [navigate, startTransition]
+    )
+
+    return [navigateWithTransition, isPending]
 }

@@ -33,6 +33,26 @@ const hasCustomOptions = (o) =>
     o && typeof o === "object" && (o.root != null || o.rootMargin != null || o.threshold != null)
 
 /**
+ * Observes `node` on the shared, default-options IntersectionObserver and calls
+ * `callback` once, the first time it becomes visible — then unobserves. Exported
+ * so other components (PrefetchLink's `prefetch="viewport"`) can trigger their
+ * own one-shot "now visible" behavior without instantiating a second observer
+ * with the same rootMargin.
+ *
+ * @param {Element} node
+ * @param {() => void} callback
+ * @returns {() => void} cleanup — call to stop observing before it fires
+ */
+export const observeOnceVisible = (node, callback) => {
+    callbacks.set(node, callback)
+    getSharedObserver().observe(node)
+    return () => {
+        callbacks.delete(node)
+        if (sharedObserver) sharedObserver.unobserve(node)
+    }
+}
+
+/**
  * Defers rendering of children until the placeholder enters the viewport.
  * Once visible, it stays visible.
  *
@@ -70,12 +90,7 @@ const SplitInview = ({ fallback = null, children, rootOptions, onVisible }) => {
         }
 
         if (!hasCustomOptions(opts)) {
-            callbacks.set(node, fire)
-            getSharedObserver().observe(node)
-            return () => {
-                callbacks.delete(node)
-                if (sharedObserver) sharedObserver.unobserve(node)
-            }
+            return observeOnceVisible(node, fire)
         }
 
         const observer = new IntersectionObserver(
