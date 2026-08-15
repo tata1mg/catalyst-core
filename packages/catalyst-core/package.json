@@ -18,6 +18,7 @@
     "exports": {
         ".": "./dist/index.jsx",
         "./package.json": "./package.json",
+        "./api": "./dist/api/index.js",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
