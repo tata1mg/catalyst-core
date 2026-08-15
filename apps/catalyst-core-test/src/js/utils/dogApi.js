@@ -35,3 +35,10 @@ export const getDogImages = () => ({
     message: dogImages,
     status: "success",
 })
+
+export const getRelatedBreeds = (breed) => ({
+    message: Object.keys(dogBreeds)
+        .filter((name) => name !== breed)
+        .slice(0, 3),
+    status: "success",
+})
