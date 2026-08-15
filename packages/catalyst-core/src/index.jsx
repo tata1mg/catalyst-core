@@ -1,6 +1,7 @@
 export * from "react-router-dom"
 export * from "./web-router/components/RouterDataProvider.jsx"
 export * from "./web-router/components/MetaTag.jsx"
+export * from "./web-router/loader/RouteDataProvider.jsx"
 export { split, hydrationReady } from "./web-router/components/Split.jsx"
 export { split as default } from "./web-router/components/Split.jsx"
 export * from "./web-router/hooks.jsx"
