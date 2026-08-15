@@ -1,4 +1,4 @@
-import { test } from "node:test"
+import { test, mock } from "node:test"
 import assert from "node:assert/strict"
 import { buildLoaderPromiseMap } from "../../../src/web-router/loader/buildLoaderPromiseMap.js"
 
@@ -119,4 +119,61 @@ test("all loaders start in parallel, not one after another", async () => {
     // Both loaders must have STARTED before either FINISHED — proves they ran in
     // parallel rather than the second only starting once the first settled.
     assert.deepEqual(order.slice(0, 2).sort(), ["start:/fast", "start:/slow"])
+})
+
+test("a loader dispatching before the shell has started streaming does not warn", async () => {
+    const warn = mock.method(console, "warn", () => {})
+    try {
+        const store = { dispatch: mock.fn((action) => action) }
+        const shellStartedRef = { current: false }
+        const route = {
+            path: "/",
+            loader: async ({ context }) => {
+                context.store.dispatch({ type: "EARLY_ACTION" })
+                return {}
+            },
+        }
+        const map = buildLoaderPromiseMap([{ route, params: {} }], { store, shellStartedRef })
+        await map["/"]
+
+        assert.equal(store.dispatch.mock.callCount(), 1, "the dispatch must still go through")
+        assert.equal(warn.mock.callCount(), 0)
+    } finally {
+        warn.mock.restore()
+    }
+})
+
+test("a loader dispatching after the shell has started streaming warns but does not throw", async () => {
+    const warn = mock.method(console, "warn", () => {})
+    try {
+        const store = { dispatch: mock.fn((action) => action) }
+        const shellStartedRef = { current: true } // simulates onShellReady already having fired
+        const route = {
+            path: "/",
+            loader: async ({ context }) => {
+                context.store.dispatch({ type: "LATE_ACTION" })
+                return { ok: true }
+            },
+        }
+        const map = buildLoaderPromiseMap([{ route, params: {} }], { store, shellStartedRef })
+        const result = await map["/"]
+
+        assert.deepEqual(result, { ok: true }, "the loader must complete normally, not throw")
+        assert.equal(store.dispatch.mock.callCount(), 1, "the dispatch must still go through")
+        assert.equal(warn.mock.callCount(), 1)
+        assert.match(warn.mock.calls[0].arguments[0], /LATE_ACTION/)
+        assert.match(warn.mock.calls[0].arguments[0], /shell had already started streaming/)
+    } finally {
+        warn.mock.restore()
+    }
+})
+
+test("a loader with no store in context (no configureStore in the app) works unaffected", async () => {
+    const route = {
+        path: "/",
+        loader: async ({ context }) => ({ storeIsNull: context.store === null }),
+    }
+    const map = buildLoaderPromiseMap([{ route, params: {} }], { store: null, shellStartedRef: { current: true } })
+    const result = await map["/"]
+    assert.deepEqual(result, { storeIsNull: true })
 })

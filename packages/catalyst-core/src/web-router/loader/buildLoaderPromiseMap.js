@@ -16,10 +16,11 @@
  *
  * @typedef {{ route: any, params: Record<string, string> }} RouteMatch
  * @param {RouteMatch[]} matches
- * @param {{ searchParams?: URLSearchParams, context?: any }} [args]
+ * @param {{ searchParams?: URLSearchParams, store?: any, shellStartedRef?: { current: boolean } }} [args]
  * @returns {Record<string, Promise<any>>}
  */
-export const buildLoaderPromiseMap = (matches, { searchParams, context } = {}) => {
+export const buildLoaderPromiseMap = (matches, { searchParams, store, shellStartedRef } = {}) => {
+    const context = { store: guardStoreDispatch(store, shellStartedRef) }
     const map = {}
 
     matches.forEach(({ route, params }) => {
@@ -37,6 +38,49 @@ export const buildLoaderPromiseMap = (matches, { searchParams, context } = {}) =
     })
 
     return map
+}
+
+/**
+ * A loader that dispatches to the Redux store while the shell is already
+ * streaming can mutate state after `initialState` was serialized into
+ * `Body.jsx` — a hydration-mismatch class that doesn't exist under the legacy
+ * fetch-then-render path, where `serverDataFetcher` always finishes before
+ * render starts (RFC 0001). Rather than block the dispatch (a worse failure
+ * mode than the mismatch it's guarding against — aborting mid-stream over a
+ * store update), this only warns, loudly, naming the action.
+ *
+ * `console.warn`, not the `logger` global `catalyst-core/logger` exposes:
+ * that logger has no `warn` level (only `debug`/`info`/`error`), and more
+ * importantly it's only ever set on `globalThis.logger` if a consuming app
+ * explicitly calls `configureLogger()` — which most don't (the fixture app
+ * doesn't). A framework-level correctness warning that only fires for apps
+ * that opted into a specific logging setup, and throws for every other app
+ * (`logger` would be an undefined bare reference), would be worse than the
+ * thing it's warning about. `console.warn` matches how this same file's
+ * caller (`handler.jsx`) already logs its own errors.
+ *
+ * @param {any} store
+ * @param {{ current: boolean }} [shellStartedRef]
+ */
+const guardStoreDispatch = (store, shellStartedRef) => {
+    if (!store || typeof store.dispatch !== "function") return store
+
+    return new Proxy(store, {
+        get(target, prop, receiver) {
+            if (prop !== "dispatch") return Reflect.get(target, prop, receiver)
+
+            return (action) => {
+                if (shellStartedRef?.current) {
+                    console.warn(
+                        `[catalyst-core] A loader dispatched "${action?.type}" to the Redux store after the ` +
+                            `SSR shell had already started streaming. This state change will not be reflected ` +
+                            `in the serialized initialState and can cause a hydration mismatch.`
+                    )
+                }
+                return target.dispatch(action)
+            }
+        },
+    })
 }
 
 /**
