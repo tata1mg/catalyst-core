@@ -133,12 +133,12 @@ const _collectAssets = (req, allMatches) => {
 const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collectAssets")
 
 // ── JSX tree ───────────────────────────────────────────────────────────
-const getComponent = (store, context, req, fetcherData, isBot) => (
+const getComponent = (store, context, req, fetcherData, isBot, loaderPromiseMap) => (
     <div id="app">
         <SsrRequestProvider value={{ isBot }}>
             <Provider store={store}>
                 <StaticRouter context={context} location={req.originalUrl}>
-                    <ServerRouter store={store} intialData={fetcherData} />
+                    <ServerRouter store={store} intialData={fetcherData} loaderData={loaderPromiseMap} />
                 </StaticRouter>
             </Provider>
         </SsrRequestProvider>
@@ -156,7 +156,8 @@ const _renderMarkUp = async (
     allMatches,
     context,
     chunkExtractor,
-    shellStartedRef
+    shellStartedRef,
+    loaderPromiseMap
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
@@ -206,7 +207,7 @@ const _renderMarkUp = async (
     })
 
     const state = store.getState()
-    const jsx = getComponent(store, context, req, fetcherData, isBot)
+    const jsx = getComponent(store, context, req, fetcherData, isBot, loaderPromiseMap)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
     const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, safeArea }
@@ -416,7 +417,8 @@ async function _handler(req, res) {
                         allMatches,
                         context,
                         chunkExtractor,
-                        shellStartedRef
+                        shellStartedRef,
+                        loaderPromiseMap
                     )
                 } else {
                     safeCall(onFetcherSuccess, { req, res, store })
@@ -433,7 +435,8 @@ async function _handler(req, res) {
                         allMatches,
                         context,
                         chunkExtractor,
-                        shellStartedRef
+                        shellStartedRef,
+                        loaderPromiseMap
                     )
                 }
             } catch (error) {

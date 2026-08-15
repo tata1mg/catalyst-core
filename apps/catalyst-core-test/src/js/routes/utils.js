@@ -1,5 +1,5 @@
 import React from "react"
-import { RouterDataProvider, MetaTag } from "catalyst-core"
+import { RouterDataProvider, RouteDataProvider, MetaTag } from "catalyst-core"
 import App from "@containers/App"
 import routes from "./index.js"
 
@@ -9,7 +9,7 @@ import routes from "./index.js"
  * https://reactrouter.com/en/main/hooks/use-routes
  */
 
-export const preparedRoutes = ({ routerInitialState }) => {
+export const preparedRoutes = ({ store, routerInitialState, loaderData }) => {
     const getPreparedRoutes = (routes) => {
         return routes.map((route, index) => {
             const Component = route.component
@@ -28,8 +28,10 @@ export const preparedRoutes = ({ routerInitialState }) => {
         {
             element: (
                 <RouterDataProvider config={{}} initialState={routerInitialState}>
-                    <MetaTag />
-                    <App />
+                    <RouteDataProvider initialData={loaderData} store={store}>
+                        <MetaTag />
+                        <App />
+                    </RouteDataProvider>
                 </RouterDataProvider>
             ),
             children: getPreparedRoutes(routes),

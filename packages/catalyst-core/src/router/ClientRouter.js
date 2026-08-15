@@ -18,8 +18,8 @@ registerCatalystServiceWorker()
  *
  * @returns {React.ReactElement | null} the matched route element tree
  */
-const ClientRouter = ({ routerInitialState }) => {
-    return useRoutes(preparedRoutes({ routerInitialState }))
+const ClientRouter = ({ routerInitialState, store, loaderData }) => {
+    return useRoutes(preparedRoutes({ routerInitialState, store, loaderData }))
 }
 
 export default ClientRouter
