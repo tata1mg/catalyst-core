@@ -42,8 +42,14 @@ export class LoaderCache {
     }
 
     /**
+     * A cache hit here is also the dedup path: two calls for the same key
+     * arriving before the first has settled both land on the same in-flight
+     * promise, because `set()` below stores it synchronously, before either
+     * caller yields to a microtask — the second call's `has(key)` check always
+     * sees it. No separate in-flight-tracking structure needed.
+     *
      * @param {string} key
-     * @param {() => Promise<any>} runLoader
+     * @param {(signal: AbortSignal) => Promise<any>} runLoader - receives an AbortSignal that fires if `abort(key)` is called before this entry settles
      * @param {{ staleTime?: number }} [options] - ms before this entry is treated as a miss; omit/Infinity to never expire on its own (still subject to LRU eviction)
      */
     getOrRun(key, runLoader, { staleTime = Infinity } = {}) {
@@ -55,21 +61,37 @@ export class LoaderCache {
             return entry.promise
         }
 
-        const promise = runLoader()
-        this.set(key, promise, staleTime)
+        const controller = new AbortController()
+        const promise = runLoader(controller.signal)
+        this.set(key, promise, staleTime, controller)
         return promise
     }
 
-    set(key, promise, staleTime = Infinity) {
+    set(key, promise, staleTime = Infinity, controller = null) {
         this.entries.delete(key)
         this.entries.set(key, {
             promise,
             expiresAt: staleTime === Infinity ? Infinity : Date.now() + staleTime,
+            controller,
         })
         this.evict()
     }
 
     delete(key) {
+        this.entries.delete(key)
+    }
+
+    /**
+     * Aborts the in-flight loader for `key` (a no-op if it already settled or
+     * was never given a controller — `set()` called directly, without going
+     * through `getOrRun`, has none) and removes the entry, so a future request
+     * for the same key starts fresh rather than resolving to a cancelled call.
+     *
+     * @param {string} key
+     */
+    abort(key) {
+        const entry = this.entries.get(key)
+        entry?.controller?.abort()
         this.entries.delete(key)
     }
 
@@ -89,12 +111,22 @@ const loaderCache = typeof window !== "undefined" ? new LoaderCache() : null
 
 /**
  * @param {string} key
- * @param {() => Promise<any>} runLoader
+ * @param {(signal: AbortSignal) => Promise<any>} runLoader
  * @param {{ staleTime?: number }} [options]
  */
 export const getOrRunLoaderPromise = (key, runLoader, options) => {
-    if (!loaderCache) return runLoader()
+    if (!loaderCache) return runLoader(new AbortController().signal)
     return loaderCache.getOrRun(key, runLoader, options)
+}
+
+/**
+ * Aborts and evicts the in-flight loader cached under `key`, if any. A no-op
+ * outside a browser environment or if nothing is cached under that key.
+ *
+ * @param {string} key
+ */
+export const abortLoaderPromise = (key) => {
+    loaderCache?.abort(key)
 }
 
 export const clearLoaderCache = () => loaderCache?.clear()

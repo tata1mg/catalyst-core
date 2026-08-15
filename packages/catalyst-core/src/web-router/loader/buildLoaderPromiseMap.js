@@ -14,13 +14,27 @@
  * re-render many times for the same navigation and must not re-invoke the loader
  * on every one of them) lives in loaderCache.js, layered on top of this.
  *
+ * `context.signal` is always present (an un-aborted `AbortController().signal`
+ * if the caller doesn't pass one) so a loader can pass `context.signal` to
+ * `fetch`/`api.get(...)` unconditionally, the same way on server and client,
+ * without checking whether it's actually wired to anything. Nothing currently
+ * aborts it server-side (SSR has no "navigate away" — a request runs to
+ * completion or errors) — the client path (RouteDataProvider.jsx) does abort
+ * on navigate-away, which is the scenario this exists for. Threading a real,
+ * request-lifecycle signal server-side (e.g. aborting in-flight loaders if
+ * the client disconnects mid-response) is a reasonable future extension, not
+ * built here — out of scope for what this step asked for.
+ *
  * @typedef {{ route: any, params: Record<string, string> }} RouteMatch
  * @param {RouteMatch[]} matches
- * @param {{ searchParams?: URLSearchParams, store?: any, shellStartedRef?: { current: boolean } }} [args]
+ * @param {{ searchParams?: URLSearchParams, store?: any, shellStartedRef?: { current: boolean }, signal?: AbortSignal }} [args]
  * @returns {Record<string, Promise<any>>}
  */
-export const buildLoaderPromiseMap = (matches, { searchParams, store, shellStartedRef } = {}) => {
-    const context = { store: guardStoreDispatch(store, shellStartedRef) }
+export const buildLoaderPromiseMap = (matches, { searchParams, store, shellStartedRef, signal } = {}) => {
+    const context = {
+        store: guardStoreDispatch(store, shellStartedRef),
+        signal: signal || new AbortController().signal,
+    }
     const map = {}
 
     matches.forEach(({ route, params }) => {

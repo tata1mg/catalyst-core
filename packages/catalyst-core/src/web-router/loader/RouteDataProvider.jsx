@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useRef, use } from "react"
 import { useLocation, UNSAFE_RouteContext } from "react-router-dom"
-import { getOrRunLoaderPromise } from "./loaderCache.js"
+import { getOrRunLoaderPromise, abortLoaderPromise } from "./loaderCache.js"
 
 /**
  * @type {import("react").Context<Object.<string, Promise<any>>>}
@@ -59,20 +59,31 @@ export const RouteDataProvider = ({ initialData, store, children }) => {
         // A client-side navigation landed on a new route — kick off every
         // matched route's loader now, before this render commits.
         const map = {}
+        const keys = []
         matches.forEach((match) => {
             const { route, params } = match
             if (typeof route.loader !== "function") return
             const id = deriveRouteId(route)
             const key = buildLoaderKey(id, params, location.search)
-            map[id] = getOrRunLoaderPromise(key, () =>
+            keys.push(key)
+            map[id] = getOrRunLoaderPromise(key, (signal) =>
                 route.loader({
                     params,
                     searchParams: new URLSearchParams(location.search),
-                    context: { store },
+                    context: { store, signal },
                 })
             )
         })
-        committedRef.current = { locationKey, map }
+
+        // A route left behind by this navigation (its key isn't in the new
+        // set) has its in-flight loader aborted — no reason to let a fetch for
+        // a page the user already navigated away from keep running.
+        const previousKeys = committedRef.current.keys || []
+        previousKeys.forEach((previousKey) => {
+            if (!keys.includes(previousKey)) abortLoaderPromise(previousKey)
+        })
+
+        committedRef.current = { locationKey, map, keys }
     }
 
     return <RouteDataContext.Provider value={committedRef.current.map}>{children}</RouteDataContext.Provider>
