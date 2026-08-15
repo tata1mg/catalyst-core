@@ -4,9 +4,9 @@ import App from "@containers/App"
 import routes from "./index.js"
 
 /**
- * Making the routes array compatible with the format accepted by createBrowserRouter
- * API on the client side
- * https://reactrouter.com/en/main/routers/create-browser-router
+ * Shapes the route config into react-router-dom RouteObject[] — the same shape
+ * useRoutes() (client) and useRoutes() via <StaticRouter> (server) both consume.
+ * https://reactrouter.com/en/main/hooks/use-routes
  */
 
 export const preparedRoutes = ({ routerInitialState }) => {

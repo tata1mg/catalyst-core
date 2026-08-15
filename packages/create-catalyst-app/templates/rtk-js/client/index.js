@@ -2,8 +2,8 @@ import React from "react"
 import "./styles"
 import { hydrateRoot } from "react-dom/client"
 import { Provider } from "react-redux"
-import { RouterProvider, hydrationReady } from "catalyst-core"
-import clientRouter from "catalyst-core/router/ClientRouter"
+import { BrowserRouter, hydrationReady } from "catalyst-core"
+import ClientRouter from "catalyst-core/router/ClientRouter"
 import configureStore from "@store"
 
 window.addEventListener("load", () => {
@@ -11,12 +11,12 @@ window.addEventListener("load", () => {
         const { __ROUTER_INITIAL_DATA__: routerInitialData, __INITIAL_STATE__ } = window
         const store = configureStore(__INITIAL_STATE__ || {})
 
-        const router = clientRouter({ store, routerInitialState: routerInitialData })
-
         const Application = (
             <Provider store={store} serverState={__INITIAL_STATE__}>
                 <React.StrictMode>
-                    <RouterProvider router={router} />
+                    <BrowserRouter>
+                        <ClientRouter store={store} routerInitialState={routerInitialData} />
+                    </BrowserRouter>
                 </React.StrictMode>
             </Provider>
         )
