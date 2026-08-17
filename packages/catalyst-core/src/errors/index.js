@@ -1,3 +1,11 @@
+/**
+ * The "catalyst-core/errors" subpath export exists so catalyst's own
+ * packages (catalyst-ai, create-catalyst-app, etc.) can share this
+ * registry/CatalystError shape instead of each defining their own. It is
+ * not a recommendation for app code to throw CatalystError instead of
+ * Error — apps should keep using plain Error unless they're specifically
+ * interoperating with catalyst's own error codes.
+ */
 import { ERROR_CODES, getDefinition, getDocUrl } from "./registry.js"
 
 export { ERROR_CODES, getDocUrl }
