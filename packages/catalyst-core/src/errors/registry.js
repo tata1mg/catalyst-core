@@ -382,9 +382,10 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_NOT_REGISTERED]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "No handler registered for this bridge interface",
-        defaultDetails: "The native platform called back on an interface that has no JS-side handler registered yet.",
+        defaultDetails:
+            "Native sent a callback for this interface, but your webview hasn't registered a handler for it yet.",
         recoverable: true,
-        suggestedAction: "Ensure WebBridge.register() is called for this interface before the native call arrives.",
+        suggestedAction: "Call WebBridge.register() for this interface before native calls arrive.",
     },
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_THREW]: {
         category: "RUNTIME-NATIVE",
