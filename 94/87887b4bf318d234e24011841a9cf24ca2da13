@@ -1,0 +1,21 @@
+packages/catalyst-ai/src/useWebAI.js
+  s_f57fd1ca29503a::t_ef75a2dcdd985d 248
+packages/catalyst-core/src/errors/index.js
+  s_f57fd1ca29503a::t_5a657e99c16f16 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "9487887b4bf318d234e24011841a9cf24ca2da13",
+  "prompts": {},
+  "sessions": {
+    "s_f57fd1ca29503a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "682daa58-7895-4b4c-81c0-3bbfbfbd58a9",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
