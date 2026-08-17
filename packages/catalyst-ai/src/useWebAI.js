@@ -245,10 +245,7 @@ export function useWebAI({
             try {
                 worker = new Worker(getWorkerBlobUrl(), { type: "module" })
             } catch (err) {
-                setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, {
-                    message: "Constructing the module Worker failed: " + (err.message || String(err)),
-                    cause: err,
-                }))
+                setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, { cause: err }))
                 setLoading(false)
                 return
             }
