@@ -10,10 +10,6 @@ reducer should be present in src/js/containers/App/reducer
 
 The reducer export was found but is not a function.
 
-## Recoverable
-
-Yes — you can fix this and retry without restarting your workflow.
-
 ## Suggested action
 
 Ensure the reducer is exported as a function.

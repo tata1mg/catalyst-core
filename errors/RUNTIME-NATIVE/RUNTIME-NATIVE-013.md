@@ -10,10 +10,6 @@ Native feature unavailable
 
 The native bridge is not available or not initialized
 
-## Recoverable
-
-No — this typically requires investigating the underlying cause.
-
 ## Suggested action
 
 Use web fallback if available

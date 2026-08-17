@@ -3,13 +3,12 @@ import { ERROR_CODES, getDefinition, getDocUrl } from "./registry.js"
 export { ERROR_CODES }
 
 export class CatalystError extends Error {
-    constructor(code, { message, details, recoverable, suggestedAction, category, docUrl, cause } = {}) {
+    constructor(code, { message, details, suggestedAction, category, docUrl, cause } = {}) {
         super(message)
         this.name = "CatalystError"
         this.code = code
         this.category = category
         this.details = details
-        this.recoverable = recoverable
         this.suggestedAction = suggestedAction
         this.docUrl = docUrl
         if (cause !== undefined) this.cause = cause
@@ -26,7 +25,6 @@ export function createError(code, overrides = {}) {
         category: def.category,
         message: overrides.message || def.defaultMessage,
         details: overrides.details || def.defaultDetails,
-        recoverable: overrides.recoverable ?? def.recoverable,
         suggestedAction: overrides.suggestedAction || def.suggestedAction,
         docUrl: getDocUrl(code),
         cause: overrides.cause,

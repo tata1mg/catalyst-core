@@ -10,10 +10,6 @@ Invalid file type
 
 The selected file type is not supported
 
-## Recoverable
-
-Yes — you can fix this and retry without restarting your workflow.
-
 ## Suggested action
 
 Choose a file with a supported format

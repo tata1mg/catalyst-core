@@ -46,7 +46,6 @@ function handle_explain_error({ code } = {}) {
         category: entry.category,
         message: entry.message,
         details: entry.details,
-        recoverable: entry.recoverable,
         suggestedAction: entry.suggestedAction,
         docUrl: entry.docUrl,
     }

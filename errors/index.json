@@ -3,7 +3,6 @@
         "category": "PREFLIGHT",
         "message": "config not found in config folder",
         "details": "A config object must be exported from the config folder in your project root.",
-        "recoverable": true,
         "suggestedAction": "Create config/config.json (or config/index.js) exporting the required config object.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-001.md"
     },
@@ -11,7 +10,6 @@
         "category": "PREFLIGHT",
         "message": "config export is not an object",
         "details": "The config folder must export a plain object.",
-        "recoverable": true,
         "suggestedAction": "Ensure config/config.json exports an object, not a string, array, or function.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-002.md"
     },
@@ -19,7 +17,6 @@
         "category": "PREFLIGHT",
         "message": "required key missing inside config.json",
         "details": "config.json is missing one or more required keys.",
-        "recoverable": true,
         "suggestedAction": "Add the missing key to config.json. See the config.json reference in the framework docs.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-003.md"
     },
@@ -27,7 +24,6 @@
         "category": "PREFLIGHT",
         "message": "package.json not found in the project",
         "details": "A package.json must exist in the project root directory.",
-        "recoverable": false,
         "suggestedAction": "Run this command from the project root, or restore package.json.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-004.md"
     },
@@ -35,7 +31,6 @@
         "category": "PREFLIGHT",
         "message": "package.json should be defined in project root directory",
         "details": "package.json exists but could not be parsed as an object.",
-        "recoverable": true,
         "suggestedAction": "Check package.json for valid JSON syntax.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-005.md"
     },
@@ -43,7 +38,6 @@
         "category": "PREFLIGHT",
         "message": "moduleAliases not found in package.json",
         "details": "package.json must export a moduleAliases object.",
-        "recoverable": true,
         "suggestedAction": "Add a moduleAliases object to package.json.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-006.md"
     },
@@ -51,7 +45,6 @@
         "category": "PREFLIGHT",
         "message": "moduleAliases named object should be exported from package.json",
         "details": "moduleAliases was found in package.json but is not an object.",
-        "recoverable": true,
         "suggestedAction": "Ensure moduleAliases is exported as an object in package.json.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-007.md"
     },
@@ -59,7 +52,6 @@
         "category": "PREFLIGHT",
         "message": "catalyst keyword is restricted for defining aliases",
         "details": "Module alias keys containing 'catalyst' are reserved by the framework.",
-        "recoverable": true,
         "suggestedAction": "Rename the alias to something that does not contain 'catalyst'.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-008.md"
     },
@@ -67,7 +59,6 @@
         "category": "PREFLIGHT",
         "message": "required module alias not defined inside package.json",
         "details": "One or more required module aliases are missing from moduleAliases.",
-        "recoverable": true,
         "suggestedAction": "Add the missing alias to the moduleAliases object in package.json.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-009.md"
     },
@@ -75,7 +66,6 @@
         "category": "PREFLIGHT",
         "message": "preServerInit named function should be defined in server/index.js",
         "details": "server/index.js must export a preServerInit function.",
-        "recoverable": true,
         "suggestedAction": "Export a preServerInit function from server/index.js, or remove the reference to it.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-010.md"
     },
@@ -83,7 +73,6 @@
         "category": "PREFLIGHT",
         "message": "preServerInit should be a function present in server/index.js",
         "details": "preServerInit was found but is not a function.",
-        "recoverable": true,
         "suggestedAction": "Ensure preServerInit is exported as a function.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-011.md"
     },
@@ -91,7 +80,6 @@
         "category": "PREFLIGHT",
         "message": "addMiddlewares named function not found in server/server.js",
         "details": "server/server.js must export an addMiddlewares function.",
-        "recoverable": true,
         "suggestedAction": "Export an addMiddlewares function from server/server.js.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-012.md"
     },
@@ -99,7 +87,6 @@
         "category": "PREFLIGHT",
         "message": "addMiddlewares should be a function present in server/server.js",
         "details": "addMiddlewares was found but is not a function.",
-        "recoverable": true,
         "suggestedAction": "Ensure addMiddlewares is exported as a function.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-013.md"
     },
@@ -107,7 +94,6 @@
         "category": "PREFLIGHT",
         "message": "reducer not found in src/js/containers/App/reducer",
         "details": "A reducer must be exported from src/js/containers/App/reducer.",
-        "recoverable": true,
         "suggestedAction": "Export a reducer from src/js/containers/App/reducer.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-014.md"
     },
@@ -115,7 +101,6 @@
         "category": "PREFLIGHT",
         "message": "reducer should be present in src/js/containers/App/reducer",
         "details": "The reducer export was found but is not a function.",
-        "recoverable": true,
         "suggestedAction": "Ensure the reducer is exported as a function.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-015.md"
     },
@@ -123,7 +108,6 @@
         "category": "PREFLIGHT",
         "message": "configureStore not found in file src/js/store/index.js",
         "details": "src/js/store/index.js must export a configureStore function.",
-        "recoverable": true,
         "suggestedAction": "Export a configureStore function from src/js/store/index.js.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-016.md"
     },
@@ -131,7 +115,6 @@
         "category": "PREFLIGHT",
         "message": "configureStore should be a function exported from src/js/store/index.js",
         "details": "configureStore was found but is not a function.",
-        "recoverable": true,
         "suggestedAction": "Ensure configureStore is exported as a function.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-017.md"
     },
@@ -139,7 +122,6 @@
         "category": "PREFLIGHT",
         "message": "getRoutes not found in file src/js/routes/utils.js",
         "details": "src/js/routes/utils.js must export a getRoutes function.",
-        "recoverable": true,
         "suggestedAction": "Export a getRoutes function from src/js/routes/utils.js.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-018.md"
     },
@@ -147,7 +129,6 @@
         "category": "PREFLIGHT",
         "message": "getRoutes should be a function exported from src/js/routers/index.js",
         "details": "getRoutes was found but is not a function.",
-        "recoverable": true,
         "suggestedAction": "Ensure getRoutes is exported as a function.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-019.md"
     },
@@ -155,7 +136,6 @@
         "category": "PREFLIGHT",
         "message": "document not found in file server/document.js",
         "details": "server/document.js must export a document component.",
-        "recoverable": true,
         "suggestedAction": "Export a document React component from server/document.js.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-020.md"
     },
@@ -163,7 +143,6 @@
         "category": "PREFLIGHT",
         "message": "document should be a react component exported from server/document.js",
         "details": "document was found but is not a function/component.",
-        "recoverable": true,
         "suggestedAction": "Ensure document is exported as a React component (function).",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-021.md"
     },
@@ -171,7 +150,6 @@
         "category": "PROCESS",
         "message": "preServerInit threw an error during server startup",
         "details": "The preServerInit hook failed. Note: server startup currently continues despite this error (tracked separately as a fix — see issue #298); this code only identifies which hook failed.",
-        "recoverable": true,
         "suggestedAction": "Fix the error thrown inside your preServerInit hook (see the cause above).",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PROCESS/PROCESS-001.md"
     },
@@ -179,7 +157,6 @@
         "category": "PROCESS",
         "message": "A user-defined hook threw an error",
         "details": "A user-defined hook (e.g. onRouteMatch, onFetcherError, onServerError) threw. It was caught so the SSR pipeline keeps running; see the cause above for which hook and why.",
-        "recoverable": true,
         "suggestedAction": "Fix the error thrown inside the hook (see the cause above).",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PROCESS/PROCESS-002.md"
     },
@@ -187,7 +164,6 @@
         "category": "BUNDLE",
         "message": "Build failed in an upstream bundler step",
         "details": "This is a wrapper around an error from Vite/Rollup or another upstream build tool. See the printed upstream code/message for the actual cause — catalyst-core does not reinterpret it.",
-        "recoverable": true,
         "suggestedAction": "Read the upstream error message/code printed above and fix the underlying issue.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/BUNDLE/BUNDLE-000.md"
     },
@@ -195,7 +171,6 @@
         "category": "IOS",
         "message": "iOS build failed in an upstream toolchain step",
         "details": "This wraps an error from Xcode/CocoaPods. See the printed upstream output for the cause.",
-        "recoverable": true,
         "suggestedAction": "Read the upstream Xcode/CocoaPods error printed above and fix the underlying issue.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-000.md"
     },
@@ -203,7 +178,6 @@
         "category": "ANDROID",
         "message": "Android build failed in an upstream toolchain step",
         "details": "This wraps an error from Gradle. See the printed upstream output for the cause.",
-        "recoverable": true,
         "suggestedAction": "Read the upstream Gradle error printed above and fix the underlying issue.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-000.md"
     },
@@ -211,7 +185,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Permission denied",
         "details": "Required permission was not granted by the user",
-        "recoverable": true,
         "suggestedAction": "Grant permission in device settings and try again",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-001.md"
     },
@@ -219,7 +192,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Permission required",
         "details": "This operation requires additional permissions",
-        "recoverable": true,
         "suggestedAction": "Grant the required permission to continue",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-002.md"
     },
@@ -227,7 +199,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "No internet connection",
         "details": "Network connection is required for this operation",
-        "recoverable": true,
         "suggestedAction": "Check your internet connection and try again",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-003.md"
     },
@@ -235,7 +206,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Download failed",
         "details": "The download could not be completed",
-        "recoverable": true,
         "suggestedAction": "Check your connection and try again",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-004.md"
     },
@@ -243,7 +213,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "File not found",
         "details": "The requested file could not be located",
-        "recoverable": false,
         "suggestedAction": "The file may have been moved or deleted",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-005.md"
     },
@@ -251,7 +220,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "File too large",
         "details": "File exceeds the maximum size limit",
-        "recoverable": true,
         "suggestedAction": "Choose a smaller file or compress the current file",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-006.md"
     },
@@ -259,7 +227,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Storage full",
         "details": "Device storage is full and cannot save the file",
-        "recoverable": true,
         "suggestedAction": "Free up some storage space and try again",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-007.md"
     },
@@ -267,7 +234,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "File corrupted",
         "details": "The file could not be read or is corrupted",
-        "recoverable": false,
         "suggestedAction": "Try selecting a different file",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-008.md"
     },
@@ -275,7 +241,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Operation cancelled",
         "details": "The operation was cancelled by the user",
-        "recoverable": true,
         "suggestedAction": "Try again if you want to complete the operation",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-009.md"
     },
@@ -283,7 +248,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "No file selected",
         "details": "No file was selected by the user",
-        "recoverable": true,
         "suggestedAction": "Select a file and try again",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-010.md"
     },
@@ -291,7 +255,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Invalid file type",
         "details": "The selected file type is not supported",
-        "recoverable": true,
         "suggestedAction": "Choose a file with a supported format",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-011.md"
     },
@@ -299,7 +262,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Invalid parameters",
         "details": "One or more parameters passed to the native call were invalid",
-        "recoverable": true,
         "suggestedAction": "Check the parameters passed to the native API call",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-012.md"
     },
@@ -307,7 +269,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Native feature unavailable",
         "details": "The native bridge is not available or not initialized",
-        "recoverable": false,
         "suggestedAction": "Use web fallback if available",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-013.md"
     },
@@ -315,7 +276,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Feature not supported",
         "details": "This feature is not supported on the current platform",
-        "recoverable": false,
         "suggestedAction": "Try using an alternative method or device",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-014.md"
     },
@@ -323,7 +283,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "An unexpected error occurred",
         "details": "An internal error occurred while processing the request",
-        "recoverable": true,
         "suggestedAction": "Try again or contact support if the problem persists",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-015.md"
     },
@@ -331,7 +290,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Camera unavailable",
         "details": "Camera hardware is not available or accessible",
-        "recoverable": false,
         "suggestedAction": "Check if your device has a camera and try again",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-016.md"
     },
@@ -339,7 +297,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Camera in use",
         "details": "Camera is being used by another application",
-        "recoverable": true,
         "suggestedAction": "Close other camera apps and try again",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-017.md"
     }

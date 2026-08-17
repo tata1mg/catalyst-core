@@ -10,10 +10,6 @@ Download failed
 
 The download could not be completed
 
-## Recoverable
-
-Yes — you can fix this and retry without restarting your workflow.
-
 ## Suggested action
 
 Check your connection and try again
