@@ -15,6 +15,7 @@ import {
     ParentBasedSampler,
     SamplingDecision,
 } from "@opentelemetry/sdk-trace-node"
+import { setGlobalErrorHandler } from "@opentelemetry/core"
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc"
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc"
@@ -143,30 +144,33 @@ class PromotingSpanProcessor {
         const rootSpan = record.rootSpan
         if (!rootSpan) return
 
+        const isBot = rootSpan.attributes["http.response.is_bot"] === true
+        if (isBot && !this.config.promoteBotTraffic) {
+            this.buffer.delete(traceId)
+            return
+        }
+
         const statusCode = Number(
             rootSpan.attributes["http.status_code"] || rootSpan.attributes["http.response.status_code"] || 0
         )
 
         const is5xx = statusCode >= 500 && statusCode < 600
+        const is4xx = statusCode >= 400 && statusCode < 500
         const isRootError = rootSpan.status && rootSpan.status.code === SpanStatusCode.ERROR
+        const isSkipped = this.config.skipPromotionCodes.includes(statusCode)
 
         let shouldPromote = false
         let promotionRate = this.config.samplingRate
 
-        if (is5xx || isRootError) {
+        if ((is5xx || isRootError) && !isSkipped) {
             shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate5xx)
             promotionRate = this.config.rate5xx
-        } else {
-            const is4xx = statusCode >= 400 && statusCode < 500
-            const isSkipped4xx = this.config.skipPromotionCodes.includes(statusCode)
-
-            if (is4xx && !isSkipped4xx) {
-                shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate4xx)
-                promotionRate = this.config.rate4xx
-            } else if (this.config.promoteHandledErrors && record.hasChildError) {
-                shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate5xx)
-                promotionRate = this.config.rate5xx
-            }
+        } else if (is4xx && !isSkipped) {
+            shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate4xx)
+            promotionRate = this.config.rate4xx
+        } else if (this.config.promoteHandledErrors && record.hasChildError) {
+            shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate5xx)
+            promotionRate = this.config.rate5xx
         }
 
         if (shouldPromote) {
@@ -191,12 +195,14 @@ class PromotingSpanProcessor {
                 ? promotionRate
                 : this.config.samplingRate
             for (const s of spansToExport) {
+                // Required, not decorative: batchProcessor.onEnd() below silently
+                // drops any span whose traceFlags aren't SAMPLED.
                 s.spanContext().traceFlags |= TraceFlags.SAMPLED
                 s.attributes["promoted"] = true
                 s.attributes["sample_rate"] = finalSampleRate
             }
 
-            this.exporter.export(spansToExport, () => {})
+            this._export(spansToExport)
         }
 
         this.buffer.delete(traceId)
@@ -206,11 +212,26 @@ class PromotingSpanProcessor {
         const finalSampleRate = this.config.reportActualPromotionRate
             ? promotionRate
             : this.config.samplingRate
+        // Required, not decorative: batchProcessor.onEnd() below silently drops
+        // any span whose traceFlags aren't SAMPLED.
         span.spanContext().traceFlags |= TraceFlags.SAMPLED
         span.attributes["promoted"] = true
         span.attributes["sample_rate"] = finalSampleRate
 
-        this.exporter.export([span], () => {})
+        this._export([span])
+    }
+
+    // Hands promoted spans to the same BatchSpanProcessor used for normal
+    // head-sampled traffic, instead of exporting them directly. Reuses its
+    // queueing/backpressure (maxQueueSize, scheduledDelayMillis, ...) so a burst
+    // of promotions during an incident can't flood the collector with concurrent
+    // export calls. Trade-off: promoted spans export on the next batch flush
+    // instead of instantly. onStart() is a no-op on BatchSpanProcessorBase, so
+    // handing a span straight to onEnd() without a prior onStart() is safe.
+    _export(spans) {
+        for (const s of spans) {
+            this.batchProcessor.onEnd(s)
+        }
     }
 
     _cleanupBuffers() {
@@ -256,14 +277,50 @@ class PromotingSpanProcessor {
     }
 }
 
+/**
+ * Initializes the OpenTelemetry Node SDK — traces, optional metrics, and (when
+ * errorSampling.ENABLED is set) status-aware error sampling. No-op unless
+ * OTEL_ENABLE is set (see server/expressServer.js and server/renderer/handler.jsx
+ * for the same guard on the call sites that import this module).
+ *
+ * @param {object} [config]
+ * @param {string} [config.serviceName="catalyst-server"]
+ * @param {string} [config.serviceVersion="1.0.0"]
+ * @param {string} [config.environment="development"]
+ * @param {string} [config.traceUrl="http://localhost:4317"] - OTLP trace collector endpoint
+ * @param {string} [config.metricUrl="http://localhost:4317"] - OTLP metric collector endpoint
+ * @param {string} [config.traceProtocol="grpc"] - "grpc" or "http"
+ * @param {string} [config.metricProtocol] - "grpc" or "http"; metrics stay disabled if omitted
+ * @param {object} [config.traceHeaders]
+ * @param {object} [config.metricHeaders]
+ * @param {object} [config.batchProcessorConfig] - passed to BatchSpanProcessor (maxQueueSize, scheduledDelayMillis, ...)
+ * @param {number} [config.exportIntervalMillis=10000]
+ * @param {Array} [config.instrumentations] - defaults to getNodeAutoInstrumentations()
+ * @param {number} [config.samplingRate=1.0] - head-sampling rate in [0, 1] for non-error traffic
+ * @param {Function} [config.grpcCredentials]
+ * @param {object} [config.errorSampling] - status-aware error sampling, off by default
+ * @param {boolean} [config.errorSampling.ENABLED=false] - turns on StatusAwareSampler + PromotingSpanProcessor
+ * @param {number} [config.errorSampling.RATE_5XX=1.0] - promotion rate for 5xx roots (and roots with OTEL ERROR status)
+ * @param {number} [config.errorSampling.RATE_4XX=samplingRate] - promotion rate for 4xx roots
+ * @param {boolean} [config.errorSampling.EXPORT_FULL_TRACE_ON_ERROR=false] - export every buffered span on promotion, not just root + error spans
+ * @param {boolean} [config.errorSampling.PROMOTE_HANDLED_ERRORS=false] - promote 2xx roots (at RATE_5XX) if any child span recorded an error
+ * @param {boolean} [config.errorSampling.REPORT_ACTUAL_PROMOTION_RATE=false] - report the real promotion rate in the exported sample_rate attribute instead of samplingRate
+ * @param {number[]} [config.errorSampling.SKIP_PROMOTION_CODES=[408,504,524,598,599]] - status codes excluded from promotion regardless of 4xx/5xx
+ * @param {boolean} [config.errorSampling.PROMOTE_BOT_TRAFFIC=false] - allow bot-attributed traces (http.response.is_bot) to be promoted
+ * @returns {{sdk: NodeSDK|null, meter: object|null}}
+ */
 function init(config = {}) {
     // OpenTelemetry is opt-in — bail out unless explicitly enabled. Mirrors the
     // OTEL_ENABLE guard in server/expressServer.js and server/renderer/handler.jsx
     // so the SDK, exporters, instrumentations and signal handlers are never set
     // up when tracing is off. Returns the same shape so callers can destructure.
-    // if (process.env.OTEL_ENABLE !== true) {
-    //     return { sdk: null, meter: null }
-    // }
+    if (process.env.OTEL_ENABLE !== true) {
+        return { sdk: null, meter: null }
+    }
+
+    // Export failures (collector down, batch rejected, ...) otherwise vanish into
+    // OTEL's silent default diag logger — route them through the app logger.
+    setGlobalErrorHandler((err) => logger.error("❌ OpenTelemetry export error:", err))
 
     const {
         serviceName = "catalyst-server",
@@ -321,6 +378,7 @@ function init(config = {}) {
                 skipPromotionCodes: Array.isArray(errorSampling.SKIP_PROMOTION_CODES)
                     ? errorSampling.SKIP_PROMOTION_CODES
                     : [408, 504, 524, 598, 599],
+                promoteBotTraffic: errorSampling.PROMOTE_BOT_TRAFFIC === true,
                 batchProcessorConfig,
             }
 
