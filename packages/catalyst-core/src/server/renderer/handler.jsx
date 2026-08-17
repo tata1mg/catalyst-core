@@ -36,9 +36,10 @@ import { wrapSSRError, formatError } from "../../errors/index.js"
 import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js"
 
 // Resolved once at module load — spawned via serve.js/start.js, which
-// forward the mode as CATALYST_OUTPUT_MODE (no argv available at this
-// level; see scriptUtils.js#resolveOutputMode).
-const outputMode = resolveOutputMode(process.argv, process.env)
+// forward the mode as CATALYST_OUTPUT_MODE. Passed an empty argv on purpose:
+// this process never sees the parent's CLI flags, so process.argv here would
+// never contain --debug/--verbose — only CATALYST_OUTPUT_MODE is real input.
+const outputMode = resolveOutputMode([], process.env)
 // Debug mode's boxed output already embeds the full stack trace (see
 // errors/index.js#formatDebug), so only default/verbose need the original
 // error printed separately to avoid losing the stack.

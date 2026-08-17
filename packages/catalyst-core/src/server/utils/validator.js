@@ -4,9 +4,9 @@ import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js
 
 // Resolved once at module load — this module runs inside expressServer.js,
 // spawned by serve.js/start.js which forward the mode via
-// CATALYST_OUTPUT_MODE (no argv available at this level; see
-// scriptUtils.js#resolveOutputMode).
-const outputMode = resolveOutputMode(process.argv, process.env)
+// CATALYST_OUTPUT_MODE. Passed an empty argv on purpose: this process never
+// sees the parent's CLI flags, so only CATALYST_OUTPUT_MODE is real input.
+const outputMode = resolveOutputMode([], process.env)
 
 const handleError = (e) => {
     const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
