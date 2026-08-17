@@ -27,7 +27,7 @@ const clientConfig = defineConfig({
     build: {
         target: "esnext",
         minify: "esbuild",
-        sourcemap: false,
+        sourcemap: true,
         manifest: true,
         ssrManifest: true,
         outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),

@@ -156,6 +156,7 @@ const browserOptimizeDeps = [
     "react-dom",
     "react-dom/client",
     "react-redux",
+    "react-router",
     "react-router-dom",
     "redux",
     "redux-thunk",
@@ -257,6 +258,7 @@ export default defineConfig({
             exclude: [
                 "react",
                 "react-dom",
+                "react-router",
                 "react-router-dom",
                 "@tata1mg/router",
                 // "@tata1mg/slowoi-react",
@@ -288,7 +290,12 @@ export default defineConfig({
         alias: alias(),
         // Ensure only one copy of React-related packages is used (prevents
         // duplicate instances from hoisted/linked packages in monorepos)
-        dedupe: ["react", "react-dom", "react-router-dom", "@tata1mg/slowboi-react"],
+        // NOTE: react-router deliberately excluded from dedupe. Consumer apps that
+        // still have an older react-router-dom (e.g. v6) hoisted at their own
+        // node_modules root would have that copy forced onto catalyst-core's v7
+        // import too, silently resolving to the wrong package version (wrong
+        // export list, e.g. missing Link/StaticRouter) instead of an error.
+        dedupe: ["react", "react-dom", "react-router-dom"],
     },
     define: {
         ...getClientEnvVariables(),
