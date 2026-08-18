@@ -90,13 +90,14 @@ try {
 // fall back to message, then to a best-effort stringify for non-Error rejections
 // (a plain object, string, etc.).
 function describeError(err) {
-    if (err && err.stack) return err.stack
-    if (err && err.message) return err.message
     try {
+        if (err && err.stack) return err.stack
+        if (err && err.message) return err.message
         return JSON.stringify(err)
-    } catch (e) {
-        console.log("error in describeError", e)
-        return String(err)
+    } catch {
+        // err was not a well-behaved Error — e.g. a Proxy or an object with a throwing
+        // stack/message/toJSON getter. Never let this handler itself throw.
+        return "<unserializable rejection>"
     }
 }
 
