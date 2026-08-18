@@ -1,0 +1,29 @@
+docs/scripts/remark-admonitions.mjs
+  bfcf8d519e117510 10-25
+docs/README.md
+  bfcf8d519e117510 1,3-4,6,8,10-12,15,17-20,23-24,26,28-29,31-41,43-46,48-65,68-73,75-77,79-82
+docs/src/js/components/SearchModal.js
+  bfcf8d519e117510 2,63-71,102-103
+docs/scripts/generate-docs-manifest.mjs
+  bfcf8d519e117510 34,252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "15e3a7c97e31009e521ab49ea31b49b3576bfd2d",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 112,
+      "total_deletions": 23,
+      "accepted_lines": 112,
+      "overriden_lines": 0
+    }
+  }
+}
