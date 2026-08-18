@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import ReactDOM from 'react-dom';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router';
 
 // ───────────── Icons ─────────────
 export const I = {

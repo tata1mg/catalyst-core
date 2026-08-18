@@ -29,6 +29,7 @@
         "@tailwindcss/postcss": "^4.1.4",
         "catalyst-core": "0.3.0-beta.2",
         "react-redux": "^9.2.0",
+        "react-router": "^7.18.2",
         "tailwindcss": "^4.1.4",
         "react": "19.0.0",
         "react-dom": "19.0.0",

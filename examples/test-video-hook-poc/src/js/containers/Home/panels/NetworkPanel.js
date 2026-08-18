@@ -1,5 +1,5 @@
 import React from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router';
 import { useNetworkStatus } from 'catalyst-core/hooks';
 import { I, HookStatusBar, PanelHeader } from '../components/SharedUI';
 
