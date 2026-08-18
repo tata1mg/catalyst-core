@@ -58,7 +58,12 @@ function jsxInJsPlugin() {
             if (!id.endsWith(".js")) return null
             if (id.includes("node_modules")) return null
             if (!/</.test(code)) return null
-            return transformWithEsbuild(code, id, { loader: "jsx" })
+            // jsx: "automatic" matches @vitejs/plugin-react's default runtime for .jsx/.tsx
+            // files below. Without it, esbuild defaults to the classic runtime
+            // (React.createElement), which silently requires `React` to be in scope for any
+            // .js file containing JSX — inconsistent with every .jsx file in the same app,
+            // and easy to break by "cleaning up" an apparently-unused React import.
+            return transformWithEsbuild(code, id, { loader: "jsx", jsx: "automatic" })
         },
     }
 }
