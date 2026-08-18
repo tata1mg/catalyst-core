@@ -288,6 +288,7 @@ const browserOptimizeDeps = [
     "react-dom",
     "react-dom/client",
     "react-redux",
+    "react-router",
     "react-router-dom",
     "redux",
     "redux-thunk",
@@ -396,6 +397,7 @@ export const sharedViteConfig = {
             exclude: [
                 "react",
                 "react-dom",
+                "react-router",
                 "react-router-dom",
                 "@tata1mg/router",
                 // "@tata1mg/slowoi-react",
@@ -427,8 +429,15 @@ export const sharedViteConfig = {
     resolve: {
         alias: alias(),
         // Ensure only one copy of React-related packages is used (prevents
-        // duplicate instances from hoisted/linked packages in monorepos)
-        dedupe: ["react", "react-dom", "react-router-dom", "@tata1mg/slowboi-react"],
+        // duplicate instances from hoisted/linked packages in monorepos).
+        // NOTE: react-router deliberately excluded from dedupe. Consumer apps
+        // that still have an older react-router (e.g. v6, hoisted transitively
+        // through another dependency) at their own node_modules root would
+        // have that copy forced onto catalyst-core's v7 import too, silently
+        // resolving to the wrong package version (wrong export list, e.g.
+        // missing StaticRouter/Link) instead of an error. See tata1mg/1mg_web
+        // fix/react-router-v7-upgrade-staging for the confirmed repro.
+        dedupe: ["react", "react-dom", "react-router-dom"],
     },
     define: {
         ...getClientEnvVariables(),
