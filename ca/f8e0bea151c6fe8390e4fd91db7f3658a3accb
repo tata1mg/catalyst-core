@@ -1,0 +1,35 @@
+examples/useai/src/js/pages/Overview/Overview.js
+  s_37c16653d4dde9::t_d14cc4e62190b3 2
+examples/useai/client/index.js
+  s_37c16653d4dde9::t_c29ed25b489119 6
+examples/useai/src/js/containers/TicTacToe/TicTacToe.js
+  s_37c16653d4dde9::t_ffc807a944e56f 2
+examples/useai/src/js/containers/AIPlayground/AIPlayground.js
+  s_37c16653d4dde9::t_a91625267633d5 4
+examples/useai/src/js/routes/utils.js
+  s_37c16653d4dde9::t_000af1fe612aa1 2
+examples/useai/src/js/containers/AITest/AITest.js
+  s_37c16653d4dde9::t_9643488816fc27 2
+examples/useai/src/js/containers/Chess/Chess.js
+  s_37c16653d4dde9::t_ad44c64de86b8a 2
+examples/useai/src/js/containers/Home/Home.js
+  s_37c16653d4dde9::t_3a43851afbcd03 13
+examples/useai/src/js/containers/App/index.js
+  s_37c16653d4dde9::t_8bff3b0ab22a02 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "caf8e0bea151c6fe8390e4fd91db7f3658a3accb",
+  "prompts": {},
+  "sessions": {
+    "s_37c16653d4dde9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "948e76b0-d0ae-46e8-a83a-49981bf1596c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
