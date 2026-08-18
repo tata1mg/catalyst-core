@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "@tata1mg/router";
+import { Link } from "catalyst-core";
 import { PROMPTS, LOCAL_MODELS } from "../../constants/ai";
 import Panel from "../../components/AITest/Panel";
 import PresetsBottomSheet from "../../components/AITest/PresetsBottomSheet";

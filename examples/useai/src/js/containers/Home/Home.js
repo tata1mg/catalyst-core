@@ -10,7 +10,7 @@ import Observable from "../../pages/Observable/Observable";
 import PhoneFrame from "../../components/PhoneFrame";
 import ShimmerSkeleton from "../../components/ShimmerSkeleton";
 
-import { useParams, Link } from "@tata1mg/router";
+import { useParams, Link } from "catalyst-core";
 import { useNativeTransition } from "catalyst-core/hooks";
 
 export default function Home() {
