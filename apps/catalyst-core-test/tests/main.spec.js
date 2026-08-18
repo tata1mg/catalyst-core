@@ -53,3 +53,21 @@ test("Environment variables on client", async ({ page }) => {
 //   await page.getByRole("link", { name: "About" }).click();
 //   await expect(page).toHaveTitle("About");
 // });
+
+test("BreedDetails loader: critical data renders immediately, deferred data streams in after", async ({
+    page,
+}) => {
+    await page.goto("http://localhost:3005/breed/affenpinscher")
+
+    // Critical (breedImages, awaited in the loader) is already in the initial render.
+    await expect(page.locator("img").first()).toBeVisible()
+
+    // Deferred (relatedBreeds, a raw un-awaited promise in the loader) streams
+    // in afterwards via deferredStream — Playwright's locator assertions
+    // auto-retry, so this passes whenever the swap actually happens rather
+    // than needing to guess the exact artificial delay (300ms server-side).
+    const relatedBreeds = page.getByTestId("related-breeds")
+    await expect(relatedBreeds).toBeVisible({ timeout: 5000 })
+    const items = await relatedBreeds.locator("li").count()
+    expect(items).toBeGreaterThan(0)
+})

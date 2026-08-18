@@ -1,7 +1,7 @@
 import express from "express"
 import path from "path"
 import { fileURLToPath } from "url"
-import { getDogBreeds, getDogImages } from "../src/js/utils/dogApi.js"
+import { getDogBreeds } from "../src/js/utils/dogApi.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -13,9 +13,10 @@ export function addMiddlewares(app) {
         res.send(getDogBreeds())
     })
 
-    app.get("/api/breed/:breed/images", (req, res) => {
-        res.send(getDogImages())
-    })
+    // /api/breed/:breed/images and /api/breeds/related/:breed are now
+    // defineApi routes (server/api/index.js) — catalyst-core mounts those
+    // before addMiddlewares, so they already take priority here regardless;
+    // removing the old hand-written duplicates rather than leaving dead code.
 
     app.use("/api", (req, res) => {
         res.send({

@@ -1,18 +1,31 @@
-import React from "react"
-import { useCurrentRouteData, useParams, Link } from "catalyst-core"
-import { getDogApiBaseUrl, getDogImages } from "../../utils/dogApi"
+import React, { Suspense, use } from "react"
+import { useRouteData, useParams, Link } from "catalyst-core"
+
+// Deferred field: use()'d inside its own Suspense boundary, independent of the
+// critical breedImages above it — this is what actually exercises the
+// deferred-streaming pipeline (buildLoaderPromiseMap -> deferredStream ->
+// hydration) end to end in a real browser, not just in unit tests.
+const RelatedBreeds = ({ promise }) => {
+    const related = use(promise)
+    const names = related?.message || []
+    return (
+        <ul className="related-breeds" data-testid="related-breeds">
+            {names.map((name) => (
+                <li key={name} style={{ textTransform: "capitalize" }}>
+                    {name}
+                </li>
+            ))}
+        </ul>
+    )
+}
 
 const BreedDetails = () => {
     const params = useParams()
     const API_URL = process.env.API_URL
     const NODE_SERVER_HOSTNAME = process.env.NODE_SERVER_HOSTNAME
-    const { data, error, isFetching } = useCurrentRouteData()
+    const { breedImages, relatedBreeds } = useRouteData()
 
-    if (isFetching) return <div className="container">Loading breed details...</div>
-    if (error) return <div className="container">Error loading breed details: {error.message}</div>
-    if (!data) return <div className="container">No breed found</div>
-
-    const breedImages = data.message || []
+    const images = breedImages?.message || []
     const breedName = params?.breed
 
     return (
@@ -22,7 +35,7 @@ const BreedDetails = () => {
             </Link>
             <h1 style={{ textTransform: "capitalize" }}>{breedName} Dogs Available for Adoption</h1>
             <div className="dog-list">
-                {breedImages.slice(0, 8).map((imageUrl, index) => (
+                {images.slice(0, 8).map((imageUrl, index) => (
                     <div key={index} className="dog-card">
                         <img src={imageUrl} alt={`${breedName} ${index + 1}`} className="dog-image" />
                         <div className="dog-info">
@@ -34,31 +47,14 @@ const BreedDetails = () => {
                     </div>
                 ))}
             </div>
+            <h2>Related breeds</h2>
+            <Suspense fallback={<p data-testid="related-breeds-loading">Loading related breeds...</p>}>
+                <RelatedBreeds promise={relatedBreeds} />
+            </Suspense>
             <div data-testid={"client-var"}>{API_URL}</div>
             <div data-testid={"server-var"}>{NODE_SERVER_HOSTNAME}</div>
         </div>
     )
-}
-
-BreedDetails.clientFetcher = async ({ params }) => {
-    try {
-        const breedName = params.breed
-        const response = await fetch(`${getDogApiBaseUrl()}/api/breed/${breedName}/images`)
-        const data = await response.json()
-        return data
-    } catch (error) {
-        console.error("Error fetching breed details:", error)
-        throw error
-    }
-}
-
-BreedDetails.serverFetcher = async ({ params }) => {
-    try {
-        return getDogImages()
-    } catch (error) {
-        console.error("Error fetching breed details:", error)
-        throw error
-    }
 }
 
 export default BreedDetails

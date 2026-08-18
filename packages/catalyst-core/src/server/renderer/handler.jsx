@@ -32,6 +32,8 @@ import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
 import { getManifest, getAssetManifest } from "../manifestCache.js"
+import { buildLoaderPromiseMap } from "../../web-router/loader/buildLoaderPromiseMap.js"
+import { encodeDeferredScript } from "../../web-router/loader/deferredStream.server.js"
 
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
 
@@ -132,12 +134,12 @@ const _collectAssets = (req, allMatches) => {
 const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collectAssets")
 
 // ── JSX tree ───────────────────────────────────────────────────────────
-const getComponent = (store, context, req, fetcherData, isBot) => (
+const getComponent = (store, context, req, fetcherData, isBot, loaderPromiseMap) => (
     <div id="app">
         <SsrRequestProvider value={{ isBot }}>
             <Provider store={store}>
                 <StaticRouter context={context} location={req.originalUrl}>
-                    <ServerRouter store={store} intialData={fetcherData} />
+                    <ServerRouter store={store} intialData={fetcherData} loaderData={loaderPromiseMap} />
                 </StaticRouter>
             </Provider>
         </SsrRequestProvider>
@@ -154,7 +156,9 @@ const _renderMarkUp = async (
     store,
     allMatches,
     context,
-    chunkExtractor
+    chunkExtractor,
+    shellStartedRef,
+    loaderPromiseMap
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
@@ -204,7 +208,7 @@ const _renderMarkUp = async (
     })
 
     const state = store.getState()
-    const jsx = getComponent(store, context, req, fetcherData, isBot)
+    const jsx = getComponent(store, context, req, fetcherData, isBot, loaderPromiseMap)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
     const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, safeArea }
@@ -253,7 +257,7 @@ const _renderMarkUp = async (
                 transform(chunk, _enc, cb) {
                     cb(null, chunk)
                 },
-                flush(cb) {
+                async flush(cb) {
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
@@ -282,6 +286,20 @@ const _renderMarkUp = async (
                         this.push(generateScriptStrings(deferredAssets.js))
                     }
 
+                    // Every route loader's promise (critical and deferred alike) is
+                    // already settled by this point — flush() only runs once React's
+                    // own pipe has finished writing, which per onAllReady semantics
+                    // means every use()'d Suspense boundary has resolved. One snapshot
+                    // for hydration, not a live stream — see deferredStream.server.js.
+                    if (loaderPromiseMap && Object.keys(loaderPromiseMap).length > 0) {
+                        try {
+                            const deferredScript = await encodeDeferredScript(loaderPromiseMap)
+                            if (deferredScript) this.push(deferredScript)
+                        } catch (error) {
+                            console.error("Error encoding deferred loader data:", error)
+                        }
+                    }
+
                     cb()
                 },
             })
@@ -289,6 +307,10 @@ const _renderMarkUp = async (
 
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
                 onShellReady() {
+                    // Loaders that dispatch to the store after this point (guarded in
+                    // buildLoaderPromiseMap.js) are past the point where a state
+                    // change can still make it into the serialized initialState below.
+                    if (shellStartedRef) shellStartedRef.current = true
                     res.setHeader("content-type", "text/html")
                     pipe(tail)
                 },
@@ -345,6 +367,10 @@ async function _handler(req, res) {
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
         let allTags = []
+        // Flipped in onShellReady (inside _renderMarkUp) — read by the loaders'
+        // store-dispatch guard (buildLoaderPromiseMap.js) to warn on a dispatch
+        // that arrives too late to affect the serialized initialState.
+        const shellStartedRef = { current: false }
 
         safeCall(onRouteMatch, { req, res, matches: allMatches, store })
 
@@ -357,15 +383,37 @@ async function _handler(req, res) {
             if (res.headersSent) return
 
             try {
-                fetcherData = await tracedServerDataFetcher(
-                    { routes: cachedRoutes, req, res, url: req.originalUrl },
-                    { store }
+                // Every matched route's loader (RFC 0001) runs concurrently with the
+                // legacy fetcher, not after it — the two systems are independent, so
+                // serializing them would cost real TTFB for no reason. Awaiting
+                // Promise.all(...) here waits for each loader's own critical work
+                // (whatever it awaited before returning) without blocking on any
+                // deferred field it returned as a raw, un-awaited promise — those
+                // stay pending inside the resolved value, to stream in later.
+                const searchParams = new URL(req.originalUrl, "http://internal").searchParams
+                const loaderPromiseMap = buildLoaderPromiseMap(allMatches, {
+                    searchParams,
+                    store,
+                    shellStartedRef,
+                })
+                const loaderIds = Object.keys(loaderPromiseMap)
+
+                const [fetcherResult, resolvedLoaderValues] = await Promise.all([
+                    tracedServerDataFetcher(
+                        { routes: cachedRoutes, req, res, url: req.originalUrl },
+                        { store }
+                    ),
+                    Promise.all(loaderIds.map((id) => loaderPromiseMap[id])),
+                ])
+                fetcherData = fetcherResult
+                const resolvedLoaderData = Object.fromEntries(
+                    loaderIds.map((id, index) => [id, resolvedLoaderValues[index]])
                 )
 
                 if (res.headersSent) return
 
                 const err = fetcherData?.[req.originalUrl]?.error
-                allTags = tracedGetMetaData(allMatches, fetcherData)
+                allTags = tracedGetMetaData(allMatches, { ...fetcherData, ...resolvedLoaderData })
                 const chunkExtractor = collectAssets(req, allMatches)
 
                 if (err) {
@@ -383,7 +431,9 @@ async function _handler(req, res) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        shellStartedRef,
+                        loaderPromiseMap
                     )
                 } else {
                     safeCall(onFetcherSuccess, { req, res, store })
@@ -399,7 +449,9 @@ async function _handler(req, res) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        shellStartedRef,
+                        loaderPromiseMap
                     )
                 }
             } catch (error) {
@@ -418,7 +470,8 @@ async function _handler(req, res) {
                     store,
                     allMatches,
                     context,
-                    chunkExtractor
+                    chunkExtractor,
+                    shellStartedRef
                 )
             }
         } catch (error) {
@@ -437,7 +490,8 @@ async function _handler(req, res) {
                 store,
                 allMatches,
                 context,
-                chunkExtractor
+                chunkExtractor,
+                shellStartedRef
             )
         }
     } catch (error) {

@@ -18,6 +18,7 @@
     "exports": {
         ".": "./dist/index.jsx",
         "./package.json": "./package.json",
+        "./api": "./dist/api/index.js",
         "./logger": "./dist/logger.js",
         "./caching": "./dist/caching.js",
         "./router/ClientRouter": "./dist/router/ClientRouter.js",
@@ -30,7 +31,7 @@
     "scripts": {
         "lint": "eslint .",
         "lint-staged": "lint-staged",
-        "test:unit": "node --test \"test/**/*.test.js\"",
+        "test:unit": "node --import \"data:text/javascript,import { register } from 'node:module'; import { pathToFileURL } from 'node:url'; register('./test/jsx-loader.mjs', pathToFileURL('./'));\" --test \"test/**/*.test.js\"",
         "prettify": "prettier . --write",
         "prepare": "node ../../scripts/safe-rimraf.js ./dist && cp -r ./src ./dist && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs",
         "prepublishOnly": "npm run prepare",
@@ -54,6 +55,7 @@
         "redux": "^4.2.1",
         "sanitize-html": "^2.17.6",
         "sass": "^1.89.2",
+        "turbo-stream": "^3.2.0",
         "ua-parser-js": "^1.0.37",
         "vite": "^6.4.3",
         "vite-plugin-svgr": "^5.0.0",

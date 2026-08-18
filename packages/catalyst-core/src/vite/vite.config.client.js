@@ -5,6 +5,7 @@ import { sharedViteConfig as baseConfig, getClientEnvVariables } from "./vite.co
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
+import { stripServerOnlyPlugin } from "./strip-server-only-plugin.js"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 
 const createClientConfig = async () => {
@@ -22,6 +23,7 @@ const createClientConfig = async () => {
                 publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/`,
             }),
             injectCacheKeyPlugin(),
+            stripServerOnlyPlugin(),
             ...(customViteConfig?.clientPlugins || []),
         ],
 

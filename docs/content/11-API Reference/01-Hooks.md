@@ -17,6 +17,7 @@ Catalyst exposes two groups of hooks:
 |------------|-------------|-----|-----|---------|
 | `useRouterData` | Access data for all matched routes | Yes | Yes | Yes |
 | `useCurrentRouteData` | Access current route fetcher state and data | Yes | Yes | Yes |
+| `useRouteData` | Read a route's Suspense-based `loader` result, critical or deferred | Yes | Yes | Yes |
 | `getDeviceInfo` | Read device, screen, and app metadata from the bridge | Yes | Yes | Yes |
 | `useCamera` | Capture media via the bridge or web fallback | Partial | Yes | Yes |
 | `useFilePicker` | Select files and normalize results | Partial | Yes | Yes |
@@ -135,6 +136,67 @@ const { clear } = useCurrentRouteData();
 useEffect(() => {
   return () => clear();
 }, []);
+```
+
+### `useRouteData`
+
+`useRouteData` reads the result of a route's Suspense-based `loader` — see the
+[Loaders](../04-Data-Fetching.md#loaders-suspense-based) section of Data Fetching for how to declare one.
+Unlike `useCurrentRouteData`, it doesn't return `isFetching`/`error` state: a critical field is already
+a resolved value by the time your component renders, and a deferred field is read with React's `use()`
+inside a `<Suspense>` boundary, which handles the loading state for you.
+
+#### Import
+
+```javascript
+import { useRouteData } from "catalyst-core";
+```
+
+#### Signature
+
+```
+useRouteData(routeId?: string) => any
+```
+
+With no argument, returns the nearest matched route's loader result. Pass a specific route's `id`
+(`route.id || route.path`) to read an ancestor's result instead — useful from a nested layout that
+needs data a parent route's loader fetched.
+
+#### Return Value
+
+Whatever the route's `loader` returned. A route with no `loader` returns `undefined` without
+suspending. A property that was a raw, un-awaited `Promise` in the loader is still a `Promise` here —
+pass it to React's `use()` inside a `<Suspense>` boundary to read it.
+
+#### Requirements
+
+Only returns real data inside a `<RouteDataProvider>` tree (already wired into routing by
+`preparedRoutes()` in a standard Catalyst app). A component that needs a deferred field's value must
+call `use()` inside a `<Suspense>` boundary — reading it directly throws.
+
+#### Usage
+
+```javascript
+import { useRouteData } from "catalyst-core";
+import { Suspense, use } from "react";
+
+const RelatedBreeds = ({ promise }) => {
+  const related = use(promise);
+  return <ul>{related.message.map((name) => <li key={name}>{name}</li>)}</ul>;
+};
+
+const BreedDetails = () => {
+  const { breedImages, relatedBreeds } = useRouteData();
+
+  return (
+    <div>
+      <BreedGallery images={breedImages.message} />
+      <Suspense fallback={<Spinner />}>
+        <RelatedBreeds promise={relatedBreeds} />
+      </Suspense>
+    </div>
+  );
+};
 ```
 
 ## Universal App Hooks
