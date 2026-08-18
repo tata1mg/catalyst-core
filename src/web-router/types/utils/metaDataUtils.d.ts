@@ -22,3 +22,19 @@ export function deleteHeadTagsByDataAttribute(attributeName: string, attributeVa
  * @returns {Array<JSX.Element>} - List of all meta tags for the matched location.
  */
 export function getMetaData(matchedRoutes: Array<Match>, routeData: Object): Array<JSX.Element>
+/**
+ * Static function defined on a route component that returns metadata elements
+ * to be rendered in the document head for that route.
+ * Must return an array of JSX elements (e.g. <title>, <meta>), NOT a plain
+ * object. Returning an object fails silently: no error is thrown, but the
+ * tags will not appear in the rendered <head>.
+ *
+ * @param {any} fetcherData - Data returned from the route's fetcher (serverFetcher/clientFetcher).
+ * @returns {Array<JSX.Element>} - Array of JSX head elements (title, meta, link, etc).
+ *
+ * @example
+ * HomePage.setMetaData = (apiResponse) => [
+ *   <title key="title">{apiResponse?.title || "Home"}</title>,
+ * ];
+ */
+export type SetMetaData = (fetcherData: any) => Array<JSX.Element>
