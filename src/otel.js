@@ -131,7 +131,7 @@ class PromotingSpanProcessor {
             record.spans.push(span)
         }
 
-        if (span.status && span.status.code === SpanStatusCode.ERROR) {
+        if (!isRoot && span.status && span.status.code === SpanStatusCode.ERROR) {
             record.hasChildError = true
         }
 
@@ -156,7 +156,7 @@ class PromotingSpanProcessor {
 
         const is5xx = statusCode >= 500 && statusCode < 600
         const is4xx = statusCode >= 400 && statusCode < 500
-        const isRootError = rootSpan.status && rootSpan.status.code === SpanStatusCode.ERROR
+        const isRootError = rootSpan.status && rootSpan.status.code === SpanStatusCode.ERROR && !is4xx
         const isSkipped = this.config.skipPromotionCodes.includes(statusCode)
 
         let shouldPromote = false
@@ -168,7 +168,13 @@ class PromotingSpanProcessor {
         } else if (is4xx && !isSkipped) {
             shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate4xx)
             promotionRate = this.config.rate4xx
-        } else if (this.config.promoteHandledErrors && record.hasChildError) {
+        } else if (
+            this.config.promoteHandledErrors &&
+            record.hasChildError &&
+            statusCode >= 200 &&
+            statusCode < 300 &&
+            !isSkipped
+        ) {
             shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate5xx)
             promotionRate = this.config.rate5xx
         }
@@ -238,30 +244,45 @@ class PromotingSpanProcessor {
         const now = Date.now()
         const TTL = 5 * 60 * 1000
 
+        let bufferTtlEvicted = 0
         for (const [traceId, record] of this.buffer.entries()) {
             if (now - record.timestamp > TTL) {
                 this.buffer.delete(traceId)
+                bufferTtlEvicted++
             } else {
                 break
             }
         }
 
+        let bufferOverflowEvicted = 0
         if (this.buffer.size > 1024) {
             const toDelete = this.buffer.size - 1024
-            let count = 0
             for (const traceId of this.buffer.keys()) {
                 this.buffer.delete(traceId)
-                count++
-                if (count >= toDelete) break
+                bufferOverflowEvicted++
+                if (bufferOverflowEvicted >= toDelete) break
             }
+            // Buffer is filling faster than root spans resolve — unresolved traces
+            // are being dropped before ever getting a promotion decision.
+            logger.warn(
+                `⚠️ PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size})`
+            )
         }
 
+        let promotedTtlEvicted = 0
         for (const [traceId, data] of this.promotedTraces.entries()) {
             if (now - data.timestamp > TTL) {
                 this.promotedTraces.delete(traceId)
+                promotedTtlEvicted++
             } else {
                 break
             }
+        }
+
+        if (bufferTtlEvicted || promotedTtlEvicted) {
+            logger.debug(
+                `PromotingSpanProcessor cleanup: evicted ${bufferTtlEvicted} stale buffered trace(s) and ${promotedTtlEvicted} stale promoted trace(s) (buffer=${this.buffer.size}, promotedTraces=${this.promotedTraces.size})`
+            )
         }
     }
 
@@ -273,6 +294,8 @@ class PromotingSpanProcessor {
         if (this.cleanupInterval) {
             clearInterval(this.cleanupInterval)
         }
+        this.buffer.clear()
+        this.promotedTraces.clear()
         return this.batchProcessor.shutdown()
     }
 }
@@ -300,7 +323,7 @@ class PromotingSpanProcessor {
  * @param {Function} [config.grpcCredentials]
  * @param {object} [config.errorSampling] - status-aware error sampling, off by default
  * @param {boolean} [config.errorSampling.ENABLED=false] - turns on StatusAwareSampler + PromotingSpanProcessor
- * @param {number} [config.errorSampling.RATE_5XX=1.0] - promotion rate for 5xx roots (and roots with OTEL ERROR status)
+ * @param {number} [config.errorSampling.RATE_5XX=1.0] - promotion rate for 5xx roots (and non-4xx roots with OTEL ERROR status)
  * @param {number} [config.errorSampling.RATE_4XX=samplingRate] - promotion rate for 4xx roots
  * @param {boolean} [config.errorSampling.EXPORT_FULL_TRACE_ON_ERROR=false] - export every buffered span on promotion, not just root + error spans
  * @param {boolean} [config.errorSampling.PROMOTE_HANDLED_ERRORS=false] - promote 2xx roots (at RATE_5XX) if any child span recorded an error
