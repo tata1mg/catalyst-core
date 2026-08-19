@@ -10,7 +10,9 @@
 export function resolveDevBase(devServer = {}) {
     const base = devServer?.base
     if (!base || base === "/") return "/"
-    return `/${String(base).trim().replace(/^\/+|\/+$/g, "")}`
+    return `/${String(base)
+        .trim()
+        .replace(/^\/+|\/+$/g, "")}`
 }
 
 /**

@@ -69,7 +69,10 @@ test("buildDevServer: hmr defaults to true in dev", () => {
 })
 
 test("buildDevServer: hmr is false in production", () => {
-    const server = buildDevServer({ hmr: { clientPort: 443 } }, { frameworkPaths: FRAMEWORK, isProduction: true })
+    const server = buildDevServer(
+        { hmr: { clientPort: 443 } },
+        { frameworkPaths: FRAMEWORK, isProduction: true }
+    )
     assert.equal(server.hmr, false)
 })
 

@@ -80,7 +80,10 @@ function createAndroidBuild(config) {
         const appNodeModules = path.join(process.cwd(), "node_modules")
         const aiPackageSrc = path.join(appNodeModules, "catalyst-ai")
         if (!fs.existsSync(aiPackageSrc)) {
-            progress.log("ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI sync", "warning")
+            progress.log(
+                "ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI sync",
+                "warning"
+            )
             return
         }
 
@@ -99,7 +102,6 @@ function createAndroidBuild(config) {
             entry.isDirectory() ? copyDirSync(s, d) : fs.copyFileSync(s, d)
         }
     }
-
 
     async function buildAndroidApp() {
         let androidConfig = null
