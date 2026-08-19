@@ -8,7 +8,9 @@
         "./route": "./src/route.js"
     },
     "scripts": {
-        "preinstall": "node ./scripts/check-peer.js"
+        "preinstall": "node ./scripts/check-peer.js",
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "peerDependencies": {
         "catalyst-core": ">=0.3.0-0"
@@ -23,5 +25,8 @@
         "type": "git",
         "url": "https://github.com/tata1mg/catalyst-core.git",
         "directory": "packages/catalyst-ai"
+    },
+    "devDependencies": {
+        "vitest": "^4.1.11"
     }
 }

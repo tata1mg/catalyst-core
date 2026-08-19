@@ -6,9 +6,14 @@
     "main": "mcp.js",
     "scripts": {
         "setup": "node setup.js",
-        "start": "node mcp.js"
+        "start": "node mcp.js",
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "dependencies": {
         "better-sqlite3": "^9.4.3"
+    },
+    "devDependencies": {
+        "vitest": "^4.1.11"
     }
 }
