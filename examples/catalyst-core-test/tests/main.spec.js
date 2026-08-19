@@ -47,7 +47,9 @@ test("Environment variables on client", async ({ page }) => {
     expect(serverText).toBe("")
 })
 
-// Currently breaking - needs to be fixed in catalyst
+// Currently breaking - needs to be fixed in catalyst.
+// Re-verified 2026-08-19: title clears to "" on CSR navigation instead of
+// updating (not stale — empty). Tracked as https://github.com/tata1mg/catalyst-core/issues/421.
 // test("setMetaData on CSR", async ({ page }) => {
 //   await page.goto("http://localhost:3005/");
 //   await page.getByRole("link", { name: "About" }).click();
