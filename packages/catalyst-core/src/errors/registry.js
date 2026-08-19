@@ -53,6 +53,17 @@ export const ERROR_CODES = {
     RUNTIME_NATIVE_BRIDGE_HANDLER_THREW: "RUNTIME-NATIVE-020",
     RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION: "RUNTIME-NATIVE-021",
     RUNTIME_NATIVE_BRIDGE_INIT_FAILED: "RUNTIME-NATIVE-022",
+
+    AI_UPSTREAM_ERROR: "AI-000",
+    AI_DISABLED: "AI-001",
+    AI_PROVIDER_NOT_CONFIGURED: "AI-002",
+    AI_INVALID_REQUEST_BODY: "AI-003",
+    AI_NATIVE_BRIDGE_UNAVAILABLE: "AI-004",
+    AI_NATIVE_STREAM_NOT_READY: "AI-005",
+    AI_NATIVE_REQUEST_FAILED: "AI-006",
+    AI_NATIVE_CALLBACK_ERROR: "AI-007",
+    AI_WEB_WORKER_UNAVAILABLE: "AI-008",
+    AI_WEB_WORKER_CRASHED: "AI-009",
 }
 
 // One entry per catalyst-owned code. Foreign/wrapped errors (see wrapForeignError)
@@ -360,6 +371,80 @@ export const ERROR_DEFINITIONS = {
         defaultDetails: "WebBridge.init() was called outside a browser environment (no `window` available).",
         recoverable: false,
         suggestedAction: "Call WebBridge.init() in a browser environment, before using bridge features.",
+    },
+
+    [ERROR_CODES.AI_UPSTREAM_ERROR]: {
+        category: "AI",
+        defaultMessage: "AI provider request failed",
+        defaultDetails:
+            "This is a wrapper around a non-2xx response or thrown error from the upstream AI provider (OpenAI/Gemini). See the printed upstream status/message for the actual cause — catalyst-ai does not reinterpret it.",
+        recoverable: true,
+        suggestedAction: "Read the upstream provider error printed above and fix the underlying issue (auth, rate limit, invalid request).",
+    },
+    [ERROR_CODES.AI_DISABLED]: {
+        category: "AI",
+        defaultMessage: "AI is disabled",
+        defaultDetails: "AI_CONFIG.enabled is not set to true.",
+        recoverable: true,
+        suggestedAction: "Set AI_CONFIG.enabled=true in your environment configuration.",
+    },
+    [ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED]: {
+        category: "AI",
+        defaultMessage: "AI provider not configured",
+        defaultDetails: "The requested provider is unknown, or has no apiKey configured in AI_CONFIG.providers.",
+        recoverable: true,
+        suggestedAction: "Add the provider's apiKey to AI_CONFIG.providers, or use a configured provider.",
+    },
+    [ERROR_CODES.AI_INVALID_REQUEST_BODY]: {
+        category: "AI",
+        defaultMessage: "Invalid AI request body",
+        defaultDetails: "The request body is missing a non-empty messages array, or no model could be resolved.",
+        recoverable: true,
+        suggestedAction: "Pass a non-empty messages array, and either a model or a provider defaultModel.",
+    },
+    [ERROR_CODES.AI_NATIVE_BRIDGE_UNAVAILABLE]: {
+        category: "AI",
+        defaultMessage: "Native AI bridge unavailable",
+        defaultDetails: "window.NativeBridge.initAI or window.WebBridge was not found when useNativeAI mounted.",
+        recoverable: false,
+        suggestedAction: "Update catalyst-core to >=0.2.0, add the native AI module, and call WebBridge.init() before mounting useNativeAI.",
+    },
+    [ERROR_CODES.AI_NATIVE_STREAM_NOT_READY]: {
+        category: "AI",
+        defaultMessage: "Native AI stream not ready",
+        defaultDetails: "generate() was called before the native side reported a ready stream URL (initAI has not fired ON_AI_READY yet).",
+        recoverable: true,
+        suggestedAction: "Wait for modelReady to become true before calling generate().",
+    },
+    [ERROR_CODES.AI_NATIVE_REQUEST_FAILED]: {
+        category: "AI",
+        defaultMessage: "Native AI request failed",
+        defaultDetails: "The native AI HTTP endpoint returned a non-ok status or reported an error in its response body.",
+        recoverable: true,
+        suggestedAction: "See the cause above for the native-reported status/message.",
+    },
+    [ERROR_CODES.AI_NATIVE_CALLBACK_ERROR]: {
+        category: "AI",
+        defaultMessage: "Native AI reported an error",
+        defaultDetails:
+            "The native platform invoked ON_AI_ERROR — a failure during model load, init, or inference on the native side, not an HTTP request made by this JS code.",
+        recoverable: true,
+        suggestedAction: "See the cause above for the native-reported message.",
+    },
+    [ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE]: {
+        category: "AI",
+        defaultMessage: "Web AI worker unavailable",
+        defaultDetails: "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
+        recoverable: false,
+        suggestedAction: "Use a browser with module Worker support, or fall back to useCloudAI/useNativeAI.",
+    },
+    [ERROR_CODES.AI_WEB_WORKER_CRASHED]: {
+        category: "AI",
+        defaultMessage: "Web AI worker crashed",
+        defaultDetails:
+            "The in-browser AI worker threw during model load or generation (e.g. all device backends failed, or an uncaught exception). See the cause above for the worker's reported message.",
+        recoverable: true,
+        suggestedAction: "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
     },
 }
 

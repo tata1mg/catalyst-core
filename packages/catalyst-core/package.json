@@ -24,6 +24,7 @@
         "./document": "./dist/server/renderer/document/index.jsx",
         "./WebBridge": "./dist/native/bridge/WebBridge.js",
         "./hooks": "./dist/native/bridge/hooks.js",
+        "./errors": "./dist/errors/index.js",
         "./sentry": "./dist/sentry.cjs",
         "./otel": "./dist/otel.js"
     },
