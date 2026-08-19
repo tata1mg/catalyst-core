@@ -10,6 +10,16 @@ Catalyst uses `config/config.json` for configuration. Variables defined here are
 
 ---
 
+## How variables are loaded
+
+Before the server starts, Catalyst reads `config/config.json` and replaces `process.env` with its contents. This has two effects that differ from plain Node.js:
+
+1. **JSON types are preserved.** In plain Node, `process.env` values are always strings. In a Catalyst server, a value keeps the type it has in `config.json`: `"OTEL_ENABLE": true` is read as the boolean `true`, and `"NODE_SERVER_PORT": 3005` as the number `3005`. Objects and arrays are stored as JSON strings and need `JSON.parse` on read. Write checks accordingly: `process.env.OTEL_ENABLE === true`, not `=== "true"`.
+
+2. **`config.json` is the single source.** Shell environment variables are not carried over into the server process, apart from a small internal allowlist the CLI passes through. To make a value available at runtime, define it in `config.json` rather than exporting it in the shell or injecting it from the container environment.
+
+---
+
 ## Server Variables
 
 All variables in `config.json` are available on the server through `process.env.VARIABLE_NAME`.
