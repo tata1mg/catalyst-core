@@ -10,10 +10,6 @@ File too large
 
 File exceeds the maximum size limit
 
-## Recoverable
-
-Yes — you can fix this and retry without restarting your workflow.
-
 ## Suggested action
 
 Choose a smaller file or compress the current file

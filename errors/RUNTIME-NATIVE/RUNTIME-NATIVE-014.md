@@ -10,10 +10,6 @@ Feature not supported
 
 This feature is not supported on the current platform
 
-## Recoverable
-
-No — this typically requires investigating the underlying cause.
-
 ## Suggested action
 
 Try using an alternative method or device
