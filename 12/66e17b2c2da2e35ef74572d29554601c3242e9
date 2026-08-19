@@ -1,0 +1,48 @@
+packages/catalyst-core/package.json
+  s_4402816142cf62::t_e02e5fe0277402 83-84
+  s_4402816142cf62::t_bdbe2668162eca 37-38
+packages/catalyst-core/src/errors/generateDocs.js
+  s_4402816142cf62::t_6a9afb5d9b396d 31-32,35,48-49,51,57-68,71,77,91-92,94
+  s_4402816142cf62::t_06a8e35f0f680d 10
+packages/catalyst-core/test/errors/registry.test.js
+  s_4402816142cf62::t_17f58167cd52bd 1-108
+packages/create-catalyst-app/package.json
+  s_4402816142cf62::t_ef49c5f69adccd 12-14
+  s_4402816142cf62::t_34e6898306a29b 27-28
+packages/catalyst-core/test/errors/index.test.js
+  s_4402816142cf62::t_b42616cb870e4c 1-177,179-197
+  s_4402816142cf62::t_ad04ca0107b028 178
+packages/create-catalyst-app/vitest.config.mjs
+  s_4402816142cf62::t_0c804feb8681a1 12-17
+  s_4402816142cf62::t_4514077e38ca02 9-11
+  s_4402816142cf62::t_fe415d9540472e 18-19
+  s_4402816142cf62::t_f02a74d2eeb56a 1-8
+packages/catalyst-core/test/errors/docsDrift.test.js
+  s_4402816142cf62::t_25f84e70dd42f7 1-88
+packages/create-catalyst-app/test/errors.test.cjs
+  s_4402816142cf62::t_a47eac801fd4de 5-131,133,135-194
+  s_4402816142cf62::t_1f9933de0fe59a 1-4
+  s_4402816142cf62::t_05df1fbecf48f6 132,134
+packages/catalyst-core/vitest.config.js
+  s_4402816142cf62::t_ae6576334d3f9c 1-14
+packages/create-catalyst-app/scripts/errors.cjs
+  s_4402816142cf62::t_18f7b3a22d3589 135-138,140,142
+package-lock.json
+  s_4402816142cf62::t_225ba48b0f8426 2244-2249,2503-2512,2521-2526,2577-2691,2780-2787,2938-2946,3218-3226,4025-4030,4689-4697,6365-6373,6771-6783,6972-6977,7959-7964,8047-8052,8060-8065,8322-8327,8375-8383,8813-8913,9009-9024,9266,9308-9309,9464,9477-9478
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "1266e17b2c2da2e35ef74572d29554601c3242e9",
+  "prompts": {},
+  "sessions": {
+    "s_4402816142cf62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a32d928-2145-4f65-b230-552ae10bd35e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
