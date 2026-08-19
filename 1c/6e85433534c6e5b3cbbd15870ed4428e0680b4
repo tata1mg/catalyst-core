@@ -1,0 +1,39 @@
+packages/catalyst-core/mcp_v2/test/errors.test.cjs
+  s_4402816142cf62::t_3366a29b9286b4 13-19
+  s_4402816142cf62::t_6e58091c7ff9f7 1-12,20-118
+packages/catalyst-ai/package.json
+  s_4402816142cf62::t_93cdc5fb7cc7ec 11-13
+  s_4402816142cf62::t_3afa4b100c6aa0 28-30
+packages/catalyst-ai/test/route.test.cjs
+  s_4402816142cf62::t_752c797ccac0b3 1-171
+packages/catalyst-ai/vitest.config.mjs
+  s_4402816142cf62::t_30182162370ae8 1-17
+packages/catalyst-ai/src/route.js
+  s_4402816142cf62::t_afc208ba6f2f9e 607-624,626
+  s_4402816142cf62::t_50a083aa3a6bab 625
+packages/catalyst-core/mcp_v2/vitest.config.mjs
+  s_4402816142cf62::t_8a2ff2ffb74645 1-18
+packages/catalyst-core/mcp_v2/package.json
+  s_4402816142cf62::t_944d3d72ba2f78 15-17
+  s_4402816142cf62::t_904e00ec76a290 9-11
+package.json
+  s_4402816142cf62::t_ff07e5964478cb 17
+package-lock.json
+  s_4402816142cf62::t_ea1218806d269f 9252-9254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "1c6e85433534c6e5b3cbbd15870ed4428e0680b4",
+  "prompts": {},
+  "sessions": {
+    "s_4402816142cf62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a32d928-2145-4f65-b230-552ae10bd35e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
