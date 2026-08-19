@@ -34,6 +34,8 @@
         "prettify": "prettier . --write",
         "prepare": "node ../../scripts/safe-rimraf.js ./dist && cp -r ./src ./dist && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
         "prepublishOnly": "npm run prepare",
+        "test": "vitest run",
+        "test:watch": "vitest",
         "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
     },
     "license": "MIT",
@@ -78,7 +80,8 @@
         "eslint-plugin-security": "^3.0.0",
         "husky": "^9.0.11",
         "lint-staged": "^15.2.2",
-        "prettier": "^3.2.5"
+        "prettier": "^3.2.5",
+        "vitest": "^4.1.11"
     },
     "lint-staged": {
         "*.{js,jsx}": [

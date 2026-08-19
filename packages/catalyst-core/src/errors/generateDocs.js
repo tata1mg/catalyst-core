@@ -7,8 +7,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // packages/catalyst-core/src/errors -> repo root /errors
-const ERRORS_DIR = path.resolve(__dirname, "../../../../errors")
-const INDEX_PATH = path.join(ERRORS_DIR, "index.json")
+const DEFAULT_ERRORS_DIR = path.resolve(__dirname, "../../../../errors")
 
 function renderMarkdown(code, def) {
     return `# ${code}
@@ -29,11 +28,11 @@ ${def.suggestedAction}
 `
 }
 
-function clearGeneratedCategoryDirs() {
-    if (!existsSync(ERRORS_DIR)) return
+function clearGeneratedCategoryDirs(errorsDir) {
+    if (!existsSync(errorsDir)) return
     const categories = new Set(Object.values(ERROR_DEFINITIONS).map((d) => d.category))
     for (const category of categories) {
-        const dir = path.join(ERRORS_DIR, category)
+        const dir = path.join(errorsDir, category)
         if (existsSync(dir)) {
             for (const file of readdirSync(dir)) {
                 if (file.endsWith(".md")) rmSync(path.join(dir, file))
@@ -46,26 +45,36 @@ function clearGeneratedCategoryDirs() {
 // merge their entries into this same index.json. Only clear/overwrite keys
 // for categories this registry itself defines, so a regen here never wipes
 // entries owned by another package's generator.
-function readExistingIndex() {
-    if (!existsSync(INDEX_PATH)) return {}
+function readExistingIndex(indexPath) {
+    if (!existsSync(indexPath)) return {}
     try {
-        return JSON.parse(readFileSync(INDEX_PATH, "utf8"))
+        return JSON.parse(readFileSync(indexPath, "utf8"))
     } catch {
         return {}
     }
 }
 
-export function generateDocs() {
-    clearGeneratedCategoryDirs()
+/**
+ * Regenerate errors/**\/*.md + errors/index.json from ERROR_DEFINITIONS.
+ *
+ * `errorsDir` defaults to the real repo-root errors/ dir (the CLI/prepublish
+ * use case) but can be overridden — e.g. by the docs-drift contract test
+ * (see test/errors/docsDrift.test.js), which regenerates into a temp dir and
+ * diffs against the committed output rather than mutating it.
+ */
+export function generateDocs(errorsDir = DEFAULT_ERRORS_DIR) {
+    const indexPath = path.join(errorsDir, "index.json")
+
+    clearGeneratedCategoryDirs(errorsDir)
 
     const ownedCategories = new Set(Object.values(ERROR_DEFINITIONS).map((d) => d.category))
-    const index = readExistingIndex()
+    const index = readExistingIndex(indexPath)
     for (const code of Object.keys(index)) {
         if (ownedCategories.has(index[code].category)) delete index[code]
     }
 
     for (const [code, def] of Object.entries(ERROR_DEFINITIONS)) {
-        const dir = path.join(ERRORS_DIR, def.category)
+        const dir = path.join(errorsDir, def.category)
         mkdirSync(dir, { recursive: true })
         const filePath = path.join(dir, `${code}.md`)
         writeFileSync(filePath, renderMarkdown(code, def))
@@ -79,10 +88,10 @@ export function generateDocs() {
         }
     }
 
-    mkdirSync(ERRORS_DIR, { recursive: true })
-    writeFileSync(INDEX_PATH, JSON.stringify(index, null, 4))
+    mkdirSync(errorsDir, { recursive: true })
+    writeFileSync(indexPath, JSON.stringify(index, null, 4))
 
-    return { count: Object.keys(ERROR_DEFINITIONS).length, errorsDir: ERRORS_DIR }
+    return { count: Object.keys(ERROR_DEFINITIONS).length, errorsDir }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

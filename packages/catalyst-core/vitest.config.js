@@ -1,0 +1,14 @@
+import { defineConfig } from "vitest/config"
+
+// Framework-level (Tier 1) unit tests for catalyst-core's own internals —
+// see test/errors/*.test.js. Application-level (Tier 2) integration tests
+// live in apps/catalyst-core-test and run via scripts/test-catalyst-core.sh,
+// not through vitest (see issue #412).
+export default defineConfig({
+    test: {
+        environment: "node",
+        include: ["test/**/*.test.js"],
+        // Registry/index.js are ESM and side-effect-free at import time — no
+        // DOM, no server, no global setup needed for Tier 1.
+    },
+})

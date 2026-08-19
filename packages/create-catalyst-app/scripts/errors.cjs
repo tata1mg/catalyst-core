@@ -132,10 +132,14 @@ function createError(code, overrides = {}) {
  * upstream message is always what gets shown to the user.
  */
 function wrapForeignError(err) {
+    // Unlike catalyst-core's wrapForeignError (BUNDLE/IOS/ANDROID, each with a
+    // fixed upstream tool name), CCA wraps arbitrary tools (npm/tar/git/network)
+    // with no single name to always show — so the "(upstream: ...)" suffix is
+    // omitted entirely when there's no named code, rather than left dangling.
     const hasNamedCode = err && typeof err.code === "string"
-    const upstreamCode = hasNamedCode ? ` ${err.code}` : ""
+    const message = hasNamedCode ? `An upstream command failed (upstream: ${err.code})` : "An upstream command failed"
     return createError(ERROR_CODES.CCA_UPSTREAM_ERROR, {
-        message: `An upstream command failed (upstream:${upstreamCode})`,
+        message,
         cause: err,
     })
 }

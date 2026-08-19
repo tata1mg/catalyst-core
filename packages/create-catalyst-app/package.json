@@ -9,7 +9,9 @@
         "directory": "packages/create-catalyst-app"
     },
     "scripts": {
-        "prettify": "prettier . --write"
+        "prettify": "prettier . --write",
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "dependencies": {
         "ansis": "^4.3.1",
@@ -22,7 +24,8 @@
         "validate-npm-package-name": "^5.0.0"
     },
     "devDependencies": {
-        "prettier": "^3.2.5"
+        "prettier": "^3.2.5",
+        "vitest": "^4.1.11"
     },
     "license": "MIT"
 }
