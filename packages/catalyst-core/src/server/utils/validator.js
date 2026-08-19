@@ -1,8 +1,20 @@
-import pc from "picocolors"
+import pc from "ansis"
 import { createError, formatError, ERROR_CODES } from "../../errors/index.js"
+import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js"
+
+// Resolved once at module load — this module runs inside expressServer.js,
+// spawned by serve.js/start.js which forward the mode via
+// CATALYST_OUTPUT_MODE. Passed an empty argv on purpose: this process never
+// sees the parent's CLI flags, so only CATALYST_OUTPUT_MODE is real input.
+const outputMode = resolveOutputMode([], process.env)
 
 const handleError = (e) => {
-    console.log(pc.red("Failed to start server: "), formatError(e))
+    const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
+    if (outputMode === "default") {
+        console.log(pc.red("Failed to start server: "), formatError(e, outputMode))
+    } else {
+        console.log(formatError(e, outputMode, debugEnv))
+    }
 }
 
 const validatePreInitServer = (fn) => {
@@ -142,7 +154,8 @@ const safeCall = (fn, ...args) => {
         return fn(...args)
     } catch (e) {
         const wrapped = createError(ERROR_CODES.PROCESS_USER_HOOK_FAILED, { cause: e })
-        console.error(formatError(wrapped))
+        const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
+        console.error(formatError(wrapped, outputMode, debugEnv))
     }
 }
 
@@ -161,7 +174,8 @@ const safeCallNamed = (hookName, fn, ...args) => {
             details: `The "${hookName}" hook threw. See the cause below.`,
             cause: e,
         })
-        console.error(formatError(wrapped))
+        const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
+        console.error(formatError(wrapped, outputMode, debugEnv))
     }
 }
 

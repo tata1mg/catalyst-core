@@ -2,6 +2,7 @@ const path = require("path")
 const { createIosBuild, pwd } = require("./buildIos/index.js")
 const { composeIosPlugins } = require("./pluginComposerIos.js")
 const { resolveInternalPluginsRoot, resolvePluginConfig } = require("./internalPluginUtils.js")
+const { formatBuildError } = require("./buildErrorFormat.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
@@ -33,12 +34,14 @@ async function main() {
         await syncPluginResources(pluginComposition)
         await buildForIOS(pluginComposition)
     } catch (error) {
-        // src/native is a CJS-only subtree (see src/native/package.json) and cannot
-        // synchronously require() the ESM errors/index.js module under Node 20, so
-        // we format inline here rather than reconstructing that module system boundary.
-        // Code IOS-000 = generic "upstream Xcode/CocoaPods toolchain error" wrapper —
-        // see errors/IOS/IOS-000.md. We never reinterpret the underlying message.
-        progress.log(`[IOS-000] Build failed (upstream: Xcode/CocoaPods)\n→ ${error.message}`, "error")
+        // progress.log() prefixes every call with an icon/color and does a
+        // single console.log per invocation — it's built for single-line
+        // status messages, not our multi-line boxed verbose/debug output
+        // (piping a box through it would prefix an icon onto every border
+        // line and break the box shape). Bypass it here and use plain
+        // console.error instead, matching buildAppAndroid.js; progress.log
+        // is unaffected everywhere else in this build.
+        console.error(formatBuildError({ code: "IOS-000", category: "IOS", upstreamName: "Xcode/CocoaPods", error }))
         process.exit(1)
     }
     process.exit(0)

@@ -304,7 +304,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Invalid callback interface",
         "details": "The native platform invoked WebBridge.callback() with an interface name that isn't recognized.",
-        "recoverable": false,
         "suggestedAction": "Check the interface name against the registered NATIVE_CALLBACKS list; this usually indicates a native/JS version mismatch.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-018.md"
     },
@@ -312,7 +311,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "No handler registered for this bridge interface",
         "details": "Native sent a callback for this interface, but your webview hasn't registered a handler for it yet.",
-        "recoverable": true,
         "suggestedAction": "Call WebBridge.register() for this interface before native calls arrive.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-019.md"
     },
@@ -320,7 +318,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "A registered bridge callback handler threw",
         "details": "The JS handler registered for this native callback interface threw an error while processing the callback.",
-        "recoverable": true,
         "suggestedAction": "Fix the error thrown inside the registered handler (see the cause above).",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-020.md"
     },
@@ -328,7 +325,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "Invalid bridge callback registration",
         "details": "WebBridge.register() was called with a non-function callback or an unrecognized interface name.",
-        "recoverable": true,
         "suggestedAction": "Pass a function as the callback and a valid interface name from NATIVE_CALLBACKS.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-021.md"
     },
@@ -336,7 +332,6 @@
         "category": "RUNTIME-NATIVE",
         "message": "WebBridge could not be initialized",
         "details": "WebBridge.init() was called outside a browser environment (no `window` available).",
-        "recoverable": false,
         "suggestedAction": "Call WebBridge.init() in a browser environment, before using bridge features.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-022.md"
     },
@@ -344,7 +339,6 @@
         "category": "AI",
         "message": "AI provider request failed",
         "details": "This is a wrapper around a non-2xx response or thrown error from the upstream AI provider (OpenAI/Gemini). See the printed upstream status/message for the actual cause — catalyst-ai does not reinterpret it.",
-        "recoverable": true,
         "suggestedAction": "Read the upstream provider error printed above and fix the underlying issue (auth, rate limit, invalid request).",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-000.md"
     },
@@ -352,7 +346,6 @@
         "category": "AI",
         "message": "AI is disabled",
         "details": "AI_CONFIG.enabled is not set to true.",
-        "recoverable": true,
         "suggestedAction": "Set AI_CONFIG.enabled=true in your environment configuration.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-001.md"
     },
@@ -360,7 +353,6 @@
         "category": "AI",
         "message": "AI provider not configured",
         "details": "The requested provider is unknown, or has no apiKey configured in AI_CONFIG.providers.",
-        "recoverable": true,
         "suggestedAction": "Add the provider's apiKey to AI_CONFIG.providers, or use a configured provider.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-002.md"
     },
@@ -368,7 +360,6 @@
         "category": "AI",
         "message": "Invalid AI request body",
         "details": "The request body is missing a non-empty messages array, or no model could be resolved.",
-        "recoverable": true,
         "suggestedAction": "Pass a non-empty messages array, and either a model or a provider defaultModel.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-003.md"
     },
@@ -376,7 +367,6 @@
         "category": "AI",
         "message": "Native AI bridge unavailable",
         "details": "window.NativeBridge.initAI or window.WebBridge was not found when useNativeAI mounted.",
-        "recoverable": false,
         "suggestedAction": "Update catalyst-core to >=0.2.0, add the native AI module, and call WebBridge.init() before mounting useNativeAI.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-004.md"
     },
@@ -384,7 +374,6 @@
         "category": "AI",
         "message": "Native AI stream not ready",
         "details": "generate() was called before the native side reported a ready stream URL (initAI has not fired ON_AI_READY yet).",
-        "recoverable": true,
         "suggestedAction": "Wait for modelReady to become true before calling generate().",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-005.md"
     },
@@ -392,7 +381,6 @@
         "category": "AI",
         "message": "Native AI request failed",
         "details": "The native AI HTTP endpoint returned a non-ok status or reported an error in its response body.",
-        "recoverable": true,
         "suggestedAction": "See the cause above for the native-reported status/message.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-006.md"
     },
@@ -400,7 +388,6 @@
         "category": "AI",
         "message": "Native AI reported an error",
         "details": "The native platform invoked ON_AI_ERROR — a failure during model load, init, or inference on the native side, not an HTTP request made by this JS code.",
-        "recoverable": true,
         "suggestedAction": "See the cause above for the native-reported message.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-007.md"
     },
@@ -408,7 +395,6 @@
         "category": "AI",
         "message": "Web AI worker unavailable",
         "details": "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
-        "recoverable": false,
         "suggestedAction": "Use a browser with module Worker support, or fall back to useCloudAI/useNativeAI.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-008.md"
     },
@@ -416,8 +402,35 @@
         "category": "AI",
         "message": "Web AI worker crashed",
         "details": "The in-browser AI worker threw during model load or generation (e.g. all device backends failed, or an uncaught exception). See the cause above for the worker's reported message.",
-        "recoverable": true,
         "suggestedAction": "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-009.md"
+    },
+    "RUNTIME-WEB-001": {
+        "category": "RUNTIME-WEB",
+        "message": "Rendering failed on the server",
+        "details": "An error was thrown while streaming or rendering the document on the server. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the error thrown during rendering.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-001.md"
+    },
+    "RUNTIME-WEB-002": {
+        "category": "RUNTIME-WEB",
+        "message": "serverFetcher failed",
+        "details": "An error was thrown while executing a route's serverFetcher function(s). This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the error thrown inside serverFetcher.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-002.md"
+    },
+    "RUNTIME-WEB-003": {
+        "category": "RUNTIME-WEB",
+        "message": "App.serverSideFunction failed",
+        "details": "An error was thrown while executing the app-level serverSideFunction hook. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the error thrown inside serverSideFunction.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-003.md"
+    },
+    "RUNTIME-WEB-004": {
+        "category": "RUNTIME-WEB",
+        "message": "Failed to handle document request",
+        "details": "An unhandled error reached the top level of the SSR request handler. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the underlying error.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-004.md"
     }
 }
