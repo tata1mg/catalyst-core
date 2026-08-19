@@ -19,10 +19,6 @@ ${def.defaultMessage}
 
 ${def.defaultDetails}
 
-## Recoverable
-
-${def.recoverable ? "Yes — you can fix this and retry without restarting your workflow." : "No — this typically requires investigating the underlying cause."}
-
 ## Suggested action
 
 ${def.suggestedAction}
@@ -63,7 +59,6 @@ function generateDocs() {
             category: def.category,
             message: def.defaultMessage,
             details: def.defaultDetails,
-            recoverable: def.recoverable,
             suggestedAction: def.suggestedAction,
             docUrl: `https://github.com/tata1mg/catalyst-core/blob/main/errors/${def.category}/${code}.md`,
         }

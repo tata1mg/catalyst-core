@@ -28,70 +28,60 @@ const ERROR_DEFINITIONS = {
         defaultMessage: "An upstream command failed",
         defaultDetails:
             "This wraps an error from npm, tar, or another upstream tool invoked by create-catalyst-app. See the printed upstream message for the actual cause.",
-        recoverable: true,
         suggestedAction: "Read the upstream error message printed above and fix the underlying issue.",
     },
     [ERROR_CODES.CCA_INVALID_NAME]: {
         category: "CCA",
         defaultMessage: "Invalid project name",
         defaultDetails: "The project name is not a valid npm package name.",
-        recoverable: true,
         suggestedAction: "Choose a project name that is a valid npm package name and try again.",
     },
     [ERROR_CODES.CCA_DIRECTORY_EXISTS]: {
         category: "CCA",
         defaultMessage: "Target directory already exists",
         defaultDetails: "A file or directory with the project name already exists in the current directory.",
-        recoverable: true,
         suggestedAction: "Choose a different project name, or remove/rename the existing directory.",
     },
     [ERROR_CODES.CCA_INVALID_LANGUAGE_OPTION]: {
         category: "CCA",
         defaultMessage: "Invalid language option",
         defaultDetails: 'The --lang option must be "js" or "ts".',
-        recoverable: true,
         suggestedAction: 'Pass --lang js or --lang ts.',
     },
     [ERROR_CODES.CCA_INVALID_STATE_MANAGEMENT_OPTION]: {
         category: "CCA",
         defaultMessage: "Invalid state management option",
         defaultDetails: 'The --state-management option must be "rtk", "redux", or "none".',
-        recoverable: true,
         suggestedAction: "Pass a supported --state-management value.",
     },
     [ERROR_CODES.CCA_INVALID_YES_OPTION]: {
         category: "CCA",
         defaultMessage: "Invalid --yes option",
         defaultDetails: "The -y/--yes flag does not accept a non-boolean value.",
-        recoverable: true,
         suggestedAction: "Use -y or --yes with no value to accept defaults.",
     },
     [ERROR_CODES.CCA_PACK_FAILED]: {
         category: "CCA",
         defaultMessage: "Failed to pack create-catalyst-app",
         defaultDetails: "npm pack could not produce the tarball used to scaffold the new project.",
-        recoverable: true,
         suggestedAction: "Check your npm registry access/network connection and try again.",
     },
     [ERROR_CODES.CCA_EXTRACTION_FAILED]: {
         category: "CCA",
         defaultMessage: "Failed to extract template files",
         defaultDetails: "The packed tarball could not be extracted into the new project directory.",
-        recoverable: true,
         suggestedAction: "Ensure the target directory is writable and try again.",
     },
     [ERROR_CODES.CCA_MCP_SETUP_FAILED]: {
         category: "CCA",
         defaultMessage: "MCP server setup failed",
         defaultDetails: "Downloading, installing, or configuring the MCP server failed.",
-        recoverable: true,
         suggestedAction: "Check your network connection and re-run `catalyst-mcp` inside the project.",
     },
     [ERROR_CODES.CCA_GITIGNORE_EXISTS]: {
         category: "CCA",
         defaultMessage: ".gitignore already exists",
         defaultDetails: "The scaffolded project already contains a .gitignore file.",
-        recoverable: true,
         suggestedAction: "Remove or rename the existing .gitignore before running again, or ignore this warning.",
     },
 }
@@ -107,13 +97,12 @@ function getDocUrl(code) {
 }
 
 class CCAError extends Error {
-    constructor(code, { message, details, recoverable, suggestedAction, category, docUrl, cause } = {}) {
+    constructor(code, { message, details, suggestedAction, category, docUrl, cause } = {}) {
         super(message)
         this.name = "CCAError"
         this.code = code
         this.category = category
         this.details = details
-        this.recoverable = recoverable
         this.suggestedAction = suggestedAction
         this.docUrl = docUrl
         if (cause !== undefined) this.cause = cause
@@ -130,7 +119,6 @@ function createError(code, overrides = {}) {
         category: def.category,
         message: overrides.message || def.defaultMessage,
         details: overrides.details || def.defaultDetails,
-        recoverable: overrides.recoverable ?? def.recoverable,
         suggestedAction: overrides.suggestedAction || def.suggestedAction,
         docUrl: getDocUrl(code),
         cause: overrides.cause,
