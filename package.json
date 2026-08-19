@@ -1,6 +1,9 @@
 {
     "name": "catalyst-monorepo",
     "private": true,
+    "engines": {
+        "node": ">=22"
+    },
     "workspaces": [
         "packages/*"
     ],
