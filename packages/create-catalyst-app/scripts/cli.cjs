@@ -441,7 +441,7 @@ function createGitignore(projectName) {
     const gitignorePath = `${process.cwd()}${path.sep}${projectName}${path.sep}.gitignore`
 
     if (fs.existsSync(gitignorePath)) {
-        console.log(cyan(formatError(createError("CCA-009"))))
+        printError(createError("CCA-009"))
         return
     }
 

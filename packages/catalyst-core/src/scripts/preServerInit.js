@@ -10,4 +10,4 @@ try {
     // No hooks file — preServerInit remains undefined
 }
 await loadEnvironmentVariables()
-safeCallNamed("preServerInit", preServerInit)
+await safeCallNamed("preServerInit", preServerInit)

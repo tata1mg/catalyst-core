@@ -28,9 +28,15 @@ function box(bodyLines) {
  * upstream message is always shown verbatim, never reinterpreted.
  */
 function formatBuildError({ code, category, upstreamName, error }) {
+    // Xcode/Gradle tooling (via execSync and friends) can reject with a plain
+    // string, null, or undefined instead of an Error instance — normalize
+    // before touching .message/.stack so a non-Error failure still prints
+    // something useful instead of throwing or rendering "undefined".
+    const message = error instanceof Error ? error.message : String(error)
+    const stack = error instanceof Error ? error.stack || "(no stack available)" : "(no stack available)"
     const mode = resolveOutputMode()
     if (mode === "default") {
-        return `[${code}] Build failed (upstream: ${upstreamName})\n→ ${error.message}`
+        return `[${code}] Build failed (upstream: ${upstreamName})\n→ ${message}`
     }
     const lines = [
         `❌ Build failed (upstream: ${upstreamName})`,
@@ -38,11 +44,11 @@ function formatBuildError({ code, category, upstreamName, error }) {
         `Category: ${category}`,
         `Time: ${new Date().toISOString()}`,
         "",
-        `Problem: ${error.message}`,
+        `Problem: ${message}`,
     ]
     if (mode === "debug") {
         lines.push("", "Environment:", `  node: ${process.version}`, `  platform: ${process.platform}`)
-        lines.push("", "Stack trace:", ...(error.stack || "(no stack available)").split("\n").map((l) => `  ${l}`))
+        lines.push("", "Stack trace:", ...stack.split("\n").map((l) => `  ${l}`))
     }
     return box(lines)
 }

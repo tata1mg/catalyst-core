@@ -545,7 +545,12 @@ router.post("/:provider/stream", async (req, res) => {
         // attaching that as `code` would be a bogus registry lookup for callers.
         const { CatalystError } = await loadErrors()
         const code = err instanceof CatalystError ? err.code : undefined
-        console.error("[catalyst-ai] %s stream error:", provider, code ? `[${code}] ${err.message}` : err.message)
+        // Log the upstream cause too (bounded — provider response bodies can be
+        // long) so a failed request is diagnosable from server logs alone; the
+        // client response below stays as err.message only, never the cause.
+        const causeMessage = err.cause?.message
+        const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
+        console.error("[catalyst-ai] %s stream error:", provider, code ? `[${code}] ${logSuffix}` : logSuffix)
         if (!res.writableEnded) {
             res.write(`data: ${JSON.stringify({ error: err.message, code })}\n\n`)
             res.end()
@@ -588,7 +593,12 @@ router.post("/:provider/generate", async (req, res) => {
     } catch (err) {
         const { CatalystError } = await loadErrors()
         const code = err instanceof CatalystError ? err.code : undefined
-        console.error("[catalyst-ai] %s generate error:", provider, code ? `[${code}] ${err.message}` : err.message)
+        // Log the upstream cause too (bounded — provider response bodies can be
+        // long) so a failed request is diagnosable from server logs alone; the
+        // client response below stays as err.message only, never the cause.
+        const causeMessage = err.cause?.message
+        const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
+        console.error("[catalyst-ai] %s generate error:", provider, code ? `[${code}] ${logSuffix}` : logSuffix)
         res.status(500).json({ error: err.message, code })
     }
 })

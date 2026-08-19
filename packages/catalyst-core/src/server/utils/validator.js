@@ -144,14 +144,22 @@ const validateCustomDocument = (fn) => {
 }
 
 /**
- * Safely call a function, catching and logging any errors.
- * Used for user-defined hooks (preServerInit, onRouteMatch, onFetcherError,
- * onServerError, etc.) that should never crash the SSR pipeline.
+ * Safely call a function, catching and logging any errors — including a
+ * rejected promise if `fn` is async. Used for user-defined hooks
+ * (preServerInit, onRouteMatch, onFetcherError, onServerError, etc.) that
+ * should never crash the SSR pipeline.
+ *
+ * Async by necessity: awaiting `fn`'s return value is the only way to catch
+ * a rejection in the same try/catch as a synchronous throw. Existing call
+ * sites that don't await safeCall(...) are unaffected — they already
+ * treated its return value as fire-and-forget — but the rejection now
+ * reaches the same structured-error path a sync throw does, instead of
+ * surfacing as an unhandled promise rejection.
  */
-const safeCall = (fn, ...args) => {
+const safeCall = async (fn, ...args) => {
     if (typeof fn !== "function") return
     try {
-        return fn(...args)
+        return await fn(...args)
     } catch (e) {
         const wrapped = createError(ERROR_CODES.PROCESS_USER_HOOK_FAILED, { cause: e })
         const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
@@ -164,10 +172,10 @@ const safeCall = (fn, ...args) => {
  * error so it's identifiable rather than generic. Used at call sites that know
  * which hook they're invoking.
  */
-const safeCallNamed = (hookName, fn, ...args) => {
+const safeCallNamed = async (hookName, fn, ...args) => {
     if (typeof fn !== "function") return
     try {
-        return fn(...args)
+        return await fn(...args)
     } catch (e) {
         const code = hookName === "preServerInit" ? ERROR_CODES.PROCESS_SERVER_INIT_FAILED : ERROR_CODES.PROCESS_USER_HOOK_FAILED
         const wrapped = createError(code, {
