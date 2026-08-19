@@ -133,6 +133,22 @@ describe("wrapForeignError() — same never-reinterpret contract as catalyst-cor
         const wrapped = cca.wrapForeignError(new Error("generic failure"))
         expect(wrapped.message).toBe("An upstream command failed")
     })
+
+    it("omits the suffix for an empty or whitespace-only .code too — still typeof \"string\", but not a real name", () => {
+        const emptyCode = new Error("failed")
+        emptyCode.code = ""
+        expect(cca.wrapForeignError(emptyCode).message).toBe("An upstream command failed")
+
+        const blankCode = new Error("failed")
+        blankCode.code = "   "
+        expect(cca.wrapForeignError(blankCode).message).toBe("An upstream command failed")
+    })
+
+    it("trims surrounding whitespace off a real named code", () => {
+        const padded = new Error("failed")
+        padded.code = "  ENOENT  "
+        expect(cca.wrapForeignError(padded).message).toBe("An upstream command failed (upstream: ENOENT)")
+    })
 })
 
 describe("getDocUrl() — same repo-blob URL convention as catalyst-core's getDocUrl", () => {
