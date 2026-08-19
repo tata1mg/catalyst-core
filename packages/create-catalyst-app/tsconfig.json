@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        /* Type-checks test/ only (via `tsc --noEmit`) — scripts/errors.cjs and
+         * the rest of create-catalyst-app's source stay plain JS/CJS until a
+         * future source conversion (see issue #420). This exists for
+         * editor/CI type-checking; vitest transpiles .ts test files via
+         * esbuild at run time and doesn't need this config to execute them. */
+        "target": "es2022",
+        "lib": ["es2022"],
+        "module": "node16",
+        "moduleResolution": "node16",
+        "allowJs": true,
+        "checkJs": false,
+        "strict": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "types": ["node", "vitest/globals"],
+        "noEmit": true
+    },
+    "include": ["test"],
+    "exclude": ["node_modules"]
+}

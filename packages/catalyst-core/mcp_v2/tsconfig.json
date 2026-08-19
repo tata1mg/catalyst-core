@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        /* Type-checks test/ only (via `tsc --noEmit`) — tools/errors.js stays
+         * plain JS/CJS until a future source conversion (see issue #420).
+         * This exists for editor/CI type-checking; vitest transpiles .ts
+         * test files via esbuild at run time and doesn't need this config
+         * to execute them. mcp_v2 isn't an npm workspace, so typescript/
+         * @types/node resolve here via hoisting from the parent
+         * packages/catalyst-core workspace, not a local install. */
+        "target": "es2022",
+        "lib": ["es2022"],
+        "module": "node16",
+        "moduleResolution": "node16",
+        "allowJs": true,
+        "checkJs": false,
+        "strict": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "types": ["node", "vitest/globals"],
+        "noEmit": true
+    },
+    "include": ["test", "tools/errors.d.ts"],
+    "exclude": ["node_modules"]
+}

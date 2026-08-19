@@ -55,8 +55,8 @@ describe("ERROR_CODES / ERROR_DEFINITIONS shape invariants", () => {
     })
 
     it("every definition has all required fields, non-empty", () => {
-        const REQUIRED_FIELDS = ["category", "defaultMessage", "defaultDetails", "suggestedAction"]
-        const problems = []
+        const REQUIRED_FIELDS = ["category", "defaultMessage", "defaultDetails", "suggestedAction"] as const
+        const problems: string[] = []
         for (const [code, def] of Object.entries(ERROR_DEFINITIONS)) {
             for (const field of REQUIRED_FIELDS) {
                 const value = def[field]

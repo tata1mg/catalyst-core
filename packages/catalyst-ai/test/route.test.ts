@@ -1,8 +1,14 @@
 // describe/it/expect come from vitest's `globals: true` config (see
-// vitest.config.mjs) — vitest's own exports can't be require()'d from a
-// .cjs file, only import'd, so globals keeps this file plain CommonJS
-// throughout, matching route.js's own module system.
-const router = require("../src/route.js")
+// vitest.config.mjs) — vitest's own exports can't be require()'d, only
+// import'd, so globals injects them instead.
+//
+// route.js itself is loaded via require() rather than import — it's a
+// CommonJS module (module.exports = router), matching how every other
+// require("catalyst-ai/route") call site in this repo loads it. Typed
+// against the hand-written declaration in ../src/route.d.ts rather than
+// left as `unknown` (route.js stays plain JS until #420's source
+// conversion).
+const router: typeof import("../src/route.js") = require("../src/route.js")
 const { getAIConfig, isAIEnabled, getProviderConfig, validateRequestBody, MODEL_NAME_RE, normalizeOpenAIChatUsage, normalizeOpenAIResponsesUsage, normalizeGeminiUsage, normalizeGeminiInteractionUsage, throwProviderError } = router._internal
 
 // Framework-level (Tier 1) contract tests for catalyst-ai's route.js
@@ -165,7 +171,7 @@ describe("throwProviderError()", () => {
             await throwProviderError("gemini", fakeResponse)
             expect.unreachable("should have thrown")
         } catch (err) {
-            expect(err.cause.message).toContain("Internal server error from upstream")
+            expect((err as { cause: { message: string } }).cause.message).toContain("Internal server error from upstream")
         }
     })
 })

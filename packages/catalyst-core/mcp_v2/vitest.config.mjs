@@ -9,10 +9,14 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
     test: {
         environment: "node",
-        include: ["test/**/*.test.cjs"],
-        // This package is CommonJS and vitest's describe/it/expect exports
-        // can't be require()'d from a .cjs file, only import'd — globals
-        // injects them instead, same pattern as the other CJS packages here.
+        include: ["test/**/*.test.ts"],
+        // tools/errors.js itself is CommonJS, loaded via require() from the
+        // .ts test file below. .ts, not .cts: this Vite/Rollup version's SSR
+        // transform doesn't strip TS syntax from .cts files at all (fails to
+        // parse even a single type annotation — a real tooling gap,
+        // confirmed empirically, not a config mistake). vitest's own
+        // describe/it/expect exports can't be require()'d, only import'd —
+        // globals injects them instead.
         globals: true,
     },
 })

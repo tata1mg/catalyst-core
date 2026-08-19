@@ -10,8 +10,9 @@
     },
     "scripts": {
         "prettify": "prettier . --write",
-        "test": "vitest run",
-        "test:watch": "vitest"
+        "test": "npm run test:types && vitest run",
+        "test:watch": "vitest",
+        "test:types": "tsc --noEmit"
     },
     "dependencies": {
         "ansis": "^4.3.1",
@@ -24,7 +25,9 @@
         "validate-npm-package-name": "^5.0.0"
     },
     "devDependencies": {
+        "@types/node": "^22.20.1",
         "prettier": "^3.2.5",
+        "typescript": "^7.0.2",
         "vitest": "^4.1.11"
     },
     "license": "MIT"
