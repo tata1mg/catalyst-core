@@ -14,6 +14,7 @@
         "docs:build": "npm --prefix docs run build",
         "docs:start": "npm --prefix docs run start",
         "test:example": "sh ./scripts/test-all.sh",
+        "test:unit": "npm run test --workspaces --if-present",
         "lint": "npm run lint --workspaces --if-present",
         "lint-staged": "lint-staged"
     },
