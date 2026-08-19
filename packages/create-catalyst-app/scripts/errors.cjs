@@ -136,8 +136,10 @@ function wrapForeignError(err) {
     // fixed upstream tool name), CCA wraps arbitrary tools (npm/tar/git/network)
     // with no single name to always show — so the "(upstream: ...)" suffix is
     // omitted entirely when there's no named code, rather than left dangling.
-    const hasNamedCode = err && typeof err.code === "string"
-    const message = hasNamedCode ? `An upstream command failed (upstream: ${err.code})` : "An upstream command failed"
+    // Trimmed and checked for emptiness too — a blank/whitespace-only .code
+    // (still typeof "string") must not produce a dangling "(upstream: )".
+    const upstreamCode = err && typeof err.code === "string" ? err.code.trim() : ""
+    const message = upstreamCode ? `An upstream command failed (upstream: ${upstreamCode})` : "An upstream command failed"
     return createError(ERROR_CODES.CCA_UPSTREAM_ERROR, {
         message,
         cause: err,

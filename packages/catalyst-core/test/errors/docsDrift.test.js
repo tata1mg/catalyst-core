@@ -67,6 +67,20 @@ describe("generated error docs match committed output (docs-drift check)", () =>
         expect(mismatches).toEqual([])
     })
 
+    it("committed index.json has no stale core-category entry for a code removed from the registry", () => {
+        const indexPath = path.join(COMMITTED_ERRORS_DIR, "index.json")
+        const committedIndex = JSON.parse(readFileSync(indexPath, "utf8"))
+        const ownedCategories = new Set(Object.values(ERROR_DEFINITIONS).map((d) => d.category))
+
+        const stale = []
+        for (const [code, entry] of Object.entries(committedIndex)) {
+            if (ownedCategories.has(entry.category) && !(code in ERROR_DEFINITIONS)) {
+                stale.push(`${code}: stale entry in errors/index.json — its category ("${entry.category}") is core-owned but this code no longer exists in the registry`)
+            }
+        }
+        expect(stale).toEqual([])
+    })
+
     it("committed errors/ tree has no stray core-category .md files not backed by a current registry entry", () => {
         const ownedCategories = new Set(Object.values(ERROR_DEFINITIONS).map((d) => d.category))
         const knownFiles = new Set(
