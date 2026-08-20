@@ -119,11 +119,18 @@ jobs:
                   # entry and use the id (a stable UUID for one specific
                   # device+OS pairing already installed on this runner) —
                   # not name alone. A name without an OS is ambiguous
-                  # (some devices, e.g. iPhone 16e here, only exist at one
+                  # (some devices, e.g. iPhone 16e, only exist at one
                   # older OS version, so "OS=latest" doesn't resolve for
                   # them and the destination lookup fails).
+                  #
+                  # Excludes "e"-suffixed models (iPhone 16e, 17e, ...) —
+                  # the budget/economy line. One picked in an earlier CI
+                  # run took >2 minutes just to connect over lockdown and
+                  # then still failed loading the UI test bundle; standard
+                  # models haven't shown that flakiness here.
                   DEST=$(xcodebuild -showdestinations -project iosnativeWebView.xcodeproj -scheme iosnativeWebView 2>/dev/null \
                     | grep -o 'platform:iOS Simulator, arch:[^}]*name:iPhone[^}]*' \
+                    | grep -v 'name:iPhone [0-9]*e ' \
                     | head -1)
                   if [ -z "$DEST" ]; then
                     echo "::error::No iOS Simulator with an iPhone destination found on this runner"
@@ -140,6 +147,11 @@ jobs:
 
             # CODE_SIGNING_ALLOWED=NO skips signing entirely — there's no
             # device to install a signed build on, only the simulator.
+            # -only-testing:iosnativeWebViewTests scopes the run to the
+            # Tier 1 unit test target only — the scheme also carries
+            # iosnativeWebViewUITests, which is real-device/simulator
+            # instrumented UI testing (Tier 2, explicitly out of scope
+            # for #414) and failed to even load its bundle in CI.
             - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
@@ -148,6 +160,7 @@ jobs:
                     -project iosnativeWebView.xcodeproj \
                     -scheme iosnativeWebView \
                     -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
+                    -only-testing:iosnativeWebViewTests \
                     -parallel-testing-enabled YES \
                     -clonedSourcePackagesDirPath .spm-cache \
                     CODE_SIGNING_ALLOWED=NO \
