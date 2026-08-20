@@ -200,7 +200,10 @@ final class BootTimingUtilityTests: XCTestCase {
             }
         }
 
-        waitForExpectations(timeout: 10.0) { error in
+        // CI simulators (shared macOS runners) can be dramatically slower than local
+        // hardware -- neighboring tests in this suite have taken 50-70s on CI. A tight
+        // timeout here caused flaky CI failures even with -parallel-testing-enabled off.
+        waitForExpectations(timeout: 60.0) { error in
             XCTAssertNil(error, "Concurrent logging should complete without errors")
         }
     }
