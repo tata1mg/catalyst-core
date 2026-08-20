@@ -1,0 +1,40 @@
+package-lock.json
+  s_21090e54bea720::t_09dc6379029d6b 13-14,2125-2447,7508-7556
+tools/oxlint-plugins/catalyst-errors.mjs
+  s_21090e54bea720::t_41743209124624 1-60
+.oxlintrc.json
+  s_21090e54bea720::t_7d0585ee5752f5 18
+  s_21090e54bea720::t_40aeb6d5957ffd 20-21
+  s_21090e54bea720::t_90955594c02e13 12
+  s_21090e54bea720::t_d76e70f241ffbf 1-2,4-11,13-17,19,22-25
+  s_21090e54bea720::t_4929605a673715 3
+package.json
+  s_21090e54bea720::t_80db167d32cdc9 22
+  s_21090e54bea720::t_1d44ec782362e9 27
+  s_21090e54bea720::t_d85ae1255f14ac 28
+.husky/pre-commit
+  s_21090e54bea720::t_9b60d995699a8e 1-16
+packages/catalyst-ai/src/route.d.ts
+  s_21090e54bea720::t_eedf19fb51c498 13,19,29,37,45,49,54,70,79
+.github/workflows/node.js.yml
+  s_21090e54bea720::t_1347616c83dc6f 23-27,30-34
+  s_21090e54bea720::t_397d041d61dddc 52-55
+  s_21090e54bea720::t_23a4b045128542 28
+  s_21090e54bea720::t_7961537e981194 5,8-22,29,35-51,56-60,68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "1c12852839bb23818728db653b25b2f3ecd91d11",
+  "prompts": {},
+  "sessions": {
+    "s_21090e54bea720": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b7ada1f-f2f0-498c-b458-b1048f0ed7b4",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": null
+    }
+  }
+}
