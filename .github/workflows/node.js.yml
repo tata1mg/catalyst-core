@@ -115,16 +115,28 @@ jobs:
               id: sim
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
+                  # Match name + id together from the same destination
+                  # entry and use the id (a stable UUID for one specific
+                  # device+OS pairing already installed on this runner) —
+                  # not name alone. A name without an OS is ambiguous
+                  # (some devices, e.g. iPhone 16e here, only exist at one
+                  # older OS version, so "OS=latest" doesn't resolve for
+                  # them and the destination lookup fails).
                   DEST=$(xcodebuild -showdestinations -project iosnativeWebView.xcodeproj -scheme iosnativeWebView 2>/dev/null \
-                    | grep -o 'platform:iOS Simulator, [^}]*name:iPhone[^}]*' \
+                    | grep -o 'platform:iOS Simulator, arch:[^}]*name:iPhone[^}]*' \
                     | head -1)
                   if [ -z "$DEST" ]; then
                     echo "::error::No iOS Simulator with an iPhone destination found on this runner"
                     exit 1
                   fi
+                  ID=$(echo "$DEST" | sed -n 's/.*id:\([^,]*\),.*/\1/p')
                   NAME=$(echo "$DEST" | sed -n 's/.*name:\(.*\)/\1/p' | sed 's/[[:space:]]*$//')
-                  echo "name=$NAME" >> "$GITHUB_OUTPUT"
-                  echo "Selected simulator: $NAME"
+                  if [ -z "$ID" ]; then
+                    echo "::error::Could not parse a simulator id out of: $DEST"
+                    exit 1
+                  fi
+                  echo "id=$ID" >> "$GITHUB_OUTPUT"
+                  echo "Selected simulator: $NAME ($ID)"
 
             # CODE_SIGNING_ALLOWED=NO skips signing entirely — there's no
             # device to install a signed build on, only the simulator.
@@ -135,7 +147,7 @@ jobs:
                   xcodebuild test \
                     -project iosnativeWebView.xcodeproj \
                     -scheme iosnativeWebView \
-                    -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+                    -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
                     -parallel-testing-enabled YES \
                     -clonedSourcePackagesDirPath .spm-cache \
                     CODE_SIGNING_ALLOWED=NO \
