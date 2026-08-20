@@ -107,43 +107,61 @@ jobs:
             # the device lineup itself moves too — "iPhone 16" was on
             # that set when this job was first written, then wasn't by
             # the time it actually ran, breaking the hardcoded version).
-            # `xcodebuild -showdestinations` lists what the runner
-            # actually has right now; picks the first "iPhone" simulator
-            # entry it finds, with whatever OS that entry ships — no
-            # attempt to pin a specific device generation or iOS version.
+            #
+            # Uses `xcrun simctl list devices available -j` instead of
+            # `xcodebuild -showdestinations`: the latter has to load the
+            # Xcode project and can trigger SPM package resolution before
+            # it prints anything, so on a cold SPM cache it can stall for
+            # 30s+ and (with output piped through `2>/dev/null`) fail
+            # with no visible reason. simctl talks only to CoreSimulator
+            # — no project load, no package resolution — and returns
+            # structured JSON instead of text scraped with grep/sed.
             - name: Pick an available iOS simulator
               id: sim
-              working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
-                  # Match name + id together from the same destination
-                  # entry and use the id (a stable UUID for one specific
-                  # device+OS pairing already installed on this runner) —
-                  # not name alone. A name without an OS is ambiguous
-                  # (some devices, e.g. iPhone 16e, only exist at one
-                  # older OS version, so "OS=latest" doesn't resolve for
-                  # them and the destination lookup fails).
-                  #
-                  # Excludes "e"-suffixed models (iPhone 16e, 17e, ...) —
-                  # the budget/economy line. One picked in an earlier CI
-                  # run took >2 minutes just to connect over lockdown and
-                  # then still failed loading the UI test bundle; standard
-                  # models haven't shown that flakiness here.
-                  DEST=$(xcodebuild -showdestinations -project iosnativeWebView.xcodeproj -scheme iosnativeWebView 2>/dev/null \
-                    | grep -o 'platform:iOS Simulator, arch:[^}]*name:iPhone[^}]*' \
-                    | grep -v 'name:iPhone [0-9]*e ' \
-                    | head -1)
-                  if [ -z "$DEST" ]; then
-                    echo "::error::No iOS Simulator with an iPhone destination found on this runner"
+                  set -o pipefail
+                  # Filter to available iPhone simulators, excluding
+                  # "e"-suffixed models (iPhone 16e, 17e, ...) — the
+                  # budget/economy line. One picked in an earlier CI run
+                  # took >2 minutes just to connect over lockdown and
+                  # then still failed loading the UI test bundle;
+                  # standard models haven't shown that flakiness here.
+                  # Prefer the newest iOS runtime available, then the
+                  # first matching device within it.
+                  RESULT=$(xcrun simctl list devices available -j | jq -r '
+                    .devices
+                    | to_entries
+                    | map(select(.key | test("com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS")))
+                    | sort_by(.key) | reverse
+                    | map(.value | map(select(.name | test("^iPhone( [0-9]+)?$|^iPhone [0-9]+ ")) | select(.name | test("[0-9]+e( |$)") | not)))
+                    | flatten
+                    | .[0]
+                    | if . == null then "" else (.udid + "\t" + .name) end
+                  ')
+                  if [ -z "$RESULT" ]; then
+                    echo "::error::No available iOS Simulator with an iPhone destination found on this runner"
+                    xcrun simctl list devices available
                     exit 1
                   fi
-                  ID=$(echo "$DEST" | sed -n 's/.*id:\([^,]*\),.*/\1/p')
-                  NAME=$(echo "$DEST" | sed -n 's/.*name:\(.*\)/\1/p' | sed 's/[[:space:]]*$//')
-                  if [ -z "$ID" ]; then
-                    echo "::error::Could not parse a simulator id out of: $DEST"
-                    exit 1
-                  fi
-                  echo "id=$ID" >> "$GITHUB_OUTPUT"
-                  echo "Selected simulator: $NAME ($ID)"
+                  UDID=$(echo "$RESULT" | cut -f1)
+                  NAME=$(echo "$RESULT" | cut -f2)
+                  echo "id=$UDID" >> "$GITHUB_OUTPUT"
+                  echo "Selected simulator: $NAME ($UDID)"
+
+            # Boot the simulator explicitly and wait for it to be fully
+            # ready before xcodebuild runs any tests against it. Without
+            # this, the cold boot happens implicitly inside the
+            # `xcodebuild test` step (locally this is the "Simulator.app
+            # opening" you see; headlessly on the CI runner it's the
+            # same cost, just invisible) — folding it into the test step
+            # hides how much of the job's wall-clock time is boot vs.
+            # actual test execution. Not `erase`-ing first: the runner
+            # is a fresh ephemeral VM already, so erase only adds time
+            # without changing anything.
+            - name: Boot iOS simulator
+              run: |
+                  xcrun simctl boot "${{ steps.sim.outputs.id }}"
+                  xcrun simctl bootstatus "${{ steps.sim.outputs.id }}" -b
 
             # CODE_SIGNING_ALLOWED=NO skips signing entirely — there's no
             # device to install a signed build on, only the simulator.
