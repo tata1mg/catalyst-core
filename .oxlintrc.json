@@ -1,0 +1,25 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "jsPlugins": ["./tools/oxlint-plugins/catalyst-errors.mjs"],
+    "ignorePatterns": [
+        "node_modules",
+        "dist",
+        "build",
+        "coverage",
+        ".docusaurus",
+        "docs/build",
+        "docs/.docusaurus",
+        "examples",
+        "packages/create-catalyst-app/templates"
+    ],
+    "overrides": [
+        {
+            "files": ["packages/catalyst-core/src/**/*.js"],
+            "excludeFiles": ["packages/catalyst-core/src/errors/**"],
+            "rules": {
+                "no-console": ["warn", { "allow": ["log", "warn", "info", "debug", "trace"] }],
+                "catalyst-errors/no-throw-new-error": "warn"
+            }
+        }
+    ]
+}

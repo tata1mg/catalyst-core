@@ -10,13 +10,13 @@
 // declares the callable/middleware shape this package's own call sites
 // actually touch (expressServer.js does `app.use(aiBasePath, aiRouter)`).
 
-export interface AIProviderConfig {
+interface AIProviderConfig {
     apiKey: string
     defaultModel?: string
     [key: string]: unknown
 }
 
-export interface AIConfig {
+interface AIConfig {
     enabled?: boolean
     basePath?: string
     providers?: Record<string, AIProviderConfig>
@@ -26,7 +26,7 @@ export interface AIConfig {
 // Common normalized usage shape every provider/API adapter maps onto —
 // see route.js's own "usage normalization" comment block for the exact
 // per-provider field-name differences this papers over.
-export interface NormalizedUsage {
+interface NormalizedUsage {
     model: string
     promptTokens: number
     cachedTokens: number
@@ -34,7 +34,7 @@ export interface NormalizedUsage {
     reasoningTokens: number
 }
 
-export interface RequestLike {
+interface RequestLike {
     body?: {
         messages?: unknown
         model?: unknown
@@ -42,16 +42,16 @@ export interface RequestLike {
     }
 }
 
-export interface ProviderConfigLike {
+interface ProviderConfigLike {
     defaultModel?: string
 }
 
-export interface ResponseLike {
+interface ResponseLike {
     status: number
     text(): Promise<string>
 }
 
-export interface RouterInternal {
+interface RouterInternal {
     getAIConfig(): AIConfig
     isAIEnabled(): boolean
     getProviderConfig(provider: string): AIProviderConfig | null
@@ -67,7 +67,7 @@ export interface RouterInternal {
 // Minimal shape of what an Express router actually is: a callable request
 // handler with .use()/.get()/.post()/etc. attached. Deliberately not the
 // full express.Router type (see the header comment above).
-export interface ExpressRouterLike {
+interface ExpressRouterLike {
     (req: unknown, res: unknown, next: unknown): void
     use(...args: unknown[]): ExpressRouterLike
     get(...args: unknown[]): ExpressRouterLike
@@ -76,7 +76,7 @@ export interface ExpressRouterLike {
 
 // The real export is an Express Router with _internal attached as an extra
 // property (see route.js's own comment on why).
-export type AIRouter = ExpressRouterLike & { _internal: RouterInternal }
+type AIRouter = ExpressRouterLike & { _internal: RouterInternal }
 
 declare const router: AIRouter
 export = router

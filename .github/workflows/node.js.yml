@@ -2,10 +2,62 @@ name: CI Pipeline
 
 on:
     pull_request:
-        branches: ["main"]
+        branches: ["main", "epic/**", "story/**", "task/**", "feature/**"]
 
 jobs:
-    catalyst-core:
+    lint:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Setup Node.js
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version-file: ".nvmrc"
+
+            - name: Install dependencies
+              run: node -v && npm ci
+
+            - name: oxlint
+              # --quiet: only fail on error-level findings. Warn-level
+              # findings (pre-existing no-console / no-throw-new-error hits
+              # in legacy src files, plus oxlint's default-ruleset noise)
+              # are surfaced but non-blocking until they're cleaned up —
+              # see the tracking issue linked from #415.
+              run: npm run lint:oxlint
+
+            # oxfmt --check is intentionally NOT wired in yet: with no
+            # oxfmt config in the repo, its defaults disagree with the
+            # existing Prettier formatting on ~213/291 files. Wiring it up
+            # is tracked as a follow-up once #396 (oxlint/oxfmt migration)
+            # lands with a real config.
+
+    test-js-unit:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Setup Node.js
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version-file: ".nvmrc"
+
+            - name: Install workspace dependencies
+              run: node -v && npm ci
+
+            - name: Install mcp_v2 dependencies
+              # mcp_v2 is intentionally not an npm workspace member, so its
+              # deps aren't installed by the root `npm ci` above. It also
+              # has no package-lock.json of its own, so `npm ci` (which
+              # requires one) doesn't apply here — use `npm install`.
+              run: npm install --prefix packages/catalyst-core/mcp_v2
+
+            - name: Run unit/contract tests + type checks
+              run: npm run test:unit
+
+    test-js-integration:
         runs-on: ubuntu-latest
         container:
             image: mcr.microsoft.com/playwright:v1.62.1-noble
@@ -13,7 +65,7 @@ jobs:
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-            - name: Build and Test
+            - name: Build and Test (catalyst-core Playwright fixture)
               run: node -v && chmod +x ./scripts/test-catalyst-core.sh && ./scripts/test-catalyst-core.sh
 
     create-catalyst-app:
