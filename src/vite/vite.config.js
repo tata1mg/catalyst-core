@@ -1,4 +1,4 @@
-import { defineConfig, transformWithEsbuild } from "vite"
+import { defineConfig, transformWithEsbuild, defaultServerConditions } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
 
@@ -239,6 +239,22 @@ export default defineConfig({
     ssr: {
         // Keep selected React-side packages bundled for SSR (transformed by Vite, NOT pre-bundled)
         // noExternal: ["@tata1mg/slowboi-react"],
+        resolve: {
+            // react-router/react-router-dom v7 ship dual CJS/ESM builds selected via the
+            // "module-sync" exports condition. Node 20.19+/22 understands this condition
+            // and resolves to the real ESM build even via require() — but Vite's SSR
+            // resolver does not know "module-sync" and falls back to the CJS build,
+            // including for packages Vite treats as external and hands off to Node's own
+            // loader (e.g. a consumer dependency that itself imports react-router-dom).
+            // When Vite and Node disagree on which build to load, the app ends up with
+            // two separate react-router module instances — each with its own React
+            // Context — so hooks like useLocation() throw "may be used only in the
+            // context of a <Router>" even though a Router is mounted, because the
+            // Provider populated one Context instance and the consumer read the other.
+            // Adding "module-sync" here makes Vite's resolution agree with Node's.
+            conditions: ["module-sync", ...defaultServerConditions],
+            externalConditions: ["module-sync", ...defaultServerConditions],
+        },
         // Ensure Node-only instrumentation and low-level Node deps stay external so
         // the bundler never tries to resolve the optional (opt-in) OTEL packages.
         external: nodeOnlyExternalDeps,
