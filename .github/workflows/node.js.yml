@@ -182,6 +182,11 @@ jobs:
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
                   set -o pipefail
+                  # --quieter (-qq): only print tasks with errors. Test
+                  # failures still surface — xcbeautify never silences
+                  # those regardless of quiet level — this only cuts the
+                  # per-file "Compiling"/per-test "✔" noise that was
+                  # dominating this step's log output.
                   xcodebuild test \
                     -project iosnativeWebView.xcodeproj \
                     -scheme iosnativeWebView \
@@ -189,7 +194,7 @@ jobs:
                     -only-testing:iosnativeWebViewTests \
                     -clonedSourcePackagesDirPath .spm-cache \
                     CODE_SIGNING_ALLOWED=NO \
-                    | xcbeautify --renderer github-actions
+                    | xcbeautify --renderer github-actions --quieter
 
     test-js-integration:
         runs-on: ubuntu-latest
