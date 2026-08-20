@@ -12,6 +12,17 @@ webkit = "1.13.0"
 googleServices = "4.4.0"
 androidxCredentials = "1.3.0"
 googleId = "1.1.1"
+# Test-only deps for #413 (Tier 1 Android unit tests). kotlinReflect is
+# pinned ahead of the project's forced 2.0.21 Kotlin compiler version
+# solely to satisfy mockito-kotlin 6.x's own kotlin-reflect requirement
+# (>=2.1.20) — see the resolutionStrategy override in app/build.gradle.kts.
+# kotlinxCoroutinesTest is pinned to the 1.10.x line (not the newer 1.11.x)
+# because 1.11.x requires Kotlin 2.2.20, which is out of scope here; 1.10.x
+# is the latest line still JVM-compatible with Kotlin 2.1.x.
+mockitoCore = "5.23.0"
+mockitoKotlin = "6.3.0"
+kotlinReflect = "2.1.20"
+kotlinxCoroutinesTest = "1.10.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -25,6 +36,10 @@ androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "w
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "androidxCredentials" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "androidxCredentials" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

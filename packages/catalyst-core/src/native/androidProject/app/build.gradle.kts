@@ -222,11 +222,17 @@ android {
 
 configurations.all {
     resolutionStrategy.eachDependency {
+        // kotlin-reflect is deliberately NOT forced here (unlike the
+        // stdlib artifacts below) — mockito-kotlin 6.x requires
+        // kotlin-reflect >=2.1.20, newer than this project's 2.0.21
+        // compiler version. kotlin-reflect is forward-compatible with
+        // older stdlib/compiler versions for the reflection use cases
+        // actually exercised in tests, so it resolves to whatever's
+        // requested (libs.kotlin.reflect, currently 2.1.20) instead.
         if (requested.group == "org.jetbrains.kotlin" &&
             (requested.name == "kotlin-stdlib" ||
              requested.name == "kotlin-stdlib-jdk7" ||
-             requested.name == "kotlin-stdlib-jdk8" ||
-             requested.name == "kotlin-reflect")) {
+             requested.name == "kotlin-stdlib-jdk8")) {
             useVersion("2.0.21")
         }
     }
@@ -238,6 +244,16 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
     testImplementation(libs.junit)
+    // #413: Mockito for JVM unit tests (app/src/test). mockito-core 5.x
+    // defaults to the inline mock-maker, so Kotlin's final classes don't
+    // need extra `open` keywords. mockito-kotlin adds the idiomatic
+    // whenever()/mock<T>() DSL on top. kotlinx-coroutines-test matches
+    // the existing kotlinx-coroutines-android dependency's release line
+    // for testing suspend funs in NativeBridge/OfflineCacheService.
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.kotlin.reflect)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.androidx.webkit)

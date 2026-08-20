@@ -57,6 +57,30 @@ jobs:
             - name: Run unit/contract tests + type checks
               run: npm run test:unit
 
+    test-android-unit:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+
+            # No android-actions/setup-android step: compileSdk 34 / AGP
+            # 8.11.1 are already covered by ubuntu-latest's preinstalled
+            # Android SDK (command-line tools + platform 34 + build-tools),
+            # and Gradle's own wrapper (gradlew, pinned to 8.13 via
+            # gradle-wrapper.properties) handles the Gradle version itself.
+
+            - name: Run app/src/test (Tier 1 JVM unit tests)
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  chmod +x ./gradlew
+                  ./gradlew testDebugUnitTest --console=plain
+
     test-js-integration:
         runs-on: ubuntu-latest
         container:
