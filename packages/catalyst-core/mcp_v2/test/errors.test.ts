@@ -1,10 +1,15 @@
 // describe/it/expect come from vitest's `globals: true` config (see
-// vitest.config.mjs) — vitest's own exports can't be require()'d from a
-// .cjs file, only import'd, so globals keeps this file plain CommonJS
-// throughout, matching errors.js's own module system.
+// vitest.config.mjs) — vitest's own exports can't be require()'d, only
+// import'd, so globals injects them instead.
+//
+// tools/errors.js itself is loaded via require() rather than import — it's
+// a CommonJS module, matching how it's actually loaded in production.
+// Typed against the hand-written declaration in ../tools/errors.d.ts rather
+// than left as `unknown` (errors.js stays plain JS until #420's source
+// conversion).
 const fs = require("fs")
 const path = require("path")
-const { init, handle_explain_error } = require("../tools/errors.js")
+const { init, handle_explain_error }: typeof import("../tools/errors.js") = require("../tools/errors.js")
 
 // Framework-level (Tier 1) contract tests for the explain_error MCP tool —
 // see issue #340/#411. Covers both real load paths (packaged dist/ copy and
@@ -45,7 +50,7 @@ describe("init() + handle_explain_error() — packaged path (dist/errors-index.j
 })
 
 describe("init() + handle_explain_error() — monorepo-root fallback (errors/index.json)", () => {
-    let packagedBackup
+    let packagedBackup: Buffer | undefined
 
     beforeAll(() => {
         // Force the fallback path: temporarily move the packaged copy aside
@@ -86,7 +91,7 @@ describe("init() + handle_explain_error() — monorepo-root fallback (errors/ind
 })
 
 describe("init() — neither path resolvable", () => {
-    let packagedBackup
+    let packagedBackup: Buffer | undefined
 
     beforeAll(() => {
         if (fs.existsSync(PACKAGED_INDEX_PATH)) {

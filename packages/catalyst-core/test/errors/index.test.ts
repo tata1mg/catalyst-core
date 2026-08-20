@@ -78,14 +78,17 @@ describe("wrapForeignError()", () => {
     })
 
     it("shows the upstream named error code when present (e.g. Rollup's PLUGIN_LOAD_ERROR)", () => {
-        const original = new Error("failed to load")
+        // .code isn't part of the standard Error interface — it's a Node
+        // convention (see NodeJS.ErrnoException) that upstream build tools
+        // like Rollup also follow for their own error codes.
+        const original: NodeJS.ErrnoException = new Error("failed to load")
         original.code = "PLUGIN_LOAD_ERROR"
         const wrapped = wrapForeignError("BUNDLE", original)
         expect(wrapped.message).toContain("PLUGIN_LOAD_ERROR")
     })
 
     it("does NOT show a bare numeric process exit code as if it were a named upstream code", () => {
-        const original = new Error("process exited")
+        const original = new Error("process exited") as Error & { code: number }
         original.code = 1 // numeric, e.g. a spawned child's exit status — not a named identifier
         const wrapped = wrapForeignError("BUNDLE", original)
         expect(wrapped.message).not.toContain("1")

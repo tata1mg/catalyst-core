@@ -1,0 +1,20 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        /* This config is for type-checking test/ only (via `tsc -p tsconfig.test.json --noEmit`)
+         * — separate from tsconfig.json, which is scoped to src/ and configured for
+         * .d.ts emit ahead of a future source-file TS conversion (see issue #420).
+         * Vitest itself transpiles .ts test files via esbuild at run time and doesn't
+         * need this config to execute tests; this exists for editor/CI type-checking. */
+        "types": ["node", "vitest/globals"],
+        "noEmit": true,
+        "emitDeclarationOnly": false,
+        "declaration": false,
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "target": "es2022",
+        "lib": ["es2022"]
+    },
+    "include": ["test"],
+    "exclude": ["node_modules", "dist"]
+}

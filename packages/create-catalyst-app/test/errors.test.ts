@@ -1,8 +1,15 @@
 // describe/it/expect come from vitest's `globals: true` config (see
-// vitest.config.mjs) — vitest's own exports can't be require()'d from a
-// .cjs file, only import'd, so globals keeps this file plain CommonJS
-// throughout, matching errors.cjs's own module system.
-const cca = require("../scripts/errors.cjs")
+// vitest.config.mjs) — vitest's own exports can't be require()'d, only
+// import'd, so globals injects them instead.
+//
+// errors.cjs itself is loaded via require() rather than import — it's a
+// CommonJS module and this keeps the runtime behavior identical to how
+// every other require("./errors.cjs") call site in this package loads it.
+// require(...) is untyped by default, and errors.cjs stays plain JS until a
+// future source conversion (see issue #420), so we annotate it against the
+// hand-written declaration in ../scripts/errors.d.cts rather than let every
+// usage below infer as `unknown`.
+const cca: typeof import("../scripts/errors.cjs") = require("../scripts/errors.cjs")
 
 // Framework-level (Tier 1) contract + parity tests for the CCA error mirror
 // (packages/create-catalyst-app/scripts/errors.cjs). This is a standalone
@@ -55,8 +62,8 @@ describe("CCA ERROR_CODES / ERROR_DEFINITIONS shape invariants (mirrors registry
     })
 
     it("every definition has all required fields, non-empty — same required-field set as the core registry", () => {
-        const REQUIRED_FIELDS = ["category", "defaultMessage", "defaultDetails", "suggestedAction"]
-        const problems = []
+        const REQUIRED_FIELDS = ["category", "defaultMessage", "defaultDetails", "suggestedAction"] as const
+        const problems: string[] = []
         for (const [code, def] of Object.entries(ERROR_DEFINITIONS)) {
             for (const field of REQUIRED_FIELDS) {
                 const value = def[field]
@@ -123,7 +130,9 @@ describe("wrapForeignError() — same never-reinterpret contract as catalyst-cor
     })
 
     it("shows the upstream named code when present", () => {
-        const original = new Error("failed")
+        // .code isn't part of the standard Error interface — it's a Node
+        // convention (see NodeJS.ErrnoException).
+        const original: NodeJS.ErrnoException = new Error("failed")
         original.code = "ENOENT"
         const wrapped = cca.wrapForeignError(original)
         expect(wrapped.message).toContain("ENOENT")
@@ -135,17 +144,17 @@ describe("wrapForeignError() — same never-reinterpret contract as catalyst-cor
     })
 
     it("omits the suffix for an empty or whitespace-only .code too — still typeof \"string\", but not a real name", () => {
-        const emptyCode = new Error("failed")
+        const emptyCode: NodeJS.ErrnoException = new Error("failed")
         emptyCode.code = ""
         expect(cca.wrapForeignError(emptyCode).message).toBe("An upstream command failed")
 
-        const blankCode = new Error("failed")
+        const blankCode: NodeJS.ErrnoException = new Error("failed")
         blankCode.code = "   "
         expect(cca.wrapForeignError(blankCode).message).toBe("An upstream command failed")
     })
 
     it("trims surrounding whitespace off a real named code", () => {
-        const padded = new Error("failed")
+        const padded: NodeJS.ErrnoException = new Error("failed")
         padded.code = "  ENOENT  "
         expect(cca.wrapForeignError(padded).message).toBe("An upstream command failed (upstream: ENOENT)")
     })
