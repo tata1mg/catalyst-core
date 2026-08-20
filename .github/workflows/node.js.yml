@@ -81,6 +81,46 @@ jobs:
                   chmod +x ./gradlew
                   ./gradlew testDebugUnitTest --console=plain
 
+    test-ios-unit:
+        runs-on: macos-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
+            # keyed on Package.resolved — avoids re-fetching them from
+            # GitHub over the network on every run. Not full DerivedData
+            # caching (fragile across CI runs — bakes in absolute paths
+            # and relies on mtimes actions/cache doesn't preserve), just
+            # the downloaded package sources/checkouts.
+            - name: Cache SPM packages
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: packages/catalyst-core/src/native/iosnativeWebView/.spm-cache
+                  key: spm-${{ runner.os }}-${{ hashFiles('packages/catalyst-core/src/native/iosnativeWebView/Package.resolved') }}
+                  restore-keys: |
+                      spm-${{ runner.os }}-
+
+            # "iPhone 16" is on the small preinstalled-simulator set GitHub
+            # keeps on macos-latest (macOS 15 image, 3-runtime cap since
+            # Aug 2025) — see actions/runner-images's per-image Readme.
+            # OS=latest avoids hardcoding an exact iOS version that may
+            # rotate out; deployment target here is 17.5, well under it.
+            # CODE_SIGNING_ALLOWED=NO skips signing entirely — there's no
+            # device to install a signed build on, only the simulator.
+            - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  set -o pipefail
+                  xcodebuild test \
+                    -project iosnativeWebView.xcodeproj \
+                    -scheme iosnativeWebView \
+                    -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+                    -parallel-testing-enabled YES \
+                    -clonedSourcePackagesDirPath .spm-cache \
+                    CODE_SIGNING_ALLOWED=NO \
+                    | xcbeautify --renderer github-actions
+
     test-js-integration:
         runs-on: ubuntu-latest
         container:

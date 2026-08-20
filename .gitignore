@@ -77,6 +77,7 @@ build/
 # SPM - Generated files (Package.swift is committed as default, but regenerated at build time)
 **/iosnativeWebView/.package-config-hash
 **/iosnativeWebView/.build/
+**/iosnativeWebView/.spm-cache/
 
 # Vendored Gemfile.locks inside node_modules and CocoaPods checkouts (not managed by us)
 docs/node_modules/lunr-languages/
