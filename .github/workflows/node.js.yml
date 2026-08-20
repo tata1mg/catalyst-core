@@ -101,11 +101,31 @@ jobs:
                   restore-keys: |
                       spm-${{ runner.os }}-
 
-            # "iPhone 16" is on the small preinstalled-simulator set GitHub
-            # keeps on macos-latest (macOS 15 image, 3-runtime cap since
-            # Aug 2025) — see actions/runner-images's per-image Readme.
-            # OS=latest avoids hardcoding an exact iOS version that may
-            # rotate out; deployment target here is 17.5, well under it.
+            # Pick an available iPhone simulator at run time instead of
+            # hardcoding a device name: GitHub only keeps a small,
+            # rotating set of preinstalled simulators (~3 runtimes, and
+            # the device lineup itself moves too — "iPhone 16" was on
+            # that set when this job was first written, then wasn't by
+            # the time it actually ran, breaking the hardcoded version).
+            # `xcodebuild -showdestinations` lists what the runner
+            # actually has right now; picks the first "iPhone" simulator
+            # entry it finds, with whatever OS that entry ships — no
+            # attempt to pin a specific device generation or iOS version.
+            - name: Pick an available iOS simulator
+              id: sim
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  DEST=$(xcodebuild -showdestinations -project iosnativeWebView.xcodeproj -scheme iosnativeWebView 2>/dev/null \
+                    | grep -o 'platform:iOS Simulator, [^}]*name:iPhone[^}]*' \
+                    | head -1)
+                  if [ -z "$DEST" ]; then
+                    echo "::error::No iOS Simulator with an iPhone destination found on this runner"
+                    exit 1
+                  fi
+                  NAME=$(echo "$DEST" | sed -n 's/.*name:\(.*\)/\1/p' | sed 's/[[:space:]]*$//')
+                  echo "name=$NAME" >> "$GITHUB_OUTPUT"
+                  echo "Selected simulator: $NAME"
+
             # CODE_SIGNING_ALLOWED=NO skips signing entirely — there's no
             # device to install a signed build on, only the simulator.
             - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
@@ -115,7 +135,7 @@ jobs:
                   xcodebuild test \
                     -project iosnativeWebView.xcodeproj \
                     -scheme iosnativeWebView \
-                    -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+                    -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
                     -parallel-testing-enabled YES \
                     -clonedSourcePackagesDirPath .spm-cache \
                     CODE_SIGNING_ALLOWED=NO \
