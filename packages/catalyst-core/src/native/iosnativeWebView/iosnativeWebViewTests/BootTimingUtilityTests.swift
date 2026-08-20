@@ -193,16 +193,24 @@ final class BootTimingUtilityTests: XCTestCase {
         let expectation = self.expectation(description: "Concurrent logging completes")
         expectation.expectedFulfillmentCount = 10
 
+        // Raising the wait timeout alone did not fix this test: it failed at
+        // exactly 10s, then again at exactly 60s after that bump -- a hit-the-
+        // timeout-precisely pattern is scheduling starvation, not slowness.
+        // `.background` QoS is deliberately deprioritized by the OS and can be
+        // starved indefinitely under CPU contention on a busy CI host, so no
+        // timeout is safe against it. `.userInitiated` still exercises the
+        // thing this test actually verifies (logWithTimestamp handles
+        // concurrent calls without crashing/corrupting) without depending on
+        // background-priority scheduling ever getting CPU time.
         for i in 0..<10 {
-            DispatchQueue.global(qos: .background).async {
+            DispatchQueue.global(qos: .userInitiated).async {
                 logWithTimestamp("Concurrent log \(i)")
                 expectation.fulfill()
             }
         }
 
-        // CI simulators (shared macOS runners) can be dramatically slower than local
-        // hardware -- neighboring tests in this suite have taken 50-70s on CI. A tight
-        // timeout here caused flaky CI failures even with -parallel-testing-enabled off.
+        // Kept generous as headroom for host variance (~15-20% build/test time
+        // swings observed run-to-run on shared CI runners), not as the fix.
         waitForExpectations(timeout: 60.0) { error in
             XCTAssertNil(error, "Concurrent logging should complete without errors")
         }
