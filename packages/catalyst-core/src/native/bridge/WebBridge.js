@@ -7,6 +7,7 @@ import {
 import nativeBridge from "./utils/NativeBridge.js"
 import CameraUtils from "./utils/CameraUtils.js"
 import pluginBridge from "../plugin-bridge/PluginBridge.js"
+import { createError, formatError, ERROR_CODES } from "../../errors/index.js"
 
 const DEVICE_INFO_PLUGIN = {
     pluginId: "io.catalyst.device_info",
@@ -87,11 +88,20 @@ class WebBridge {
      */
     static init = () => {
         if (typeof window === "undefined") {
-            console.error("🌉 WebBridge cannot be initialized outside the browser!")
+            console.error(
+                formatError(
+                    createError(ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INIT_FAILED, {
+                        details: "WebBridge.init() was called outside a browser environment (no `window`).",
+                    })
+                )
+            )
             return null
         }
 
         if (window.WebBridge) {
+            // Not a failure — the bridge is already up and working, just return it.
+            // No code here: RUNTIME-NATIVE-022 means init genuinely failed, which
+            // this path is not.
             console.warn("🌉 WebBridge already initialized!")
             return window.WebBridge
         }
@@ -122,13 +132,25 @@ class WebBridge {
 
         // Validate interface
         if (!isValidCallback(interfaceName)) {
-            console.error(`🌉 Invalid callback interface: ${interfaceName}`)
+            console.error(
+                formatError(
+                    createError(ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_CALLBACK, {
+                        details: `Received "${interfaceName}", which is not in the registered NATIVE_CALLBACKS list.`,
+                    })
+                )
+            )
             console.log("🌉 Available callbacks:", ALL_CALLBACKS)
             return
         }
 
         if (!this.handlers.has(interfaceName)) {
-            console.warn(`🌉 No handler registered for interface: ${interfaceName}`)
+            console.warn(
+                formatError(
+                    createError(ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_NOT_REGISTERED, {
+                        details: `No handler registered for interface "${interfaceName}".`,
+                    })
+                )
+            )
             return
         }
 
@@ -136,7 +158,11 @@ class WebBridge {
             const handler = this.handlers.get(interfaceName)
             handler(data)
         } catch (error) {
-            console.error(`🌉 Error executing callback for ${interfaceName}:`, error)
+            const wrapped = createError(ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_THREW, {
+                details: `The handler registered for "${interfaceName}" threw.`,
+                cause: error,
+            })
+            console.error(formatError(wrapped))
 
             // In development, provide more helpful error info
             if (process.env.NODE_ENV === "development") {
@@ -158,13 +184,25 @@ class WebBridge {
     register = (interfaceName, callback) => {
         // Validate callback function
         if (typeof callback !== "function") {
-            console.error("🌉 Callback must be a function!")
+            console.error(
+                formatError(
+                    createError(ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION, {
+                        details: `register("${interfaceName}", ...) was called with a non-function callback (got ${typeof callback}).`,
+                    })
+                )
+            )
             return false
         }
 
         // Validate interface name
         if (!isValidCallback(interfaceName)) {
-            console.error(`🌉 Invalid callback interface: ${interfaceName}`)
+            console.error(
+                formatError(
+                    createError(ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION, {
+                        details: `register() was called with "${interfaceName}", which is not a valid callback interface.`,
+                    })
+                )
+            )
             console.log("🌉 Available callback interfaces:", ALL_CALLBACKS)
             return false
         }
