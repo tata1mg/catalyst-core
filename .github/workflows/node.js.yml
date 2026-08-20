@@ -152,6 +152,14 @@ jobs:
             # iosnativeWebViewUITests, which is real-device/simulator
             # instrumented UI testing (Tier 2, explicitly out of scope
             # for #414) and failed to even load its bundle in CI.
+            #
+            # -parallel-testing-enabled is deliberately OFF: it caused
+            # two pre-existing, timing-sensitive tests (a permission
+            # callback wait, a concurrent-logging expectation — neither
+            # touched by this change) to flake under CPU contention from
+            # multiple simulator clones on a shared CI runner, without
+            # actually delivering the speed win it's meant to (16-25 min
+            # in CI either way, vs ~91s measured locally without it).
             - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
@@ -161,7 +169,6 @@ jobs:
                     -scheme iosnativeWebView \
                     -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
                     -only-testing:iosnativeWebViewTests \
-                    -parallel-testing-enabled YES \
                     -clonedSourcePackagesDirPath .spm-cache \
                     CODE_SIGNING_ALLOWED=NO \
                     | xcbeautify --renderer github-actions
