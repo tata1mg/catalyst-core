@@ -64,8 +64,15 @@ object FrameworkServerUtils {
     // System prompt injected into every native AI request (built from attachmentComponents at initAI time)
     private var nativeSystemPrompt: String = ""
 
-    // Coroutine scope for server operations
-    private val serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // Coroutine scope for server operations. A `var`, re-created at the
+    // top of startServer() rather than a `val` created once — stopServer()
+    // calls serverScope.cancel(), and a CoroutineScope is single-use: once
+    // cancelled it never accepts new coroutines again. With this as a
+    // `val`, any startServer() after a stop() launched startCleanupTask()
+    // into an already-cancelled scope, silently disabling periodic served-
+    // file cleanup for the rest of that server's lifetime. Found via a
+    // real start/stop/restart sequence in FrameworkServerUtilsTest.
+    private var serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     data class ServedFile(
         val file: File,
@@ -90,6 +97,14 @@ object FrameworkServerUtils {
         }
         
         return try {
+            // A cancelled CoroutineScope never accepts new coroutines —
+            // re-create it here so startCleanupTask() below (and any
+            // other serverScope.launch call during this server's
+            // lifetime) works correctly even after a prior stopServer().
+            if (!serverScope.isActive) {
+                serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            }
+
             // Initialize cache directory
             initializeCacheDirectory(context)
 
@@ -504,12 +519,24 @@ object FrameworkServerUtils {
                     call.response.header(HttpHeaders.AccessControlAllowMethods, "GET, OPTIONS")
                     call.response.header(HttpHeaders.AccessControlAllowHeaders, "*")
 
-                    call.respond(HttpStatusCode.OK, mapOf(
-                        "status" to "running",
-                        "sessionId" to sessionId,
-                        "port" to serverPort,
-                        "servedFiles" to servedFiles.size
-                    ))
+                    // respondText with a manually-built JSONObject, not
+                    // call.respond(status, mapOf(...)) — that call needs a
+                    // registered ContentNegotiation converter to serialize
+                    // a raw Map, which this server never installs, so it
+                    // was returning 406 Not Acceptable to every real HTTP
+                    // client (confirmed via a real loopback request in
+                    // FrameworkServerUtilsTest — no test caught this
+                    // before because no test made a real request against
+                    // this route). Matches the /ai/generate route's own
+                    // JSONObject + respondText pattern elsewhere in this
+                    // file, avoiding a new ContentNegotiation dependency
+                    // for one endpoint.
+                    val statusJson = JSONObject()
+                        .put("status", "running")
+                        .put("sessionId", sessionId)
+                        .put("port", serverPort)
+                        .put("servedFiles", servedFiles.size)
+                    call.respondText(statusJson.toString(), ContentType.Application.Json, HttpStatusCode.OK)
                 }
 
                 // Handle OPTIONS preflight requests for CORS
