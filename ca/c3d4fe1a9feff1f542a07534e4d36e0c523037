@@ -1,0 +1,20 @@
+src/vite/vite.config.js
+  s_e1db0af8ce6d50::t_34a6ab8c39cde6 1
+  s_e1db0af8ce6d50::t_bc55220ef5fe64 242-257
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "cac3d4fe1a9feff1f542a07534e4d36e0c523037",
+  "prompts": {},
+  "sessions": {
+    "s_e1db0af8ce6d50": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b38ab86-4446-4a1c-9e6c-b548863cfef2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
