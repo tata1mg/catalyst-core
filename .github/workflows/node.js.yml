@@ -196,6 +196,24 @@ jobs:
                     CODE_SIGNING_ALLOWED=NO \
                     | xcbeautify --renderer github-actions --quieter
 
+    # CatalystCoreLogic (#432): the UIKit-free nested SPM package split out
+    # of CatalystCore. Runs concurrently with test-ios-unit above (separate
+    # top-level jobs fan out in parallel by default) — no simulator boot,
+    # no full CatalystCore/UIKit build, no network package resolution
+    # (CatalystCoreLogic has zero dependencies). Measured locally: 161
+    # tests in well under a second, vs. ~9-10 min for the simulator path.
+    test-ios-logic-unit:
+        runs-on: macos-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Run CatalystCoreLogic unit tests (swift test, no simulator)
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  set -o pipefail
+                  swift test --package-path CoreLogic
+
     test-js-integration:
         runs-on: ubuntu-latest
         container:
