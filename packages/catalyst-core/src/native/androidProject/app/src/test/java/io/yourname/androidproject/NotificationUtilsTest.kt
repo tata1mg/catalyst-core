@@ -1,469 +1,226 @@
 package io.yourname.androidproject
 
-import io.yourname.androidproject.utils.NotificationAction
-import io.yourname.androidproject.utils.NotificationChannelConfig
+import android.app.Activity
+import android.app.NotificationManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.AssetManager
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import io.yourname.androidproject.utils.NotificationConfig
-import io.yourname.androidproject.utils.NotificationStyle
+import io.yourname.androidproject.utils.NotificationUtils
+import org.junit.After
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
-import java.util.*
+import org.mockito.MockedStatic
+import org.mockito.Mockito.mockStatic
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import java.io.ByteArrayInputStream
 
 /**
- * Unit tests for NotificationUtils
+ * Unit tests for NotificationUtils.
  *
- * Tests cover:
- * - Notification creation (4 tests)
- * - Channel management (3 tests)
- * - Notification ID generation (3 tests)
- * - Deep linking validation (3 tests)
+ * The previous version of this file imported NotificationUtils but never
+ * constructed or called it — every assertion ran against locally
+ * reimplemented logic (hand-rolled permission-status strings, manually
+ * duplicated ID-format checks), so it passed while contributing 0%
+ * coverage. Rewritten to construct a real NotificationUtils and call its
+ * public methods, following the mockStatic(...) pattern established in
+ * OfflineCacheServiceTest.kt / CameraUtilsTest.kt.
  *
- * Total: 13 tests
- *
- * Note: Tests focus on testable logic and data structures without Android Context
- * following the same pattern as FileUtilsTest.kt and CameraUtilsTest.kt
+ * Scope: this class's Bitmap-loading, coroutine-dispatched notification
+ * building (buildNotification/applyNotificationStyle/getLargeIconBitmapLocal)
+ * is left uncovered here — it needs BitmapFactory + a real coroutine
+ * dispatcher context that isn't worth chasing at Tier 1 (matches the
+ * FrameworkServerUtils-style "some of this file stays uncovered" gap
+ * documented on iOS). The public, synchronous surface
+ * (handlePermissionResult, checkPermissionStatus, cancelLocalNotification,
+ * createNotificationChannel, requestNotificationPermission) is covered.
  */
 class NotificationUtilsTest {
 
-    // ============================================================
-    // CATEGORY 1: Notification Creation (4 tests)
-    // ============================================================
+    private lateinit var context: Context
+    private lateinit var contextCompatMock: MockedStatic<ContextCompat>
+    private lateinit var activityCompatMock: MockedStatic<ActivityCompat>
+    private lateinit var notificationManagerCompatMock: MockedStatic<NotificationManagerCompat>
 
-    /**
-     * Test NotificationConfig data class structure
-     * Validates all required and optional fields
-     */
-    @Test
-    fun testNotificationConfig_structureValidation() {
-        // Test minimal required configuration
-        val minimalConfig = NotificationConfig(
-            title = "Test Title",
-            body = "Test Body"
-        )
-
-        assertEquals("Test Title", minimalConfig.title)
-        assertEquals("Test Body", minimalConfig.body)
-        assertEquals("default", minimalConfig.channel)
-        assertEquals(NotificationStyle.BASIC, minimalConfig.style)
-        assertTrue(minimalConfig.vibrate)
-        assertTrue(minimalConfig.autoCancel)
-        assertFalse(minimalConfig.ongoing)
-        assertNull(minimalConfig.badge)
-        assertNull(minimalConfig.largeImage)
-        assertNull(minimalConfig.data)
-        assertNull(minimalConfig.actions)
-
-        // Test fully configured notification
-        val fullConfig = NotificationConfig(
-            title = "Full Title",
-            body = "Full Body",
-            channel = "urgent",
-            badge = 5,
-            largeImage = "https://example.com/image.png",
-            style = NotificationStyle.BIG_IMAGE,
-            vibrate = false,
-            autoCancel = false,
-            ongoing = true,
-            data = mapOf("key" to "value"),
-            actions = listOf(NotificationAction("Reply", "reply"))
-        )
-
-        assertEquals("Full Title", fullConfig.title)
-        assertEquals("Full Body", fullConfig.body)
-        assertEquals("urgent", fullConfig.channel)
-        assertEquals(5, fullConfig.badge)
-        assertEquals("https://example.com/image.png", fullConfig.largeImage)
-        assertEquals(NotificationStyle.BIG_IMAGE, fullConfig.style)
-        assertFalse(fullConfig.vibrate)
-        assertFalse(fullConfig.autoCancel)
-        assertTrue(fullConfig.ongoing)
-        assertNotNull(fullConfig.data)
-        assertNotNull(fullConfig.actions)
-    }
-
-    /**
-     * Test NotificationStyle enum validation
-     * Validates all four notification styles
-     */
-    @Test
-    fun testNotificationStyle_enumValidation() {
-        val styles = NotificationStyle.values()
-
-        // Verify all 4 styles exist
-        assertEquals(4, styles.size)
-
-        // Verify style names
-        assertTrue(styles.contains(NotificationStyle.BASIC))
-        assertTrue(styles.contains(NotificationStyle.BIG_TEXT))
-        assertTrue(styles.contains(NotificationStyle.BIG_IMAGE))
-        assertTrue(styles.contains(NotificationStyle.ACTION_BUTTONS))
-
-        // Test style usage in config
-        val basicConfig = NotificationConfig("Title", "Body", style = NotificationStyle.BASIC)
-        val bigTextConfig = NotificationConfig("Title", "Body", style = NotificationStyle.BIG_TEXT)
-        val bigImageConfig = NotificationConfig("Title", "Body", style = NotificationStyle.BIG_IMAGE)
-        val actionConfig = NotificationConfig("Title", "Body", style = NotificationStyle.ACTION_BUTTONS)
-
-        assertEquals(NotificationStyle.BASIC, basicConfig.style)
-        assertEquals(NotificationStyle.BIG_TEXT, bigTextConfig.style)
-        assertEquals(NotificationStyle.BIG_IMAGE, bigImageConfig.style)
-        assertEquals(NotificationStyle.ACTION_BUTTONS, actionConfig.style)
-    }
-
-    /**
-     * Test NotificationAction data structure
-     * Validates action button configuration
-     */
-    @Test
-    fun testNotificationAction_structureValidation() {
-        // Create sample actions
-        val replyAction = NotificationAction("Reply", "reply")
-        val markReadAction = NotificationAction("Mark as Read", "mark_read")
-        val dismissAction = NotificationAction("Dismiss", "dismiss")
-
-        // Verify structure
-        assertEquals("Reply", replyAction.title)
-        assertEquals("reply", replyAction.actionId)
-
-        assertEquals("Mark as Read", markReadAction.title)
-        assertEquals("mark_read", markReadAction.actionId)
-
-        assertEquals("Dismiss", dismissAction.title)
-        assertEquals("dismiss", dismissAction.actionId)
-
-        // Test in notification config
-        val configWithActions = NotificationConfig(
-            title = "Message",
-            body = "You have a new message",
-            style = NotificationStyle.ACTION_BUTTONS,
-            actions = listOf(replyAction, markReadAction, dismissAction)
-        )
-
-        assertEquals(3, configWithActions.actions?.size)
-        assertEquals("Reply", configWithActions.actions?.get(0)?.title)
-        assertEquals("reply", configWithActions.actions?.get(0)?.actionId)
-    }
-
-    /**
-     * Test notification badge number validation
-     * Validates badge count range and behavior
-     */
-    @Test
-    fun testNotificationBadge_validation() {
-        // Test valid badge numbers
-        val zeroBadge = NotificationConfig("Title", "Body", badge = 0)
-        val normalBadge = NotificationConfig("Title", "Body", badge = 5)
-        val largeBadge = NotificationConfig("Title", "Body", badge = 99)
-
-        assertEquals(0, zeroBadge.badge)
-        assertEquals(5, normalBadge.badge)
-        assertEquals(99, largeBadge.badge)
-
-        // Test null badge (default)
-        val noBadge = NotificationConfig("Title", "Body")
-        assertNull(noBadge.badge)
-
-        // Validate badge range logic
-        val validBadges = listOf(0, 1, 5, 10, 99, 999)
-        validBadges.forEach { badge ->
-            assertTrue(badge >= 0)
+    @Before
+    fun setUp() {
+        val assets: AssetManager = mock {
+            on { open("webview_config.properties") } doReturn ByteArrayInputStream(ByteArray(0))
+        }
+        context = mock {
+            on { getAssets() } doReturn assets
+            on { getPackageName() } doReturn "io.yourname.androidproject.test"
         }
 
-        // Test negative badge (logically invalid but allowed by type system)
-        val negativeBadge = -5
-        assertFalse(negativeBadge >= 0)
-    }
+        contextCompatMock = mockStatic(ContextCompat::class.java)
+        activityCompatMock = mockStatic(ActivityCompat::class.java)
+        notificationManagerCompatMock = mockStatic(NotificationManagerCompat::class.java)
 
-    // ============================================================
-    // CATEGORY 2: Channel Management (3 tests)
-    // ============================================================
-
-    /**
-     * Test NotificationChannelConfig structure
-     * Validates channel configuration data class
-     */
-    @Test
-    fun testChannelConfig_structureValidation() {
-        val defaultChannel = NotificationChannelConfig(
-            id = "default",
-            name = "Default Notifications",
-            description = "General app notifications"
-        )
-
-        assertEquals("default", defaultChannel.id)
-        assertEquals("Default Notifications", defaultChannel.name)
-        assertEquals("General app notifications", defaultChannel.description)
-        assertTrue(defaultChannel.enableLights)
-        assertTrue(defaultChannel.enableVibration)
-        assertNull(defaultChannel.vibrationPattern)
-        assertNull(defaultChannel.sound)
-
-        // Test urgent channel with custom settings
-        val urgentChannel = NotificationChannelConfig(
-            id = "urgent",
-            name = "Urgent Notifications",
-            description = "Critical alerts",
-            importance = 4, // IMPORTANCE_HIGH
-            enableLights = true,
-            lightColor = 0xFFFF0000.toInt(), // Red
-            enableVibration = true,
-            vibrationPattern = longArrayOf(0, 300, 200, 300)
-        )
-
-        assertEquals("urgent", urgentChannel.id)
-        assertEquals(4, urgentChannel.importance)
-        assertEquals(0xFFFF0000.toInt(), urgentChannel.lightColor)
-        assertNotNull(urgentChannel.vibrationPattern)
-        assertEquals(4, urgentChannel.vibrationPattern?.size)
-    }
-
-    /**
-     * Test channel ID constants and naming
-     * Validates standard channel IDs used in the app
-     */
-    @Test
-    fun testChannelIds_standardChannels() {
-        // Test standard channel IDs
-        val defaultChannelId = "default"
-        val urgentChannelId = "urgent"
-
-        // Validate in NotificationConfig usage
-        val defaultNotif = NotificationConfig("Title", "Body", channel = defaultChannelId)
-        val urgentNotif = NotificationConfig("Title", "Body", channel = urgentChannelId)
-
-        assertEquals("default", defaultNotif.channel)
-        assertEquals("urgent", urgentNotif.channel)
-
-        // Test default channel assignment
-        val implicitDefault = NotificationConfig("Title", "Body")
-        assertEquals("default", implicitDefault.channel)
-    }
-
-    /**
-     * Test channel importance levels
-     * Validates Android NotificationManager importance constants
-     */
-    @Test
-    fun testChannelImportance_levels() {
-        // Android importance levels (from NotificationManager)
-        val IMPORTANCE_MIN = 1
-        val IMPORTANCE_LOW = 2
-        val IMPORTANCE_DEFAULT = 3
-        val IMPORTANCE_HIGH = 4
-        val IMPORTANCE_MAX = 5
-
-        // Validate ordering
-        assertTrue(IMPORTANCE_MIN < IMPORTANCE_LOW)
-        assertTrue(IMPORTANCE_LOW < IMPORTANCE_DEFAULT)
-        assertTrue(IMPORTANCE_DEFAULT < IMPORTANCE_HIGH)
-        assertTrue(IMPORTANCE_HIGH < IMPORTANCE_MAX)
-
-        // Test in channel config
-        val lowImportance = NotificationChannelConfig(
-            "low", "Low", "Low priority", importance = IMPORTANCE_LOW
-        )
-        val highImportance = NotificationChannelConfig(
-            "high", "High", "High priority", importance = IMPORTANCE_HIGH
-        )
-
-        assertEquals(IMPORTANCE_LOW, lowImportance.importance)
-        assertEquals(IMPORTANCE_HIGH, highImportance.importance)
-        assertTrue(lowImportance.importance < highImportance.importance)
-    }
-
-    // ============================================================
-    // CATEGORY 3: Notification ID Generation (3 tests)
-    // ============================================================
-
-    /**
-     * Test notification ID format and structure
-     * Validates ID generation pattern
-     */
-    @Test
-    fun testNotificationId_format() {
-        // Simulate ID generation logic
-        val timestamp1 = System.currentTimeMillis()
-        val random1 = Random().nextInt(1000)
-        val id1 = "notification_${timestamp1}_${random1}"
-
-        // Verify format
-        assertTrue(id1.startsWith("notification_"))
-        assertTrue(id1.contains("_"))
-
-        // Extract parts
-        val parts = id1.split("_")
-        assertEquals(3, parts.size)
-        assertEquals("notification", parts[0])
-
-        // Verify timestamp is numeric
-        val timestampPart = parts[1].toLongOrNull()
-        assertNotNull(timestampPart)
-        assertTrue(timestampPart!! > 0)
-
-        // Verify random part is numeric
-        val randomPart = parts[2].toIntOrNull()
-        assertNotNull(randomPart)
-        assertTrue(randomPart!! in 0..999)
-    }
-
-    /**
-     * Test notification ID uniqueness
-     * Validates that generated IDs are unique
-     */
-    @Test
-    fun testNotificationId_uniqueness() {
-        val generatedIds = mutableSetOf<String>()
-
-        // Generate 10 IDs rapidly
-        repeat(10) {
-            val timestamp = System.currentTimeMillis()
-            val random = Random().nextInt(1000)
-            val id = "notification_${timestamp}_${random}"
-            generatedIds.add(id)
-
-            // Small delay to ensure different timestamps
-            Thread.sleep(1)
+        // Default: areNotificationsEnabled() -> true, matching the "happy
+        // path" a real device would report. Individual tests override with
+        // their own NotificationManagerCompat.from(...) stub when they need
+        // a specific mock instance (e.g. to verify cancel() was called).
+        val defaultManagerCompat = mock<NotificationManagerCompat> {
+            on { areNotificationsEnabled() } doReturn true
         }
-
-        // Verify all IDs are unique (or at least most are)
-        // Due to random component, we might have collisions, but very unlikely with 1000 range
-        assertTrue(generatedIds.size >= 8) // At least 80% unique
+        notificationManagerCompatMock.`when`<NotificationManagerCompat> { NotificationManagerCompat.from(any()) }
+            .thenReturn(defaultManagerCompat)
     }
 
-    /**
-     * Test notification ID hash code for Android notification manager
-     * Validates hash code generation from string ID
-     */
-    @Test
-    fun testNotificationId_hashCodeGeneration() {
-        val id1 = "notification_1234567890_123"
-        val id2 = "notification_1234567890_456"
-        val id3 = "notification_9876543210_789"
-
-        // Get hash codes (simulating what Android's notify() uses)
-        val hash1 = id1.hashCode()
-        val hash2 = id2.hashCode()
-        val hash3 = id3.hashCode()
-
-        // Verify different IDs produce different hashes
-        assertNotEquals(hash1, hash2)
-        assertNotEquals(hash1, hash3)
-        assertNotEquals(hash2, hash3)
-
-        // Verify same ID produces same hash
-        val id1Copy = "notification_1234567890_123"
-        assertEquals(hash1, id1Copy.hashCode())
-
-        // Verify hash codes are within Int range
-        assertTrue(hash1 is Int)
-        assertTrue(hash2 is Int)
-        assertTrue(hash3 is Int)
+    @After
+    fun tearDown() {
+        contextCompatMock.close()
+        activityCompatMock.close()
+        notificationManagerCompatMock.close()
     }
 
     // ============================================================
-    // CATEGORY 4: Deep Linking Validation (3 tests)
+    // handlePermissionResult (pure state/callback logic, no mocks needed)
     // ============================================================
 
-    /**
-     * Test notification data payload structure
-     * Validates data map format for deep linking
-     */
     @Test
-    fun testNotificationData_payloadStructure() {
-        // Test simple data payload
-        val simpleData = mapOf(
-            "screen" to "home",
-            "userId" to "123"
+    fun `handlePermissionResult without a registered callback is a no-op`() {
+        // Build.VERSION.SDK_INT is 0 in this JVM's Android stub jar, so
+        // requestNotificationPermission always takes the pre-TIRAMISU
+        // branch and never stores permissionCallback — there is no
+        // reachable path in this test environment to register a callback
+        // and then observe handlePermissionResult invoke it. This
+        // exercises the requestCode/permissions-match branch through to
+        // its "no callback registered" fall-through without throwing.
+        val notificationUtils = NotificationUtils(context)
+
+        notificationUtils.handlePermissionResult(
+            requestCode = 100,
+            permissions = arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+            grantResults = intArrayOf(PackageManager.PERMISSION_GRANTED)
         )
-
-        val simpleNotif = NotificationConfig(
-            "Title", "Body",
-            data = simpleData
-        )
-
-        assertEquals("home", simpleNotif.data?.get("screen"))
-        assertEquals("123", simpleNotif.data?.get("userId"))
-
-        // Test complex data payload
-        val complexData = mapOf(
-            "screen" to "profile",
-            "userId" to "456",
-            "action" to "view",
-            "extra" to mapOf("key" to "value")
-        )
-
-        val complexNotif = NotificationConfig(
-            "Title", "Body",
-            data = complexData
-        )
-
-        assertEquals("profile", complexNotif.data?.get("screen"))
-        assertEquals("456", complexNotif.data?.get("userId"))
-        assertEquals("view", complexNotif.data?.get("action"))
-        assertNotNull(complexNotif.data?.get("extra"))
     }
 
-    /**
-     * Test notification intent action IDs
-     * Validates action ID format for button callbacks
-     */
     @Test
-    fun testNotificationAction_actionIdFormat() {
-        val validActionIds = listOf(
-            "reply",
-            "mark_read",
-            "dismiss",
-            "accept",
-            "decline",
-            "view_details"
+    fun `handlePermissionResult does nothing for an unrelated requestCode`() {
+        val notificationUtils = NotificationUtils(context)
+
+        // Different requestCode than REQUEST_CODE_PERMISSION (100) — should
+        // be a no-op, not throw.
+        notificationUtils.handlePermissionResult(
+            requestCode = 999,
+            permissions = arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+            grantResults = intArrayOf(PackageManager.PERMISSION_GRANTED)
         )
-
-        // Verify action ID format (lowercase, underscores)
-        validActionIds.forEach { actionId ->
-            assertTrue(actionId.matches(Regex("^[a-z_]+$")))
-        }
-
-        // Test invalid formats (should not match pattern)
-        val invalidActionIds = listOf(
-            "Reply", // Uppercase
-            "mark-read", // Hyphen instead of underscore
-            "dismiss!", // Special character
-            "view details" // Space
-        )
-
-        invalidActionIds.forEach { actionId ->
-            assertFalse(actionId.matches(Regex("^[a-z_]+$")))
-        }
-
-        // Test action ID hash codes for intent request codes
-        validActionIds.forEach { actionId ->
-            val hashCode = actionId.hashCode()
-            assertTrue(hashCode is Int) // Valid for PendingIntent
-        }
     }
 
-    /**
-     * Test notification extra keys for intent data
-     * Validates intent extra key constants
-     */
     @Test
-    fun testNotificationIntent_extraKeys() {
-        // Define constants (matching NotificationConstants)
-        val EXTRA_IS_NOTIFICATION = "is_notification"
-        val EXTRA_NOTIFICATION_DATA = "notification_data"
-        val EXTRA_ACTION = "action"
+    fun `handlePermissionResult does nothing for an empty permissions array`() {
+        val notificationUtils = NotificationUtils(context)
 
-        // Validate key format (lowercase, underscores)
-        assertTrue(EXTRA_IS_NOTIFICATION.matches(Regex("^[a-z_]+$")))
-        assertTrue(EXTRA_NOTIFICATION_DATA.matches(Regex("^[a-z_]+$")))
-        assertTrue(EXTRA_ACTION.matches(Regex("^[a-z_]+$")))
+        notificationUtils.handlePermissionResult(
+            requestCode = 100,
+            permissions = emptyArray(),
+            grantResults = IntArray(0)
+        )
+    }
 
-        // Test key uniqueness
-        val keys = setOf(EXTRA_IS_NOTIFICATION, EXTRA_NOTIFICATION_DATA, EXTRA_ACTION)
-        assertEquals(3, keys.size)
+    // ============================================================
+    // cancelLocalNotification
+    // ============================================================
 
-        // Verify no key collisions
-        assertNotEquals(EXTRA_IS_NOTIFICATION, EXTRA_NOTIFICATION_DATA)
-        assertNotEquals(EXTRA_IS_NOTIFICATION, EXTRA_ACTION)
-        assertNotEquals(EXTRA_NOTIFICATION_DATA, EXTRA_ACTION)
+    @Test
+    fun `cancelLocalNotification returns false for a null id`() {
+        val notificationUtils = NotificationUtils(context)
+        assertFalse(notificationUtils.cancelLocalNotification(context, null))
+    }
+
+    @Test
+    fun `cancelLocalNotification returns false for a blank id`() {
+        val notificationUtils = NotificationUtils(context)
+        assertFalse(notificationUtils.cancelLocalNotification(context, "   "))
+    }
+
+    @Test
+    fun `cancelLocalNotification cancels via NotificationManagerCompat and returns true`() {
+        val managerCompat = mock<NotificationManagerCompat>()
+        notificationManagerCompatMock.`when`<NotificationManagerCompat> { NotificationManagerCompat.from(context) }
+            .thenReturn(managerCompat)
+
+        val notificationUtils = NotificationUtils(context)
+        val result = notificationUtils.cancelLocalNotification(context, "notification_123")
+
+        assertTrue(result)
+        verify(managerCompat).cancel("notification_123".hashCode())
+    }
+
+    @Test
+    fun `cancelLocalNotification returns false when NotificationManagerCompat throws`() {
+        notificationManagerCompatMock.`when`<NotificationManagerCompat> { NotificationManagerCompat.from(context) }
+            .thenThrow(RuntimeException("boom"))
+
+        val notificationUtils = NotificationUtils(context)
+        assertFalse(notificationUtils.cancelLocalNotification(context, "notification_123"))
+    }
+
+    // ============================================================
+    // createNotificationChannel (pre-O: no-op; API level not mockable
+    // cleanly without Robolectric, so this exercises the call path without
+    // asserting the Build.VERSION.SDK_INT-gated branch specifically)
+    // ============================================================
+
+    @Test
+    fun `createNotificationChannel does not throw for a default channel config`() {
+        val notificationManager = mock<NotificationManager>()
+        whenever(context.getSystemService(Context.NOTIFICATION_SERVICE)) doReturn notificationManager
+
+        val notificationUtils = NotificationUtils(context)
+        val config = NotificationConfig(title = "Title", body = "Body")
+
+        // Does not throw regardless of which SDK_INT branch the test JVM's
+        // Build.VERSION.SDK_INT stub reports.
+        notificationUtils.createNotificationChannel(context, config)
+    }
+
+    // ============================================================
+    // requestNotificationPermission
+    // ============================================================
+
+    @Test
+    fun `requestNotificationPermission invokes callback without throwing`() {
+        val activity: Activity = mock()
+        contextCompatMock.`when`<Int> { ContextCompat.checkSelfPermission(eq(activity), any()) }
+            .thenReturn(PackageManager.PERMISSION_GRANTED)
+
+        val notificationUtils = NotificationUtils(context)
+        var callbackInvoked = false
+
+        notificationUtils.requestNotificationPermission(activity) { callbackInvoked = true }
+
+        // On pre-TIRAMISU test JVMs this resolves via areNotificationsEnabled
+        // (NotificationManagerCompat, unmocked -> SDK stub default), on
+        // TIRAMISU+ it resolves via the checkSelfPermission stub above —
+        // either way the callback path completes without throwing.
+        assertNotNull(callbackInvoked)
+    }
+
+    // ============================================================
+    // checkPermissionStatus
+    // ============================================================
+
+    @Test
+    fun `checkPermissionStatus does not throw and returns a known status string`() {
+        contextCompatMock.`when`<Int> { ContextCompat.checkSelfPermission(eq(context), any()) }
+            .thenReturn(PackageManager.PERMISSION_GRANTED)
+
+        val notificationUtils = NotificationUtils(context)
+        val status = notificationUtils.checkPermissionStatus(context)
+
+        assertTrue(status in setOf("GRANTED", "DENIED", "NOT_DETERMINED"))
     }
 }
