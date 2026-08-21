@@ -90,7 +90,7 @@ private class ConnectionWrapper: Hashable {
 
 // MARK: - Framework Server Utils
 
-class FrameworkServerUtils {
+public class FrameworkServerUtils {
 
     // Constants from unified configuration
     static let FRAMEWORK_PORT_RANGE_START: UInt16 = CatalystConstants.NetworkServer.portRangeStart
@@ -98,7 +98,7 @@ class FrameworkServerUtils {
     static let SESSION_TIMEOUT_SECONDS: TimeInterval = CatalystConstants.NetworkServer.sessionTimeout
 
     // Singleton instance
-    static let shared = FrameworkServerUtils()
+    public static let shared = FrameworkServerUtils()
 
     // Server state
     private var listener: NWListener?
@@ -134,7 +134,7 @@ class FrameworkServerUtils {
      * Initialize and start the framework server
      * @return Boolean indicating success/failure of server startup
      */
-    func startServer() -> Bool {
+    public func startServer() -> Bool {
         logger.debug("Starting framework server...")
 
         if self.isServerRunning {
@@ -283,7 +283,7 @@ class FrameworkServerUtils {
      * @param mimeType MIME type
      * @return URL where the file can be accessed, or nil if failed
      */
-    func copyAndServeFile(originalFile: URL, fileName: String, mimeType: String) -> String? {
+    public func copyAndServeFile(originalFile: URL, fileName: String, mimeType: String) -> String? {
         guard isServerRunning, let cacheDirectory = cacheDirectory else {
             logger.error("Cannot copy and serve file - server not running or cache not initialized")
             return nil
@@ -328,7 +328,7 @@ class FrameworkServerUtils {
     /**
      * Check if server is running
      */
-    func isRunning() -> Bool {
+    public func isRunning() -> Bool {
         return isServerRunning
     }
 

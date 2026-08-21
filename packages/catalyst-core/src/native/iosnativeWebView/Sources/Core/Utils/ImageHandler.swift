@@ -6,6 +6,7 @@ import Foundation
 import UIKit
 import AVFoundation
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "ImageHandler")
 

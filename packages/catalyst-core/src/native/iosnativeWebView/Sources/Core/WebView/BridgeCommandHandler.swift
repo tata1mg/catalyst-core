@@ -14,6 +14,7 @@ import os
 import UserNotifications
 #if canImport(GoogleSignIn)
 import GoogleSignIn
+import CatalystCoreLogic
 #endif
 
 private let commandLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.commandHandler)

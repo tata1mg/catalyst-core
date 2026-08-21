@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 import UniformTypeIdentifiers
+import CatalystCoreLogic
 @testable import CatalystCore
 
 /**

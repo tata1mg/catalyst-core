@@ -1,5 +1,5 @@
 import XCTest
-@testable import CatalystCore
+@testable import CatalystCoreLogic
 
 /// Unit tests for URLWhitelistManager
 /// Tests pattern matching, access control, URL cleaning, and thread safety

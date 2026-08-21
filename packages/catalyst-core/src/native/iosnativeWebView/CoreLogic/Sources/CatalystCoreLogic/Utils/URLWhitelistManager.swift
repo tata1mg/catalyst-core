@@ -22,8 +22,8 @@ private struct CategorizedPatterns {
 /// - Query parameters and hash fragments are stripped before matching
 /// - Matching is case-insensitive
 /// - Ports are kept as-is (user must include port in pattern if URL has explicit port)
-class URLWhitelistManager {
-    static let shared = URLWhitelistManager()
+public class URLWhitelistManager {
+    public static let shared = URLWhitelistManager()
 
     private var accessControlEnabled: Bool = false
     private var patterns: CategorizedPatterns?
@@ -66,7 +66,7 @@ class URLWhitelistManager {
     }
 
     /// Check if URL whitelisting is enabled
-    var isAccessControlEnabled: Bool {
+    public var isAccessControlEnabled: Bool {
         return syncQueue.sync { self.accessControlEnabled }
     }
 
@@ -74,7 +74,7 @@ class URLWhitelistManager {
     /// If access control is disabled, all URLs are allowed
     /// - Parameter url: The URL to check
     /// - Returns: true if URL is allowed, false otherwise
-    func isUrlAllowed(_ url: URL) -> Bool {
+    public func isUrlAllowed(_ url: URL) -> Bool {
         return isUrlAllowed(url.absoluteString)
     }
 
@@ -82,7 +82,7 @@ class URLWhitelistManager {
     /// If access control is disabled, all URLs are allowed
     /// - Parameter urlString: The URL string to check
     /// - Returns: true if URL is allowed, false otherwise
-    func isUrlAllowed(_ urlString: String) -> Bool {
+    public func isUrlAllowed(_ urlString: String) -> Bool {
         return syncQueue.sync {
             // If access control is disabled, allow everything
             if !self.accessControlEnabled {
@@ -139,7 +139,7 @@ class URLWhitelistManager {
     /// If access control is disabled, nothing is considered external
     /// - Parameter url: The URL to check
     /// - Returns: true if URL is external, false if it's whitelisted
-    func isExternalDomain(_ url: URL) -> Bool {
+    public func isExternalDomain(_ url: URL) -> Bool {
         return isExternalDomain(url.absoluteString)
     }
 
@@ -147,7 +147,7 @@ class URLWhitelistManager {
     /// If access control is disabled, nothing is considered external
     /// - Parameter urlString: The URL string to check
     /// - Returns: true if URL is external, false if it's whitelisted
-    func isExternalDomain(_ urlString: String) -> Bool {
+    public func isExternalDomain(_ urlString: String) -> Bool {
         // If access control is disabled, nothing is external
         if !self.accessControlEnabled {
             return false

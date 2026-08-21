@@ -15,7 +15,7 @@ import Foundation
 //   HOLD      → STOPPING  (stop() called during hold)
 //   STOPPING  → IDLE      (session torn down)
 
-enum VideoStreamState {
+public enum VideoStreamState {
     case idle
     case starting
     case streaming

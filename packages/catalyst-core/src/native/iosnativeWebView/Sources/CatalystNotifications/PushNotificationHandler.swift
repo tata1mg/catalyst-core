@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import os
 import CatalystCore
+import CatalystCoreLogic
 import FirebaseMessaging
 import FirebaseCore
 

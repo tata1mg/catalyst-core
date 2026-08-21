@@ -8,19 +8,21 @@ private final class WeakListenerBox {
     init(_ value: VideoStreamStateListener) { self.value = value }
 }
 
-class VideoStreamStateMachine {
+public class VideoStreamStateMachine {
 
     private var _state: VideoStreamState = .idle
     private var listeners: [WeakListenerBox] = []
     private let lock = NSLock()
 
-    var state: VideoStreamState {
+    public init() {}
+
+    public var state: VideoStreamState {
         lock.lock()
         defer { lock.unlock() }
         return _state
     }
 
-    var isActive: Bool {
+    public var isActive: Bool {
         lock.lock()
         defer { lock.unlock() }
         return _state.isActive
@@ -39,7 +41,7 @@ class VideoStreamStateMachine {
     }
 
     @discardableResult
-    func transition(to next: VideoStreamState) -> Bool {
+    public func transition(to next: VideoStreamState) -> Bool {
         lock.lock()
         let prev = _state
         guard prev.canTransitionTo(next) else {
