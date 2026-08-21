@@ -87,6 +87,25 @@ jobs:
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+            # CatalystCoreLogic (#432): the UIKit-free nested SPM package
+            # split out of CatalystCore. Runs first, in the same job/runner
+            # as the simulator-based tests below rather than as a separate
+            # top-level job — a separate job would mean a second macos
+            # runner spin-up (real wall-clock cost on GitHub's macOS
+            # runners) just to save ~50s, which doesn't pay for itself.
+            # Sequencing it first here means a CatalystCoreLogic failure
+            # fails fast and skips the expensive simulator boot + full
+            # UIKit build below (~9-10 min) entirely — that's the actual
+            # win, not parallelism. No simulator boot, no full
+            # CatalystCore/UIKit build, no network package resolution
+            # (CatalystCoreLogic has zero dependencies). Measured locally:
+            # 171 tests in well under a second (excluding cold build time).
+            - name: Run CatalystCoreLogic unit tests (swift test, no simulator)
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  set -o pipefail
+                  swift test --package-path CoreLogic
+
             # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
             # keyed on Package.resolved — avoids re-fetching them from
             # GitHub over the network on every run. Not full DerivedData
@@ -195,24 +214,6 @@ jobs:
                     -clonedSourcePackagesDirPath .spm-cache \
                     CODE_SIGNING_ALLOWED=NO \
                     | xcbeautify --renderer github-actions --quieter
-
-    # CatalystCoreLogic (#432): the UIKit-free nested SPM package split out
-    # of CatalystCore. Runs concurrently with test-ios-unit above (separate
-    # top-level jobs fan out in parallel by default) — no simulator boot,
-    # no full CatalystCore/UIKit build, no network package resolution
-    # (CatalystCoreLogic has zero dependencies). Measured locally: 161
-    # tests in well under a second, vs. ~9-10 min for the simulator path.
-    test-ios-logic-unit:
-        runs-on: macos-latest
-
-        steps:
-            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-            - name: Run CatalystCoreLogic unit tests (swift test, no simulator)
-              working-directory: packages/catalyst-core/src/native/iosnativeWebView
-              run: |
-                  set -o pipefail
-                  swift test --package-path CoreLogic
 
     test-js-integration:
         runs-on: ubuntu-latest
