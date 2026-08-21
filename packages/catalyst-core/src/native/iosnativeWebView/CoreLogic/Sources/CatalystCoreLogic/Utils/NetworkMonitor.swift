@@ -87,7 +87,9 @@ public final class NetworkMonitor {
         }
     }
 
-    private static func mapPathToStatus(_ path: NWPath) -> NetworkStatus {
+    // Internal (not private) so @testable import can exercise this pure
+    // mapping logic directly without needing a live NWPathMonitor callback.
+    static func mapPathToStatus(_ path: NWPath) -> NetworkStatus {
         let isOnline = path.status == .satisfied
 
         let type: String?
