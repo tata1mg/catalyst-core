@@ -183,6 +183,38 @@ final class FrameworkServerUtilsLoopbackTests: XCTestCase {
         XCTAssertEqual(response.statusCode, 405)
     }
 
+    // MARK: - Physical file missing after being registered (not just unknown id)
+
+    func testFileRequest_PhysicalFileDeletedAfterRegistration_Returns404() async throws {
+        guard startServerAndWaitReady() else {
+            throw XCTSkip("Server failed to start in this environment — skipping loopback test")
+        }
+
+        let servedURLString = try XCTUnwrap(
+            try serveTemporaryFile(content: "will be deleted from cache", fileName: "loopback-vanish.txt", mimeType: "text/plain")
+        )
+        let servedURL = try XCTUnwrap(URL(string: servedURLString))
+
+        // copyAndServeFile copies into a documents-directory cache path
+        // deterministically named "<timestamp>_<fileName>" — reconstruct
+        // and delete it directly (cacheDirectory itself is private) to
+        // simulate the file having vanished between being registered and
+        // being requested (servedFile entry still present, physical file
+        // gone), exercising serveFile's "Physical file not found" branch
+        // rather than addFileToServe's earlier existence checks.
+        let documentsDirectory = try XCTUnwrap(
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        )
+        let cacheDirectory = documentsDirectory.appendingPathComponent("framework_server_files", isDirectory: true)
+        let cachedFiles = try FileManager.default.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil)
+        let vanishedCacheFile = try XCTUnwrap(cachedFiles.first { $0.lastPathComponent.hasSuffix("loopback-vanish.txt") })
+        try FileManager.default.removeItem(at: vanishedCacheFile)
+
+        let (response, _) = try await makeRequest(url: servedURL)
+
+        XCTAssertEqual(response.statusCode, 404)
+    }
+
     // MARK: - removeServedFile
 
     func testRemoveServedFile_SubsequentRequestReturns404() async throws {
