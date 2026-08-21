@@ -1,0 +1,25 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/FrameworkServerUtils.kt
+  s_d1d2a3ad805770::t_ea2c35b5809425 67-75
+  s_d1d2a3ad805770::t_ab51cd7f5ec0c6 100-107
+  s_d1d2a3ad805770::t_d8a12a14fadb1d 522-539
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FrameworkServerUtilsTest.kt
+  s_d1d2a3ad805770::t_55187ad83578df 80
+  s_d1d2a3ad805770::t_ff56727aa055bd 130-161
+  s_d1d2a3ad805770::t_6f60e91b5d427e 1-79,81-129,162-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "e4c73f25d9cead7a95d147d2ccd844189cbe6f20",
+  "prompts": {},
+  "sessions": {
+    "s_d1d2a3ad805770": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8e984c3-3a98-43b0-a19a-64996f057441",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
