@@ -87,6 +87,11 @@ fun getLocalIpAddress(): String {
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    jacoco
+}
+
+jacoco {
+    toolVersion = libs.versions.jacoco.get()
 }
 
 android {
@@ -298,6 +303,65 @@ dependencies {
         implementation("com.google.firebase:firebase-messaging:23.4.0")
         implementation("com.google.firebase:firebase-analytics:21.5.0")
     }
+}
+
+// JVM unit test coverage (Tier 1). Mirrors the CatalystCoreLogic
+// llvm-cov setup on iOS (#432): real, measured line coverage for
+// app/src/test, not just a pass/fail count. Scoped to testDebugUnitTest —
+// enableUnitTestCoverage=true on the debug build type (above) already
+// makes Gradle emit the raw .exec coverage data; this task turns that
+// into the human/CI-readable XML + HTML report.
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    group = "verification"
+    description = "Generates JVM unit test coverage report for app/src/test (Tier 1)."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    // Excludes are deliberately narrow: only generated/non-authored code
+    // (R.class, BuildConfig, view/data binding scaffolding, Android
+    // framework component boilerplate that unit tests structurally can't
+    // reach without an emulator — that's Tier 2/instrumented territory,
+    // not a coverage number worth inflating by excluding real logic).
+    val fileFilter = listOf(
+        "**/R.class", "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/databinding/**",
+        "**/android/databinding/**",
+        "**/androidx/databinding/**",
+        "**/*_ViewBinding*.*",
+        "**/*\$ViewInjector*.*",
+        "**/*\$ViewBinder*.*",
+        "**/*_MembersInjector.class"
+    )
+
+    val debugTree = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
+        exclude(fileFilter)
+    }
+    val kotlinDebugTree = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+        exclude(fileFilter)
+    }
+    // Both noFcm/withFcm are listed (not just whichever isNotificationsEnabled()
+    // picked for this build) purely so the HTML report can resolve source
+    // lines for whichever one actually got compiled — listing the inactive
+    // one is harmless, Jacoco just won't find matching class files for it.
+    val sourceDirs = listOf(
+        "${project.projectDir}/src/main/java",
+        "${project.projectDir}/src/noFcm/java",
+        "${project.projectDir}/src/withFcm/java"
+    )
+
+    sourceDirectories.setFrom(files(sourceDirs))
+    classDirectories.setFrom(files(debugTree, kotlinDebugTree))
+    executionData.setFrom(fileTree(layout.buildDirectory) {
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
 }
 
 // Task to verify local IP
