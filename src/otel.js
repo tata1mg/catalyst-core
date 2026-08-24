@@ -244,11 +244,9 @@ class PromotingSpanProcessor {
         const now = Date.now()
         const TTL = 5 * 60 * 1000
 
-        let bufferTtlEvicted = 0
         for (const [traceId, record] of this.buffer.entries()) {
             if (now - record.timestamp > TTL) {
                 this.buffer.delete(traceId)
-                bufferTtlEvicted++
             } else {
                 break
             }
@@ -264,25 +262,18 @@ class PromotingSpanProcessor {
             }
             // Buffer is filling faster than root spans resolve — unresolved traces
             // are being dropped before ever getting a promotion decision.
+            const { rss, heapUsed } = process.memoryUsage()
             logger.warn(
-                `⚠️ PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size})`
+                `⚠️ PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${(rss / 1024 / 1024).toFixed(1)}MB, heapUsed=${(heapUsed / 1024 / 1024).toFixed(1)}MB)`
             )
         }
 
-        let promotedTtlEvicted = 0
         for (const [traceId, data] of this.promotedTraces.entries()) {
             if (now - data.timestamp > TTL) {
                 this.promotedTraces.delete(traceId)
-                promotedTtlEvicted++
             } else {
                 break
             }
-        }
-
-        if (bufferTtlEvicted || promotedTtlEvicted) {
-            logger.debug(
-                `PromotingSpanProcessor cleanup: evicted ${bufferTtlEvicted} stale buffered trace(s) and ${promotedTtlEvicted} stale promoted trace(s) (buffer=${this.buffer.size}, promotedTraces=${this.promotedTraces.size})`
-            )
         }
     }
 
@@ -294,6 +285,9 @@ class PromotingSpanProcessor {
         if (this.cleanupInterval) {
             clearInterval(this.cleanupInterval)
         }
+        logger.info(
+            `📡 PromotingSpanProcessor: shutting down, discarding ${this.buffer.size} unresolved trace(s) and ${this.promotedTraces.size} promoted-trace record(s)`
+        )
         this.buffer.clear()
         this.promotedTraces.clear()
         return this.batchProcessor.shutdown()
