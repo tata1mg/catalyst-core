@@ -8,6 +8,54 @@
 
 # Changelog
 
+## [0.4.0] - unreleased
+
+This release freezes the public API. The root entry of `catalyst-core` now exports exactly eight names and nothing else: `RouterDataProvider`, `useCurrentRouteData`, `useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. Anything previously reachable through the root entry but not in that list is no longer public. Applications that import a removed name will fail at build time rather than silently resolving to `undefined`.
+
+### React Router is no longer re-exported
+
+`catalyst-core` used to re-export the whole of React Router from its root entry, so `Link`, `Outlet`, `RouterProvider`, `useParams`, `useNavigate` and every other router name could be imported from `catalyst-core`. That re-export is gone.
+
+React Router is now a peer dependency (`^7.18.2`). Install it in the application:
+
+```bash
+npm install react-router@^7.18.2
+```
+
+Then import router names from `react-router` directly. An import line that mixed both sources splits into two:
+
+```js
+// before
+import { useCurrentRouteData, useParams, Link } from "catalyst-core"
+
+// after
+import { useCurrentRouteData } from "catalyst-core"
+import { useParams, Link } from "react-router"
+```
+
+Because the version is now declared by the application, npm will report a peer dependency conflict if the installed React Router major does not satisfy `^7.18.2`. The server also verifies the resolved version at startup and exits with a clear error if React Router is missing or outside the supported range.
+
+### Removed export paths
+
+- `catalyst-core/caching` — removed. The caching feature was withdrawn and has no replacement.
+- `catalyst-core/document` — removed. Import `Head` and `Body` from the `catalyst-core` root entry instead.
+
+### No default export from the root entry
+
+`split` was previously exported both as a named export and as the default. The default export is gone; use the named one.
+
+```js
+// before
+import split from "catalyst-core"
+
+// after
+import { split } from "catalyst-core"
+```
+
+### Names that are no longer public
+
+These were reachable from the root entry and are now internal: `RouterContext`, `serverDataFetcher`, `mergeHeadElements`, `deleteHeadTagsByDataAttribute`, `getMetaData`, and `useNavigateWithTransition`. In addition, `sanitizeFilePickerOptions` is no longer exported from `catalyst-core/hooks`. None of these have a supported replacement. If an application depends on one of them, open an issue describing the use case before upgrading.
+
 ## [0.1.0-beta.2] - 2026-05-06
 
 - Moved Catalyst into a monorepo structure with `catalyst-core`, `create-catalyst-app`, the Catalyst docs app, and the Catalyst core test app managed from one repository.

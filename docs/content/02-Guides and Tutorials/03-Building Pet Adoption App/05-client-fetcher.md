@@ -26,7 +26,8 @@ Update `src/js/pages/BreedDetails/BreedDetails.js`:
 
 ```jsx title="src/js/pages/BreedDetails/BreedDetails.js"
 import React from "react";
-import { useCurrentRouteData, useParams, Link } from "catalyst-core";
+import { useCurrentRouteData } from "catalyst-core";
+import { useParams, Link } from "react-router";
 
 const BreedDetails = () => {
   const { breed } = useParams();

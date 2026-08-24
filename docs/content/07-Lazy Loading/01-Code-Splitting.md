@@ -29,7 +29,8 @@ const Chart = split(() => import("@components/Chart/Chart.js"), {
 The client entry must wait for split modules used by SSR before hydrating:
 
 ```jsx title="client/index.js"
-import { RouterProvider, hydrationReady } from "catalyst-core"
+import { hydrationReady } from "catalyst-core"
+import { RouterProvider } from "react-router"
 import { hydrateRoot } from "react-dom/client"
 
 window.addEventListener("load", () => {
