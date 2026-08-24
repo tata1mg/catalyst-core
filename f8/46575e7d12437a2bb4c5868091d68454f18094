@@ -1,0 +1,32 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NotificationHandlerProviderTests.swift
+  s_d1d2a3ad805770::t_ae5988a55e9e81 39,47-48
+  s_d1d2a3ad805770::t_7474c569c2cba1 1-38,40-46,49-59
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/AnyCodableTests.swift
+  s_d1d2a3ad805770::t_dbb024a83793ff 1-154
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/VideoStreamStateTests.swift
+  s_d1d2a3ad805770::t_dbaf5552f82661 1-91
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NetworkMonitor.swift
+  s_d1d2a3ad805770::t_4b337e6931ea6c 90-92
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/CatalystConstantsTests.swift
+  s_d1d2a3ad805770::t_91623c5eac138e 1-192
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/VideoStreamStateMachineTests.swift
+  s_d1d2a3ad805770::t_01f32d0b7b87c7 1-171
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NetworkMonitorTests.swift
+  s_d1d2a3ad805770::t_577e35662ca72c 1-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "f846575e7d12437a2bb4c5868091d68454f18094",
+  "prompts": {},
+  "sessions": {
+    "s_d1d2a3ad805770": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8e984c3-3a98-43b0-a19a-64996f057441",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
