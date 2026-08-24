@@ -32,7 +32,8 @@ Import Catalyst router APIs from `catalyst-core`. Replace loadable components wi
 replace `loadableReady()` with `hydrationReady()` before `hydrateRoot()`.
 
 ```javascript
-import { RouterProvider, hydrationReady } from "catalyst-core"
+import { hydrationReady } from "catalyst-core"
+import { RouterProvider } from "react-router"
 import { hydrateRoot } from "react-dom/client"
 
 window.addEventListener("load", () => {

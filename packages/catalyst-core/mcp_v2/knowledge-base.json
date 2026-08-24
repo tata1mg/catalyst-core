@@ -1268,10 +1268,19 @@
     {
         "section": "routing",
         "title": "Catalyst 0.3.x Integrated Router",
-        "content": "Catalyst 0.3.x removes the @tata1mg/router package dependency. catalyst-core exports React Router APIs plus RouterDataProvider, MetaTag, routing data hooks, metadata utilities, split, and hydrationReady. Existing route arrays and preparedRoutes structure remain, but imports must move from @tata1mg/router to catalyst-core. Keeping both router packages can create duplicate runtime contracts and invalid React element errors.",
+        "content": "Catalyst 0.3.x removes the @tata1mg/router package dependency. As of the 0.4.0 API freeze, catalyst-core does NOT re-export React Router. Its root entry exports exactly eight names: RouterDataProvider, useCurrentRouteData, useRouterData, MetaTag, split, hydrationReady, Head, Body. There is no default export (split was previously also the default). React Router is a peerDependency (^7.18.2): install react-router in the application and import RouterProvider, Outlet, Link, useParams, useNavigate, useLocation, Navigate and every other router name from 'react-router' directly. Metadata utilities (getMetaData, mergeHeadElements, deleteHeadTagsByDataAttribute), RouterContext, serverDataFetcher and useNavigateWithTransition are no longer public. Existing route arrays and preparedRoutes structure remain unchanged. Keeping both router packages can create duplicate runtime contracts and invalid React element errors.",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["0.3.x", "router", "react-router", "RouterDataProvider", "migration"],
+        "tags": [
+            "0.3.x",
+            "0.4.0",
+            "router",
+            "react-router",
+            "peer-dependency",
+            "RouterDataProvider",
+            "migration",
+            "api-freeze"
+        ],
         "github_files": [
             "packages/catalyst-core/src/index.jsx",
             "packages/catalyst-core/src/web-router/components/RouterDataProvider.jsx"

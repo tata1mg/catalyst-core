@@ -12,15 +12,14 @@ React SSR framework + universal native app builder (Android/iOS via WebView).
 
 Key exports from `catalyst-core` package:
 
-- `catalyst-core` — SSR engine, `<Head>`, `<Body>`, `<Outlet>`
-- `@tata1mg/router` — router package (react-router-v6 wrapper), `useNavigate`, `Link`, `useCurrentRouteData`, `RouterDataProvider`
+- `catalyst-core` — SSR engine. Exports exactly eight names: `RouterDataProvider`, `useCurrentRouteData`, `useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, `Body`. No default export.
+- `react-router` — peer dependency (`^7.18.2`). `RouterProvider`, `Outlet`, `Link`, `useNavigate`, `useParams` and all other router names are imported from here, not from `catalyst-core`.
 - `catalyst-core/hooks` — native bridge hooks: `useCamera`, `useFilePicker`, `useHapticFeedback`, `useDeviceInfo`, `useIntent`
 - `catalyst-core/WebBridge` — low-level WebBridge (JS↔native), prefer hooks over this
-- `catalyst-core/caching` — server-side caching utilities
 
 **GitHub:** `https://github.com/tata1mg/catalyst-core` (MIT, public)
 **Hooks source:** `src/native/bridge/hooks.js`
-**Entry point:** `dist/index.js`
+**Entry point:** `dist/index.jsx`
 
 ---
 
