@@ -11,6 +11,7 @@ Frontend framework with server rendering support for web applications.
     -   clientFetcher
     -   refetch (for data revalidation)
 -   State Management
+-   Observability
 
 ## Overview
 
@@ -141,6 +142,40 @@ const configureStore = (initialState, cookies, requestObj, customHeaders) => {
 
 export default configureStore
 ```
+
+## Observability
+
+Catalyst ships an opt-in OpenTelemetry integration (`src/otel.js`) for traces and metrics. It's off by default — set `OTEL_ENABLE` to `true` in your app config to turn it on, then call `init()` once at server startup:
+
+```js
+import otel from "catalyst-core/otel"
+
+otel.init({
+    serviceName: "my-app",
+    traceUrl: "http://otel-collector:4317",
+    samplingRate: 0.05, // 5% of normal traffic
+})
+```
+
+**Status-aware error sampling**
+
+Normal head sampling picks traces at random when a request *starts*, before anyone knows it's going to fail — so a low `samplingRate` means rare errors are unlikely to ever be captured. Setting `errorSampling.ENABLED` re-evaluates every trace when its request *ends*: traces that come back as an error get a second, independent chance to be exported, on top of (not instead of) the normal sampling rate.
+
+```js
+otel.init({
+    samplingRate: 0.05,
+    errorSampling: {
+        ENABLED: true,
+        RATE_5XX: 1.0, // promote (almost) every 5xx and OTEL-flagged error
+        RATE_4XX: 0.2, // promote a slice of 4xx roots
+        PROMOTE_HANDLED_ERRORS: false, // also promote 2xx roots whose children errored
+        SKIP_PROMOTION_CODES: [408, 504, 524, 598, 599], // treated as noise, not app bugs
+        PROMOTE_BOT_TRAFFIC: false, // exclude bot-attributed traffic from promotion
+    },
+})
+```
+
+All `errorSampling` keys are optional and default to the values shown above (`RATE_4XX` defaults to `samplingRate` if omitted). See the JSDoc on `init()` in `src/otel.js` for the full config reference.
 
 ## Documentation
 

@@ -1,21 +1,331 @@
-import { metrics } from "@opentelemetry/api"
 import { NodeSDK } from "@opentelemetry/sdk-node"
 import { resourceFromAttributes } from "@opentelemetry/resources"
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node"
+import {
+    metrics,
+    trace,
+    TraceFlags,
+    SpanStatusCode,
+    context,
+    createContextKey,
+    isSpanContextValid,
+} from "@opentelemetry/api"
+import {
+    BatchSpanProcessor,
+    TraceIdRatioBasedSampler,
+    ParentBasedSampler,
+    SamplingDecision,
+} from "@opentelemetry/sdk-trace-node"
+import { setGlobalErrorHandler } from "@opentelemetry/core"
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc"
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc"
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
-import { TraceIdRatioBasedSampler, ParentBasedSampler } from "@opentelemetry/sdk-trace-node"
 import { OTLPTraceExporter as OTLPTraceExporterHTTP } from "@opentelemetry/exporter-trace-otlp-http"
 import { OTLPMetricExporter as OTLPMetricExporterHTTP } from "@opentelemetry/exporter-metrics-otlp-http"
-import { trace, context, createContextKey } from "@opentelemetry/api"
 
 export const IS_BOT_KEY = createContextKey("catalyst.is_bot")
 
 import semanticConventions from "@opentelemetry/semantic-conventions"
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = semanticConventions
 
+// Bit-range sampling decision helper
+function getDecisionForBits(traceId, start, end, rate) {
+    if (rate >= 1.0) return true
+    if (rate <= 0.0) return false
+    if (!traceId || traceId.length < end) return false
+    const hexPart = traceId.substring(start, end)
+    const value = parseInt(hexPart, 16)
+    const maxValue = Math.pow(16, end - start) - 1
+    return value / maxValue < rate
+}
+
+// Custom Status Aware Sampler
+class StatusAwareSampler {
+    constructor(samplingRate) {
+        this.samplingRate = samplingRate
+    }
+
+    shouldSample(context, traceId) {
+        const parentSpanContext = trace.getSpanContext(context)
+
+        if (parentSpanContext && isSpanContextValid(parentSpanContext)) {
+            if (parentSpanContext.traceFlags & TraceFlags.SAMPLED) {
+                return { decision: SamplingDecision.RECORD_AND_SAMPLED }
+            } else {
+                return { decision: SamplingDecision.RECORD }
+            }
+        }
+
+        // Head sampling using characters 0-12
+        const isHeadSampled = getDecisionForBits(traceId, 0, 12, this.samplingRate)
+        if (isHeadSampled) {
+            return { decision: SamplingDecision.RECORD_AND_SAMPLED }
+        } else {
+            return { decision: SamplingDecision.RECORD }
+        }
+    }
+
+    toString() {
+        return `StatusAwareSampler{samplingRate=${this.samplingRate}}`
+    }
+}
+
+// Custom Span Processor for Status Aware Error Sampling
+class PromotingSpanProcessor {
+    constructor(exporter, config) {
+        this.exporter = exporter
+        this.config = config
+        this.buffer = new Map()
+        this.promotedTraces = new Map()
+
+        // Delegating BatchSpanProcessor for head-sampled spans
+        this.batchProcessor = new BatchSpanProcessor(exporter, config.batchProcessorConfig)
+
+        this.cleanupInterval = setInterval(() => {
+            this._cleanupBuffers()
+        }, 30000)
+
+        if (this.cleanupInterval.unref) {
+            this.cleanupInterval.unref()
+        }
+    }
+
+    onStart(span, parentContext) {
+        const isSampled = (span.spanContext().traceFlags & TraceFlags.SAMPLED) !== 0
+        if (isSampled) {
+            this.batchProcessor.onStart(span, parentContext)
+        }
+    }
+
+    onEnd(span) {
+        const traceId = span.spanContext().traceId
+        const isSampled = (span.spanContext().traceFlags & TraceFlags.SAMPLED) !== 0
+
+        if (this.promotedTraces.has(traceId)) {
+            const promotionRate = this.promotedTraces.get(traceId).promotionRate
+            this._exportSpanImmediately(span, promotionRate)
+            return
+        }
+
+        if (isSampled) {
+            this.batchProcessor.onEnd(span)
+            return
+        }
+
+        // Buffer the RECORD_ONLY span
+        let record = this.buffer.get(traceId)
+        if (!record) {
+            record = {
+                spans: [],
+                rootSpan: null,
+                hasChildError: false,
+                timestamp: Date.now(),
+            }
+            this.buffer.set(traceId, record)
+        }
+
+        const isRoot = !span.parentSpanId
+        if (isRoot) {
+            record.rootSpan = span
+        } else {
+            record.spans.push(span)
+        }
+
+        if (!isRoot && span.status && span.status.code === SpanStatusCode.ERROR) {
+            record.hasChildError = true
+        }
+
+        if (isRoot) {
+            this._evaluateAndProcessPromotion(traceId, record)
+        }
+    }
+
+    _evaluateAndProcessPromotion(traceId, record) {
+        const rootSpan = record.rootSpan
+        if (!rootSpan) return
+
+        const isBot = rootSpan.attributes["http.response.is_bot"] === true
+        if (isBot && !this.config.promoteBotTraffic) {
+            this.buffer.delete(traceId)
+            return
+        }
+
+        const statusCode = Number(
+            rootSpan.attributes["http.status_code"] || rootSpan.attributes["http.response.status_code"] || 0
+        )
+
+        const is5xx = statusCode >= 500 && statusCode < 600
+        const is4xx = statusCode >= 400 && statusCode < 500
+        const isRootError = rootSpan.status && rootSpan.status.code === SpanStatusCode.ERROR && !is4xx
+        const isSkipped = this.config.skipPromotionCodes.includes(statusCode)
+
+        let shouldPromote = false
+        let promotionRate = this.config.samplingRate
+
+        if ((is5xx || isRootError) && !isSkipped) {
+            shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate5xx)
+            promotionRate = this.config.rate5xx
+        } else if (is4xx && !isSkipped) {
+            shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate4xx)
+            promotionRate = this.config.rate4xx
+        } else if (
+            this.config.promoteHandledErrors &&
+            record.hasChildError &&
+            statusCode >= 200 &&
+            statusCode < 300 &&
+            !isSkipped
+        ) {
+            shouldPromote = getDecisionForBits(traceId, 12, 24, this.config.rate5xx)
+            promotionRate = this.config.rate5xx
+        }
+
+        if (shouldPromote) {
+            this.promotedTraces.set(traceId, {
+                timestamp: Date.now(),
+                promotionRate,
+            })
+
+            let spansToExport = []
+            if (this.config.exportFullTraceOnError) {
+                spansToExport = [rootSpan, ...record.spans]
+            } else {
+                spansToExport = [rootSpan]
+                for (const s of record.spans) {
+                    if (s.status && s.status.code === SpanStatusCode.ERROR) {
+                        spansToExport.push(s)
+                    }
+                }
+            }
+
+            const finalSampleRate = this.config.reportActualPromotionRate
+                ? promotionRate
+                : this.config.samplingRate
+            for (const s of spansToExport) {
+                // Required, not decorative: batchProcessor.onEnd() below silently
+                // drops any span whose traceFlags aren't SAMPLED.
+                s.spanContext().traceFlags |= TraceFlags.SAMPLED
+                s.attributes["promoted"] = true
+                s.attributes["sample_rate"] = finalSampleRate
+            }
+
+            this._export(spansToExport)
+        }
+
+        this.buffer.delete(traceId)
+    }
+
+    _exportSpanImmediately(span, promotionRate) {
+        const finalSampleRate = this.config.reportActualPromotionRate
+            ? promotionRate
+            : this.config.samplingRate
+        // Required, not decorative: batchProcessor.onEnd() below silently drops
+        // any span whose traceFlags aren't SAMPLED.
+        span.spanContext().traceFlags |= TraceFlags.SAMPLED
+        span.attributes["promoted"] = true
+        span.attributes["sample_rate"] = finalSampleRate
+
+        this._export([span])
+    }
+
+    // Hands promoted spans to the same BatchSpanProcessor used for normal
+    // head-sampled traffic, instead of exporting them directly. Reuses its
+    // queueing/backpressure (maxQueueSize, scheduledDelayMillis, ...) so a burst
+    // of promotions during an incident can't flood the collector with concurrent
+    // export calls. Trade-off: promoted spans export on the next batch flush
+    // instead of instantly. onStart() is a no-op on BatchSpanProcessorBase, so
+    // handing a span straight to onEnd() without a prior onStart() is safe.
+    _export(spans) {
+        for (const s of spans) {
+            this.batchProcessor.onEnd(s)
+        }
+    }
+
+    _cleanupBuffers() {
+        const now = Date.now()
+        const TTL = 5 * 60 * 1000
+
+        for (const [traceId, record] of this.buffer.entries()) {
+            if (now - record.timestamp > TTL) {
+                this.buffer.delete(traceId)
+            } else {
+                break
+            }
+        }
+
+        let bufferOverflowEvicted = 0
+        if (this.buffer.size > 1024) {
+            const toDelete = this.buffer.size - 1024
+            for (const traceId of this.buffer.keys()) {
+                this.buffer.delete(traceId)
+                bufferOverflowEvicted++
+                if (bufferOverflowEvicted >= toDelete) break
+            }
+            // Buffer is filling faster than root spans resolve — unresolved traces
+            // are being dropped before ever getting a promotion decision.
+            const { rss, heapUsed } = process.memoryUsage()
+            logger.warn(
+                `⚠️ PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${(rss / 1024 / 1024).toFixed(1)}MB, heapUsed=${(heapUsed / 1024 / 1024).toFixed(1)}MB)`
+            )
+        }
+
+        for (const [traceId, data] of this.promotedTraces.entries()) {
+            if (now - data.timestamp > TTL) {
+                this.promotedTraces.delete(traceId)
+            } else {
+                break
+            }
+        }
+    }
+
+    forceFlush() {
+        return this.batchProcessor.forceFlush()
+    }
+
+    shutdown() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval)
+        }
+        logger.info(
+            `📡 PromotingSpanProcessor: shutting down, discarding ${this.buffer.size} unresolved trace(s) and ${this.promotedTraces.size} promoted-trace record(s)`
+        )
+        this.buffer.clear()
+        this.promotedTraces.clear()
+        return this.batchProcessor.shutdown()
+    }
+}
+
+/**
+ * Initializes the OpenTelemetry Node SDK — traces, optional metrics, and (when
+ * errorSampling.ENABLED is set) status-aware error sampling. No-op unless
+ * OTEL_ENABLE is set (see server/expressServer.js and server/renderer/handler.jsx
+ * for the same guard on the call sites that import this module).
+ *
+ * @param {object} [config]
+ * @param {string} [config.serviceName="catalyst-server"]
+ * @param {string} [config.serviceVersion="1.0.0"]
+ * @param {string} [config.environment="development"]
+ * @param {string} [config.traceUrl="http://localhost:4317"] - OTLP trace collector endpoint
+ * @param {string} [config.metricUrl="http://localhost:4317"] - OTLP metric collector endpoint
+ * @param {string} [config.traceProtocol="grpc"] - "grpc" or "http"
+ * @param {string} [config.metricProtocol] - "grpc" or "http"; metrics stay disabled if omitted
+ * @param {object} [config.traceHeaders]
+ * @param {object} [config.metricHeaders]
+ * @param {object} [config.batchProcessorConfig] - passed to BatchSpanProcessor (maxQueueSize, scheduledDelayMillis, ...)
+ * @param {number} [config.exportIntervalMillis=10000]
+ * @param {Array} [config.instrumentations] - defaults to getNodeAutoInstrumentations()
+ * @param {number} [config.samplingRate=1.0] - head-sampling rate in [0, 1] for non-error traffic
+ * @param {Function} [config.grpcCredentials]
+ * @param {object} [config.errorSampling] - status-aware error sampling, off by default
+ * @param {boolean} [config.errorSampling.ENABLED=false] - turns on StatusAwareSampler + PromotingSpanProcessor
+ * @param {number} [config.errorSampling.RATE_5XX=1.0] - promotion rate for 5xx roots (and non-4xx roots with OTEL ERROR status)
+ * @param {number} [config.errorSampling.RATE_4XX=samplingRate] - promotion rate for 4xx roots
+ * @param {boolean} [config.errorSampling.EXPORT_FULL_TRACE_ON_ERROR=false] - export every buffered span on promotion, not just root + error spans
+ * @param {boolean} [config.errorSampling.PROMOTE_HANDLED_ERRORS=false] - promote 2xx roots (at RATE_5XX) if any child span recorded an error
+ * @param {boolean} [config.errorSampling.REPORT_ACTUAL_PROMOTION_RATE=false] - report the real promotion rate in the exported sample_rate attribute instead of samplingRate
+ * @param {number[]} [config.errorSampling.SKIP_PROMOTION_CODES=[408,504,524,598,599]] - status codes excluded from promotion regardless of 4xx/5xx
+ * @param {boolean} [config.errorSampling.PROMOTE_BOT_TRAFFIC=false] - allow bot-attributed traces (http.response.is_bot) to be promoted
+ * @returns {{sdk: NodeSDK|null, meter: object|null}}
+ */
 function init(config = {}) {
     // OpenTelemetry is opt-in — bail out unless explicitly enabled. Mirrors the
     // OTEL_ENABLE guard in server/expressServer.js and server/renderer/handler.jsx
@@ -24,6 +334,10 @@ function init(config = {}) {
     if (process.env.OTEL_ENABLE !== true) {
         return { sdk: null, meter: null }
     }
+
+    // Export failures (collector down, batch rejected, ...) otherwise vanish into
+    // OTEL's silent default diag logger — route them through the app logger.
+    setGlobalErrorHandler((err) => logger.error("❌ OpenTelemetry export error:", err))
 
     const {
         serviceName = "catalyst-server",
@@ -40,6 +354,7 @@ function init(config = {}) {
         instrumentations,
         samplingRate = 1.0,
         grpcCredentials,
+        errorSampling = {},
     } = config
 
     try {
@@ -61,9 +376,36 @@ function init(config = {}) {
             })
         }
 
-        const sampler = new ParentBasedSampler({
-            root: new TraceIdRatioBasedSampler(samplingRate),
-        })
+        let sampler
+        let spanProcessor
+
+        const isErrorSamplingEnabled = errorSampling && errorSampling.ENABLED === true
+
+        if (isErrorSamplingEnabled) {
+            logger.info("⚙️ OpenTelemetry initializing with Status Aware Error Sampling")
+            sampler = new StatusAwareSampler(samplingRate)
+
+            const errorSamplingConfig = {
+                samplingRate,
+                rate5xx: typeof errorSampling.RATE_5XX === "number" ? errorSampling.RATE_5XX : 1.0,
+                rate4xx: typeof errorSampling.RATE_4XX === "number" ? errorSampling.RATE_4XX : samplingRate,
+                exportFullTraceOnError: errorSampling.EXPORT_FULL_TRACE_ON_ERROR === true,
+                promoteHandledErrors: errorSampling.PROMOTE_HANDLED_ERRORS === true,
+                reportActualPromotionRate: errorSampling.REPORT_ACTUAL_PROMOTION_RATE === true,
+                skipPromotionCodes: Array.isArray(errorSampling.SKIP_PROMOTION_CODES)
+                    ? errorSampling.SKIP_PROMOTION_CODES
+                    : [408, 504, 524, 598, 599],
+                promoteBotTraffic: errorSampling.PROMOTE_BOT_TRAFFIC === true,
+                batchProcessorConfig,
+            }
+
+            spanProcessor = new PromotingSpanProcessor(otlpTraceExporter, errorSamplingConfig)
+        } else {
+            sampler = new ParentBasedSampler({
+                root: new TraceIdRatioBasedSampler(samplingRate),
+            })
+            spanProcessor = new BatchSpanProcessor(otlpTraceExporter, batchProcessorConfig)
+        }
 
         const sdkConfig = {
             resource: resourceFromAttributes({
@@ -71,7 +413,7 @@ function init(config = {}) {
                 [ATTR_SERVICE_VERSION]: serviceVersion,
                 [ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
             }),
-            spanProcessor: new BatchSpanProcessor(otlpTraceExporter, batchProcessorConfig),
+            spanProcessor,
             instrumentations: instrumentations ?? [getNodeAutoInstrumentations()],
             sampler,
         }
