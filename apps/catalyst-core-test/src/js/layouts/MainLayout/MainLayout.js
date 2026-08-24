@@ -1,5 +1,6 @@
 import React from "react"
-import { Outlet, split } from "catalyst-core"
+import { split } from "catalyst-core"
+import { Outlet } from "react-router"
 import Header from "../../components/Header/Header"
 
 const Footer = split(() => import("../../components/Footer/Footer"), {
