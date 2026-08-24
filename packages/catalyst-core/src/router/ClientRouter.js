@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "../index.jsx"
+import { createBrowserRouter } from "react-router"
 import { preparedRoutes } from "@catalyst/template/src/js/routes/utils"
 import { registerCatalystServiceWorker } from "../offline/registerServiceWorker.js"
 

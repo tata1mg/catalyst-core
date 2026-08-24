@@ -2,7 +2,7 @@ export { useAI } from "./useAI.js"
 export { useGoogleSignIn } from "./useGoogleSignIn.js"
 export { useCamera, requestCameraPermission, useCameraPermission } from "./useCamera.js"
 export { useIntent } from "./useIntent.js"
-export { useFilePicker, sanitizeFilePickerOptions } from "./useFilePicker.js"
+export { useFilePicker } from "./useFilePicker.js"
 export { useHapticFeedback, requestHapticFeedback } from "./useHapticFeedback.js"
 export {
     useNotification,
