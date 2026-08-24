@@ -1,4 +1,4 @@
-import { useRoutes } from "../index.jsx"
+import { useRoutes } from "react-router"
 import { preparedRoutes } from "@catalyst/template/src/js/routes/utils"
 
 const ServerRouter = (reduxData) => {
