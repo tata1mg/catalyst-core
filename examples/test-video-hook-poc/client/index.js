@@ -2,7 +2,7 @@ import React from "react"
 import "./styles"
 import { hydrateRoot } from "react-dom/client"
 import { Provider } from "react-redux"
-import { RouterProvider } from "catalyst-core"
+import { RouterProvider } from "react-router"
 import clientRouter from "catalyst-core/router/ClientRouter"
 import configureStore from "@store"
 import WebBridge from 'catalyst-core/WebBridge';
