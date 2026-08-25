@@ -65,6 +65,11 @@ jobs:
         needs: detect-changes
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
+        # First stage of the web chain (lint -> test-js-unit ->
+        # test-js-combined). Chained intentionally, not for a technical
+        # dependency between them, but to fail fast on the cheapest check
+        # first and give the PR checks graph a clear top-to-bottom shape
+        # instead of 3 jobs bunched under one identical-needs edge.
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -92,7 +97,7 @@ jobs:
             # lands with a real config.
 
     test-js-unit:
-        needs: detect-changes
+        needs: [detect-changes, lint]
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
 
@@ -128,7 +133,7 @@ jobs:
     # isolation the 3-job split had -- a failure in step 1 still lets steps
     # 2/3 report clearly in the job log, just not as 3 separate check marks.
     test-js-combined:
-        needs: detect-changes
+        needs: [detect-changes, test-js-unit]
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
         container:
@@ -276,37 +281,146 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
                   retention-days: 14
 
-    test-ios-unit:
+    # Split from what was a single test-ios-unit job into two: CoreLogic
+    # (this job) runs first, has zero dependencies, needs no simulator, and
+    # is the only iOS target that can produce a real coverage percentage
+    # today. test-ios-full (below) depends on this job passing before it
+    # pays for the much more expensive simulator boot + full UIKit build.
+    # This does cost a second macos-latest runner spin-up versus running
+    # both in one job's steps (a real wall-clock/minutes trade-off -- see
+    # the original single-job version's reasoning in git history) but
+    # gives CoreLogic its own pass/fail check and lets it feed the
+    # coverage regression gate independently of the simulator-based run.
+    test-ios-corelogic:
         needs: detect-changes
         if: needs.detect-changes.outputs.ios == 'true'
         runs-on: macos-latest
+        # actions: write needed only for the release-time cache-delete
+        # step below, same rationale as test-android-unit.
+        permissions:
+            contents: read
+            actions: write
+        outputs:
+            line_pct: ${{ steps.coverage.outputs.line_pct }}
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
             # CatalystCoreLogic (#432): the UIKit-free nested SPM package
-            # split out of CatalystCore. Runs first, in the same job/runner
-            # as the simulator-based tests below rather than as a separate
-            # top-level job -- a separate job would mean a second macos
-            # runner spin-up (real wall-clock cost on GitHub's macOS
-            # runners) just to save ~50s, which doesn't pay for itself.
-            # Sequencing it first here means a CatalystCoreLogic failure
-            # fails fast and skips the expensive simulator boot + full
-            # UIKit build below (~9-10 min) entirely -- that's the actual
-            # win, not parallelism. No simulator boot, no full
-            # CatalystCore/UIKit build, no network package resolution
-            # (CatalystCoreLogic has zero dependencies). Measured locally:
-            # 171 tests in well under a second (excluding cold build time).
-            #
-            # NOTE: this does not yet feed the coverage regression gate --
-            # unlike jacoco on Android, there's no llvm-cov percentage
-            # extraction wired up here. Tracked as a follow-up if/when
-            # iOS coverage should join the same baseline-gate mechanism.
-            - name: Run CatalystCoreLogic unit tests (swift test, no simulator)
+            # split out of CatalystCore. Zero dependencies, no simulator,
+            # no network package resolution. Measured locally: 171 tests
+            # in well under a second (excluding cold build time).
+            - name: Run CatalystCoreLogic unit tests + coverage
+              id: swift-test
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
                   set -o pipefail
-                  swift test --package-path CoreLogic
+                  swift test --package-path CoreLogic --enable-code-coverage
+                  # --show-codecov-path is the documented way to get the
+                  # exact JSON path SPM will write -- doesn't re-run tests,
+                  # just resolves the path. Avoids guessing the build
+                  # triple directory name (.build/debug is a convenience
+                  # symlink to .build/<triple>/debug; relying on that
+                  # symlink via a glob is incidental layout, not a
+                  # documented contract).
+                  echo "path=$(swift test --package-path CoreLogic --show-codecov-path)" >> "$GITHUB_OUTPUT"
+
+            # SPM's own coverage JSON (llvm-cov's `export -format=text`
+            # shape) is per-file, not pre-aggregated -- schema confirmed
+            # against mattpolzin/swift-test-codecov's Decodable structs:
+            # { data: [ { files: [ { summary: { lines: {count,covered,
+            # percent} } } ] } ] }. Sum covered/count across every file
+            # ourselves for a package-wide line %, same approach as the
+            # jacoco parser below for Android.
+            #
+            # Filter to Sources/CatalystCoreLogic only: the report also
+            # includes the test target's own files (Tests/**), which are
+            # near-100% covered by definition -- including them inflates
+            # the % and makes it move when tests are added/removed rather
+            # than when production code coverage actually changes. jacoco
+            # doesn't have this problem (it instruments main sources only,
+            # test code isn't part of its report) -- filtering here keeps
+            # both platforms gating on the same semantics: production-code
+            # coverage only.
+            - name: Print coverage summary
+              id: coverage
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              env:
+                  CODECOV_PATH: ${{ steps.swift-test.outputs.path }}
+              run: |
+                  python3 - <<'EOF'
+                  import json, os
+                  path = os.environ["CODECOV_PATH"]
+                  with open(path) as f:
+                      report = json.load(f)
+                  covered = total = 0
+                  for file in report["data"][0]["files"]:
+                      if "Sources/CatalystCoreLogic" not in file["filename"]:
+                          continue
+                      lines = file["summary"]["lines"]
+                      covered += lines["covered"]
+                      total += lines["count"]
+                  pct = (covered / total * 100) if total else 0
+                  print(f"LINE {covered}/{total} ({pct:.2f}%)")
+                  with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                      f.write(f"line_pct={pct:.2f}\n")
+                  EOF
+
+            # Same restore-only-on-PR / write-only-on-main-push pattern as
+            # Android's gate. Separate cache key/file -- iOS and Android
+            # are independent baselines, not a combined number.
+            - name: Restore coverage baseline
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-ios.json
+                  key: coverage-baseline-ios-v1
+
+            - name: Enforce coverage does not regress vs last release
+              if: github.event_name == 'pull_request'
+              run: |
+                  CURRENT="${{ steps.coverage.outputs.line_pct }}"
+                  if [ ! -f coverage-baseline-ios.json ]; then
+                    echo "::warning::No iOS coverage baseline found (first run, or cache evicted) -- skipping regression check. Current: ${CURRENT}%"
+                    exit 0
+                  fi
+                  BASELINE=$(python3 -c "import json; print(json.load(open('coverage-baseline-ios.json'))['line_pct'])")
+                  echo "Baseline (last release on main): ${BASELINE}%"
+                  echo "Current (this PR):               ${CURRENT}%"
+                  python3 -c "
+                  import sys
+                  current, baseline = float('$CURRENT'), float('$BASELINE')
+                  if current < baseline:
+                      print(f'::error::iOS CoreLogic line coverage dropped: {current:.2f}% < {baseline:.2f}% (last release baseline)')
+                      sys.exit(1)
+                  print(f'OK: {current:.2f}% >= {baseline:.2f}%')
+                  "
+
+            - name: Update coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  echo "{\"line_pct\": ${{ steps.coverage.outputs.line_pct }}}" > coverage-baseline-ios.json
+                  gh cache delete coverage-baseline-ios-v1 --repo "${{ github.repository }}" || true
+
+            - name: Save coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-ios.json
+                  key: coverage-baseline-ios-v1
+
+    # Full simulator-based XCTest run -- the expensive part (~9-25 min:
+    # simulator boot + full CatalystCore/UIKit build). Gated on CoreLogic
+    # passing first so a CoreLogic failure never pays for this.
+    test-ios-full:
+        needs: [detect-changes, test-ios-corelogic]
+        if: needs.detect-changes.outputs.ios == 'true'
+        runs-on: macos-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
             # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
             # keyed on Package.resolved -- avoids re-fetching them from
@@ -418,8 +532,16 @@ jobs:
                     | xcbeautify --renderer github-actions --quieter
 
     docs:
-        needs: detect-changes
-        if: needs.detect-changes.outputs.docs == 'true'
+        # Placed last in the chain per requested graph shape. docs/** is
+        # independent of every other job's output -- this ordering is
+        # purely visual, not a real dependency -- so `if: always()` is
+        # required: without it, a skip (not just a failure) anywhere
+        # upstream (e.g. android/ios skipped on a docs-only PR, which is
+        # the common case) would make GitHub treat `needs` as unmet and
+        # skip `docs` too, even though the docs-changed filter says it
+        # should run.
+        needs: [detect-changes, test-js-combined, test-android-unit, test-ios-corelogic, test-ios-full]
+        if: always() && needs.detect-changes.outputs.docs == 'true'
         runs-on: ubuntu-latest
 
         steps:
@@ -436,3 +558,43 @@ jobs:
                   npm --prefix docs ci
                   cp docs/config_template.json docs/config.json
                   npm run docs:build
+
+    # Final gate: coverage must not have regressed on any platform that
+    # actually measures it today (Android via jacoco, iOS via CoreLogic's
+    # llvm-cov export). lint/test-js-unit/test-js-combined/docs don't
+    # produce a coverage number, so they don't participate here -- this
+    # job exists specifically so "did coverage drop vs. last release" is
+    # one visible, final check, rather than buried inside two other jobs'
+    # step lists. The actual pass/fail decision already happened inside
+    # test-android-unit's and test-ios-corelogic's own "Enforce coverage
+    # does not regress" steps (that's where the job fails first, with the
+    # specific % numbers in that job's log) -- this job just re-asserts
+    # both landed with a real success, so a single check name answers
+    # "is coverage OK" without having to open two different jobs to find
+    # out. `if: always()` + explicit result checks (not a bare `needs`)
+    # because a skipped platform (e.g. an android-only PR, where
+    # test-ios-corelogic never runs) must still count as fine here.
+    check-coverage:
+        needs: [detect-changes, test-android-unit, test-ios-corelogic]
+        if: always()
+        runs-on: ubuntu-latest
+        steps:
+            - name: Verify no coverage regression
+              run: |
+                  android="${{ needs.test-android-unit.result }}"
+                  ios="${{ needs.test-ios-corelogic.result }}"
+                  echo "test-android-unit: $android"
+                  echo "test-ios-corelogic: $ios"
+                  fail=0
+                  if [ "$android" != "success" ] && [ "$android" != "skipped" ]; then
+                    echo "::error::Android coverage gate did not pass (status: $android)"
+                    fail=1
+                  fi
+                  if [ "$ios" != "success" ] && [ "$ios" != "skipped" ]; then
+                    echo "::error::iOS CoreLogic coverage gate did not pass (status: $ios)"
+                    fail=1
+                  fi
+                  if [ "$fail" -eq 1 ]; then
+                    exit 1
+                  fi
+                  echo "Coverage OK on all platforms that reported it (or not applicable to this PR)."
