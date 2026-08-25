@@ -7,7 +7,7 @@ registerCatalystServiceWorker()
 /**
  * @returns returns browsers routers (client routes)
  */
-const clientRouter = ({ routerInitialState }) => {
+const clientRouter = ({ routerInitialState }: { routerInitialState?: any; store?: any }) => {
     const browserRouter = createBrowserRouter(preparedRoutes({ routerInitialState }))
     return browserRouter
 }

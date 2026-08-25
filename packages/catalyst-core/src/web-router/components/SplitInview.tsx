@@ -6,8 +6,8 @@ const DEFAULT_ROOT_MARGIN = "0px 0px 75% 0px"
 
 // Shared IntersectionObserver for the default (no rootOptions) path.
 // Each observed element maps to a callback that fires once and unobserves.
-const callbacks = new Map()
-let sharedObserver = null
+const callbacks = new Map<Element, () => void>()
+let sharedObserver: IntersectionObserver | null = null
 
 function getSharedObserver() {
     if (sharedObserver) return sharedObserver
@@ -29,22 +29,31 @@ function getSharedObserver() {
     return sharedObserver
 }
 
-const hasCustomOptions = (o) =>
+const hasCustomOptions = (o: any) =>
     o && typeof o === "object" && (o.root != null || o.rootMargin != null || o.threshold != null)
+
+/**
+ * Props for the internal visibility-deferring wrapper. Not part of the public
+ * surface: `split()` supplies these from its own options.
+ */
+interface SplitInviewProps {
+    /** Shown while the component is outside the viewport */
+    fallback?: any
+    /** Rendered once the placeholder scrolls into view */
+    children?: any
+    /** Optional IntersectionObserver options for parity with react-loadable-visibility */
+    rootOptions?: any
+    /** Called once when the placeholder enters the viewport */
+    onVisible?: () => void
+}
 
 /**
  * Defers rendering of children until the placeholder enters the viewport.
  * Once visible, it stays visible.
  *
  * On the server or when IntersectionObserver is unavailable, children render immediately.
- *
- * @param {Object} props
- * @param {React.ReactNode} props.fallback - Shown while the component is outside the viewport
- * @param {React.ReactNode} props.children - Rendered once the placeholder scrolls into view
- * @param {Object=} props.rootOptions - Optional IntersectionObserver options for parity with react-loadable-visibility
- * @param {Function=} props.onVisible - Called once when the placeholder enters the viewport
  */
-const SplitInview = ({ fallback = null, children, rootOptions, onVisible }) => {
+const SplitInview = ({ fallback = null, children, rootOptions, onVisible }: SplitInviewProps) => {
     const isServer = typeof window === "undefined"
     const [isVisible, setIsVisible] = useState(() => {
         if (isServer) return true
