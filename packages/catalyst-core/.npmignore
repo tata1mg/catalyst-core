@@ -1,4 +1,5 @@
 /src
+/scripts
 !/dist
 !/dist/**
 .prettierignore
