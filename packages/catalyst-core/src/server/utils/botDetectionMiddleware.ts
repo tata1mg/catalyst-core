@@ -1,10 +1,13 @@
 import { getUserAgentDetails } from "./userAgentUtil.js"
 
 // Loaded once at startup when OTEL is enabled; null otherwise.
-let _context, _trace, _IS_BOT_KEY
-if (process.env.OTEL_ENABLE === true) {
+let _context: any, _trace: any, _IS_BOT_KEY: any
+// config.json booleans survive the process.env swap in loadEnvironmentVariables(),
+// so this is genuinely true at runtime when config sets OTEL_ENABLE: true. The cast
+// exists only because TS types process.env values as string | undefined.
+if ((process.env.OTEL_ENABLE as any) === true) {
     try {
-        const { context, trace } = await import("@opentelemetry/api")
+        const { context, trace } = await import("@opentelemetry/api" as any)
         const { IS_BOT_KEY } = await import("../../otel.js")
         _context = context
         _trace = trace
@@ -14,7 +17,7 @@ if (process.env.OTEL_ENABLE === true) {
     }
 }
 
-export function botDetectionMiddleware(req, res, next) {
+export function botDetectionMiddleware(req: any, res: any, next: any) {
     const ua = req.headers["user-agent"] || ""
     const { googleBot, aiBot, statusCakeBot } = getUserAgentDetails(ua)
     const isBot = !!(googleBot || aiBot || statusCakeBot)

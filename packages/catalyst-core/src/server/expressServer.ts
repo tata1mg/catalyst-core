@@ -14,16 +14,16 @@ import { toMountPathPrefix } from "../vite/resolveDevServerConfig.js"
 import { validateMiddleware, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
-const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
+const { addMiddlewares } = await import(path.join(process.env.src_path!, "server/server.js"))
 
 // Mount AI route if catalyst-ai is installed
-function mountAIRouter(app) {
-    let aiPackagePath
+function mountAIRouter(app: any) {
+    let aiPackagePath: string
     try {
         aiPackagePath = cjsRequire.resolve("catalyst-ai/route", {
             paths: [process.env.src_path || process.cwd()],
         })
-    } catch (resolveErr) {
+    } catch (resolveErr: any) {
         if (resolveErr.code !== "MODULE_NOT_FOUND") {
             console.error("[catalyst-core/ai] Unexpected error resolving catalyst-ai:", resolveErr)
         } else {
@@ -34,7 +34,7 @@ function mountAIRouter(app) {
 
     try {
         const aiRouter = cjsRequire(aiPackagePath)
-        let aiConfig = {}
+        let aiConfig: any = {}
         try {
             const parsedConfig = JSON.parse(process.env.AI_CONFIG || "{}")
             if (parsedConfig && typeof parsedConfig === "object" && !Array.isArray(parsedConfig)) {
@@ -42,7 +42,7 @@ function mountAIRouter(app) {
             } else {
                 console.warn("[catalyst-core/ai] AI_CONFIG must be a JSON object, ignoring it")
             }
-        } catch (e) {
+        } catch (e: any) {
             console.warn(`[catalyst-core/ai] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
         }
 
@@ -61,8 +61,11 @@ function mountAIRouter(app) {
 
 // OpenTelemetry is opt-in (OTEL_ENABLE) — mirrors server/renderer/handler.jsx.
 // Passthrough no-op middleware when disabled or packages aren't installed.
-let responseFlushMiddleware = () => (_req, _res, next) => next()
-if (process.env.OTEL_ENABLE === true) {
+let responseFlushMiddleware: any = () => (_req: any, _res: any, next: any) => next()
+// config.json booleans survive the process.env swap in loadEnvironmentVariables(),
+// so this is genuinely true at runtime when config sets OTEL_ENABLE: true. The cast
+// exists only because TS types process.env values as string | undefined.
+if ((process.env.OTEL_ENABLE as any) === true) {
     try {
         const otel = await import("../otel.js")
         responseFlushMiddleware = otel.responseFlushMiddleware
@@ -74,9 +77,9 @@ if (process.env.OTEL_ENABLE === true) {
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
 
 // ─── Load app-defined server lifecycle hooks ──────────────────────────────────
-let onServerError
+let onServerError: any
 try {
-    const hooks = await import(path.join(process.env.src_path, "server/index.js"))
+    const hooks = await import(path.join(process.env.src_path!, "server/index.js"))
     onServerError = hooks.onServerError
 } catch {
     // No hooks file — onServerError remains undefined
@@ -84,7 +87,7 @@ try {
 
 // ─── Process-level error handlers ─────────────────────────────────────────────
 
-function safeStringify(err) {
+function safeStringify(err: any) {
     try {
         return JSON.stringify(err)
     } catch (e) {
@@ -102,7 +105,7 @@ process.on("uncaughtExceptionMonitor", (err, origin) => {
     console.log(err, origin)
 })
 
-process.on("unhandledRejection", (err) =>
+process.on("unhandledRejection", (err: any) =>
     console.log("unhandledRejection in Catalyst", err?.stack || safeStringify(err))
 )
 
@@ -111,7 +114,7 @@ process.on("SIGINT", function () {
     process.exit(0)
 })
 
-process.on("message", function (msg) {
+process.on("message", function (msg: any) {
     if (msg == "shutdown") {
         console.log("Closing all connections...")
         setTimeout(function () {
@@ -127,8 +130,14 @@ const __dirname = path.dirname(__filename)
 
 const isProduction = process.env.NODE_ENV === "production"
 
-function serveBuildFile(app, buildPath, urlPath, fileName, headers = {}) {
-    app.get(urlPath, (_req, res, next) => {
+function serveBuildFile(
+    app: any,
+    buildPath: string,
+    urlPath: string,
+    fileName: string,
+    headers: any = {}
+) {
+    app.get(urlPath, (_req: any, res: any, next: any) => {
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fileName is always a hardcoded literal passed at each serveBuildFile call site, never derived from the request.
         const filePath = path.join(buildPath, fileName)
         if (!fs.existsSync(filePath)) return next()
@@ -165,13 +174,13 @@ async function createServer() {
     // The middleware will attempt to compress response bodies for all request that traverse through the middleware
     app.use(compression())
 
-    let vite
+    let vite: any
 
     if (isProduction) {
         // In production, serve built assets. Build manifests themselves are
         // loaded once at startup by ./manifestCache.js — handler reads from
         // that singleton instead of attaching them to every `req`.
-        const buildPath = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
+        const buildPath = path.join(process.env.src_path!, process.env.BUILD_OUTPUT_PATH || "build")
         const publicPath = path.join(buildPath, "client", "assets")
         const publicAssetBase = `/${(process.env.PUBLIC_STATIC_ASSET_PATH || "/assets/")
             .replace(/^\/+|\/+$/g, "")
@@ -222,10 +231,10 @@ async function createServer() {
 
     // In production, resolve the render module once at startup so the ESM
     // loader and lazy-chunk cache are not re-entered on every request.
-    let productionRender
+    let productionRender: any
     if (isProduction) {
         const serverPath = path.join(
-            process.env.src_path,
+            process.env.src_path!,
             process.env.BUILD_OUTPUT_PATH || "build",
             "server",
             "server.js"
@@ -234,7 +243,7 @@ async function createServer() {
             productionRender = await import(serverPath)
         } else {
             const rendererPath = path.join(
-                process.env.src_path,
+                process.env.src_path!,
                 process.env.BUILD_OUTPUT_PATH || "build",
                 "server",
                 "index.js"
@@ -245,9 +254,9 @@ async function createServer() {
 
     app.use(botDetectionMiddleware)
 
-    app.use("*", async (req, res, next) => {
+    app.use("*", async (req: any, res: any, next: any) => {
         try {
-            let render
+            let render: any
 
             if (isProduction) {
                 render = productionRender
@@ -264,7 +273,7 @@ async function createServer() {
                 console.error("Renderer not found or invalid")
                 res.status(500).send("Error loading renderer")
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("SSR Error:", err)
             if (vite) {
                 vite.ssrFixStacktrace(err)
@@ -273,7 +282,7 @@ async function createServer() {
         }
     })
 
-    app.listen({ port, host }, (error) => {
+    app.listen({ port, host }, (error: any) => {
         const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
         if (error) {
@@ -303,7 +312,7 @@ async function createServer() {
     })
 }
 
-createServer().catch((err) => {
+createServer().catch((err: any) => {
     console.error(err?.stack || err)
     process.exit(1)
 })

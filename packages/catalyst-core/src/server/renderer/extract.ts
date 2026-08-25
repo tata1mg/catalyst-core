@@ -2,6 +2,18 @@ import React from "react"
 import path from "path"
 import fs from "fs"
 
+// Caches this module parks on the `process` object so they survive across
+// requests. Declared here purely so TypeScript knows about them; no runtime
+// effect.
+declare global {
+    namespace NodeJS {
+        interface Process {
+            cssFileCache?: Record<string, string>
+            deferredAssetsByRoute?: Map<any, { css: Set<any>; js: Set<any> }>
+        }
+    }
+}
+
 // ── CSS: read from disk and inline as <style> ──────────────────────────
 
 // Process-level cache — survives across requests, reset on deploy.
@@ -12,25 +24,25 @@ if (!process.cssFileCache) process.cssFileCache = {}
 // process.cssFileCache inside readCssFromDisk (no repeat disk read).
 if (!process.deferredAssetsByRoute) process.deferredAssetsByRoute = new Map()
 
-const routeRecord = (routeKey) => {
-    let rec = process.deferredAssetsByRoute.get(routeKey)
+const routeRecord = (routeKey: any) => {
+    let rec = process.deferredAssetsByRoute!.get(routeKey)
     if (!rec) {
         rec = { css: new Set(), js: new Set() }
-        process.deferredAssetsByRoute.set(routeKey, rec)
+        process.deferredAssetsByRoute!.set(routeKey, rec)
     }
     return rec
 }
 
 /** Stable key for caching deferred chunks — uses the matched route pattern (e.g. "/product/:name/:id")
  *  so all pages on the same route share one entry regardless of their actual URL parameters. */
-export const getDeferredRouteKey = (req, allMatches = []) => {
+export const getDeferredRouteKey = (req: any, allMatches: any = []) => {
     return allMatches?.length ? (allMatches[allMatches.length - 1]?.route?.path ?? null) : null
 }
 
 /** CSS paths (manifest-relative) previously deferred on this route — for <head> inlining. */
-export const getCachedDeferredCssPathsForRoute = (routeKey) => {
+export const getCachedDeferredCssPathsForRoute = (routeKey: any) => {
     if (!routeKey) return []
-    const rec = process.deferredAssetsByRoute.get(routeKey)
+    const rec = process.deferredAssetsByRoute!.get(routeKey)
     return rec ? [...rec.css] : []
 }
 
@@ -40,10 +52,14 @@ export const getCachedDeferredCssPathsForRoute = (routeKey) => {
  * JS URLs are always emitted in HTML on every navigation — skipping "cached" scripts would omit modules.
  * @returns {{ newCssPaths: string[] }}
  */
-export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } = {}, isBot = false) => {
+export const registerDeferredAssetsForRoute = (
+    routeKey: any,
+    { css = [], js = [] }: any = {},
+    isBot = false
+) => {
     if (!routeKey) return { newCssPaths: [] }
     const rec = routeRecord(routeKey)
-    const newCssPaths = []
+    const newCssPaths: any[] = []
     for (const p of css) {
         if (!p) continue
         if (!rec.css.has(p)) newCssPaths.push(p)
@@ -63,12 +79,12 @@ export const registerDeferredAssetsForRoute = (routeKey, { css = [], js = [] } =
  * @param {Iterable<string>} excludeUrls - Critical / head script src URLs.
  * @returns {string[]}
  */
-export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
+export const getDeferredPreloadScriptUrls = (routeKey: any, excludeUrls: any = []) => {
     if (!routeKey) return []
-    const rec = process.deferredAssetsByRoute.get(routeKey)
+    const rec = process.deferredAssetsByRoute!.get(routeKey)
     if (!rec) return []
     const exclude = new Set(excludeUrls)
-    return [...rec.js].filter((url) => url && !exclude.has(url))
+    return [...rec.js].filter((url: any) => url && !exclude.has(url))
 }
 
 /**
@@ -76,8 +92,8 @@ export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
  * @param {string[]} jsUrls
  * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
  */
-export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload") =>
-    [...new Set(jsUrls)].map((url, i) =>
+export const generateModulePreloadLinkElements = (jsUrls: any = [], keyPrefix = "modulepreload") =>
+    [...new Set<any>(jsUrls)].map((url: any, i: number) =>
         React.createElement("link", {
             key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
@@ -92,11 +108,11 @@ export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modu
  * @param {string} basePath  - Build output directory on disk.
  * @returns {string} Concatenated CSS content.
  */
-export const readCssFromDisk = (cssPaths = [], basePath) => {
+export const readCssFromDisk = (cssPaths: any = [], basePath?: string) => {
     if (!cssPaths.length) return ""
 
     const seen = new Set()
-    const chunks = []
+    const chunks: any[] = []
 
     for (const asset of cssPaths) {
         if (!asset || seen.has(asset)) continue
@@ -104,14 +120,14 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
         if (asset.startsWith("http")) continue
 
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - asset paths come from the Vite build manifest generated at build time, never from a request, so there is no user-controlled input here.
-        const filePath = path.isAbsolute(asset) ? asset : path.join(basePath, asset.replace(/^\/+/, ""))
+        const filePath = path.isAbsolute(asset) ? asset : path.join(basePath!, asset.replace(/^\/+/, ""))
 
         try {
-            if (!process.cssFileCache[filePath]) {
-                process.cssFileCache[filePath] = fs.readFileSync(filePath, "utf8")
+            if (!process.cssFileCache![filePath]) {
+                process.cssFileCache![filePath] = fs.readFileSync(filePath, "utf8")
             }
-            if (process.cssFileCache[filePath]) {
-                chunks.push(process.cssFileCache[filePath])
+            if (process.cssFileCache![filePath]) {
+                chunks.push(process.cssFileCache![filePath])
             }
         } catch {
             // Silently skip unreadable assets in production
@@ -126,8 +142,8 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
 /**
  * <script type="module"> React elements for JS assets.
  */
-export const generateScriptElements = (jsUrls = []) =>
-    [...new Set(jsUrls)].map((url, i) =>
+export const generateScriptElements = (jsUrls: any = []) =>
+    [...new Set<any>(jsUrls)].map((url: any, i: number) =>
         React.createElement("script", { key: `js-${i}`, type: "module", src: url })
     )
 
@@ -136,15 +152,15 @@ export const generateScriptElements = (jsUrls = []) =>
 /**
  * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body).
  */
-export const generateCssLinkStrings = (cssUrls = []) =>
-    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}">`).join("")
+export const generateCssLinkStrings = (cssUrls: any = []) =>
+    [...new Set<any>(cssUrls)].map((url: any) => `<link rel="stylesheet" href="${url}">`).join("")
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
  */
-export const generateScriptStrings = (jsUrls = []) =>
-    [...new Set(jsUrls)]
-        .map((url) => {
+export const generateScriptStrings = (jsUrls: any = []) =>
+    [...new Set<any>(jsUrls)]
+        .map((url: any) => {
             return `<script type="module" src="${url}"></script>`
         })
         .join("")

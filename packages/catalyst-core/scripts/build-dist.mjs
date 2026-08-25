@@ -14,27 +14,35 @@
  * separate pass, and it owns its own package.json ({"type":"commonjs"}) which
  * must land in dist/native/.
  *
- * Why compileSource() is currently a byte-for-byte copy
- * ----------------------------------------------------
+ * Two compile paths, chosen by input extension
+ * --------------------------------------------
  * dist ships raw .jsx today: package.json points main/exports at dist/index.jsx,
  * and vite (dev + build) and dist/vite/node-loader.mjs transform JSX at runtime.
- * Running Babel over the ESM tree would reprint every file from its AST, which
- * rewrites formatting (quotes stay, but semicolons are added, indentation is
- * re-emitted at 2 spaces, blank lines collapse, object literals expand and
+ * Running Babel over the whole ESM tree would reprint every file from its AST,
+ * which rewrites formatting (quotes stay, but semicolons are added, indentation
+ * is re-emitted at 2 spaces, blank lines collapse, object literals expand and
  * comments move) even with zero transform plugins and `retainLines`. That is a
- * change to shipped bytes, which this migration step is explicitly not allowed
- * to make.
+ * change to shipped bytes for files that need no compilation at all.
  *
- * So today the "compile" is the identity function. Its purpose is structural:
- * it puts the extension routing, the output-extension map and the single
- * choke point for a Babel call in place, so that turning on .ts/.tsx later is a
- * small diff — add the extensions to SOURCE_EXTENSIONS, add the .ts -> .js /
- * .tsx -> .jsx entries to OUTPUT_EXTENSION, and replace the body of
- * compileSource() with a babel.transformAsync() call.
+ * So the two paths are:
+ *
+ *   - .js / .jsx / .mjs  -> byte-for-byte copy. Nothing to strip; the bytes
+ *     that ship are the bytes in src/.
+ *   - .ts / .tsx         -> @babel/core with preset-typescript ONLY. This
+ *     erases types and nothing else: no preset-env (module syntax and modern
+ *     syntax survive untouched) and no preset-react (JSX stays literal JSX in
+ *     the emitted .jsx, for the same runtime transform that handles today's
+ *     hand-written .jsx). Reprinting is unavoidable here — an AST rewrite is
+ *     the whole point — and applies only to files that were converted.
+ *
+ * .d.ts / .d.mts are declaration files, not compilable source: they route to
+ * the asset copier so src/globals.d.ts ships verbatim instead of being erased
+ * to an empty globals.d.js.
  *
  * Usage: node scripts/build-dist.mjs [--src <dir>] [--out <dir>]
  */
 
+import { transformAsync } from "@babel/core"
 import fs from "node:fs"
 import path from "node:path"
 import process from "node:process"
@@ -47,28 +55,76 @@ const SKIPPED_DIRS = new Set(["native"])
 
 /**
  * Extensions treated as compilable source. Everything else is copied verbatim.
- * Adding "ts" and "tsx" here is what switches TypeScript on.
  */
-const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs"])
+const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".ts", ".tsx"])
+
+/**
+ * Extensions that need a real Babel pass. Everything else in
+ * SOURCE_EXTENSIONS is copied byte for byte — see the header comment.
+ */
+const TYPESCRIPT_EXTENSIONS = new Set([".ts", ".tsx"])
 
 /**
  * Output extension for a compiled source file, when it differs from the input.
- * Currently empty because .js/.jsx/.mjs keep their extension. TypeScript will
- * add { ".ts": ".js", ".tsx": ".jsx", ".mts": ".mjs" }.
+ * .js/.jsx/.mjs keep their extension; TypeScript sources shed theirs so that
+ * dist keeps shipping the .js/.jsx pair the package exports already point at.
  */
-const OUTPUT_EXTENSION = new Map()
+const OUTPUT_EXTENSION = new Map([
+    [".ts", ".js"],
+    [".tsx", ".jsx"],
+])
+
+/**
+ * True for declaration files (.d.ts, .d.mts), which are not compilable source.
+ * They carry types only, so Babel would erase them to an empty file under a
+ * .js name; they must be copied verbatim instead.
+ *
+ * @param {string} fileName basename of the file being built
+ * @returns {boolean} whether the file is a TypeScript declaration file
+ */
+function isDeclarationFile(fileName) {
+    return fileName.endsWith(".d.ts") || fileName.endsWith(".d.mts")
+}
 
 /**
  * Turns one source file into its dist output.
  *
- * Identity transform for now — see the header comment. Kept async so that
- * swapping in babel.transformAsync() later does not change any call sites.
+ * .js/.jsx/.mjs are copied byte for byte. .ts/.tsx go through Babel with
+ * preset-typescript alone, which strips types and leaves everything else —
+ * module syntax, modern syntax and JSX — exactly as written.
  *
  * @param {string} inputPath absolute path of the file being built
  * @param {string} outputPath absolute path to write to
  */
 async function compileSource(inputPath, outputPath) {
-    await fs.promises.copyFile(inputPath, outputPath)
+    const extension = path.extname(inputPath)
+
+    if (!TYPESCRIPT_EXTENSIONS.has(extension)) {
+        await fs.promises.copyFile(inputPath, outputPath)
+        return
+    }
+
+    // isTSX is only meaningful with allExtensions, which tells the preset to
+    // stop inferring the dialect from the filename. .ts keeps the default
+    // (filename-driven) behaviour, which is already correct for it.
+    const presetOptions = extension === ".tsx" ? { isTSX: true, allExtensions: true } : {}
+
+    const source = await fs.promises.readFile(inputPath, "utf8")
+    const result = await transformAsync(source, {
+        filename: inputPath,
+        babelrc: false,
+        configFile: false,
+        // preset-typescript only: no preset-env (module and modern syntax stay
+        // as authored) and no preset-react (JSX stays literal in the .jsx).
+        presets: [["@babel/preset-typescript", presetOptions]],
+        sourceMaps: false,
+    })
+
+    if (!result || typeof result.code !== "string") {
+        throw new Error(`build-dist: babel produced no output for ${inputPath}`)
+    }
+
+    await fs.promises.writeFile(outputPath, `${result.code}\n`, "utf8")
 }
 
 /**
@@ -105,8 +161,9 @@ function outputPathFor(relativePath) {
  * @param {string} outDir absolute path of the directory to write
  * @param {string} relativeDir path of srcDir relative to the build root
  * @param {{ compiled: number, copied: number }} stats mutated tally for the summary line
+ * @param {Map<string, string>} claimedOutputs output path -> source path that wrote it
  */
-async function buildDirectory(srcDir, outDir, relativeDir, stats) {
+async function buildDirectory(srcDir, outDir, relativeDir, stats, claimedOutputs) {
     const entries = await fs.promises.readdir(srcDir, { withFileTypes: true })
     await fs.promises.mkdir(outDir, { recursive: true })
 
@@ -116,19 +173,37 @@ async function buildDirectory(srcDir, outDir, relativeDir, stats) {
 
         if (entry.isDirectory()) {
             if (relativeDir === "" && SKIPPED_DIRS.has(entry.name)) continue
-            await buildDirectory(inputPath, path.join(outDir, entry.name), relativePath, stats)
+            await buildDirectory(inputPath, path.join(outDir, entry.name), relativePath, stats, claimedOutputs)
             continue
         }
 
+        // Declaration files carry no runtime code: they ship verbatim rather
+        // than being erased to an empty .js by the TypeScript path.
         // Symlinks and other non-regular entries go through copyAsset, which
         // dereferences them exactly as `cp -r` did.
         const extension = path.extname(entry.name)
-        if (entry.isFile() && SOURCE_EXTENSIONS.has(extension)) {
-            const outputPath = path.join(outDir, path.basename(outputPathFor(entry.name)))
+        const isSource = entry.isFile() && SOURCE_EXTENSIONS.has(extension) && !isDeclarationFile(entry.name)
+        const outputPath = isSource
+            ? path.join(outDir, path.basename(outputPathFor(entry.name)))
+            : path.join(outDir, entry.name)
+
+        // Two sources mapping onto one output (foo.tsx emitting foo.jsx next to
+        // a hand-written foo.jsx) would silently drop one of them.
+        const previousClaim = claimedOutputs.get(outputPath)
+        if (previousClaim) {
+            throw new Error(
+                `build-dist: output collision at ${outputPath}\n` +
+                    `  claimed by: ${previousClaim}\n` +
+                    `  also from:  ${inputPath}`
+            )
+        }
+        claimedOutputs.set(outputPath, inputPath)
+
+        if (isSource) {
             await compileSource(inputPath, outputPath)
             stats.compiled += 1
         } else {
-            await copyAsset(inputPath, path.join(outDir, entry.name))
+            await copyAsset(inputPath, outputPath)
             stats.copied += 1
         }
     }
@@ -167,7 +242,7 @@ async function main() {
     }
 
     const stats = { compiled: 0, copied: 0 }
-    await buildDirectory(srcDir, outDir, "", stats)
+    await buildDirectory(srcDir, outDir, "", stats, new Map())
 
     console.log(
         `build-dist: ${stats.compiled} source file(s), ${stats.copied} asset(s) -> ${path.relative(PACKAGE_ROOT, outDir) || outDir}`

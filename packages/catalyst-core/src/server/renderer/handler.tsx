@@ -53,8 +53,8 @@ const logSSRError = (stage, error) => {
 
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
 
-const parseSafeAreaFromHeaders = (req) => {
-    const readEdge = (header) => {
+const parseSafeAreaFromHeaders = (req: any) => {
+    const readEdge = (header: string) => {
         const raw = req.get(header) ?? req.headers[header.toLowerCase()]
         const value = Number(raw)
         return Number.isFinite(value) && value >= 0 ? value : null
@@ -65,7 +65,7 @@ const parseSafeAreaFromHeaders = (req) => {
     const bottom = readEdge("X-Safe-Area-Bottom")
     const left = readEdge("X-Safe-Area-Left")
 
-    if (![top, right, bottom, left].some((value) => value !== null)) return null
+    if (![top, right, bottom, left].some((value: any) => value !== null)) return null
 
     return {
         top: top ?? 0,
@@ -75,17 +75,17 @@ const parseSafeAreaFromHeaders = (req) => {
     }
 }
 
-// App contract checks run at module load, not per request. The validators throw on
-// violation, and _handler wraps every request in a try/catch that would otherwise
-// swallow the throw into onRequestError and leave the request hanging. Validating
-// here means a misconfigured app fails at module load — server startup in
-// production, first SSR request in dev — with the contract message.
+// App contract checks run at module load, not per request. The validators
+// log-and-continue (see server/utils/validator.ts): a violation is reported once
+// through the shared structured-error formatter at module load — server startup
+// in production, first SSR request in dev — rather than being re-reported on
+// every request or swallowed into onRequestError by _handler's try/catch.
 validateGetRoutes(getRoutes)
 validateConfigureStore(createStore)
 
 // Routes are static for the lifetime of the server — resolve once and reuse
 // the same instance per request to avoid per-request allocation.
-let _cachedRoutes
+let _cachedRoutes: any
 const getCachedRoutes = () => {
     if (_cachedRoutes === undefined) {
         _cachedRoutes = getRoutes()
@@ -95,13 +95,13 @@ const getCachedRoutes = () => {
 
 // Try to import user-defined hooks. These are optional — apps that don't export them
 // will get undefined, and safeCall is a no-op for non-functions.
-let _onRouteMatch,
-    _onFetcherSuccess,
-    _onFetcherError,
-    _onAppServerSideSuccess,
-    _onAppServerSideError,
-    _onRenderError,
-    _onRequestError
+let _onRouteMatch: any,
+    _onFetcherSuccess: any,
+    _onFetcherError: any,
+    _onAppServerSideSuccess: any,
+    _onAppServerSideError: any,
+    _onRenderError: any,
+    _onRequestError: any
 try {
     const hooks = await import("@catalyst/template/server/index.js")
     _onRouteMatch = hooks.onRouteMatch
@@ -116,10 +116,13 @@ try {
 }
 
 // Passthrough no-ops used when OTEL_ENABLE is not set; replaced below if enabled.
-let withObservability = (_service, fn) => fn
-let withSyncObservability = (_service, fn) => fn
+let withObservability: any = (_service: any, fn: any) => fn
+let withSyncObservability: any = (_service: any, fn: any) => fn
 
-if (process.env.OTEL_ENABLE === true) {
+// config.json booleans survive the process.env swap in loadEnvironmentVariables(),
+// so this is genuinely true at runtime when config sets OTEL_ENABLE: true. The cast
+// exists only because TS types process.env values as string | undefined.
+if ((process.env.OTEL_ENABLE as any) === true) {
     try {
         const otel = await import("../../otel.js")
         withObservability = otel.withObservability
@@ -131,7 +134,7 @@ if (process.env.OTEL_ENABLE === true) {
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
 
-const traceHook = (fn, spanName) =>
+const traceHook = (fn: any, spanName: string) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
 
 const onRouteMatch = traceHook(_onRouteMatch, "onRouteMatch")
@@ -143,7 +146,7 @@ const onRenderError = traceHook(_onRenderError, "onRenderError")
 const onRequestError = traceHook(_onRequestError, "onRequestError")
 
 // ── Asset collection ───────────────────────────────────────────────────
-const _collectAssets = (req, allMatches) => {
+const _collectAssets = (req: any, allMatches: any) => {
     const chunkExtractor = new ChunkExtractor({
         manifest: getManifest() || {},
         assetManifest: getAssetManifest() || {},
@@ -158,29 +161,44 @@ const _collectAssets = (req, allMatches) => {
 const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collectAssets")
 
 // ── JSX tree ───────────────────────────────────────────────────────────
-const getComponent = (store, context, req, fetcherData, isBot) => (
+// Three type-only escape hatches in the tree below. They are declared here as
+// plain aliases rather than inline @ts-expect-error comments, whose placement
+// inside JSX is unreliable. The aliases are erased at compile time and change
+// nothing at runtime.
+//
+//   - SsrRequestProvider / Provider are still .jsx, so TypeScript infers their
+//     props from the implementation and does not model implicit JSX children.
+//     Both aliases can go away once those modules are converted.
+//   - `context` is a react-router v5 prop that v7's StaticRouter no longer
+//     accepts or reads. It is kept because this conversion must not change
+//     runtime behaviour; removing it is a separate change.
+const SsrRequestProviderAny = SsrRequestProvider as any
+const ProviderAny = Provider as any
+const StaticRouterAny = StaticRouter as any
+
+const getComponent = (store: any, context: any, req: any, fetcherData: any, isBot: any) => (
     <div id="app">
-        <SsrRequestProvider value={{ isBot }}>
-            <Provider store={store}>
-                <StaticRouter context={context} location={req.originalUrl}>
+        <SsrRequestProviderAny value={{ isBot }}>
+            <ProviderAny store={store}>
+                <StaticRouterAny context={context} location={req.originalUrl}>
                     <ServerRouter store={store} intialData={fetcherData} />
-                </StaticRouter>
-            </Provider>
-        </SsrRequestProvider>
+                </StaticRouterAny>
+            </ProviderAny>
+        </SsrRequestProviderAny>
     </div>
 )
 
 // ── Render and stream ──────────────────────────────────────────────────
 const _renderMarkUp = async (
-    errorCode,
-    req,
-    res,
-    metaTags,
-    fetcherData,
-    store,
-    allMatches,
-    context,
-    chunkExtractor
+    errorCode: any,
+    req: any,
+    res: any,
+    metaTags: any,
+    fetcherData: any,
+    store: any,
+    allMatches: any,
+    context: any,
+    chunkExtractor: any
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
@@ -203,7 +221,7 @@ const _renderMarkUp = async (
     const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
 
     // Inline critical CSS from disk (small thanks to natural code-splitting)
-    const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
+    const buildDir = path.join(process.env.src_path!, process.env.BUILD_OUTPUT_PATH || "build")
     const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
     const deferredRouteKey = getDeferredRouteKey(req, allMatches)
@@ -233,7 +251,7 @@ const _renderMarkUp = async (
     const jsx = getComponent(store, context, req, fetcherData, isBot)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
-    const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, safeArea }
+    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea }
 
     const CompleteDocument = () => {
         if (CustomDocument) {
@@ -268,7 +286,7 @@ const _renderMarkUp = async (
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
 
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and
             // `flush()` appends the deferred asset tags before that end
             // signal propagates to `res` via the plain pipe below. This
@@ -276,10 +294,10 @@ const _renderMarkUp = async (
             // stream-end and a manual res.end() compete to close `res`
             // (see issue #320).
             const tail = new Transform({
-                transform(chunk, _enc, cb) {
+                transform(chunk: any, _enc: any, cb: any) {
                     cb(null, chunk)
                 },
-                flush(cb) {
+                flush(cb: any) {
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
@@ -324,7 +342,7 @@ const _renderMarkUp = async (
                     resolve()
                 },
 
-                onError(error) {
+                onError(error: any) {
                     logSSRError("RENDER", error)
                     safeCall(onRenderError, { req, res, store, error })
                     cleanupSafeArea()
@@ -333,7 +351,7 @@ const _renderMarkUp = async (
                 },
             })
         })
-    } catch (error) {
+    } catch (error: any) {
         cleanupSafeArea()
         logSSRError("RENDER", error)
         safeCall(onRenderError, { req, res, store, error })
@@ -344,7 +362,7 @@ const _renderMarkUp = async (
 const tracedRenderMarkUp = withObservability(SSR_SERVICE, _renderMarkUp, "renderMarkUp")
 const tracedAppServerSideFunction = withObservability(
     SSR_SERVICE,
-    (args) => App.serverSideFunction(args),
+    (args: any) => App.serverSideFunction(args),
     "App.serverSideFunction"
 )
 const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
@@ -362,15 +380,15 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
  * (onRouteMatch, onFetcherSuccess, etc.) has already sent a response
  * (e.g. a redirect), we bail out early without attempting another render.
  */
-async function _handler(req, res) {
+async function _handler(req: any, res: any) {
     try {
-        let context = {}
-        let fetcherData = {}
+        let context: any = {}
+        let fetcherData: any = {}
         const store = await createStore({}, req, res)
 
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
-        let allTags = []
+        let allTags: any = []
 
         safeCall(onRouteMatch, { req, res, matches: allMatches, store })
 
@@ -428,7 +446,7 @@ async function _handler(req, res) {
                         chunkExtractor
                     )
                 }
-            } catch (error) {
+            } catch (error: any) {
                 logSSRError("FETCHER", error)
                 safeCall(onFetcherError, { req, res, store, error })
 
@@ -447,7 +465,7 @@ async function _handler(req, res) {
                     chunkExtractor
                 )
             }
-        } catch (error) {
+        } catch (error: any) {
             logSSRError("SERVER_SIDE_FUNCTION", error)
             safeCall(onAppServerSideError, { req, res, store, error })
 
@@ -466,7 +484,7 @@ async function _handler(req, res) {
                 chunkExtractor
             )
         }
-    } catch (error) {
+    } catch (error: any) {
         logSSRError("REQUEST_HANDLING", error)
         safeCall(onRequestError, { req, res, error })
     }
