@@ -3,6 +3,7 @@ import UserNotifications
 import UIKit
 import os
 import CatalystCore
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "LocalNotificationHandler")
 

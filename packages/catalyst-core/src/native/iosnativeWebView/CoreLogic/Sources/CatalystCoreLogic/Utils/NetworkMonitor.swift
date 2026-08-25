@@ -2,13 +2,13 @@ import Foundation
 import Network
 import os
 
-struct NetworkStatus {
-    let isOnline: Bool
-    let type: String?
+public struct NetworkStatus {
+    public let isOnline: Bool
+    public let type: String?
 }
 
-final class NetworkMonitor {
-    static let shared = NetworkMonitor()
+public final class NetworkMonitor {
+    public static let shared = NetworkMonitor()
 
     private let monitor: NWPathMonitor
     private let monitorQueue = DispatchQueue(label: "com.catalyst.network.monitor")
@@ -32,12 +32,12 @@ final class NetworkMonitor {
         }
     }
 
-    var currentStatus: NetworkStatus {
+    public var currentStatus: NetworkStatus {
         stateQueue.sync { latestStatus }
     }
 
     @discardableResult
-    func addListener(_ listener: @escaping (NetworkStatus) -> Void) -> UUID {
+    public func addListener(_ listener: @escaping (NetworkStatus) -> Void) -> UUID {
         let id = UUID()
 
         stateQueue.async { [weak self] in
@@ -55,7 +55,7 @@ final class NetworkMonitor {
         return id
     }
 
-    func removeListener(_ id: UUID) {
+    public func removeListener(_ id: UUID) {
         stateQueue.async { [weak self] in
             self?.listeners.removeValue(forKey: id)
         }
@@ -87,7 +87,9 @@ final class NetworkMonitor {
         }
     }
 
-    private static func mapPathToStatus(_ path: NWPath) -> NetworkStatus {
+    // Internal (not private) so @testable import can exercise this pure
+    // mapping logic directly without needing a live NWPathMonitor callback.
+    static func mapPathToStatus(_ path: NWPath) -> NetworkStatus {
         let isOnline = path.status == .satisfied
 
         let type: String?

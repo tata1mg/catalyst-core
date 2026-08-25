@@ -9,13 +9,13 @@
 import Foundation
 import os
 
-enum AppBoot {
-    static let nativeStartMs = Int64(ProcessInfo.processInfo.systemUptime * 1000)
+public enum AppBoot {
+    public static let nativeStartMs = Int64(ProcessInfo.processInfo.systemUptime * 1000)
 }
 
 #if DEBUG
 // Global app launch timestamp for all timing measurements
-let APP_LAUNCH_TIME = CFAbsoluteTimeGetCurrent()
+public let APP_LAUNCH_TIME = CFAbsoluteTimeGetCurrent()
 
 private let timingLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "Timing")
 

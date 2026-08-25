@@ -9,6 +9,7 @@ import UIKit
 import WebKit
 import os
 import CatalystCore
+import CatalystCoreLogic
 #if canImport(GoogleSignIn)
 import GoogleSignIn
 #endif

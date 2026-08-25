@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-@testable import CatalystCore
+@testable import CatalystCoreLogic
 
 /**
  * Unit tests for FrameworkServerUtils

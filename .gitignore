@@ -79,6 +79,9 @@ build/
 **/iosnativeWebView/.build/
 **/iosnativeWebView/.spm-cache/
 
+# SPM - nested CatalystCoreLogic package (#432) build artifacts
+**/iosnativeWebView/CoreLogic/.build/
+
 # Vendored Gemfile.locks inside node_modules and CocoaPods checkouts (not managed by us)
 docs/node_modules/lunr-languages/
 src/native/iosnativeWebView/.build/checkouts/

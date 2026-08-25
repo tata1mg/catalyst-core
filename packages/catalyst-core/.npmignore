@@ -30,6 +30,9 @@ src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
 **/xcuserdata/*
 # Exclude iOS test files from npm package
 src/native/iosnativeWebView/Tests/**
+# CatalystCoreLogic (#432) nested package tests — separate Tests/ root, not
+# covered by the pattern above
+src/native/iosnativeWebView/CoreLogic/Tests/**
 # Exclude Android test files from npm package
 src/native/androidProject/app/src/test/**
 src/native/androidProject/app/src/androidTest/**

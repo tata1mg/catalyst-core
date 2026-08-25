@@ -10,6 +10,7 @@ import UIKit
 import AVFoundation
 import os
 import UserNotifications
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "NativeBridge")
 
