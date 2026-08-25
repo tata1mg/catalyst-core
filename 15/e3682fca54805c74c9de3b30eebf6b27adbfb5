@@ -1,0 +1,31 @@
+.github/workflows/node.js.yml
+  s_8120292fcc76bd::t_618c6d21921931 687-699,701,705,707-730,732-740,744
+  s_8120292fcc76bd::t_72865895d3f00b 103-109,129-227
+  s_8120292fcc76bd::t_341ca43fd97bd7 269-270
+.gitignore
+  s_8120292fcc76bd::t_46f3da9a128295 3-5
+package-lock.json
+  s_8120292fcc76bd::t_b6d39f013c6d4e 1865-1874,3533-3535,3844-3846,4921-5064,5372-5390,8271-8277,9016-9083,9919-9930,10035-10037,11552-11554,12314-12316,12816-12818,12828-12831,12833,12835-12854,12857,12860-12944,13324,13337-13338,13341-13397,13400,13403-13406,13409-13420,13423-13426,13429-13439,13442,13445-13472,13477-13478,13481-13488,13490-13498
+packages/catalyst-ai/package.json
+  s_8120292fcc76bd::t_18fbe02e7c2e12 4,33-34
+packages/catalyst-core/package.json
+  s_8120292fcc76bd::t_bdbe3a8d3b010d 87-88
+packages/create-catalyst-app/package.json
+  s_8120292fcc76bd::t_a43fdeefb58bf5 31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "15e3682fca54805c74c9de3b30eebf6b27adbfb5",
+  "prompts": {},
+  "sessions": {
+    "s_8120292fcc76bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f056c7a-ca7d-437f-8778-966f40dc2509",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
