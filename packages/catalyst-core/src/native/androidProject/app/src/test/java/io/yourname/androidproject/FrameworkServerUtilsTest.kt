@@ -46,6 +46,15 @@ class FrameworkServerUtilsTest {
 
     @Before
     fun setUp() {
+        // FrameworkServerUtils is a JVM-wide singleton object; stop it
+        // defensively before each test too, not just in tearDown — a
+        // prior test class (or an earlier test in this one, if tearDown
+        // somehow didn't run) leaving the server running would otherwise
+        // poison this class's isRunning()==false assumptions. Matches the
+        // defensive-stop pattern already used in FileSizeRouterUtilsTest.
+        if (FrameworkServerUtils.isRunning()) {
+            FrameworkServerUtils.stopServer()
+        }
         cacheDir = createTempDirectory(prefix = "catalyst-framework-server-test").toFile()
         context = mock { on { getCacheDir() } doReturn cacheDir }
         webView = mock { on { getUrl() } doReturn "http://localhost:8080/index.html" }

@@ -72,6 +72,14 @@ object FrameworkServerUtils {
     // into an already-cancelled scope, silently disabling periodic served-
     // file cleanup for the rest of that server's lifetime. Found via a
     // real start/stop/restart sequence in FrameworkServerUtilsTest.
+    // @Volatile: startServer()/stopServer() can run on different threads
+    // (this object is a singleton reached from NativeBridge's coroutine
+    // scope and from test code alike) — without it, a reassignment in
+    // startServer() has no guaranteed visibility to a reader on another
+    // thread (e.g. a coroutine already launched via serverScope.launch{}
+    // from a prior start), same class of bug as a non-volatile double-
+    // checked-locking field.
+    @Volatile
     private var serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     data class ServedFile(

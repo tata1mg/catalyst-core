@@ -38,9 +38,18 @@ class PerfEventBufferTest {
 
     @Test
     fun `configure(true) enables the buffer in a debug build`() {
+        // configure(true) only actually enables the buffer when
+        // BuildConfig.DEBUG is true — assert that precondition explicitly
+        // (via Assume) rather than just asserting isEnabled() and relying
+        // on an unchecked comment that this suite always runs under the
+        // debug variant. This task runs as testDebugUnitTest, so it does
+        // today, but making the check explicit means a future variant
+        // change surfaces as a skip, not a silent false-negative pass.
+        org.junit.Assume.assumeTrue(
+            "This test only applies to the debug variant",
+            io.yourname.androidproject.BuildConfig.DEBUG
+        )
         PerfEventBuffer.configure(enabled = true)
-        // BuildConfig.DEBUG is true for the debug test variant this suite
-        // runs under, so configure(true) should actually enable it.
         assertTrue(PerfEventBuffer.isEnabled())
     }
 

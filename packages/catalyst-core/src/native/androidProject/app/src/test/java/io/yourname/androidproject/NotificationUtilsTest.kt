@@ -240,8 +240,10 @@ class NotificationUtilsTest {
         // On pre-TIRAMISU test JVMs this resolves via areNotificationsEnabled
         // (NotificationManagerCompat, unmocked -> SDK stub default), on
         // TIRAMISU+ it resolves via the checkSelfPermission stub above —
-        // either way the callback path completes without throwing.
-        assertNotNull(callbackInvoked)
+        // either way the callback path should complete synchronously.
+        // (assertNotNull(callbackInvoked) was here previously -- tautological
+        // on a non-null Boolean, never actually verified the callback fired.)
+        assertTrue("Callback should have been invoked on either SDK branch", callbackInvoked)
     }
 
     // ============================================================

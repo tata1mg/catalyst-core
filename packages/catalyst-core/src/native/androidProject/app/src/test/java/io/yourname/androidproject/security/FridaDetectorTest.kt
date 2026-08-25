@@ -65,6 +65,19 @@ class FridaDetectorTest {
 
     @Test
     fun `isFridaDetected returns false in a clean test environment with no listener and no suspicious files`() {
+        // Unlike the positive tests below (which need a specific port
+        // bound and should fail loudly if that's not possible), this
+        // negative assertion's only real dependency is that NOTHING is
+        // listening on Frida's ports right now -- if something is (even,
+        // ironically, a real frida-server on the host), that's an
+        // environment fact this test can't control, so skip rather than
+        // fail. checkPortFree(...) reports that state without binding
+        // anything itself, avoiding a bind-vs-connect race with the
+        // detector's own check.
+        org.junit.Assume.assumeTrue(
+            "Something is already listening on port 27042 or 27043 in this environment — skipping",
+            checkPortFree(27042) && checkPortFree(27043)
+        )
         assertFalse(FridaDetector.isFridaDetected())
     }
 
@@ -74,7 +87,7 @@ class FridaDetectorTest {
 
     @Test
     fun `isFridaDetected returns true when a listener is bound on Frida's default port 27042`() {
-        val server = bindOrSkip(27042)
+        val server = bindOrFailLoudly(27042)
         try {
             assertTrue(FridaDetector.isFridaDetected())
         } finally {
@@ -84,7 +97,7 @@ class FridaDetectorTest {
 
     @Test
     fun `isFridaDetected returns true when a listener is bound on Frida's alternate port 27043`() {
-        val server = bindOrSkip(27043)
+        val server = bindOrFailLoudly(27043)
         try {
             assertTrue(FridaDetector.isFridaDetected())
         } finally {
@@ -136,8 +149,16 @@ class FridaDetectorTest {
      * default ports (27042/27043) are vanishingly unlikely to already be
      * occupied on a dev/CI machine, but fail loudly with a clear message
      * rather than producing a mystery assertion failure if they are.
+     *
+     * Named to reflect what it actually does (previously `bindOrSkip`,
+     * which never skipped anything -- CodeRabbit flagged the mismatch).
+     * These positive-detection tests intentionally do NOT tolerate a
+     * bind failure the way the negative test above does: if the port is
+     * already occupied, that's worth knowing loudly rather than quietly
+     * skipping a test meant to prove isFridaDetected() actually detects
+     * something.
      */
-    private fun bindOrSkip(port: Int): ServerSocket {
+    private fun bindOrFailLoudly(port: Int): ServerSocket {
         return try {
             ServerSocket().apply {
                 reuseAddress = true
@@ -149,6 +170,24 @@ class FridaDetectorTest {
                     "already listening on it (ironically, maybe even a real frida-server)?",
                 e
             )
+        }
+    }
+
+    /**
+     * Reports whether a loopback port currently has nothing listening on
+     * it, without holding a bind itself (so it can't race the detector's
+     * own connect attempt in isFridaDetected()). Used only to decide
+     * whether the clean-environment negative test should run at all.
+     */
+    private fun checkPortFree(port: Int): Boolean {
+        return try {
+            ServerSocket().use {
+                it.reuseAddress = true
+                it.bind(InetSocketAddress("127.0.0.1", port))
+            }
+            true
+        } catch (e: Exception) {
+            false
         }
     }
 }
