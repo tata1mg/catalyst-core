@@ -524,6 +524,13 @@ jobs:
         needs: [detect-changes, ios-corelogic-and-coverage]
         if: needs.detect-changes.outputs.ios == 'true'
         runs-on: macos-latest
+        # actions: write needed only for the release-time cache-delete
+        # step below, same rationale as the other coverage-gated jobs.
+        permissions:
+            contents: read
+            actions: write
+        outputs:
+            line_pct: ${{ steps.coverage.outputs.line_pct }}
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -619,6 +626,10 @@ jobs:
             # multiple simulator clones on a shared CI runner, without
             # actually delivering the speed win it's meant to (16-25 min
             # in CI either way, vs ~91s measured locally without it).
+            # -enableCodeCoverage YES + -resultBundlePath: xcodebuild
+            # writes an .xcresult bundle carrying per-target line coverage,
+            # parsed below via `xcrun xccov`. resultBundlePath must not
+            # already exist, which is guaranteed here (fresh checkout).
             - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
@@ -638,18 +649,97 @@ jobs:
                     -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
                     -only-testing:iosnativeWebViewTests \
                     -clonedSourcePackagesDirPath .spm-cache \
+                    -enableCodeCoverage YES \
+                    -resultBundlePath TestResults.xcresult \
                     CODE_SIGNING_ALLOWED=NO \
                     | xcbeautify --renderer github-actions
 
+            # xccov's report JSON has one entry per built target (app,
+            # unit test bundle, UI test bundle) -- filter to the app
+            # target only. The test-bundle targets report near-100%
+            # coverage of their own test code by definition (not
+            # production code), which is why they're excluded, same
+            # reasoning as filtering Tests/** out of the iOS CoreLogic
+            # coverage JSON. Schema confirmed locally: top-level
+            # `targets: [{name, coveredLines, executableLines,
+            # lineCoverage}]`, lineCoverage as a 0-1 fraction.
+            - name: Print coverage summary
+              id: coverage
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  xcrun xccov view --report --json TestResults.xcresult > xccov-report.json
+                  python3 - <<'EOF'
+                  import json, os
+                  with open("xccov-report.json") as f:
+                      report = json.load(f)
+                  app_target = next(
+                      (t for t in report["targets"] if t["name"] == "iosnativeWebView.app"),
+                      None,
+                  )
+                  if app_target is None:
+                      raise SystemExit("iosnativeWebView.app target not found in xccov report")
+                  covered = app_target["coveredLines"]
+                  total = app_target["executableLines"]
+                  pct = (covered / total * 100) if total else 0
+                  print(f"LINE {covered}/{total} ({pct:.2f}%)")
+                  with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                      f.write(f"line_pct={pct:.2f}\n")
+                  EOF
+
+            # Same restore-only-on-PR / write-only-on-main-push baseline
+            # pattern as the other three coverage-gated jobs. Own cache
+            # key/file -- this is the UIKit app target's coverage, a
+            # different (and today lower) number than CoreLogic's, not a
+            # combined iOS figure.
+            - name: Restore coverage baseline
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-ios-app.json
+                  key: coverage-baseline-ios-app-v1
+
+            - name: Enforce coverage does not regress vs last release
+              if: github.event_name == 'pull_request'
+              run: |
+                  CURRENT="${{ steps.coverage.outputs.line_pct }}"
+                  if [ ! -f coverage-baseline-ios-app.json ]; then
+                    echo "::warning::No iOS app coverage baseline found (first run, or cache evicted) -- skipping regression check. Current: ${CURRENT}%"
+                    exit 0
+                  fi
+                  BASELINE=$(python3 -c "import json; print(json.load(open('coverage-baseline-ios-app.json'))['line_pct'])")
+                  echo "Baseline (last release on main): ${BASELINE}%"
+                  echo "Current (this PR):               ${CURRENT}%"
+                  python3 -c "
+                  import sys
+                  current, baseline = float('$CURRENT'), float('$BASELINE')
+                  if current < baseline:
+                      print(f'::error::iOS app line coverage dropped: {current:.2f}% < {baseline:.2f}% (last release baseline)')
+                      sys.exit(1)
+                  print(f'OK: {current:.2f}% >= {baseline:.2f}%')
+                  "
+
+            - name: Update coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  echo "{\"line_pct\": ${{ steps.coverage.outputs.line_pct }}}" > coverage-baseline-ios-app.json
+                  gh cache delete coverage-baseline-ios-app-v1 --repo "${{ github.repository }}" || true
+
+            - name: Save coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-ios-app.json
+                  key: coverage-baseline-ios-app-v1
+
     # Terminal join point for the ENTIRE pipeline -- every test/coverage
-    # job feeds into this one, including jobs that don't produce a
-    # coverage number (web-integration-smoke, ios-app-simulator-tests).
-    # A real failure in either of those is exactly the kind of thing "is
-    # it safe to build docs / move on" needs to know about, even though
-    # neither reports a %. Numbers are printed for the three platforms
-    # that produce one (web, android, ios-corelogic); the other two are
-    # status-only ("not yet measured" for ios-app; web-integration-smoke
-    # isn't a coverage platform at all, just gated on for pass/fail).
+    # job feeds into this one, including web-integration-smoke (no
+    # coverage number, gated on pass/fail only -- it's an
+    # integration/smoke job, not a unit-test target). Numbers are printed
+    # for all four platforms that produce one: web (vitest), android
+    # (jacoco), ios-corelogic (CatalystCoreLogic, llvm-cov), and ios-app
+    # (iosnativeWebView.app target, xccov).
     #
     # `if: always()` + explicit per-job result checks (not a bare `needs`)
     # because a skipped platform (e.g. an android-only PR, where the iOS
@@ -669,6 +759,7 @@ jobs:
                   web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
                   android_pct="${{ needs.android-unit-and-coverage.outputs.line_pct }}"
                   ios_corelogic_pct="${{ needs.ios-corelogic-and-coverage.outputs.line_pct }}"
+                  ios_app_pct="${{ needs.ios-app-simulator-tests.outputs.line_pct }}"
 
                   report_platform() {
                     name="$1"; status="$2"; pct="$3"
@@ -686,7 +777,7 @@ jobs:
                   report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
                   report_platform "android (jacoco)" "$android_status" "$android_pct"
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
-                  report_platform "ios-app (simulator XCTest, coverage not yet measured)" "$ios_app_status" ""
+                  report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
 
                   fail=0
                   for pair in "web:$web_status" "web-integration-smoke:$web_smoke_status" "android:$android_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
