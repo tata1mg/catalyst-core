@@ -218,6 +218,7 @@ export const useNativeTransition = (defaults = {}) => {
         navigate,
         cancelTransition,
         transitioning,
+        loading: transitioning,
         isNative,
         isWeb: !isNative,
     }
