@@ -28,7 +28,8 @@
         "@types/node": "^22.20.1",
         "prettier": "^3.2.5",
         "typescript": "^7.0.2",
-        "vitest": "4.1.9"
+        "vitest": "4.1.9",
+        "@vitest/coverage-v8": "4.1.9"
     },
     "license": "MIT",
     "overrides": {

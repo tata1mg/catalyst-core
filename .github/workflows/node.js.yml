@@ -100,6 +100,13 @@ jobs:
         needs: [detect-changes, lint]
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
+        # actions: write needed only for the release-time cache-delete step
+        # below, same rationale as android-unit-and-coverage.
+        permissions:
+            contents: read
+            actions: write
+        outputs:
+            line_pct: ${{ steps.coverage.outputs.line_pct }}
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -119,8 +126,105 @@ jobs:
               # requires one) doesn't apply here -- use `npm install`.
               run: npm install --prefix packages/catalyst-core/mcp_v2
 
-            - name: Run unit/contract tests + type checks
-              run: npm run test:unit
+            # Split into two commands rather than appending flags to
+            # `npm run test:unit`: that script is
+            # "npm run test --workspaces --if-present && npm --prefix
+            # .../mcp_v2 test" -- appended args land at the END of the
+            # whole string, i.e. on mcp_v2's test, not on vitest. mcp_v2
+            # stays uninstrumented (its tests still run and still fail the
+            # job on error; only its coverage is unmeasured) since it's
+            # not an npm workspace member and wasn't part of this change's
+            # verification.
+            #
+            # @vitest/coverage-v8 is pinned to the exact version as vitest
+            # itself (4.1.9) in each workspace's devDependencies, same
+            # precedent as the vitest pin from issue #433. Verified
+            # locally end-to-end on a clean `npm ci` (no --legacy-peer-deps
+            # needed for install-from-lockfile -- only needed once, to
+            # regenerate package-lock.json after adding the dependency,
+            # because of a real npm arborist bug in ideal-tree peer-set
+            # resolution when ADDING a new package next to vitest's long
+            # optional-peer list; npm ci installs from an already-resolved
+            # lockfile and doesn't hit that code path).
+            - name: Run unit/contract tests + type checks + coverage
+              run: |
+                  npm run test --workspaces --if-present -- --coverage --coverage.reporter=json-summary --coverage.reporter=text
+                  npm --prefix packages/catalyst-core/mcp_v2 test
+
+            # Aggregate each workspace's coverage/coverage-summary.json
+            # (vitest's own v8 coverage output; confirmed schema:
+            # total.lines.{total,covered,pct}) into one package-wide line
+            # %, same sum-covered-over-sum-total approach as jacoco
+            # (Android) and the SPM codecov JSON (iOS CoreLogic). Only the
+            # 3 npm workspaces are included -- mcp_v2 has no coverage
+            # output by design (see above).
+            - name: Print coverage summary
+              id: coverage
+              run: |
+                  python3 - <<'EOF'
+                  import glob, json, os
+                  covered = total = 0
+                  paths = glob.glob("packages/*/coverage/coverage-summary.json")
+                  if not paths:
+                      raise SystemExit("No coverage-summary.json found under packages/*/coverage/")
+                  for path in paths:
+                      with open(path) as f:
+                          report = json.load(f)
+                      lines = report["total"]["lines"]
+                      covered += lines["covered"]
+                      total += lines["total"]
+                      print(f"{path}: {lines['covered']}/{lines['total']} ({lines['pct']}%)")
+                  pct = (covered / total * 100) if total else 0
+                  print(f"AGGREGATE LINE {covered}/{total} ({pct:.2f}%)")
+                  with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                      f.write(f"line_pct={pct:.2f}\n")
+                  EOF
+
+            # Same restore-only-on-PR / write-only-on-main-push baseline
+            # pattern as android-unit-and-coverage and
+            # ios-corelogic-and-coverage. Separate cache key/file -- each
+            # platform is an independent baseline.
+            - name: Restore coverage baseline
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-web.json
+                  key: coverage-baseline-web-v1
+
+            - name: Enforce coverage does not regress vs last release
+              if: github.event_name == 'pull_request'
+              run: |
+                  CURRENT="${{ steps.coverage.outputs.line_pct }}"
+                  if [ ! -f coverage-baseline-web.json ]; then
+                    echo "::warning::No web coverage baseline found (first run, or cache evicted) -- skipping regression check. Current: ${CURRENT}%"
+                    exit 0
+                  fi
+                  BASELINE=$(python3 -c "import json; print(json.load(open('coverage-baseline-web.json'))['line_pct'])")
+                  echo "Baseline (last release on main): ${BASELINE}%"
+                  echo "Current (this PR):               ${CURRENT}%"
+                  python3 -c "
+                  import sys
+                  current, baseline = float('$CURRENT'), float('$BASELINE')
+                  if current < baseline:
+                      print(f'::error::Web line coverage dropped: {current:.2f}% < {baseline:.2f}% (last release baseline)')
+                      sys.exit(1)
+                  print(f'OK: {current:.2f}% >= {baseline:.2f}%')
+                  "
+
+            - name: Update coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  echo "{\"line_pct\": ${{ steps.coverage.outputs.line_pct }}}" > coverage-baseline-web.json
+                  gh cache delete coverage-baseline-web-v1 --repo "${{ github.repository }}" || true
+
+            - name: Save coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-web.json
+                  key: coverage-baseline-web-v1
 
     # Merges what were 3 separate jobs (test-js-integration,
     # create-catalyst-app, catalyst-ai) into one. All 3 declared the same
@@ -162,6 +266,8 @@ jobs:
         permissions:
             contents: read
             actions: write
+        outputs:
+            line_pct: ${{ steps.coverage.outputs.line_pct }}
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -578,27 +684,61 @@ jobs:
     # out. `if: always()` + explicit result checks (not a bare `needs`)
     # because a skipped platform (e.g. an android-only PR, where
     # ios-corelogic-and-coverage never runs) must still count as fine here.
+    # Terminal job: the single answer to "did coverage regress, and what is
+    # it right now" across every platform that measures it. The actual
+    # pass/fail decision already happened inside each producing job's own
+    # "Enforce coverage does not regress" step (that's where a regression
+    # fails first, with the specific numbers in that job's log) -- this
+    # job re-asserts all of them landed with success-or-skip AND prints
+    # every platform's current % together in one place, rather than
+    # requiring four separate job logs to answer "where do we stand".
+    #
+    # ios-app-simulator-tests is NOT included yet -- it has no coverage
+    # extraction wired up (no xccov/.xcresult parsing), so it's pass/fail
+    # only today. Tracked as a follow-up; adding it means repeating the
+    # same needs/outputs/bash pattern used for the other three.
     coverage-summary:
-        needs: [detect-changes, android-unit-and-coverage, ios-corelogic-and-coverage]
+        needs: [detect-changes, unit-and-contract-tests, android-unit-and-coverage, ios-corelogic-and-coverage]
         if: always()
         runs-on: ubuntu-latest
         steps:
-            - name: Verify no coverage regression
+            - name: Report per-platform coverage and verify no regression
               run: |
-                  android="${{ needs.android-unit-and-coverage.result }}"
-                  ios="${{ needs.ios-corelogic-and-coverage.result }}"
-                  echo "android-unit-and-coverage: $android"
-                  echo "ios-corelogic-and-coverage: $ios"
+                  web_status="${{ needs.unit-and-contract-tests.result }}"
+                  android_status="${{ needs.android-unit-and-coverage.result }}"
+                  ios_status="${{ needs.ios-corelogic-and-coverage.result }}"
+                  web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
+                  android_pct="${{ needs.android-unit-and-coverage.outputs.line_pct }}"
+                  ios_pct="${{ needs.ios-corelogic-and-coverage.outputs.line_pct }}"
+
+                  report_platform() {
+                    name="$1"; status="$2"; pct="$3"
+                    if [ "$status" = "skipped" ]; then
+                      echo "  $name: n/a (not run on this PR)"
+                    elif [ -z "$pct" ]; then
+                      echo "  $name: status=$status, no coverage number reported"
+                    else
+                      echo "  $name: ${pct}% (status=$status)"
+                    fi
+                  }
+
+                  echo "Coverage summary:"
+                  report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
+                  report_platform "android (jacoco)" "$android_status" "$android_pct"
+                  report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_status" "$ios_pct"
+                  echo "  ios-app (simulator XCTest): coverage not yet measured -- pass/fail only"
+
                   fail=0
-                  if [ "$android" != "success" ] && [ "$android" != "skipped" ]; then
-                    echo "::error::Android coverage gate did not pass (status: $android)"
-                    fail=1
-                  fi
-                  if [ "$ios" != "success" ] && [ "$ios" != "skipped" ]; then
-                    echo "::error::iOS CoreLogic coverage gate did not pass (status: $ios)"
-                    fail=1
-                  fi
+                  for pair in "web:$web_status" "android:$android_status" "ios-corelogic:$ios_status"; do
+                    platform="${pair%%:*}"
+                    status="${pair#*:}"
+                    if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+                      echo "::error::$platform coverage gate did not pass (status: $status)"
+                      fail=1
+                    fi
+                  done
+
                   if [ "$fail" -eq 1 ]; then
                     exit 1
                   fi
-                  echo "Coverage OK on all platforms that reported it (or not applicable to this PR)."
+                  echo "Coverage OK on every platform that reported it (or not applicable to this PR)."
