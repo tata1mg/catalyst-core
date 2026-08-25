@@ -16,15 +16,40 @@
         "@catalyst/template": "."
     },
     "exports": {
-        ".": "./dist/index.jsx",
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.jsx"
+        },
         "./package.json": "./package.json",
         "./logger": "./dist/logger.js",
-        "./router/ClientRouter": "./dist/router/ClientRouter.js",
-        "./WebBridge": "./dist/native/bridge/WebBridge.js",
-        "./hooks": "./dist/native/bridge/hooks.js",
+        "./router/ClientRouter": {
+            "types": "./dist/router/ClientRouter.d.ts",
+            "default": "./dist/router/ClientRouter.js"
+        },
+        "./WebBridge": {
+            "types": "./dist/native/bridge/WebBridge.d.ts",
+            "default": "./dist/native/bridge/WebBridge.js"
+        },
+        "./hooks": {
+            "types": "./dist/native/bridge/hooks.d.ts",
+            "default": "./dist/native/bridge/hooks.js"
+        },
         "./errors": "./dist/errors/index.js",
         "./sentry": "./dist/sentry.cjs",
         "./otel": "./dist/otel.js"
+    },
+    "typesVersions": {
+        "*": {
+            "hooks": [
+                "./dist/native/bridge/hooks.d.ts"
+            ],
+            "WebBridge": [
+                "./dist/native/bridge/WebBridge.d.ts"
+            ],
+            "router/ClientRouter": [
+                "./dist/router/ClientRouter.d.ts"
+            ]
+        }
     },
     "scripts": {
         "lint": "eslint .",
@@ -32,11 +57,14 @@
         "test:unit": "node --test \"test/**/*.test.js\"",
         "typecheck": "tsc --noEmit",
         "prettify": "prettier . --write",
-        "prepare": "node ../../scripts/safe-rimraf.js ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --extensions '.js,.jsx,.ts,.tsx' --ignore '**/.build/**' && node scripts/strip-ts-sources.mjs ./dist/native && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
+        "prepare": "node ../../scripts/safe-rimraf.js ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --extensions '.js,.jsx,.ts,.tsx' --ignore '**/.build/**' && node scripts/strip-ts-sources.mjs ./dist/native && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && tsc -p tsconfig.declarations.json && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
         "prepublishOnly": "npm run prepare",
         "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
     },
     "license": "MIT",
+    "engines": {
+        "node": ">=22.12"
+    },
     "dependencies": {
         "@vitejs/plugin-react": "^4.4.1",
         "ansis": "^4.3.1",
@@ -60,7 +88,13 @@
         "winston-daily-rotate-file": "^5.0.0"
     },
     "peerDependencies": {
+        "@types/react": "^19.0.0",
         "react-router": "^7.18.2"
+    },
+    "peerDependenciesMeta": {
+        "@types/react": {
+            "optional": true
+        }
     },
     "devDependencies": {
         "@babel/cli": "^7.23.0",
