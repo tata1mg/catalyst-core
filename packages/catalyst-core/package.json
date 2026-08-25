@@ -31,7 +31,7 @@
         "lint-staged": "lint-staged",
         "test:unit": "node --test \"test/**/*.test.js\"",
         "prettify": "prettier . --write",
-        "prepare": "node ../../scripts/safe-rimraf.js ./dist && cp -r ./src ./dist && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
+        "prepare": "node ../../scripts/safe-rimraf.js ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
         "prepublishOnly": "npm run prepare",
         "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
     },
