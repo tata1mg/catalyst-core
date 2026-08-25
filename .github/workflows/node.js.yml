@@ -3,9 +3,67 @@ name: CI Pipeline
 on:
     pull_request:
         branches: ["main", "epic/**", "story/**", "task/**", "feature/**"]
+    push:
+        branches: ["main"]
 
 jobs:
+    # Single source of truth for "what changed" -- every other job reads
+    # this job's outputs via `if:` instead of re-diffing itself. Job-level
+    # `if:` (not workflow-level `on.paths`) is deliberate: a job skipped by
+    # `if:` still reports a Success status, so it doesn't leave a required
+    # check hanging forever the way a workflow-level path filter would.
+    #
+    # Root/shared paths (workflow files, lockfiles, node version, shared
+    # scripts) are OR'd into every platform filter below, not just `web` --
+    # a change to node.js.yml itself or to package-lock.json should still
+    # trigger android/ios, since either could affect what those jobs run.
+    detect-changes:
+        runs-on: ubuntu-latest
+        outputs:
+            web: ${{ steps.filter.outputs.web }}
+            android: ${{ steps.filter.outputs.android }}
+            ios: ${{ steps.filter.outputs.ios }}
+            docs: ${{ steps.filter.outputs.docs }}
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            # On `push` (main-only, used to stamp the coverage baseline --
+            # see test-android-unit), paths-filter diffs against
+            # `github.event.before`, which is all-zeros on branch
+            # creation/force-push. We do not pin `base:` here, so on that
+            # rare case paths-filter falls back to treating everything as
+            # changed rather than nothing -- a false "nothing changed" on
+            # the baseline-writing run would silently skip the baseline
+            # update, which is the wrong failure direction for a gate.
+            - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+              id: filter
+              with:
+                  filters: |
+                      shared: &shared
+                        - '.github/workflows/**'
+                        - 'package.json'
+                        - 'package-lock.json'
+                        - '.nvmrc'
+                        - 'scripts/**'
+                      web:
+                        - *shared
+                        - 'packages/catalyst-core/**'
+                        - '!packages/catalyst-core/src/native/androidProject/**'
+                        - '!packages/catalyst-core/src/native/iosnativeWebView/**'
+                        - 'packages/create-catalyst-app/**'
+                        - 'packages/catalyst-ai/**'
+                      android:
+                        - *shared
+                        - 'packages/catalyst-core/src/native/androidProject/**'
+                      ios:
+                        - *shared
+                        - 'packages/catalyst-core/src/native/iosnativeWebView/**'
+                      docs:
+                        - 'docs/**'
+
     lint:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
 
         steps:
@@ -23,7 +81,7 @@ jobs:
               # --quiet: only fail on error-level findings. Warn-level
               # findings (pre-existing no-console / no-throw-new-error hits
               # in legacy src files, plus oxlint's default-ruleset noise)
-              # are surfaced but non-blocking until they're cleaned up —
+              # are surfaced but non-blocking until they're cleaned up --
               # see the tracking issue linked from #415.
               run: npm run lint:oxlint
 
@@ -34,6 +92,8 @@ jobs:
             # lands with a real config.
 
     test-js-unit:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
 
         steps:
@@ -51,14 +111,52 @@ jobs:
               # mcp_v2 is intentionally not an npm workspace member, so its
               # deps aren't installed by the root `npm ci` above. It also
               # has no package-lock.json of its own, so `npm ci` (which
-              # requires one) doesn't apply here — use `npm install`.
+              # requires one) doesn't apply here -- use `npm install`.
               run: npm install --prefix packages/catalyst-core/mcp_v2
 
             - name: Run unit/contract tests + type checks
               run: npm run test:unit
 
-    test-android-unit:
+    # Merges what were 3 separate jobs (test-js-integration,
+    # create-catalyst-app, catalyst-ai) into one. All 3 declared the same
+    # `mcr.microsoft.com/playwright:v1.62.1-noble` container; GitHub Actions
+    # cannot share a running container across jobs (each job is a fresh VM
+    # and pulls its own container image before the job starts), so running
+    # them as 3 parallel jobs meant paying that pull 3x on every PR that
+    # touched web code. Folding them into sequential steps in one job pays
+    # it once. Trade-off: loses the parallel wall-clock and per-job failure
+    # isolation the 3-job split had -- a failure in step 1 still lets steps
+    # 2/3 report clearly in the job log, just not as 3 separate check marks.
+    test-js-combined:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
+        container:
+            image: mcr.microsoft.com/playwright:v1.62.1-noble
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Build and Test (catalyst-core Playwright fixture)
+              run: node -v && chmod +x ./scripts/test-catalyst-core.sh && ./scripts/test-catalyst-core.sh
+
+            - name: Scaffold and Build Smoke Test (create-catalyst-app)
+              run: chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
+
+            - name: Install and Syntax Check (catalyst-ai)
+              run: chmod +x ./scripts/test-catalyst-ai.sh && ./scripts/test-catalyst-ai.sh
+
+    test-android-unit:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.android == 'true'
+        runs-on: ubuntu-latest
+        # actions: write is needed only for the release-time cache-delete
+        # step below (`gh cache delete`, which is an API write). Scoped to
+        # this job alone, not the workflow, so the container-based JS jobs
+        # (running third-party test scripts) don't inherit it.
+        permissions:
+            contents: read
+            actions: write
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -77,11 +175,11 @@ jobs:
 
             # jacocoTestReport depends on testDebugUnitTest, so this still
             # runs (and fails the job on) the Tier 1 unit tests themselves
-            # — it just also turns the .exec coverage data
+            # -- it just also turns the .exec coverage data
             # enableUnitTestCoverage=true already collects into a real
             # XML/HTML report, instead of leaving that data on the runner
             # unread. Mirrors the CatalystCoreLogic llvm-cov reporting on
-            # iOS (#432) — a pass/fail count alone doesn't say how much of
+            # iOS (#432) -- a pass/fail count alone doesn't say how much of
             # the app is actually exercised.
             - name: Run app/src/test (Tier 1 JVM unit tests) + coverage report
               working-directory: packages/catalyst-core/src/native/androidProject
@@ -90,17 +188,86 @@ jobs:
                   ./gradlew jacocoTestReport --console=plain
 
             - name: Print coverage summary
+              id: coverage
               working-directory: packages/catalyst-core/src/native/androidProject
               run: |
                   python3 - <<'EOF'
+                  import os
                   import xml.etree.ElementTree as ET
                   root = ET.parse("app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml").getroot()
+                  line_pct = None
                   for c in root.findall("counter"):
                       cov, miss = int(c.get("covered")), int(c.get("missed"))
                       total = cov + miss
                       pct = (cov / total * 100) if total else 0
                       print(f"{c.get('type'):12s} {cov:6d}/{total:<6d} ({pct:5.2f}%)")
+                      if c.get("type") == "LINE":
+                          line_pct = pct
+                  with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                      f.write(f"line_pct={line_pct:.2f}\n")
                   EOF
+
+            # Coverage regression gate: restore-only on PRs. Never writes
+            # from a PR run -- only the main-branch push run (below) is
+            # allowed to update the baseline, otherwise a PR could poison
+            # it by "landing" a lower number as the new floor for everyone
+            # after it. Cache lookup falls through branch -> PR base branch
+            # -> default branch (main), so this resolves even on PRs
+            # targeting epic/**/feature/** branches, as long as main itself
+            # has a saved baseline.
+            #
+            # Missing baseline (first run ever, or evicted after 7 days'
+            # disuse / 10GB repo cache pressure) is treated as pass, not
+            # fail -- a gate that hard-fails on infrastructure eviction
+            # would look like a phantom regression unrelated to the PR's
+            # actual code.
+            - name: Restore coverage baseline
+              if: github.event_name == 'pull_request'
+              id: restore-baseline
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-android.json
+                  key: coverage-baseline-android-v1
+
+            - name: Enforce coverage does not regress vs last release
+              if: github.event_name == 'pull_request'
+              run: |
+                  CURRENT="${{ steps.coverage.outputs.line_pct }}"
+                  if [ ! -f coverage-baseline-android.json ]; then
+                    echo "::warning::No Android coverage baseline found (first run, or cache evicted) -- skipping regression check. Current: ${CURRENT}%"
+                    exit 0
+                  fi
+                  BASELINE=$(python3 -c "import json; print(json.load(open('coverage-baseline-android.json'))['line_pct'])")
+                  echo "Baseline (last release on main): ${BASELINE}%"
+                  echo "Current (this PR):               ${CURRENT}%"
+                  python3 -c "
+                  import sys
+                  current, baseline = float('$CURRENT'), float('$BASELINE')
+                  if current < baseline:
+                      print(f'::error::Android line coverage dropped: {current:.2f}% < {baseline:.2f}% (last release baseline)')
+                      sys.exit(1)
+                  print(f'OK: {current:.2f}% >= {baseline:.2f}%')
+                  "
+
+            # Baseline write: only on push to main (i.e. after a PR merges
+            # to the release branch), never from a PR run. Cache keys are
+            # immutable once written, so we delete the old entry first
+            # (`|| true` since "no such key yet" is expected on the very
+            # first run) then save the fresh one under the same stable key.
+            - name: Update coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  echo "{\"line_pct\": ${{ steps.coverage.outputs.line_pct }}}" > coverage-baseline-android.json
+                  gh cache delete coverage-baseline-android-v1 --repo "${{ github.repository }}" || true
+
+            - name: Save coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-android.json
+                  key: coverage-baseline-android-v1
 
             - name: Upload Jacoco coverage report
               uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -110,6 +277,8 @@ jobs:
                   retention-days: 14
 
     test-ios-unit:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.ios == 'true'
         runs-on: macos-latest
 
         steps:
@@ -118,16 +287,21 @@ jobs:
             # CatalystCoreLogic (#432): the UIKit-free nested SPM package
             # split out of CatalystCore. Runs first, in the same job/runner
             # as the simulator-based tests below rather than as a separate
-            # top-level job — a separate job would mean a second macos
+            # top-level job -- a separate job would mean a second macos
             # runner spin-up (real wall-clock cost on GitHub's macOS
             # runners) just to save ~50s, which doesn't pay for itself.
             # Sequencing it first here means a CatalystCoreLogic failure
             # fails fast and skips the expensive simulator boot + full
-            # UIKit build below (~9-10 min) entirely — that's the actual
+            # UIKit build below (~9-10 min) entirely -- that's the actual
             # win, not parallelism. No simulator boot, no full
             # CatalystCore/UIKit build, no network package resolution
             # (CatalystCoreLogic has zero dependencies). Measured locally:
             # 171 tests in well under a second (excluding cold build time).
+            #
+            # NOTE: this does not yet feed the coverage regression gate --
+            # unlike jacoco on Android, there's no llvm-cov percentage
+            # extraction wired up here. Tracked as a follow-up if/when
+            # iOS coverage should join the same baseline-gate mechanism.
             - name: Run CatalystCoreLogic unit tests (swift test, no simulator)
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
@@ -135,9 +309,9 @@ jobs:
                   swift test --package-path CoreLogic
 
             # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
-            # keyed on Package.resolved — avoids re-fetching them from
+            # keyed on Package.resolved -- avoids re-fetching them from
             # GitHub over the network on every run. Not full DerivedData
-            # caching (fragile across CI runs — bakes in absolute paths
+            # caching (fragile across CI runs -- bakes in absolute paths
             # and relies on mtimes actions/cache doesn't preserve), just
             # the downloaded package sources/checkouts.
             - name: Cache SPM packages
@@ -151,7 +325,7 @@ jobs:
             # Pick an available iPhone simulator at run time instead of
             # hardcoding a device name: GitHub only keeps a small,
             # rotating set of preinstalled simulators (~3 runtimes, and
-            # the device lineup itself moves too — "iPhone 16" was on
+            # the device lineup itself moves too -- "iPhone 16" was on
             # that set when this job was first written, then wasn't by
             # the time it actually ran, breaking the hardcoded version).
             #
@@ -161,14 +335,14 @@ jobs:
             # it prints anything, so on a cold SPM cache it can stall for
             # 30s+ and (with output piped through `2>/dev/null`) fail
             # with no visible reason. simctl talks only to CoreSimulator
-            # — no project load, no package resolution — and returns
+            # -- no project load, no package resolution -- and returns
             # structured JSON instead of text scraped with grep/sed.
             - name: Pick an available iOS simulator
               id: sim
               run: |
                   set -o pipefail
                   # Filter to available iPhone simulators, excluding
-                  # "e"-suffixed models (iPhone 16e, 17e, ...) — the
+                  # "e"-suffixed models (iPhone 16e, 17e, ...) -- the
                   # budget/economy line. One picked in an earlier CI run
                   # took >2 minutes just to connect over lockdown and
                   # then still failed loading the UI test bundle;
@@ -200,7 +374,7 @@ jobs:
             # this, the cold boot happens implicitly inside the
             # `xcodebuild test` step (locally this is the "Simulator.app
             # opening" you see; headlessly on the CI runner it's the
-            # same cost, just invisible) — folding it into the test step
+            # same cost, just invisible) -- folding it into the test step
             # hides how much of the job's wall-clock time is boot vs.
             # actual test execution. Not `erase`-ing first: the runner
             # is a fresh ephemeral VM already, so erase only adds time
@@ -210,17 +384,17 @@ jobs:
                   xcrun simctl boot "${{ steps.sim.outputs.id }}"
                   xcrun simctl bootstatus "${{ steps.sim.outputs.id }}" -b
 
-            # CODE_SIGNING_ALLOWED=NO skips signing entirely — there's no
+            # CODE_SIGNING_ALLOWED=NO skips signing entirely -- there's no
             # device to install a signed build on, only the simulator.
             # -only-testing:iosnativeWebViewTests scopes the run to the
-            # Tier 1 unit test target only — the scheme also carries
+            # Tier 1 unit test target only -- the scheme also carries
             # iosnativeWebViewUITests, which is real-device/simulator
             # instrumented UI testing (Tier 2, explicitly out of scope
             # for #414) and failed to even load its bundle in CI.
             #
             # -parallel-testing-enabled is deliberately OFF: it caused
             # two pre-existing, timing-sensitive tests (a permission
-            # callback wait, a concurrent-logging expectation — neither
+            # callback wait, a concurrent-logging expectation -- neither
             # touched by this change) to flake under CPU contention from
             # multiple simulator clones on a shared CI runner, without
             # actually delivering the speed win it's meant to (16-25 min
@@ -230,8 +404,8 @@ jobs:
               run: |
                   set -o pipefail
                   # --quieter (-qq): only print tasks with errors. Test
-                  # failures still surface — xcbeautify never silences
-                  # those regardless of quiet level — this only cuts the
+                  # failures still surface -- xcbeautify never silences
+                  # those regardless of quiet level -- this only cuts the
                   # per-file "Compiling"/per-test "✔" noise that was
                   # dominating this step's log output.
                   xcodebuild test \
@@ -243,40 +417,9 @@ jobs:
                     CODE_SIGNING_ALLOWED=NO \
                     | xcbeautify --renderer github-actions --quieter
 
-    test-js-integration:
-        runs-on: ubuntu-latest
-        container:
-            image: mcr.microsoft.com/playwright:v1.62.1-noble
-
-        steps:
-            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-            - name: Build and Test (catalyst-core Playwright fixture)
-              run: node -v && chmod +x ./scripts/test-catalyst-core.sh && ./scripts/test-catalyst-core.sh
-
-    create-catalyst-app:
-        runs-on: ubuntu-latest
-        container:
-            image: mcr.microsoft.com/playwright:v1.62.1-noble
-
-        steps:
-            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-            - name: Scaffold and Build Smoke Test
-              run: node -v && chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
-
-    catalyst-ai:
-        runs-on: ubuntu-latest
-        container:
-            image: mcr.microsoft.com/playwright:v1.62.1-noble
-
-        steps:
-            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-            - name: Install and Syntax Check
-              run: node -v && chmod +x ./scripts/test-catalyst-ai.sh && ./scripts/test-catalyst-ai.sh
-
     docs:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.docs == 'true'
         runs-on: ubuntu-latest
 
         steps:
