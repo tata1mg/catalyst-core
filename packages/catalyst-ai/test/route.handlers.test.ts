@@ -459,4 +459,30 @@ describe("POST /:provider/stream — provider adapters (SSE)", () => {
         // no new writes should have been appended after the pre-existing end()
         expect(res.writes.length).toBe(0)
     })
+
+    it("aborts the in-flight fetch when the response's close event fires (client disconnect)", async () => {
+        // The real Express `res` emits "close" when the underlying socket
+        // closes (client disconnect) — the handler wires that straight to
+        // abortController.abort(), which is what actually cancels a
+        // still-streaming upstream fetch. Simulate that by triggering the
+        // captured "close" handler mid-request and asserting the AbortSignal
+        // passed to fetch was the one that got aborted.
+        let capturedSignal: AbortSignal | undefined
+        const fetchMock = vi.fn().mockImplementation((_url: string, init: { signal?: AbortSignal }) => {
+            capturedSignal = init.signal
+            // Never resolves on its own — only res "close" -> abort ends this.
+            return new Promise(() => {})
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        const req = makeReq({ method: "POST", url: "/openai/stream", params: { provider: "openai" }, body: { messages: [{ role: "user", content: "hi" }] } })
+        const res = makeRes(() => {})
+        router.handle(req, res, () => {})
+        // Let sseHeaders + the adapter's fetch call happen before disconnecting.
+        await new Promise((resolve) => setImmediate(resolve))
+
+        expect(capturedSignal?.aborted).toBe(false)
+        res.triggerClose()
+        expect(capturedSignal?.aborted).toBe(true)
+    })
 })
