@@ -641,16 +641,81 @@ jobs:
                     CODE_SIGNING_ALLOWED=NO \
                     | xcbeautify --renderer github-actions
 
+    # Terminal join point for the ENTIRE pipeline -- every test/coverage
+    # job feeds into this one, including jobs that don't produce a
+    # coverage number (web-integration-smoke, ios-app-simulator-tests).
+    # A real failure in either of those is exactly the kind of thing "is
+    # it safe to build docs / move on" needs to know about, even though
+    # neither reports a %. Numbers are printed for the three platforms
+    # that produce one (web, android, ios-corelogic); the other two are
+    # status-only ("not yet measured" for ios-app; web-integration-smoke
+    # isn't a coverage platform at all, just gated on for pass/fail).
+    #
+    # `if: always()` + explicit per-job result checks (not a bare `needs`)
+    # because a skipped platform (e.g. an android-only PR, where the iOS
+    # and web jobs never run) must still count as fine here, not failure.
+    coverage-summary:
+        needs: [detect-changes, unit-and-contract-tests, web-integration-smoke, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        if: always()
+        runs-on: ubuntu-latest
+        steps:
+            - name: Report per-platform coverage and verify no regression
+              run: |
+                  web_status="${{ needs.unit-and-contract-tests.result }}"
+                  web_smoke_status="${{ needs.web-integration-smoke.result }}"
+                  android_status="${{ needs.android-unit-and-coverage.result }}"
+                  ios_corelogic_status="${{ needs.ios-corelogic-and-coverage.result }}"
+                  ios_app_status="${{ needs.ios-app-simulator-tests.result }}"
+                  web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
+                  android_pct="${{ needs.android-unit-and-coverage.outputs.line_pct }}"
+                  ios_corelogic_pct="${{ needs.ios-corelogic-and-coverage.outputs.line_pct }}"
+
+                  report_platform() {
+                    name="$1"; status="$2"; pct="$3"
+                    if [ "$status" = "skipped" ]; then
+                      echo "  $name: n/a (not run on this PR)"
+                    elif [ -z "$pct" ]; then
+                      echo "  $name: status=$status, no coverage number reported"
+                    else
+                      echo "  $name: ${pct}% (status=$status)"
+                    fi
+                  }
+
+                  echo "Coverage summary:"
+                  report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
+                  report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
+                  report_platform "android (jacoco)" "$android_status" "$android_pct"
+                  report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
+                  report_platform "ios-app (simulator XCTest, coverage not yet measured)" "$ios_app_status" ""
+
+                  fail=0
+                  for pair in "web:$web_status" "web-integration-smoke:$web_smoke_status" "android:$android_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
+                    platform="${pair%%:*}"
+                    status="${pair#*:}"
+                    if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+                      echo "::error::$platform did not pass (status: $status)"
+                      fail=1
+                    fi
+                  done
+
+                  if [ "$fail" -eq 1 ]; then
+                    exit 1
+                  fi
+                  echo "Coverage OK on every platform that reported it (or not applicable to this PR)."
+
     docs:
-        # Placed last in the chain per requested graph shape. docs/** is
-        # independent of every other job's output -- this ordering is
-        # purely visual, not a real dependency -- so `if: always()` is
-        # required: without it, a skip (not just a failure) anywhere
-        # upstream (e.g. android/ios skipped on a docs-only PR, which is
-        # the common case) would make GitHub treat `needs` as unmet and
-        # skip `docs` too, even though the docs-changed filter says it
-        # should run.
-        needs: [detect-changes, web-integration-smoke, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        # docs/** is independent of every test/coverage job's own logic,
+        # but depends only on coverage-summary now (not the individual
+        # jobs it aggregates) -- one join point instead of five, and it
+        # means docs always builds against a pipeline that has already
+        # been confirmed not to have regressed/failed anywhere, rather
+        # than racing ahead of jobs it doesn't otherwise relate to.
+        # `if: always()` is still required: coverage-summary itself runs
+        # unconditionally (`if: always()`), but on a docs-only PR every
+        # job it depends on is skipped -- without `always()` here, GitHub
+        # would treat a skipped (not failed) upstream as unmet and skip
+        # docs too, even though the docs-changed filter says it should run.
+        needs: [detect-changes, coverage-summary]
         if: always() && needs.detect-changes.outputs.docs == 'true'
         runs-on: ubuntu-latest
 
@@ -668,77 +733,3 @@ jobs:
                   npm --prefix docs ci
                   cp docs/config_template.json docs/config.json
                   npm run docs:build
-
-    # Final gate: coverage must not have regressed on any platform that
-    # actually measures it today (Android via jacoco, iOS via CoreLogic's
-    # llvm-cov export). lint/unit-and-contract-tests/web-integration-smoke/docs don't
-    # produce a coverage number, so they don't participate here -- this
-    # job exists specifically so "did coverage drop vs. last release" is
-    # one visible, final check, rather than buried inside two other jobs'
-    # step lists. The actual pass/fail decision already happened inside
-    # android-unit-and-coverage's and ios-corelogic-and-coverage's own "Enforce coverage
-    # does not regress" steps (that's where the job fails first, with the
-    # specific % numbers in that job's log) -- this job just re-asserts
-    # both landed with a real success, so a single check name answers
-    # "is coverage OK" without having to open two different jobs to find
-    # out. `if: always()` + explicit result checks (not a bare `needs`)
-    # because a skipped platform (e.g. an android-only PR, where
-    # ios-corelogic-and-coverage never runs) must still count as fine here.
-    # Terminal job: the single answer to "did coverage regress, and what is
-    # it right now" across every platform that measures it. The actual
-    # pass/fail decision already happened inside each producing job's own
-    # "Enforce coverage does not regress" step (that's where a regression
-    # fails first, with the specific numbers in that job's log) -- this
-    # job re-asserts all of them landed with success-or-skip AND prints
-    # every platform's current % together in one place, rather than
-    # requiring four separate job logs to answer "where do we stand".
-    #
-    # ios-app-simulator-tests is NOT included yet -- it has no coverage
-    # extraction wired up (no xccov/.xcresult parsing), so it's pass/fail
-    # only today. Tracked as a follow-up; adding it means repeating the
-    # same needs/outputs/bash pattern used for the other three.
-    coverage-summary:
-        needs: [detect-changes, unit-and-contract-tests, android-unit-and-coverage, ios-corelogic-and-coverage]
-        if: always()
-        runs-on: ubuntu-latest
-        steps:
-            - name: Report per-platform coverage and verify no regression
-              run: |
-                  web_status="${{ needs.unit-and-contract-tests.result }}"
-                  android_status="${{ needs.android-unit-and-coverage.result }}"
-                  ios_status="${{ needs.ios-corelogic-and-coverage.result }}"
-                  web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
-                  android_pct="${{ needs.android-unit-and-coverage.outputs.line_pct }}"
-                  ios_pct="${{ needs.ios-corelogic-and-coverage.outputs.line_pct }}"
-
-                  report_platform() {
-                    name="$1"; status="$2"; pct="$3"
-                    if [ "$status" = "skipped" ]; then
-                      echo "  $name: n/a (not run on this PR)"
-                    elif [ -z "$pct" ]; then
-                      echo "  $name: status=$status, no coverage number reported"
-                    else
-                      echo "  $name: ${pct}% (status=$status)"
-                    fi
-                  }
-
-                  echo "Coverage summary:"
-                  report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
-                  report_platform "android (jacoco)" "$android_status" "$android_pct"
-                  report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_status" "$ios_pct"
-                  echo "  ios-app (simulator XCTest): coverage not yet measured -- pass/fail only"
-
-                  fail=0
-                  for pair in "web:$web_status" "android:$android_status" "ios-corelogic:$ios_status"; do
-                    platform="${pair%%:*}"
-                    status="${pair#*:}"
-                    if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-                      echo "::error::$platform coverage gate did not pass (status: $status)"
-                      fail=1
-                    fi
-                  done
-
-                  if [ "$fail" -eq 1 ]; then
-                    exit 1
-                  fi
-                  echo "Coverage OK on every platform that reported it (or not applicable to this PR)."
