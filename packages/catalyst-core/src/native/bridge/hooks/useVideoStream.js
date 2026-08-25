@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 import { useBaseHook } from "../useBaseHook.js"
+import { ERROR_CODES, createStandardError } from "../errors.js"
 
 const STREAM_STATE_DEFAULT = {
     zoom: null,
@@ -56,7 +57,13 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
             try {
                 await track.applyConstraints(constraints)
             } catch (e) {
-                base.setError({ message: `applyConstraints failed: ${e.message}` })
+                base.setError(
+                    createStandardError(
+                        ERROR_CODES.INTERNAL_ERROR,
+                        `applyConstraints failed: ${e.message}`,
+                        e
+                    )
+                )
             }
         },
         [base]
@@ -65,11 +72,21 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
     const webStart = useCallback(
         async (options = {}) => {
             if (!window.isSecureContext) {
-                base.setError({ message: "getUserMedia requires a secure context (HTTPS or localhost)" })
+                base.setError(
+                    createStandardError(
+                        ERROR_CODES.FEATURE_UNSUPPORTED,
+                        "getUserMedia requires a secure context (HTTPS or localhost)"
+                    )
+                )
                 return
             }
             if (!navigator.mediaDevices?.getUserMedia) {
-                base.setError({ message: "getUserMedia is not available in this browser" })
+                base.setError(
+                    createStandardError(
+                        ERROR_CODES.FEATURE_UNSUPPORTED,
+                        "getUserMedia is not available in this browser"
+                    )
+                )
                 return
             }
             try {
@@ -97,7 +114,13 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
                 }))
             } catch (e) {
                 base.setLoading(false)
-                base.setError({ message: e.message || "getUserMedia failed" })
+                const code =
+                    e?.name === "NotAllowedError"
+                        ? ERROR_CODES.PERMISSION_DENIED
+                        : e?.name === "NotReadableError"
+                          ? ERROR_CODES.CAMERA_IN_USE
+                          : ERROR_CODES.CAMERA_UNAVAILABLE
+                base.setError(createStandardError(code, e.message || "getUserMedia failed", e))
             }
         },
         [base]
@@ -122,15 +145,23 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
     const webSendCommand = useCallback(
         async (type, value) => {
             if (!isStreamingWeb) {
-                base.setError({ message: `sendCommand('${type}') called but stream is not active` })
+                base.setError(
+                    createStandardError(
+                        ERROR_CODES.INVALID_PARAMETERS,
+                        `sendCommand('${type}') called but stream is not active`
+                    )
+                )
                 return
             }
             switch (type) {
                 case "zoom": {
                     if (typeof value !== "number" || value < 1.0) {
-                        base.setError({
-                            message: `sendCommand zoom: value must be a multiplier >= 1.0, got ${value}`,
-                        })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand zoom: value must be a multiplier >= 1.0, got ${value}`
+                            )
+                        )
                         return
                     }
                     await applyTrackConstraints({ advanced: [{ zoom: value }] })
@@ -139,7 +170,12 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
                 }
                 case "torch": {
                     if (typeof value !== "boolean") {
-                        base.setError({ message: `sendCommand torch: value must be boolean, got ${value}` })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand torch: value must be boolean, got ${value}`
+                            )
+                        )
                         return
                     }
                     await applyTrackConstraints({ advanced: [{ torch: value }] })
@@ -148,9 +184,12 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
                 }
                 case "fps": {
                     if (typeof value !== "object" || value === null) {
-                        base.setError({
-                            message: `sendCommand fps: value must be { min, max }, got ${value}`,
-                        })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand fps: value must be { min, max }, got ${value}`
+                            )
+                        )
                         return
                     }
                     const { min = null, max = null } = value
@@ -162,7 +201,12 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
                     break
                 }
                 default:
-                    base.setError({ message: `sendCommand: unknown type '${type}'` })
+                    base.setError(
+                        createStandardError(
+                            ERROR_CODES.INVALID_PARAMETERS,
+                            `sendCommand: unknown type '${type}'`
+                        )
+                    )
             }
         },
         [isStreamingWeb, applyTrackConstraints, base]
@@ -256,16 +300,24 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
     const nativeSendCommand = useCallback(
         (type, value) => {
             if (!isStreaming) {
-                base.setError({ message: `sendCommand('${type}') called but stream is not active` })
+                base.setError(
+                    createStandardError(
+                        ERROR_CODES.INVALID_PARAMETERS,
+                        `sendCommand('${type}') called but stream is not active`
+                    )
+                )
                 return
             }
             console.log(`[useVideoStream] sendCommand(${type}, ${value})`)
             switch (type) {
                 case "zoom": {
                     if (typeof value !== "number" || value < 1.0) {
-                        base.setError({
-                            message: `sendCommand zoom: value must be a multiplier >= 1.0 (e.g. 1.0=1x, 2.0=2x), got ${value}`,
-                        })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand zoom: value must be a multiplier >= 1.0 (e.g. 1.0=1x, 2.0=2x), got ${value}`
+                            )
+                        )
                         return
                     }
                     nativeBridge.videoStream.setZoom(value)
@@ -273,7 +325,12 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
                 }
                 case "torch": {
                     if (typeof value !== "boolean") {
-                        base.setError({ message: `sendCommand torch: value must be boolean, got ${value}` })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand torch: value must be boolean, got ${value}`
+                            )
+                        )
                         return
                     }
                     nativeBridge.videoStream.setTorch(value)
@@ -281,26 +338,40 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
                 }
                 case "fps": {
                     if (typeof value !== "object" || value === null) {
-                        base.setError({
-                            message: `sendCommand fps: value must be { min, max }, got ${value}`,
-                        })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand fps: value must be { min, max }, got ${value}`
+                            )
+                        )
                         return
                     }
                     const { min = null, max = null } = value
                     if (min !== null && (typeof min !== "number" || min < 1)) {
-                        base.setError({
-                            message: `sendCommand fps: min must be a positive number, got ${min}`,
-                        })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand fps: min must be a positive number, got ${min}`
+                            )
+                        )
                         return
                     }
                     if (max !== null && (typeof max !== "number" || max < 1)) {
-                        base.setError({
-                            message: `sendCommand fps: max must be a positive number, got ${max}`,
-                        })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand fps: max must be a positive number, got ${max}`
+                            )
+                        )
                         return
                     }
                     if (min !== null && max !== null && min > max) {
-                        base.setError({ message: `sendCommand fps: min (${min}) must be <= max (${max})` })
+                        base.setError(
+                            createStandardError(
+                                ERROR_CODES.INVALID_PARAMETERS,
+                                `sendCommand fps: min (${min}) must be <= max (${max})`
+                            )
+                        )
                         return
                     }
                     nativeBridge.videoStream.setFps(min, max)
@@ -308,7 +379,12 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
                     break
                 }
                 default:
-                    base.setError({ message: `sendCommand: unknown type '${type}'` })
+                    base.setError(
+                        createStandardError(
+                            ERROR_CODES.INVALID_PARAMETERS,
+                            `sendCommand: unknown type '${type}'`
+                        )
+                    )
             }
         },
         [isStreaming, base.setError]
@@ -318,6 +394,7 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
         return {
             isStreaming: false,
             streamState: STREAM_STATE_DEFAULT,
+            loading: false,
             error: null,
             isNative: false,
             isWeb: true,
@@ -338,6 +415,7 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
         return {
             isStreaming: false,
             streamState: STREAM_STATE_DEFAULT,
+            loading: base.loading,
             error: null,
             isNative: false,
             isWeb: base.isWeb,
@@ -358,6 +436,7 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
         return {
             isStreaming: isStreamingWeb,
             streamState: streamStateWeb,
+            loading: base.loading,
             error: base.error,
             isNative: false,
             isWeb: base.isWeb,
@@ -377,6 +456,7 @@ export const useVideoStream = ({ onQRDetected, webFallback } = {}) => {
     return {
         isStreaming,
         streamState,
+        loading: base.loading,
         error: base.error,
         isNative: base.isNative,
         isWeb: base.isWeb,

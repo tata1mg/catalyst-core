@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS, PERMISSION_STATUS } from "../constants/NativeInterfaces.js"
+import { ERROR_CODES, createStandardError } from "../errors.js"
 import { useBaseHook } from "../useBaseHook.js"
 
 // Shared callback system — allows hook + requestNotificationPermission to share one WebBridge listener
@@ -69,6 +70,8 @@ export const requestNotificationPermission = () => {
 export const useNotificationPermission = () => {
     const [permission, setPermission] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState(null)
+    const isWeb = typeof window === "undefined" ? true : !nativeBridge.isAvailable()
 
     useEffect(() => {
         const requestPermission = async () => {
@@ -86,9 +89,12 @@ export const useNotificationPermission = () => {
                 })
 
                 nativeBridge.notification.requestPermission()
-            } catch (error) {
-                console.error("🔔 Error requesting notification permission:", error)
+            } catch (err) {
+                console.error("🔔 Error requesting notification permission:", err)
                 setPermission(PERMISSION_STATUS.DENIED)
+                setError(
+                    createStandardError(ERROR_CODES.PERMISSION_DENIED, "Notification permission denied", err)
+                )
                 setIsLoading(false)
             }
         }
@@ -101,14 +107,30 @@ export const useNotificationPermission = () => {
     }, [])
 
     if (typeof window === "undefined") {
-        return { permission: null, isLoading: false }
+        return {
+            permission: null,
+            isLoading: false,
+            loading: false,
+            data: null,
+            error: null,
+            isNative: false,
+            isWeb: true,
+        }
     }
 
     if (!window.WebBridge) {
         throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
     }
 
-    return { permission, isLoading }
+    return {
+        permission,
+        isLoading,
+        loading: isLoading,
+        data: permission,
+        error,
+        isNative: !isWeb,
+        isWeb,
+    }
 }
 
 export const useNotification = () => {

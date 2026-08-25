@@ -81,7 +81,7 @@ function emptyHook() {
         metrics: null,
         isLocal: false,
         isNative: false,
-        isWeb: false,
+        isWeb: true,
         generate: () => {},
         cancel: () => {},
         reset: () => {},

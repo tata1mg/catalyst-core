@@ -58,6 +58,7 @@ export const useDeviceInfo = ({ webFallback } = {}) => {
 
     return {
         deviceInfo,
+        data: deviceInfo,
         loading,
         error,
         isNative,
