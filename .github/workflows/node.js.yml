@@ -57,6 +57,173 @@ jobs:
             - name: Run unit/contract tests + type checks
               run: npm run test:unit
 
+    test-android-unit:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+
+            # No android-actions/setup-android step: compileSdk 34 / AGP
+            # 8.11.1 are already covered by ubuntu-latest's preinstalled
+            # Android SDK (command-line tools + platform 34 + build-tools),
+            # and Gradle's own wrapper (gradlew, pinned to 8.13 via
+            # gradle-wrapper.properties) handles the Gradle version itself.
+
+            # jacocoTestReport depends on testDebugUnitTest, so this still
+            # runs (and fails the job on) the Tier 1 unit tests themselves
+            # — it just also turns the .exec coverage data
+            # enableUnitTestCoverage=true already collects into a real
+            # XML/HTML report, instead of leaving that data on the runner
+            # unread. Mirrors the CatalystCoreLogic llvm-cov reporting on
+            # iOS (#432) — a pass/fail count alone doesn't say how much of
+            # the app is actually exercised.
+            - name: Run app/src/test (Tier 1 JVM unit tests) + coverage report
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  chmod +x ./gradlew
+                  ./gradlew jacocoTestReport --console=plain
+
+            - name: Print coverage summary
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  python3 - <<'EOF'
+                  import xml.etree.ElementTree as ET
+                  root = ET.parse("app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml").getroot()
+                  for c in root.findall("counter"):
+                      cov, miss = int(c.get("covered")), int(c.get("missed"))
+                      total = cov + miss
+                      pct = (cov / total * 100) if total else 0
+                      print(f"{c.get('type'):12s} {cov:6d}/{total:<6d} ({pct:5.2f}%)")
+                  EOF
+
+            - name: Upload Jacoco coverage report
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+              with:
+                  name: android-jacoco-report
+                  path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
+                  retention-days: 14
+
+    test-ios-unit:
+        runs-on: macos-latest
+
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
+            # keyed on Package.resolved — avoids re-fetching them from
+            # GitHub over the network on every run. Not full DerivedData
+            # caching (fragile across CI runs — bakes in absolute paths
+            # and relies on mtimes actions/cache doesn't preserve), just
+            # the downloaded package sources/checkouts.
+            - name: Cache SPM packages
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: packages/catalyst-core/src/native/iosnativeWebView/.spm-cache
+                  key: spm-${{ runner.os }}-${{ hashFiles('packages/catalyst-core/src/native/iosnativeWebView/Package.resolved') }}
+                  restore-keys: |
+                      spm-${{ runner.os }}-
+
+            # Pick an available iPhone simulator at run time instead of
+            # hardcoding a device name: GitHub only keeps a small,
+            # rotating set of preinstalled simulators (~3 runtimes, and
+            # the device lineup itself moves too — "iPhone 16" was on
+            # that set when this job was first written, then wasn't by
+            # the time it actually ran, breaking the hardcoded version).
+            #
+            # Uses `xcrun simctl list devices available -j` instead of
+            # `xcodebuild -showdestinations`: the latter has to load the
+            # Xcode project and can trigger SPM package resolution before
+            # it prints anything, so on a cold SPM cache it can stall for
+            # 30s+ and (with output piped through `2>/dev/null`) fail
+            # with no visible reason. simctl talks only to CoreSimulator
+            # — no project load, no package resolution — and returns
+            # structured JSON instead of text scraped with grep/sed.
+            - name: Pick an available iOS simulator
+              id: sim
+              run: |
+                  set -o pipefail
+                  # Filter to available iPhone simulators, excluding
+                  # "e"-suffixed models (iPhone 16e, 17e, ...) — the
+                  # budget/economy line. One picked in an earlier CI run
+                  # took >2 minutes just to connect over lockdown and
+                  # then still failed loading the UI test bundle;
+                  # standard models haven't shown that flakiness here.
+                  # Prefer the newest iOS runtime available, then the
+                  # first matching device within it.
+                  RESULT=$(xcrun simctl list devices available -j | jq -r '
+                    .devices
+                    | to_entries
+                    | map(select(.key | test("com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS")))
+                    | sort_by(.key) | reverse
+                    | map(.value | map(select(.name | test("^iPhone( [0-9]+)?$|^iPhone [0-9]+ ")) | select(.name | test("[0-9]+e( |$)") | not)))
+                    | flatten
+                    | .[0]
+                    | if . == null then "" else (.udid + "\t" + .name) end
+                  ')
+                  if [ -z "$RESULT" ]; then
+                    echo "::error::No available iOS Simulator with an iPhone destination found on this runner"
+                    xcrun simctl list devices available
+                    exit 1
+                  fi
+                  UDID=$(echo "$RESULT" | cut -f1)
+                  NAME=$(echo "$RESULT" | cut -f2)
+                  echo "id=$UDID" >> "$GITHUB_OUTPUT"
+                  echo "Selected simulator: $NAME ($UDID)"
+
+            # Boot the simulator explicitly and wait for it to be fully
+            # ready before xcodebuild runs any tests against it. Without
+            # this, the cold boot happens implicitly inside the
+            # `xcodebuild test` step (locally this is the "Simulator.app
+            # opening" you see; headlessly on the CI runner it's the
+            # same cost, just invisible) — folding it into the test step
+            # hides how much of the job's wall-clock time is boot vs.
+            # actual test execution. Not `erase`-ing first: the runner
+            # is a fresh ephemeral VM already, so erase only adds time
+            # without changing anything.
+            - name: Boot iOS simulator
+              run: |
+                  xcrun simctl boot "${{ steps.sim.outputs.id }}"
+                  xcrun simctl bootstatus "${{ steps.sim.outputs.id }}" -b
+
+            # CODE_SIGNING_ALLOWED=NO skips signing entirely — there's no
+            # device to install a signed build on, only the simulator.
+            # -only-testing:iosnativeWebViewTests scopes the run to the
+            # Tier 1 unit test target only — the scheme also carries
+            # iosnativeWebViewUITests, which is real-device/simulator
+            # instrumented UI testing (Tier 2, explicitly out of scope
+            # for #414) and failed to even load its bundle in CI.
+            #
+            # -parallel-testing-enabled is deliberately OFF: it caused
+            # two pre-existing, timing-sensitive tests (a permission
+            # callback wait, a concurrent-logging expectation — neither
+            # touched by this change) to flake under CPU contention from
+            # multiple simulator clones on a shared CI runner, without
+            # actually delivering the speed win it's meant to (16-25 min
+            # in CI either way, vs ~91s measured locally without it).
+            - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  set -o pipefail
+                  # --quieter (-qq): only print tasks with errors. Test
+                  # failures still surface — xcbeautify never silences
+                  # those regardless of quiet level — this only cuts the
+                  # per-file "Compiling"/per-test "✔" noise that was
+                  # dominating this step's log output.
+                  xcodebuild test \
+                    -project iosnativeWebView.xcodeproj \
+                    -scheme iosnativeWebView \
+                    -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
+                    -only-testing:iosnativeWebViewTests \
+                    -clonedSourcePackagesDirPath .spm-cache \
+                    CODE_SIGNING_ALLOWED=NO \
+                    | xcbeautify --renderer github-actions --quieter
+
     test-js-integration:
         runs-on: ubuntu-latest
         container:

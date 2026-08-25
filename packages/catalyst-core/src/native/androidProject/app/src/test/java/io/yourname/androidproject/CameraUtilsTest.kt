@@ -1,296 +1,216 @@
 package io.yourname.androidproject
 
+import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Environment
+import androidx.core.content.ContextCompat
 import io.yourname.androidproject.utils.CameraUtils
+import org.junit.After
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
-import java.text.SimpleDateFormat
-import java.util.*
+import org.mockito.MockedStatic
+import org.mockito.Mockito.mockStatic
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /**
- * Unit tests for CameraUtils
+ * Unit tests for CameraUtils.
  *
- * Tests cover:
- * - Photo URI creation (2 tests)
- * - Image quality handling (3 tests)
- * - Permission status validation (2 tests)
- * - File cleanup logic (2 tests)
+ * The previous version of this file imported CameraUtils but never called
+ * a single method on it — every assertion was against hand-reimplemented
+ * logic (a locally constructed SimpleDateFormat, a locally built filename
+ * string) instead of the real class, so it passed while contributing 0%
+ * coverage. Rewritten to call CameraUtils directly, following the
+ * mockStatic(...) + mocked Activity pattern established in
+ * OfflineCacheServiceTest.kt for Context/Android-stub-bound classes.
  *
- * Total: 9 tests
- *
- * Note: Tests focus on testable logic and algorithms without Android Context
- * following the same pattern as FileUtilsTest.kt
+ * ContextCompat.checkSelfPermission and Environment.getExternalStorageState
+ * are static Android SDK calls with no real implementation in a JVM unit
+ * test (the stub jar throws/returns defaults) — mocked statically here so
+ * hasCameraPermission/getPermissionStatus/validateCameraRequirements
+ * exercise CameraUtils' actual branching logic against controlled inputs.
  */
 class CameraUtilsTest {
 
-    // ============================================================
-    // CATEGORY 1: Photo URI Creation (2 tests)
-    // ============================================================
+    private lateinit var activity: Activity
+    private lateinit var picturesDir: File
+    private lateinit var contextCompatMock: MockedStatic<ContextCompat>
+    private lateinit var environmentMock: MockedStatic<Environment>
 
-    /**
-     * Test image file naming convention
-     * Validates JPEG_timestamp_.jpg format
-     */
-    @Test
-    fun testImageFileNaming_timestampFormat() {
-        // Test timestamp format used in createImageFile
-        val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-        val timestamp1 = dateFormat.format(Date())
-
-        // Validate format
-        assertTrue(timestamp1.matches(Regex("\\d{8}_\\d{6}")))
-
-        // Test filename construction
-        val filename1 = "JPEG_${timestamp1}_.jpg"
-        assertTrue(filename1.startsWith("JPEG_"))
-        assertTrue(filename1.endsWith(".jpg"))
-        assertTrue(filename1.contains(timestamp1))
-
-        // Ensure uniqueness by timestamp
-        Thread.sleep(1000) // Wait 1 second for different timestamp
-        val timestamp2 = dateFormat.format(Date())
-        val filename2 = "JPEG_${timestamp2}_.jpg"
-
-        assertNotEquals(filename1, filename2)
-    }
-
-    /**
-     * Test photo file extension validation
-     * Validates .jpg extension requirement
-     */
-    @Test
-    fun testPhotoFileExtension_validation() {
-        val validExtensions = listOf(".jpg", ".jpeg")
-        val invalidExtensions = listOf(".png", ".gif", ".bmp", ".webp")
-
-        // Test valid extensions
-        validExtensions.forEach { ext ->
-            val filename = "JPEG_20231203_123456_$ext"
-            assertTrue(filename.endsWith(".jpg") || filename.endsWith(".jpeg"))
+    @Before
+    fun setUp() {
+        picturesDir = createTempDirectory(prefix = "catalyst-camera-test").toFile()
+        activity = mock {
+            on { getExternalFilesDir(Environment.DIRECTORY_PICTURES) } doReturn picturesDir
         }
 
-        // Test that our camera files use .jpg
-        val cameraFile = "JPEG_20231203_123456_.jpg"
-        assertTrue(cameraFile.endsWith(".jpg"))
-        assertFalse(cameraFile.endsWith(".png"))
+        contextCompatMock = mockStatic(ContextCompat::class.java)
+        environmentMock = mockStatic(Environment::class.java)
+        // getExternalStorageState() is a real method on the mocked static
+        // Environment class object, not a constant — default to MOUNTED so
+        // validateCameraRequirements' happy path is the default and tests
+        // only override it for the failure case.
+        environmentMock.`when`<String> { Environment.getExternalStorageState() }
+            .thenReturn(Environment.MEDIA_MOUNTED)
+    }
+
+    @After
+    fun tearDown() {
+        contextCompatMock.close()
+        environmentMock.close()
+        picturesDir.deleteRecursively()
+    }
+
+    private fun stubPermission(granted: Boolean) {
+        contextCompatMock.`when`<Int> { ContextCompat.checkSelfPermission(any(), any()) }
+            .thenReturn(if (granted) PackageManager.PERMISSION_GRANTED else PackageManager.PERMISSION_DENIED)
     }
 
     // ============================================================
-    // CATEGORY 2: Image Quality Handling (3 tests)
+    // hasCameraPermission / getPermissionStatus
     // ============================================================
 
-    /**
-     * Test base64 size limit validation
-     * Validates 10 MB threshold for base64 conversion
-     */
     @Test
-    fun testBase64SizeLimit_imageConversion() {
-        val base64Limit = 10 * 1024 * 1024L // 10 MB
-
-        // Small image - should be eligible for base64
-        val smallImage = 500 * 1024L // 500 KB
-        assertTrue(smallImage <= base64Limit)
-
-        // Medium image - should be eligible
-        val mediumImage = 5 * 1024 * 1024L // 5 MB
-        assertTrue(mediumImage <= base64Limit)
-
-        // Exactly at limit - should be eligible
-        val atLimit = base64Limit
-        assertTrue(atLimit <= base64Limit)
-
-        // Large image - should NOT be eligible for base64
-        val largeImage = 15 * 1024 * 1024L // 15 MB
-        assertFalse(largeImage <= base64Limit)
-
-        // Very large image - should NOT be eligible
-        val veryLargeImage = 50 * 1024 * 1024L // 50 MB
-        assertFalse(veryLargeImage <= base64Limit)
+    fun `hasCameraPermission returns true when ContextCompat reports granted`() {
+        stubPermission(granted = true)
+        assertTrue(CameraUtils.hasCameraPermission(activity))
     }
 
-    /**
-     * Test image file size estimation
-     * Validates size calculation for different resolutions
-     */
     @Test
-    fun testImageFileSizeEstimation_byResolution() {
-        // Typical JPEG compression ratios (rough estimates)
-        // 1 MP = ~300-500 KB
-        // 5 MP = ~1.5-2.5 MB
-        // 12 MP = ~3-4 MB
-        // 20 MP = ~5-7 MB
-
-        val oneMegapixel = 400 * 1024L // ~400 KB
-        val fiveMegapixel = 2 * 1024 * 1024L // ~2 MB
-        val twelveMegapixel = 3.5 * 1024 * 1024 // ~3.5 MB
-        val twentyMegapixel = 6 * 1024 * 1024L // ~6 MB
-
-        // Validate relative sizes
-        assertTrue(oneMegapixel < fiveMegapixel)
-        assertTrue(fiveMegapixel < twelveMegapixel)
-        assertTrue(twelveMegapixel < twentyMegapixel)
-
-        // Validate base64 eligibility
-        val base64Limit = 10 * 1024 * 1024L
-        assertTrue(oneMegapixel <= base64Limit)
-        assertTrue(fiveMegapixel <= base64Limit)
-        assertTrue(twelveMegapixel <= base64Limit)
-        assertTrue(twentyMegapixel <= base64Limit)
+    fun `hasCameraPermission returns false when ContextCompat reports denied`() {
+        stubPermission(granted = false)
+        assertFalse(CameraUtils.hasCameraPermission(activity))
     }
 
-    /**
-     * Test image quality parameter validation
-     * Validates quality values for different use cases
-     */
     @Test
-    fun testImageQuality_parameterValidation() {
-        // Quality values typically range 0-100
-        val lowQuality = 30
-        val mediumQuality = 60
-        val highQuality = 90
-        val maxQuality = 100
+    fun `getPermissionStatus returns GRANTED when permission is granted`() {
+        stubPermission(granted = true)
+        assertEquals("GRANTED", CameraUtils.getPermissionStatus(activity))
+    }
 
-        // Validate range
-        assertTrue(lowQuality in 0..100)
-        assertTrue(mediumQuality in 0..100)
-        assertTrue(highQuality in 0..100)
-        assertTrue(maxQuality in 0..100)
-
-        // Validate ordering
-        assertTrue(lowQuality < mediumQuality)
-        assertTrue(mediumQuality < highQuality)
-        assertTrue(highQuality <= maxQuality)
-
-        // Test invalid values
-        val tooLow = -10
-        val tooHigh = 150
-        assertFalse(tooLow in 0..100)
-        assertFalse(tooHigh in 0..100)
+    @Test
+    fun `getPermissionStatus returns DENIED when permission is denied`() {
+        stubPermission(granted = false)
+        assertEquals("DENIED", CameraUtils.getPermissionStatus(activity))
     }
 
     // ============================================================
-    // CATEGORY 3: Permission Status Validation (2 tests)
+    // createImageFile
     // ============================================================
 
-    /**
-     * Test camera permission status strings
-     * Validates GRANTED, DENIED, NOT_DETERMINED states
-     */
     @Test
-    fun testPermissionStatus_stateStrings() {
-        val validStates = setOf("GRANTED", "DENIED", "NOT_DETERMINED")
+    fun `createImageFile creates a real JPEG_ prefixed jpg file in the pictures dir`() {
+        val file = CameraUtils.createImageFile(activity)
 
-        // Test each valid state
-        assertTrue(validStates.contains("GRANTED"))
-        assertTrue(validStates.contains("DENIED"))
-        assertTrue(validStates.contains("NOT_DETERMINED"))
+        assertTrue(file.exists())
+        assertTrue(file.name.startsWith("JPEG_"))
+        assertTrue(file.name.endsWith(".jpg"))
+        assertEquals(picturesDir.canonicalPath, file.parentFile?.canonicalPath)
 
-        // Test invalid states
-        assertFalse(validStates.contains("UNKNOWN"))
-        assertFalse(validStates.contains("PENDING"))
-        assertFalse(validStates.contains("granted")) // Case sensitive
-
-        // Test state count
-        assertEquals(3, validStates.size)
+        file.delete()
     }
 
-    /**
-     * Test permission status logic flow
-     * Validates permission check decision tree
-     */
     @Test
-    fun testPermissionStatus_logicFlow() {
-        // Simulate permission check logic
-        data class PermissionState(val hasPermission: Boolean, val wasDenied: Boolean)
+    fun `createImageFile produces distinct files on successive calls`() {
+        val file1 = CameraUtils.createImageFile(activity)
+        val file2 = CameraUtils.createImageFile(activity)
 
-        fun getStatusString(state: PermissionState): String {
-            return if (state.hasPermission) {
-                "GRANTED"
-            } else {
-                when {
-                    state.wasDenied -> "DENIED"
-                    else -> "NOT_DETERMINED"
-                }
-            }
+        assertNotEquals(file1.name, file2.name)
+
+        file1.delete()
+        file2.delete()
+    }
+
+    // ============================================================
+    // validateCameraRequirements
+    // ============================================================
+
+    @Test
+    fun `validateCameraRequirements passes when device has a camera and storage is mounted`() {
+        val packageManager = mock<PackageManager> {
+            on { hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) } doReturn true
+        }
+        whenever(activity.packageManager) doReturn packageManager
+
+        // Does not throw.
+        CameraUtils.validateCameraRequirements(activity)
+    }
+
+    @Test
+    fun `validateCameraRequirements throws when device has no camera`() {
+        val packageManager = mock<PackageManager> {
+            on { hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) } doReturn false
+        }
+        whenever(activity.packageManager) doReturn packageManager
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            CameraUtils.validateCameraRequirements(activity)
+        }
+        assertEquals("Device does not have a camera", error.message)
+    }
+
+    @Test
+    fun `validateCameraRequirements throws when external storage is not mounted`() {
+        val packageManager = mock<PackageManager> {
+            on { hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) } doReturn true
+        }
+        whenever(activity.packageManager) doReturn packageManager
+        environmentMock.`when`<String> { Environment.getExternalStorageState() }
+            .thenReturn(Environment.MEDIA_UNMOUNTED)
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            CameraUtils.validateCameraRequirements(activity)
+        }
+        assertEquals("External storage not available", error.message)
+    }
+
+    // ============================================================
+    // cleanupOldCameraFiles
+    // ============================================================
+
+    @Test
+    fun `cleanupOldCameraFiles deletes files older than maxAgeMillis`() {
+        val maxAge = 7 * 24 * 60 * 60 * 1000L
+        val oldFile = File(picturesDir, "JPEG_20200101_000000_.jpg").apply {
+            createNewFile()
+            setLastModified(System.currentTimeMillis() - (10 * 24 * 60 * 60 * 1000L))
         }
 
-        // Test scenarios
-        assertEquals("GRANTED", getStatusString(PermissionState(true, false)))
-        assertEquals("DENIED", getStatusString(PermissionState(false, true)))
-        assertEquals("NOT_DETERMINED", getStatusString(PermissionState(false, false)))
+        CameraUtils.cleanupOldCameraFiles(activity, maxAge)
 
-        // Edge case: has permission but was previously denied (shouldn't happen)
-        assertEquals("GRANTED", getStatusString(PermissionState(true, true)))
+        assertFalse(oldFile.exists())
     }
 
-    // ============================================================
-    // CATEGORY 4: File Cleanup Logic (2 tests)
-    // ============================================================
-
-    /**
-     * Test camera file age threshold validation
-     * Validates 7-day default cleanup threshold
-     */
     @Test
-    fun testCameraFileCleanup_ageThreshold() {
-        val maxAgeMillis = 7 * 24 * 60 * 60 * 1000L // 7 days
-        val currentTime = System.currentTimeMillis()
+    fun `cleanupOldCameraFiles keeps files younger than maxAgeMillis`() {
+        val maxAge = 7 * 24 * 60 * 60 * 1000L
+        val recentFile = File(picturesDir, "JPEG_20991231_235959_.jpg").apply {
+            createNewFile()
+            setLastModified(System.currentTimeMillis() - (1 * 24 * 60 * 60 * 1000L))
+        }
 
-        // Recent file - should NOT be deleted
-        val recentFileModified = currentTime - (1 * 24 * 60 * 60 * 1000L) // 1 day old
-        val recentAge = currentTime - recentFileModified
-        assertFalse(recentAge > maxAgeMillis)
+        CameraUtils.cleanupOldCameraFiles(activity, maxAge)
 
-        // File at threshold - should NOT be deleted
-        val thresholdFileModified = currentTime - maxAgeMillis
-        val thresholdAge = currentTime - thresholdFileModified
-        assertFalse(thresholdAge > maxAgeMillis)
-
-        // Old file - should be deleted
-        val oldFileModified = currentTime - (10 * 24 * 60 * 60 * 1000L) // 10 days old
-        val oldAge = currentTime - oldFileModified
-        assertTrue(oldAge > maxAgeMillis)
-
-        // Very old file - should be deleted
-        val veryOldFileModified = currentTime - (30 * 24 * 60 * 60 * 1000L) // 30 days old
-        val veryOldAge = currentTime - veryOldFileModified
-        assertTrue(veryOldAge > maxAgeMillis)
+        assertTrue(recentFile.exists())
+        recentFile.delete()
     }
 
-    /**
-     * Test camera file pattern matching
-     * Validates JPEG_timestamp_.jpg pattern recognition
-     */
     @Test
-    fun testCameraFilePattern_matching() {
-        // Valid camera file patterns
-        val validFiles = listOf(
-            "JPEG_20231203_123456_.jpg",
-            "JPEG_20240101_000000_.jpg",
-            "JPEG_20231231_235959_.jpg"
-        )
-
-        // Invalid patterns
-        val invalidFiles = listOf(
-            "photo.jpg",
-            "image_20231203.jpg",
-            "JPEG_123456.jpg",
-            "jpeg_20231203_123456_.jpg", // lowercase
-            "JPEG_20231203_123456_.png", // wrong extension
-            "JPEG_20231203_123456.jpg"   // missing underscore before extension
-        )
-
-        // Test valid files match pattern
-        val cameraFilePattern = Regex("^JPEG_\\d{8}_\\d{6}_.*\\.jpg$")
-        validFiles.forEach { filename ->
-            assertTrue("$filename should match camera file pattern",
-                filename.startsWith("JPEG_") && filename.endsWith(".jpg"))
+    fun `cleanupOldCameraFiles ignores files not matching the JPEG_ prefix pattern`() {
+        val maxAge = 7 * 24 * 60 * 60 * 1000L
+        val unrelatedOldFile = File(picturesDir, "notes.txt").apply {
+            createNewFile()
+            setLastModified(System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000L))
         }
 
-        // Test invalid files don't match exact pattern
-        invalidFiles.forEach { filename ->
-            val matches = filename.startsWith("JPEG_") &&
-                         filename.matches(Regex("JPEG_\\d{8}_\\d{6}_.*\\.jpg"))
-            assertFalse("$filename should not match camera file pattern", matches)
-        }
+        CameraUtils.cleanupOldCameraFiles(activity, maxAge)
+
+        assertTrue(unrelatedOldFile.exists())
+        unrelatedOldFile.delete()
     }
 }
