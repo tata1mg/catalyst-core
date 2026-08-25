@@ -5,6 +5,7 @@ import android.net.Uri
 import android.webkit.CookieManager
 import org.junit.After
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -141,5 +142,161 @@ class OfflineCacheServiceTest {
         OfflineCacheService(context)
 
         org.mockito.kotlin.verify(context).getCacheDir()
+    }
+
+    // ============================================================
+    // Manifest-driven routing (batch 4 extension)
+    //
+    // The manifest is loaded once at construction time via
+    // loadCachedManifest() -> parseManifest(), reading a plain
+    // manifest.json file under context.cacheDir/catalyst_offline/ — no
+    // network involved. Pre-writing that file before constructing
+    // OfflineCacheService unlocks isOfflineRouteUrl/getRouteSnapshotResponse/
+    // hasRouteSnapshot's real-match branches, previously only exercised
+    // via their "no manifest loaded" empty-state paths above.
+    // ============================================================
+
+    private fun writeManifest(buildId: String, routes: List<Pair<String, String>>) {
+        val rootDir = File(cacheDir, "catalyst_offline")
+        rootDir.mkdirs()
+        val routesJson = routes.joinToString(",") { (pattern, regex) ->
+            """{"pattern":"$pattern","regex":"$regex"}"""
+        }
+        val json = """{"buildId":"$buildId","routes":[$routesJson]}"""
+        File(rootDir, "manifest.json").writeText(json)
+    }
+
+    @Test
+    fun `isOfflineRouteUrl matches a route whose regex matches the url path`() {
+        writeManifest("build-123", listOf("/docs/*" to "^/docs/.*$"))
+        val service = OfflineCacheService(context)
+
+        assertTrue(service.isOfflineRouteUrl("https://example.com/docs/getting-started"))
+    }
+
+    @Test
+    fun `isOfflineRouteUrl returns false when no route regex matches`() {
+        writeManifest("build-123", listOf("/docs/*" to "^/docs/.*$"))
+        val service = OfflineCacheService(context)
+
+        assertFalse(service.isOfflineRouteUrl("https://example.com/api/data"))
+    }
+
+    @Test
+    fun `isOfflineRouteUrl returns false for a non-http(s) url even with a loaded manifest`() {
+        writeManifest("build-123", listOf("/docs/*" to "^/docs/.*$"))
+        val service = OfflineCacheService(context)
+
+        assertFalse(service.isOfflineRouteUrl("file:///docs/local.html"))
+    }
+
+    @Test
+    fun `isOfflineRouteUrl treats an unparseable route regex as a non-match, not a crash`() {
+        // "[" is an invalid regex -- Regex(...).matches() should throw,
+        // caught internally and treated as "this route doesn't match"
+        // rather than propagating.
+        writeManifest("build-123", listOf("/broken" to "["))
+        val service = OfflineCacheService(context)
+
+        assertFalse(service.isOfflineRouteUrl("https://example.com/broken"))
+    }
+
+    @Test
+    fun `hasRouteSnapshot is true only when the route is eligible AND a snapshot file exists on disk`() {
+        writeManifest("build-123", listOf("/docs/*" to "^/docs/.*$"))
+        val service = OfflineCacheService(context)
+        val url = "https://example.com/docs/getting-started"
+
+        // Route is eligible per the manifest, but no snapshot has been
+        // written to disk yet.
+        assertFalse(service.hasRouteSnapshot(url))
+    }
+
+    private fun sha256Hex(value: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    @Test
+    fun `getRouteSnapshotResponse serves a real snapshot file for an eligible, snapshotted route`() {
+        writeManifest("build-123", listOf("/docs/*" to "^/docs/.*$"))
+        val url = "https://example.com/docs/getting-started"
+
+        // snapshotFileForUrl/hash are private; reproduce their (simple,
+        // stable) SHA-256-based path layout here to place a snapshot file
+        // exactly where the production code will look for it:
+        //   routes/<hash(origin:buildId)>/<hash(normalizedUrl)>.html
+        val namespace = "https://example.com:build-123"
+        val namespaceDir = File(cacheDir, "catalyst_offline/routes/${sha256Hex(namespace)}")
+        namespaceDir.mkdirs()
+        File(namespaceDir, "${sha256Hex(url)}.html").writeText("<html>cached docs page</html>")
+
+        val service = OfflineCacheService(context)
+
+        // WebResourceResponse is an android.webkit SDK stub class: its
+        // constructor is a no-op under the mockable jar and its getters
+        // return defaults regardless of what was passed in (confirmed
+        // empirically earlier this session, see WebCacheManagerTest) --
+        // only "a response object was returned" is assertable here, not
+        // its field contents.
+        assertTrue(service.hasRouteSnapshot(url))
+        assertNotNull(service.getRouteSnapshotResponse(url))
+    }
+
+    @Test
+    fun `getRouteSnapshotResponse returns null when the route is eligible but no snapshot file exists yet`() {
+        writeManifest("build-123", listOf("/docs/*" to "^/docs/.*$"))
+        val service = OfflineCacheService(context)
+        val url = "https://example.com/docs/getting-started"
+
+        assertFalse(service.hasRouteSnapshot(url))
+        assertNull(service.getRouteSnapshotResponse(url))
+    }
+
+    @Test
+    fun `clearAll removes a manifest loaded from a previous instance`() {
+        writeManifest("build-123", listOf("/docs/*" to "^/docs/.*$"))
+        val service = OfflineCacheService(context)
+        assertTrue(service.isOfflineRouteUrl("https://example.com/docs/x"))
+
+        service.clearAll()
+
+        // manifest is nulled out by clearAll(); route matching should
+        // fall back to "no manifest" behavior immediately, in the same
+        // instance, without needing to reconstruct the service.
+        assertFalse(service.isOfflineRouteUrl("https://example.com/docs/x"))
+    }
+
+    @Test
+    fun `a second OfflineCacheService instance loads the manifest persisted by a previous one`() {
+        writeManifest("build-456", listOf("/blog/*" to "^/blog/.*$"))
+
+        // First instance's constructor already ran loadCachedManifest();
+        // this constructs a second instance against the SAME cacheDir to
+        // confirm the on-disk manifest.json (not just in-memory state) is
+        // what's actually being read.
+        OfflineCacheService(context)
+        val secondInstance = OfflineCacheService(context)
+
+        assertTrue(secondInstance.isOfflineRouteUrl("https://example.com/blog/post-1"))
+    }
+
+    @Test
+    fun `a malformed manifest json on disk is treated as no manifest, not a crash`() {
+        val rootDir = File(cacheDir, "catalyst_offline")
+        rootDir.mkdirs()
+        File(rootDir, "manifest.json").writeText("not valid json {{{")
+
+        val service = OfflineCacheService(context)
+
+        assertFalse(service.isOfflineRouteUrl("https://example.com/docs/x"))
+    }
+
+    @Test
+    fun `a manifest with an empty routes array loads without matching anything`() {
+        writeManifest("build-789", emptyList())
+        val service = OfflineCacheService(context)
+
+        assertFalse(service.isOfflineRouteUrl("https://example.com/anything"))
     }
 }

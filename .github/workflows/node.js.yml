@@ -75,11 +75,39 @@ jobs:
             # and Gradle's own wrapper (gradlew, pinned to 8.13 via
             # gradle-wrapper.properties) handles the Gradle version itself.
 
-            - name: Run app/src/test (Tier 1 JVM unit tests)
+            # jacocoTestReport depends on testDebugUnitTest, so this still
+            # runs (and fails the job on) the Tier 1 unit tests themselves
+            # — it just also turns the .exec coverage data
+            # enableUnitTestCoverage=true already collects into a real
+            # XML/HTML report, instead of leaving that data on the runner
+            # unread. Mirrors the CatalystCoreLogic llvm-cov reporting on
+            # iOS (#432) — a pass/fail count alone doesn't say how much of
+            # the app is actually exercised.
+            - name: Run app/src/test (Tier 1 JVM unit tests) + coverage report
               working-directory: packages/catalyst-core/src/native/androidProject
               run: |
                   chmod +x ./gradlew
-                  ./gradlew testDebugUnitTest --console=plain
+                  ./gradlew jacocoTestReport --console=plain
+
+            - name: Print coverage summary
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  python3 - <<'EOF'
+                  import xml.etree.ElementTree as ET
+                  root = ET.parse("app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml").getroot()
+                  for c in root.findall("counter"):
+                      cov, miss = int(c.get("covered")), int(c.get("missed"))
+                      total = cov + miss
+                      pct = (cov / total * 100) if total else 0
+                      print(f"{c.get('type'):12s} {cov:6d}/{total:<6d} ({pct:5.2f}%)")
+                  EOF
+
+            - name: Upload Jacoco coverage report
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+              with:
+                  name: android-jacoco-report
+                  path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
+                  retention-days: 14
 
     test-ios-unit:
         runs-on: macos-latest

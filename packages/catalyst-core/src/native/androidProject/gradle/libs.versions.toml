@@ -12,6 +12,12 @@ webkit = "1.13.0"
 googleServices = "4.4.0"
 androidxCredentials = "1.3.0"
 googleId = "1.1.1"
+# JVM unit test coverage (Tier 1, mirrors the CatalystCoreLogic llvm-cov
+# setup on iOS — see #432/#413). 0.8.12 is the latest 0.8.x line still
+# compatible with this project's Gradle 8.13 / AGP 8.11.1 without pulling
+# in Jacoco's newer bytecode-instrumentation changes meant for JDK 21+
+# language features this app doesn't use.
+jacoco = "0.8.12"
 # Test-only deps for #413 (Tier 1 Android unit tests). kotlinReflect is
 # pinned ahead of the project's forced 2.0.21 Kotlin compiler version
 # solely to satisfy mockito-kotlin 6.x's own kotlin-reflect requirement

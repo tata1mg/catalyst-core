@@ -87,6 +87,11 @@ fun getLocalIpAddress(): String {
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    jacoco
+}
+
+jacoco {
+    toolVersion = libs.versions.jacoco.get()
 }
 
 android {
@@ -298,6 +303,113 @@ dependencies {
         implementation("com.google.firebase:firebase-messaging:23.4.0")
         implementation("com.google.firebase:firebase-analytics:21.5.0")
     }
+}
+
+// JVM unit test coverage (Tier 1). Mirrors the CatalystCoreLogic
+// llvm-cov setup on iOS (#432): real, measured line coverage for
+// app/src/test, not just a pass/fail count. Scoped to testDebugUnitTest —
+// enableUnitTestCoverage=true on the debug build type (above) already
+// makes Gradle emit the raw .exec coverage data; this task turns that
+// into the human/CI-readable XML + HTML report.
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    group = "verification"
+    description = "Generates JVM unit test coverage report for app/src/test (Tier 1)."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    // Excludes are split into two groups. The first is generated/non-authored
+    // code (R.class, BuildConfig, view/data binding scaffolding) — no
+    // coverage story either way, always excluded.
+    //
+    // The second is the Tier 2 classification below: files that build real
+    // Android Views, extend Activity/Fragment, or otherwise structurally
+    // require Robolectric or a real device/emulator to exercise (confirmed
+    // via a full-repo classification pass, not a guess from filenames —
+    // see PR description / issue for the per-file reasoning). These ARE
+    // real, authored logic — excluding them isn't "inflating" the number,
+    // it's making the gate honest: a Tier 1/Tier 2 coverage gate that
+    // includes Tier 2 in its denominator would fail any PR that touches
+    // WebView/Activity/View code regardless of how well-tested that PR's
+    // actual testable logic is. Mirrors the CoreLogic/UI split already
+    // accepted on iOS (#432).
+    //
+    // Each Tier 2 file's top-level class, Kt-file facade, and compiled
+    // lambda/inner classes are all excluded, so nothing structurally
+    // untestable is left counting against the gate. The one exception is
+    // NativeBridge, which has an already-tested companion object
+    // (parseAndValidateMessage, compiled separately as
+    // NativeBridge$Companion.class) — Gradle's Ant-style exclude() does
+    // not reliably support "!" negation, so instead of pattern-negating
+    // the companion out, its lambda exclude uses "$*$*" (two "$"
+    // segments), which Kotlin lambda class names always have and the
+    // single-"$" companion class name never does. See the comment next
+    // to that pattern below for the concrete example.
+    val generatedCodeFilter = listOf(
+        "**/R.class", "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/databinding/**",
+        "**/android/databinding/**",
+        "**/androidx/databinding/**",
+        "**/*_ViewBinding*.*",
+        "**/*\$ViewInjector*.*",
+        "**/*\$ViewBinder*.*",
+        "**/*_MembersInjector.class"
+    )
+
+    val tier2FrameworkBoundFilter = listOf(
+        // Real WebView/Activity construction, ViewBinding, real lifecycle.
+        // Each file's top-level class, Kt-file facade, and compiled lambda
+        // classes (Kotlin: OuterClass$methodName$N.class) are all excluded.
+        // None of these files has a companion object worth protecting
+        // (that only applies to NativeBridge, handled separately below),
+        // so a plain "$*" is safe here.
+        "**/CustomWebView.class", "**/CustomWebView\$*.class", "**/CustomWebViewKt.class",
+        "**/MainActivity.class", "**/MainActivity\$*.class",
+        "**/SplashActivity.class", "**/SplashActivity\$*.class",
+        "**/NativeCameraManager.class", "**/NativeCameraManager\$*.class",
+        "**/camera/CameraSessionManager.class", "**/camera/CameraSessionManager\$*.class",
+        "**/TransitionManager.class", "**/TransitionManager\$*.class",
+        "**/utils/KeyboardUtil.class", "**/utils/KeyboardUtil\$*.class",
+        "**/security/SecurityAlertUI.class", "**/security/SecurityAlertUI\$*.class",
+        "**/security/SecurityAlertHandler.class", "**/security/SecurityAlertHandler\$*.class",
+        "**/security/SecurityBottomSheet.class", "**/security/SecurityBottomSheet\$*.class",
+        // NativeBridge has an already-tested companion (parseAndValidateMessage,
+        // compiled as NativeBridge$Companion.class — one "$"). Kotlin lambda
+        // classes always carry two "$" segments (e.g.
+        // NativeBridge$downloadAndOpenFile$1.class), so "$*$*" excludes every
+        // lambda while a single-"$" glob would be needed to also exclude the
+        // companion — which this pattern does NOT match, by construction.
+        "**/NativeBridge.class", "**/NativeBridgeKt.class", "**/NativeBridge\$*\$*.class"
+    )
+
+    val debugTree = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
+        exclude(generatedCodeFilter + tier2FrameworkBoundFilter)
+    }
+    val kotlinDebugTree = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+        exclude(generatedCodeFilter + tier2FrameworkBoundFilter)
+    }
+    // Both noFcm/withFcm are listed (not just whichever isNotificationsEnabled()
+    // picked for this build) purely so the HTML report can resolve source
+    // lines for whichever one actually got compiled — listing the inactive
+    // one is harmless, Jacoco just won't find matching class files for it.
+    val sourceDirs = listOf(
+        "${project.projectDir}/src/main/java",
+        "${project.projectDir}/src/noFcm/java",
+        "${project.projectDir}/src/withFcm/java"
+    )
+
+    sourceDirectories.setFrom(files(sourceDirs))
+    classDirectories.setFrom(files(debugTree, kotlinDebugTree))
+    executionData.setFrom(fileTree(layout.buildDirectory) {
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
 }
 
 // Task to verify local IP
