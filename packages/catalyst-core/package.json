@@ -30,6 +30,7 @@
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "test:unit": "node --test \"test/**/*.test.js\"",
+        "typecheck": "tsc --noEmit",
         "prettify": "prettier . --write",
         "prepare": "node ../../scripts/safe-rimraf.js ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --ignore '**/.build/**' && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
         "prepublishOnly": "npm run prepare",
@@ -79,7 +80,8 @@
         "eslint-plugin-security": "^3.0.0",
         "husky": "^9.0.11",
         "lint-staged": "^15.2.2",
-        "prettier": "^3.2.5"
+        "prettier": "^3.2.5",
+        "typescript": "^5.9.3"
     },
     "lint-staged": {
         "*.{js,jsx}": [

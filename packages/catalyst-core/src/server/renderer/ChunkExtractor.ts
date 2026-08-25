@@ -9,7 +9,15 @@
  * With natural Vite code-splitting (no mega "main" chunk), critical CSS stays small (~15-25KB).
  */
 export class ChunkExtractor {
-    constructor({ manifest = {}, assetManifest = {} } = {}) {
+    manifest: any
+    assetManifest: any
+    components: Set<any>
+    publicPath: string
+    critical: { js: Set<any>; css: Set<any> }
+    deferred: { js: Set<any>; css: Set<any> }
+    _allCssPaths: Set<any>
+
+    constructor({ manifest = {}, assetManifest = {} }: any = {}) {
         this.manifest = manifest
         this.assetManifest = assetManifest
         this.components = new Set()
@@ -25,7 +33,7 @@ export class ChunkExtractor {
         this._loadEssentialEntrypoints()
 
         if (typeof global !== "undefined") {
-            global.__CHUNK_EXTRACTOR__ = this
+            ;(global as any).__CHUNK_EXTRACTOR__ = this
         }
     }
 
@@ -37,7 +45,7 @@ export class ChunkExtractor {
     }
 
     // ── Route-matched split chunks → critical (blocks first paint) ─────
-    preloadRouteCss(allMatches = []) {
+    preloadRouteCss(allMatches: any = []) {
         const list = allMatches == null ? [] : Array.isArray(allMatches) ? allMatches : []
         for (const match of list) {
             const route = match?.route
@@ -59,7 +67,7 @@ export class ChunkExtractor {
     }
 
     // ── Components discovered during render → deferred ─────────────────
-    addComponent(cacheKey) {
+    addComponent(cacheKey: any) {
         this.components.add(cacheKey)
 
         // Try assetManifest first by raw cacheKey — addSourcePathAliases writes
@@ -87,7 +95,7 @@ export class ChunkExtractor {
     }
 
     // ── Internal: add JS URLs + CSS file paths to a bucket ─────────────
-    _addAssets(manifestEntry, bucket) {
+    _addAssets(manifestEntry: any, bucket: any) {
         if (!manifestEntry?.file) return
 
         const jsUrl = this._toUrl(manifestEntry.file)
@@ -109,12 +117,12 @@ export class ChunkExtractor {
         }
     }
 
-    _toUrl(filePath) {
+    _toUrl(filePath: string) {
         const cleaned = filePath.replace(/^\/+/, "")
         return `${this.publicPath}${cleaned}`
     }
 
-    _toCssUrl(filePath) {
+    _toCssUrl(filePath: string) {
         const cleaned = filePath.replace(/^\/+/, "")
         return `${this.publicPath}${cleaned}`
     }

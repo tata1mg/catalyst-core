@@ -8,7 +8,15 @@ import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js
 // sees the parent's CLI flags, so only CATALYST_OUTPUT_MODE is real input.
 const outputMode = resolveOutputMode([], process.env)
 
-const handleError = (e) => {
+/**
+ * Log a contract violation and continue.
+ *
+ * Validation is log-and-continue, not throw-and-exit: a violation is reported
+ * through the shared structured-error formatter and the validator returns
+ * `undefined` to its caller. The startup sequence proceeds, and the first real
+ * consequence of the missing/invalid app export surfaces where it is used.
+ */
+const handleError = (e: any) => {
     const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
     if (outputMode === "default") {
         console.log(pc.red("Failed to start server: "), formatError(e, outputMode))
@@ -17,7 +25,7 @@ const handleError = (e) => {
     }
 }
 
-const validatePreInitServer = (fn) => {
+const validatePreInitServer = (fn: any) => {
     try {
         if (!fn) throw createError(ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_MISSING)
         if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION)
@@ -27,7 +35,7 @@ const validatePreInitServer = (fn) => {
     }
 }
 
-const validateMiddleware = (fn) => {
+const validateMiddleware = (fn: any) => {
     try {
         if (!fn) throw createError(ERROR_CODES.PREFLIGHT_MIDDLEWARE_MISSING)
         if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_MIDDLEWARE_NOT_FUNCTION)
@@ -37,7 +45,7 @@ const validateMiddleware = (fn) => {
     }
 }
 
-const validateReducerFunction = (fn) => {
+const validateReducerFunction = (fn: any) => {
     try {
         if (!fn) throw createError(ERROR_CODES.PREFLIGHT_REDUCER_MISSING)
         if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_REDUCER_NOT_FUNCTION)
@@ -47,28 +55,30 @@ const validateReducerFunction = (fn) => {
     }
 }
 
-const validateConfigFile = (obj) => {
+const REQUIRED_CONFIG_KEYS = [
+    "NODE_SERVER_HOSTNAME",
+    "NODE_SERVER_PORT",
+    "WEBPACK_DEV_SERVER_HOSTNAME",
+    "WEBPACK_DEV_SERVER_PORT",
+    "BUILD_OUTPUT_PATH",
+    "PUBLIC_STATIC_ASSET_PATH",
+    "PUBLIC_STATIC_ASSET_URL",
+    "CLIENT_ENV_VARIABLES",
+    "ANALYZE_BUNDLE",
+]
+
+const REQUIRED_MODULE_ALIASES = ["@api", "@containers", "@server", "@config", "@css", "@routes"]
+
+const validateConfigFile = (obj: any) => {
     try {
         if (!obj) throw createError(ERROR_CODES.PREFLIGHT_CONFIG_MISSING)
         if (typeof obj !== "object") throw createError(ERROR_CODES.PREFLIGHT_CONFIG_NOT_OBJECT)
-        if (typeof obj === "object") {
-            const requiredConfigKeys = {
-                NODE_SERVER_HOSTNAME: "",
-                NODE_SERVER_PORT: "",
-                WEBPACK_DEV_SERVER_HOSTNAME: "",
-                WEBPACK_DEV_SERVER_PORT: "",
-                BUILD_OUTPUT_PATH: "",
-                PUBLIC_STATIC_ASSET_PATH: "",
-                PUBLIC_STATIC_ASSET_URL: "",
-                CLIENT_ENV_VARIABLES: [],
-                ANALYZE_BUNDLE: "",
-            }
-            for (let key in requiredConfigKeys) {
-                if (!(key in obj))
-                    throw createError(ERROR_CODES.PREFLIGHT_CONFIG_KEY_MISSING, {
-                        details: `${key} key not found inside config.json`,
-                    })
-            }
+
+        for (const key of REQUIRED_CONFIG_KEYS) {
+            if (!(key in obj))
+                throw createError(ERROR_CODES.PREFLIGHT_CONFIG_KEY_MISSING, {
+                    details: `${key} key not found inside config.json`,
+                })
         }
         return true
     } catch (e) {
@@ -76,7 +86,7 @@ const validateConfigFile = (obj) => {
     }
 }
 
-const validatePackageJson = (obj) => {
+const validatePackageJson = (obj: any) => {
     try {
         if (!obj) throw createError(ERROR_CODES.PREFLIGHT_PACKAGE_JSON_MISSING)
         if (typeof obj !== "object") throw createError(ERROR_CODES.PREFLIGHT_PACKAGE_JSON_INVALID)
@@ -86,26 +96,25 @@ const validatePackageJson = (obj) => {
     }
 }
 
-const validateModuleAlias = (obj) => {
+const validateModuleAlias = (obj: any) => {
     try {
         if (!obj) throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_MISSING)
         if (typeof obj !== "object") throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_NOT_OBJECT)
-        if (typeof obj === "object") {
-            const requiredModuleAliases = {
-                "@api": "api.js",
-                "@containers": "src/js/containers",
-                "@server": "server",
-                "@config": "config",
-                "@css": "src/static/css",
-                "@routes": "src/js/routes/",
-            }
-            for (let key in requiredModuleAliases) {
-                if (key.includes("catalyst")) throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
-                if (!(key in obj))
-                    throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_KEY_MISSING, {
-                        details: `${key} module alias not defined inside package.json`,
-                    })
-            }
+
+        // Checked against the app's own alias keys. The reserved-keyword rule is
+        // about what the app declares, so iterating the required-alias list here
+        // (none of which contain "catalyst") could never fire.
+        const reserved = Object.keys(obj).filter((key) => key.includes("catalyst"))
+        if (reserved.length)
+            throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED, {
+                details: `Restricted "catalyst" keyword used in module alias${reserved.length > 1 ? "es" : ""}: ${reserved.join(", ")}`,
+            })
+
+        for (const key of REQUIRED_MODULE_ALIASES) {
+            if (!(key in obj))
+                throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_KEY_MISSING, {
+                    details: `${key} module alias not defined inside package.json`,
+                })
         }
         return true
     } catch (e) {
@@ -113,7 +122,7 @@ const validateModuleAlias = (obj) => {
     }
 }
 
-const validateConfigureStore = (fn) => {
+const validateConfigureStore = (fn: any) => {
     try {
         if (!fn) throw createError(ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_MISSING)
         if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_NOT_FUNCTION)
@@ -123,7 +132,7 @@ const validateConfigureStore = (fn) => {
     }
 }
 
-const validateGetRoutes = (fn) => {
+const validateGetRoutes = (fn: any) => {
     try {
         if (!fn) throw createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING)
         if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_NOT_FUNCTION)
@@ -133,7 +142,7 @@ const validateGetRoutes = (fn) => {
     }
 }
 
-const validateCustomDocument = (fn) => {
+const validateCustomDocument = (fn: any) => {
     try {
         if (!fn) throw createError(ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_MISSING)
         if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_NOT_FUNCTION)
@@ -156,7 +165,7 @@ const validateCustomDocument = (fn) => {
  * reaches the same structured-error path a sync throw does, instead of
  * surfacing as an unhandled promise rejection.
  */
-const safeCall = async (fn, ...args) => {
+const safeCall = async (fn: any, ...args: any[]) => {
     if (typeof fn !== "function") return
     try {
         return await fn(...args)
@@ -172,12 +181,15 @@ const safeCall = async (fn, ...args) => {
  * error so it's identifiable rather than generic. Used at call sites that know
  * which hook they're invoking.
  */
-const safeCallNamed = async (hookName, fn, ...args) => {
+const safeCallNamed = async (hookName: string, fn: any, ...args: any[]) => {
     if (typeof fn !== "function") return
     try {
         return await fn(...args)
     } catch (e) {
-        const code = hookName === "preServerInit" ? ERROR_CODES.PROCESS_SERVER_INIT_FAILED : ERROR_CODES.PROCESS_USER_HOOK_FAILED
+        const code =
+            hookName === "preServerInit"
+                ? ERROR_CODES.PROCESS_SERVER_INIT_FAILED
+                : ERROR_CODES.PROCESS_USER_HOOK_FAILED
         const wrapped = createError(code, {
             details: `The "${hookName}" hook threw. See the cause below.`,
             cause: e,
