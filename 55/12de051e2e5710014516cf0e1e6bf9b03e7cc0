@@ -1,0 +1,35 @@
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  3a0f4ce98dc8011b 613,676,1075,1111,1129,1145,1161-1194
+docs/src/components/NativeHooksDemo/index.js
+  3a0f4ce98dc8011b 73,331-337,414,416-421,455-457
+docs/src/components/FileAPIDemo/index.js
+  3a0f4ce98dc8011b 1147-1149,1151-1153
+docs/src/components/CameraAPIDemo/index.js
+  3a0f4ce98dc8011b 76,78,122,306,1003-1005
+"docs/content/11-API Reference/01-Hooks.md"
+  3a0f4ce98dc8011b 159-161,165,167-210,272-273,278-280,282,285-286,288-291,296,339,516-696,707,822-824
+packages/catalyst-core/changelog.md
+  3a0f4ce98dc8011b 59-80
+"docs/content/11-API Reference/03-File-Conventions.md"
+  3a0f4ce98dc8011b 11-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "5512de051e2e5710014516cf0e1e6bf9b03e7cc0",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 511,
+      "overriden_lines": 0
+    }
+  }
+}
