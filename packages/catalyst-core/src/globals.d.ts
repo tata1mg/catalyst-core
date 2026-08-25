@@ -28,6 +28,35 @@ declare module "@catalyst/template/*" {
 // device safe-area insets that were used to render the shell.
 declare var __SAFE_AREA_INITIAL__: any
 
+// Globals owned by the native bridge (src/native/bridge). They are installed on
+// `window` by code that lives outside this package's type graph — the native
+// WebView host injects `NativeBridge` (Android) and `webkit.messageHandlers`
+// (iOS), and `WebBridge.init()` attaches the web half — so there is nothing for
+// TypeScript to resolve. They are typed as `any` to model that host boundary,
+// matching how `@catalyst/template/*` models the framework/app boundary above.
+//
+// The bridge guards every one of these with a `typeof window === "undefined"`
+// or truthiness check before use, because none of them exist under SSR or in a
+// plain browser; declaring them here does not change that contract.
+interface Window {
+    /** Web half of the bridge, attached by `WebBridge.init()`. */
+    WebBridge: any
+    /** Android WebView bridge, injected by the native host. */
+    NativeBridge: any
+    /** iOS WKWebView message handlers, injected by the native host. */
+    webkit: any
+    /** Opt-in flag read by `WebBridge.init()` to load the perf collector. */
+    __CATALYST_PROFILER_ENABLED: any
+    /** Perf collector internals (src/native/bridge/perf). */
+    CatalystPerf: any
+    __catalystPerfCollector: any
+    __catalystPerfStore: any
+    __catalystPerfBatch: any
+    __catalystPerfEvent: any
+    /** Clock skew between the native host and the WebView, set by native. */
+    __NATIVE_TIME_OFFSET: any
+}
+
 // Set on the server for the duration of one render by the SSR renderer, so
 // split() can record which chunks a request actually touched.
 declare var __CHUNK_EXTRACTOR__: any
