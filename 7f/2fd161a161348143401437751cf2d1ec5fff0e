@@ -1,0 +1,21 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/PushNotificationUtilsTest.kt
+  s_517e689629005e::t_bc360ed2f282d4 1-119
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/UtilsKtTest.kt
+  s_517e689629005e::t_77ad1fda3fe02b 1-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "7f2fd161a161348143401437751cf2d1ec5fff0e",
+  "prompts": {},
+  "sessions": {
+    "s_517e689629005e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b92ffca-6e58-4f4b-b2a3-e6cc6bb648f0",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
