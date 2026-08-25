@@ -8,28 +8,47 @@ import {
     UNSAFE_RouteContext,
     matchRoutes,
 } from "react-router"
+import type { Location, NavigateFunction, Params, RouteMatch, RouteObject } from "react-router"
 import { OneMgRouterContext } from "../context.jsx"
 // import sanitizeHtml from "sanitize-html"
 
 /**
- * @description  Router Data
- * @typedef {{data: any, error: any, isFetching: boolean, isFetched:boolean, refetch?:(args:any)=>Promise<void>}} RouteData
+ * Data a route fetcher produced, as exposed by useCurrentRouteData / useRouterData.
  */
+export interface RouteData {
+    data: any
+    error: any
+    isFetching: boolean
+    isFetched: boolean
+    /**
+     * Refetches this route's data. Returns a promise when supplied by the
+     * provider; the initial-state placeholder is a synchronous no-op.
+     */
+    refetch?: (args?: any) => void | Promise<void>
+    clear?: (wait?: number) => void
+    /** Internal marker: set when the route defines no fetcher. Stripped before return. */
+    fetcherNotAvailable?: boolean
+}
 
 /**
- * @type {import("react").Context<Object.<string, RouteData>>}
+ * Route data keyed by route key (pathname plus query string).
  */
-export const RouterContext = createContext({})
+export type RoutesData = Record<string, RouteData>
+
+export const RouterContext = createContext<RoutesData>({})
 
 /**
- * @typedef RouterDataProviderConfig
- * @property {boolean} [disableCaching=false] disableCaching disable caching of fetched data - default is false
+ * Global RouterDataProvider configuration.
  */
+export interface RouterDataProviderConfig {
+    /** disableCaching disable caching of fetched data - default is false */
+    disableCaching?: boolean
+}
 
 /**
  * Initial State of context
  */
-const INITIAL_DATA_STATE = {
+const INITIAL_DATA_STATE: RouteData = {
     data: null,
     error: null,
     isFetching: false,
@@ -39,32 +58,50 @@ const INITIAL_DATA_STATE = {
 }
 
 /**
- * @typedef RouterFetcherProps
- * @property {any} route route object
- * @property {import("react-router").Location} location the current location object, which represents the current URL in web browsers.
- * @property {import("react-router").Params} params object of key/value pairs of the dynamic params from the current URL that were matched by the route path.
- * @property {URLSearchParams} searchParams search parameters via URLSearchParams interface.
- * @property {import("react-router").NavigateFunction} navigate function to navigate to other pages based on response.
+ * Arguments handed to a route's clientFetcher / serverFetcher.
  */
+export interface RouterFetcherProps {
+    /** route object */
+    route: any
+    /** the current location object, which represents the current URL in web browsers. */
+    location?: Location
+    /** object of key/value pairs of the dynamic params from the current URL that were matched by the route path. */
+    params?: Params
+    /** search parameters via URLSearchParams interface. */
+    searchParams?: URLSearchParams | any
+    /** function to navigate to other pages based on response. */
+    navigate?: NavigateFunction
+    /** Express request object, present on the server only. */
+    req?: any
+    /** Express response object, present on the server only. */
+    res?: any
+}
 
 /**
- * @typedef ServerFetchDataProps
- * @property {import("react-router").RouteObject[]} routes routes Array
- * @property {string} url current url
- * @property {import("express").Request} req Express request object
+ * Arguments for the server-side fetch pass.
  */
+export interface ServerFetchDataProps {
+    /** routes Array */
+    routes: RouteObject[]
+    /** current url */
+    url: string
+    /** Express request object */
+    req: any
+    /** Express response object */
+    res?: any
+}
 
 /**
  * @description call this function to fetch data using fetchers defined in routes
- * @param {ServerFetchDataProps} serverFetchDataProps
- * @param {Object.<string, any>} fetcherArgs anything passed in fetcherArgs prop of RouterProvider
+ * @param serverFetchDataProps
+ * @param fetcherArgs anything passed in fetcherArgs prop of RouterProvider
  * @returns RoutesData
  */
-export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
-    /**
-     * @type {Object.<string, RouteData>}
-     */
-    const routesData = {}
+export const serverDataFetcher = async (
+    serverFetchDataProps: ServerFetchDataProps,
+    fetcherArgs?: Record<string, any>
+): Promise<RoutesData> => {
+    const routesData: RoutesData = {}
     const { routes, url, req, res: responseInstance } = serverFetchDataProps
     const matchedRoutes = matchRoutes(routes, url)
     if (matchedRoutes) {
@@ -93,16 +130,19 @@ export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
 
 /**
  * @description call this function to fetch data using fetchers defined in [page].fetcher.js
- * @param {RouterFetcherProps} routerProps
- * @param {Object.<string, any>} fetcherArgs anything passed in fetcherArgs prop of RouterProvider
- * @param {Object.<string, any>=} refetchArgs anything passed in argument of refetch function
- * @returns {Promise<RouteData>}
+ * @param routerProps
+ * @param fetcherArgs anything passed in fetcherArgs prop of RouterProvider
+ * @param refetchArgs anything passed in argument of refetch function
  */
-const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
-    const routeData = { ...INITIAL_DATA_STATE }
+const fetchRouteData = async (
+    routerProps: RouterFetcherProps,
+    fetcherArgs?: Record<string, any>,
+    refetchArgs?: Record<string, any>
+): Promise<RouteData> => {
+    const routeData: RouteData = { ...INITIAL_DATA_STATE }
     const { route } = routerProps
     const routeComponent = route.component || route.Component || route.element
-    let component = null
+    let component: any = null
     // If component is imported through loadable
     if (typeof routeComponent?.load === "function") {
         try {
@@ -138,10 +178,10 @@ const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
 
 /**
  *
- * @param {RouteContextObject} routeContext route context object
- * @returns {import('react-router').RouteMatch[]} Array of matched routes
+ * @param routeContext route context object
+ * @returns Array of matched routes
  */
-const getMatchedRoutes = ({ matches, outlet }) => {
+const getMatchedRoutes = ({ matches, outlet }: any): any[] => {
     if (outlet) {
         return getMatchedRoutes(outlet.props.routeContext)
     }
@@ -150,11 +190,11 @@ const getMatchedRoutes = ({ matches, outlet }) => {
 
 /**
  * Generates route key for given route using pathname and query params
- * @param {import('react-router').RouteMatch} match Router Match Object
- * @param {string} searchParamsString Query params string
- * @returns {string} routerKey
+ * @param match Router Match Object
+ * @param searchParamsString Query params string
+ * @returns routerKey
  */
-const generateRouteKey = (match, searchParamsString = "") => {
+const generateRouteKey = (match: RouteMatch, searchParamsString = ""): string => {
     const { pathname, route } = match
     const sanitizedPathname = pathname
     const sanitizedParams = searchParamsString
@@ -165,19 +205,27 @@ const generateRouteKey = (match, searchParamsString = "") => {
 }
 
 /**
- * @typedef RouterDataProviderProps
- * @property {any} initialState Initial State of Data Provider - Mostly used to hydrate client with data from server
- * @property {any} children
- * @property {Object.<string, any>} fetcherArgs anything passed in fetcherArgs is passed to all the fetcher functions
- * @property  {RouterDataProviderConfig} config Global router data provider config
+ * Props accepted by {@link RouterDataProvider}.
  */
+export interface RouterDataProviderProps {
+    /** Initial State of Data Provider - Mostly used to hydrate client with data from server */
+    initialState?: any
+    children?: any
+    /** anything passed in fetcherArgs is passed to all the fetcher functions */
+    fetcherArgs?: Record<string, any>
+    /** Global router data provider config */
+    config?: RouterDataProviderConfig
+}
 
 /**
  * @description Render the child components with router context and execute data fetchers on path change
- * @param {RouterDataProviderProps} props
- * @returns React.JSX.Element
  */
-export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, config }) => {
+export const RouterDataProvider = ({
+    children,
+    initialState,
+    fetcherArgs = {},
+    config,
+}: RouterDataProviderProps): any => {
     const match = useMatch("*")
     const location = useLocation()
     const params = useParams()
@@ -190,12 +238,9 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
 
     /**
      * @description HOF which returns a function to refetch the route data
-     * @param {import("react-router").RouteObject} route
-     * @param {string} routeKey
-     * @returns
      */
-    const refetchData = (route, routeKey) => {
-        return async (/** @type {{ [x: string]: any; } | undefined} */ args) => {
+    const refetchData = (route: RouteObject, routeKey: string) => {
+        return async (args?: { [x: string]: any }) => {
             setRouteData((prevData) => ({
                 ...prevData,
                 [routeKey]: { ...INITIAL_DATA_STATE, isFetching: true },
@@ -214,31 +259,23 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
 
     /**
      * @description HOF which returns a function to clear the route data immediately or after given time in ms
-     * @param {import("react-router").RouteObject} route
-     * @param {string} routeKey
-     * @returns
      */
     const clear =
-        (routeKey) =>
-        (wait = 0) => {
+        (routeKey: string) =>
+        (wait: any = 0) => {
             // TODO :: Need to think this use case
             // eslint-disable-next-line no-unused-vars
             const timeout = setTimeout(() => {
                 setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...INITIAL_DATA_STATE } }))
-            }, [wait])
+            }, [wait] as any)
         }
 
-    /**
-     * @type {[Object.<string, RouteData>,React.Dispatch<React.SetStateAction<Object.<string, RouteData>>>]}
-     */
-    const [routeData, setRouteData] = useState(initialState)
+    const [routeData, setRouteData] = useState<RoutesData>(initialState)
 
     /**
      * @description Check the config for refetching the data
-     * @param {import('react-router').RouteObject} route
-     * @returns {boolean}
      */
-    const shouldFetch = (route) => {
+    const shouldFetch = (route: any): boolean => {
         // do not refetch on first render if we get something in initialState
         if (!isHydrated.current && initialState) return false
 
@@ -253,7 +290,7 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
     }
 
     useEffect(() => {
-        matchedRoutes.forEach(async (match) => {
+        matchedRoutes.forEach(async (match: RouteMatch) => {
             const route = match.route
             const routeKey = generateRouteKey(match, location.search)
             if (routeData[routeKey]?.isFetched && !shouldFetch(route)) return
@@ -271,7 +308,7 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
 
     return (
         <OneMgRouterContext.Provider value={{ matchedRoutes, refetchData, clear }}>
-            <RouterContext.Provider value={{ ...routeData, refetch: refetchData }}>
+            <RouterContext.Provider value={{ ...routeData, refetch: refetchData } as any}>
                 {children}
             </RouterContext.Provider>
         </OneMgRouterContext.Provider>
@@ -280,10 +317,9 @@ export const RouterDataProvider = ({ children, initialState, fetcherArgs = {}, c
 
 /**
  * @description returns current router context object with three values: data, error, isFetching, isFetched
- * @returns {RouteData}
  * @throws If used outside RouterDataProvider Context
  */
-export const useCurrentRouteData = () => {
+export const useCurrentRouteData = (): RouteData => {
     const routeContext = useContext(UNSAFE_RouteContext)
     const currentPageMatch = routeContext.matches[routeContext.matches.length - 1]
     const context = useContext(RouterContext)
@@ -318,10 +354,9 @@ export const useCurrentRouteData = () => {
 
 /**
  * @description returns a router context object with data of all the fetchers in current route tree
- * @returns {Object.<string, RouteData>}
  * @throws If used outside RouterDataProvider Context
  */
-export const useRouterData = () => {
+export const useRouterData = (): RoutesData => {
     const context = useContext(RouterContext)
     // Throw error if the hook is not used within a RouterProvider
     if (context === undefined) {

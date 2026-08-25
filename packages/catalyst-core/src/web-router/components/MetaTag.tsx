@@ -8,11 +8,11 @@ import { useLocation } from "react-router"
 /**
  * @description renders meta tags component assigned to setMetaData
  */
-export const MetaTag = () => {
+export const MetaTag = (): any => {
     const { matchedRoutes } = useContext(OneMgRouterContext)
     const routeData = useRouterData()
     const location = useLocation()
-    const [metaTags, setMetaTags] = useState([<meta key={0}></meta>])
+    const [metaTags, setMetaTags] = useState<any[]>([<meta key={0}></meta>])
 
     useEffect(() => {
         const mergedMetaTags = getMetaData(matchedRoutes, routeData)

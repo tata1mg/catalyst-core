@@ -3,18 +3,18 @@ import React from "react"
  * Merges multiple lists of head elements, ensuring that later lists override earlier ones in case of duplicates.
  * Handles all types of head elements, including title, meta, link, etc.
  *
- * @param {...Array<JSX.Element>} lists - Multiple lists of JSX head elements, where the first argument is the parent and the rest are children in order.
- * @returns {Array<JSX.Element>} - The combined list with later lists overriding duplicates from earlier ones.
+ * @param lists - Multiple lists of JSX head elements, where the first argument is the parent and the rest are children in order.
+ * @returns The combined list with later lists overriding duplicates from earlier ones.
  */
-export function mergeHeadElements(...lists) {
+export function mergeHeadElements(...lists: any[]): any[] {
     const elementMap = new Map()
 
     /**
      * Function to get a unique key for a head element based on its type and attributes.
-     * @param {JSX.Element} element - The head element from which to derive a key.
-     * @returns {string} - A unique key representing the element.
+     * @param element - The head element from which to derive a key.
+     * @returns A unique key representing the element.
      */
-    const getKey = (element) => {
+    const getKey = (element: any) => {
         const { type, props } = element
 
         if (type === "title") {
@@ -42,7 +42,7 @@ export function mergeHeadElements(...lists) {
 
     // Loop through all the lists, ensuring later lists override earlier ones
     lists?.forEach((list) => {
-        list?.forEach((element) => {
+        list?.forEach((element: any) => {
             const key = getKey(element)
             if (key) {
                 elementMap.set(key, element) // Overwrite earlier elements with later ones
@@ -57,12 +57,12 @@ export function mergeHeadElements(...lists) {
 /**
  * Deletes all elements in the head with a specific data attribute.
  *
- * @param {string} attributeName - The name of the data attribute to search for.
- * @param {string} [attributeValue] - The specific value of the data attribute to match (optional).
+ * @param attributeName - The name of the data attribute to search for.
+ * @param attributeValue - The specific value of the data attribute to match (optional).
  */
-export function deleteHeadTagsByDataAttribute(attributeName, attributeValue) {
+export function deleteHeadTagsByDataAttribute(attributeName: string, attributeValue?: string) {
     const head = document.head
-    const tagsToDelete = []
+    const tagsToDelete: any[] = []
 
     // Iterate over all children in the head section
     Array.from(head.children).forEach((element) => {
@@ -90,15 +90,15 @@ export function deleteHeadTagsByDataAttribute(attributeName, attributeValue) {
  * Returns resolved array of meta data elements.
  *
  *
- * @param {Array<Match>} matchedRoutes  - Array of all matches.
- * @param {Object} routeData  - Data returned from Router.
- * @returns {Array<JSX.Element>} - List of all meta tags for the matched location.
+ * @param matchedRoutes  - Array of all matches.
+ * @param routeData  - Data returned from Router.
+ * @returns List of all meta tags for the matched location.
  */
 
-export function getMetaData(matchedRoutes, routeData) {
-    let allTags = []
+export function getMetaData(matchedRoutes: any, routeData: any): any[] {
+    let allTags: any[] = []
     try {
-        matchedRoutes?.forEach?.((match) => {
+        matchedRoutes?.forEach?.((match: any) => {
             const setMetaData = match?.route?.component?.setMetaData
             if (setMetaData) {
                 let tags = setMetaData(routeData)

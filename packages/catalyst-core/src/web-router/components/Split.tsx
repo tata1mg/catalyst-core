@@ -2,16 +2,52 @@ import React, { Suspense, lazy, useContext, useEffect, useReducer } from "react"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import SplitInview from "./SplitInview.jsx"
 
+/**
+ * A dynamic import of a module whose default export is the component to split.
+ * Matches the argument React's `lazy` accepts.
+ */
+export type SplitImportFn = () => Promise<any>
+
+/**
+ * Options accepted by {@link split}.
+ */
+export interface SplitOptions {
+    /** Render the component on the server. Defaults to true. Forced on for known crawlers. */
+    ssr?: boolean
+    /** Element shown while the chunk loads. Defaults to null. */
+    fallback?: any
+    /** IntersectionObserver options for in-view loading (documented; consumed positionally). */
+    rootOptions?: any
+    /** Callback fired when the component becomes visible (documented; consumed via props). */
+    onVisible?: any
+}
+
+/**
+ * The component returned by {@link split}. It renders the lazily imported
+ * component and additionally carries the route statics copied off the loaded
+ * module, plus `load()` for the fetcher contract RouterDataProvider relies on.
+ */
+export interface SplitComponent {
+    (props: any): any
+    /** Resolves the underlying module, reusing the in-flight or cached import. */
+    load: () => Promise<any>
+    /** Resolved path recorded for SSR asset tracking. */
+    __cacheKey?: string
+    clientFetcher?: any
+    serverFetcher?: any
+    setMetaData?: any
+}
+
 // Synchronous module cache: importFn → resolved module.
 // Populated by the eager importFn().then() calls at split() invocation time.
 // By the time window.load fires (when hydrateRoot runs), all chunk <script>
 // tags in the HTML have already executed, so every .then() has already
 // resolved and the module is available here synchronously.
-const moduleCache = new Map()
+const moduleCache = new Map<SplitImportFn, any>()
 
 // Collects one promise per SSR-rendered split() call on the client.
 // loadableReady() waits for all of them before hydration begins.
-const prefetchPromises = []
+const prefetchPromises: Promise<any>[] = []
 
 /**
  * Returns a promise that resolves once every SSR-rendered split component
@@ -24,15 +60,27 @@ const prefetchPromises = []
  *   hydrateRoot(document.getElementById("root"), <App />)
  * })
  */
-export const hydrationReady = () => Promise.all(prefetchPromises)
+export const hydrationReady = (): Promise<any[]> => Promise.all(prefetchPromises)
+
+/**
+ * Props for the internal Split wrapper. `split()` is the public entry point;
+ * this component is an implementation detail of it.
+ */
+interface SplitProps {
+    /** Whether to render the component on the server */
+    ssr?: boolean
+    /** Fallback component for loading state */
+    fallback?: any
+    /** Resolved path for better asset tracking */
+    cacheKey?: string
+    rootOptions?: any
+    onVisible?: () => void
+    skipVisibility?: boolean
+    children?: any
+}
 
 /**
  * Split component that wraps React's lazy and Suspense for SSR compatibility
- * @param {Object} props
- * @param {boolean} props.ssr - Whether to render the component on the server
- * @param {React.ComponentType|React.ReactElement} props.fallback - Fallback component for loading state
- * @param {Function} props.children - Function that returns the lazy component import
- * @param {string} props.cacheKey - Resolved path for better asset tracking
  */
 const Split = ({
     ssr = true,
@@ -42,7 +90,7 @@ const Split = ({
     onVisible,
     skipVisibility,
     children,
-}) => {
+}: SplitProps) => {
     // Check if we're on the server
     const isServer = typeof window === "undefined"
     if (isServer) {
@@ -84,7 +132,12 @@ const Split = ({
  * Prefetch follows `window.__SSR_RENDERED_COMPONENTS__` only (not the `ssr` option) so bot-forced SSR
  * still hydrates without a Suspense flash.
  */
-export const split = (importFn, options = {}, thirdArg, fourthArg) => {
+export const split = (
+    importFn: SplitImportFn,
+    options: SplitOptions = {},
+    thirdArg?: any,
+    fourthArg?: any
+): SplitComponent => {
     const { ssr = true, fallback = null } = options || {}
     const hasThirdArg = typeof thirdArg !== "undefined"
     const hasFourthArg = typeof fourthArg !== "undefined"
@@ -97,19 +150,19 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
           : undefined
 
     const LazyComponent = lazy(importFn)
-    let loadInFlight = null
+    let loadInFlight: Promise<any> | null = null
 
     // Per-split instance subscribers. Pending wrapper instances register their
     // forceUpdate here; notifyAll() wakes them when load() resolves or any
     // sibling becomes visible, so they can re-render against the now-hot cache
     // or skip their own observer setup.
-    const subscribers = new Set()
+    const subscribers = new Set<() => void>()
     let anyVisible = false
     const notifyAll = () => {
         anyVisible = true
         subscribers.forEach((fn) => fn())
     }
-    const copyRouteStatics = (mod) => {
+    const copyRouteStatics = (mod: any) => {
         const Component = mod?.default || mod
         for (const key of ["clientFetcher", "serverFetcher", "setMetaData"]) {
             if (Component?.[key]) wrapper[key] = Component[key]
@@ -118,14 +171,14 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
     }
 
     if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
-        const prefetch = importFn().then((mod) => {
+        const prefetch = importFn().then((mod: any) => {
             moduleCache.set(importFn, mod)
             copyRouteStatics(mod)
         })
         prefetchPromises.push(prefetch)
     }
 
-    const wrapper = ({ fallback: fallbackProp, ...props }) => {
+    const wrapper: SplitComponent = ({ fallback: fallbackProp, ...props }: any) => {
         const { isBot: isBotFromContext } = useContext(SsrRequestContext)
         const isBotFromWindow = typeof window !== "undefined" && window.__CATALYST_IS_BOT__ === true
         const isBot = Boolean(isBotFromContext || isBotFromWindow)
@@ -177,7 +230,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         if (cached) return Promise.resolve(cached)
         if (!loadInFlight) {
             loadInFlight = importFn()
-                .then((mod) => {
+                .then((mod: any) => {
                     copyRouteStatics(mod)
                     if (typeof window !== "undefined") {
                         moduleCache.set(importFn, mod)
@@ -186,7 +239,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
                     notifyAll()
                     return mod
                 })
-                .catch((err) => {
+                .catch((err: any) => {
                     loadInFlight = null
                     throw err
                 })
