@@ -27,7 +27,7 @@ import java.util.Properties
 import java.util.ServiceLoader
 import java.util.concurrent.atomic.AtomicBoolean
 
-private data class FilePickerOptions(
+internal data class FilePickerOptions(
     val mimeType: String = "*/*",
     val multiple: Boolean = false,
     val minFiles: Int? = null,
@@ -96,7 +96,7 @@ private fun JSONObject.optIntNullable(key: String): Int? =
 private fun JSONObject.optLongNullable(key: String): Long? =
     if (has(key) && !isNull(key)) getLong(key) else null
 
-private data class GoogleSignInOptions(
+internal data class GoogleSignInOptions(
     val clientId: String,
     val nonce: String? = null,
     val autoSelect: Boolean = false,
