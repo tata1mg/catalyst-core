@@ -517,11 +517,15 @@ jobs:
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
                   set -o pipefail
-                  # --quieter (-qq): only print tasks with errors. Test
-                  # failures still surface -- xcbeautify never silences
-                  # those regardless of quiet level -- this only cuts the
-                  # per-file "Compiling"/per-test "✔" noise that was
-                  # dominating this step's log output.
+                  # --quieter was removed: on a real failure it printed only
+                  # a one-line "##[error] <test name> (N seconds)" with no
+                  # assertion detail, forcing a local repro to find the
+                  # actual cause every time (confirmed directly -- a failure
+                  # in this job's CI log gave no more than that one line).
+                  # Without --quieter, xcbeautify still collapses per-file
+                  # "Compiling" noise but prints the full XCTest failure
+                  # message (assertion, expected/actual, file:line) inline
+                  # in the CI log.
                   xcodebuild test \
                     -project iosnativeWebView.xcodeproj \
                     -scheme iosnativeWebView \
@@ -529,7 +533,7 @@ jobs:
                     -only-testing:iosnativeWebViewTests \
                     -clonedSourcePackagesDirPath .spm-cache \
                     CODE_SIGNING_ALLOWED=NO \
-                    | xcbeautify --renderer github-actions --quieter
+                    | xcbeautify --renderer github-actions
 
     docs:
         # Placed last in the chain per requested graph shape. docs/** is
