@@ -1,0 +1,49 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/HoldControllerTest.kt
+  s_cbea663a13314a::t_1762e050afddf2 52-56,67-69,83
+  s_cbea663a13314a::t_6fdd94f6ed6323 1-51,57-66,70-82,84-99,104-155
+  s_cbea663a13314a::t_66f8ef4b8272c3 100-103
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/ViewfinderMapperTest.kt
+  s_cbea663a13314a::t_e68764f0091d94 1-4,6-9,11-16,30-37,39-48,51-65,78-124,126-130,132-134,136-140,142-143
+  s_cbea663a13314a::t_951e7c0c2cf310 5,10,17-29,38,49-50,66-77,125,131,135,141
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/SafeAreaUtilsTest.kt
+  s_517e689629005e::t_c6dc7cc109af62 1-108
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/TorchControllerTest.kt
+  s_cbea663a13314a::t_ea6e89c1f65fe8 1-6,8,10-11,13-109,111-129,131-150
+  s_cbea663a13314a::t_4430eeaca3cd0d 7,9,12
+  s_cbea663a13314a::t_b31527d8592bff 110,130
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/BarcodeDetectorTest.kt
+  s_cbea663a13314a::t_9966d8682d7e00 23-27,33-40
+  s_cbea663a13314a::t_b970d521cbbc32 1-2,5-9,12-22,28-32,41-106,132
+  s_cbea663a13314a::t_c7e616fafa62f8 3-4,10-11
+  s_cbea663a13314a::t_dd6ff91a0a8233 130
+  s_cbea663a13314a::t_68db5ee1144cc9 107-129,131
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/design/DesignTokensTest.kt
+  s_cbea663a13314a::t_5593108debc5d5 1-207
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/NetworkMonitorTest.kt
+  s_cbea663a13314a::t_8810cbf2c7011c 5,7-8,11,13-14,16-17,21,33-44,46-50,57,59,72,74-83,108,122,127-130,134,143-146,150,152-155,169-171,174-177,185,188,213,221,236-237,239,250-251,253,264-265,267
+  s_cbea663a13314a::t_5bcd0bd5fd7066 1-4,6,9-10,12,15,18-20,22-32,45,51-56,58,60-71,73,84-107,109-121,123-126,131-133,135-142,147-149,151,156-168,172-173,178-184,186-187,189-212,214-220,222-235,238,240-249,252,254-263,266,268-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "effd51ed5abd955f87a75f094f4249e2419ba8a7",
+  "prompts": {},
+  "sessions": {
+    "s_517e689629005e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b92ffca-6e58-4f4b-b2a3-e6cc6bb648f0",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_cbea663a13314a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1b43752-575a-4960-973a-284fa8571046",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
