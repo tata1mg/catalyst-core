@@ -28,7 +28,7 @@ jobs:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
             # On `push` (main-only, used to stamp the coverage baseline --
-            # see test-android-unit), paths-filter diffs against
+            # see android-unit-and-coverage), paths-filter diffs against
             # `github.event.before`, which is all-zeros on branch
             # creation/force-push. We do not pin `base:` here, so on that
             # rare case paths-filter falls back to treating everything as
@@ -65,8 +65,8 @@ jobs:
         needs: detect-changes
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
-        # First stage of the web chain (lint -> test-js-unit ->
-        # test-js-combined). Chained intentionally, not for a technical
+        # First stage of the web chain (lint -> unit-and-contract-tests ->
+        # web-integration-smoke). Chained intentionally, not for a technical
         # dependency between them, but to fail fast on the cheapest check
         # first and give the PR checks graph a clear top-to-bottom shape
         # instead of 3 jobs bunched under one identical-needs edge.
@@ -96,7 +96,7 @@ jobs:
             # is tracked as a follow-up once #396 (oxlint/oxfmt migration)
             # lands with a real config.
 
-    test-js-unit:
+    unit-and-contract-tests:
         needs: [detect-changes, lint]
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
@@ -132,8 +132,8 @@ jobs:
     # it once. Trade-off: loses the parallel wall-clock and per-job failure
     # isolation the 3-job split had -- a failure in step 1 still lets steps
     # 2/3 report clearly in the job log, just not as 3 separate check marks.
-    test-js-combined:
-        needs: [detect-changes, test-js-unit]
+    web-integration-smoke:
+        needs: [detect-changes, unit-and-contract-tests]
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
         container:
@@ -151,7 +151,7 @@ jobs:
             - name: Install and Syntax Check (catalyst-ai)
               run: chmod +x ./scripts/test-catalyst-ai.sh && ./scripts/test-catalyst-ai.sh
 
-    test-android-unit:
+    android-unit-and-coverage:
         needs: detect-changes
         if: needs.detect-changes.outputs.android == 'true'
         runs-on: ubuntu-latest
@@ -284,19 +284,19 @@ jobs:
     # Split from what was a single test-ios-unit job into two: CoreLogic
     # (this job) runs first, has zero dependencies, needs no simulator, and
     # is the only iOS target that can produce a real coverage percentage
-    # today. test-ios-full (below) depends on this job passing before it
+    # today. ios-app-simulator-tests (below) depends on this job passing before it
     # pays for the much more expensive simulator boot + full UIKit build.
     # This does cost a second macos-latest runner spin-up versus running
     # both in one job's steps (a real wall-clock/minutes trade-off -- see
     # the original single-job version's reasoning in git history) but
     # gives CoreLogic its own pass/fail check and lets it feed the
     # coverage regression gate independently of the simulator-based run.
-    test-ios-corelogic:
+    ios-corelogic-and-coverage:
         needs: detect-changes
         if: needs.detect-changes.outputs.ios == 'true'
         runs-on: macos-latest
         # actions: write needed only for the release-time cache-delete
-        # step below, same rationale as test-android-unit.
+        # step below, same rationale as android-unit-and-coverage.
         permissions:
             contents: read
             actions: write
@@ -414,8 +414,8 @@ jobs:
     # Full simulator-based XCTest run -- the expensive part (~9-25 min:
     # simulator boot + full CatalystCore/UIKit build). Gated on CoreLogic
     # passing first so a CoreLogic failure never pays for this.
-    test-ios-full:
-        needs: [detect-changes, test-ios-corelogic]
+    ios-app-simulator-tests:
+        needs: [detect-changes, ios-corelogic-and-coverage]
         if: needs.detect-changes.outputs.ios == 'true'
         runs-on: macos-latest
 
@@ -544,7 +544,7 @@ jobs:
         # the common case) would make GitHub treat `needs` as unmet and
         # skip `docs` too, even though the docs-changed filter says it
         # should run.
-        needs: [detect-changes, test-js-combined, test-android-unit, test-ios-corelogic, test-ios-full]
+        needs: [detect-changes, web-integration-smoke, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
         if: always() && needs.detect-changes.outputs.docs == 'true'
         runs-on: ubuntu-latest
 
@@ -565,30 +565,30 @@ jobs:
 
     # Final gate: coverage must not have regressed on any platform that
     # actually measures it today (Android via jacoco, iOS via CoreLogic's
-    # llvm-cov export). lint/test-js-unit/test-js-combined/docs don't
+    # llvm-cov export). lint/unit-and-contract-tests/web-integration-smoke/docs don't
     # produce a coverage number, so they don't participate here -- this
     # job exists specifically so "did coverage drop vs. last release" is
     # one visible, final check, rather than buried inside two other jobs'
     # step lists. The actual pass/fail decision already happened inside
-    # test-android-unit's and test-ios-corelogic's own "Enforce coverage
+    # android-unit-and-coverage's and ios-corelogic-and-coverage's own "Enforce coverage
     # does not regress" steps (that's where the job fails first, with the
     # specific % numbers in that job's log) -- this job just re-asserts
     # both landed with a real success, so a single check name answers
     # "is coverage OK" without having to open two different jobs to find
     # out. `if: always()` + explicit result checks (not a bare `needs`)
     # because a skipped platform (e.g. an android-only PR, where
-    # test-ios-corelogic never runs) must still count as fine here.
-    check-coverage:
-        needs: [detect-changes, test-android-unit, test-ios-corelogic]
+    # ios-corelogic-and-coverage never runs) must still count as fine here.
+    coverage-summary:
+        needs: [detect-changes, android-unit-and-coverage, ios-corelogic-and-coverage]
         if: always()
         runs-on: ubuntu-latest
         steps:
             - name: Verify no coverage regression
               run: |
-                  android="${{ needs.test-android-unit.result }}"
-                  ios="${{ needs.test-ios-corelogic.result }}"
-                  echo "test-android-unit: $android"
-                  echo "test-ios-corelogic: $ios"
+                  android="${{ needs.android-unit-and-coverage.result }}"
+                  ios="${{ needs.ios-corelogic-and-coverage.result }}"
+                  echo "android-unit-and-coverage: $android"
+                  echo "ios-corelogic-and-coverage: $ios"
                   fail=0
                   if [ "$android" != "success" ] && [ "$android" != "skipped" ]; then
                     echo "::error::Android coverage gate did not pass (status: $android)"
