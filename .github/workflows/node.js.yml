@@ -38,6 +38,16 @@ jobs:
             - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
               id: filter
               with:
+                  # Default predicate-quantifier is "some" -- a filter matches
+                  # if ANY pattern in its list matches, which makes the `!...`
+                  # excludes below dead weight (a native-only change still
+                  # satisfies the positive 'packages/catalyst-core/**'
+                  # pattern, so `web` comes back true regardless of the
+                  # excludes). "some-with-excludes" restores the intended
+                  # semantics: match at least one positive pattern AND match
+                  # none of the negative ones. Confirmed against
+                  # dorny/paths-filter's own docs, not assumed.
+                  predicate-quantifier: some-with-excludes
                   filters: |
                       shared: &shared
                         - '.github/workflows/**'
@@ -165,8 +175,20 @@ jobs:
                   import glob, json, os
                   covered = total = 0
                   paths = glob.glob("packages/*/coverage/coverage-summary.json")
-                  if not paths:
-                      raise SystemExit("No coverage-summary.json found under packages/*/coverage/")
+                  # catalyst-core, catalyst-ai, create-catalyst-app -- mcp_v2
+                  # is excluded by design (see above). Checking the exact
+                  # count, not just non-empty: if one workspace's coverage
+                  # report silently fails to generate (a swallowed script
+                  # error upstream, a partial test-step failure that didn't
+                  # fail the job), the aggregate would otherwise compute from
+                  # whatever's left with no error, silently skewing the
+                  # number this gate exists to protect.
+                  EXPECTED_WORKSPACES = 3
+                  if len(paths) != EXPECTED_WORKSPACES:
+                      raise SystemExit(
+                          f"Expected {EXPECTED_WORKSPACES} coverage-summary.json files under "
+                          f"packages/*/coverage/, found {len(paths)}: {sorted(paths)}"
+                      )
                   for path in paths:
                       with open(path) as f:
                           report = json.load(f)
@@ -751,6 +773,7 @@ jobs:
         steps:
             - name: Report per-platform coverage and verify no regression
               run: |
+                  detect_status="${{ needs.detect-changes.result }}"
                   web_status="${{ needs.unit-and-contract-tests.result }}"
                   web_smoke_status="${{ needs.web-integration-smoke.result }}"
                   android_status="${{ needs.android-unit-and-coverage.result }}"
@@ -778,6 +801,17 @@ jobs:
                   report_platform "android (jacoco)" "$android_status" "$android_pct"
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
+
+                  # detect-changes itself failing/erroring (not just "nothing
+                  # changed") means the per-platform jobs below were skipped
+                  # for an infrastructure reason, not because there was
+                  # nothing to test -- that must fail the gate outright,
+                  # since every platform status would otherwise read
+                  # "skipped" and pass by the loop below's own logic.
+                  if [ "$detect_status" != "success" ]; then
+                    echo "::error::detect-changes did not pass (status: $detect_status) -- platform jobs were skipped for an infrastructure reason, not because nothing changed"
+                    exit 1
+                  fi
 
                   fail=0
                   for pair in "web:$web_status" "web-integration-smoke:$web_smoke_status" "android:$android_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
