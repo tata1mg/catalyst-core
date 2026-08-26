@@ -75,14 +75,16 @@ export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
  * React <link rel="modulepreload"> elements (deduped). Use before matching <script type="module">.
  * @param {string[]} jsUrls
  * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
+ * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload") =>
+export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload", nonce) =>
     [...new Set(jsUrls)].map((url, i) =>
         React.createElement("link", {
             key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
             href: url,
             fetchPriority: "high",
+            ...(nonce ? { nonce } : {}),
         })
     )
 
