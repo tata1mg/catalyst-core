@@ -45,9 +45,8 @@ reproduces the Docusaurus permalink scheme exactly — numeric `NN-` prefixes
 stripped per path segment, spaces and case preserved, frontmatter `slug`/`id`
 honored — so a page keeps the address it already had.
 
-`scripts/docs-migration/canonical-urls.txt` at the repo root records every
-indexed URL from before the move. `npm run docs:check-links -- --strict` runs in
-CI and fails the build on a broken link or asset.
+`npm run docs:check-links -- --strict` runs in CI and fails the build on a
+broken link or asset.
 
 Docusaurus served under a `/public_docs` prefix; this app serves at the root and
 301s the old prefix, so existing links keep working. Those redirects live in

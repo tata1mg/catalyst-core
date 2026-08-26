@@ -27,8 +27,6 @@ docs/hyperframes/
 !/scripts/create-release-sandbox.js
 !/scripts/release/
 !/scripts/release/sync-cca-templates.js
-!/scripts/docs-migration/
-!/scripts/docs-migration/**
 /server
 /types
 /dist

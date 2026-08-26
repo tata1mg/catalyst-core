@@ -349,3 +349,17 @@ export default function Landing() {
         </div>
     )
 }
+
+// Carried over from the Docusaurus homepage, which passed these to <Layout>.
+// Doc pages get their own from the generated routes; without this the most
+// linked page on the site would ship with no title at all.
+Landing.setMetaData = () => [
+    <title key="title">
+        Catalyst - Universal React Framework for Web, iOS, and Android
+    </title>,
+    <meta
+        key="description"
+        name="description"
+        content="Build cross-platform applications with native device capabilities, server-side rendering, and blazing-fast performance from a single React codebase."
+    />,
+]
