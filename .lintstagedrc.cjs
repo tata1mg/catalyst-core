@@ -30,14 +30,10 @@ function toPrettierCommand(files) {
 }
 
 const docsPrettierIgnoredPrefixes = [
-    "docs/.docusaurus/",
-    "docs/api/",
     "docs/build/",
     "docs/content/",
-    "docs/docs/",
-    "docs/login-page/build/",
-    "docs/login-page/public/",
-    "docs/public-docs/",
+    "docs/public/",
+    "docs/src/js/generated/",
     "docs/static/",
 ]
 
