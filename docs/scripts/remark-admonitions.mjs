@@ -20,9 +20,11 @@ const SPACE_TITLE_FENCE = new RegExp(
 
 export function normalizeAdmonitionTitles(source) {
     return source.replace(SPACE_TITLE_FENCE, (_match, colons, type, title) => {
-        // Already-bracketed titles never reach here (no space before "["), and a
-        // "]" in the title would close the label early, so escape it.
-        return `${colons}${type}[${title.replace(/\]/g, '\\]')}]`
+        // Already-bracketed titles never reach here (no space before "[").
+        // Backslashes are escaped before brackets: a title ending in one would
+        // otherwise consume the bracket's escape and leave the label unclosed.
+        const escaped = title.replace(/\\/g, '\\\\').replace(/\]/g, '\\]')
+        return `${colons}${type}[${escaped}]`
     })
 }
 
