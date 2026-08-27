@@ -1,0 +1,29 @@
+packages/catalyst-core/.npmignore
+  3a0f4ce98dc8011b 13
+packages/catalyst-core/package.json
+  3a0f4ce98dc8011b 19-22,25-36,40-46,53,81,84-87
+packages/catalyst-core/scripts/check-consumer-types.mjs
+  3a0f4ce98dc8011b 1-502
+packages/catalyst-core/tsconfig.declarations.json
+  3a0f4ce98dc8011b 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "880e63b9a37b1c13a7c7e95aec526089b06fdfb4",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 663,
+      "total_deletions": 56,
+      "accepted_lines": 733,
+      "overriden_lines": 0
+    }
+  }
+}
