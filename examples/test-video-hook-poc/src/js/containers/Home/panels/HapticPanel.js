@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router';
 import { useHapticFeedback } from 'catalyst-core/hooks';
 import { HookStatusBar, PanelHeader } from '../components/SharedUI';
 

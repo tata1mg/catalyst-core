@@ -1,6 +1,6 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 

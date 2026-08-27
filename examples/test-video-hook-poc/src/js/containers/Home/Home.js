@@ -1,4 +1,4 @@
-import { useLocation, Outlet } from 'react-router-dom';
+import { useLocation, Outlet } from 'react-router';
 import { useNativeTransition } from 'catalyst-core/hooks';
 import React, { useState, useEffect } from 'react';
 import { useSafeArea } from 'catalyst-core/hooks';

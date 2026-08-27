@@ -1,5 +1,5 @@
 import React from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router';
 import { HookStatusBar, PanelHeader } from '../components/SharedUI';
 
 export function SafeAreaPanel() {
