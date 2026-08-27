@@ -3,7 +3,7 @@ import { HelmetProvider, Helmet } from "react-helmet-async"
 import { OneMgRouterContext } from "../context.jsx"
 import { useRouterData } from "./RouterDataProvider.jsx"
 import { deleteHeadTagsByDataAttribute, getMetaData } from "../utils/metaDataUtils.jsx"
-import { useLocation } from "react-router-dom"
+import { useLocation } from "react-router"
 
 /**
  * @description renders meta tags component assigned to setMetaData

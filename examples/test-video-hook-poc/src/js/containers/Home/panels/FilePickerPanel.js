@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router';
 import { useFilePicker } from 'catalyst-core/hooks';
 import { I, HookStatusBar, useToast, PanelHeader, Section, Switch, Lightbox, FileViewer } from '../components/SharedUI';
 
