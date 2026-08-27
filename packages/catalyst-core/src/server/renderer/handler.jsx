@@ -75,12 +75,20 @@ const parseSafeAreaFromHeaders = (req) => {
     }
 }
 
+// App contract checks run at module load, not per request. The validators throw on
+// violation, and _handler wraps every request in a try/catch that would otherwise
+// swallow the throw into onRequestError and leave the request hanging. Validating
+// here means a misconfigured app fails at module load — server startup in
+// production, first SSR request in dev — with the contract message.
+validateGetRoutes(getRoutes)
+validateConfigureStore(createStore)
+
 // Routes are static for the lifetime of the server — resolve once and reuse
 // the same instance per request to avoid per-request allocation.
 let _cachedRoutes
 const getCachedRoutes = () => {
     if (_cachedRoutes === undefined) {
-        _cachedRoutes = validateGetRoutes(getRoutes) ? getRoutes() : null
+        _cachedRoutes = getRoutes()
     }
     return _cachedRoutes
 }
@@ -358,7 +366,7 @@ async function _handler(req, res) {
     try {
         let context = {}
         let fetcherData = {}
-        const store = validateConfigureStore(createStore) ? await createStore({}, req, res) : null
+        const store = await createStore({}, req, res)
 
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []

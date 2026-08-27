@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS, PERMISSION_STATUS } from "../constants/NativeInterfaces.js"
+import { ERROR_CODES, createStandardError } from "../errors.js"
 import { useBaseHook } from "../useBaseHook.js"
 
 export const useCamera = ({ webFallback } = {}) => {
@@ -232,6 +233,7 @@ export const useCameraPermission = ({ webFallback } = {}) => {
     const webFallbackDisabled = isWeb && !webFallbackResolved
     const [permission, setPermission] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState(null)
     const permResultRef = useRef(null)
 
     useEffect(() => {
@@ -292,9 +294,10 @@ export const useCameraPermission = ({ webFallback } = {}) => {
                 })
 
                 nativeBridge.camera.requestPermission()
-            } catch (error) {
-                console.error("📷 Error requesting camera permission:", error)
+            } catch (err) {
+                console.error("📷 Error requesting camera permission:", err)
                 setPermission(PERMISSION_STATUS.DENIED)
+                setError(createStandardError(ERROR_CODES.PERMISSION_DENIED, "Camera permission denied", err))
                 setIsLoading(false)
             }
         }
@@ -316,10 +319,13 @@ export const useCameraPermission = ({ webFallback } = {}) => {
 
         try {
             setIsLoading(true)
+            setError(null)
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
             stream.getTracks().forEach((t) => t.stop())
-        } catch (_) {
-            // Ignore — the permission state change fires via permResultRef.current.onchange
+        } catch (err) {
+            // Permission state change still fires via permResultRef.current.onchange;
+            // surface the rejection as a standard error for callers reading `error`.
+            setError(createStandardError(ERROR_CODES.PERMISSION_DENIED, "Camera access denied", err))
         }
 
         // Re-query to get the authoritative state after the prompt
@@ -347,8 +353,27 @@ export const useCameraPermission = ({ webFallback } = {}) => {
             webFallbackDisabled: false,
             setWebFallback: () => {},
             request: () => {},
+            loading: false,
+            data: null,
+            error: null,
+            execute: () => {},
+            isNative: false,
+            isWeb: true,
         }
     }
 
-    return { permission, isLoading, webFallbackActive, webFallbackDisabled, setWebFallback, request }
+    return {
+        permission,
+        isLoading,
+        webFallbackActive,
+        webFallbackDisabled,
+        setWebFallback,
+        request,
+        loading: isLoading,
+        data: permission,
+        error,
+        execute: request,
+        isNative: !isWeb,
+        isWeb,
+    }
 }

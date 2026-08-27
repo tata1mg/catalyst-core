@@ -102,7 +102,9 @@ process.on("uncaughtExceptionMonitor", (err, origin) => {
     console.log(err, origin)
 })
 
-process.on("unhandledRejection", (err) => console.log("unhandledRejection in Catalyst", safeStringify(err)))
+process.on("unhandledRejection", (err) =>
+    console.log("unhandledRejection in Catalyst", err?.stack || safeStringify(err))
+)
 
 process.on("SIGINT", function () {
     console.log("SIGINT")
@@ -301,4 +303,7 @@ async function createServer() {
     })
 }
 
-createServer()
+createServer().catch((err) => {
+    console.error(err?.stack || err)
+    process.exit(1)
+})
