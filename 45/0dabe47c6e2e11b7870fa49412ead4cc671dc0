@@ -1,0 +1,75 @@
+examples/error-catalog/config/config.template.json
+  s_cab5a2e7432e8d::t_8b6224daa21c31 1-25
+examples/error-catalog/scripts/ensure-config.js
+  s_cab5a2e7432e8d::t_ae34e8ba297c3e 1-18
+examples/error-catalog/scenarios/ai.js
+  s_cab5a2e7432e8d::t_187dd213915bb0 99-108
+  s_cab5a2e7432e8d::t_cecd595f6320b7 96-98
+  s_cab5a2e7432e8d::t_ed8bec7fc0cd87 109-111
+  s_cab5a2e7432e8d::t_f38e83cb974a69 1-95,112-128
+examples/error-catalog/package.json
+  s_cab5a2e7432e8d::t_cb3aec06991ec9 6-34
+  s_cab5a2e7432e8d::t_235f1625b85014 1-5
+.github/workflows/node.js.yml
+  s_cab5a2e7432e8d::t_3402c6d835061c 813
+  s_cab5a2e7432e8d::t_673961f76f7cc6 65
+  s_cab5a2e7432e8d::t_d5bd55a4f3effe 804
+  s_cab5a2e7432e8d::t_8186c0fcb79946 281-313
+  s_cab5a2e7432e8d::t_7f2380402c6181 836
+  s_cab5a2e7432e8d::t_c98f916ec2d2b5 853
+examples/error-catalog/test/scenarios.test.ts
+  s_cab5a2e7432e8d::t_98840f66b1a6ba 215-224
+  s_cab5a2e7432e8d::t_b6057ac689c2a2 212-214
+  s_cab5a2e7432e8d::t_1c6d957b1b4912 225-227
+  s_cab5a2e7432e8d::t_69101ff355dbb1 1-211,228-255
+examples/error-catalog/server/document.js
+  s_cab5a2e7432e8d::t_aa26975af5c209 1-3
+examples/error-catalog/server/index.js
+  s_cab5a2e7432e8d::t_9a3d1b4ed026b1 1
+examples/error-catalog/server/server.js
+  s_cab5a2e7432e8d::t_10c6716e1d37a5 1
+examples/error-catalog/src/js/routes/utils.js
+  s_cab5a2e7432e8d::t_6a1d31116d65cf 1-4
+examples/error-catalog/src/js/store/index.js
+  s_cab5a2e7432e8d::t_4ebd97767732d5 1-2
+examples/error-catalog/.npmrc
+  s_cab5a2e7432e8d::t_6935a9a1955a78 1
+examples/error-catalog/README.md
+  s_cab5a2e7432e8d::t_84cc9feae9d0c9 1-54
+examples/error-catalog/scenarios/index.js
+  s_cab5a2e7432e8d::t_a8c970a04561c8 1-6
+examples/error-catalog/scenarios/preflight.js
+  s_cab5a2e7432e8d::t_0c382df4adf882 1-338
+examples/error-catalog/scripts/demo.js
+  s_cab5a2e7432e8d::t_abbe99e78eff6d 1-276
+examples/error-catalog/server/api.js
+  s_cab5a2e7432e8d::t_b7193d571027b6 1-5
+examples/error-catalog/src/js/containers/App/Home.jsx
+  s_cab5a2e7432e8d::t_f6a94ec413c14f 1-5
+examples/error-catalog/src/js/containers/App/index.jsx
+  s_cab5a2e7432e8d::t_0a79b3e791e303 1-6
+examples/error-catalog/src/js/containers/App/reducer.js
+  s_cab5a2e7432e8d::t_51c2b0c15a596e 1-7
+examples/error-catalog/src/js/routes/index.js
+  s_cab5a2e7432e8d::t_1f99985f7f4bbb 1-10
+examples/error-catalog/tsconfig.json
+  s_cab5a2e7432e8d::t_5b210c6a7b7bc0 1-12
+examples/error-catalog/vitest.config.mjs
+  s_cab5a2e7432e8d::t_c8644d7431f5e3 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "450dabe47c6e2e11b7870fa49412ead4cc671dc0",
+  "prompts": {},
+  "sessions": {
+    "s_cab5a2e7432e8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7cfd7e1d-043c-4d39-a998-002b88ba437c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
