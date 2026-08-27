@@ -53,5 +53,7 @@ jobs:
               run: |
                   node -v
                   npm --prefix docs ci
-                  cp docs/config_template.json docs/config.json
+                  cp docs/config/config_template.json docs/config/config.json
+                  npm --prefix docs run lint
                   npm run docs:build
+                  npm --prefix docs run docs:check-links -- --strict

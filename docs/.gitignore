@@ -6,11 +6,14 @@
 # Node artifact files
 node_modules/
 dist/
-config.json
-static/js/config.js
-public-docs/
-server/collection-files/
-temp/
+config/config.json
+
+# Emitted by scripts/generate-docs-manifest.mjs on every build
+src/js/generated/
+public/img/
+public/docs-assets/
+public/sitemap.xml
+public/robots.txt
 # Dependencies
 */node_modules
 
