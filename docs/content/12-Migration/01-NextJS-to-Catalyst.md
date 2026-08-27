@@ -505,7 +505,7 @@ export default function Layout({ children }) {
 ```javascript
 // src/js/containers/App/index.js
 import React from "react"
-import { Outlet } from "catalyst-core"
+import { Outlet } from "react-router"
 
 import Header from './Header'
 import Footer from './footer'

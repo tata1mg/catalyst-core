@@ -8,7 +8,9 @@ id: hooks
 
 Catalyst exposes two groups of hooks:
 
-- routing hooks from `catalyst-core` in 0.3.x (`@tata1mg/router` in legacy 0.2.x)
+- route data hooks (`useRouterData`, `useCurrentRouteData`) from `catalyst-core`
+- React Router hooks (`useParams`, `useNavigate`, `useLocation`, and the rest) from `react-router`,
+  which Catalyst declares as a peer dependency
 - native or universal app hooks from `catalyst-core/hooks`
 
 ## Hooks Overview

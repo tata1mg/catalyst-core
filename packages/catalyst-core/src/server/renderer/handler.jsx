@@ -1,20 +1,21 @@
+/* global globalThis */
 import React from "react"
 import { renderStart, renderEnd } from "./render.js"
 import { Provider } from "react-redux"
 import { Body } from "./document/Body.jsx"
 import { Head } from "./document/Head.jsx"
 
-import { StaticRouter } from "react-router"
+import { StaticRouter, matchRoutes as NestedMatchRoutes } from "react-router"
 import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
-import { serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
+import { serverDataFetcher } from "../../web-router/components/RouterDataProvider.jsx"
+import { getMetaData } from "../../web-router/utils/metaDataUtils.jsx"
 import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
     readCssFromDisk,
     generateScriptElements,
-    generateCssLinkStrings,
     generateScriptStrings,
     getDeferredRouteKey,
     getCachedDeferredCssPathsForRoute,

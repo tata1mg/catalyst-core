@@ -1,7 +1,8 @@
 import React from "react"
 import "./styles"
 import { hydrateRoot } from "react-dom/client"
-import { RouterProvider, hydrationReady } from "catalyst-core"
+import { hydrationReady } from "catalyst-core"
+import { RouterProvider } from "react-router"
 import clientRouter from "catalyst-core/router/ClientRouter"
 
 window.addEventListener("load", () => {

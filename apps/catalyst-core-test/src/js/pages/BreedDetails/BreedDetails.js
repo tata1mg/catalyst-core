@@ -1,5 +1,6 @@
 import React from "react"
-import { useCurrentRouteData, useParams, Link } from "catalyst-core"
+import { useCurrentRouteData } from "catalyst-core"
+import { useParams, Link } from "react-router"
 import { getDogApiBaseUrl, getDogImages } from "../../utils/dogApi"
 
 const BreedDetails = () => {
