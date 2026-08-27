@@ -67,14 +67,6 @@ export const requestNotificationPermission = () => {
 }
 
 export const useNotificationPermission = () => {
-    if (typeof window === "undefined") {
-        return { permission: null, isLoading: false }
-    }
-
-    if (!window.WebBridge) {
-        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
-    }
-
     const [permission, setPermission] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
 
@@ -108,6 +100,14 @@ export const useNotificationPermission = () => {
         }
     }, [])
 
+    if (typeof window === "undefined") {
+        return { permission: null, isLoading: false }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
+
     return { permission, isLoading }
 }
 
@@ -118,30 +118,6 @@ export const useNotification = () => {
     const [badges, setBadges] = useState(0)
     const [lastNotification, setLastNotification] = useState(null)
     const [subscribedTopics, setSubscribedTopics] = useState([])
-
-    if (typeof window === "undefined") {
-        return {
-            data: null,
-            loading: false,
-            error: null,
-            execute: () => {},
-            scheduleLocal: () => {},
-            cancelLocal: () => {},
-            registerForPush: () => {},
-            updateBadge: () => {},
-            subscribeToTopic: () => {},
-            unsubscribeFromTopic: () => {},
-            getSubscribedTopics: () => {},
-            permissionStatus: null,
-            pushToken: null,
-            badges: 0,
-            subscribedTopics: [],
-        }
-    }
-
-    if (!window.WebBridge) {
-        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
-    }
 
     useEffect(() => {
         const unregister = registerPermissionStatusListener((data) => {
@@ -269,6 +245,46 @@ export const useNotification = () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.SUBSCRIBED_TOPICS_RESULT)
         }
     }, [])
+
+    if (typeof window === "undefined") {
+        return {
+            data: null,
+            loading: false,
+            progress: {
+                state: "idle",
+                percentage: null,
+                message: null,
+                phase: null,
+                transport: null,
+                bytesLoaded: null,
+                bytesTotal: null,
+            },
+            error: null,
+            execute: () => {},
+            clear: () => {},
+            clearError: () => {},
+            isNative: false,
+            isWeb: true,
+            permissionStatus: null,
+            pushToken: null,
+            badges: 0,
+            lastNotification: null,
+            subscribedTopics: [],
+            scheduleLocal: () => {},
+            cancelLocal: () => {},
+            registerForPush: () => {},
+            updateBadge: () => {},
+            subscribeToTopic: () => {},
+            unsubscribeFromTopic: () => {},
+            getSubscribedTopics: () => {},
+            schedule: () => {},
+            requestPermission: () => {},
+        }
+    }
+
+    if (!window.WebBridge) {
+        throw new Error("WebBridge is not initialized. Call WebBridge.init() first.")
+    }
 
     const requestPermission = () => {
         requestNotificationPermission().catch((err) => base.handleNativeError(err))

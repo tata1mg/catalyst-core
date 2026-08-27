@@ -10,7 +10,9 @@
 export function resolveDevBase(devServer = {}) {
     const base = devServer?.base
     if (!base || base === "/") return "/"
-    return `/${String(base).trim().replace(/^\/+|\/+$/g, "")}`
+    return `/${String(base)
+        .trim()
+        .replace(/^\/+|\/+$/g, "")}`
 }
 
 /**
@@ -36,6 +38,7 @@ export function resolveDevFsAllow(devFs, frameworkPaths) {
  * first so the framework-owned `hmr` and `fs` always win.
  */
 export function buildDevServer(devServer = {}, { frameworkPaths, isProduction = false } = {}) {
+    // eslint-disable-next-line no-unused-vars -- base is destructured only to omit it from serverOverrides
     const { base, hmr, fs, ...serverOverrides } = devServer
     return {
         ...serverOverrides,

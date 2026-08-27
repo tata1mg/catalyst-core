@@ -35,7 +35,6 @@ caching.js
 router.js
 logger.js
 !packages/catalyst-core/src/caching.js
-!packages/catalyst-core/src/router.js
 !packages/catalyst-core/src/logger.js
 
 /logs

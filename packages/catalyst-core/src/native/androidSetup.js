@@ -1,6 +1,6 @@
 import fs from "fs"
 import path from "path"
-import { exec, spawn } from "child_process"
+import { spawn } from "child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./TerminalProgress.js"
 import { setupServer } from "./setupServer.js"
