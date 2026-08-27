@@ -610,6 +610,10 @@ body {
     display: grid;
     place-items: center;
     flex-shrink: 0;
+    // Chevron sits after the label, not before it.
+    order: 1;
+    margin-left: auto;
+    color: var(--hub-text-muted);
     transition: transform var(--dur-med) var(--ease);
 
     svg {
@@ -1320,5 +1324,370 @@ body {
         font-size: var(--text-xl);
         color: var(--hub-text-muted);
         margin: 0 0 1rem;
+    }
+}
+
+/* ── Error reference (/errors) ──────────────────────────────────────── */
+
+.error-category-badge {
+    display: inline-block;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--hub-text-muted);
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+    border-radius: var(--radius-xs);
+    padding: 0 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* Long error-message labels in the 280px sidebar column — one line, ellipsis. */
+.docs-sidebar-link-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* "Error reference" group head: caret toggle + link label, side by side. */
+.docs-sidebar-grouphead {
+    display: flex;
+    align-items: center;
+
+    &.active-trail .docs-sidebar-grouplink {
+        color: var(--hub-primary);
+        font-weight: 600;
+    }
+}
+
+.docs-sidebar-caret-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 6px;
+    margin: 0;
+    cursor: pointer;
+    color: var(--hub-text);
+    border-radius: var(--radius-xs);
+    order: 1; // after the label
+
+    &:hover {
+        background: var(--hub-card-background);
+    }
+
+    // Caret is already pushed right by its own margin-left:auto; neutralize
+    // that here so it hugs the button edge instead.
+    .docs-sidebar-caret {
+        margin-left: 0;
+        order: 0;
+    }
+}
+
+.docs-sidebar-grouplink {
+    flex: 1;
+    font-weight: 600;
+    color: var(--hub-text);
+}
+
+/* ── /errors landing ────────────────────────────────────────────────── */
+
+.errors-toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin: 20px 0 12px;
+}
+
+.errors-search {
+    flex: 1;
+    font: inherit;
+    padding: 9px 12px;
+    border: 1px solid var(--hub-border-strong);
+    border-radius: var(--radius-xs);
+    background: var(--hub-background, #fff);
+    color: var(--hub-text);
+
+    &:focus {
+        outline: none;
+        border-color: var(--hub-primary);
+        box-shadow: 0 0 0 3px var(--hub-primary-softer);
+    }
+}
+
+.errors-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    font: inherit;
+    font-weight: 500;
+    color: var(--hub-text);
+    background: var(--hub-background, #fff);
+    border: 1px solid var(--hub-border-strong);
+    border-radius: var(--radius-xs);
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    &:hover {
+        background: var(--hub-card-background);
+    }
+
+    &.open,
+    &.has-active {
+        border-color: var(--hub-primary);
+        color: var(--hub-primary);
+    }
+}
+
+.errors-filter-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--hub-primary);
+}
+
+.errors-filter-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    align-items: center;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--hub-border);
+    border-radius: var(--radius-xs);
+    background: var(--hub-card-background);
+}
+
+.errors-filter-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    user-select: none;
+
+    input {
+        margin: 0;
+        cursor: pointer;
+    }
+}
+
+.errors-filter-clear {
+    font: inherit;
+    font-size: var(--text-sm);
+    color: var(--hub-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-left: auto;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.errors-active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.errors-active-chip {
+    font: inherit;
+    font-size: var(--text-sm);
+    padding: 4px 10px;
+    color: var(--hub-primary);
+    background: var(--hub-primary-softer);
+    border: 1px solid var(--hub-primary);
+    border-radius: 999px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--hub-primary-soft, var(--hub-primary-softer));
+    }
+}
+
+.errors-empty {
+    color: var(--hub-text-muted);
+    padding: 24px 0;
+}
+
+.errors-category-block {
+    margin: 28px 0;
+
+    h2 {
+        margin-bottom: 10px;
+    }
+}
+
+.errors-code-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    a {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+        padding: 8px 10px;
+        border-radius: var(--radius-xs);
+        text-decoration: none;
+        color: var(--hub-text);
+
+        &:hover {
+            background: var(--hub-card-background);
+        }
+    }
+
+    .errors-code {
+        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+        font-size: var(--text-sm);
+        color: var(--hub-text-muted);
+        flex-shrink: 0;
+    }
+
+    .errors-code-msg {
+        color: var(--hub-text);
+    }
+}
+
+.error-page-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    h1 {
+        margin: 0;
+    }
+}
+
+.error-headline {
+    font-size: var(--text-lg, 18px);
+    font-weight: 600;
+    margin: 12px 0 24px;
+}
+
+.error-field {
+    margin: 22px 0;
+
+    h2 {
+        font-size: var(--text-md, 15px);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--hub-text-muted);
+        margin-bottom: 6px;
+    }
+
+    p {
+        margin: 0;
+    }
+}
+
+.error-source-link {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hub-border);
+}
+
+/* Offline / unknown-code panels — shared by SSR direct hits and CSR nav. */
+.errors-offline,
+.error-unknown-code {
+    border: 1px solid var(--hub-border-strong);
+    border-radius: var(--radius-xs);
+    background: var(--hub-card-background);
+    padding: 24px;
+
+    h1 {
+        margin-top: 0;
+        font-size: var(--text-xl, 22px);
+    }
+}
+
+.errors-offline {
+    border-color: var(--hub-danger);
+    background: var(--hub-danger-soft);
+
+    h1 {
+        color: var(--hub-danger-text, var(--hub-danger));
+    }
+}
+
+.errors-offline-code code {
+    background: var(--hub-code-background);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.errors-offline-retry {
+    margin-top: 12px;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--hub-danger);
+    border: none;
+    border-radius: var(--radius-xs);
+    padding: 8px 16px;
+    cursor: pointer;
+
+    &:hover {
+        filter: brightness(0.94);
+    }
+}
+
+/* Skeletons */
+.errors-sidebar-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+}
+
+.errors-skeleton-row {
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        var(--hub-card-background) 25%,
+        var(--hub-border) 37%,
+        var(--hub-card-background) 63%
+    );
+    background-size: 400% 100%;
+    animation: errors-shimmer 1.4s ease infinite;
+
+    &.w-40 { width: 40%; }
+    &.w-60 { width: 60%; }
+    &.w-70 { width: 70%; }
+    &.w-90 { width: 90%; }
+}
+
+.error-article-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 24px;
+}
+
+@keyframes errors-shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .errors-skeleton-row {
+        animation: none;
     }
 }
