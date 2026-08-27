@@ -1,0 +1,29 @@
+packages/catalyst-core/changelog.md
+  3a0f4ce98dc8011b 69-77,81,83,85
+"docs/content/11-API Reference/03-File-Conventions.md"
+  3a0f4ce98dc8011b 13,47,53
+"docs/content/11-API Reference/01-Hooks.md"
+  3a0f4ce98dc8011b 660
+packages/catalyst-core/src/server/utils/validator.ts
+  3a0f4ce98dc8011b 1-25,28-31,33-35,38-41,43-45,48-51,53-55,72-87,89-96,99-122,125-132,135-138,140-142,145-148,150-152,155-176,180-182,184,187,189-198,213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "4cfa0363fb22cb8b59acb1e445b8022fa6d4b3d6",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 179,
+      "total_deletions": 110,
+      "accepted_lines": 173,
+      "overriden_lines": 0
+    }
+  }
+}
