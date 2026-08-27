@@ -1,0 +1,45 @@
+packages/catalyst-core/src/scripts/serve.js
+  s_cab5a2e7432e8d::t_38cbeae3f6a9cc 4
+  s_cab5a2e7432e8d::t_6ea356d9da81cf 18-20
+packages/catalyst-core/test/scripts/preflight.test.ts
+  s_cab5a2e7432e8d::t_0a40c91baf49dd 80
+  s_cab5a2e7432e8d::t_1408ece16f7cc4 1-79,81-121
+packages/catalyst-core/src/scripts/preServerInit.js
+  s_cab5a2e7432e8d::t_eec9d5f7e4fbf1 3,13-21
+packages/catalyst-core/src/scripts/preflight.js
+  s_cab5a2e7432e8d::t_ababf32b937072 1-107
+packages/catalyst-core/src/server/expressServer.js
+  s_cab5a2e7432e8d::t_8f0705c92c81c2 153-157
+  s_cab5a2e7432e8d::t_9f321cd530b4f9 14
+packages/catalyst-core/test/server/validator.test.ts
+  s_cab5a2e7432e8d::t_eab16e2a4d95f2 53
+  s_cab5a2e7432e8d::t_feae197040d5d2 1-52,54-115
+packages/catalyst-core/src/server/utils/validator.js
+  s_cab5a2e7432e8d::t_45926abf0edfd2 11-19,30-32,36-38,42-44,48-65,67,71-73,77-90,92,96-98,102-104,108-110,158
+packages/catalyst-core/src/server/renderer/handler.jsx
+  s_cab5a2e7432e8d::t_d86ee48df5295e 88-90
+  s_cab5a2e7432e8d::t_69d5c1d0421301 238-241,243-245
+  s_cab5a2e7432e8d::t_5ce5f7836d2299 374-376
+  s_cab5a2e7432e8d::t_a264144a4fc2da 12-18
+packages/catalyst-core/src/scripts/start.js
+  s_cab5a2e7432e8d::t_eca3c384c778a6 4
+  s_cab5a2e7432e8d::t_99d86fc8c87402 18-21
+packages/catalyst-core/src/scripts/build.js
+  s_cab5a2e7432e8d::t_d0dfdd76ac0c0b 9-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ed454368cd51f823c013c663ecd95764dc5be73c",
+  "prompts": {},
+  "sessions": {
+    "s_cab5a2e7432e8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7cfd7e1d-043c-4d39-a998-002b88ba437c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
