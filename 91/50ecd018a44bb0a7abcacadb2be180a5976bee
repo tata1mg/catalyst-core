@@ -1,0 +1,35 @@
+packages/catalyst-core/package.json
+  3a0f4ce98dc8011b 60-62
+packages/catalyst-core/src/router/ClientRouter.js
+  3a0f4ce98dc8011b 1
+packages/catalyst-core/src/index.jsx
+  3a0f4ce98dc8011b 1-2,4-5
+packages/catalyst-core/src/server/renderer/handler.jsx
+  3a0f4ce98dc8011b 1,8,12-13
+packages/catalyst-core/src/native/bridge/hooks/index.js
+  3a0f4ce98dc8011b 5
+packages/catalyst-core/src/router/ServerRouter.js
+  3a0f4ce98dc8011b 1
+packages/catalyst-core/src/scripts/preServerInit.js
+  3a0f4ce98dc8011b 2,6-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "9150ecd018a44bb0a7abcacadb2be180a5976bee",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 208,
+      "total_deletions": 101,
+      "accepted_lines": 219,
+      "overriden_lines": 0
+    }
+  }
+}

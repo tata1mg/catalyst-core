@@ -1,0 +1,51 @@
+packages/catalyst-core/src/web-router/components/SplitInview.test.jsx
+  s_8120292fcc76bd::t_62bcd9508c9c10 3
+  s_8120292fcc76bd::t_90754e1d710c15 60-62,74-77,88-90
+  s_8120292fcc76bd::t_6630eef44abca9 1-2,4-59,63-73,78-87,91-112
+packages/catalyst-core/src/web-router/components/Split.test.jsx
+  s_8120292fcc76bd::t_e04c834d6f2308 1-123
+packages/catalyst-core/src/web-router/context.test.jsx
+  s_8120292fcc76bd::t_6dc8f9b5be7a37 1-10
+packages/catalyst-core/src/web-router/components/MetaTag.test.jsx
+  s_8120292fcc76bd::t_3f26143777dda2 1-2,5-63,71-73,76,80-82,93-94,98-100
+  s_8120292fcc76bd::t_58d4bd3a2f8273 3-4
+  s_8120292fcc76bd::t_1e14277f5d69f7 64-70,74-75,77-79,83-92,95-97
+packages/catalyst-core/vitest.config.ts
+  s_8120292fcc76bd::t_081faf0dc304ca 3-12,14-20,22,25-41
+  s_8120292fcc76bd::t_5365d8b5ac3363 21
+packages/catalyst-core/src/web-router/vitest.setup.js
+  s_8120292fcc76bd::t_a7787fb11dd3a3 1
+  s_8120292fcc76bd::t_65164d0e1c25bf 2-12
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_8120292fcc76bd::t_4683ef42af7655 1-11,22-29,45-50,52-57,61-68,81-99,110-116,118-132,134-142,152,155,158-159
+  s_8120292fcc76bd::t_b29920af9bf62c 12-21,42-43,51,58-59,69
+  s_8120292fcc76bd::t_d3408697097e8e 30-41,44,60,70-80
+  s_8120292fcc76bd::t_f68e0f97081e3c 100-109,117,133,143-151,153-154,156-157
+  s_8120292fcc76bd::t_4a7a57d3a0509b 160-211
+packages/catalyst-core/src/web-router/utils/metaDataUtils.test.jsx
+  s_8120292fcc76bd::t_3277f7a344a720 2-173
+  s_8120292fcc76bd::t_f880905146f743 1
+packages/catalyst-core/src/web-router/components/SsrRequestContext.test.jsx
+  s_8120292fcc76bd::t_d93242a1756eb6 1
+  s_8120292fcc76bd::t_c991bce26ec8c8 2-53
+package-lock.json
+  s_8120292fcc76bd::t_1d2ea4512f9184 20-79,1935-1947,2303-2442,2970-2987,4679-4779,5531-5540,5825-5834,6596-6616,6630-6658,6736-6742,6804-6813,6847-6853,8697-8709,8874-8883,9271-9277,9683-9733,10416-10425,10479-10485,10605-10614,11163-11175,11367-11411,11678-11691,12214-12226,12775-12787,12835-12841,12974-12993,13015-13040,13253-13262,13626-13673,13909-13925,14135-14137,14148
+packages/catalyst-core/package.json
+  s_8120292fcc76bd::t_3c74c1e2e9d562 88-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "8cd9dcfe26aee542a7676fdeb0cbee233365fb6c",
+  "prompts": {},
+  "sessions": {
+    "s_8120292fcc76bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f056c7a-ca7d-437f-8778-966f40dc2509",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
