@@ -1,31 +1,10 @@
 import fs from "fs"
 import path from "path"
+import { BASELINE_CONFIG, restoreBaselineConfig } from "./_baseline.js"
 
-const BASELINE_CONFIG = {
-    NODE_SERVER_HOSTNAME: "localhost",
-    NODE_SERVER_PORT: 3005,
-    WEBPACK_DEV_SERVER_HOSTNAME: "localhost",
-    WEBPACK_DEV_SERVER_PORT: 3006,
-    BUILD_OUTPUT_PATH: "build",
-    PUBLIC_STATIC_ASSET_PATH: "/assets/",
-    PUBLIC_STATIC_ASSET_URL: "http://localhost:3005",
-    API_URL: "http://localhost:3005",
-    ANALYZE_BUNDLE: false,
-    CLIENT_ENV_VARIABLES: ["API_URL"],
-    AI_CONFIG: {
-        enabled: true,
-        basePath: "/ai",
-        providers: {
-            openai: {
-                apiKey: "sk-dummy-key",
-                defaultModel: "gpt-4o-mini",
-            },
-        },
-    },
-    WEBVIEW_CONFIG: {
-        port: 3005,
-    },
-}
+// BASELINE_CONFIG is the parsed committed config — see _baseline.js. break()
+// paths deep-clone it into a broken variant; restore() writes the committed
+// bytes back via restoreBaselineConfig().
 
 function writeJson(filePath, data) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true })
@@ -44,7 +23,7 @@ export const aiScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "http", method: "GET", path: "/ai/providers" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "config", "config.json"), BASELINE_CONFIG)
+            restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["AI-001", "/errors/AI/AI-001.md"], status: 403 },
     },
@@ -67,7 +46,7 @@ export const aiScenarios = [
             body: { messages: [{ role: "user", content: "hi" }] },
         },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "config", "config.json"), BASELINE_CONFIG)
+            restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["AI-002", "/errors/AI/AI-002.md"], status: 404 },
     },
@@ -90,7 +69,7 @@ export const aiScenarios = [
             body: { messages: [] },
         },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "config", "config.json"), BASELINE_CONFIG)
+            restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["AI-003", "/errors/AI/AI-003.md"], status: 400 },
     },
@@ -121,7 +100,7 @@ export const aiScenarios = [
             body: { messages: [{ role: "user", content: "hello" }] },
         },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "config", "config.json"), BASELINE_CONFIG)
+            restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["AI-000"], status: 500 },
     },

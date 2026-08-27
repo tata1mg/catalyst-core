@@ -1,63 +1,16 @@
 import fs from "fs"
 import path from "path"
+import {
+    BASELINE_CONFIG,
+    BASELINE_PKG,
+    restoreBaselineConfig,
+    writeBaselineFile,
+} from "./_baseline.js"
 
-const BASELINE_CONFIG = {
-    NODE_SERVER_HOSTNAME: "localhost",
-    NODE_SERVER_PORT: 3005,
-    WEBPACK_DEV_SERVER_HOSTNAME: "localhost",
-    WEBPACK_DEV_SERVER_PORT: 3006,
-    BUILD_OUTPUT_PATH: "build",
-    PUBLIC_STATIC_ASSET_PATH: "/assets/",
-    PUBLIC_STATIC_ASSET_URL: "http://localhost:3005",
-    API_URL: "http://localhost:3005",
-    ANALYZE_BUNDLE: false,
-    CLIENT_ENV_VARIABLES: ["API_URL"],
-    AI_CONFIG: {
-        enabled: true,
-        basePath: "/ai",
-        providers: {
-            openai: {
-                apiKey: "sk-dummy-key",
-                defaultModel: "gpt-4o-mini",
-            },
-        },
-    },
-    WEBVIEW_CONFIG: {
-        port: 3005,
-    },
-}
-
-const BASELINE_PKG = {
-    name: "error-catalog",
-    private: true,
-    type: "module",
-    scripts: {
-        start: "catalyst start",
-        serve: "catalyst serve",
-        build: "catalyst build",
-        demo: "node scripts/demo.js",
-        test: "vitest run",
-        "sync-core": "node ../sync-core.js",
-        "sync-packages": "node ../sync-packages.js --packages ai",
-    },
-    _moduleAliases: {
-        "@api": "server/api.js",
-        "@containers": "src/js/containers",
-        "@server": "server",
-        "@config": "config",
-        "@css": "src/static/css",
-        "@routes": "src/js/routes/",
-    },
-    dependencies: {
-        "catalyst-core": "*",
-        "catalyst-ai": "*",
-        react: "19.0.0",
-        "react-dom": "19.0.0",
-    },
-    devDependencies: {
-        vitest: "4.1.9",
-    },
-}
+// BASELINE_CONFIG / BASELINE_PKG are parsed forms of the committed files, read
+// at module load — see _baseline.js. break() paths spread them into broken
+// variants; restore() paths write the committed bytes back via
+// restoreBaselineConfig() / writeBaselineFile() so nothing drifts.
 
 function writeJson(filePath, data) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true })
@@ -79,7 +32,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "config", "config.json"), BASELINE_CONFIG)
+            restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["PREFLIGHT-001", "/errors/PREFLIGHT/PREFLIGHT-001.md"], exitNonZero: true },
     },
@@ -92,7 +45,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "config", "config.json"), BASELINE_CONFIG)
+            restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["PREFLIGHT-002", "/errors/PREFLIGHT/PREFLIGHT-002.md"], exitNonZero: true },
     },
@@ -107,7 +60,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "config", "config.json"), BASELINE_CONFIG)
+            restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["PREFLIGHT-003", "/errors/PREFLIGHT/PREFLIGHT-003.md"], exitNonZero: true },
     },
@@ -120,7 +73,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "package.json"), BASELINE_PKG)
+            writeBaselineFile(appDir, "package.json")
         },
         expect: { inOutput: ["PREFLIGHT-004", "/errors/PREFLIGHT/PREFLIGHT-004.md"], exitNonZero: true },
     },
@@ -133,7 +86,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "package.json"), BASELINE_PKG)
+            writeBaselineFile(appDir, "package.json")
         },
         expect: { inOutput: ["PREFLIGHT-005", "/errors/PREFLIGHT/PREFLIGHT-005.md"], exitNonZero: true },
     },
@@ -148,7 +101,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "package.json"), BASELINE_PKG)
+            writeBaselineFile(appDir, "package.json")
         },
         expect: { inOutput: ["PREFLIGHT-006", "/errors/PREFLIGHT/PREFLIGHT-006.md"], exitNonZero: true },
     },
@@ -162,7 +115,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "package.json"), BASELINE_PKG)
+            writeBaselineFile(appDir, "package.json")
         },
         expect: { inOutput: ["PREFLIGHT-007", "/errors/PREFLIGHT/PREFLIGHT-007.md"], exitNonZero: true },
     },
@@ -182,7 +135,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "package.json"), BASELINE_PKG)
+            writeBaselineFile(appDir, "package.json")
         },
         expect: { inOutput: ["PREFLIGHT-008", "/errors/PREFLIGHT/PREFLIGHT-008.md"], exitNonZero: true },
     },
@@ -198,7 +151,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeJson(path.join(appDir, "package.json"), BASELINE_PKG)
+            writeBaselineFile(appDir, "package.json")
         },
         expect: { inOutput: ["PREFLIGHT-009", "/errors/PREFLIGHT/PREFLIGHT-009.md"], exitNonZero: true },
     },
@@ -219,7 +172,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeText(path.join(appDir, "server", "index.js"), "export const preServerInit = () => {}\n")
+            writeBaselineFile(appDir, "server/index.js")
         },
         expect: { inOutput: ["PREFLIGHT-011", "/errors/PREFLIGHT/PREFLIGHT-011.md"], exitNonZero: false },
     },
@@ -240,7 +193,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeText(path.join(appDir, "server", "server.js"), "export function addMiddlewares(app) {}\n")
+            writeBaselineFile(appDir, "server/server.js")
         },
         expect: { inOutput: ["PREFLIGHT-013", "/errors/PREFLIGHT/PREFLIGHT-013.md"], exitNonZero: false },
     },
@@ -277,10 +230,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeText(
-                path.join(appDir, "src", "js", "store", "index.js"),
-                "const configureStore = (initialState) => ({ getState: () => ({ shellReducer: {} }), dispatch: () => {}, subscribe: () => () => {} })\nexport default configureStore\n"
-            )
+            writeBaselineFile(appDir, "src/js/store/index.js")
         },
         expect: { inOutput: ["PREFLIGHT-017", "/errors/PREFLIGHT/PREFLIGHT-017.md"], exitNonZero: false },
     },
@@ -304,10 +254,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeText(
-                path.join(appDir, "src", "js", "routes", "utils.js"),
-                "import React from 'react'\nimport routes from './index.js'\nexport const preparedRoutes = () => routes\nexport const getRoutes = () => routes\n"
-            )
+            writeBaselineFile(appDir, "src/js/routes/utils.js")
         },
         expect: { inOutput: ["PREFLIGHT-019", "/errors/PREFLIGHT/PREFLIGHT-019.md"], exitNonZero: false },
     },
@@ -328,10 +275,7 @@ export const preflightScenarios = [
         },
         run: { cmd: "catalyst", args: ["start"], kind: "cli-startup" },
         restore: (appDir) => {
-            writeText(
-                path.join(appDir, "server", "document.js"),
-                "import React from 'react'\nfunction Document(props) { return <html lang=\"en\"><head><meta charSet=\"utf-8\" /></head><body><div id=\"app\" /></body></html> }\nexport default Document\n"
-            )
+            writeBaselineFile(appDir, "server/document.js")
         },
         expect: { inOutput: ["PREFLIGHT-021", "/errors/PREFLIGHT/PREFLIGHT-021.md"], exitNonZero: false },
     },
