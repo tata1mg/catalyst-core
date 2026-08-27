@@ -72,6 +72,10 @@ build/
 # SPM - Generated files (Package.swift is committed as default, but regenerated at build time)
 **/iosnativeWebView/.package-config-hash
 **/iosnativeWebView/.build/
+**/iosnativeWebView/.spm-cache/
+
+# SPM - nested CatalystCoreLogic package (#432) build artifacts
+**/iosnativeWebView/CoreLogic/.build/
 
 # Vendored Gemfile.locks inside CocoaPods checkouts (not managed by us)
 src/native/iosnativeWebView/.build/checkouts/

@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "DeviceInfoUtils")
 

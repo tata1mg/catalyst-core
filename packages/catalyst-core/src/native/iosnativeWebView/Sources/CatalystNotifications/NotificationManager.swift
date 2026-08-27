@@ -3,6 +3,7 @@ import UserNotifications
 import UIKit
 import os
 import CatalystCore
+import CatalystCoreLogic
 import FirebaseCore
 import FirebaseMessaging
 

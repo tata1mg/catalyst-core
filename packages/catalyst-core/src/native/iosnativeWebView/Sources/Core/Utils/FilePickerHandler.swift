@@ -10,6 +10,7 @@ import UIKit
 import UniformTypeIdentifiers
 import PhotosUI
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "FilePickerHandler")
 

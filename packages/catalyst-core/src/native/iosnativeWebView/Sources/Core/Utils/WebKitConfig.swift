@@ -7,6 +7,7 @@
 //
 
 import WebKit
+import CatalystCoreLogic
 
 public enum WebKitConfig {
     @available(iOS, introduced: 11.0, deprecated: 15.0, message: "Custom WKProcessPool instances have no effect on iOS 15+.")

@@ -1,4 +1,5 @@
 import SwiftUI
+import CatalystCoreLogic
 
 public struct SplashView: View {
     @ObservedObject var webViewModel: WebViewModel

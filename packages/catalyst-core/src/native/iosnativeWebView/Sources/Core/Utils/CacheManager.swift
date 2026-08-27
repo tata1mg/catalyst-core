@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "CacheManager")
 

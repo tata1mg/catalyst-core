@@ -604,3 +604,23 @@ router.post("/:provider/generate", async (req, res) => {
 })
 
 module.exports = router
+
+// Testable internals, attached to the router (an Express router is a plain
+// function, so this is a safe extra property — expressServer.js does
+// `app.use(aiBasePath, aiRouter)` and Express ignores unrecognized
+// properties on it). Exported this way rather than changing
+// `module.exports` to an object so every existing require("catalyst-ai/route")
+// call site keeps working unchanged; only test/errors.test.cjs-style
+// contract tests reach into `_internal`.
+router._internal = {
+    getAIConfig,
+    isAIEnabled,
+    getProviderConfig,
+    validateRequestBody,
+    MODEL_NAME_RE,
+    normalizeOpenAIChatUsage,
+    normalizeOpenAIResponsesUsage,
+    normalizeGeminiUsage,
+    normalizeGeminiInteractionUsage,
+    throwProviderError,
+}

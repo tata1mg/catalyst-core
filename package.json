@@ -1,6 +1,9 @@
 {
     "name": "catalyst-monorepo",
     "private": true,
+    "engines": {
+        "node": ">=22"
+    },
     "workspaces": [
         "packages/*"
     ],
@@ -14,12 +17,15 @@
         "docs:build": "npm --prefix docs run build",
         "docs:start": "npm --prefix docs run start",
         "test:example": "sh ./scripts/test-all.sh",
+        "test:unit": "npm run test --workspaces --if-present && npm --prefix packages/catalyst-core/mcp_v2 test",
         "lint": "npm run lint --workspaces --if-present",
+        "lint:oxlint": "oxlint . --quiet",
         "lint-staged": "lint-staged"
     },
     "devDependencies": {
         "husky": "^9.0.11",
-        "lint-staged": "^15.2.2"
+        "lint-staged": "^15.2.2",
+        "oxlint": "1.79.0"
     },
     "overrides": {
         "uuid": "11.1.1",

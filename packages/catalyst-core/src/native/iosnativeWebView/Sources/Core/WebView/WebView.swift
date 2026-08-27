@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebView")
 
