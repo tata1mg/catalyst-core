@@ -58,6 +58,21 @@ describe("mergeHeadElements", () => {
         const result = mergeHeadElements(null, [a], undefined)
         expect(result).toHaveLength(1)
     })
+
+    it("keys non-title/non-meta elements (e.g. link) by type + serialized props, so later ones override", () => {
+        const first = <link rel="canonical" href="https://a.example" />
+        const second = <link rel="canonical" href="https://a.example" data-x="2" />
+        // different serialized props -> different keys -> both kept
+        const kept = mergeHeadElements([first], [second])
+        expect(kept).toHaveLength(2)
+
+        // identical props -> same key -> later overrides
+        const dupA = <link rel="stylesheet" href="/x.css" />
+        const dupB = <link rel="stylesheet" href="/x.css" />
+        const deduped = mergeHeadElements([dupA], [dupB])
+        expect(deduped).toHaveLength(1)
+        expect(deduped[0]).toBe(dupB)
+    })
 })
 
 describe("deleteHeadTagsByDataAttribute", () => {

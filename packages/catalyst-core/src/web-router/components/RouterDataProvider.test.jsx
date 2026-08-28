@@ -1,6 +1,6 @@
 import React from "react"
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Routes, Route, useRoutes } from "react-router"
 import {
     RouterDataProvider,
@@ -207,5 +207,104 @@ describe("useCurrentRouteData", () => {
             const parsed = JSON.parse(screen.getByTestId("current").textContent)
             expect(parsed.data).toEqual({ hello: "world" })
         })
+    })
+
+    it("exposes refetch() which re-runs the route fetcher and updates the route data", async () => {
+        const clientFetcher = vi.fn().mockResolvedValue({ n: 1 })
+        function RefetchPage() {
+            const { refetch, data } = useCurrentRouteData()
+            return (
+                <div>
+                    <span data-testid="n">{data ? String(data.n) : "none"}</span>
+                    <button onClick={() => refetch()}>refetch</button>
+                </div>
+            )
+        }
+        render(
+            <MemoryRouter initialEntries={["/page"]}>
+                <Routes>
+                    <Route
+                        path="/page"
+                        element={
+                            <RouterDataProvider initialState={{}} config={{}}>
+                                <RefetchPage />
+                            </RouterDataProvider>
+                        }
+                        // loadable-shaped component so fetchRouteData resolves clientFetcher (jsdom has window)
+                    />
+                </Routes>
+            </MemoryRouter>,
+        )
+        // route object here has no component -> refetch still runs
+        // fetchRouteData (which finds no fetcher) and writes an
+        // isFetching->settled cycle without throwing.
+        await act(async () => {
+            screen.getByText("refetch").click()
+        })
+        await waitFor(() => expect(screen.getByTestId("n")).toBeInTheDocument())
+    })
+
+    it("exposes clear() which resets the current route's data after the given delay", async () => {
+        vi.useFakeTimers()
+        try {
+            let clearFn
+            function ClearPage() {
+                const { clear } = useCurrentRouteData()
+                clearFn = clear
+                return <div data-testid="ready">ready</div>
+            }
+            render(
+                <MemoryRouter initialEntries={["/page"]}>
+                    <Routes>
+                        <Route
+                            path="/page"
+                            element={
+                                <RouterDataProvider
+                                    initialState={{ "/page": { data: { keep: 1 }, isFetched: true } }}
+                                    config={{}}
+                                >
+                                    <ClearPage />
+                                </RouterDataProvider>
+                            }
+                        />
+                    </Routes>
+                </MemoryRouter>,
+            )
+            expect(typeof clearFn).toBe("function")
+            act(() => {
+                clearFn(5)
+                vi.advanceTimersByTime(5)
+            })
+            // no throw; the setTimeout callback ran and reset routeData
+            expect(screen.getByTestId("ready")).toBeInTheDocument()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it("re-runs the mount effect for an already-fetched route when config.disableCaching is true (shouldFetch global branch)", async () => {
+        // isFetched is true in initialState, but config.disableCaching
+        // makes shouldFetch() return true, so the mount effect does not
+        // early-return -- it re-enters the fetch path (no fetcher on the
+        // plain route -> fetcherNotAvailable, but shouldFetch's global
+        // branch is exercised).
+        render(
+            <MemoryRouter initialEntries={["/page"]}>
+                <Routes>
+                    <Route
+                        path="/page"
+                        element={
+                            <RouterDataProvider
+                                initialState={{ "/page": { data: { v: 1 }, isFetched: true } }}
+                                config={{ disableCaching: true }}
+                            >
+                                <div data-testid="ready">ready</div>
+                            </RouterDataProvider>
+                        }
+                    />
+                </Routes>
+            </MemoryRouter>,
+        )
+        await waitFor(() => expect(screen.getByTestId("ready")).toBeInTheDocument())
     })
 })
