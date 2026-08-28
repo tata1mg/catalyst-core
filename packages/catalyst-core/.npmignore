@@ -33,6 +33,8 @@ src/native/iosnativeWebView/Tests/**
 # CatalystCoreLogic (#432) nested package tests — separate Tests/ root, not
 # covered by the pattern above
 src/native/iosnativeWebView/CoreLogic/Tests/**
+# Tier 2 (#416) simulator UI tests — separate target dir
+src/native/iosnativeWebView/iosnativeWebViewUITests/**
 # Exclude Android test files from npm package
 src/native/androidProject/app/src/test/**
 src/native/androidProject/app/src/androidTest/**

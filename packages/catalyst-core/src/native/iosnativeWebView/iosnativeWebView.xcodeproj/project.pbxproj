@@ -20,6 +20,7 @@
 		E9F699DE2EE06506005E972E /* FilePickerHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699DD2EE06506005E972E /* FilePickerHandlerTests.swift */; };
 		F1234AC22E990180008C7F58 /* localhost.p12 in Resources */ = {isa = PBXBuildFile; fileRef = F1234AC32E990180008C7F58 /* localhost.p12 */; };
 		F2B100012F11111100AAA001 /* PluginBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B100022F11111100AAA001 /* PluginBridgeTests.swift */; };
+		AAF416F416F416F416F41602 /* LaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF416F416F416F416F41601 /* LaunchTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +62,7 @@
 		F2B100022F11111100AAA001 /* PluginBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginBridgeTests.swift; sourceTree = "<group>"; };
 		XCCONFIG001000000001 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		XCCONFIG001000000002 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		AAF416F416F416F416F41601 /* LaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -93,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				E9F699D12EDEFEF2005E972E /* iosnativeWebViewTests */,
+				AAF416F416F416F416F41603 /* iosnativeWebViewUITests */,
 				E9F699CF2EDEFCF3005E972E /* iosnativeWebView.xctestplan */,
 				47F3CABC2C639BF5007CF14B /* build.swift */,
 				4777D51D2C60B87500E85AC6 /* iosnativeWebView */,
@@ -145,6 +148,14 @@
 				E9F699D52EE05D74005E972E /* BridgeMessageValidatorTests.swift */,
 			);
 			path = iosnativeWebViewTests;
+			sourceTree = "<group>";
+		};
+		AAF416F416F416F416F41603 /* iosnativeWebViewUITests */ = {
+			isa = PBXGroup;
+			children = (
+				AAF416F416F416F416F41601 /* LaunchTests.swift */,
+			);
+			path = iosnativeWebViewUITests;
 			sourceTree = "<group>";
 		};
 		XCCONFIGGROUP001 /* Configurations */ = {
@@ -317,6 +328,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AAF416F416F416F416F41602 /* LaunchTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -530,7 +542,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "-mg.com.iosnativeWebViewUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.1mg.pos.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -544,7 +556,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "-mg.com.iosnativeWebViewUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.1mg.pos.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
