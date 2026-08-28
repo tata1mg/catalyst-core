@@ -1,117 +1,135 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest"
 import {
+    validateConfigFile,
+    validatePackageJson,
+    validateModuleAlias,
+    validatePreInitServer,
+    validateMiddleware,
+    validateReducerFunction,
+    validateConfigureStore,
+    validateGetRoutes,
+    validateCustomDocument,
+    handleError,
     safeCall,
     safeCallNamed,
-    validateConfigFile,
-    validateConfigureStore,
-    validateCustomDocument,
-    validateGetRoutes,
-    validateMiddleware,
-    validateModuleAlias,
-    validatePackageJson,
-    validatePreInitServer,
-    validateReducerFunction,
 } from "../../src/server/utils/validator.js"
+import { ERROR_CODES } from "../../src/errors/registry.js"
+import { createError } from "../../src/errors/index.js"
 
-// Preflight validators + safeCall/safeCallNamed, pulled in by handler.jsx
-// (validateConfigureStore / validateGetRoutes) and the wider server
-// bootstrap. Each validator returns true for valid input and returns
-// undefined after logging for invalid input (it never rethrows — the
-// server bootstrap decides what to do with a falsy result). #348 coverage.
+// Contract for the pure validate* functions: return `null` when valid, a
+// CatalystError (never thrown, never logged) when not. scripts/preflight.js
+// and the in-server call sites both depend on this exact shape.
 
-beforeEach(() => {
-    vi.spyOn(console, "log").mockImplementation(() => {})
-    vi.spyOn(console, "error").mockImplementation(() => {})
-})
-afterEach(() => {
-    vi.restoreAllMocks()
-})
+const VALID_CONFIG = {
+    NODE_SERVER_HOSTNAME: "localhost",
+    NODE_SERVER_PORT: 3000,
+    WEBPACK_DEV_SERVER_HOSTNAME: "localhost",
+    WEBPACK_DEV_SERVER_PORT: 3001,
+    BUILD_OUTPUT_PATH: "build",
+    PUBLIC_STATIC_ASSET_PATH: "/assets/",
+    PUBLIC_STATIC_ASSET_URL: "http://localhost:3000",
+    CLIENT_ENV_VARIABLES: [],
+    ANALYZE_BUNDLE: false,
+}
 
-describe("function validators (fn => true | logs+undefined)", () => {
-    const fnValidators: Array<[string, (v: unknown) => unknown]> = [
-        ["validatePreInitServer", validatePreInitServer],
-        ["validateMiddleware", validateMiddleware],
-        ["validateReducerFunction", validateReducerFunction],
-        ["validateConfigureStore", validateConfigureStore],
-        ["validateGetRoutes", validateGetRoutes],
-        ["validateCustomDocument", validateCustomDocument],
-    ]
+const VALID_ALIASES = {
+    "@api": "api.js",
+    "@containers": "src/js/containers",
+    "@server": "server",
+    "@config": "config",
+    "@css": "src/static/css",
+    "@routes": "src/js/routes/",
+}
 
-    it.each(fnValidators)("%s returns true for a function", (_name, fn) => {
-        expect(fn(() => {})).toBe(true)
+describe("validateConfigFile", () => {
+    it("returns null for a complete config", () => {
+        expect(validateConfigFile(VALID_CONFIG)).toBeNull()
     })
-
-    it.each(fnValidators)("%s returns undefined + logs for a missing value", (_name, fn) => {
-        expect(fn(undefined)).toBeUndefined()
-        expect(console.log).toHaveBeenCalled()
+    it("PREFLIGHT-001 when falsy", () => {
+        expect(validateConfigFile(null)?.code).toBe(ERROR_CODES.PREFLIGHT_CONFIG_MISSING)
     })
-
-    it.each(fnValidators)("%s returns undefined + logs for a non-function value", (_name, fn) => {
-        expect(fn(42)).toBeUndefined()
-        expect(console.log).toHaveBeenCalled()
+    it("PREFLIGHT-002 when not an object", () => {
+        expect(validateConfigFile("nope" as unknown as object)?.code).toBe(
+            ERROR_CODES.PREFLIGHT_CONFIG_NOT_OBJECT
+        )
+    })
+    it("PREFLIGHT-003 when a required key is missing, naming the key", () => {
+        const { NODE_SERVER_PORT: _omit, ...rest } = VALID_CONFIG
+        const err = validateConfigFile(rest)
+        expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_CONFIG_KEY_MISSING)
+        expect(err?.details).toContain("NODE_SERVER_PORT")
     })
 })
 
 describe("validatePackageJson", () => {
-    it("accepts any object", () => {
-        expect(validatePackageJson({ name: "x" })).toBe(true)
+    it("returns null for an object", () => {
+        expect(validatePackageJson({ name: "x" })).toBeNull()
     })
-    it("rejects a missing / non-object value", () => {
-        expect(validatePackageJson(undefined)).toBeUndefined()
-        expect(validatePackageJson("nope")).toBeUndefined()
+    it("PREFLIGHT-004 when falsy", () => {
+        expect(validatePackageJson(null)?.code).toBe(ERROR_CODES.PREFLIGHT_PACKAGE_JSON_MISSING)
     })
-})
-
-describe("validateConfigFile", () => {
-    const fullConfig = {
-        NODE_SERVER_HOSTNAME: "",
-        NODE_SERVER_PORT: "",
-        WEBPACK_DEV_SERVER_HOSTNAME: "",
-        WEBPACK_DEV_SERVER_PORT: "",
-        BUILD_OUTPUT_PATH: "",
-        PUBLIC_STATIC_ASSET_PATH: "",
-        PUBLIC_STATIC_ASSET_URL: "",
-        CLIENT_ENV_VARIABLES: [],
-        ANALYZE_BUNDLE: "",
-    }
-
-    it("accepts a config with every required key", () => {
-        expect(validateConfigFile(fullConfig)).toBe(true)
-    })
-    it("rejects when a required key is missing", () => {
-        const { ANALYZE_BUNDLE, ...missingOne } = fullConfig
-        expect(validateConfigFile(missingOne)).toBeUndefined()
-        expect(console.log).toHaveBeenCalled()
-    })
-    it("rejects a missing config entirely", () => {
-        expect(validateConfigFile(undefined)).toBeUndefined()
+    it("PREFLIGHT-005 when not an object", () => {
+        expect(validatePackageJson("x" as unknown as object)?.code).toBe(
+            ERROR_CODES.PREFLIGHT_PACKAGE_JSON_INVALID
+        )
     })
 })
 
 describe("validateModuleAlias", () => {
-    const fullAliases = {
-        "@api": "api.js",
-        "@containers": "src/js/containers",
-        "@server": "server",
-        "@config": "config",
-        "@css": "src/static/css",
-        "@routes": "src/js/routes/",
-    }
-
-    it("accepts an alias map with every required alias", () => {
-        expect(validateModuleAlias(fullAliases)).toBe(true)
+    it("returns null for the full required set", () => {
+        expect(validateModuleAlias(VALID_ALIASES)).toBeNull()
     })
-    it("rejects when a required alias is missing", () => {
-        const { "@api": _api, ...missingOne } = fullAliases
-        expect(validateModuleAlias(missingOne)).toBeUndefined()
-        expect(console.log).toHaveBeenCalled()
+    it("PREFLIGHT-006 when falsy", () => {
+        expect(validateModuleAlias(null)?.code).toBe(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_MISSING)
     })
-    it("rejects a missing alias map entirely", () => {
-        expect(validateModuleAlias(undefined)).toBeUndefined()
+    it("PREFLIGHT-007 when not an object", () => {
+        expect(validateModuleAlias("x" as unknown as object)?.code).toBe(
+            ERROR_CODES.PREFLIGHT_MODULE_ALIAS_NOT_OBJECT
+        )
+    })
+    it("PREFLIGHT-008 when a key shadows a catalyst alias (checks the INPUT keys)", () => {
+        const err = validateModuleAlias({ ...VALID_ALIASES, "@catalyst/thing": "x" })
+        expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
+    })
+    it("PREFLIGHT-009 when a required alias is missing, naming it", () => {
+        const { "@containers": _omit, ...rest } = VALID_ALIASES
+        const err = validateModuleAlias(rest)
+        expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_KEY_MISSING)
+        expect(err?.details).toContain("@containers")
     })
 })
 
+describe.each([
+    ["validatePreInitServer", validatePreInitServer, ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_MISSING, ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION],
+    ["validateMiddleware", validateMiddleware, ERROR_CODES.PREFLIGHT_MIDDLEWARE_MISSING, ERROR_CODES.PREFLIGHT_MIDDLEWARE_NOT_FUNCTION],
+    ["validateReducerFunction", validateReducerFunction, ERROR_CODES.PREFLIGHT_REDUCER_MISSING, ERROR_CODES.PREFLIGHT_REDUCER_NOT_FUNCTION],
+    ["validateConfigureStore", validateConfigureStore, ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_MISSING, ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_NOT_FUNCTION],
+    ["validateGetRoutes", validateGetRoutes, ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING, ERROR_CODES.PREFLIGHT_GET_ROUTES_NOT_FUNCTION],
+    ["validateCustomDocument", validateCustomDocument, ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_MISSING, ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_NOT_FUNCTION],
+] as const)("%s (function validator)", (_name, fn, missingCode, notFnCode) => {
+    it("returns null for a function", () => {
+        expect(fn(() => {})).toBeNull()
+    })
+    it(`${missingCode} when missing`, () => {
+        expect(fn(undefined)?.code).toBe(missingCode)
+    })
+    it(`${notFnCode} when not a function`, () => {
+        expect(fn(123 as unknown as () => void)?.code).toBe(notFnCode)
+    })
+})
+
+// safeCall / safeCallNamed: the async hook-runners exported alongside the
+// validators. They DO catch + log (via console.error) rather than return
+// the error -- a different contract from the pure validate* functions
+// above. Ported from #454's SSR-handler coverage.
 describe("safeCall", () => {
+    beforeEach(() => {
+        vi.spyOn(console, "error").mockImplementation(() => {})
+    })
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
     it("returns the resolved value of a well-behaved fn", async () => {
         await expect(safeCall(async () => "ok", 1, 2)).resolves.toBe("ok")
     })
@@ -119,7 +137,7 @@ describe("safeCall", () => {
         await expect(
             safeCall(() => {
                 throw new Error("hook boom")
-            }),
+            })
         ).resolves.toBeUndefined()
         expect(console.error).toHaveBeenCalled()
     })
@@ -128,12 +146,19 @@ describe("safeCall", () => {
         expect(console.error).toHaveBeenCalled()
     })
     it("is a no-op for a non-function", async () => {
-        await expect(safeCall(undefined as any)).resolves.toBeUndefined()
+        await expect(safeCall(undefined as never)).resolves.toBeUndefined()
         expect(console.error).not.toHaveBeenCalled()
     })
 })
 
 describe("safeCallNamed", () => {
+    beforeEach(() => {
+        vi.spyOn(console, "error").mockImplementation(() => {})
+    })
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
     it("returns the resolved value", async () => {
         await expect(safeCallNamed("onRouteMatch", async () => 7)).resolves.toBe(7)
     })
@@ -141,31 +166,47 @@ describe("safeCallNamed", () => {
         await safeCallNamed("preServerInit", () => {
             throw new Error("x")
         })
-        const logged = (console.error as any).mock.calls.flat().join("\n")
+        const logged = (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().join("\n")
         expect(logged).toContain("preServerInit")
     })
     it("is a no-op for a non-function", async () => {
-        await expect(safeCallNamed("x", null as any)).resolves.toBeUndefined()
+        await expect(safeCallNamed("x", null as never)).resolves.toBeUndefined()
     })
 })
 
+// handleError is the shared "log it in whatever output mode" helper the
+// in-server call sites use with a validate* result. The validators
+// themselves no longer call it (they return the error) -- exercise it
+// directly. Ported + adapted from #454.
 describe("handleError output mode", () => {
+    afterEach(() => {
+        vi.restoreAllMocks()
+        vi.resetModules()
+    })
+
     it("uses the non-'default' formatter branch when CATALYST_OUTPUT_MODE is verbose", async () => {
         const saved = process.env.CATALYST_OUTPUT_MODE
         process.env.CATALYST_OUTPUT_MODE = "verbose"
         vi.resetModules()
+        vi.spyOn(console, "log").mockImplementation(() => {})
         try {
-            const mod = await import("../../src/server/utils/validator.js")
             // outputMode is resolved at module load -> "verbose" -> the
             // else branch of handleError runs (no "Failed to start
             // server:" prefix).
-            mod.validateGetRoutes(undefined)
-            const logged = (console.log as any).mock.calls.flat().join("\n")
+            const mod = await import("../../src/server/utils/validator.js")
+            mod.handleError(createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING))
+            const logged = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().join("\n")
             expect(logged).not.toContain("Failed to start server:")
         } finally {
             if (saved === undefined) delete process.env.CATALYST_OUTPUT_MODE
             else process.env.CATALYST_OUTPUT_MODE = saved
-            vi.resetModules()
         }
+    })
+
+    it("uses the 'default' branch (with prefix) otherwise", () => {
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+        handleError(createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING))
+        const logged = logSpy.mock.calls.flat().join("\n")
+        expect(logged).toContain("Failed to start server:")
     })
 })

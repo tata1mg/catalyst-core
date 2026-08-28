@@ -62,6 +62,7 @@ jobs:
                         - '!packages/catalyst-core/src/native/iosnativeWebView/**'
                         - 'packages/create-catalyst-app/**'
                         - 'packages/catalyst-ai/**'
+                        - 'examples/error-catalog/**'
                       android:
                         - *shared
                         - 'packages/catalyst-core/src/native/androidProject/**'
@@ -107,8 +108,14 @@ jobs:
             # lands with a real config.
 
     unit-and-contract-tests:
-        needs: [detect-changes, lint]
-        if: needs.detect-changes.outputs.web == 'true'
+        # `lint` already `needs: detect-changes` and only runs when
+        # detect-changes.outputs.web == 'true', so needing `lint` here is
+        # enough — a redundant direct edge on detect-changes would only be
+        # there for the `if:` to read its output. Gate on `lint` succeeding
+        # instead: this job can't run unless web changed (lint skipped ⇒ this
+        # skips too).
+        needs: [lint]
+        if: needs.lint.result == 'success'
         runs-on: ubuntu-latest
         # actions: write needed only for the release-time cache-delete step
         # below, same rationale as android-unit-and-coverage.
@@ -286,6 +293,39 @@ jobs:
 
             - name: Install and Syntax Check (catalyst-ai)
               run: chmod +x ./scripts/test-catalyst-ai.sh && ./scripts/test-catalyst-ai.sh
+
+    error-catalog:
+        # Contract gate for issue #440 / Story #343: proves each in-scope
+        # error code (AI-000..003 + PREFLIGHT-001..021) actually surfaces the
+        # way a developer would hit it — a real catalyst app is broken per
+        # scenario, the real `catalyst start` / an HTTP call is run, and the
+        # coded error + doc URL is asserted in the output. Pass/fail only
+        # (no coverage %), reported into coverage-summary like
+        # web-integration-smoke. AI-000 (needs a live api.openai.com call) is
+        # auto-skipped when CI=true — see test/scenarios.test.ts.
+        needs: [detect-changes, unit-and-contract-tests]
+        if: needs.detect-changes.outputs.web == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version-file: .nvmrc
+
+            - name: Install root deps
+              run: node -v && npm ci
+
+            - name: Sync local catalyst-core + catalyst-ai into the example
+              working-directory: examples/error-catalog
+              run: |
+                  npm install
+                  npm run sync-core
+                  npm run sync-packages
+
+            - name: Run error-catalog contract scenarios
+              working-directory: examples/error-catalog
+              run: npm test
 
     android-unit-and-coverage:
         needs: detect-changes
@@ -777,7 +817,7 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, unit-and-contract-tests, web-integration-smoke, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs: [detect-changes, unit-and-contract-tests, web-integration-smoke, error-catalog, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -786,6 +826,7 @@ jobs:
                   detect_status="${{ needs.detect-changes.result }}"
                   web_status="${{ needs.unit-and-contract-tests.result }}"
                   web_smoke_status="${{ needs.web-integration-smoke.result }}"
+                  error_catalog_status="${{ needs.error-catalog.result }}"
                   android_status="${{ needs.android-unit-and-coverage.result }}"
                   ios_corelogic_status="${{ needs.ios-corelogic-and-coverage.result }}"
                   ios_app_status="${{ needs.ios-app-simulator-tests.result }}"
@@ -808,6 +849,7 @@ jobs:
                   echo "Coverage summary:"
                   report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
                   report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
+                  report_platform "error-catalog (error-contract gate, pass/fail only)" "$error_catalog_status" ""
                   report_platform "android (jacoco)" "$android_status" "$android_pct"
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
@@ -824,7 +866,7 @@ jobs:
                   fi
 
                   fail=0
-                  for pair in "web:$web_status" "web-integration-smoke:$web_smoke_status" "android:$android_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
+                  for pair in "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android:$android_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
                     platform="${pair%%:*}"
                     status="${pair#*:}"
                     if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

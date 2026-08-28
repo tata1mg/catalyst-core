@@ -1,7 +1,7 @@
 import { execSync } from "child_process"
 import fs from "fs"
 import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
-import TerminalProgress from "./TerminalProgress.js"
+import TerminalProgress from "./terminalProgress.js"
 
 const configPath = `${process.env.PWD}/config/config.json`
 const { setupServer } = require("./setupServer.js")
