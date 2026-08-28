@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config"
+import { configDefaults, defineConfig } from "vitest/config"
 
 // Two projects sharing this one config, kept in `projects` rather than a
 // separate vitest.workspace.ts so there's a single vitest.config.ts to
@@ -20,6 +20,14 @@ import { defineConfig } from "vitest/config"
 // real per-test overhead the plain error-system tests don't need, and
 // this keeps the two testing concerns (framework internals vs. React UI)
 // separately configured.
+//
+// `*.server.test.{js,jsx}` under src/web-router is the exception: a
+// handful of code paths there branch on `typeof window === "undefined"`
+// (fetchRouteData picks serverFetcher over clientFetcher on the server).
+// jsdom always defines `window`, so those branches can only be exercised
+// in the "node" environment -- those files are routed to the "node"
+// project and excluded from "web-router" so RTL's jsdom-only setupFiles
+// never load for them. Issue #347.
 export default defineConfig({
     test: {
         projects: [
@@ -27,7 +35,10 @@ export default defineConfig({
                 test: {
                     name: "node",
                     environment: "node",
-                    include: ["test/**/*.test.ts"],
+                    include: [
+                        "test/**/*.test.ts",
+                        "src/web-router/**/*.server.test.{js,jsx}",
+                    ],
                 },
             },
             {
@@ -35,6 +46,7 @@ export default defineConfig({
                     name: "web-router",
                     environment: "jsdom",
                     include: ["src/web-router/**/*.test.{js,jsx}"],
+                    exclude: [...configDefaults.exclude, "src/web-router/**/*.server.test.{js,jsx}"],
                     setupFiles: ["./src/web-router/vitest.setup.js"],
                 },
             },
