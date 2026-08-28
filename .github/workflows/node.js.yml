@@ -906,6 +906,166 @@ jobs:
                   path: coverage-baseline-ios-app.json
                   key: coverage-baseline-ios-app-v1
 
+    # Tier 2 (#416): simulator UI test for the iosnativeWebView.app
+    # target. iosnativeWebViewTests (the job above) never launches the
+    # real app, so AppDelegate.didFinishLaunchingWithOptions,
+    # iosnativeWebViewApp.init and ContentView.body are uncovered by it;
+    # one XCUIApplication().launch() exercises all of them plus
+    # WebViewContainer / WebView.makeUIView view construction.
+    #
+    # SEPARATE parallel job (not folded into ios-app-simulator-tests)
+    # specifically to keep the pipeline critical path flat:
+    # ios-app-simulator-tests IS the wall-clock, and adding
+    # -only-testing:iosnativeWebViewUITests to it would grow that job
+    # 1:1. This job has the same needs: [detect-changes,
+    # ios-corelogic-and-coverage] so both macOS jobs start together.
+    #
+    # MEASURED GO/NO-GO: if this job's own duration comes in above
+    # ~6 min it becomes the new critical path -- in that case revert this
+    # commit (the target wiring + LaunchTests.swift stay) and track iOS
+    # Tier 2 as a follow-up. <= ~5m50s means wall-clock stays flat.
+    #
+    # REPORT-ONLY: prints iosnativeWebView.app coverage from this run and
+    # baselines it on main push, but NO regression-enforce step; a
+    # non-success is surfaced by coverage-summary as ::warning:: only.
+    # Its baseline (coverage-baseline-ios-app-uitests-v1) is separate from
+    # ios-app-simulator-tests' gated coverage-baseline-ios-app-v1 -- two
+    # independent numbers over the same target, not merged.
+    ios-app-uitests:
+        needs: [detect-changes, ios-corelogic-and-coverage]
+        if: needs.detect-changes.outputs.ios == 'true'
+        runs-on: macos-latest
+        permissions:
+            contents: read
+            actions: write
+        outputs:
+            line_pct: ${{ steps.coverage.outputs.line_pct }}
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Cache SPM packages
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: packages/catalyst-core/src/native/iosnativeWebView/.spm-cache
+                  key: spm-${{ runner.os }}-${{ hashFiles('packages/catalyst-core/src/native/iosnativeWebView/Package.resolved') }}
+                  restore-keys: |
+                      spm-${{ runner.os }}-
+
+            - name: Pick an available iOS simulator
+              id: sim
+              run: |
+                  set -o pipefail
+                  RESULT=$(xcrun simctl list devices available -j | jq -r '
+                    .devices
+                    | to_entries
+                    | map(select(.key | test("com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS")))
+                    | sort_by(.key) | reverse
+                    | map(.value | map(select(.name | test("^iPhone( [0-9]+)?$|^iPhone [0-9]+ ")) | select(.name | test("[0-9]+e( |$)") | not)))
+                    | flatten
+                    | .[0]
+                    | if . == null then "" else (.udid + "\t" + .name) end
+                  ')
+                  if [ -z "$RESULT" ]; then
+                    echo "::error::No available iOS Simulator with an iPhone destination found on this runner"
+                    xcrun simctl list devices available
+                    exit 1
+                  fi
+                  UDID=$(echo "$RESULT" | cut -f1)
+                  NAME=$(echo "$RESULT" | cut -f2)
+                  echo "id=$UDID" >> "$GITHUB_OUTPUT"
+                  echo "Selected simulator: $NAME ($UDID)"
+
+            - name: Boot iOS simulator
+              run: |
+                  xcrun simctl boot "${{ steps.sim.outputs.id }}"
+                  xcrun simctl bootstatus "${{ steps.sim.outputs.id }}" -b
+
+            # -only-testing:iosnativeWebViewUITests -- the UI-testing bundle
+            # only. -parallel-testing-enabled stays OFF (same flake
+            # rationale as ios-app-simulator-tests).
+            - name: Run iosnativeWebViewUITests (Tier 2 simulator UI test)
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  set -o pipefail
+                  xcodebuild test \
+                    -project iosnativeWebView.xcodeproj \
+                    -scheme iosnativeWebView \
+                    -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
+                    -only-testing:iosnativeWebViewUITests \
+                    -clonedSourcePackagesDirPath .spm-cache \
+                    -enableCodeCoverage YES \
+                    -resultBundlePath TestResults.xcresult \
+                    CODE_SIGNING_ALLOWED=NO \
+                    | xcbeautify --renderer github-actions
+
+            - name: Print coverage summary
+              id: coverage
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  xcrun xccov view --report --json TestResults.xcresult > xccov-report.json
+                  python3 - <<'EOF'
+                  import json, os
+                  with open("xccov-report.json") as f:
+                      report = json.load(f)
+                  app_target = next(
+                      (t for t in report["targets"] if t["name"] == "iosnativeWebView.app"),
+                      None,
+                  )
+                  if app_target is None:
+                      raise SystemExit("iosnativeWebView.app target not found in xccov report")
+                  covered = app_target["coveredLines"]
+                  total = app_target["executableLines"]
+                  pct = (covered / total * 100) if total else 0
+                  print(f"LINE {covered}/{total} ({pct:.2f}%)")
+                  with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                      f.write(f"line_pct={pct:.2f}\n")
+                  print(f"::notice::iOS app-target UI-test line coverage: {pct:.2f}% (report-only)")
+                  EOF
+
+            # Report-only: restore + print the baseline for context, NEVER
+            # fail on a drop. Written on main-push only.
+            - name: Restore UI-test coverage baseline
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-ios-app-uitests.json
+                  key: coverage-baseline-ios-app-uitests-v1
+
+            - name: Compare to UI-test baseline (informational)
+              if: github.event_name == 'pull_request'
+              run: |
+                  CURRENT="${{ steps.coverage.outputs.line_pct }}"
+                  if [ -f coverage-baseline-ios-app-uitests.json ]; then
+                    BASELINE=$(python3 -c "import json; print(json.load(open('coverage-baseline-ios-app-uitests.json'))['line_pct'])")
+                    echo "::notice::iOS UI-test coverage ${CURRENT}% (baseline ${BASELINE}%) -- report-only, not gated"
+                  else
+                    echo "::notice::No iOS UI-test baseline yet. Current: ${CURRENT}%"
+                  fi
+
+            - name: Update UI-test coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  echo "{\"line_pct\": ${{ steps.coverage.outputs.line_pct }}}" > coverage-baseline-ios-app-uitests.json
+                  gh cache delete coverage-baseline-ios-app-uitests-v1 --repo "${{ github.repository }}" || true
+
+            - name: Save UI-test coverage baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-ios-app-uitests.json
+                  key: coverage-baseline-ios-app-uitests-v1
+
+            - name: Upload UI-test result bundle
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: ios-app-uitests-xcresult
+                  path: packages/catalyst-core/src/native/iosnativeWebView/TestResults.xcresult
+                  retention-days: 14
+
     # Terminal join point for the ENTIRE pipeline -- every test/coverage
     # job feeds into this one, including web-integration-smoke (no
     # coverage number, gated on pass/fail only -- it's an
@@ -918,7 +1078,7 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, unit-and-contract-tests, web-integration-smoke, android-unit-and-coverage, android-instrumented-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs: [detect-changes, unit-and-contract-tests, web-integration-smoke, android-unit-and-coverage, android-instrumented-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests, ios-app-uitests]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -931,11 +1091,13 @@ jobs:
                   android_tier2_status="${{ needs.android-instrumented-coverage.result }}"
                   ios_corelogic_status="${{ needs.ios-corelogic-and-coverage.result }}"
                   ios_app_status="${{ needs.ios-app-simulator-tests.result }}"
+                  ios_app_uitests_status="${{ needs.ios-app-uitests.result }}"
                   web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
                   android_pct="${{ needs.android-unit-and-coverage.outputs.line_pct }}"
                   android_tier2_pct="${{ needs.android-instrumented-coverage.outputs.line_pct }}"
                   ios_corelogic_pct="${{ needs.ios-corelogic-and-coverage.outputs.line_pct }}"
                   ios_app_pct="${{ needs.ios-app-simulator-tests.outputs.line_pct }}"
+                  ios_app_uitests_pct="${{ needs.ios-app-uitests.outputs.line_pct }}"
 
                   report_platform() {
                     name="$1"; status="$2"; pct="$3"
@@ -955,15 +1117,20 @@ jobs:
                   report_platform "android-tier2 (jacoco, instrumented, REPORT-ONLY)" "$android_tier2_status" "$android_tier2_pct"
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
+                  report_platform "ios-app-uitests (iosnativeWebView.app, UI test, REPORT-ONLY)" "$ios_app_uitests_status" "$ios_app_uitests_pct"
 
-                  # android-tier2 (#416) is report-only: a non-success here
-                  # is surfaced as a warning but does NOT fail this gate --
-                  # it is deliberately absent from the fail loop below. A
-                  # fresh Tier 2 baseline is still moving and day-one
-                  # emulator flake must not block every android PR.
-                  if [ "$android_tier2_status" != "success" ] && [ "$android_tier2_status" != "skipped" ]; then
-                    echo "::warning::android-instrumented-coverage did not pass (status: $android_tier2_status) -- report-only, not blocking"
-                  fi
+                  # android-tier2 and ios-app-uitests (#416) are report-only:
+                  # a non-success is surfaced as a warning but does NOT fail
+                  # this gate -- both are deliberately absent from the fail
+                  # loop below. Fresh Tier 2 baselines are still moving and
+                  # day-one emulator/simulator flake must not block every
+                  # native PR.
+                  for pair in "android-instrumented-coverage:$android_tier2_status" "ios-app-uitests:$ios_app_uitests_status"; do
+                    job="${pair%%:*}"; st="${pair#*:}"
+                    if [ "$st" != "success" ] && [ "$st" != "skipped" ]; then
+                      echo "::warning::$job did not pass (status: $st) -- report-only, not blocking"
+                    fi
+                  done
 
                   # detect-changes itself failing/erroring (not just "nothing
                   # changed") means the per-platform jobs below were skipped
