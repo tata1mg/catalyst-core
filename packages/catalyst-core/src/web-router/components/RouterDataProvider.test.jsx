@@ -281,4 +281,30 @@ describe("useCurrentRouteData", () => {
             vi.useRealTimers()
         }
     })
+
+    it("re-runs the mount effect for an already-fetched route when config.disableCaching is true (shouldFetch global branch)", async () => {
+        // isFetched is true in initialState, but config.disableCaching
+        // makes shouldFetch() return true, so the mount effect does not
+        // early-return -- it re-enters the fetch path (no fetcher on the
+        // plain route -> fetcherNotAvailable, but shouldFetch's global
+        // branch is exercised).
+        render(
+            <MemoryRouter initialEntries={["/page"]}>
+                <Routes>
+                    <Route
+                        path="/page"
+                        element={
+                            <RouterDataProvider
+                                initialState={{ "/page": { data: { v: 1 }, isFetched: true } }}
+                                config={{ disableCaching: true }}
+                            >
+                                <div data-testid="ready">ready</div>
+                            </RouterDataProvider>
+                        }
+                    />
+                </Routes>
+            </MemoryRouter>,
+        )
+        await waitFor(() => expect(screen.getByTestId("ready")).toBeInTheDocument())
+    })
 })

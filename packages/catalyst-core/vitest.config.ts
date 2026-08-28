@@ -56,6 +56,10 @@ export default defineConfig({
                 "test/**",
                 "src/**/*.test.{js,jsx,ts,tsx}",
                 "src/**/vitest.setup.*",
+                // Build-time CLI script (entrypoint-guarded, run from
+                // docs tooling / the docs-drift check), not framework
+                // runtime -- same rationale as excluding scripts/**.
+                "src/errors/generateDocs.js",
             ],
         },
         projects: [
