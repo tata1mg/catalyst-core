@@ -76,11 +76,14 @@ const validatePackageJson = (obj) => {
 const validateModuleAlias = (obj) => {
     if (!obj) return createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_MISSING)
     if (typeof obj !== "object") return createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_NOT_OBJECT)
-    // A consumer app must not shadow the framework's own "@catalyst/*" aliases
-    // with its own moduleAliases entries — check the INPUT's keys, not the
-    // required list (that check was previously on the wrong side and could
-    // never fire; PREFLIGHT-008).
-    if (Object.keys(obj).some((key) => key.includes("catalyst")))
+    // A consumer app must not shadow the framework's own "@catalyst*" aliases
+    // (both "@catalyst/…" and "@catalyst-…" are reserved) with its own
+    // moduleAliases entries — check the INPUT's keys, not the required list
+    // (that check was previously on the wrong side and could never fire;
+    // PREFLIGHT-008). Anchored to the start and case-insensitive: a bare
+    // `.includes("catalyst")` also (wrongly) rejected unrelated names like
+    // "@my-catalyst-helpers", which don't shadow anything.
+    if (Object.keys(obj).some((key) => /^@catalyst($|[/-])/i.test(key)))
         return createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
     const requiredModuleAliases = ["@api", "@containers", "@server", "@config", "@css", "@routes"]
     for (const key of requiredModuleAliases) {

@@ -33,10 +33,14 @@ function readJson(filePath) {
 
 /**
  * Run the static preflight checks against an app directory.
- * @param {string} appDir - the consumer app root (defaults to process.env.PWD)
+ * @param {string} [appDir] - the consumer app root. Defaults to the current
+ *   working directory. `process.env.PWD` is preferred when set (it survives a
+ *   `cd` in the invoking shell script), but it is not exported by every shell
+ *   / CI runner, so `process.cwd()` is the fallback — never `undefined`, which
+ *   would make the `path.join` calls below throw.
  * @returns {import("../errors/index.js").CatalystError[]} all failures (empty = passed)
  */
-export function runStaticPreflight(appDir = process.env.PWD) {
+export function runStaticPreflight(appDir = process.env.PWD || process.cwd()) {
     const failures = []
 
     // config/config.json
@@ -91,7 +95,7 @@ export function runStaticPreflight(appDir = process.env.PWD) {
  * of a CLI entry script (start / serve / build).
  * @param {string} [appDir]
  */
-export function runStaticPreflightOrExit(appDir = process.env.PWD) {
+export function runStaticPreflightOrExit(appDir = process.env.PWD || process.cwd()) {
     const mode = resolveOutputMode(process.argv)
     const failures = runStaticPreflight(appDir)
     if (failures.length === 0) return

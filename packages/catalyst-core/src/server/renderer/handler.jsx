@@ -371,9 +371,18 @@ async function _handler(req, res) {
     try {
         let context = {}
         let fetcherData = {}
+        // A missing / non-function configureStore is not recoverable per
+        // request: every downstream step (serverSideFunction, data fetchers,
+        // render) assumes a real store. Log the coded error and fail the
+        // request with a 500 rather than rendering with `store = null`, which
+        // surfaces as a confusing render-time crash further down.
         const configureStoreErr = validateConfigureStore(createStore)
-        if (configureStoreErr) handleError(configureStoreErr)
-        const store = configureStoreErr ? null : await createStore({}, req, res)
+        if (configureStoreErr) {
+            handleError(configureStoreErr)
+            if (!res.headersSent) res.status(500).send("Internal Server Error")
+            return
+        }
+        const store = await createStore({}, req, res)
 
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []

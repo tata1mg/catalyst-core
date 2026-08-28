@@ -91,6 +91,22 @@ describe("validateModuleAlias", () => {
         const err = validateModuleAlias({ ...VALID_ALIASES, "@catalyst/thing": "x" })
         expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
     })
+    it("PREFLIGHT-008 matches the @catalyst namespace case-insensitively", () => {
+        const err = validateModuleAlias({ ...VALID_ALIASES, "@Catalyst/core": "x" })
+        expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
+    })
+    it("PREFLIGHT-008 also rejects a bare '@catalyst' key (no separator)", () => {
+        const err = validateModuleAlias({ ...VALID_ALIASES, "@catalyst": "x" })
+        expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
+    })
+    it("PREFLIGHT-008 rejects the '@catalyst-' hyphen form too (e.g. @catalyst-custom)", () => {
+        const err = validateModuleAlias({ ...VALID_ALIASES, "@catalyst-custom": "x" })
+        expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
+    })
+    it("does NOT reject an unrelated alias that merely contains 'catalyst'", () => {
+        expect(validateModuleAlias({ ...VALID_ALIASES, "@my-catalyst-helpers": "x" })).toBeNull()
+        expect(validateModuleAlias({ ...VALID_ALIASES, "@catalystic": "x" })).toBeNull()
+    })
     it("PREFLIGHT-009 when a required alias is missing, naming it", () => {
         const { "@containers": _omit, ...rest } = VALID_ALIASES
         const err = validateModuleAlias(rest)
