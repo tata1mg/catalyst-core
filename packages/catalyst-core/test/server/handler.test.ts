@@ -123,6 +123,19 @@ describe("SSR handler", () => {
         expect(res.getHtml()).toContain("<html")
     })
 
+    it("renders with the fetcher error's status_code when a route serverFetcher rejects", async () => {
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/fetcher-error")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        // serverDataFetcher caught the reject into fetcherData[url].error;
+        // _handler used err.status_code (503) for the render.
+        expect(res.status).toHaveBeenCalledWith(503)
+        expect(res.getHtml()).toContain("<html")
+    })
+
     it("propagates a throwing App.serverSideFunction: logs SERVER_SIDE_FUNCTION, still responds", async () => {
         const AppModule = await import(
             "../server/fixtures/template/src/js/containers/App/index.jsx"

@@ -64,6 +64,27 @@ describe("ChunkExtractor", () => {
         expect(ce.getDeferredAssets().js).toEqual(["https://cdn.example.com/static/assets/cart-123.js"])
     })
 
+    it("addComponent falls back to a prefix (hashed) manifest key when the raw key is absent", () => {
+        const ce = new ChunkExtractor({
+            manifest: {
+                "widgets/Modal.a1b2c3.js": { file: "assets/modal-a1b2c3.js", css: ["assets/modal.css"] },
+            },
+        })
+        // raw "widgets/Modal.a1b2c3.js" isn't a key; "widgets/Modal" +
+        // "." prefix-matches it.
+        ce.addComponent("widgets/Modal")
+        expect(ce.getDeferredAssets().js).toEqual([
+            "https://cdn.example.com/static/assets/modal-a1b2c3.js",
+        ])
+    })
+
+    it("addComponent is a no-op (but still tracks the key) when no manifest entry matches at all", () => {
+        const ce = new ChunkExtractor({ manifest: {} })
+        ce.addComponent("widgets/Unknown")
+        expect(ce.getRenderedComponentKeys()).toEqual(["widgets/Unknown"])
+        expect(ce.getDeferredAssets()).toEqual({ js: [], css: [] })
+    })
+
     it("does not double-count a JS URL already tracked as critical", () => {
         const ce = new ChunkExtractor({
             assetManifest: { essential: { e: { file: "assets/shared.js" } } },

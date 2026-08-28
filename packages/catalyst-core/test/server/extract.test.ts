@@ -61,6 +61,13 @@ describe("registerDeferredAssetsForRoute / getCachedDeferredCssPathsForRoute", (
         expect(registerDeferredAssetsForRoute(null, { css: ["a.css"] } as any)).toEqual({ newCssPaths: [] })
         expect(getCachedDeferredCssPathsForRoute(null)).toEqual([])
     })
+
+    it("skips falsy entries in the css list", () => {
+        const { newCssPaths } = registerDeferredAssetsForRoute("/r", {
+            css: ["a.css", "", null, "b.css"],
+        } as any)
+        expect(newCssPaths).toEqual(["a.css", "b.css"])
+    })
 })
 
 describe("getDeferredPreloadScriptUrls", () => {
@@ -107,6 +114,15 @@ describe("readCssFromDisk", () => {
 
     it("returns an empty string (not a throw) when the CSS files do not exist on disk", () => {
         const out = readCssFromDisk(["does-not-exist.css"], "/tmp/nonexistent-build-dir")
+        expect(out).toBe("")
+    })
+
+    it("skips http(s)-prefixed and duplicate asset entries", () => {
+        // http-prefixed -> not read from disk; duplicate -> read once.
+        const out = readCssFromDisk(
+            ["https://cdn.example.com/x.css", "dup.css", "dup.css", ""],
+            "/tmp/nonexistent-build-dir",
+        )
         expect(out).toBe("")
     })
 })

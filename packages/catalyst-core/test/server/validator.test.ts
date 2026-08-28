@@ -148,3 +148,24 @@ describe("safeCallNamed", () => {
         await expect(safeCallNamed("x", null as any)).resolves.toBeUndefined()
     })
 })
+
+describe("handleError output mode", () => {
+    it("uses the non-'default' formatter branch when CATALYST_OUTPUT_MODE is verbose", async () => {
+        const saved = process.env.CATALYST_OUTPUT_MODE
+        process.env.CATALYST_OUTPUT_MODE = "verbose"
+        vi.resetModules()
+        try {
+            const mod = await import("../../src/server/utils/validator.js")
+            // outputMode is resolved at module load -> "verbose" -> the
+            // else branch of handleError runs (no "Failed to start
+            // server:" prefix).
+            mod.validateGetRoutes(undefined)
+            const logged = (console.log as any).mock.calls.flat().join("\n")
+            expect(logged).not.toContain("Failed to start server:")
+        } finally {
+            if (saved === undefined) delete process.env.CATALYST_OUTPUT_MODE
+            else process.env.CATALYST_OUTPUT_MODE = saved
+            vi.resetModules()
+        }
+    })
+})

@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest"
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
     arrayToObject,
     getDebugEnvInfo,
+    printBundleInformation,
     resolveOutputMode,
 } from "../../src/scripts/scriptUtils.js"
 
@@ -36,6 +40,52 @@ describe("resolveOutputMode", () => {
     })
     it("defaults to 'default' with no flags and no env", () => {
         expect(resolveOutputMode([], {})).toBe("default")
+    })
+})
+
+describe("printBundleInformation", () => {
+    let tmp: string
+    let savedSrcPath: string | undefined
+    let logSpy: ReturnType<typeof vi.spyOn>
+    let errSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        savedSrcPath = process.env.src_path
+        tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bundleinfo-"))
+        fs.mkdirSync(path.join(tmp, "build", "public"), { recursive: true })
+        logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+        errSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    })
+    afterEach(() => {
+        if (savedSrcPath === undefined) delete process.env.src_path
+        else process.env.src_path = savedSrcPath
+        fs.rmSync(tmp, { recursive: true, force: true })
+        vi.restoreAllMocks()
+    })
+
+    it("lists asset files by descending size, skipping .txt / .json", () => {
+        const pub = path.join(tmp, "build", "public")
+        fs.writeFileSync(path.join(pub, "small.js"), "x".repeat(100))
+        fs.writeFileSync(path.join(pub, "big.js"), "x".repeat(5000))
+        fs.writeFileSync(path.join(pub, "manifest.json"), "{}")
+        fs.writeFileSync(path.join(pub, "notes.txt"), "skip me")
+        process.env.src_path = tmp
+
+        printBundleInformation()
+
+        const printed = logSpy.mock.calls.map((c: any[]) => String(c[0])).join("\n")
+        expect(printed).toContain("big.js")
+        expect(printed).toContain("small.js")
+        expect(printed).not.toContain("manifest.json")
+        expect(printed).not.toContain("notes.txt")
+        // big.js is listed before small.js (sorted by size desc)
+        expect(printed.indexOf("big.js")).toBeLessThan(printed.indexOf("small.js"))
+    })
+
+    it("logs a scan error and does not throw when build/public is missing", () => {
+        process.env.src_path = path.join(tmp, "does-not-exist")
+        expect(() => printBundleInformation()).not.toThrow()
+        expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("Unable to scan build folder"))
     })
 })
 
