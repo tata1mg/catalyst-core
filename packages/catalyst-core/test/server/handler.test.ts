@@ -158,6 +158,34 @@ describe("SSR handler", () => {
         expect(res.getHtml()).toContain("<html")
     })
 
+    it("fails the request with 500 (no render) when configureStore is not a function", async () => {
+        // handler.jsx imports createStore as a module-scope default binding,
+        // so swap the fixture module before the fresh import. A non-function
+        // default makes validateConfigureStore return a CatalystError ->
+        // _handler must handleError + 500 + return, not render with a null
+        // store.
+        vi.resetModules()
+        vi.doMock("@catalyst/template/src/js/store/index.js", () => ({ default: {} }))
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+        try {
+            const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+            const { req, res } = makeReqRes("/")
+
+            await handler(req, res)
+
+            expect(res.status).toHaveBeenCalledWith(500)
+            expect(res.send).toHaveBeenCalledWith("Internal Server Error")
+            // no HTML streamed
+            expect(res.getHtml()).toBe("")
+            // handleError logs the coded error (via console.log)
+            const logged = logSpy.mock.calls.flat().join("\n")
+            expect(logged).toMatch(/PREFLIGHT-01[0-9]|configureStore/i)
+        } finally {
+            vi.doUnmock("@catalyst/template/src/js/store/index.js")
+            vi.resetModules()
+        }
+    })
+
     it("does not throw out of handler when request handling fails entirely", async () => {
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         // a req with no originalUrl / no get() -> NestedMatchRoutes and

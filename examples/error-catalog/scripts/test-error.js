@@ -91,17 +91,32 @@ function killTree(child) {
             child.kill("SIGKILL")
         } catch (__) {}
     }
-    try {
-        const pids = execSync("lsof -i :3005 -t 2>/dev/null || true").toString().trim().split("\n").filter(Boolean)
-        for (const p of pids) {
-            if (p !== String(process.pid)) {
-                try { process.kill(Number(p), "SIGKILL") } catch (_) {}
+    // Last-resort sweep of ANYTHING on port 3005. This can kill an
+    // unrelated local dev server, so it is opt-in: set
+    // CATALYST_ERROR_CATALOG_FORCE_PORT_KILL=1 to enable it (CI does).
+    // The targeted kill above (the harness's own detached process group)
+    // is the normal path and always runs.
+    if (process.env.CATALYST_ERROR_CATALOG_FORCE_PORT_KILL === "1") {
+        try {
+            const pids = execSync("lsof -i :3005 -t 2>/dev/null || true").toString().trim().split("\n").filter(Boolean)
+            for (const p of pids) {
+                if (p !== String(process.pid)) {
+                    try { process.kill(Number(p), "SIGKILL") } catch (_) {}
+                }
             }
-        }
-    } catch (_) {}
+        } catch (_) {}
+    }
 }
 
-function getCatalystScript(scriptRelativePath) {
+// Resolve how to invoke a Catalyst CLI subcommand, returning a COMPLETE
+// argv prefix for either path:
+//   - local:  node <dist>/<scriptRelativePath>        (the subcommand IS the script)
+//   - npx:    npx -y catalyst <subcommand>            (the subcommand is an arg)
+// Callers must NOT re-append the subcommand — earlier this function returned
+// only ["-y","catalyst"] and callers did `scen.run.args.slice(1)`, which
+// silently dropped the subcommand on the npx path (`npx catalyst` with no
+// verb). Pass the subcommand explicitly here instead.
+function getCatalystScript(scriptRelativePath, subcommand) {
     const localBin = path.join(appDir, "node_modules", ".bin", "catalyst")
     if (fs.existsSync(localBin)) {
         const binTarget = fs.realpathSync(localBin)
@@ -110,14 +125,14 @@ function getCatalystScript(scriptRelativePath) {
             return { cmd: process.execPath, argsPrefix: [scriptPath] }
         }
     }
-    return { cmd: "npx", argsPrefix: ["-y", "catalyst"] }
+    return { cmd: "npx", argsPrefix: ["-y", "catalyst", subcommand] }
 }
 
 async function executeCliStartup(scen) {
     killTree(null)
     await new Promise((r) => setTimeout(r, 1500))
     return new Promise((resolve) => {
-        const binInfo = getCatalystScript("scripts/start.js")
+        const binInfo = getCatalystScript("scripts/start.js", scen.run.args[0])
         const cmdArgs = [...binInfo.argsPrefix, ...(scen.run.args.slice(1))]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -192,7 +207,7 @@ async function executeHttp(scen) {
     await new Promise((r) => setTimeout(r, 1500))
     return new Promise((resolve) => {
         let output = ""
-        const binInfo = getCatalystScript("scripts/start.js")
+        const binInfo = getCatalystScript("scripts/start.js", "start")
         const cmdArgs = [...binInfo.argsPrefix]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -295,7 +310,8 @@ async function executeBuild(scen) {
         let relScript = "scripts/build.js"
         if (scen.run?.args?.[0] === "buildApp:android") relScript = "native/buildAppAndroid.js"
         if (scen.run?.args?.[0] === "buildApp:ios") relScript = "native/buildAppIos.js"
-        const binInfo = getCatalystScript(relScript)
+        const subcommand = scen.run?.args?.[0] || "build"
+        const binInfo = getCatalystScript(relScript, subcommand)
         const cmdArgs = [...binInfo.argsPrefix]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -423,6 +439,11 @@ async function main() {
     let passedCount = 0
     let failedCount = 0
     let skippedCount = 0
+    // "covered" = has a real scenario that ran, OR a deliberate ledger
+    // entry documenting why it can't be reproduced here. "uncovered" =
+    // neither (a gap). Tracked separately so the summary line is honest.
+    let ledgerCount = 0
+    let uncoveredCount = 0
 
     const baselineSnapshot = snapshotApp()
 
@@ -501,10 +522,12 @@ async function main() {
             status = "SKIP"
             detail = `Ledger tier: ${ledgerTier}`
             skippedCount++
+            ledgerCount++
         } else {
             status = "SKIP"
             detail = "No scenario or ledger definition"
             skippedCount++
+            uncoveredCount++
         }
 
         console.log(`${code.padEnd(16)} [${tier}]`)
@@ -514,9 +537,14 @@ async function main() {
         console.log(`Result      : ${status}${detail ? ` (${detail})` : ""}`)
     }
 
+    const coveredCount = passedCount + failedCount + ledgerCount
     console.log("=============================================")
     console.log(`Summary: ${passedCount} PASS, ${failedCount} FAIL, ${skippedCount} SKIP`)
-    console.log(`covered ${allCodes.length}/${allCodes.length} error codes`)
+    console.log(
+        `covered ${coveredCount}/${allCodes.length} error codes ` +
+        `(${passedCount + failedCount} via scenario, ${ledgerCount} via ledger` +
+        `${uncoveredCount ? `, ${uncoveredCount} with no definition` : ""})`
+    )
     console.log("=============================================")
 
     if (failedCount > 0) {

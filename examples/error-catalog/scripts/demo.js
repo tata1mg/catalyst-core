@@ -277,6 +277,11 @@ async function main() {
 
     console.log("==========================================")
 
+    if (onlyCode && results.length === 0) {
+        console.error(`\n--only ${onlyCode}: no scenario matches that code.`)
+        process.exit(1)
+    }
+
     if (!allPassed) {
         console.error("\nSome scenarios failed.")
         process.exit(1)

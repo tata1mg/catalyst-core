@@ -73,17 +73,30 @@ function killTree(child: any) {
             child.kill("SIGKILL")
         } catch (__) {}
     }
-    try {
-        const pids = execSync("lsof -i :3005 -t 2>/dev/null || true").toString().trim().split("\n").filter(Boolean)
-        for (const p of pids) {
-            if (p !== String(process.pid)) {
-                try { process.kill(Number(p), "SIGKILL") } catch (_) {}
+    // Last-resort sweep of ANYTHING on port 3005. Can kill an unrelated
+    // local dev server, so it is opt-in via
+    // CATALYST_ERROR_CATALOG_FORCE_PORT_KILL=1 (set in CI, where the runner
+    // is disposable). The targeted process-group kill above always runs.
+    if (
+        process.env.CATALYST_ERROR_CATALOG_FORCE_PORT_KILL === "1" ||
+        process.env.CI === "true"
+    ) {
+        try {
+            const pids = execSync("lsof -i :3005 -t 2>/dev/null || true").toString().trim().split("\n").filter(Boolean)
+            for (const p of pids) {
+                if (p !== String(process.pid)) {
+                    try { process.kill(Number(p), "SIGKILL") } catch (_) {}
+                }
             }
-        }
-    } catch (_) {}
+        } catch (_) {}
+    }
 }
 
-function getCatalystScript(scriptRelativePath: string) {
+// Resolve how to invoke a Catalyst CLI subcommand, returning a COMPLETE
+// argv prefix for either path (local `node <dist>/<script>` vs
+// `npx -y catalyst <subcommand>`). Callers must not re-append the
+// subcommand — the npx path needs it as an explicit arg.
+function getCatalystScript(scriptRelativePath: string, subcommand: string) {
     const localBin = path.join(appDir, "node_modules", ".bin", "catalyst")
     if (fs.existsSync(localBin)) {
         const binTarget = fs.realpathSync(localBin)
@@ -92,14 +105,14 @@ function getCatalystScript(scriptRelativePath: string) {
             return { cmd: process.execPath, argsPrefix: [scriptPath] }
         }
     }
-    return { cmd: "npx", argsPrefix: ["-y", "catalyst"] }
+    return { cmd: "npx", argsPrefix: ["-y", "catalyst", subcommand] }
 }
 
 async function executeCliStartup(scen: any): Promise<{ passed: boolean; output: string }> {
     killTree(null)
     await new Promise((r) => setTimeout(r, 1500))
     return new Promise((resolve) => {
-        const binInfo = getCatalystScript("scripts/start.js")
+        const binInfo = getCatalystScript("scripts/start.js", scen.run.args[0])
         const cmdArgs = [...binInfo.argsPrefix, ...(scen.run.args.slice(1))]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -173,7 +186,7 @@ async function executeHttp(scen: any): Promise<{ passed: boolean; output: string
     await new Promise((r) => setTimeout(r, 1500))
     return new Promise((resolve) => {
         let output = ""
-        const binInfo = getCatalystScript("scripts/start.js")
+        const binInfo = getCatalystScript("scripts/start.js", "start")
         const cmdArgs = [...binInfo.argsPrefix]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -266,7 +279,7 @@ async function executeBuild(scen: any): Promise<{ passed: boolean; output: strin
         let relScript = "scripts/build.js"
         if (scen.run?.args?.[0] === "buildApp:android") relScript = "native/buildAppAndroid.js"
         if (scen.run?.args?.[0] === "buildApp:ios") relScript = "native/buildAppIos.js"
-        const binInfo = getCatalystScript(relScript)
+        const binInfo = getCatalystScript(relScript, scen.run?.args?.[0] || "build")
         const cmdArgs = [...binInfo.argsPrefix]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -382,10 +395,18 @@ describe("Error Catalog Contract Fixtures", () => {
 
     it("completeness: covers all 72 error codes", () => {
         const scenarioCodes = new Set(scenarios.map((s) => s.code))
+        let viaScenario = 0
+        let viaLedger = 0
+        const missing: string[] = []
         for (const code of allCodes) {
-            const hasCoverage = scenarioCodes.has(code) || Boolean(LEDGER[code as keyof typeof LEDGER])
-            expect(hasCoverage, `Missing coverage for error code ${code}`).toBe(true)
+            if (scenarioCodes.has(code)) viaScenario++
+            else if (LEDGER[code as keyof typeof LEDGER]) viaLedger++
+            else missing.push(code)
         }
-        console.log(`covered ${allCodes.length}/${allCodes.length} error codes`)
+        expect(missing, `Missing coverage for: ${missing.join(", ")}`).toEqual([])
+        console.log(
+            `covered ${viaScenario + viaLedger}/${allCodes.length} error codes ` +
+            `(${viaScenario} via scenario, ${viaLedger} via ledger)`
+        )
     })
 })
