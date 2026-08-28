@@ -108,8 +108,14 @@ jobs:
             # lands with a real config.
 
     unit-and-contract-tests:
-        needs: [detect-changes, lint]
-        if: needs.detect-changes.outputs.web == 'true'
+        # `lint` already `needs: detect-changes` and only runs when
+        # detect-changes.outputs.web == 'true', so needing `lint` here is
+        # enough — a redundant direct edge on detect-changes would only be
+        # there for the `if:` to read its output. Gate on `lint` succeeding
+        # instead: this job can't run unless web changed (lint skipped ⇒ this
+        # skips too).
+        needs: [lint]
+        if: needs.lint.result == 'success'
         runs-on: ubuntu-latest
         # actions: write needed only for the release-time cache-delete step
         # below, same rationale as android-unit-and-coverage.
