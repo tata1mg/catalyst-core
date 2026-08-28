@@ -409,6 +409,157 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
                   retention-days: 14
 
+    # Tier 2 (#416): emulator-instrumented coverage for the
+    # tier2FrameworkBoundFilter classes that jacocoTestReport (the Tier 1
+    # gate) deliberately excludes -- CustomWebView, MainActivity,
+    # SplashActivity, SecurityAlertUI and the rest. app/src/androidTest
+    # drives them on a real emulator; jacocoAndroidTestReport is the
+    # inverse-filtered report over ONLY those classes.
+    #
+    # REPORT-ONLY: this job's coverage number is printed and (on main)
+    # baselined, but has no regression-enforce step, and coverage-summary
+    # treats a non-success here as a warning, not a gate failure -- a
+    # fresh Tier 2 baseline is still moving, and day-one emulator flake
+    # must not block every android PR.
+    #
+    # Runs on ubuntu-latest (has KVM) parallel to the iOS critical path,
+    # inside android's ~6-min parallel headroom, so pipeline wall-clock is
+    # unchanged. timeout-minutes is generous because a cold AVD (cache
+    # miss) can take ~8-10 min to create + boot; that time is still off
+    # the critical path.
+    android-instrumented-coverage:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.android == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 25
+        permissions:
+            contents: read
+            actions: write
+        outputs:
+            line_pct: ${{ steps.coverage.outputs.line_pct }}
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+
+            # KVM is present on ubuntu-latest but not group-accessible by
+            # default; the emulator needs it for hardware acceleration.
+            - name: Enable KVM
+              run: |
+                  echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+                    | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+                  sudo udevadm control --reload-rules
+                  sudo udevadm trigger --name-match=kvm
+
+            # AVD snapshot cache: the first job to miss creates a clean
+            # boot snapshot (next step), every later run restores it and
+            # boots warm (~1-2 min vs ~4 cold). Keyed on API/arch/target
+            # only -- bump the -vN suffix to invalidate.
+            - name: AVD cache
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              id: avd-cache
+              with:
+                  path: |
+                      ~/.android/avd/*
+                      ~/.android/adb*
+                  key: avd-api34-x86_64-google_apis-v1
+
+            - name: Warm AVD snapshot (cache miss only)
+              if: steps.avd-cache.outputs.cache-hit != 'true'
+              uses: reactivecircus/android-emulator-runner@1dcd0090116d15e7c562f8db72807de5e036a4ed # v2.34.0
+              with:
+                  api-level: 34
+                  arch: x86_64
+                  target: google_apis
+                  force-avd-creation: false
+                  emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+                  disable-animations: true
+                  script: echo "Generated AVD snapshot"
+
+            - name: Run instrumented tests + Tier-2 coverage report
+              uses: reactivecircus/android-emulator-runner@1dcd0090116d15e7c562f8db72807de5e036a4ed # v2.34.0
+              with:
+                  api-level: 34
+                  arch: x86_64
+                  target: google_apis
+                  force-avd-creation: false
+                  emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+                  disable-animations: true
+                  working-directory: packages/catalyst-core/src/native/androidProject
+                  script: |
+                      chmod +x ./gradlew
+                      ./gradlew connectedDebugAndroidTest jacocoAndroidTestReport --console=plain
+
+            - name: Print Tier-2 coverage summary
+              id: coverage
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  python3 - <<'EOF'
+                  import os
+                  import xml.etree.ElementTree as ET
+                  root = ET.parse("app/build/reports/jacoco/jacocoAndroidTestReport/jacocoAndroidTestReport.xml").getroot()
+                  line_pct = 0.0
+                  for c in root.findall("counter"):
+                      cov, miss = int(c.get("covered")), int(c.get("missed"))
+                      total = cov + miss
+                      pct = (cov / total * 100) if total else 0
+                      print(f"{c.get('type'):12s} {cov:6d}/{total:<6d} ({pct:5.2f}%)")
+                      if c.get("type") == "LINE":
+                          line_pct = pct
+                  with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                      f.write(f"line_pct={line_pct:.2f}\n")
+                  print(f"::notice::Android Tier-2 (instrumented) line coverage: {line_pct:.2f}% (report-only)")
+                  EOF
+
+            # Report-only: restore + print the baseline for context, but
+            # NEVER fail on a drop (contrast android-unit-and-coverage's
+            # enforce step). Baseline is written on main-push only.
+            - name: Restore Tier-2 baseline
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-android-tier2.json
+                  key: coverage-baseline-android-tier2-v1
+
+            - name: Compare to Tier-2 baseline (informational)
+              if: github.event_name == 'pull_request'
+              run: |
+                  CURRENT="${{ steps.coverage.outputs.line_pct }}"
+                  if [ -f coverage-baseline-android-tier2.json ]; then
+                    BASELINE=$(python3 -c "import json; print(json.load(open('coverage-baseline-android-tier2.json'))['line_pct'])")
+                    echo "::notice::Android Tier-2 coverage ${CURRENT}% (baseline ${BASELINE}%) -- report-only, not gated"
+                  else
+                    echo "::notice::No Android Tier-2 baseline yet. Current: ${CURRENT}%"
+                  fi
+
+            - name: Update Tier-2 baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  echo "{\"line_pct\": ${{ steps.coverage.outputs.line_pct }}}" > coverage-baseline-android-tier2.json
+                  gh cache delete coverage-baseline-android-tier2-v1 --repo "${{ github.repository }}" || true
+
+            - name: Save Tier-2 baseline (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: coverage-baseline-android-tier2.json
+                  key: coverage-baseline-android-tier2-v1
+
+            - name: Upload Tier-2 Jacoco report
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: android-jacoco-tier2-report
+                  path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoAndroidTestReport
+                  retention-days: 14
+
     # Split from what was a single test-ios-unit job into two: CoreLogic
     # (this job) runs first, has zero dependencies, needs no simulator, and
     # is the only iOS target that can produce a real coverage percentage
@@ -767,7 +918,7 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, unit-and-contract-tests, web-integration-smoke, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs: [detect-changes, unit-and-contract-tests, web-integration-smoke, android-unit-and-coverage, android-instrumented-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -777,10 +928,12 @@ jobs:
                   web_status="${{ needs.unit-and-contract-tests.result }}"
                   web_smoke_status="${{ needs.web-integration-smoke.result }}"
                   android_status="${{ needs.android-unit-and-coverage.result }}"
+                  android_tier2_status="${{ needs.android-instrumented-coverage.result }}"
                   ios_corelogic_status="${{ needs.ios-corelogic-and-coverage.result }}"
                   ios_app_status="${{ needs.ios-app-simulator-tests.result }}"
                   web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
                   android_pct="${{ needs.android-unit-and-coverage.outputs.line_pct }}"
+                  android_tier2_pct="${{ needs.android-instrumented-coverage.outputs.line_pct }}"
                   ios_corelogic_pct="${{ needs.ios-corelogic-and-coverage.outputs.line_pct }}"
                   ios_app_pct="${{ needs.ios-app-simulator-tests.outputs.line_pct }}"
 
@@ -798,9 +951,19 @@ jobs:
                   echo "Coverage summary:"
                   report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
                   report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
-                  report_platform "android (jacoco)" "$android_status" "$android_pct"
+                  report_platform "android (jacoco, Tier 1 unit)" "$android_status" "$android_pct"
+                  report_platform "android-tier2 (jacoco, instrumented, REPORT-ONLY)" "$android_tier2_status" "$android_tier2_pct"
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
+
+                  # android-tier2 (#416) is report-only: a non-success here
+                  # is surfaced as a warning but does NOT fail this gate --
+                  # it is deliberately absent from the fail loop below. A
+                  # fresh Tier 2 baseline is still moving and day-one
+                  # emulator flake must not block every android PR.
+                  if [ "$android_tier2_status" != "success" ] && [ "$android_tier2_status" != "skipped" ]; then
+                    echo "::warning::android-instrumented-coverage did not pass (status: $android_tier2_status) -- report-only, not blocking"
+                  fi
 
                   # detect-changes itself failing/erroring (not just "nothing
                   # changed") means the per-platform jobs below were skipped
