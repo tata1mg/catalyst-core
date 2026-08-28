@@ -132,6 +132,13 @@ android {
             versionNameSuffix = "-debug"
             isMinifyEnabled = false
             enableUnitTestCoverage = true
+            // #416: also emit coverage from connectedDebugAndroidTest
+            // (instrumented / Tier 2). AGP 8.11 writes the raw .ec under
+            // build/outputs/code_coverage/debugAndroidTest/connected/**;
+            // jacocoAndroidTestReport (below) turns that into a report.
+            // jacocoTestReport (Tier 1) is unaffected — it reads only the
+            // separate testDebugUnitTest.exec.
+            enableAndroidTestCoverage = true
             buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "true")
             buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
         }
@@ -305,6 +312,79 @@ dependencies {
     }
 }
 
+// ── Shared Jacoco filter lists ────────────────────────────────────────
+// Hoisted to top level (#416) so jacocoTestReport (Tier 1, uses them as
+// exclude()) and jacocoAndroidTestReport (Tier 2, uses tier2… as the
+// inverse include()) reference the SAME list and cannot drift.
+//
+// generatedCodeFilter: generated / non-authored code (R.class,
+// BuildConfig, view/data binding scaffolding) — no coverage story either
+// way, excluded from both reports.
+val generatedCodeFilter = listOf(
+    "**/R.class", "**/R$*.class",
+    "**/BuildConfig.*",
+    "**/Manifest*.*",
+    "**/*Test*.*",
+    "android/**/*.*",
+    "**/databinding/**",
+    "**/android/databinding/**",
+    "**/androidx/databinding/**",
+    "**/*_ViewBinding*.*",
+    "**/*\$ViewInjector*.*",
+    "**/*\$ViewBinder*.*",
+    "**/*_MembersInjector.class"
+)
+
+// tier2FrameworkBoundFilter: files that build real Android Views, extend
+// Activity/Fragment, or otherwise structurally require a real
+// device/emulator to exercise (confirmed via a full-repo classification
+// pass, not a guess from filenames — see PR description / issue for the
+// per-file reasoning). These ARE real, authored logic — excluding them
+// from jacocoTestReport isn't "inflating" the number, it's making the
+// Tier 1 gate honest: a gate that includes Tier 2 in its denominator
+// would fail any PR that touches WebView/Activity/View code regardless of
+// how well-tested that PR's actual testable logic is. Mirrors the
+// CoreLogic/UI split already accepted on iOS (#432).
+//
+// jacocoAndroidTestReport (#416) is the INVERSE — it includes exactly
+// these classes and reports their emulator-instrumented coverage as a
+// separate, report-only number.
+//
+// Each Tier 2 file's top-level class, Kt-file facade, and compiled
+// lambda/inner classes are all listed, so nothing structurally
+// untestable is left counting against the Tier 1 gate. The one exception
+// is NativeBridge, which has an already-tested companion object
+// (parseAndValidateMessage, compiled separately as
+// NativeBridge$Companion.class) — Gradle's Ant-style exclude() does not
+// reliably support "!" negation, so instead of pattern-negating the
+// companion out, its lambda pattern uses "$*$*" (two "$" segments), which
+// Kotlin lambda class names always have and the single-"$" companion
+// class name never does. This keeps the companion in Tier 1 AND out of
+// the Tier 2 include set, with no double counting.
+val tier2FrameworkBoundFilter = listOf(
+    "**/CustomWebView.class", "**/CustomWebView\$*.class", "**/CustomWebViewKt.class",
+    "**/MainActivity.class", "**/MainActivity\$*.class",
+    "**/SplashActivity.class", "**/SplashActivity\$*.class",
+    "**/NativeCameraManager.class", "**/NativeCameraManager\$*.class",
+    "**/camera/CameraSessionManager.class", "**/camera/CameraSessionManager\$*.class",
+    "**/TransitionManager.class", "**/TransitionManager\$*.class",
+    "**/utils/KeyboardUtil.class", "**/utils/KeyboardUtil\$*.class",
+    "**/security/SecurityAlertUI.class", "**/security/SecurityAlertUI\$*.class",
+    "**/security/SecurityAlertHandler.class", "**/security/SecurityAlertHandler\$*.class",
+    "**/security/SecurityBottomSheet.class", "**/security/SecurityBottomSheet\$*.class",
+    "**/NativeBridge.class", "**/NativeBridgeKt.class", "**/NativeBridge\$*\$*.class"
+)
+
+// Both noFcm/withFcm are listed (not just whichever isNotificationsEnabled()
+// picked for this build) purely so the HTML report can resolve source
+// lines for whichever one actually got compiled — listing the inactive
+// one is harmless, Jacoco just won't find matching class files for it.
+val jacocoSourceDirs = listOf(
+    "${project.projectDir}/src/main/java",
+    "${project.projectDir}/src/noFcm/java",
+    "${project.projectDir}/src/withFcm/java"
+)
+
 // JVM unit test coverage (Tier 1). Mirrors the CatalystCoreLogic
 // llvm-cov setup on iOS (#432): real, measured line coverage for
 // app/src/test, not just a pass/fail count. Scoped to testDebugUnitTest —
@@ -321,94 +401,54 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         html.required.set(true)
     }
 
-    // Excludes are split into two groups. The first is generated/non-authored
-    // code (R.class, BuildConfig, view/data binding scaffolding) — no
-    // coverage story either way, always excluded.
-    //
-    // The second is the Tier 2 classification below: files that build real
-    // Android Views, extend Activity/Fragment, or otherwise structurally
-    // require Robolectric or a real device/emulator to exercise (confirmed
-    // via a full-repo classification pass, not a guess from filenames —
-    // see PR description / issue for the per-file reasoning). These ARE
-    // real, authored logic — excluding them isn't "inflating" the number,
-    // it's making the gate honest: a Tier 1/Tier 2 coverage gate that
-    // includes Tier 2 in its denominator would fail any PR that touches
-    // WebView/Activity/View code regardless of how well-tested that PR's
-    // actual testable logic is. Mirrors the CoreLogic/UI split already
-    // accepted on iOS (#432).
-    //
-    // Each Tier 2 file's top-level class, Kt-file facade, and compiled
-    // lambda/inner classes are all excluded, so nothing structurally
-    // untestable is left counting against the gate. The one exception is
-    // NativeBridge, which has an already-tested companion object
-    // (parseAndValidateMessage, compiled separately as
-    // NativeBridge$Companion.class) — Gradle's Ant-style exclude() does
-    // not reliably support "!" negation, so instead of pattern-negating
-    // the companion out, its lambda exclude uses "$*$*" (two "$"
-    // segments), which Kotlin lambda class names always have and the
-    // single-"$" companion class name never does. See the comment next
-    // to that pattern below for the concrete example.
-    val generatedCodeFilter = listOf(
-        "**/R.class", "**/R$*.class",
-        "**/BuildConfig.*",
-        "**/Manifest*.*",
-        "**/*Test*.*",
-        "android/**/*.*",
-        "**/databinding/**",
-        "**/android/databinding/**",
-        "**/androidx/databinding/**",
-        "**/*_ViewBinding*.*",
-        "**/*\$ViewInjector*.*",
-        "**/*\$ViewBinder*.*",
-        "**/*_MembersInjector.class"
-    )
-
-    val tier2FrameworkBoundFilter = listOf(
-        // Real WebView/Activity construction, ViewBinding, real lifecycle.
-        // Each file's top-level class, Kt-file facade, and compiled lambda
-        // classes (Kotlin: OuterClass$methodName$N.class) are all excluded.
-        // None of these files has a companion object worth protecting
-        // (that only applies to NativeBridge, handled separately below),
-        // so a plain "$*" is safe here.
-        "**/CustomWebView.class", "**/CustomWebView\$*.class", "**/CustomWebViewKt.class",
-        "**/MainActivity.class", "**/MainActivity\$*.class",
-        "**/SplashActivity.class", "**/SplashActivity\$*.class",
-        "**/NativeCameraManager.class", "**/NativeCameraManager\$*.class",
-        "**/camera/CameraSessionManager.class", "**/camera/CameraSessionManager\$*.class",
-        "**/TransitionManager.class", "**/TransitionManager\$*.class",
-        "**/utils/KeyboardUtil.class", "**/utils/KeyboardUtil\$*.class",
-        "**/security/SecurityAlertUI.class", "**/security/SecurityAlertUI\$*.class",
-        "**/security/SecurityAlertHandler.class", "**/security/SecurityAlertHandler\$*.class",
-        "**/security/SecurityBottomSheet.class", "**/security/SecurityBottomSheet\$*.class",
-        // NativeBridge has an already-tested companion (parseAndValidateMessage,
-        // compiled as NativeBridge$Companion.class — one "$"). Kotlin lambda
-        // classes always carry two "$" segments (e.g.
-        // NativeBridge$downloadAndOpenFile$1.class), so "$*$*" excludes every
-        // lambda while a single-"$" glob would be needed to also exclude the
-        // companion — which this pattern does NOT match, by construction.
-        "**/NativeBridge.class", "**/NativeBridgeKt.class", "**/NativeBridge\$*\$*.class"
-    )
-
     val debugTree = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
         exclude(generatedCodeFilter + tier2FrameworkBoundFilter)
     }
     val kotlinDebugTree = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
         exclude(generatedCodeFilter + tier2FrameworkBoundFilter)
     }
-    // Both noFcm/withFcm are listed (not just whichever isNotificationsEnabled()
-    // picked for this build) purely so the HTML report can resolve source
-    // lines for whichever one actually got compiled — listing the inactive
-    // one is harmless, Jacoco just won't find matching class files for it.
-    val sourceDirs = listOf(
-        "${project.projectDir}/src/main/java",
-        "${project.projectDir}/src/noFcm/java",
-        "${project.projectDir}/src/withFcm/java"
-    )
 
-    sourceDirectories.setFrom(files(sourceDirs))
+    sourceDirectories.setFrom(files(jacocoSourceDirs))
     classDirectories.setFrom(files(debugTree, kotlinDebugTree))
     executionData.setFrom(fileTree(layout.buildDirectory) {
         include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
+}
+
+// Instrumented / emulator coverage (Tier 2, #416). The INVERSE of
+// jacocoTestReport: it includes ONLY the tier2FrameworkBoundFilter
+// classes and measures how much of them the app/src/androidTest
+// instrumented tests exercise on a real emulator. REPORT-ONLY — no
+// regression gate (see .github/workflows/node.js.yml). jacocoTestReport
+// is untouched; the two reports are separate numbers over disjoint class
+// sets.
+//
+// AGP 8.11 also auto-generates `createDebugAndroidTestCoverageReport`
+// once enableAndroidTestCoverage=true, but that reports the whole app —
+// this task is the inverse-filtered Tier-2-only view we actually want.
+tasks.register<JacocoReport>("jacocoAndroidTestReport") {
+    dependsOn("connectedDebugAndroidTest")
+    group = "verification"
+    description = "Tier 2 instrumented coverage: ONLY the tier2FrameworkBoundFilter classes."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    fun tier2Tree(path: String) = fileTree(layout.buildDirectory.dir(path)) {
+        include(tier2FrameworkBoundFilter)
+        exclude(generatedCodeFilter)
+    }
+    val debugTree = tier2Tree("intermediates/javac/debug/compileDebugJavaWithJavac/classes")
+    val kotlinDebugTree = tier2Tree("tmp/kotlin-classes/debug")
+
+    sourceDirectories.setFrom(files(jacocoSourceDirs))
+    classDirectories.setFrom(files(debugTree, kotlinDebugTree))
+    // AGP 8.11 writes one .ec per connected device under this tree.
+    executionData.setFrom(fileTree(layout.buildDirectory) {
+        include("outputs/code_coverage/debugAndroidTest/connected/**/*.ec")
+        include("outputs/managed_device_code_coverage/**/*.ec")
     })
 }
 
