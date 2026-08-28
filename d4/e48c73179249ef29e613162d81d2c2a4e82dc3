@@ -1,0 +1,29 @@
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_abbac7e1770c30::t_81a26eff960ddc 1-4,7-8,20-70
+  s_abbac7e1770c30::t_78a716b8d3e301 71
+packages/catalyst-core/src/web-router/components/Split.server.test.jsx
+  s_abbac7e1770c30::t_95f7fcc408b5fb 1-52
+packages/catalyst-core/vitest.config.ts
+  s_abbac7e1770c30::t_0bc0d03e4f7568 59-62
+packages/catalyst-core/src/web-router/components/Split.test.jsx
+  s_abbac7e1770c30::t_c76405470d7c72 109-152
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_abbac7e1770c30::t_a4be48e9af6966 285-290
+  s_abbac7e1770c30::t_6ccd80b516060e 284,291-309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d4e48c73179249ef29e613162d81d2c2a4e82dc3",
+  "prompts": {},
+  "sessions": {
+    "s_abbac7e1770c30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4085bc31-9037-435d-ae5c-82adf34a4ec1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
