@@ -1,4 +1,15 @@
+import { fileURLToPath } from "node:url"
 import { configDefaults, defineConfig } from "vitest/config"
+
+// @catalyst/template resolves to a consumer app at runtime (package.json
+// maps it to "."). handler.jsx (SSR request handler) imports the app's
+// App / routes / store / document through it via static imports, so the
+// "node" project aliases it to a minimal fixture template under
+// test/server/fixtures/template so those modules can be tested at all.
+// Issue #348.
+const templateFixture = fileURLToPath(
+    new URL("./test/server/fixtures/template", import.meta.url),
+)
 
 // Two projects sharing this one config, kept in `projects` rather than a
 // separate vitest.workspace.ts so there's a single vitest.config.ts to
@@ -30,8 +41,31 @@ import { configDefaults, defineConfig } from "vitest/config"
 // never load for them. Issue #347.
 export default defineConfig({
     test: {
+        // Coverage stays on v8's default "only files imported during the
+        // run" behavior (no `include` -> no all-src walk). These excludes
+        // just drop noise that IS imported transitively: the compiled
+        // `dist/` copies pulled in via the "@catalyst/template" -> "."
+        // mapping, and the #348 handler-test fixtures under
+        // test/server/fixtures. CI aggregates each workspace's
+        // coverage-summary.json `total`, so keeping those out keeps that
+        // number honest.
+        coverage: {
+            exclude: [
+                ...configDefaults.coverage.exclude,
+                "dist/**",
+                "test/**",
+                "src/**/*.test.{js,jsx,ts,tsx}",
+                "src/**/vitest.setup.*",
+            ],
+        },
         projects: [
             {
+                resolve: {
+                    // Inert for every existing "node" test (none import the
+                    // "@catalyst/template" specifier); only handler.test.ts
+                    // (#348) relies on it.
+                    alias: { "@catalyst/template": templateFixture },
+                },
                 test: {
                     name: "node",
                     environment: "node",
