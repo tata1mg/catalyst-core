@@ -3,7 +3,7 @@
 const path = require("path")
 const fs = require("fs")
 const { runCommand, runInteractiveCommand } = require("../utils.js")
-const TerminalProgress = require("../TerminalProgress.js").default
+const TerminalProgress = require("../terminalProgress.js").default
 const { composeAndroidPlugins } = require("../pluginComposerAndroid.js")
 const { resolvePluginConfig, resolveInternalPluginsRoot } = require("../internalPluginUtils.js")
 
