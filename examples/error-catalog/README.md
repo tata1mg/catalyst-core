@@ -45,6 +45,14 @@ a hand-wave.
    `RUNTIME-WEB-003` (SSF) on the 404-retry path, though no fetcher or
    `serverSideFunction` failed. → `RUNTIME-WEB-002` is LEDGER (its only
    appearance is this mislabel).
+4. **`terminalProgress.js` import casing** — `buildAndroid/index.js`,
+   `buildIos/index.js`, `androidSetup.js` and `setupEmulatorIos.js` imported
+   `TerminalProgress.js` but the file is `terminalProgress.js`. macOS
+   (case-insensitive FS) masks it; on Linux / Docker / CI `require()` fails with
+   `MODULE_NOT_FOUND` and `catalyst buildApp:android` / `buildApp:ios` /
+   `setupEmulator` crash on load. Fixed in `fix(native): correct
+   terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
+   are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
 ## The 72-code ledger
 
