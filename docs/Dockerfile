@@ -11,6 +11,13 @@ RUN apk add --no-cache \
 
 WORKDIR /opt/1mg/web
 
+ARG APP_UID=1001
+ARG APP_GID=1001
+ARG APP_USER=app-user
+ARG APP_GROUP=app-group
+RUN addgroup -g ${APP_GID} ${APP_GROUP} && \
+    adduser -D -u ${APP_UID} -G ${APP_GROUP} ${APP_USER}
+
 COPY docs/package.json docs/package-lock.json ./docs/
 RUN npm --prefix docs ci
 
@@ -29,7 +36,8 @@ RUN npm run build
 ENV NODE_ENV=production
 EXPOSE 3005
 
-USER node
+RUN chown -R ${APP_USER}:${APP_GROUP} /opt/1mg/web
+USER ${APP_USER}:${APP_GROUP}
 
 # Catalyst's own server — it serves the SSR routes plus sitemap.xml,
 # robots.txt and the static assets. The Docusaurus build this replaced
