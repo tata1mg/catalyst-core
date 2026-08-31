@@ -1,6 +1,11 @@
 ARG BUILDPLATFORM=linux/amd64
 FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 
+# node:22-alpine tracks alpine:3.23, which already carries the patched
+# libcrypto3/libssl3 (3.5.8-r0). This upgrade is here so a cached base layer
+# cannot pin us to the vulnerable 3.5.7-r0 — build with --pull as well.
+RUN apk upgrade --no-cache libcrypto3 libssl3
+
 RUN apk add --no-cache \
     make \
     g++ \
