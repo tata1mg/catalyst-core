@@ -174,16 +174,23 @@ export const generateScriptElements = (jsUrls = [], nonce) =>
  * <link rel="stylesheet"> for one of those URLs, its href is swapped to an inert `data:` URI
  * before insertion — eliminating the redundant network fetch while `load` still fires
  * (from the browser resolving the data: URI), so Vite's own preload promise resolves normally.
+ * The link is removed from the DOM once its own `load` fires, so it doesn't linger.
  *
- * The link is still inserted (not left detached) deliberately: Vite's __vitePreload appears to
- * dedupe/cache concurrent requests for the same dependency URL in a way that depends on the link
- * actually being connected — a detached node whose `load` is dispatched synthetically resolves
- * the widget that triggered it, but leaves any other widget concurrently awaiting the same URL
- * hanging forever (verified empirically: real hydration prefetches ~10 SSR'd widgets at once,
- * several sharing common CSS deps; a detached-node version left 9 of them stuck pending
- * indefinitely, with only the first resolving — no errors, just a silent hang). Keeping the real
- * appendChild call, with only the href swapped, avoids this: same zero-network-fetch outcome,
- * but Vite's own dedup path sees a real inserted link and behaves correctly for later requests.
+ * The link is still genuinely inserted (not left detached) deliberately: Vite's __vitePreload
+ * appears to dedupe/cache concurrent requests for the same dependency URL in a way that depends
+ * on the link actually being connected — a detached node whose `load` is dispatched synthetically
+ * resolves the widget that triggered it, but leaves any other widget concurrently awaiting the
+ * same URL hanging forever (verified empirically: real hydration prefetches ~10 SSR'd widgets at
+ * once, several sharing common CSS deps; a detached-node version left 9 of them stuck pending
+ * indefinitely, with only the first resolving — no errors, just a silent hang).
+ *
+ * Removing on `load` — rather than never inserting — is safe for the same concurrent-widget case:
+ * every widget's `__vitePreload` deps are enumerated synchronously (in the same tick split()s run
+ * in), so any dedup check against this exact link has already happened by the time `load` fires
+ * asynchronously and removal runs. A widget that somehow checks after removal just creates (and
+ * this patch again neutralizes) a fresh link for the same URL — still zero network fetches, only
+ * a harmless redundant no-op, never a hang. Verified under staggered/shared-dependency timing
+ * before relying on this in the real app.
  *
  * CSS not in this set — e.g. reached only via later client-side navigation, never inlined for
  * this response — is left untouched and fetches exactly as Vite already does.
@@ -197,7 +204,8 @@ export const generateInlinedCssUrlsBootstrapScript = (cssUrls = [], nonce) => {
         `<script${nonceAttr}>window.__INLINED_CSS_URLS__=new Set(${urlsJson});` +
         `(function(){var o=document.head.appendChild.bind(document.head);` +
         `document.head.appendChild=function(n){try{if(n&&n.tagName==="LINK"&&n.rel==="stylesheet"` +
-        `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){n.href="data:text/css,"}}` +
+        `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){n.href="data:text/css,";` +
+        `n.addEventListener("load",function(){try{n.remove()}catch(e){}})}}` +
         `catch(e){}return o(n)}})()</script>`
     )
 }
