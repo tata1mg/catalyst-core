@@ -162,12 +162,16 @@ export const generateScriptElements = (jsUrls = []) =>
  * Inline bootstrap <script>. Records which CSS URLs were already inlined as <style> for this
  * response (window.__INLINED_CSS_URLS__) and patches document.head.appendChild so that if
  * hydration's dynamic-import prefetch (via Vite's own __vitePreload) tries to insert a
- * <link rel="stylesheet"> for one of those URLs, its href is swapped to an inert `data:` URI
- * before insertion — eliminating the redundant network fetch while `load` still fires
- * synchronously, so Vite's own preload promise resolves normally instead of hanging.
+ * <link rel="stylesheet"> for one of those URLs, the node is never actually connected to the
+ * document — its href is swapped to an inert `data:` URI first (harmless if anything else ever
+ * reads it) and a synthetic `load` event is dispatched on it directly, so Vite's own preload
+ * promise resolves normally instead of hanging. Since the link never touches the DOM there's no
+ * network fetch, no CSSOM/style-recalc cost, and nothing left behind to inspect.
  *
- * Verified against Vite's compiled output (v6.4.3): __vitePreload always sets `link.href` before
- * calling `document.head.appendChild(link)`, so appendChild is the single interception point.
+ * Verified against Vite's compiled output (v6.4.3): __vitePreload only awaits the link's `load`
+ * event — it never reads the element back afterward — so a synthetic event on a detached node is
+ * indistinguishable to it from a real one, and appendChild is the single interception point (it
+ * always sets `link.href` before calling `document.head.appendChild(link)`).
  * CSS not in this set — e.g. reached only via later client-side navigation, never inlined for
  * this response — is left untouched and fetches exactly as Vite already does.
  */
@@ -177,7 +181,8 @@ export const generateInlinedCssUrlsBootstrapScript = (cssUrls = []) => {
         `<script>window.__INLINED_CSS_URLS__=new Set(${urlsJson});` +
         `(function(){var o=document.head.appendChild.bind(document.head);` +
         `document.head.appendChild=function(n){try{if(n&&n.tagName==="LINK"&&n.rel==="stylesheet"` +
-        `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){n.href="data:text/css,"}}` +
+        `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){` +
+        `n.href="data:text/css,";n.dispatchEvent(new Event("load"));return n}}` +
         `catch(e){}return o(n)}})()</script>`
     )
 }
