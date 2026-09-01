@@ -114,7 +114,13 @@ export class ChunkExtractor {
         return `${this.publicPath}${cleaned}`
     }
 
-    _toCssUrl(filePath) {
+    /**
+     * Public asset URL for a manifest-relative CSS path. Must stay byte-identical to how Vite's
+     * compiled client bundle concatenates `config.base + <css path>` for its own dynamic-import CSS
+     * deps — the client-side appendChild patch (see extract.js) only recognizes a dep as "already
+     * inlined" if this matches Vite's own `link.href` exactly.
+     */
+    toCssUrl(filePath) {
         const cleaned = filePath.replace(/^\/+/, "")
         return `${this.publicPath}${cleaned}`
     }
