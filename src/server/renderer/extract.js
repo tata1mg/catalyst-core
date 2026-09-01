@@ -89,6 +89,17 @@ export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modu
     )
 
 /**
+ * HTTP `Link` header value for critical JS, so Cloudflare Early Hints (103)
+ * can preload them before SSR finishes. `as=script; crossorigin` matches the
+ * fetch mode of the `<script type="module">` tags these accompany, avoiding
+ * a double download.
+ * @param {string[]} jsUrls
+ * @returns {string}
+ */
+export const generateLinkHeader = (jsUrls = []) =>
+    [...new Set(jsUrls)].map((url) => `<${url}>; rel=preload; as=script; crossorigin`).join(", ")
+
+/**
  * Read CSS files from disk and return concatenated CSS string for inlining.
  * @param {string[]} cssPaths - Relative CSS paths (from manifest).
  * @param {string} basePath  - Build output directory on disk.

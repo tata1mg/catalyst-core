@@ -21,6 +21,7 @@ import {
     registerDeferredAssetsForRoute,
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
+    generateLinkHeader,
 } from "./extract.js"
 import path from "path"
 import crypto from "node:crypto"
@@ -87,6 +88,11 @@ const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-
 // 'unsafe-inline'. Off by default — no behavior change unless explicitly enabled.
 const CSP_NONCE_ENABLE = process.env.CSP_NONCE_ENABLE === true
 const generateNonce = () => crypto.randomBytes(16).toString("base64")
+
+// Config-driven (config.json → EARLY_HINTS_ENABLE): when on, critical JS is advertised via
+// an HTTP `Link` header so a fronting CDN (e.g. Cloudflare Early Hints) can preload it before
+// SSR finishes. Off by default — no behavior change unless explicitly enabled.
+const EARLY_HINTS_ENABLE = process.env.EARLY_HINTS_ENABLE === true
 
 const traceHook = (fn, spanName) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
@@ -214,6 +220,10 @@ const _renderMarkUp = async (
     try {
         const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
         res.set({ "content-type": "text/html; charset=utf-8" })
+        if (EARLY_HINTS_ENABLE) {
+            const linkHeader = generateLinkHeader(criticalAssets.js)
+            if (linkHeader) res.setHeader("link", linkHeader)
+        }
         res.status(status)
 
         return new Promise((resolve, reject) => {
