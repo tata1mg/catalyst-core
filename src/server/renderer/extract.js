@@ -205,6 +205,7 @@ export const generateInlinedCssUrlsBootstrapScript = (cssUrls = [], nonce) => {
         `(function(){var o=document.head.appendChild.bind(document.head);` +
         `document.head.appendChild=function(n){try{if(n&&n.tagName==="LINK"&&n.rel==="stylesheet"` +
         `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){n.href="data:text/css,";` +
+        `n.rel="prefetch";n.removeAttribute("as");` +
         `n.addEventListener("load",function(){try{n.remove()}catch(e){}})}}` +
         `catch(e){}return o(n)}})()</script>`
     )
