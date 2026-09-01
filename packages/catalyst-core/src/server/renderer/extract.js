@@ -162,16 +162,20 @@ export const generateScriptElements = (jsUrls = []) =>
  * Inline bootstrap <script>. Records which CSS URLs were already inlined as <style> for this
  * response (window.__INLINED_CSS_URLS__) and patches document.head.appendChild so that if
  * hydration's dynamic-import prefetch (via Vite's own __vitePreload) tries to insert a
- * <link rel="stylesheet"> for one of those URLs, the node is never actually connected to the
- * document — its href is swapped to an inert `data:` URI first (harmless if anything else ever
- * reads it) and a synthetic `load` event is dispatched on it directly, so Vite's own preload
- * promise resolves normally instead of hanging. Since the link never touches the DOM there's no
- * network fetch, no CSSOM/style-recalc cost, and nothing left behind to inspect.
+ * <link rel="stylesheet"> for one of those URLs, its href is swapped to an inert `data:` URI
+ * before insertion — eliminating the redundant network fetch while `load` still fires
+ * (from the browser resolving the data: URI), so Vite's own preload promise resolves normally.
  *
- * Verified against Vite's compiled output (v6.4.3): __vitePreload only awaits the link's `load`
- * event — it never reads the element back afterward — so a synthetic event on a detached node is
- * indistinguishable to it from a real one, and appendChild is the single interception point (it
- * always sets `link.href` before calling `document.head.appendChild(link)`).
+ * The link is still inserted (not left detached) deliberately: Vite's __vitePreload appears to
+ * dedupe/cache concurrent requests for the same dependency URL in a way that depends on the link
+ * actually being connected — a detached node whose `load` is dispatched synthetically resolves
+ * the widget that triggered it, but leaves any other widget concurrently awaiting the same URL
+ * hanging forever (verified empirically: real hydration prefetches ~10 SSR'd widgets at once,
+ * several sharing common CSS deps; a detached-node version left 9 of them stuck pending
+ * indefinitely, with only the first resolving — no errors, just a silent hang). Keeping the real
+ * appendChild call, with only the href swapped, avoids this: same zero-network-fetch outcome,
+ * but Vite's own dedup path sees a real inserted link and behaves correctly for later requests.
+ *
  * CSS not in this set — e.g. reached only via later client-side navigation, never inlined for
  * this response — is left untouched and fetches exactly as Vite already does.
  */
@@ -181,8 +185,7 @@ export const generateInlinedCssUrlsBootstrapScript = (cssUrls = []) => {
         `<script>window.__INLINED_CSS_URLS__=new Set(${urlsJson});` +
         `(function(){var o=document.head.appendChild.bind(document.head);` +
         `document.head.appendChild=function(n){try{if(n&&n.tagName==="LINK"&&n.rel==="stylesheet"` +
-        `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){` +
-        `n.href="data:text/css,";n.dispatchEvent(new Event("load"));return n}}` +
+        `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){n.href="data:text/css,"}}` +
         `catch(e){}return o(n)}})()</script>`
     )
 }
