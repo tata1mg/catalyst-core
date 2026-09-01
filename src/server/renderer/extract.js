@@ -100,6 +100,24 @@ export const generateLinkHeader = (jsUrls = []) =>
     [...new Set(jsUrls)].map((url) => `<${url}>; rel=preload; as=script; crossorigin`).join(", ")
 
 /**
+ * HTTP `Link` header value for app-supplied preconnect/preload entries — third-party analytics
+ * origins, a static LCP image, fonts, etc. Never hardcoded here: the app declares exactly which
+ * URLs it wants hinted (see EARLY_HINTS_LINKS in handler.jsx), and this only formats them.
+ * @param {{url: string, rel: "preconnect"|"preload", as?: string, crossorigin?: boolean}[]} links
+ * @returns {string}
+ */
+export const generateCustomLinkHeader = (links = []) =>
+    links
+        .filter((link) => link?.url && (link.rel === "preload" || link.rel === "preconnect"))
+        .map((link) => {
+            const parts = [`<${link.url}>`, `rel=${link.rel}`]
+            if (link.as) parts.push(`as=${link.as}`)
+            if (link.crossorigin) parts.push("crossorigin")
+            return parts.join("; ")
+        })
+        .join(", ")
+
+/**
  * Read CSS files from disk and return concatenated CSS string for inlining.
  * @param {string[]} cssPaths - Relative CSS paths (from manifest).
  * @param {string} basePath  - Build output directory on disk.
