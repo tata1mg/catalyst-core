@@ -246,10 +246,6 @@ const _renderMarkUp = async (
     try {
         const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
         res.set({ "content-type": "text/html; charset=utf-8" })
-        if (EARLY_HINTS_ENABLE) {
-            const linkHeader = generateLinkHeader(criticalAssets.js)
-            if (linkHeader) res.setHeader("link", linkHeader)
-        }
         res.status(status)
 
         return new Promise((resolve, reject) => {
@@ -300,6 +296,17 @@ const _renderMarkUp = async (
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
                 onShellReady() {
                     res.setHeader("content-type", "text/html")
+                    if (EARLY_HINTS_ENABLE) {
+                        // window.__SSR_RENDERED_COMPONENTS__ (split() chunks discovered during
+                        // render) are eagerly re-imported client-side and block hydrateRoot via
+                        // hydrationReady() — not lazy — so they're as hint-worthy as critical JS.
+                        // Only what's been discovered by shell-ready is known this early; chunks
+                        // behind Suspense boundaries still pending resolve after headers are sent
+                        // and can't be included.
+                        const shellDeferredJs = chunkExtractor ? chunkExtractor.getDeferredAssets().js : []
+                        const linkHeader = generateLinkHeader([...criticalAssets.js, ...shellDeferredJs])
+                        if (linkHeader) res.setHeader("link", linkHeader)
+                    }
                     pipe(tail)
                 },
 
