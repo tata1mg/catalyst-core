@@ -22,6 +22,7 @@ import {
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
     generateLinkHeader,
+    generateCustomLinkHeader,
 } from "./extract.js"
 import path from "path"
 import { Transform } from "node:stream"
@@ -117,6 +118,21 @@ const CLOUDFLARE_EARLY_HINTS_ENABLE = process.env.CLOUDFLARE_EARLY_HINTS_ENABLE 
 // Unlike the Cloudflare path, this can hint the *current* request, not just future ones, since
 // it doesn't depend on a CDN having learned anything from a prior response. Off by default.
 const NATIVE_EARLY_HINTS_ENABLE = process.env.NATIVE_EARLY_HINTS_ENABLE === true
+
+// Config-driven (config.json → EARLY_HINTS_LINKS): app-supplied preconnect/preload entries —
+// third-party analytics origins, a static LCP image, fonts, etc. Never hardcoded in catalyst-core
+// itself; the app declares the exact URLs it wants hinted. JSON array of
+// { url, rel: "preconnect"|"preload", as?, crossorigin? }. Computed once — this list is static
+// for the process lifetime, unlike criticalAssets/deferredAssets which vary per request.
+const EARLY_HINTS_LINKS = (() => {
+    try {
+        const parsed = JSON.parse(process.env.EARLY_HINTS_LINKS || "[]")
+        return Array.isArray(parsed) ? parsed : []
+    } catch {
+        return []
+    }
+})()
+const customLinkHeader = generateCustomLinkHeader(EARLY_HINTS_LINKS)
 
 const traceHook = (fn, spanName) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
@@ -311,7 +327,14 @@ const _renderMarkUp = async (
                     // and can't be included.
                     const shellDeferredJs = chunkExtractor ? chunkExtractor.getDeferredAssets().js : []
                     if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
-                        const linkHeader = generateLinkHeader([...criticalAssets.js, ...shellDeferredJs])
+                        // customLinkHeader (app-supplied preconnect/preload entries) included here
+                        // too — Cloudflare only ever sees this one combined header per response.
+                        const linkHeader = [
+                            generateLinkHeader([...criticalAssets.js, ...shellDeferredJs]),
+                            customLinkHeader,
+                        ]
+                            .filter(Boolean)
+                            .join(", ")
                         if (linkHeader) res.setHeader("link", linkHeader)
                     }
                     if (NATIVE_EARLY_HINTS_ENABLE) {
@@ -382,12 +405,15 @@ async function _handler(req, res) {
 
         if (NATIVE_EARLY_HINTS_ENABLE) {
             // Sent as early as possible — before the app-side hook and data fetcher, which can
-            // be slow — so the browser can start fetching critical JS in parallel with them
-            // instead of waiting for the full SSR response. A throwaway extractor: the route's
-            // critical JS depends only on `allMatches`, already known here, and re-collecting it
-            // below for the real render is unaffected.
+            // be slow — so the browser can start fetching critical JS (and any app-supplied
+            // preconnect/preload entries, which don't depend on the route at all) in parallel
+            // with them instead of waiting for the full SSR response. A throwaway extractor: the
+            // route's critical JS depends only on `allMatches`, already known here, and
+            // re-collecting it below for the real render is unaffected.
             const earlyAssets = collectAssets(req, allMatches).getCriticalAssets()
-            const linkValues = generateLinkHeader(earlyAssets.js)
+            const linkValues = [generateLinkHeader(earlyAssets.js), customLinkHeader]
+                .filter(Boolean)
+                .join(", ")
             if (linkValues) res.writeEarlyHints({ link: linkValues.split(", ") })
         }
 
