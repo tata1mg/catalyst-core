@@ -14,6 +14,13 @@ RUN apk add --no-cache \
     shared-mime-info \
     bash
 
+# The npm CLI vendors its own dependency tree, so scanners attribute that
+# tree's CVEs to this image even though none of it appears in
+# package-lock.json and none of it is reachable from `npm run serve`.
+# node:22-alpine ships npm 10.x; 12.x carries patched tar, pacote, sigstore,
+# picomatch, postcss-selector-parser and brace-expansion.
+RUN npm install -g npm@12.0.2
+
 WORKDIR /opt/1mg/web
 
 ARG APP_UID=1001
