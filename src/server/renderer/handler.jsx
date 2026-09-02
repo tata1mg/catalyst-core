@@ -176,7 +176,9 @@ const _renderMarkUp = async (
     const isBot = !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
 
     // Critical assets → <head>
-    const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
+    const criticalAssets = chunkExtractor
+        ? chunkExtractor.getCriticalAssets()
+        : { js: [], scripts: [], css: [] }
 
     // Inline critical CSS from disk (small thanks to natural code-splitting)
     const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
@@ -188,7 +190,9 @@ const _renderMarkUp = async (
         buildDir
     )
 
-    const jsScripts = generateScriptElements(criticalAssets.js, nonce)
+    // Only roots get a <script> tag; their static deps ride along via modulepreload
+    // (criticalPreloadLinks) and the Link header below, which both use the full list.
+    const jsScripts = generateScriptElements(criticalAssets.scripts, nonce)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce)
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce)
@@ -260,7 +264,7 @@ const _renderMarkUp = async (
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
-                        : { js: [], css: [] }
+                        : { js: [], scripts: [], css: [] }
 
                     const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
 
@@ -285,7 +289,7 @@ const _renderMarkUp = async (
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.js, nonce))
+                        this.push(generateScriptStrings(deferredAssets.scripts, nonce))
                     }
 
                     cb()

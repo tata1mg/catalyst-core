@@ -6,6 +6,22 @@ import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 
+// Rollup emits a separate shared chunk for every module reachable from two or more
+// split() targets. In an app with many split widgets that produces dozens of 1-3KB
+// chunks (actions/reducers/constants), each costing a request, its own HPACK headers
+// and a near-useless compression window, and all of them competing with the LCP image
+// for bandwidth. experimentalMinChunkSize merges chunks below this byte threshold into
+// their importers when it can do so without changing load semantics — Rollup only
+// merges chunks whose dependent-entry sets are compatible, so nothing is duplicated
+// and nothing is loaded that wasn't already needed.
+// Set CATALYST_MIN_CHUNK_SIZE=0 to restore Rollup's default (per-module) splitting.
+const MIN_CHUNK_SIZE = (() => {
+    const raw = process.env.CATALYST_MIN_CHUNK_SIZE
+    if (raw === undefined || raw === "") return 20000
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 20000
+})()
+
 const buildConfigPath = path.join(process.env.src_path, "buildConfig.js")
 const customViteConfig = await import(buildConfigPath)
 
@@ -42,6 +58,7 @@ const clientConfig = defineConfig({
             },
             output: {
                 format: "es",
+                experimentalMinChunkSize: MIN_CHUNK_SIZE,
                 entryFileNames: (chunkInfo) => {
                     return chunkInfo.name === "server" ? "server/[name].js" : "client/assets/[name]-[hash].js"
                 },
