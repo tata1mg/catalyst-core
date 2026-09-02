@@ -304,7 +304,7 @@ class BridgeFileHandler: NSObject {
             popoverController.permittedArrowDirections = []
         }
 
-        shareController.completionWithItemsHandler = { [weak self] activityType, completed, returnedItems, error in
+        shareController.completionWithItemsHandler = { [weak self] _, completed, _, error in
             if let error = error {
                 fileLogger.error("Sharing failed: \(error.localizedDescription)")
                 self?.delegate?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Sharing failed: \(error.localizedDescription)", code: "SHARING_ERROR")

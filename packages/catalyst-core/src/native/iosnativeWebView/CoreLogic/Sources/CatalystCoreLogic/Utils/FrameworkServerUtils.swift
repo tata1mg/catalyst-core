@@ -507,13 +507,13 @@ public class FrameworkServerUtils {
         if let identity = loadIdentityFromP12(),
            let secIdentity = sec_identity_create(identity) {
             let tlsOptions = NWProtocolTLS.Options()
-            
+
             // Set the identity
             sec_protocol_options_set_local_identity(tlsOptions.securityProtocolOptions, secIdentity)
-            
+
             // Set minimum TLS version
             sec_protocol_options_set_min_tls_protocol_version(tlsOptions.securityProtocolOptions, .TLSv12)
-            
+
             // Add TLS to the protocol stack
             parameters.defaultProtocolStack.applicationProtocols.insert(tlsOptions, at: 0)
 

@@ -436,7 +436,7 @@ final class NativeBridgeTests: XCTestCase {
 
         // Set up expectation for callback (will eventually be sent)
         var javascriptExecuted = false
-        mockWebView.onEvaluateJavaScript = { script in
+        mockWebView.onEvaluateJavaScript = { _ in
             javascriptExecuted = true
         }
 
@@ -469,7 +469,7 @@ final class NativeBridgeTests: XCTestCase {
         let message = createMockMessage(body: messageBody)
 
         var javascriptExecuted = false
-        mockWebView.onEvaluateJavaScript = { script in
+        mockWebView.onEvaluateJavaScript = { _ in
             javascriptExecuted = true
         }
 
@@ -522,7 +522,7 @@ final class NativeBridgeTests: XCTestCase {
         let message = createMockMessage(body: messageBody)
 
         var javascriptExecuted = false
-        mockWebView.onEvaluateJavaScript = { script in
+        mockWebView.onEvaluateJavaScript = { _ in
             javascriptExecuted = true
         }
 

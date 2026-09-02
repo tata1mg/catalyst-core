@@ -183,7 +183,7 @@ class FilePickerHandler: NSObject {
         // Use photo picker if all MIME types are images/videos, else use document picker
         let mimeTypes = options.mimeType.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         let allMedia = mimeTypes.allSatisfy { $0.hasPrefix("image/") || $0.hasPrefix("video/") }
-        
+
         if allMedia, #available(iOS 14.0, *) {
             presentPhotoPicker(from: viewController, options: options)
         } else {
@@ -198,7 +198,7 @@ class FilePickerHandler: NSObject {
         let mimeTypes = options.mimeType.lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         let hasImages = mimeTypes.contains { $0.hasPrefix("image/") }
         let hasVideos = mimeTypes.contains { $0.hasPrefix("video/") }
-        
+
         var config = PHPickerConfiguration()
         config.selectionLimit = options.selectionLimit
         config.filter = (hasImages && hasVideos) ? .any(of: [.images, .videos]) : hasVideos ? .videos : .images
@@ -390,7 +390,7 @@ class FilePickerHandler: NSObject {
 
         // Fallback based on file extension with comprehensive mapping
         let ext = url.pathExtension.lowercased()
-        
+
         switch ext {
         // Images
         case "jpg", "jpeg": return "image/jpeg"
@@ -403,7 +403,7 @@ class FilePickerHandler: NSObject {
         case "heif": return "image/heif"
         case "ico": return "image/x-icon"
         case "tiff", "tif": return "image/tiff"
-        
+
         // Documents
         case "pdf": return "application/pdf"
         case "doc": return "application/msword"
@@ -412,25 +412,25 @@ class FilePickerHandler: NSObject {
         case "xlsx": return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         case "ppt": return "application/vnd.ms-powerpoint"
         case "pptx": return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        
+
         // Text
         case "txt": return "text/plain"
         case "html", "htm": return "text/html"
         case "css": return "text/css"
         case "csv": return "text/csv"
-        
+
         // Data
         case "json": return "application/json"
         case "xml": return "application/xml"
         case "js": return "application/javascript"
-        
+
         // Archives
         case "zip": return "application/zip"
         case "rar": return "application/x-rar-compressed"
         case "7z": return "application/x-7z-compressed"
         case "tar": return "application/x-tar"
         case "gz": return "application/gzip"
-        
+
         // Video
         case "mp4": return "video/mp4"
         case "mov": return "video/quicktime"
@@ -439,7 +439,7 @@ class FilePickerHandler: NSObject {
         case "mkv": return "video/x-matroska"
         case "m4v": return "video/x-m4v"
         case "flv": return "video/x-flv"
-        
+
         // Audio
         case "mp3": return "audio/mpeg"
         case "wav": return "audio/wav"
@@ -448,7 +448,7 @@ class FilePickerHandler: NSObject {
         case "aac": return "audio/aac"
         case "flac": return "audio/flac"
         case "wma": return "audio/x-ms-wma"
-        
+
         default:
             logger.warning("Unknown file extension '\(ext)', using application/octet-stream")
             return "application/octet-stream"
@@ -520,7 +520,6 @@ class FilePickerHandler: NSObject {
             )
         }
     }
-
 
     private func processFileWithFrameworkServer(url: URL, metadata: FileMetadata) -> FileProcessingResult {
         logger.info("Processing file with framework server transport")
@@ -825,14 +824,14 @@ extension FilePickerHandler: PHPickerViewControllerDelegate {
             "public.png",
             "public.gif"
         ]
-        
+
         // Check if any specific image type is available
         for specificType in specificImageTypes {
             if itemProvider.hasItemConformingToTypeIdentifier(specificType) {
                 return specificType
             }
         }
-        
+
         // Check for specific video types
         let specificVideoTypes = [
             UTType.mpeg4Movie.identifier,
@@ -840,13 +839,13 @@ extension FilePickerHandler: PHPickerViewControllerDelegate {
             "public.mpeg-4",
             "com.apple.quicktime-movie"
         ]
-        
+
         for specificType in specificVideoTypes {
             if itemProvider.hasItemConformingToTypeIdentifier(specificType) {
                 return specificType
             }
         }
-        
+
         // Fall back to generic types
         if itemProvider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
             return UTType.image.identifier
@@ -975,7 +974,7 @@ extension FilePickerHandler: PHPickerViewControllerDelegate {
             fileExtension = "dat"
             logger.warning("Unknown type identifier '\(typeIdentifier)', defaulting to 'dat' extension")
         }
-        
+
         logger.debug("Using file extension '\(fileExtension)' from type identifier fallback")
         return fileExtension
     }
@@ -984,12 +983,12 @@ extension FilePickerHandler: PHPickerViewControllerDelegate {
         guard let utType = UTType(typeIdentifier) else {
             return nil
         }
-        
+
         // If UTType has a preferred MIME type, return it
         if let mimeType = utType.preferredMIMEType {
             return mimeType
         }
-        
+
         // Handle generic types by checking if they conform to specific types
         if utType.conforms(to: .jpeg) {
             return "image/jpeg"
@@ -1004,7 +1003,7 @@ extension FilePickerHandler: PHPickerViewControllerDelegate {
         } else if utType.conforms(to: .movie) {
             return "video/mp4"  // Default for generic videos
         }
-        
+
         return nil
     }
 }

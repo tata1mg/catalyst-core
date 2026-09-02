@@ -21,7 +21,7 @@ class ImageHandler: NSObject {
     weak var delegate: ImageHandlerDelegate?
     private var currentPhotoURL: URL?
     private var currentCameraOptions: [String: Any] = [:]
-    
+
     // Helper to check camera permissions
     func checkCameraPermission(completion: @escaping (Bool) -> Void) {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -39,36 +39,36 @@ class ImageHandler: NSObject {
             completion(false)
         }
     }
-    
+
     // Create a file for saving an image
     func createImageFile() -> URL {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
         let timeStamp = dateFormatter.string(from: Date())
-        
+
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let imageDirectory = documentsDirectory.appendingPathComponent("Pictures", isDirectory: true)
-        
+
         // Create directory if it doesn't exist
         if !FileManager.default.fileExists(atPath: imageDirectory.path) {
             try? FileManager.default.createDirectory(at: imageDirectory, withIntermediateDirectories: true)
         }
-        
+
         return imageDirectory.appendingPathComponent("JPEG_\(timeStamp)_.jpg")
     }
-    
+
     // Create a simple mock image
     func createMockImage() -> UIImage? {
         let size = CGSize(width: 1024, height: 768)
         UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
         defer { UIGraphicsEndImageContext() }
-        
+
         // Fill with a gradient background
         let context = UIGraphicsGetCurrentContext()!
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let colors = [UIColor.systemBlue.cgColor, UIColor.systemTeal.cgColor]
         let locations: [CGFloat] = [0.0, 1.0]
-        
+
         if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: locations) {
             context.drawLinearGradient(
                 gradient,
@@ -77,14 +77,14 @@ class ImageHandler: NSObject {
                 options: []
             )
         }
-        
+
         // Add text "Mock Camera Image"
         let text = "Mock Camera Image"
         let attributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.boldSystemFont(ofSize: 48),
             .foregroundColor: UIColor.white
         ]
-        
+
         let textSize = text.size(withAttributes: attributes)
         let textRect = CGRect(
             x: (size.width - textSize.width) / 2,
@@ -92,19 +92,19 @@ class ImageHandler: NSObject {
             width: textSize.width,
             height: textSize.height
         )
-        
+
         text.draw(in: textRect, withAttributes: attributes)
-        
+
         // Add current date/time
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         let dateText = dateFormatter.string(from: Date())
-        
+
         let dateAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 24),
             .foregroundColor: UIColor.white
         ]
-        
+
         let dateTextSize = dateText.size(withAttributes: dateAttributes)
         let dateTextRect = CGRect(
             x: (size.width - dateTextSize.width) / 2,
@@ -112,12 +112,12 @@ class ImageHandler: NSObject {
             width: dateTextSize.width,
             height: dateTextSize.height
         )
-        
+
         dateText.draw(in: dateTextRect, withAttributes: dateAttributes)
-        
+
         return UIGraphicsGetImageFromCurrentImageContext()
     }
-    
+
     // Save actual camera captured image and notify delegate
     func saveActualCameraImage(_ image: UIImage) {
         let fileURL = createImageFile()
@@ -160,7 +160,7 @@ class ImageHandler: NSObject {
             delegate?.imageHandler(self, didFailWithError: error)
         }
     }
-    
+
     // Present camera
     func presentCamera(from viewController: UIViewController, options: [String: Any] = [:]) {
         logger.debug("presentCamera called with options: \(options)")
@@ -187,7 +187,7 @@ class ImageHandler: NSObject {
             presentCameraUnavailableAlert(from: viewController)
         }
     }
-    
+
     // Set up notification observer for AVCaptureSession errors
     private func setupAVCaptureErrorObserver() {
         NotificationCenter.default.addObserver(
@@ -197,14 +197,14 @@ class ImageHandler: NSObject {
             object: nil
         )
     }
-    
+
     // Handle AVCaptureSession runtime errors
     @objc private func handleAVCaptureSessionRuntimeError(_ notification: Notification) {
         if let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError {
             // Check for specific error code
             if error.domain == AVFoundationErrorDomain && error.code == -11800 {
                 logger.debug("Detected AVFoundation error -11800, generating mock image")
-                
+
                 // Dismiss any presented view controllers if needed
                 if let rootViewController = topMostRootViewController(),
                    let presented = rootViewController.presentedViewController as? UIImagePickerController {
@@ -218,20 +218,20 @@ class ImageHandler: NSObject {
             }
         }
     }
-    
+
     private func topMostRootViewController() -> UIViewController? {
         let windowScenes = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-        
+
         if let keyWindow = windowScenes
             .flatMap({ $0.windows })
             .first(where: { $0.isKeyWindow }) {
             return keyWindow.rootViewController
         }
-        
+
         return windowScenes.first?.windows.first?.rootViewController
     }
-    
+
     // Present photo library
     func presentPhotoLibrary(from viewController: UIViewController) {
         if UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
@@ -239,7 +239,7 @@ class ImageHandler: NSObject {
             imagePicker.delegate = self
             imagePicker.sourceType = .photoLibrary
             imagePicker.allowsEditing = false
-            
+
             DispatchQueue.main.async {
                 viewController.present(imagePicker, animated: true)
             }
@@ -248,7 +248,7 @@ class ImageHandler: NSObject {
             delegate?.imageHandler(self, didFailWithError: error)
         }
     }
-    
+
     // Show camera unavailable alert
     private func presentCameraUnavailableAlert(from viewController: UIViewController) {
         let isSimulator = isRunningOnSimulator()
@@ -262,7 +262,7 @@ class ImageHandler: NSObject {
             message: message,
             preferredStyle: .alert
         )
-        
+
         alert.addAction(UIAlertAction(title: "Yes", style: .default) { [weak self] _ in
             guard let self = self else { return }
             if isSimulator {
@@ -273,17 +273,17 @@ class ImageHandler: NSObject {
                 self.presentPhotoLibrary(from: viewController)
             }
         })
-        
+
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
             guard let self = self else { return }
             self.delegate?.imageHandlerDidCancel(self)
         })
-        
+
         DispatchQueue.main.async {
             viewController.present(alert, animated: true)
         }
     }
-    
+
     // Present permission alert
     func presentPermissionAlert(from viewController: UIViewController) {
         let alert = UIAlertController(
@@ -291,23 +291,23 @@ class ImageHandler: NSObject {
             message: "Please allow camera access in Settings to use this feature",
             preferredStyle: .alert
         )
-        
+
         alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
             if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(settingsURL)
             }
         })
-        
+
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
             guard let self = self else { return }
             self.delegate?.imageHandlerDidCancel(self)
         })
-        
+
         DispatchQueue.main.async {
             viewController.present(alert, animated: true)
         }
     }
-    
+
     // Apply camera options to UIImagePickerController
     private func applyCameraOptions(to imagePicker: UIImagePickerController, options: [String: Any]) {
         logger.debug("Applying camera options: \(options)")
@@ -441,7 +441,7 @@ class ImageHandler: NSObject {
 
 // MARK: - UIImagePickerControllerDelegate
 extension ImageHandler: UIImagePickerControllerDelegate & UINavigationControllerDelegate {
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
         picker.dismiss(animated: true)
 
         // Process actual camera capture or use mock for simulator
@@ -453,16 +453,16 @@ extension ImageHandler: UIImagePickerControllerDelegate & UINavigationController
             saveMockImage()
         }
     }
-    
+
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
         logger.debug("Camera capture cancelled")
         delegate?.imageHandlerDidCancel(self)
     }
-    
+
     func imagePickerController(_ picker: UIImagePickerController, didFailWithError error: Error) {
         picker.dismiss(animated: true)
-        
+
         let nsError = error as NSError
         // Check for specific AVFoundation error
         if nsError.domain == AVFoundationErrorDomain && nsError.code == -11800 {

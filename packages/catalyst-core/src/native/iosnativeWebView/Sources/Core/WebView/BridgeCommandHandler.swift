@@ -722,7 +722,7 @@ class BridgeCommandHandler {
         let autoCancel = json["autoCancel"] as? Bool ?? true
         let dataDict = json["data"] as? [String: Any]
 
-        var actionsConfig: [NotificationAction]? = nil
+        var actionsConfig: [NotificationAction]?
         if let actionsArray = json["actions"] as? [[String: Any]] {
             actionsConfig = actionsArray.compactMap { item in
                 let title = item["title"] as? String ?? ""

@@ -359,7 +359,7 @@ class MockFilePickerDelegate: FilePickerHandlerDelegate {
     var didFailWithError: Error?
     var stateChanges: [String] = []
 
-    func filePickerHandler(_ handler: FilePickerHandler, didFinishWith payload: [String : Any]) {
+    func filePickerHandler(_ handler: FilePickerHandler, didFinishWith payload: [String: Any]) {
         didFinishPayload = payload
     }
 
