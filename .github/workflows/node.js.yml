@@ -465,6 +465,69 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
                   retention-days: 14
 
+    # Android Lint gate. Separate job from android-unit-and-coverage
+    # (parallel, not chained) so a lint failure and a coverage failure
+    # surface independently -- a red lint job must not be hidden behind a
+    # skipped coverage job, and vice versa. Gate contract mirrors the web
+    # `lint` job: `abortOnError = true` (already set in app/build.gradle.kts)
+    # fails the build on `error`-severity issues; warnings are reported but
+    # non-blocking. Costs a second Gradle cold start (~1-2 min) -- neither
+    # android job caches Gradle today -- which is an acceptable price for
+    # an independent check.
+    android-lint:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.android == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+
+            - name: Android Lint (debug)
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  chmod +x ./gradlew
+                  ./gradlew lintDebug --console=plain
+
+            - name: Upload lint report
+              # `always()` -- the report is most useful precisely when the
+              # job just failed.
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: android-lint-report
+                  path: packages/catalyst-core/src/native/androidProject/app/build/reports/lint-results-debug.html
+                  retention-days: 14
+
+    # SwiftLint gate. Runs on ubuntu (SwiftLint ships a Linux binary) in
+    # the official container pinned to the same version developers run
+    # locally, so CI and local agree exactly -- no macOS minutes spent on
+    # a lint check. Parallel with the ios-* jobs, same rationale as
+    # android-lint. Gate contract: plain `swiftlint lint` (no `--strict`),
+    # so `error`-severity violations fail and warnings are reported but
+    # non-blocking; the .swiftlint.yml next to the sources defines the
+    # thresholds and exclusions. NOTE: image is tag-pinned, not
+    # digest-pinned like the actions/* refs -- acceptable for a lint tool,
+    # revisit if supply-chain policy tightens.
+    ios-swiftlint:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.ios == 'true'
+        runs-on: ubuntu-latest
+        container:
+            image: ghcr.io/realm/swiftlint:0.61.0
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: SwiftLint
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  swiftlint version
+                  swiftlint lint --reporter github-actions-logging
+
     # Split from what was a single test-ios-unit job into two: CoreLogic
     # (this job) runs first, has zero dependencies, needs no simulator, and
     # is the only iOS target that can produce a real coverage percentage
@@ -823,7 +886,7 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-lint, android-unit-and-coverage, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -834,7 +897,9 @@ jobs:
                   web_status="${{ needs.unit-and-contract-tests.result }}"
                   web_smoke_status="${{ needs.web-integration-smoke.result }}"
                   error_catalog_status="${{ needs.error-catalog.result }}"
+                  android_lint_status="${{ needs.android-lint.result }}"
                   android_status="${{ needs.android-unit-and-coverage.result }}"
+                  ios_swiftlint_status="${{ needs.ios-swiftlint.result }}"
                   ios_corelogic_status="${{ needs.ios-corelogic-and-coverage.result }}"
                   ios_app_status="${{ needs.ios-app-simulator-tests.result }}"
                   web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
@@ -857,7 +922,9 @@ jobs:
                   report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
                   report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
                   report_platform "error-catalog (error-contract gate, pass/fail only)" "$error_catalog_status" ""
+                  report_platform "android-lint (Android Lint gate, pass/fail only)" "$android_lint_status" ""
                   report_platform "android (jacoco)" "$android_status" "$android_pct"
+                  report_platform "ios-swiftlint (SwiftLint gate, pass/fail only)" "$ios_swiftlint_status" ""
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
 
@@ -873,7 +940,7 @@ jobs:
                   fi
 
                   fail=0
-                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android:$android_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
+                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android-lint:$android_lint_status" "android:$android_status" "ios-swiftlint:$ios_swiftlint_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
                     platform="${pair%%:*}"
                     status="${pair#*:}"
                     if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
