@@ -334,8 +334,12 @@ jobs:
               run: npm test
 
     android-unit-and-coverage:
-        needs: detect-changes
-        if: needs.detect-changes.outputs.android == 'true'
+        # Chained behind android-lint (fail-fast on the cheap check first),
+        # same shape as the web chain: android-lint already `needs:
+        # detect-changes` and only runs when outputs.android == 'true', so
+        # gating on it succeeding is enough — lint skipped ⇒ this skips too.
+        needs: [android-lint]
+        if: needs.android-lint.result == 'success'
         runs-on: ubuntu-latest
         # actions: write is needed only for the release-time cache-delete
         # step below (`gh cache delete`, which is an API write). Scoped to
@@ -465,15 +469,15 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
                   retention-days: 14
 
-    # Android Lint gate. Separate job from android-unit-and-coverage
-    # (parallel, not chained) so a lint failure and a coverage failure
-    # surface independently -- a red lint job must not be hidden behind a
-    # skipped coverage job, and vice versa. Gate contract mirrors the web
-    # `lint` job: `abortOnError = true` (already set in app/build.gradle.kts)
-    # fails the build on `error`-severity issues; warnings are reported but
-    # non-blocking. Costs a second Gradle cold start (~1-2 min) -- neither
-    # android job caches Gradle today -- which is an acceptable price for
-    # an independent check.
+    # Android Lint gate -- first job in the Android chain
+    # (android-lint -> android-unit-and-coverage), mirroring the web chain
+    # (lint -> unit-and-contract-tests): fail fast on the cheap check so a
+    # lint error never pays for the coverage build. Gate contract mirrors
+    # the web `lint` job: `abortOnError = true` (already set in
+    # app/build.gradle.kts) fails the build on `error`-severity issues;
+    # warnings are reported but non-blocking. Costs a Gradle cold start
+    # (~1-2 min) up front, but a lint failure now short-circuits the ~3 min
+    # coverage job entirely.
     android-lint:
         needs: detect-changes
         if: needs.detect-changes.outputs.android == 'true'
@@ -503,16 +507,17 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/lint-results-debug.html
                   retention-days: 14
 
-    # SwiftLint gate. Runs on ubuntu (SwiftLint ships a Linux binary) in
-    # the official container pinned to the same version developers run
-    # locally, so CI and local agree exactly -- no macOS minutes spent on
-    # a lint check. Parallel with the ios-* jobs, same rationale as
-    # android-lint. Gate contract: plain `swiftlint lint` (no `--strict`),
-    # so `error`-severity violations fail and warnings are reported but
-    # non-blocking; the .swiftlint.yml next to the sources defines the
-    # thresholds and exclusions. NOTE: image is tag-pinned, not
-    # digest-pinned like the actions/* refs -- acceptable for a lint tool,
-    # revisit if supply-chain policy tightens.
+    # SwiftLint gate -- first job in the iOS chain
+    # (ios-swiftlint -> ios-corelogic-and-coverage -> ios-app-simulator-tests).
+    # Runs on ubuntu (SwiftLint ships a Linux binary) in the official
+    # container pinned to the same version developers run locally, so CI
+    # and local agree exactly -- ~15s, and a lint failure here means the
+    # two macOS runners downstream never spin up. Gate contract: plain
+    # `swiftlint lint` (no `--strict`), so `error`-severity violations fail
+    # and warnings are reported but non-blocking; the .swiftlint.yml next
+    # to the sources defines the thresholds and exclusions. NOTE: image is
+    # tag-pinned, not digest-pinned like the actions/* refs -- acceptable
+    # for a lint tool, revisit if supply-chain policy tightens.
     ios-swiftlint:
         needs: detect-changes
         if: needs.detect-changes.outputs.ios == 'true'
@@ -539,8 +544,13 @@ jobs:
     # gives CoreLogic its own pass/fail check and lets it feed the
     # coverage regression gate independently of the simulator-based run.
     ios-corelogic-and-coverage:
-        needs: detect-changes
-        if: needs.detect-changes.outputs.ios == 'true'
+        # Chained behind ios-swiftlint (fail-fast on the cheap Linux lint
+        # before spending a macOS runner), same shape as the web chain:
+        # ios-swiftlint already `needs: detect-changes` and only runs when
+        # outputs.ios == 'true', so gating on it succeeding is enough —
+        # lint skipped ⇒ this skips too.
+        needs: [ios-swiftlint]
+        if: needs.ios-swiftlint.result == 'success'
         runs-on: macos-latest
         # actions: write needed only for the release-time cache-delete
         # step below, same rationale as android-unit-and-coverage.
@@ -662,8 +672,12 @@ jobs:
     # simulator boot + full CatalystCore/UIKit build). Gated on CoreLogic
     # passing first so a CoreLogic failure never pays for this.
     ios-app-simulator-tests:
-        needs: [detect-changes, ios-corelogic-and-coverage]
-        if: needs.detect-changes.outputs.ios == 'true'
+        # Behind ios-corelogic-and-coverage, which is itself behind
+        # ios-swiftlint — so the full iOS chain is
+        # swiftlint -> corelogic -> app-simulator. corelogic skipped
+        # (lint failed / iOS unchanged) ⇒ this skips too.
+        needs: [ios-corelogic-and-coverage]
+        if: needs.ios-corelogic-and-coverage.result == 'success'
         runs-on: macos-latest
         # actions: write needed only for the release-time cache-delete
         # step below, same rationale as the other coverage-gated jobs.
