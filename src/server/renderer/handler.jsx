@@ -306,8 +306,12 @@ const _renderMarkUp = async (
                     if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
                         // customLinkHeader (app-supplied preconnect/preload entries) included here
                         // too — Cloudflare only ever sees this one combined header per response.
+                        // fetchpriority keeps a page with many shell-rendered split() widgets from
+                        // hinting all of them equally — deferred chunks yield bandwidth to the
+                        // app-shell bundles that actually gate hydration.
                         const linkHeader = [
-                            generateLinkHeader([...criticalAssets.js, ...shellDeferredJs]),
+                            generateLinkHeader(criticalAssets.js, "high"),
+                            generateLinkHeader(shellDeferredJs, "low"),
                             customLinkHeader,
                         ]
                             .filter(Boolean)
@@ -317,7 +321,7 @@ const _renderMarkUp = async (
                     if (NATIVE_EARLY_HINTS_ENABLE) {
                         // Critical JS was already hinted in _handler, before data-fetching —
                         // only the newly-discovered shell JS needs a (second) 103 here.
-                        const linkValues = generateLinkHeader(shellDeferredJs)
+                        const linkValues = generateLinkHeader(shellDeferredJs, "low")
                         if (linkValues) res.writeEarlyHints({ link: linkValues.split(", ") })
                     }
                     pipe(tail)
@@ -391,7 +395,7 @@ async function _handler(req, res) {
             // route's critical JS depends only on `allMatches`, already known here, and
             // re-collecting it below for the real render is unaffected.
             const earlyAssets = collectAssets(req, allMatches).getCriticalAssets()
-            const linkValues = [generateLinkHeader(earlyAssets.js), customLinkHeader]
+            const linkValues = [generateLinkHeader(earlyAssets.js, "high"), customLinkHeader]
                 .filter(Boolean)
                 .join(", ")
             if (linkValues) res.writeEarlyHints({ link: linkValues.split(", ") })
