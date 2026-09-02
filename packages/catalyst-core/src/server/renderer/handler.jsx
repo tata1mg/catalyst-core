@@ -13,8 +13,10 @@ import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/va
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
     readCssFromDisk,
+    getInlinedCssPaths,
     generateScriptElements,
-    generateCssLinkStrings,
+    generateInlinedCssUrlsBootstrapScript,
+    generateInlinedCssUrlsExtendScript,
     generateScriptStrings,
     getDeferredRouteKey,
     getCachedDeferredCssPathsForRoute,
@@ -181,10 +183,16 @@ const _renderMarkUp = async (
     const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
     const deferredRouteKey = getDeferredRouteKey(req, allMatches)
-    const deferredRouteInlineCss = readCssFromDisk(
-        getCachedDeferredCssPathsForRoute(deferredRouteKey),
-        buildDir
-    )
+    const deferredRouteCssPaths = getCachedDeferredCssPathsForRoute(deferredRouteKey)
+    const deferredRouteInlineCss = readCssFromDisk(deferredRouteCssPaths, buildDir)
+
+    // URLs of CSS actually inlined above — tells the client (see the bootstrap script pushed in
+    // flush()) which dynamic-import CSS fetches Vite would otherwise duplicate during hydration.
+    const headInlinedCssUrls = chunkExtractor
+        ? getInlinedCssPaths([...criticalAssets.css, ...deferredRouteCssPaths], buildDir).map((p) =>
+              chunkExtractor.toCssUrl(p)
+          )
+        : []
 
     const jsScripts = generateScriptElements(criticalAssets.js)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
@@ -270,6 +278,10 @@ const _renderMarkUp = async (
                         )
                     }
 
+                    if (!isBot && chunkExtractor) {
+                        this.push(generateInlinedCssUrlsBootstrapScript(headInlinedCssUrls))
+                    }
+
                     const { newCssPaths } = registerDeferredAssetsForRoute(
                         deferredRouteKey,
                         deferredAssets,
@@ -277,6 +289,14 @@ const _renderMarkUp = async (
                     )
                     if (newCssPaths.length) {
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                        if (!isBot && chunkExtractor) {
+                            const inlinedNewCssPaths = getInlinedCssPaths(newCssPaths, buildDir)
+                            this.push(
+                                generateInlinedCssUrlsExtendScript(
+                                    inlinedNewCssPaths.map((p) => chunkExtractor.toCssUrl(p))
+                                )
+                            )
+                        }
                     }
                     if (!isBot) {
                         this.push(generateScriptStrings(deferredAssets.js))
