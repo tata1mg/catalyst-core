@@ -1,0 +1,19 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_1150025a52e5b2::t_ed170139ab9167 425-426,428-431
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "865a048ce0223c3d457e81b01a09f19d10b8c628",
+  "prompts": {},
+  "sessions": {
+    "s_1150025a52e5b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fb4c0969-e5e9-438b-9ebb-2e224153d480",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
