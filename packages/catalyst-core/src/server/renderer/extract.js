@@ -91,17 +91,29 @@ export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modu
  * can preload them before SSR finishes. `as=script; crossorigin` matches the
  * fetch mode of the `<script type="module">` tags these accompany, avoiding
  * a double download.
+ *
+ * `fetchPriority` matters once there's more than a handful of URLs in one
+ * hint: without it, every entry competes equally for bandwidth on the same
+ * HTTP/2 connection, so a page with many shell-rendered split() widgets can
+ * end up starving the actual app-shell bundles (main/vendor/route entry) of
+ * bandwidth behind a pile of secondary widget chunks. Pass "high" for the
+ * critical bucket and "low" for the shell-deferred one — see handler.jsx.
  * @param {string[]} jsUrls
+ * @param {"high"|"low"} [fetchPriority]
  * @returns {string}
  */
-export const generateLinkHeader = (jsUrls = []) =>
-    [...new Set(jsUrls)].map((url) => `<${url}>; rel=preload; as=script; crossorigin`).join(", ")
+export const generateLinkHeader = (jsUrls = [], fetchPriority) => {
+    const priorityPart = fetchPriority ? `; fetchpriority=${fetchPriority}` : ""
+    return [...new Set(jsUrls)]
+        .map((url) => `<${url}>; rel=preload; as=script; crossorigin${priorityPart}`)
+        .join(", ")
+}
 
 /**
  * HTTP `Link` header value for app-supplied preconnect/preload entries — third-party analytics
  * origins, a static LCP image, fonts, etc. Never hardcoded here: the app declares exactly which
  * URLs it wants hinted (see EARLY_HINTS_LINKS in handler.jsx), and this only formats them.
- * @param {{url: string, rel: "preconnect"|"preload", as?: string, crossorigin?: boolean}[]} links
+ * @param {{url: string, rel: "preconnect"|"preload", as?: string, crossorigin?: boolean, fetchPriority?: "high"|"low"}[]} links
  * @returns {string}
  */
 export const generateCustomLinkHeader = (links = []) =>
@@ -111,6 +123,7 @@ export const generateCustomLinkHeader = (links = []) =>
             const parts = [`<${link.url}>`, `rel=${link.rel}`]
             if (link.as) parts.push(`as=${link.as}`)
             if (link.crossorigin) parts.push("crossorigin")
+            if (link.fetchPriority) parts.push(`fetchpriority=${link.fetchPriority}`)
             return parts.join("; ")
         })
         .join(", ")
