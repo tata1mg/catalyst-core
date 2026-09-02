@@ -2,7 +2,7 @@
 #
 # Gate contract (mirrors the web `lint` CI job): `error`-severity
 # violations fail the build; `warning`s surface in the log but do not
-# block. CI runs `swiftlint lint --strict=false` (the default) via
+# block. CI runs plain `swiftlint lint` (no `--strict`) via
 # ghcr.io/realm/swiftlint on Linux.
 
 excluded:
