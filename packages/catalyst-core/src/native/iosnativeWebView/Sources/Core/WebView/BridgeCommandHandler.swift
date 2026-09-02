@@ -29,6 +29,10 @@ protocol BridgeCommandHandlerDelegate: AnyObject {
 
 // MARK: - Bridge Command Handler
 
+// One class handling every JS-callable native command; splitting it would
+// only move the surface into extensions in the same file. Tracked for a
+// real decomposition separately.
+// swiftlint:disable:next type_body_length
 class BridgeCommandHandler {
 
     private weak var viewController: UIViewController?

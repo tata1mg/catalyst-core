@@ -276,8 +276,11 @@ extension NativeBridge: WKScriptMessageHandler {
 
     // MARK: - Command Execution
 
-    // Secure command execution with comprehensive error handling
-    // All native functionality is accessed through this controlled entry point
+    // Secure command execution with comprehensive error handling. All
+    // native functionality is accessed through this controlled entry
+    // point: a flat dispatch `switch` over every JS-callable command —
+    // the branch count is the command count, not incidental complexity.
+    // swiftlint:disable:next cyclomatic_complexity
     private func executeCommand(_ command: String, params: Any?) {
         switch command {
         case "openCamera":
@@ -419,10 +422,15 @@ extension NativeBridge: WKScriptMessageHandler {
                 fpsMax = fps["max"] as? Int
             }
         } else {
-            logger.warning("📹 startVideoStream — could not parse params (type=\(type(of: params))), using defaults")
+            let paramsType = type(of: params)
+            logger.warning("📹 startVideoStream — could not parse params (type=\(paramsType)), using defaults")
         }
 
-        logger.info("📹 startVideoStream — starting with facing=\(facing) autoZoom=\(autoZoom) initialZoom=\(initialZoom) format=\(scanFormat) fpsMin=\(String(describing: fpsMin)) fpsMax=\(String(describing: fpsMax))")
+        logger.info(
+            "📹 startVideoStream — starting with facing=\(facing) autoZoom=\(autoZoom) "
+                + "initialZoom=\(initialZoom) format=\(scanFormat) "
+                + "fpsMin=\(String(describing: fpsMin)) fpsMax=\(String(describing: fpsMax))"
+        )
         cam.start(facing: facing, autoZoom: autoZoom, initialZoom: initialZoom,
                   scanFormat: scanFormat, fpsMin: fpsMin, fpsMax: fpsMax)
     }

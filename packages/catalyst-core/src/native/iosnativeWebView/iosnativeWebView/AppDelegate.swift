@@ -65,7 +65,11 @@ public class AppDelegate: NSObject, UIApplicationDelegate {
         )
     }
 
-    public func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    public func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
         NotificationCenter.default.post(
             name: NSNotification.Name("RemoteNotificationReceived"),
             object: nil,

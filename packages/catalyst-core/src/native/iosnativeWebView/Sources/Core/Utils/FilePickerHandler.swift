@@ -378,6 +378,9 @@ class FilePickerHandler: NSObject {
         )
     }
 
+    // A per-extension MIME lookup table expressed as a `switch` — the
+    // branch count is the number of extensions mapped.
+    // swiftlint:disable:next cyclomatic_complexity
     private func getMimeType(for url: URL) -> String {
         // First try UTType - only return if it has a preferredMIMEType
         if let utType = UTType(filenameExtension: url.pathExtension),

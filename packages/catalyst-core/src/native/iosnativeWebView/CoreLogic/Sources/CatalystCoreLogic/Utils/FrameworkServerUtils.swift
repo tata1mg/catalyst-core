@@ -484,10 +484,15 @@ public class FrameworkServerUtils {
             return nil
         }
 
-        guard let identity = firstItem[kSecImportItemIdentity as String] as! SecIdentity? else {
+        guard let identityAny = firstItem[kSecImportItemIdentity as String],
+              CFGetTypeID(identityAny as CFTypeRef) == SecIdentityGetTypeID() else {
             logger.error("No identity found in PKCS#12 import")
             return nil
         }
+        let identity = identityAny as! SecIdentity  // swiftlint:disable:this force_cast
+        // ^ SecIdentity is a CoreFoundation type with no Swift-native
+        // bridge; `as?` can't express it. The CFTypeID check above is the
+        // real guard.
 
         logger.info("✅ Successfully loaded identity from PKCS#12 file")
         return identity
