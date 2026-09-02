@@ -422,10 +422,13 @@ extension NativeBridge: WKScriptMessageHandler {
             logger.warning("📹 startVideoStream — could not parse params (type=\(paramsType)), using defaults")
         }
 
+        let fpsMinStr = String(describing: fpsMin)
+        let fpsMaxStr = String(describing: fpsMax)
         logger.info(
-            "📹 startVideoStream — starting with facing=\(facing) autoZoom=\(autoZoom) "
-                + "initialZoom=\(initialZoom) format=\(scanFormat) "
-                + "fpsMin=\(String(describing: fpsMin)) fpsMax=\(String(describing: fpsMax))"
+            """
+            📹 startVideoStream — starting with facing=\(facing) autoZoom=\(autoZoom) \
+            initialZoom=\(initialZoom) format=\(scanFormat) fpsMin=\(fpsMinStr) fpsMax=\(fpsMaxStr)
+            """
         )
         cam.start(facing: facing, autoZoom: autoZoom, initialZoom: initialZoom,
                   scanFormat: scanFormat, fpsMin: fpsMin, fpsMax: fpsMax)
