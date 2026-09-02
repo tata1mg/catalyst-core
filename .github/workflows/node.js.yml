@@ -276,8 +276,13 @@ jobs:
     # isolation the 3-job split had -- a failure in step 1 still lets steps
     # 2/3 report clearly in the job log, just not as 3 separate check marks.
     web-integration-smoke:
-        needs: [detect-changes, unit-and-contract-tests]
-        if: needs.detect-changes.outputs.web == 'true'
+        # Third stage of the web chain
+        # (lint -> unit-and-contract-tests -> here). unit-and-contract-tests
+        # already gates on `lint` which gates on outputs.web == 'true', so
+        # needing it succeeding is enough -- web unchanged ⇒ it skips ⇒ this
+        # skips too.
+        needs: [unit-and-contract-tests]
+        if: needs.unit-and-contract-tests.result == 'success'
         runs-on: ubuntu-latest
         container:
             image: mcr.microsoft.com/playwright:v1.62.1-noble
@@ -303,8 +308,13 @@ jobs:
         # (no coverage %), reported into coverage-summary like
         # web-integration-smoke. AI-000 (needs a live api.openai.com call) is
         # auto-skipped when CI=true — see test/scenarios.test.ts.
-        needs: [detect-changes, unit-and-contract-tests]
-        if: needs.detect-changes.outputs.web == 'true'
+        #
+        # Web chain, parallel with web-integration-smoke behind
+        # unit-and-contract-tests: that job gates on `lint` which gates on
+        # outputs.web, so needing it succeeding is enough — web unchanged ⇒
+        # it skips ⇒ this skips too.
+        needs: [unit-and-contract-tests]
+        if: needs.unit-and-contract-tests.result == 'success'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
