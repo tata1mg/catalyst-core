@@ -21,6 +21,24 @@ RUN apk add --no-cache \
 # picomatch, postcss-selector-parser and brace-expansion.
 RUN npm install -g npm@12.0.2
 
+# npm 12.0.2 still lags its own dependencies on four advisories, and because
+# these are bundleDependencies — shipped as files inside the npm tarball, with
+# no "resolved" URL — package.json overrides cannot reach them. Replacing the
+# directories outright is the only lever left while npm stays in the image.
+# Re-check these pins whenever the npm version above moves.
+RUN npm install -g --prefix /tmp/npmpatch \
+        tar@7.5.22 \
+        undici@6.28.0 \
+        ip-address@10.3.1 \
+        brace-expansion@5.0.9 && \
+    for pkg in tar undici ip-address brace-expansion; do \
+        rm -rf "/usr/local/lib/node_modules/npm/node_modules/$pkg" && \
+        cp -R "/tmp/npmpatch/lib/node_modules/$pkg" \
+              "/usr/local/lib/node_modules/npm/node_modules/$pkg"; \
+    done && \
+    rm -rf /tmp/npmpatch && \
+    npm --version
+
 WORKDIR /opt/1mg/web
 
 ARG APP_UID=1001
