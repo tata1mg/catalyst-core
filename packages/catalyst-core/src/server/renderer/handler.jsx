@@ -174,7 +174,9 @@ const _renderMarkUp = async (
     }
 
     // Critical assets → <head>
-    const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
+    const criticalAssets = chunkExtractor
+        ? chunkExtractor.getCriticalAssets()
+        : { js: [], scripts: [], css: [] }
 
     // Inline critical CSS from disk (small thanks to natural code-splitting)
     const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
@@ -186,7 +188,8 @@ const _renderMarkUp = async (
         buildDir
     )
 
-    const jsScripts = generateScriptElements(criticalAssets.js)
+    // Only roots get a <script> tag; their static deps ride along via modulepreload below.
+    const jsScripts = generateScriptElements(criticalAssets.scripts)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
@@ -257,7 +260,7 @@ const _renderMarkUp = async (
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
-                        : { js: [], css: [] }
+                        : { js: [], scripts: [], css: [] }
 
                     // Tell client which components were SSR'd so split() can
                     // eagerly import them (prevents Suspense fallback flash)
@@ -279,7 +282,7 @@ const _renderMarkUp = async (
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.js))
+                        this.push(generateScriptStrings(deferredAssets.scripts))
                     }
 
                     cb()
