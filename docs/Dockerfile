@@ -30,10 +30,12 @@ COPY docs ./docs
 
 WORKDIR /opt/1mg/web/docs
 
-# config.json is gitignored (it holds per-environment hostnames), so the image
-# starts from the committed template. Overwrite or mount it at deploy time —
-# leaving the template in place makes SSR emit localhost asset URLs.
-RUN cp config/config_template.json config/config.json
+# config.json is gitignored but baked in at build time: Devtron's pre-build
+# script generates it from Vault into docs/config/ before docker build. Fall
+# back to the committed template only when it's absent (local builds) — the
+# template binds the server to localhost, which is unreachable behind the
+# k8s ingress.
+RUN [ -f config/config.json ] || cp config/config_template.json config/config.json
 
 # Compiles content/ into routes, then builds the client and SSR bundles.
 RUN npm run build

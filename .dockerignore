@@ -13,5 +13,3 @@ docs/public/
 docs/src/js/generated/
 packages/*/dist/
 
-# Per-environment, written at deploy time
-docs/config/config.json
