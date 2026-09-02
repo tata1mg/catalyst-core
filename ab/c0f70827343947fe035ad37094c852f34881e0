@@ -1,0 +1,27 @@
+packages/catalyst-core/src/native/iosnativeWebView/.swiftlint.yml
+  s_1150025a52e5b2::t_5840a10bea036e 5
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/CameraSessionManager.kt
+  s_1150025a52e5b2::t_0a2be44d7f7ea1 157
+  s_1150025a52e5b2::t_d2ef1cc2d41294 10,12
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/BarcodeDetector.kt
+  s_1150025a52e5b2::t_e7e031a78ec5bb 4-5
+  s_1150025a52e5b2::t_8d0d7d3a695290 77
+packages/catalyst-core/src/native/androidProject/app/src/main/AndroidManifest.xml
+  s_1150025a52e5b2::t_dc9e3dfe8ff043 8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "abc0f70827343947fe035ad37094c852f34881e0",
+  "prompts": {},
+  "sessions": {
+    "s_1150025a52e5b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fb4c0969-e5e9-438b-9ebb-2e224153d480",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": null
+    }
+  }
+}
