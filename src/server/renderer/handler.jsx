@@ -117,6 +117,29 @@ const EARLY_HINTS_LINKS = (() => {
 })()
 const customLinkHeader = generateCustomLinkHeader(EARLY_HINTS_LINKS)
 
+// Config-driven (config.json → EARLY_HINTS_MAX_DEFERRED_LINKS): upper bound on how many
+// shell-deferred chunks get hinted. A content-heavy page can shell-render dozens of split()
+// widgets; hinting all of them is self-defeating twice over. They share one fetchpriority=low
+// bucket, so past a couple of dozen they mostly compete with each other rather than arriving
+// sooner — and every entry inflates the `Link` header, which a CDN caps and drops *whole* when
+// oversized, taking the critical high-priority hints down with it.
+//
+// Chunks enter the deferred bucket in SSR render order, which tracks document order, so
+// truncating keeps the above-the-fold widgets and drops the tail. Hints are pure optimization
+// — the <script type="module"> tags after </body> are unaffected, so a dropped hint costs
+// latency, never correctness.
+//
+// Default 15. Set 0 to skip the deferred hint entirely, or any negative number for no cap.
+const EARLY_HINTS_MAX_DEFERRED_LINKS = (() => {
+    const raw = process.env.EARLY_HINTS_MAX_DEFERRED_LINKS
+    if (raw === undefined || raw === "") return 15
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) ? parsed : 15
+})()
+
+const capDeferredHints = (urls) =>
+    EARLY_HINTS_MAX_DEFERRED_LINKS < 0 ? urls : urls.slice(0, EARLY_HINTS_MAX_DEFERRED_LINKS)
+
 const traceHook = (fn, spanName) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
 
@@ -306,7 +329,9 @@ const _renderMarkUp = async (
                     // Only what's been discovered by shell-ready is known this early; chunks
                     // behind Suspense boundaries still pending resolve after headers are sent
                     // and can't be included.
-                    const shellDeferredJs = chunkExtractor ? chunkExtractor.getDeferredAssets().js : []
+                    const shellDeferredJs = capDeferredHints(
+                        chunkExtractor ? chunkExtractor.getDeferredAssets().js : []
+                    )
                     if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
                         // customLinkHeader (app-supplied preconnect/preload entries) included here
                         // too — Cloudflare only ever sees this one combined header per response.
