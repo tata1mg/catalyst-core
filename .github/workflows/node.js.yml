@@ -369,6 +369,12 @@ jobs:
               with:
                   distribution: "temurin"
                   java-version: "17"
+                  # Same built-in Gradle cache as android-lint. This job runs
+                  # on its own fresh runner VM (jobs don't share a filesystem
+                  # even when chained via needs:), so it restores the cache
+                  # independently -- same key, so it picks up whatever the
+                  # last default-branch push wrote.
+                  cache: gradle
 
             # No android-actions/setup-android step: compileSdk 34 / AGP
             # 8.11.1 are already covered by ubuntu-latest's preinstalled
@@ -500,6 +506,17 @@ jobs:
               with:
                   distribution: "temurin"
                   java-version: "17"
+                  # setup-java's built-in Gradle cache: ~/.gradle/caches +
+                  # ~/.gradle/wrapper, keyed on the gradle-related files it
+                  # finds under the repo (*.gradle.kts, libs.versions.toml,
+                  # gradle-wrapper.properties). Cold, this job spent ~60-90s
+                  # re-fetching AGP 8.11.1 + the Kotlin compiler + lint deps
+                  # and unpacking the wrapper on every run; warm, that is a
+                  # restore. Only a push to a default branch writes the
+                  # cache; PRs restore read-only, so a PR can't poison it.
+                  # (android-unit-and-coverage runs on its own fresh VM and
+                  # restores the same key independently -- see its comment.)
+                  cache: gradle
 
             - name: Android Lint (debug)
               working-directory: packages/catalyst-core/src/native/androidProject
