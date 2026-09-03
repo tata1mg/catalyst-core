@@ -49,5 +49,10 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+# Same AGP version as android-application -- needed so the optional
+# :catalyst-ai library module (wired in settings.gradle.kts when the npm
+# package is installed) can apply `id("com.android.library")` without
+# declaring its own version.
+android-library = { id = "com.android.library", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

@@ -220,7 +220,7 @@ android {
                 java.srcDirs("src/noFcm/java")
             }
             // AI has no source-set swap — CatalystAIBridge self-registers via ServiceLoader
-            // when @catalyst/cloud-ai is on the classpath.
+            // when catalyst-ai is on the classpath.
         }
     }
 }
@@ -273,11 +273,18 @@ dependencies {
     implementation("io.ktor:ktor-server-sse:3.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    // Native AI — compileOnly always (for types), implementation only when ai.enabled=true (for runtime bundling)
-    if (project.findProject(":catalyst-cloud-ai") != null) {
-        compileOnly(project(":catalyst-cloud-ai"))
+    // Native AI (catalyst-ai). The module is only ever on the classpath when
+    // ai.enabled=true -- that's the sole sync trigger (settings.gradle.kts
+    // guards on node_modules/catalyst-ai/android existing, and the auto-sync
+    // in buildAndroid/index.js only runs for ai.enabled). The app has no
+    // compile-time dependency on it: NativeBridge.kt discovers CatalystAIBridge
+    // at runtime via Class.forName + ServiceLoader. compileOnly is kept so the
+    // module still builds/type-checks when present; implementation adds it to
+    // the APK for runtime bundling.
+    if (project.findProject(":catalyst-ai") != null) {
+        compileOnly(project(":catalyst-ai"))
         if (isAIEnabled()) {
-            implementation(project(":catalyst-cloud-ai"))
+            implementation(project(":catalyst-ai"))
         }
     }
 
