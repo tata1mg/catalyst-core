@@ -76,6 +76,12 @@ jobs:
         needs: detect-changes
         if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
+        # actions: write is for the fail-fast cancel step only (cancelling a
+        # run is an actions API write). contents stays read-only;
+        # actions:write on GITHUB_TOKEN cannot touch code or secrets.
+        permissions:
+            contents: read
+            actions: write
         # First stage of the web chain (lint -> unit-and-contract-tests ->
         # web-integration-smoke). Chained intentionally, not for a technical
         # dependency between them, but to fail fast on the cheapest check
@@ -99,13 +105,32 @@ jobs:
               # in legacy src files, plus oxlint's default-ruleset noise)
               # are surfaced but non-blocking until they're cleaned up --
               # see the tracking issue linked from #415.
+              #
+              # oxfmt --check is intentionally NOT wired in yet: with no
+              # oxfmt config in the repo, its defaults disagree with the
+              # existing Prettier formatting on ~213/291 files. Wiring it up
+              # is tracked as a follow-up once #396 (oxlint/oxfmt migration)
+              # lands with a real config.
               run: npm run lint:oxlint
 
-            # oxfmt --check is intentionally NOT wired in yet: with no
-            # oxfmt config in the repo, its defaults disagree with the
-            # existing Prettier formatting on ~213/291 files. Wiring it up
-            # is tracked as a follow-up once #396 (oxlint/oxfmt migration)
-            # lands with a real config.
+            # Fail-fast: the first job to fail cancels the whole run, so the
+            # other platform chains (and any in-flight macOS runners) stop
+            # instead of finishing work whose result no longer matters. The
+            # cancel also marks THIS job `cancelled` rather than `failure`
+            # in the checks list -- the failing step above still shows its
+            # own red X, and coverage-summary (if: always()) re-runs, sees
+            # `cancelled`, and fails naming every cancelled job, so the run
+            # still has a clear red gate.
+            #
+            # Every ubuntu/macOS leaf job carries this exact step. The two
+            # container jobs (ios-swiftlint, web-integration-smoke) ship
+            # neither `gh` nor `curl`, so each has a paired `fail-fast-*`
+            # ubuntu job (below) that cancels on its behalf.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
     unit-and-contract-tests:
         # `lint` already `needs: detect-changes` and only runs when
@@ -265,6 +290,13 @@ jobs:
                   path: coverage-baseline-web.json
                   key: coverage-baseline-web-v1
 
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
     # Merges what were 3 separate jobs (test-js-integration,
     # create-catalyst-app, catalyst-ai) into one. All 3 declared the same
     # `mcr.microsoft.com/playwright:v1.62.1-noble` container; GitHub Actions
@@ -299,6 +331,28 @@ jobs:
             - name: Install and Syntax Check (catalyst-ai)
               run: chmod +x ./scripts/test-catalyst-ai.sh && ./scripts/test-catalyst-ai.sh
 
+            # No inline fail-fast step: this job runs in the playwright
+            # container, which ships neither gh nor curl. fail-fast-smoke
+            # (below) cancels on its behalf.
+
+    # Fail-fast for web-integration-smoke: it runs in a container without
+    # gh/curl, so a tiny ubuntu job does the cancel. `needs` a single job
+    # so it fires the moment that job settles (a multi-need fail-fast job
+    # would wait for all needs). On success it `if:`s out and costs
+    # nothing; on the failure path it's one ~15s runner.
+    fail-fast-smoke:
+        needs: [web-integration-smoke]
+        if: always() && needs.web-integration-smoke.result == 'failure'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            actions: write
+        steps:
+            - name: Cancel the run
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
     error-catalog:
         # Contract gate for issue #440 / Story #343: proves each in-scope
         # error code (AI-000..003 + PREFLIGHT-001..021) actually surfaces the
@@ -316,6 +370,10 @@ jobs:
         needs: [unit-and-contract-tests]
         if: needs.unit-and-contract-tests.result == 'success'
         runs-on: ubuntu-latest
+        # actions: write for the fail-fast cancel step only -- see lint.
+        permissions:
+            contents: read
+            actions: write
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -342,6 +400,13 @@ jobs:
               env:
                   CATALYST_ERROR_CATALOG_FORCE_PORT_KILL: "1"
               run: npm test
+
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
     android-unit-and-coverage:
         # Chained behind android-lint (fail-fast on the cheap check first),
@@ -485,6 +550,13 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
                   retention-days: 14
 
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
     # Android Lint gate -- first job in the Android chain
     # (android-lint -> android-unit-and-coverage), mirroring the web chain
     # (lint -> unit-and-contract-tests): fail fast on the cheap check so a
@@ -498,6 +570,10 @@ jobs:
         needs: detect-changes
         if: needs.detect-changes.outputs.android == 'true'
         runs-on: ubuntu-latest
+        # actions: write for the fail-fast cancel step only -- see lint.
+        permissions:
+            contents: read
+            actions: write
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -534,6 +610,15 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/lint-results-debug.html
                   retention-days: 14
 
+            # Fail-fast cancel -- see the lint job for the rationale. Runs
+            # after the always() upload above, so the lint report is still
+            # captured on a failing run.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
     # SwiftLint gate -- first job in the iOS chain
     # (ios-swiftlint -> ios-corelogic-and-coverage -> ios-app-simulator-tests).
     # Runs on ubuntu (SwiftLint ships a Linux binary) in the official
@@ -559,6 +644,27 @@ jobs:
               run: |
                   swiftlint version
                   swiftlint lint --reporter github-actions-logging
+
+            # No inline fail-fast step: the swiftlint container ships
+            # neither gh nor curl. fail-fast-swiftlint (below) cancels on
+            # its behalf.
+
+    # Fail-fast for ios-swiftlint: it runs in a container without gh/curl,
+    # so a tiny ubuntu job does the cancel. Single `needs` so it fires as
+    # soon as ios-swiftlint settles. `if:`s out on success (costs nothing);
+    # one ~15s runner on the failure path.
+    fail-fast-swiftlint:
+        needs: [ios-swiftlint]
+        if: always() && needs.ios-swiftlint.result == 'failure'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            actions: write
+        steps:
+            - name: Cancel the run
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
     # Split from what was a single test-ios-unit job into two: CoreLogic
     # (this job) runs first, has zero dependencies, needs no simulator, and
@@ -694,6 +800,13 @@ jobs:
               with:
                   path: coverage-baseline-ios.json
                   key: coverage-baseline-ios-v1
+
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
     # Full simulator-based XCTest run -- the expensive part (~9-25 min:
     # simulator boot + full CatalystCore/UIKit build). Gated on CoreLogic
@@ -914,6 +1027,13 @@ jobs:
               with:
                   path: coverage-baseline-ios-app.json
                   key: coverage-baseline-ios-app-v1
+
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
     # Terminal join point for the ENTIRE pipeline -- every test/coverage
     # job feeds into this one, including web-integration-smoke (no
