@@ -22,7 +22,10 @@ import CatalystNotifications
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "App")
 
+// Name matches the Xcode target / product name; renaming the @main entry
+// point is an Xcode project change, out of scope for lint wiring.
 @main
+// swiftlint:disable:next type_name
 struct iosnativeWebViewApp: App {
     // Connect SwiftUI app to UIKit AppDelegate for early initialization
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate

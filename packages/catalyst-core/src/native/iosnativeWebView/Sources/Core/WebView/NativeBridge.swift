@@ -106,7 +106,6 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         }
         self.transitionManager = tm
 
-
         setupNotificationNavigationHandler()
 
         let initTime = (CFAbsoluteTimeGetCurrent() - initStart) * 1000
@@ -175,14 +174,13 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         let registerTime = (CFAbsoluteTimeGetCurrent() - registerStart) * 1000
         logWithTimestamp("✅ NativeBridge registered (took \(String(format: "%.2f", registerTime))ms)")
     }
-    
+
     // Unregister to prevent memory leaks
     func unregister() {
         guard isRegistered else { return }
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "NativeBridge")
         messageHandlerProxy = nil
         isRegistered = false
-
 
         if let listenerId = networkStatusListenerId {
             NetworkMonitor.shared.removeListener(listenerId)
@@ -215,8 +213,7 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         let status = NetworkMonitor.shared.currentStatus
         sendNetworkStatusUpdate(status)
     }
-    
-    
+
     // MARK: - JavaScript Interface Delegation
 
     // Delegate JavaScript methods to the dedicated interface
@@ -237,7 +234,6 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
     internal func sendErrorCallback(eventName: String, error: String, code: String) {
         jsInterface.sendErrorCallback(eventName: eventName, error: error, code: code)
     }
-    
 
     // MARK: - BridgeFileHandlerDelegate
 
@@ -276,8 +272,11 @@ extension NativeBridge: WKScriptMessageHandler {
 
     // MARK: - Command Execution
 
-    // Secure command execution with comprehensive error handling
-    // All native functionality is accessed through this controlled entry point
+    // Secure command execution with comprehensive error handling. All
+    // native functionality is accessed through this controlled entry
+    // point: a flat dispatch `switch` over every JS-callable command —
+    // the branch count is the command count, not incidental complexity.
+    // swiftlint:disable:next cyclomatic_complexity
     private func executeCommand(_ command: String, params: Any?) {
         switch command {
         case "openCamera":
@@ -401,8 +400,8 @@ extension NativeBridge: WKScriptMessageHandler {
         var autoZoom = false
         var initialZoom: Float = 1.0
         var scanFormat = "all"
-        var fpsMin: Int? = nil
-        var fpsMax: Int? = nil
+        var fpsMin: Int?
+        var fpsMax: Int?
 
         if let dict = jsonStringToDict(params) {
             logger.info("📹 startVideoStream — dict keys: \(dict.keys.sorted().joined(separator: ", "))")
@@ -419,10 +418,18 @@ extension NativeBridge: WKScriptMessageHandler {
                 fpsMax = fps["max"] as? Int
             }
         } else {
-            logger.warning("📹 startVideoStream — could not parse params (type=\(type(of: params))), using defaults")
+            let paramsType = type(of: params)
+            logger.warning("📹 startVideoStream — could not parse params (type=\(paramsType)), using defaults")
         }
 
-        logger.info("📹 startVideoStream — starting with facing=\(facing) autoZoom=\(autoZoom) initialZoom=\(initialZoom) format=\(scanFormat) fpsMin=\(String(describing: fpsMin)) fpsMax=\(String(describing: fpsMax))")
+        let fpsMinStr = String(describing: fpsMin)
+        let fpsMaxStr = String(describing: fpsMax)
+        logger.info(
+            """
+            📹 startVideoStream — starting with facing=\(facing) autoZoom=\(autoZoom) \
+            initialZoom=\(initialZoom) format=\(scanFormat) fpsMin=\(fpsMinStr) fpsMax=\(fpsMaxStr)
+            """
+        )
         cam.start(facing: facing, autoZoom: autoZoom, initialZoom: initialZoom,
                   scanFormat: scanFormat, fpsMin: fpsMin, fpsMax: fpsMax)
     }
@@ -527,7 +534,6 @@ extension NativeBridge: WKScriptMessageHandler {
             )
         }
     }
-
 
     // MARK: - Safe Area Methods
 

@@ -77,8 +77,8 @@ public class NativeCameraManager: ObservableObject {
             onZoomChanged: { zoomLevel, minZoom, maxZoom in
                 let payload: [String: Any] = [
                     "zoomLevel": round(Double(zoomLevel) * 10) / 10,
-                    "minZoom":   round(Double(minZoom)   * 10) / 10,
-                    "maxZoom":   round(Double(maxZoom)   * 10) / 10
+                    "minZoom": round(Double(minZoom)   * 10) / 10,
+                    "maxZoom": round(Double(maxZoom)   * 10) / 10
                 ]
                 eBox.call("ON_ZOOM_CHANGED", payload)
             }
@@ -97,15 +97,15 @@ public class NativeCameraManager: ObservableObject {
             zoomController: zoomController,
             torchController: torchController,
             barcodeDetector: barcodeDetector,
-            onReady:   { eBox.call("ON_VIDEO_STREAM_READY",   nil) },
+            onReady: { eBox.call("ON_VIDEO_STREAM_READY", nil) },
             onStopped: { eBox.call("ON_VIDEO_STREAM_STOPPED", nil) },
-            onError:   { msg in errBox.call(msg) }
+            onError: { msg in errBox.call(msg) }
         )
 
         holdController = HoldController(stateMachine: sm, barcodeDetector: barcodeDetector)
 
         // Wire detection handler now that holdController exists
-        barcodeDetector.detectionHandler = { [weak holdController, weak sm] value, type, bounds in
+        barcodeDetector.detectionHandler = { [weak holdController, weak sm] value, type, _ in
             guard sm?.state != .hold else { return }
             guard let hc = holdController else { return }
             if hc.isNewValue(value) {

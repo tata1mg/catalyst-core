@@ -195,7 +195,11 @@ class LocalNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
         completionHandler()
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
 
         // Show notification even when app is in foreground
         // Check if notification has sound (vibrate enabled)

@@ -111,9 +111,9 @@ class TransitionManager {
         let endTranslation: CGPoint
         switch direction {
         case "right": endTranslation = CGPoint(x: -w, y: 0)
-        case "up":    endTranslation = CGPoint(x: 0,  y: h)
-        case "down":  endTranslation = CGPoint(x: 0,  y: -h)
-        default:      endTranslation = CGPoint(x: w,  y: 0)  // "left" — overlay slides out to the right
+        case "up":    endTranslation = CGPoint(x: 0, y: h)
+        case "down":  endTranslation = CGPoint(x: 0, y: -h)
+        default:      endTranslation = CGPoint(x: w, y: 0)  // "left" — overlay slides out to the right
         }
 
         UIView.animate(

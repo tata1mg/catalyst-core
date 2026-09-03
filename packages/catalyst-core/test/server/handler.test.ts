@@ -15,9 +15,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 //   - error propagation: a throwing serverSideFunction / fetcher is
 //     caught, logged via logSSRError, and still produces a response
 //
-// Deeper streaming timing / deferred-asset behavior already has Tier-2
-// coverage via examples/error-catalog (RUNTIME-WEB-*) and the Playwright
-// fixture (#412); not re-litigated here.
+// This file covers the request lifecycle only. The manifest -> chunk ->
+// markup path (critical CSS inlining, module scripts / modulepreload, bot
+// gating, the deferred-asset flush and its cross-request cache, and the
+// PREFLIGHT-021 built-in-document fallback) is covered in
+// handler.assets.test.ts, which runs with a populated fake manifest and no
+// CustomDocument. Real split() + lazy + Suspense streaming stays in
+// Split.server.test.jsx (#347/#348); browser behavior in Playwright (#412).
 
 // A real Writable so renderToPipeableStream's Transform -> res pipe works;
 // a bag of vi.fn()s would hang. Collects chunks and exposes the express

@@ -41,7 +41,7 @@ public struct SplashView: View {
                 }
         }
     }
-    
+
     // Load custom splash screen image from Assets.xcassets (copied from public folder during build)
     private func loadSplashImage() -> UIImage? {
         // Try to load the launch screen image from Assets.xcassets
@@ -50,10 +50,10 @@ public struct SplashView: View {
             print("✅ Loaded launch screen image from Assets.xcassets")
             return image
         }
-        
+
         // Fallback: Try to load using Bundle.main.path (for backward compatibility)
         let imageExtensions = ["png", "jpg", "jpeg"]
-        
+
         for ext in imageExtensions {
             if let path = Bundle.main.path(forResource: "launchscreen", ofType: ext),
                let image = UIImage(contentsOfFile: path) {
@@ -61,7 +61,7 @@ public struct SplashView: View {
                 return image
             }
         }
-        
+
         print("❌ No launch screen image found")
         return nil
     }
@@ -89,7 +89,7 @@ extension Color {
             .sRGB,
             red: Double(r) / 255,
             green: Double(g) / 255,
-            blue:  Double(b) / 255,
+            blue: Double(b) / 255,
             opacity: Double(a) / 255
         )
     }

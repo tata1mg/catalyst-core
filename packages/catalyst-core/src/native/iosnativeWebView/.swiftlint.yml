@@ -1,0 +1,66 @@
+# SwiftLint config for the iOS native WebView host.
+#
+# Gate contract (mirrors the web `lint` CI job): `error`-severity
+# violations fail the build; `warning`s surface in the log but do not
+# block. CI runs plain `swiftlint lint` (no `--strict`) via
+# ghcr.io/realm/swiftlint on Linux.
+
+excluded:
+  # Resolved third-party SwiftPM checkouts — not our code.
+  - .spm-cache
+  - .build
+  - build
+  - DerivedData
+  - CoreLogic/.build
+  - CoreLogic/.spm-cache
+
+# ── Size rules ────────────────────────────────────────────────────────
+# SwiftLint's defaults (type_body 200/350, file 400/1000, function
+# 40/100, complexity 10/20) are tuned for library code. This is an app
+# host with a few naturally large coordinator types (NativeBridge,
+# NativeCameraManager, the framework cert/HTTP utils). Raise the *error*
+# thresholds to values these files already respect; the lower `warning`
+# level still flags growth.
+type_body_length:
+  warning: 350
+  error: 600
+file_length:
+  warning: 600
+  error: 1200
+function_body_length:
+  warning: 80
+  error: 160
+cyclomatic_complexity:
+  warning: 15
+  error: 30
+
+# ── Identifier names ─────────────────────────────────────────────────
+# Allow the short names that are idiomatic in this codebase: loop
+# indices (i, j), geometry destructuring (w/h for width/height, x/y),
+# and RGBA tuple binds (r/g/b/a). SCREAMING_SNAKE_CASE constants are NOT
+# whitelisted here — those were renamed to lowerCamelCase.
+identifier_name:
+  allowed_symbols: ["_"]
+  excluded:
+    - i
+    - j
+    - x
+    - y
+    - w
+    - h
+    - r
+    - g
+    - b
+    - a
+    - d
+    - id
+    - to
+    - vc
+
+# ── Rule opt-outs with rationale ─────────────────────────────────────
+disabled_rules:
+  # Autocorrect-only cosmetic rules that produce hundreds of warnings on
+  # the existing tree; left off for this PR rather than churning every
+  # file. Re-enable incrementally.
+  - todo
+  - trailing_comma
