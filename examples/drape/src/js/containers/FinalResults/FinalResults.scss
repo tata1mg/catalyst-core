@@ -1,0 +1,155 @@
+// Final Results — frame jVFCi in design/drape.pen
+// Spec: docs/FINAL-RESULTS-IDEAS.md (Variation A: Magazine Spread)
+
+.body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-14);
+    padding: var(--space-12) var(--page-padding) var(--space-16) var(--page-padding);
+}
+
+// Mobile: clear the floating tab bar.
+@media (max-width: 599px) {
+    .body {
+        padding-bottom: calc(var(--space-16) + var(--tab-bar-height));
+    }
+}
+
+// Featured hero card.
+// Height 360px is layout-pixel from the spec; no token covers this — flagged in report.
+// Spec says radius 20 — token system has --radius-md (18) and --radius-lg (24). Using
+// --radius-md per its semantic role ("Chips, scrim badges, hero cards"); 2px gap flagged.
+.featured {
+    position: relative;
+    height: 360px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background-color: var(--color-surface-soft);
+}
+
+.featuredImage {
+    position: absolute;
+    inset: 0;
+}
+
+.featuredOverlay {
+    position: absolute;
+    inset: 0;
+    padding: var(--space-14);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+}
+
+.featuredOverlay > * {
+    pointer-events: auto;
+}
+
+.scrimChip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    width: fit-content;
+    padding: var(--space-6) var(--space-12);
+    border-radius: var(--radius-md);
+    background-color: var(--color-scrim);
+    color: var(--color-text-on-dark);
+}
+
+.scrimText {
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-on-dark);
+    line-height: 1.4;
+}
+
+.thumbStrip {
+    display: flex;
+    gap: var(--space-10);
+}
+
+// Sibling thumb. Height 74 is layout-pixel from the spec; no token — flagged.
+.thumb {
+    position: relative;
+    flex: 1 1 0;
+    height: 74px;
+    border-radius: var(--radius-xs);
+    border: 0;
+    padding: 0;
+    background-color: var(--color-surface-soft);
+    cursor: pointer;
+    overflow: hidden;
+    transition:
+        box-shadow var(--transition-state),
+        transform var(--motion-tap) var(--ease-standard);
+}
+
+.thumbImage {
+    position: absolute;
+    inset: 0;
+}
+
+.thumb:active {
+    transform: scale(0.97);
+}
+
+.thumbSelected {
+    box-shadow: inset 0 0 0 var(--stroke-emphasis) var(--color-text-primary);
+}
+
+.actions {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-10);
+}
+
+
+// "Download all" pill. Spec calls for height 52, label Inter 14/600.
+// Inlined (rather than reusing PrimaryCta which is height 56 + 15/600) to match spec exactly.
+.downloadCta {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    height: 52px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-text-primary);
+    color: var(--color-text-on-dark);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+}
+
+.refreshButton {
+    flex: 0 0 auto;
+    width: 52px;
+    height: 52px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-tap);
+}
+
+.refreshButton:active {
+    transform: scale(0.92);
+}
+
+.downloadCta {
+    transition: var(--transition-tap);
+}
+
+.downloadCta:active {
+    transform: scale(0.97);
+}

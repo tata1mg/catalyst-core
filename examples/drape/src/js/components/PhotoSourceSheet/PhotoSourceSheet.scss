@@ -1,0 +1,87 @@
+.title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-14);
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-14);
+    width: 100%;
+    padding: var(--space-10) 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition-tap);
+}
+
+.row:active {
+    transform: scale(0.99);
+}
+
+.iconTile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    flex-shrink: 0;
+}
+
+.text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.helper {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+}
+
+.cancel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 52px;
+    padding: 0;
+    margin-top: var(--space-4);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-canvas);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: var(--transition-tap);
+}
+
+.cancel:active {
+    transform: scale(0.99);
+}

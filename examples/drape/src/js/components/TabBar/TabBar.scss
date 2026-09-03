@@ -1,0 +1,69 @@
+// TabBar always anchored to the bottom of the device.
+// Mobile / native: ONLY the pill floats — the wrapper is transparent and
+// `pointer-events: none` so it doesn't block content under it. The pill itself
+// uses `backdrop-filter` (frosted glass) to read against scrolling content
+// without breaking the no-shadow rule. Desktop preview: lives in the device
+// flow normally.
+.tabWrap {
+    padding: var(--space-12) 21px 21px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 599px) {
+    .tabWrap {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        padding-bottom: max(21px, env(safe-area-inset-bottom, 0));
+        background: transparent;
+        pointer-events: none;
+    }
+}
+
+.tabPill {
+    height: 62px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background-color: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: var(--stroke-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-xxl);
+    padding: var(--space-4);
+    pointer-events: auto;
+}
+
+.tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    border: 0;
+    background: none;
+    border-radius: 26px;
+    color: var(--color-text-secondary);
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition:
+        background-color var(--transition-state),
+        color var(--transition-state),
+        opacity var(--motion-tap) var(--ease-standard);
+}
+
+.tab:active {
+    opacity: 0.6;
+}
+
+.tabActive {
+    background-color: var(--color-text-primary);
+    color: var(--color-text-on-dark);
+}
+
+.tabLabel {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
