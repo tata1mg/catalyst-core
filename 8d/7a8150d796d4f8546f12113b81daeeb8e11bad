@@ -1,0 +1,36 @@
+.github/workflows/node.js.yml
+  s_18ebc815cd25d6::t_a3f60adc214be8 1031-1035,1037
+  s_18ebc815cd25d6::t_ea1260c0a62cee 668
+  s_18ebc815cd25d6::t_dcc853daa16b2d 122-123,125-128
+  s_18ebc815cd25d6::t_6ecf174d8c1b41 648-664
+  s_18ebc815cd25d6::t_e3e15ca09414fe 81-84,116-121,129-132
+  s_18ebc815cd25d6::t_326d8a39cc27ae 352-353
+  s_18ebc815cd25d6::t_8feef7d5907e58 355
+  s_18ebc815cd25d6::t_a9fcf0a06b522a 573-576
+  s_18ebc815cd25d6::t_3a10f0c6d24abb 334-351
+  s_18ebc815cd25d6::t_1c2ca40a0bca3a 804-808,810
+  s_18ebc815cd25d6::t_ef069daa489c85 410
+  s_18ebc815cd25d6::t_55ea1d55bd92f0 293-297,299
+  s_18ebc815cd25d6::t_97088a3e2aecb2 613-619,621
+  s_18ebc815cd25d6::t_8526ceb6453c3d 79-80,108-113,124
+  s_18ebc815cd25d6::t_d55000a7f41c6d 665-666
+  s_18ebc815cd25d6::t_d560d4cd730330 133,298,354,409,558,620,667,809,1036
+  s_18ebc815cd25d6::t_592269d56f2145 553-557,559
+  s_18ebc815cd25d6::t_47b32fb487253f 373-376,404-408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8d7a8150d796d4f8546f12113b81daeeb8e11bad",
+  "prompts": {},
+  "sessions": {
+    "s_18ebc815cd25d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e59121fb-58b1-4c4d-962e-60babb96864d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
