@@ -62,18 +62,6 @@ jobs:
                         - '!packages/catalyst-core/src/native/iosnativeWebView/**'
                         - 'packages/create-catalyst-app/**'
                         - 'packages/catalyst-ai/**'
-                        # catalyst-ai/android is a standalone com.android.library
-                        # module (namespace io.catalyst.nativeai). The app has no
-                        # compile-time dep on it -- NativeBridge.kt discovers it at
-                        # runtime via Class.forName + ServiceLoader, and it is only
-                        # copied into the build tree when ai.enabled=true. It is not
-                        # part of androidProject's Gradle build, so neither the web
-                        # nor the android job compiles it; a Kotlin-only change here
-                        # currently runs no CI. Excluded from `web` (it is not web
-                        # code) rather than routed to `android` (that job builds
-                        # androidProject, which never references these sources).
-                        # A dedicated compile harness is tracked as a follow-up.
-                        - '!packages/catalyst-ai/android/**'
                         - 'examples/error-catalog/**'
                       android:
                         - *shared
