@@ -1,6 +1,6 @@
 import path from "path"
 import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
-import { safeCall } from "../server/utils/validator.js"
+import { safeCallNamed } from "../server/utils/validator.js"
 
 let preServerInit
 try {
@@ -10,4 +10,4 @@ try {
     // No hooks file — preServerInit remains undefined
 }
 await loadEnvironmentVariables()
-safeCall(preServerInit)
+await safeCallNamed("preServerInit", preServerInit)

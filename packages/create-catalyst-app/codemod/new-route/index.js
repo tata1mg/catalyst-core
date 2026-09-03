@@ -1,6 +1,6 @@
 const fs = require("fs")
 const path = require("path")
-const pc = require("picocolors")
+const pc = require("ansis")
 const prompts = require("prompts")
 const { program } = require("commander")
 

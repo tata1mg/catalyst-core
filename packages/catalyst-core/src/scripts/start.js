@@ -1,6 +1,6 @@
 import path from "path"
 import { spawnSync } from "child_process"
-import { arrayToObject } from "./scriptUtils.js"
+import { arrayToObject, resolveOutputMode } from "./scriptUtils.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { readFileSync } from "fs"
@@ -16,6 +16,7 @@ const preInitPath = path.resolve(__dirname, "preServerInit.js")
 function start() {
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
+    const outputMode = resolveOutputMode(process.argv)
     const dirname = path.resolve(__dirname, "../../")
 
     // Read package.json
@@ -31,6 +32,7 @@ function start() {
             NODE_ENV: "development",
             IS_DEV_COMMAND: false,
             APPLICATION: name || "catalyst_app",
+            CATALYST_OUTPUT_MODE: outputMode,
             ...argumentsObject,
             filterKeys: JSON.stringify([
                 "src_path",
