@@ -74,15 +74,18 @@ function syncPackage(shortName) {
 
   ok(`${packageName} → ${path.relative(REPO_ROOT, targetDir)}`);
 
-  // For ai, remind dev to wire up the android module (useNativeAI) in settings.gradle.kts
+  // For ai, point at the android module (useNativeAI). No manual
+  // settings.gradle.kts edit needed: androidProject/settings.gradle.kts
+  // auto-includes :catalyst-ai when node_modules/catalyst-ai/android exists
+  // (this sync's target). Set `ai.enabled: true` in the app config so the
+  // module is bundled into the APK.
   if (shortName === 'ai') {
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - targetDir is derived earlier from the fixed PACKAGE_MAP lookup; 'android' is a hardcoded literal, not request input.
     const androidDir = path.join(targetDir, 'android');
     if (fs.existsSync(androidDir)) {
       console.log(`\x1b[36m  ℹ  Android module at: ${path.relative(REPO_ROOT, androidDir)}\x1b[0m`);
-      console.log(`\x1b[33m  ⚠  Add to settings.gradle.kts:\x1b[0m`);
-      console.log(`       include(":catalyst-ai")`);
-      console.log(`       project(":catalyst-ai").projectDir = File("node_modules/catalyst-ai/android")`);
+      console.log(`\x1b[36m  ℹ  androidProject/settings.gradle.kts auto-includes :catalyst-ai from here.\x1b[0m`);
+      console.log(`\x1b[33m  ⚠  Set "ai": { "enabled": true } in your app config to bundle it into the APK.\x1b[0m`);
     }
   }
 }

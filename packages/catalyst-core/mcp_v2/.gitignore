@@ -1,4 +1,3 @@
 node_modules/
-package-lock.json
 context.db
 kb_misses.json

@@ -1,6 +1,7 @@
 import path from "path"
 import { spawnSync } from "child_process"
 import { arrayToObject, resolveOutputMode } from "./scriptUtils.js"
+import { runStaticPreflightOrExit } from "./preflight.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { readFileSync } from "fs"
@@ -14,6 +15,10 @@ const preInitPath = path.resolve(__dirname, "preServerInit.js")
  * @description - starts webpack dev server and node server.
  */
 function start() {
+    // Fail fast on a misconfigured app (missing/invalid config.json, package.json,
+    // or moduleAliases) with a coded, doc-linked error before spawning the server.
+    runStaticPreflightOrExit()
+
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
     const outputMode = resolveOutputMode(process.argv)

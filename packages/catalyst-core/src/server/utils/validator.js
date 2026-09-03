@@ -8,6 +8,15 @@ import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js
 // sees the parent's CLI flags, so only CATALYST_OUTPUT_MODE is real input.
 const outputMode = resolveOutputMode([], process.env)
 
+// The validate* functions are PURE: they return `null` when the input is
+// valid and a `CatalystError` (never thrown, never logged) when it isn't.
+// This lets two very different callers share one definition:
+//   - scripts/preflight.js (parent CLI process) collects the errors from
+//     several validators and prints them all, then exits non-zero.
+//   - the in-server call sites (expressServer.js, handler.jsx) log the
+//     single error and fall back, keeping the request alive.
+// `handleError` below is the shared "log it, in whatever output mode" helper
+// those in-server sites use.
 const handleError = (e) => {
     const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
     if (outputMode === "default") {
@@ -18,129 +27,90 @@ const handleError = (e) => {
 }
 
 const validatePreInitServer = (fn) => {
-    try {
-        if (!fn) throw createError(ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_MISSING)
-        if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION)
-        return true
-    } catch (e) {
-        handleError(e)
-    }
+    if (!fn) return createError(ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_MISSING)
+    if (typeof fn !== "function") return createError(ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION)
+    return null
 }
 
 const validateMiddleware = (fn) => {
-    try {
-        if (!fn) throw createError(ERROR_CODES.PREFLIGHT_MIDDLEWARE_MISSING)
-        if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_MIDDLEWARE_NOT_FUNCTION)
-        return true
-    } catch (e) {
-        handleError(e)
-    }
+    if (!fn) return createError(ERROR_CODES.PREFLIGHT_MIDDLEWARE_MISSING)
+    if (typeof fn !== "function") return createError(ERROR_CODES.PREFLIGHT_MIDDLEWARE_NOT_FUNCTION)
+    return null
 }
 
 const validateReducerFunction = (fn) => {
-    try {
-        if (!fn) throw createError(ERROR_CODES.PREFLIGHT_REDUCER_MISSING)
-        if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_REDUCER_NOT_FUNCTION)
-        return true
-    } catch (e) {
-        handleError(e)
-    }
+    if (!fn) return createError(ERROR_CODES.PREFLIGHT_REDUCER_MISSING)
+    if (typeof fn !== "function") return createError(ERROR_CODES.PREFLIGHT_REDUCER_NOT_FUNCTION)
+    return null
 }
 
 const validateConfigFile = (obj) => {
-    try {
-        if (!obj) throw createError(ERROR_CODES.PREFLIGHT_CONFIG_MISSING)
-        if (typeof obj !== "object") throw createError(ERROR_CODES.PREFLIGHT_CONFIG_NOT_OBJECT)
-        if (typeof obj === "object") {
-            const requiredConfigKeys = {
-                NODE_SERVER_HOSTNAME: "",
-                NODE_SERVER_PORT: "",
-                WEBPACK_DEV_SERVER_HOSTNAME: "",
-                WEBPACK_DEV_SERVER_PORT: "",
-                BUILD_OUTPUT_PATH: "",
-                PUBLIC_STATIC_ASSET_PATH: "",
-                PUBLIC_STATIC_ASSET_URL: "",
-                CLIENT_ENV_VARIABLES: [],
-                ANALYZE_BUNDLE: "",
-            }
-            for (let key in requiredConfigKeys) {
-                if (!(key in obj))
-                    throw createError(ERROR_CODES.PREFLIGHT_CONFIG_KEY_MISSING, {
-                        details: `${key} key not found inside config.json`,
-                    })
-            }
-        }
-        return true
-    } catch (e) {
-        handleError(e)
+    if (!obj) return createError(ERROR_CODES.PREFLIGHT_CONFIG_MISSING)
+    if (typeof obj !== "object") return createError(ERROR_CODES.PREFLIGHT_CONFIG_NOT_OBJECT)
+    const requiredConfigKeys = [
+        "NODE_SERVER_HOSTNAME",
+        "NODE_SERVER_PORT",
+        "WEBPACK_DEV_SERVER_HOSTNAME",
+        "WEBPACK_DEV_SERVER_PORT",
+        "BUILD_OUTPUT_PATH",
+        "PUBLIC_STATIC_ASSET_PATH",
+        "PUBLIC_STATIC_ASSET_URL",
+        "CLIENT_ENV_VARIABLES",
+        "ANALYZE_BUNDLE",
+    ]
+    for (const key of requiredConfigKeys) {
+        if (!(key in obj))
+            return createError(ERROR_CODES.PREFLIGHT_CONFIG_KEY_MISSING, {
+                details: `${key} key not found inside config.json`,
+            })
     }
+    return null
 }
 
 const validatePackageJson = (obj) => {
-    try {
-        if (!obj) throw createError(ERROR_CODES.PREFLIGHT_PACKAGE_JSON_MISSING)
-        if (typeof obj !== "object") throw createError(ERROR_CODES.PREFLIGHT_PACKAGE_JSON_INVALID)
-        return true
-    } catch (e) {
-        handleError(e)
-    }
+    if (!obj) return createError(ERROR_CODES.PREFLIGHT_PACKAGE_JSON_MISSING)
+    if (typeof obj !== "object") return createError(ERROR_CODES.PREFLIGHT_PACKAGE_JSON_INVALID)
+    return null
 }
 
 const validateModuleAlias = (obj) => {
-    try {
-        if (!obj) throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_MISSING)
-        if (typeof obj !== "object") throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_NOT_OBJECT)
-        if (typeof obj === "object") {
-            const requiredModuleAliases = {
-                "@api": "api.js",
-                "@containers": "src/js/containers",
-                "@server": "server",
-                "@config": "config",
-                "@css": "src/static/css",
-                "@routes": "src/js/routes/",
-            }
-            for (let key in requiredModuleAliases) {
-                if (key.includes("catalyst")) throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
-                if (!(key in obj))
-                    throw createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_KEY_MISSING, {
-                        details: `${key} module alias not defined inside package.json`,
-                    })
-            }
-        }
-        return true
-    } catch (e) {
-        handleError(e)
+    if (!obj) return createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_MISSING)
+    if (typeof obj !== "object") return createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_NOT_OBJECT)
+    // A consumer app must not shadow the framework's own "@catalyst*" aliases
+    // (both "@catalyst/…" and "@catalyst-…" are reserved) with its own
+    // moduleAliases entries — check the INPUT's keys, not the required list
+    // (that check was previously on the wrong side and could never fire;
+    // PREFLIGHT-008). Anchored to the start and case-insensitive: a bare
+    // `.includes("catalyst")` also (wrongly) rejected unrelated names like
+    // "@my-catalyst-helpers", which don't shadow anything.
+    if (Object.keys(obj).some((key) => /^@catalyst($|[/-])/i.test(key)))
+        return createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_RESTRICTED)
+    const requiredModuleAliases = ["@api", "@containers", "@server", "@config", "@css", "@routes"]
+    for (const key of requiredModuleAliases) {
+        if (!(key in obj))
+            return createError(ERROR_CODES.PREFLIGHT_MODULE_ALIAS_KEY_MISSING, {
+                details: `${key} module alias not defined inside package.json`,
+            })
     }
+    return null
 }
 
 const validateConfigureStore = (fn) => {
-    try {
-        if (!fn) throw createError(ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_MISSING)
-        if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_NOT_FUNCTION)
-        return true
-    } catch (e) {
-        handleError(e)
-    }
+    if (!fn) return createError(ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_MISSING)
+    if (typeof fn !== "function") return createError(ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_NOT_FUNCTION)
+    return null
 }
 
 const validateGetRoutes = (fn) => {
-    try {
-        if (!fn) throw createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING)
-        if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_NOT_FUNCTION)
-        return true
-    } catch (e) {
-        handleError(e)
-    }
+    if (!fn) return createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING)
+    if (typeof fn !== "function") return createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_NOT_FUNCTION)
+    return null
 }
 
 const validateCustomDocument = (fn) => {
-    try {
-        if (!fn) throw createError(ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_MISSING)
-        if (typeof fn !== "function") throw createError(ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_NOT_FUNCTION)
-        return true
-    } catch (e) {
-        handleError(e)
-    }
+    if (!fn) return createError(ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_MISSING)
+    if (typeof fn !== "function") return createError(ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_NOT_FUNCTION)
+    return null
 }
 
 /**
@@ -188,6 +158,7 @@ const safeCallNamed = async (hookName, fn, ...args) => {
 }
 
 export {
+    handleError,
     validateConfigFile,
     validateConfigureStore,
     validateCustomDocument,
