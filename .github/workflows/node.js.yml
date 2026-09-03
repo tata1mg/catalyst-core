@@ -1147,3 +1147,5 @@ jobs:
                   npm --prefix docs run lint
                   npm run docs:build
                   npm --prefix docs run docs:check-links -- --strict
+
+# fail-fast probe: temporary no-op comment to trigger all platform filters.
