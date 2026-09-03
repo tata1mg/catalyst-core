@@ -64,7 +64,7 @@ public enum CatalystConstants {
 
         public static func isTraceExportEnabled(
             debugBuild: Bool = isDebugBuild,
-            profilerEnabled: Bool = ConfigConstants.Profiler.enabled
+            profilerEnabled: Bool = RuntimeConfig.profilerEnabled
         ) -> Bool {
             debugBuild && profilerEnabled
         }
@@ -107,7 +107,7 @@ public enum CatalystConstants {
 
             // Check if notifications are enabled via config
             // When enabled, CatalystNotifications module will be available at app layer
-            if ConfigConstants.Notifications.enabled {
+            if RuntimeConfig.notificationsEnabled {
                 print("🔔 DEBUG: Notifications enabled in config - adding notification commands")
                 commands.formUnion([
                     "requestNotificationPermission",
@@ -122,7 +122,7 @@ public enum CatalystConstants {
                 print("❌ DEBUG: Notifications disabled in config - notification commands not available")
             }
 
-            print("🔐 DEBUG: Google Sign-In enabled in config? \(ConfigConstants.GoogleSignIn.enabled)")
+            print("🔐 DEBUG: Google Sign-In enabled in config? \(RuntimeConfig.googleSignInEnabled)")
 
             print("🔧 DEBUG: Valid commands available: \(commands.sorted().joined(separator: ", "))")
             return commands

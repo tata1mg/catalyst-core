@@ -47,22 +47,19 @@ class URLWhitelistManager {
     }
     #endif
 
+    func configure(enabled: Bool, allowedUrls: [String]) {
+        syncQueue.sync(flags: .barrier) {
+            self.accessControlEnabled = enabled
+            self.patterns = categorizePatterns(allowedUrls)
+        }
+    }
+
     /// Load URL whitelist configuration from ConfigConstants
     private func loadConfiguration() {
-        syncQueue.sync(flags: .barrier) {
-            self.accessControlEnabled = ConfigConstants.accessControlEnabled
-            let allowedUrls = ConfigConstants.allowedUrls
-            self.patterns = categorizePatterns(allowedUrls)
-
-            logger.info("URLWhitelistManager initialized")
-            logger.info("Access Control Enabled: \(self.accessControlEnabled)")
-            logger.info("Allowed URLs: \(allowedUrls)")
-            if let patterns = self.patterns {
-                logger.info("Categorized - Contains: \(patterns.contains)")
-                logger.info("Categorized - Prefix: \(patterns.prefix)")
-                logger.info("Categorized - Suffix: \(patterns.suffix)")
-            }
-        }
+        configure(
+            enabled: ConfigConstants.accessControlEnabled,
+            allowedUrls: ConfigConstants.allowedUrls
+        )
     }
 
     /// Check if URL whitelisting is enabled

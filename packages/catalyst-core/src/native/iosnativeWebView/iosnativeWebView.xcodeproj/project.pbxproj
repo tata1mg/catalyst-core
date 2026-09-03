@@ -483,6 +483,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = iosnativeWebView/iosnativeWebView.entitlements;
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BHQQRZ69D3;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires camera access to capture images";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Debug web content in Safari Web Inspector";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires photo library access to select images from your gallery";
@@ -502,6 +503,7 @@
 			baseConfigurationReference = XCCONFIG001000000002 /* Release.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = iosnativeWebView/iosnativeWebView.entitlements;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires camera access to capture images";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Debug web content in Safari Web Inspector";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires photo library access to select images from your gallery";

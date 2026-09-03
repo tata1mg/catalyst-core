@@ -31,6 +31,7 @@ extension WKScriptMessage: PluginBridgeMessage {}
 final class PluginBridge: NSObject {
     private weak var webView: WKWebView?
     private weak var viewController: UIViewController?
+    private weak var webViewModel: WebViewModel?
     private var messageHandlerProxy: WeakScriptMessageHandler?
     private var isRegistered = false
 
@@ -41,9 +42,10 @@ final class PluginBridge: NSObject {
     private let errorEvent = "PLUGIN_BRIDGE_ERROR"
     private let systemPluginId = "__bridge__"
 
-    init(webView: WKWebView, viewController: UIViewController) {
+    init(webView: WKWebView, viewController: UIViewController, webViewModel: WebViewModel? = nil) {
         self.webView = webView
         self.viewController = viewController
+        self.webViewModel = webViewModel
         super.init()
     }
 
@@ -123,6 +125,7 @@ final class PluginBridge: NSObject {
         let bridge = PluginBridgeContext(
             webView: webView,
             viewController: viewController,
+            webViewModel: webViewModel,
             pluginId: systemPluginId,
             command: request?.command,
             requestId: request?.requestId
@@ -185,6 +188,7 @@ final class PluginBridge: NSObject {
             let bridge = PluginBridgeContext(
                 webView: webView,
                 viewController: viewController,
+                webViewModel: webViewModel,
                 pluginId: parsedRequest.pluginId,
                 command: parsedRequest.command,
                 requestId: parsedRequest.requestId
@@ -212,6 +216,7 @@ extension PluginBridge: WKScriptMessageHandler {
 public final class PluginBridgeContext {
     public weak var webView: WKWebView?
     public weak var viewController: UIViewController?
+    public weak var webViewModel: WebViewModel?
 
     private let systemPluginId = "__bridge__"
     private let bridgeErrorEvent = "PLUGIN_BRIDGE_ERROR"
@@ -223,12 +228,14 @@ public final class PluginBridgeContext {
     init(
         webView: WKWebView?,
         viewController: UIViewController?,
+        webViewModel: WebViewModel? = nil,
         pluginId: String,
         command: String?,
         requestId: String?
     ) {
         self.webView = webView
         self.viewController = viewController
+        self.webViewModel = webViewModel
         self.pluginId = pluginId
         self.command = command
         self.requestId = requestId

@@ -514,6 +514,28 @@ module.exports = function createBuildPhase(ctx) {
         }
     }
 
+    // Command-line build settings outrank the values baked into project.pbxproj, so
+    // signing configured in config.json (WEBVIEW_CONFIG.ios) is applied here as
+    // overrides. When nothing is configured the command is left untouched so existing
+    // projects keep relying on whatever the Xcode project itself declares.
+    function makeDeviceSigningOverrides(iosConfig) {
+        const developmentTeam = iosConfig?.developmentTeam || ""
+        const provisioningProfile = iosConfig?.provisioningProfile || ""
+        if (!developmentTeam && !provisioningProfile) return ""
+        if (provisioningProfile) {
+            return ` \
+        CODE_SIGN_STYLE=Manual \
+        DEVELOPMENT_TEAM="${developmentTeam}" \
+        PROVISIONING_PROFILE_SPECIFIER="${provisioningProfile}" \
+        -allowProvisioningUpdates`
+        }
+        return ` \
+        CODE_SIGN_STYLE=Automatic \
+        DEVELOPMENT_TEAM="${developmentTeam}" \
+        PROVISIONING_PROFILE_SPECIFIER="" \
+        -allowProvisioningUpdates`
+    }
+
     async function buildProjectForPhysicalDevice(scheme, bundleId, derivedDataPath, projectName, device) {
         progress.log(`Building for physical device: ${device.name}`, "info")
         const projectPath = `${process.cwd()}/${projectName}.xcodeproj`
@@ -524,13 +546,16 @@ module.exports = function createBuildPhase(ctx) {
             isNotificationsEnabled ? "Building with notifications enabled" : "Building without notifications",
             "info"
         )
+        const signingOverrides = makeDeviceSigningOverrides(ctx.iosConfig)
+        if (signingOverrides)
+            progress.log("Applying config-driven code signing overrides for device build", "info")
         const buildCommand = `xcodebuild \
         -scheme ${scheme} \
         -sdk iphoneos \
         -configuration Debug \
         -destination platform=iOS,id=${device.udid} \
         PRODUCT_BUNDLE_IDENTIFIER=${bundleId} \
-        ONLY_ACTIVE_ARCH=YES \
+        ONLY_ACTIVE_ARCH=YES${signingOverrides} \
         build`
         progress.log(`Executing command: ${buildCommand}`, "info")
         return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 })

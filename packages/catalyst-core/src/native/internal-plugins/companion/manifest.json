@@ -1,0 +1,26 @@
+{
+    "id": "io.catalyst.companion",
+    "configKey": "companion",
+    "version": "1.0.0",
+    "displayName": "Catalyst Companion",
+    "description": "Loads confirmed Catalyst app URLs in Companion with session-scoped config and native exit controls.",
+    "category": "developer",
+    "platforms": ["android", "ios"],
+    "commands": ["openPreview"],
+    "android": {
+        "className": "io.yourname.androidproject.plugins.internal.companion.CompanionPlugin",
+        "allowCleartext": true,
+        "permissions": [],
+        "dependencies": []
+    },
+    "ios": {
+        "className": "CompanionPlugin",
+        "dependencies": [],
+        "infoPlist": {
+            "NSAppTransportSecurity": {
+                "NSAllowsLocalNetworking": true
+            },
+            "NSLocalNetworkUsageDescription": "Connect to development servers on your local network."
+        }
+    }
+}

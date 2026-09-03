@@ -68,6 +68,9 @@ class CustomWebView(
     private var visibleOfflineSnapshotUrl: String? = null
     private var defaultRequestHeaders: Map<String, String> = emptyMap()
     var onPageStarted: (() -> Unit)? = null
+    private var historyResetCallback: (() -> Unit)? = null
+    private var historyResetTarget: String? = null
+    private var historyResetArmed = false
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -86,6 +89,12 @@ class CustomWebView(
         if (profilerEnabled) metricsMonitor.attachWebView(webView)
         offlineCacheService = OfflineCacheService(context)
         setupWebView()
+    }
+
+    fun resetHistoryAfterNextPage(targetUrl: String, callback: () -> Unit = {}) {
+        historyResetTarget = targetUrl
+        historyResetCallback = callback
+        historyResetArmed = false
     }
 
     private fun setupFromProperties() {
@@ -112,28 +121,10 @@ class CustomWebView(
         buildOptimisation = properties.getProperty("buildOptimisation", "false").toBoolean()
         profilerEnabled = PerfEventBuffer.isEnabled()
 
-        // Load allowed URLs from properties
-        allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
-            .split(",")
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
+        setupAccessControl()
 
-        // Access control toggle
-        accessControlEnabled = properties
-            .getProperty("accessControl.enabled", "false")
-            .equals("true", ignoreCase = true)
-
-        // Initialize URLWhitelistManager with access control configuration
-        URLWhitelistManager.initialize(accessControlEnabled, allowedUrls)
-
-        // Set initial flags based on buildOptimisation
-        if (buildOptimisation) {
-            isInitialApiCalled = false
-            isInitialPageLoaded = false
-        } else {
-            isInitialApiCalled = false  // Default value
-            isInitialPageLoaded = false // Default value
-        }
+        isInitialApiCalled = false
+        isInitialPageLoaded = false
 
         // Only log detailed info in debug mode
         if (BuildConfig.DEBUG) {
@@ -152,6 +143,19 @@ class CustomWebView(
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(context))
             .build()
+    }
+
+    private fun setupAccessControl() {
+        allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+        accessControlEnabled = properties
+            .getProperty("accessControl.enabled", "false")
+            .equals("true", ignoreCase = true)
+
+        URLWhitelistManager.initialize(accessControlEnabled, allowedUrls)
     }
 
     fun setDefaultRequestHeaders(headers: Map<String, String>) {
@@ -1099,6 +1103,9 @@ class CustomWebView(
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                if (url == historyResetTarget) {
+                    historyResetArmed = true
+                }
                 if (url != null && url != offlineAssetUrl) {
                     offlinePageVisible = false
                     if (!isVisibleOfflineSnapshot(url)) {
@@ -1139,6 +1146,13 @@ class CustomWebView(
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
+                if (historyResetArmed) historyResetCallback?.let { callback ->
+                    historyResetTarget = null
+                    historyResetCallback = null
+                    historyResetArmed = false
+                    view?.clearHistory()
+                    callback()
+                }
                 if(!isInitialPageLoaded){
                     isInitialPageLoaded = true
                     metricsMonitor.markAppStartComplete()
