@@ -565,16 +565,20 @@ jobs:
                     -PconfigPath=/tmp/ai-config.json --console=plain
 
     catalyst-ai-android-integration:
-        # Dev-accurate path: scaffold an app with create-catalyst-app,
-        # install the local catalyst-ai the way a developer would, turn on
-        # ai.enabled, run the real headless Android prep
-        # (buildAndroidForTesting -> syncAIPackageIfEnabled), then compile
-        # the module inside the scaffolded app's copy of androidProject.
-        # This is the end-to-end check of the JS sync + npm packaging that
-        # the compile job above skips. ~5-8 min.
+        # Dev-accurate path: the maintained examples/useai app, which
+        # already ships a config with ai.enabled=true. Sync the local
+        # catalyst-core + catalyst-ai into it the way a developer does
+        # (npm run sync-core / sync-packages), run the real headless
+        # Android prep (buildAndroidForTesting -> syncAIPackageIfEnabled),
+        # then include-assert + compile the module inside the app's synced
+        # copy of androidProject. This is the end-to-end check of the JS
+        # sync path that the compile job above skips. ~5-8 min.
         needs: detect-changes
         if: needs.detect-changes.outputs.ai_android == 'true'
         runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: examples/useai
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -590,63 +594,59 @@ jobs:
                   java-version: "17"
                   cache: gradle
 
-            - name: Install workspace deps
+            - name: Install root workspace deps
+              working-directory: .
               run: node -v && npm ci
 
-            - name: Scaffold a release sandbox app (no build)
+            - name: Prepare examples/useai (config + install + sync core & ai)
+              # config.template.json already has AI_CONFIG.enabled and
+              # WEBVIEW_CONFIG.ai.enabled = true -- no patching. sync-core
+              # builds catalyst-core and installs the packed local build;
+              # sync-packages copies the local catalyst-ai into
+              # node_modules (its android/ module included), which is what
+              # settings.gradle.kts and syncAIPackageIfEnabled both target.
               run: |
                   set -euo pipefail
-                  node scripts/create-release-sandbox.js \
-                    --target-dir "$RUNNER_TEMP/ai-sandbox" \
-                    --name ai-test-app --yes --force --skip-build
-
-            - name: Install local catalyst-ai into the sandbox
-              # file: install from a fresh pack, mirroring how
-              # create-release-sandbox.js already sources catalyst-core --
-              # so this tests the PR's module, not whatever is on npm.
-              run: |
-                  set -euo pipefail
-                  app_dir="$RUNNER_TEMP/ai-sandbox/ai-test-app"
-                  tgz=$(npm pack --workspace packages/catalyst-ai --pack-destination "$RUNNER_TEMP" --silent | tail -1)
-                  ( cd "$app_dir" && npm install --no-save "file:$RUNNER_TEMP/$tgz" )
-                  test -f "$app_dir/node_modules/catalyst-ai/android/build.gradle.kts"
-
-            - name: Enable ai in the sandbox app config
-              run: |
-                  set -euo pipefail
-                  cfg="$RUNNER_TEMP/ai-sandbox/ai-test-app/config/config.json"
-                  node -e '
-                    const fs = require("fs");
-                    const p = process.argv[1];
-                    const c = JSON.parse(fs.readFileSync(p, "utf8"));
-                    c.WEBVIEW_CONFIG = c.WEBVIEW_CONFIG || {};
-                    c.WEBVIEW_CONFIG.ai = { enabled: true };
-                    fs.writeFileSync(p, JSON.stringify(c, null, 4));
-                  ' "$cfg"
+                  cp config/config.template.json config/config.json
+                  npm install
+                  npm run sync-core
+                  # useai's sync-packages script already ends with `--packages`,
+                  # so the arg is just the package short-name.
+                  npm run sync-packages -- ai
+                  test -f node_modules/catalyst-ai/android/build.gradle.kts
 
             - name: Run headless Android prep (buildAndroidForTesting)
-              # Drives the real code path: initializeConfig -> asset copy ->
-              # plugin compose -> syncAIPackageIfEnabled. No emulator/device.
-              working-directory: ${{ runner.temp }}/ai-sandbox/ai-test-app
+              # Real code path: initializeConfig -> asset copy -> plugin
+              # compose -> syncAIPackageIfEnabled. No emulator/device.
+              # catalystCorePath resolves to examples/useai/node_modules/
+              # catalyst-core, so the AI module is synced to that package's
+              # dist/native/node_modules/catalyst-ai -- the sibling of the
+              # androidProject the next step runs in.
               run: |
                   set -euo pipefail
                   node -e '
-                    const { createAndroidBuild } = require("catalyst-core/dist/native/buildAndroid/index.js");
+                    const path = require("path");
+                    // catalyst-core has an "exports" map, so a deep
+                    // require("catalyst-core/dist/native/...") is blocked.
+                    // Resolve the package dir and require the file by
+                    // absolute path -- the same thing bin/catalyst.js does.
+                    const coreDir = path.dirname(require.resolve("catalyst-core/package.json"));
+                    const { createAndroidBuild } = require(path.join(coreDir, "dist/native/buildAndroid/index.js"));
                     const cfg = require("./config/config.json");
                     createAndroidBuild({ WEBVIEW_CONFIG: cfg.WEBVIEW_CONFIG, BUILD_OUTPUT_PATH: cfg.BUILD_OUTPUT_PATH })
                       .buildAndroidForTesting()
                       .then(r => { if (!r || !r.success) { console.error("buildAndroidForTesting did not succeed"); process.exit(1); } })
-                      .catch(e => { console.error(e); process.exit(1); });
+                      .catch(e => { console.error(e && e.stack || e); process.exit(1); });
                   '
 
             - name: Assert Gradle includes :catalyst-ai and it compiles
-              working-directory: ${{ runner.temp }}/ai-sandbox/ai-test-app/node_modules/catalyst-core/dist/native/androidProject
+              working-directory: examples/useai/node_modules/catalyst-core/dist/native/androidProject
               run: |
                   set -euo pipefail
                   chmod +x ./gradlew
                   ./gradlew projects --console=plain | tee /tmp/projects.txt
                   grep -q "Project ':catalyst-ai'" /tmp/projects.txt \
-                    || { echo "::error::scaffolded androidProject did not include :catalyst-ai after an ai.enabled prep -- the JS sync path is broken"; exit 1; }
+                    || { echo "::error::useai's androidProject did not include :catalyst-ai after an ai.enabled prep -- the JS sync path is broken"; exit 1; }
                   ./gradlew :catalyst-ai:compileDebugKotlin --console=plain
 
     # Split from what was a single test-ios-unit job into two: CoreLogic
