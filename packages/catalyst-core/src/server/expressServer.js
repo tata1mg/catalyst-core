@@ -84,12 +84,20 @@ try {
 
 // ─── Process-level error handlers ─────────────────────────────────────────────
 
-function safeStringify(err) {
+// JSON.stringify(err) on a real Error only serializes its enumerable own properties
+// (e.g. just `code` for a SystemError) and silently drops `message`/`stack` — the two
+// fields that actually identify what failed. Prefer the stack (includes the message),
+// fall back to message, then to a best-effort stringify for non-Error rejections
+// (a plain object, string, etc.).
+function describeError(err) {
     try {
+        if (err && err.stack) return err.stack
+        if (err && err.message) return err.message
         return JSON.stringify(err)
-    } catch (e) {
-        console.log("error in safeStringify", e)
-        return err
+    } catch {
+        // err was not a well-behaved Error — e.g. a Proxy or an object with a throwing
+        // stack/message/toJSON getter. Never let this handler itself throw.
+        return "<unserializable rejection>"
     }
 }
 
@@ -102,7 +110,7 @@ process.on("uncaughtExceptionMonitor", (err, origin) => {
     console.log(err, origin)
 })
 
-process.on("unhandledRejection", (err) => console.log("unhandledRejection in Catalyst", safeStringify(err)))
+process.on("unhandledRejection", (err) => console.log("unhandledRejection in Catalyst", describeError(err)))
 
 process.on("SIGINT", function () {
     console.log("SIGINT")

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "@tata1mg/router";
+import { Link } from "catalyst-core";
 import { useAI } from "catalyst-core/hooks";
 import { motion, AnimatePresence } from "framer-motion";
 

@@ -68,8 +68,11 @@ async function loadAppRoutes(appRoot) {
     })
 
     try {
-        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the app's own build root and the remainder is a hardcoded literal path, not request input.
-        const routesModule = await vite.ssrLoadModule(path.join(appRoot, "src/js/routes/utils.js"))
+        // Use the same extensionless, alias-based specifier as ClientRouter.js/ServerRouter.js/
+        // handler.jsx so Vite's normal resolver can find the app's routes file regardless of
+        // whether it's named utils.js or utils.jsx — a literal ".js" path here would fail to
+        // resolve for any app using the (also-valid, JSX-containing) .jsx convention.
+        const routesModule = await vite.ssrLoadModule("@catalyst/template/src/js/routes/utils")
         return typeof routesModule.getRoutes === "function" ? routesModule.getRoutes() : []
     } finally {
         await vite.close()

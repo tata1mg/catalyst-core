@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useFilePicker } from "catalyst-core/hooks";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "@tata1mg/router";
+import { Link } from "catalyst-core";
 
 const DEMOS = [
     {
