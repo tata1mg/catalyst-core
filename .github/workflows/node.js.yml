@@ -24,6 +24,7 @@ jobs:
             android: ${{ steps.filter.outputs.android }}
             ios: ${{ steps.filter.outputs.ios }}
             docs: ${{ steps.filter.outputs.docs }}
+            ai_android: ${{ steps.filter.outputs.ai_android }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -62,6 +63,16 @@ jobs:
                         - '!packages/catalyst-core/src/native/iosnativeWebView/**'
                         - 'packages/create-catalyst-app/**'
                         - 'packages/catalyst-ai/**'
+                        # catalyst-ai/android is a standalone com.android.library
+                        # module (io.catalyst.nativeai). It is not web code and
+                        # not part of androidProject's Gradle build -- the app
+                        # loads it at runtime via ServiceLoader, and it is only
+                        # linked when ai.enabled=true. Its own jobs
+                        # (catalyst-ai-android-compile / -integration, gated on
+                        # the ai_android filter below) compile it; excluded here
+                        # so a Kotlin-only change doesn't needlessly run the web
+                        # chain.
+                        - '!packages/catalyst-ai/android/**'
                         - 'examples/error-catalog/**'
                       android:
                         - *shared
@@ -69,6 +80,19 @@ jobs:
                       ios:
                         - *shared
                         - 'packages/catalyst-core/src/native/iosnativeWebView/**'
+                      # The optional catalyst-ai native library: its own sources,
+                      # plus the androidProject build wiring that includes and
+                      # links it (settings.gradle.kts / app build.gradle.kts /
+                      # version catalog) and the JS that syncs it into the build
+                      # tree for an ai.enabled build.
+                      ai_android:
+                        - *shared
+                        - 'packages/catalyst-ai/android/**'
+                        - 'packages/catalyst-core/src/native/androidProject/settings.gradle.kts'
+                        - 'packages/catalyst-core/src/native/androidProject/build.gradle.kts'
+                        - 'packages/catalyst-core/src/native/androidProject/app/build.gradle.kts'
+                        - 'packages/catalyst-core/src/native/androidProject/gradle/**'
+                        - 'packages/catalyst-core/src/native/buildAndroid/**'
                       docs:
                         - 'docs/**'
 
@@ -465,6 +489,166 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
                   retention-days: 14
 
+    # -----------------------------------------------------------------
+    # catalyst-ai native library (Android) -- two jobs.
+    #
+    # packages/catalyst-ai/android is a standalone com.android.library
+    # module (io.catalyst.nativeai). Nothing in androidProject depends on
+    # it at compile time -- NativeBridge.kt discovers CatalystAIBridge at
+    # runtime via Class.forName + ServiceLoader -- and it is only synced
+    # into the build tree, and linked, when a build sets ai.enabled=true.
+    # So neither the web chain nor android-unit-and-coverage ever compiles
+    # this Kotlin. These jobs do.
+    #
+    # Both are standalone (needs: detect-changes, gated on the ai_android
+    # filter) rather than chained behind an android job: a break here is a
+    # linkage/compile problem in the optional module, independent of the
+    # main app's lint/tests.
+    # -----------------------------------------------------------------
+
+    catalyst-ai-android-compile:
+        # Fast path: sync the module in the way `sync-packages --packages ai`
+        # / an ai.enabled build do (into androidProject/../node_modules),
+        # then prove Gradle picks it up and it compiles -- against the
+        # in-repo androidProject, no scaffold. ~2 min.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.ai_android == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+                  cache: gradle
+
+            - name: Sync catalyst-ai into node_modules (mirrors sync-packages --packages ai)
+              run: |
+                  set -euo pipefail
+                  dest=packages/catalyst-core/src/native/node_modules/catalyst-ai
+                  mkdir -p "$dest"
+                  rsync -a --exclude node_modules --exclude .git \
+                    packages/catalyst-ai/ "$dest/"
+
+            - name: Assert Gradle includes :catalyst-ai
+              # This is the regression test for the bug this module's wiring
+              # had: settings.gradle.kts looked for a package name that
+              # never existed, so the include silently no-op'd and the
+              # module was compiled by nothing. A bare compile check would
+              # pass vacuously in that state (no module => nothing to
+              # build). Fail loudly if the include is not active.
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  set -euo pipefail
+                  chmod +x ./gradlew
+                  ./gradlew projects --console=plain | tee /tmp/projects.txt
+                  grep -q "Project ':catalyst-ai'" /tmp/projects.txt \
+                    || { echo "::error::androidProject did not include :catalyst-ai after sync -- check settings.gradle.kts"; exit 1; }
+
+            - name: Compile :catalyst-ai (Kotlin)
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: ./gradlew :catalyst-ai:compileDebugKotlin --console=plain
+
+            - name: Compile :app against :catalyst-ai with ai.enabled=true
+              # ai.enabled=true puts :catalyst-ai on the app's
+              # implementation config (APK bundling) and flips
+              # useLegacyPackaging. Exercises manifest merge (minSdk
+              # alignment) and the app's own Kotlin compile with the module
+              # present.
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: |
+                  set -euo pipefail
+                  printf '%s' '{"WEBVIEW_CONFIG":{"ai":{"enabled":true},"android":{"buildType":"debug"}}}' > /tmp/ai-config.json
+                  ./gradlew :app:processDebugMainManifest :app:compileDebugKotlin \
+                    -PconfigPath=/tmp/ai-config.json --console=plain
+
+    catalyst-ai-android-integration:
+        # Dev-accurate path: the maintained examples/useai app, which
+        # already ships a config with ai.enabled=true. Sync the local
+        # catalyst-core + catalyst-ai into it the way a developer does
+        # (npm run sync-core / sync-packages), run the real headless
+        # Android prep (buildAndroidForTesting -> syncAIPackageIfEnabled),
+        # then include-assert + compile the module inside the app's synced
+        # copy of androidProject. This is the end-to-end check of the JS
+        # sync path that the compile job above skips. ~5-8 min.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.ai_android == 'true'
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: examples/useai
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: ".nvmrc"
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+                  cache: gradle
+
+            - name: Install root workspace deps
+              working-directory: .
+              run: node -v && npm ci
+
+            - name: Prepare examples/useai (config + install + sync core & ai)
+              # config.template.json already has AI_CONFIG.enabled and
+              # WEBVIEW_CONFIG.ai.enabled = true -- no patching. sync-core
+              # builds catalyst-core and installs the packed local build;
+              # sync-packages copies the local catalyst-ai into
+              # node_modules (its android/ module included), which is what
+              # settings.gradle.kts and syncAIPackageIfEnabled both target.
+              run: |
+                  set -euo pipefail
+                  cp config/config.template.json config/config.json
+                  npm install
+                  npm run sync-core
+                  # useai's sync-packages script already ends with `--packages`,
+                  # so the arg is just the package short-name.
+                  npm run sync-packages -- ai
+                  test -f node_modules/catalyst-ai/android/build.gradle.kts
+
+            - name: Run headless Android prep (buildAndroidForTesting)
+              # Real code path: initializeConfig -> asset copy -> plugin
+              # compose -> syncAIPackageIfEnabled. No emulator/device.
+              # catalystCorePath resolves to examples/useai/node_modules/
+              # catalyst-core, so the AI module is synced to that package's
+              # dist/native/node_modules/catalyst-ai -- the sibling of the
+              # androidProject the next step runs in.
+              run: |
+                  set -euo pipefail
+                  node -e '
+                    const path = require("path");
+                    // catalyst-core has an "exports" map, so a deep
+                    // require("catalyst-core/dist/native/...") is blocked.
+                    // Resolve the package dir and require the file by
+                    // absolute path -- the same thing bin/catalyst.js does.
+                    const coreDir = path.dirname(require.resolve("catalyst-core/package.json"));
+                    const { createAndroidBuild } = require(path.join(coreDir, "dist/native/buildAndroid/index.js"));
+                    const cfg = require("./config/config.json");
+                    createAndroidBuild({ WEBVIEW_CONFIG: cfg.WEBVIEW_CONFIG, BUILD_OUTPUT_PATH: cfg.BUILD_OUTPUT_PATH })
+                      .buildAndroidForTesting()
+                      .then(r => { if (!r || !r.success) { console.error("buildAndroidForTesting did not succeed"); process.exit(1); } })
+                      .catch(e => { console.error(e && e.stack || e); process.exit(1); });
+                  '
+
+            - name: Assert Gradle includes :catalyst-ai and it compiles
+              working-directory: examples/useai/node_modules/catalyst-core/dist/native/androidProject
+              run: |
+                  set -euo pipefail
+                  chmod +x ./gradlew
+                  ./gradlew projects --console=plain | tee /tmp/projects.txt
+                  grep -q "Project ':catalyst-ai'" /tmp/projects.txt \
+                    || { echo "::error::useai's androidProject did not include :catalyst-ai after an ai.enabled prep -- the JS sync path is broken"; exit 1; }
+                  ./gradlew :catalyst-ai:compileDebugKotlin --console=plain
+
     # Split from what was a single test-ios-unit job into two: CoreLogic
     # (this job) runs first, has zero dependencies, needs no simulator, and
     # is the only iOS target that can produce a real coverage percentage
@@ -823,7 +1007,7 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-unit-and-coverage, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-corelogic-and-coverage, ios-app-simulator-tests]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -835,6 +1019,8 @@ jobs:
                   web_smoke_status="${{ needs.web-integration-smoke.result }}"
                   error_catalog_status="${{ needs.error-catalog.result }}"
                   android_status="${{ needs.android-unit-and-coverage.result }}"
+                  ai_android_compile_status="${{ needs.catalyst-ai-android-compile.result }}"
+                  ai_android_integration_status="${{ needs.catalyst-ai-android-integration.result }}"
                   ios_corelogic_status="${{ needs.ios-corelogic-and-coverage.result }}"
                   ios_app_status="${{ needs.ios-app-simulator-tests.result }}"
                   web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
@@ -858,6 +1044,8 @@ jobs:
                   report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
                   report_platform "error-catalog (error-contract gate, pass/fail only)" "$error_catalog_status" ""
                   report_platform "android (jacoco)" "$android_status" "$android_pct"
+                  report_platform "catalyst-ai-android-compile (module compile gate, pass/fail only)" "$ai_android_compile_status" ""
+                  report_platform "catalyst-ai-android-integration (scaffold+sync e2e, pass/fail only)" "$ai_android_integration_status" ""
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
 
@@ -873,7 +1061,7 @@ jobs:
                   fi
 
                   fail=0
-                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android:$android_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
+                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android:$android_status" "catalyst-ai-android-compile:$ai_android_compile_status" "catalyst-ai-android-integration:$ai_android_integration_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
                     platform="${pair%%:*}"
                     status="${pair#*:}"
                     if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
