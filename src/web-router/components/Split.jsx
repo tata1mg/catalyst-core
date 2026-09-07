@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useContext, useEffect, useId, useReducer } from "react"
+import React, { Suspense, lazy, useContext, useEffect, useId, useReducer, useRef, useState } from "react"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import SplitInview from "./SplitInview.jsx"
 
@@ -57,6 +57,79 @@ const resolveFallback = (instanceId, fallback) => {
     const html = instanceId && htmlSnapshots.get(instanceId)
     if (html === undefined) return fallback
     return <span style={SPLIT_MARKER_STYLE} dangerouslySetInnerHTML={{ __html: html }} />
+}
+
+// Shared IntersectionObserver gating which ssr:true boundaries actually mount
+// their real, interactive tree on first render. Deliberately a *separate*
+// observer from SplitInview's: SplitInview's 75%-below-viewport margin exists
+// to prefetch ssr:false code ahead of scroll, which is unrelated to (and too
+// generous for) this — every ssr:true boundary already has its real content
+// on screen via SSR, so the only question here is how much of it we spend
+// main-thread time making interactive on load. A tight (0px) margin keeps
+// that to the first fold; everything else stays inert, real, static markup
+// until the user actually scrolls near it.
+const foldVisibilityCallbacks = new Map()
+let sharedFoldVisibilityObserver = null
+const getSharedFoldVisibilityObserver = () => {
+    if (sharedFoldVisibilityObserver) return sharedFoldVisibilityObserver
+    sharedFoldVisibilityObserver = new IntersectionObserver(
+        (entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting || entry.intersectionRatio > 0) {
+                    const cb = foldVisibilityCallbacks.get(entry.target)
+                    if (cb) {
+                        cb()
+                        foldVisibilityCallbacks.delete(entry.target)
+                        sharedFoldVisibilityObserver.unobserve(entry.target)
+                    }
+                }
+            })
+        },
+        { rootMargin: "0px" }
+    )
+    return sharedFoldVisibilityObserver
+}
+
+// Reports whether `ref`'s node has ever intersected the viewport. `skip`
+// (bots — no real viewport to wait on) forces an immediate true. `onFire`
+// runs once, synchronously inside the effect that flips the state, so callers
+// can resolve a companion Suspense gate (see SuspendUntilVisible below) from
+// the same commit-phase callback rather than during render.
+const useFirstFoldVisible = (ref, skip, onFire) => {
+    const [isVisible, setIsVisible] = useState(() => {
+        if (typeof window === "undefined") return true
+        if (skip || !window.IntersectionObserver) return true
+        return false
+    })
+
+    useEffect(() => {
+        if (isVisible) return
+        const node = ref.current
+        if (!node) return
+        const fire = () => {
+            setIsVisible(true)
+            onFire?.()
+        }
+        foldVisibilityCallbacks.set(node, fire)
+        getSharedFoldVisibilityObserver().observe(node)
+        return () => {
+            foldVisibilityCallbacks.delete(node)
+            if (sharedFoldVisibilityObserver) sharedFoldVisibilityObserver.unobserve(node)
+        }
+    }, [isVisible])
+
+    return isVisible
+}
+
+// Suspends by throwing its gate's promise — the same generic protocol
+// React.lazy() itself uses. Rendered in place of the real component while a
+// boundary waits for its first-fold visibility check, so the client tree's
+// *shape* (span > Suspense > one child) always matches the server's, and a
+// not-yet-visible boundary is hydrated via React's well-supported "suspended
+// during hydration" recovery (scoped to this one boundary) rather than a
+// structural mismatch that can bail out hydration for the whole root.
+const SuspendUntilVisible = ({ promise }) => {
+    throw promise
 }
 
 /**
@@ -159,10 +232,30 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         const isBot = Boolean(isBotFromContext || isBotFromWindow)
         const effectiveSsr = ssr || isBot
         const effectiveFallback = fallbackProp !== undefined ? fallbackProp : fallback
-        // Called in wrapper (not Split) so the id matches whether this instance takes
-        // the fast path below (module already cached) or renders <Split> instead —
-        // both must resolve to the same instanceId as the server used for this slot.
+        // Called in wrapper (not Split) so the id matches whichever branch below
+        // actually renders — all of them must resolve to the same instanceId the
+        // server used for this slot.
         const instanceId = useId()
+        const markerRef = useRef(null)
+        // Lazily-created Suspense gate for the ssr:true branch below: resolved
+        // once this instance's first-fold visibility check fires. Created via
+        // the ref-lazy-init pattern so it's stable across re-renders without
+        // needing its own effect.
+        const gateRef = useRef(null)
+        if (!gateRef.current) {
+            const gate = { resolved: false, promise: null, resolve: null }
+            gate.promise = new Promise((res) => {
+                gate.resolve = () => {
+                    gate.resolved = true
+                    res()
+                }
+            })
+            gateRef.current = gate
+        }
+        // Only meaningful for the ssr:true branch below, but called unconditionally
+        // (Rules of Hooks) — a no-op for ssr:false, since markerRef never attaches
+        // to anything there.
+        const isFirstFoldVisible = useFirstFoldVisible(markerRef, isBot, gateRef.current.resolve)
 
         const [, forceUpdate] = useReducer((x) => x + 1, 0)
         useEffect(() => {
@@ -172,20 +265,58 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             }
         }, [])
 
+        if (effectiveSsr) {
+            if (typeof window === "undefined") {
+                // Server: go through <Split> so ChunkExtractor tracking and the
+                // SSR wrapWithMarker path run exactly as they always have.
+                return (
+                    <Split
+                        ssr={true}
+                        fallback={effectiveFallback}
+                        cacheKey={cacheKey}
+                        instanceId={instanceId}
+                        rootOptions={rootOptions}
+                        {...props}
+                        isBot={isBot}
+                    >
+                        <LazyComponent {...props} />
+                    </Split>
+                )
+            }
+
+            // Client: the real, server-rendered content already sits in the DOM
+            // (that's what SSR is for) — the only question is whether *this*
+            // instance is worth spending main-thread time on to make interactive
+            // right now. Only the first fold is: everything else keeps showing
+            // its own captured snapshot, real and correct-looking but inert,
+            // until the user actually scrolls near it (see useFirstFoldVisible).
+            const boundaryFallback = resolveFallback(instanceId, effectiveFallback)
+            return (
+                <span ref={markerRef} data-catalyst-split={instanceId} style={SPLIT_MARKER_STYLE}>
+                    <Suspense fallback={boundaryFallback}>
+                        {isFirstFoldVisible ? (
+                            <LazyComponent {...props} />
+                        ) : (
+                            <SuspendUntilVisible promise={gateRef.current.promise} />
+                        )}
+                    </Suspense>
+                </span>
+            )
+        }
+
         const mod = moduleCache.get(importFn)
         if (mod) {
             const Component = mod.default || mod
-            const suspenseNode = (
-                <Suspense fallback={resolveFallback(instanceId, effectiveFallback)}>
+            return (
+                <Suspense fallback={effectiveFallback}>
                     <Component {...props} />
                 </Suspense>
             )
-            return effectiveSsr ? wrapWithMarker(instanceId, suspenseNode) : suspenseNode
         }
 
         return (
             <Split
-                ssr={effectiveSsr}
+                ssr={false}
                 fallback={effectiveFallback}
                 cacheKey={cacheKey}
                 instanceId={instanceId}
@@ -194,7 +325,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
                     notifyAll()
                     props.onVisible?.()
                 }}
-                skipVisibility={effectiveSsr || anyVisible}
+                skipVisibility={anyVisible}
                 {...props}
                 isBot={isBot}
             >
