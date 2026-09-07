@@ -20,6 +20,6 @@
         "types": ["node", "vitest/globals"],
         "noEmit": true
     },
-    "include": ["test", "tools/errors.d.ts"],
+    "include": ["test", "tools/errors.d.ts", "tools/github.d.ts"],
     "exclude": ["node_modules"]
 }
