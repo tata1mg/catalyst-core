@@ -8,7 +8,7 @@ import { StaticRouter } from "react-router"
 import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
-import { serverDataFetcher, matchRoutes as NestedMatchRoutes, getMetaData } from "../../index.jsx"
+import { serverDataFetcher, matchRoutes as NestedMatchRoutes } from "../../index.jsx"
 import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
@@ -184,7 +184,6 @@ const _renderMarkUp = async (
     errorCode,
     req,
     res,
-    metaTags,
     fetcherData,
     store,
     allMatches,
@@ -227,7 +226,6 @@ const _renderMarkUp = async (
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
-        metaTags,
         isBot,
         fetcherData,
     })
@@ -252,7 +250,6 @@ const _renderMarkUp = async (
                     criticalPreloadLinks={finalProps.criticalPreloadLinks}
                     deferredPreloadLinks={finalProps.deferredPreloadLinks}
                     fetcherData={finalProps.fetcherData}
-                    metaTags={finalProps.metaTags}
                     publicAssetPath={finalProps.publicAssetPath}
                     nonce={finalProps.nonce}
                 />
@@ -382,7 +379,6 @@ const tracedAppServerSideFunction = withObservability(
     "App.serverSideFunction"
 )
 const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
-const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
 
 // ── Express middleware ──────────────────────────────────────────────────
 /**
@@ -410,7 +406,6 @@ async function _handler(req, res) {
 
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.baseUrl) : []
-        let allTags = []
 
         safeCall(onRouteMatch, { req, res, matches: allMatches, store })
 
@@ -445,7 +440,6 @@ async function _handler(req, res) {
                 if (res.headersSent) return
 
                 const err = fetcherData?.[req.originalUrl]?.error
-                allTags = tracedGetMetaData(allMatches, fetcherData)
                 const chunkExtractor = collectAssets(req, allMatches)
 
                 if (err) {
@@ -458,7 +452,6 @@ async function _handler(req, res) {
                         statusCode,
                         req,
                         res,
-                        allTags,
                         fetcherData,
                         store,
                         allMatches,
@@ -475,7 +468,6 @@ async function _handler(req, res) {
                         null,
                         req,
                         res,
-                        allTags,
                         fetcherData,
                         store,
                         allMatches,
@@ -495,7 +487,6 @@ async function _handler(req, res) {
                     404,
                     req,
                     res,
-                    allTags,
                     fetcherData,
                     store,
                     allMatches,
@@ -515,7 +506,6 @@ async function _handler(req, res) {
                 error.status_code,
                 req,
                 res,
-                allTags,
                 fetcherData,
                 store,
                 allMatches,

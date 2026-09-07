@@ -14,7 +14,6 @@ export function Head(props) {
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
-        metaTags,
         isBot,
         publicAssetPath,
         nonce,
@@ -32,7 +31,6 @@ export function Head(props) {
             {!isBot && criticalPreloadLinks}
             {/* Warm-cache modulepreloads from prior SSRs (URLs not in critical scripts) */}
             {!isBot && deferredPreloadLinks}
-            {metaTags && metaTags}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
             {inlineCss && <style dangerouslySetInnerHTML={{ __html: inlineCss }} />}
@@ -55,7 +53,6 @@ Head.propTypes = {
     jsScripts: PropTypes.array,
     criticalPreloadLinks: PropTypes.array,
     deferredPreloadLinks: PropTypes.array,
-    metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
     nonce: PropTypes.string,
     children: PropTypes.node,

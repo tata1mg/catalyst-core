@@ -7,7 +7,6 @@ export const renderStart = ({
     jsScripts,
     criticalPreloadLinks,
     deferredPreloadLinks,
-    metaTags,
     isBot,
     fetcherData,
 }) => {
@@ -25,7 +24,6 @@ export const renderStart = ({
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
-        metaTags,
         isBot,
         publicAssetPath,
         fetcherData,
