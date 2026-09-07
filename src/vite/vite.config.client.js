@@ -117,6 +117,32 @@ const clientConfig = defineConfig({
                     ) {
                         return "vendor-ui"
                     }
+                    // react-modal ships pre-Babel-transpiled code (classes/regenerator/spread
+                    // helpers) and isn't claimed by any rule above, so without this it falls
+                    // through to Rollup's default chunking and gets merged into whichever
+                    // shared chunk its multiple importers overlap with — in practice "app",
+                    // dragging that legacy JS into catalyst-core's own bucket.
+                    //
+                    // Its runtime deps (prop-types, exenv, react-lifecycles-compat, warning)
+                    // are bundled into the SAME chunk deliberately, not just react-modal alone:
+                    // these are lazily-initialized CJS-interop modules (Rollup's commonjs
+                    // wrapper memoizes each one behind a module-scope `{exports}` object), and
+                    // several of them — prop-types in particular — are also imported directly
+                    // by unrelated app code that lives in "app". Routing react-modal into its
+                    // own chunk while leaving a *different* copy of that same lazy-CJS state
+                    // behind in "app" splits the memoized `{exports}` object from the code that
+                    // initializes it, which throws at runtime ("Cannot set properties of
+                    // undefined (setting 'exports')") the first time the orphaned copy is used
+                    // — confirmed by reproducing it with react-modal isolated on its own.
+                    // Moving the whole dependency closure together, so there is exactly one
+                    // instance of each module's CJS wrapper, avoids that split entirely.
+                    if (
+                        /[\\/]node_modules[\\/](react-modal|prop-types|exenv|react-lifecycles-compat|warning)[\\/]/.test(
+                            id
+                        )
+                    ) {
+                        return "vendor-modal"
+                    }
                     if (/[\\/]node_modules[\\/]catalyst-core[\\/]/.test(id)) {
                         return "app"
                     }
