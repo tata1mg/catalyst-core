@@ -14,7 +14,6 @@ export function Head(props) {
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
-        metaTags,
         isBot,
         publicAssetPath,
         children,
@@ -31,7 +30,6 @@ export function Head(props) {
             {!isBot && criticalPreloadLinks}
             {/* Warm-cache modulepreloads from prior SSRs (URLs not in critical scripts) */}
             {!isBot && deferredPreloadLinks}
-            {metaTags && metaTags}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
             {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - inlineCss is compiled CSS read from disk (readCssFromDisk), sourced from the app's own build output, never from request/user input. */}
@@ -56,7 +54,6 @@ Head.propTypes = {
     jsScripts: PropTypes.array,
     criticalPreloadLinks: PropTypes.array,
     deferredPreloadLinks: PropTypes.array,
-    metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
     children: PropTypes.node,
 }
