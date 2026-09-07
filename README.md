@@ -57,6 +57,8 @@ This repository is a monorepo containing the framework package, scaffolding CLI,
 
 ## Contributing
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for issue and pull-request templates and the review checklist.
+
 Install dependencies and create local docs config before running build/test commands:
 
 ```sh

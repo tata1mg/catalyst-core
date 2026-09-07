@@ -1,0 +1,52 @@
+name: 📦 Dependency update
+description: A dependency, lockfile, audit finding, package version, or security update needs attention
+title: "[deps] "
+labels:
+    - dependencies
+body:
+    - type: markdown
+      attributes:
+          value: |
+              For a straightforward version bump, a short note is enough. For anything that changes peer ranges or has a migration, fill in the impact and validation sections.
+    - type: textarea
+      id: summary
+      attributes:
+          label: Summary
+          description: Which dependency, and why does it need to move?
+          placeholder: Bump `vite` to 8.x — current 7.x is peer-invalid against `@vitejs/plugin-react@5`.
+      validations:
+          required: true
+    - type: input
+      id: current-dependency
+      attributes:
+          label: Current Dependency
+          description: Package and version as pinned today.
+          placeholder: vite@7.1.3
+      validations:
+          required: true
+    - type: input
+      id: target-dependency
+      attributes:
+          label: Target Dependency
+          description: Package and version to move to.
+          placeholder: vite@8.2.2
+      validations:
+          required: true
+    - type: textarea
+      id: reason-impact
+      attributes:
+          label: Reason / Impact
+          description: Security advisory, peer conflict, feature needed, EOL, etc. Note any breaking changes and which packages/consumers are affected.
+      validations:
+          required: true
+    - type: textarea
+      id: validation-plan
+      attributes:
+          label: Validation Plan
+          description: How the bump will be verified — build, test:unit, example apps, native builds, CI.
+          placeholder: |
+              - `npm run test:unit` across all workspaces
+              - `npm run core:build` + scaffold a sandbox app
+              - full CI on the PR (web + android + ios chains)
+      validations:
+          required: false
