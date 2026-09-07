@@ -210,14 +210,15 @@ const Split = ({
 }
 
 /**
- * Like {@link split}, but forces SSR when the request is a known Google crawler (same UA rules as Head).
- * Use for widgets that are `ssr: false` for humans but must be fully rendered for bots.
- *
- * Prefetch follows `window.__SSR_RENDERED_COMPONENTS__` only (not the `ssr` option) so bot-forced SSR
- * still hydrates without a Suspense flash.
+ * Every component created by split() renders for real on the server,
+ * regardless of any `ssr` option in `options` — that option is accepted for
+ * backward compatibility but no longer changes anything here. On the client,
+ * the first-fold instance of each boundary hydrates immediately; everything
+ * else keeps showing its own real, server-rendered markup (inert but
+ * correct-looking, no generic skeleton) until it scrolls into view.
  */
 export const split = (importFn, options = {}, thirdArg, fourthArg) => {
-    const { ssr = true, fallback = null } = options || {}
+    const { fallback = null } = options || {}
     const hasThirdArg = typeof thirdArg !== "undefined"
     const hasFourthArg = typeof fourthArg !== "undefined"
     const cacheKey =
@@ -232,13 +233,10 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
     let loadInFlight = null
 
     // Per-split instance subscribers. Pending wrapper instances register their
-    // forceUpdate here; notifyAll() wakes them when load() resolves or any
-    // sibling becomes visible, so they can re-render against the now-hot cache
-    // or skip their own observer setup.
+    // forceUpdate here; notifyAll() wakes them once load() resolves, so they
+    // can re-render against the now-hot module cache.
     const subscribers = new Set()
-    let anyVisible = false
     const notifyAll = () => {
-        anyVisible = true
         subscribers.forEach((fn) => fn())
     }
     const copyRouteStatics = (mod) => {
@@ -261,17 +259,16 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         const { isBot: isBotFromContext } = useContext(SsrRequestContext)
         const isBotFromWindow = typeof window !== "undefined" && window.__CATALYST_IS_BOT__ === true
         const isBot = Boolean(isBotFromContext || isBotFromWindow)
-        const effectiveSsr = ssr || isBot
         const effectiveFallback = fallbackProp !== undefined ? fallbackProp : fallback
         // Called in wrapper (not Split) so the id matches whichever branch below
-        // actually renders — all of them must resolve to the same instanceId the
+        // actually renders — both must resolve to the same instanceId the
         // server used for this slot.
         const instanceId = useId()
         const markerRef = useRef(null)
-        // Lazily-created Suspense gate for the ssr:true branch below: resolved
-        // once this instance's first-fold visibility check fires. Created via
-        // the ref-lazy-init pattern so it's stable across re-renders without
-        // needing its own effect.
+        // Lazily-created Suspense gate: resolved once this instance's
+        // first-fold visibility check fires. Created via the ref-lazy-init
+        // pattern so it's stable across re-renders without needing its own
+        // effect.
         const gateRef = useRef(null)
         if (!gateRef.current) {
             const gate = { resolved: false, promise: null, resolve: null }
@@ -283,9 +280,6 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             })
             gateRef.current = gate
         }
-        // Only meaningful for the ssr:true branch below, but called unconditionally
-        // (Rules of Hooks) — a no-op for ssr:false, since markerRef never attaches
-        // to anything there.
         const isFirstFoldVisible = useFirstFoldVisible(markerRef, isBot, gateRef.current.resolve)
 
         const [, forceUpdate] = useReducer((x) => x + 1, 0)
@@ -296,72 +290,43 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             }
         }, [])
 
-        if (effectiveSsr) {
-            if (typeof window === "undefined") {
-                // Server: go through <Split> so ChunkExtractor tracking and the
-                // SSR wrapWithMarker path run exactly as they always have.
-                return (
-                    <Split
-                        ssr={true}
-                        fallback={effectiveFallback}
-                        cacheKey={cacheKey}
-                        instanceId={instanceId}
-                        rootOptions={rootOptions}
-                        {...props}
-                        isBot={isBot}
-                    >
-                        <LazyComponent {...props} />
-                    </Split>
-                )
-            }
-
-            // Client: the real, server-rendered content already sits in the DOM
-            // (that's what SSR is for) — the only question is whether *this*
-            // instance is worth spending main-thread time on to make interactive
-            // right now. Only the first fold is: everything else keeps showing
-            // its own captured snapshot, real and correct-looking but inert,
-            // until the user actually scrolls near it (see useFirstFoldVisible).
-            const boundaryFallback = resolveFallback(instanceId, effectiveFallback)
+        if (typeof window === "undefined") {
+            // Server: every widget renders for real, regardless of the ssr
+            // option — go through <Split> so ChunkExtractor tracking and the
+            // wrapWithMarker path run exactly as they always have.
             return (
-                <span ref={markerRef} data-catalyst-split={instanceId} style={SPLIT_MARKER_STYLE}>
-                    <Suspense fallback={boundaryFallback}>
-                        {isFirstFoldVisible ? (
-                            <LazyComponent {...props} />
-                        ) : (
-                            <SuspendUntilVisible promise={gateRef.current.promise} />
-                        )}
-                    </Suspense>
-                </span>
+                <Split
+                    ssr={true}
+                    fallback={effectiveFallback}
+                    cacheKey={cacheKey}
+                    instanceId={instanceId}
+                    rootOptions={rootOptions}
+                    {...props}
+                    isBot={isBot}
+                >
+                    <LazyComponent {...props} />
+                </Split>
             )
         }
 
-        const mod = moduleCache.get(importFn)
-        if (mod) {
-            const Component = mod.default || mod
-            return (
-                <Suspense fallback={effectiveFallback}>
-                    <Component {...props} />
-                </Suspense>
-            )
-        }
-
+        // Client: the real, server-rendered content already sits in the DOM
+        // (every widget is SSR'd now, regardless of the ssr option) — the
+        // only question is whether *this* instance is worth spending
+        // main-thread time on to make interactive right now. Only the first
+        // fold is: everything else keeps showing its own captured snapshot,
+        // real and correct-looking but inert, until the user actually
+        // scrolls near it (see useFirstFoldVisible).
+        const boundaryFallback = resolveFallback(instanceId, effectiveFallback)
         return (
-            <Split
-                ssr={false}
-                fallback={effectiveFallback}
-                cacheKey={cacheKey}
-                instanceId={instanceId}
-                rootOptions={rootOptions}
-                onVisible={() => {
-                    notifyAll()
-                    props.onVisible?.()
-                }}
-                skipVisibility={anyVisible}
-                {...props}
-                isBot={isBot}
-            >
-                <LazyComponent {...props} />
-            </Split>
+            <span ref={markerRef} data-catalyst-split={instanceId} style={SPLIT_MARKER_STYLE}>
+                <Suspense fallback={boundaryFallback}>
+                    {isFirstFoldVisible ? (
+                        <LazyComponent {...props} />
+                    ) : (
+                        <SuspendUntilVisible promise={gateRef.current.promise} />
+                    )}
+                </Suspense>
+            </span>
         )
     }
 
