@@ -117,16 +117,6 @@ const clientConfig = defineConfig({
                     ) {
                         return "vendor-ui"
                     }
-                    // react-modal ships pre-Babel-transpiled code (classes/regenerator/spread
-                    // helpers) and isn't claimed by any rule above, so without this it falls
-                    // through to Rollup's default chunking and gets merged into whichever
-                    // shared chunk its multiple importers overlap with — in practice "app",
-                    // dragging that legacy JS into catalyst-core's own bucket. Giving it an
-                    // explicit home keeps it (and its legacy-JS cost) isolated and cacheable
-                    // on its own, independent of both "app" and any one importing route.
-                    if (/[\\/]node_modules[\\/]react-modal[\\/]/.test(id)) {
-                        return "vendor-modal"
-                    }
                     if (/[\\/]node_modules[\\/]catalyst-core[\\/]/.test(id)) {
                         return "app"
                     }
