@@ -239,14 +239,26 @@ function findNearestPackageType(dir) {
     return "commonjs"
 }
 
+const ESM_SYNTAX_RE = /(^|\n)\s*(import\s[^;]*?\bfrom\b|import\s*\(|export\s+(default\b|const\b|let\b|var\b|function\b|class\b|\{))/
+
 /**
- * Check if a file is a CJS module based on extension and nearest package.json.
+ * Check if a file is a CJS module based on extension and nearest package.json,
+ * falling back to a content sniff when a ".js" file sits in a package that
+ * doesn't declare "type": "module" — that combination is ambiguous, since the
+ * file itself may still be real ESM (e.g. a dual CJS/ESM package's ESM build).
  */
 function isCjsModule(filePath) {
     const ext = extname(filePath)
     if (ext === ".mjs") return false
     if (ext === ".cjs") return true
-    return findNearestPackageType(dirname(filePath)) !== "module"
+    if (findNearestPackageType(dirname(filePath)) === "module") return false
+    try {
+        const source = readFileSync(filePath, "utf8")
+        if (ESM_SYNTAX_RE.test(source)) return false
+    } catch {
+        // Unreadable — fall back to the extension/package.json signal below.
+    }
+    return true
 }
 
 const VALID_IDENTIFIER_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
