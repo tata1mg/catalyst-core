@@ -92,6 +92,22 @@ const getSharedFoldVisibilityObserver = () => {
     return sharedFoldVisibilityObserver
 }
 
+// display:contents elements generate no CSS box, so IntersectionObserver can
+// never report one as intersecting (isIntersecting stays false forever, even
+// though the callback does fire) — confirmed against a real browser, not just
+// jsdom. The marker span is display:contents (see SPLIT_MARKER_STYLE above),
+// and so is resolveFallback's own snapshot wrapper, so walk down through any
+// chain of display:contents wrappers to find the first descendant that
+// actually has layout geometry to observe.
+const findObservableNode = (node) => {
+    while (node) {
+        if (typeof window === "undefined" || !window.getComputedStyle) return node
+        if (window.getComputedStyle(node).display !== "contents") return node
+        node = node.firstElementChild
+    }
+    return null
+}
+
 // Reports whether `ref`'s node has ever intersected the viewport. `skip`
 // (bots — no real viewport to wait on) forces an immediate true. `onFire`
 // runs once, synchronously inside the effect that flips the state, so callers
@@ -106,8 +122,14 @@ const useFirstFoldVisible = (ref, skip, onFire) => {
 
     useEffect(() => {
         if (isVisible) return
-        const node = ref.current
-        if (!node) return
+        const node = findObservableNode(ref.current)
+        if (!node) {
+            // No boxed descendant found (e.g. empty content) — fail open
+            // rather than suspend forever.
+            setIsVisible(true)
+            onFire?.()
+            return
+        }
         const fire = () => {
             setIsVisible(true)
             onFire?.()
