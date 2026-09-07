@@ -245,14 +245,32 @@ function findNearestPackageType(dir) {
     return "commonjs"
 }
 
+// Matches real ESM syntax (a leading `import`/`export` statement). Dual-format
+// packages sometimes ship a genuinely-ESM file (e.g. lib/index.esm.js) with a
+// plain ".js" extension inside a package whose package.json never declares
+// "type": "module" — extension + package.json type alone would misclassify
+// it as CJS. This is only consulted for that fallback case (see isCjsModule),
+// not on every file, so the extra read stays on the cold, rare path.
+const ESM_SYNTAX_RE = /(^|\n)\s*(import\s[^;]*?\bfrom\b|import\s*\(|export\s+(default\b|const\b|let\b|var\b|function\b|class\b|\{))/
+
 /**
- * Check if a file is a CJS module based on extension and nearest package.json.
+ * Check if a file is a CJS module based on extension and nearest package.json,
+ * falling back to a content sniff when a ".js" file sits in a package that
+ * doesn't declare "type": "module" — that combination is ambiguous, since the
+ * file itself may still be real ESM (e.g. a dual CJS/ESM package's ESM build).
  */
 function isCjsModule(filePath) {
     const ext = extname(filePath)
     if (ext === ".mjs") return false
     if (ext === ".cjs") return true
-    return findNearestPackageType(dirname(filePath)) !== "module"
+    if (findNearestPackageType(dirname(filePath)) === "module") return false
+    try {
+        const source = readFileSync(filePath, "utf8")
+        if (ESM_SYNTAX_RE.test(source)) return false
+    } catch {
+        // Unreadable — fall back to the extension/package.json signal below.
+    }
+    return true
 }
 
 const VALID_IDENTIFIER_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
