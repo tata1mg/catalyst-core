@@ -11,7 +11,7 @@
         "lib": ["es2022", "dom", "dom.iterable"],
         /* dist ships raw .jsx and the runtime (vite / dist/vite/node-loader.mjs)
            transforms it, so JSX must survive checking untransformed. */
-        "jsx": "preserve",
+        "jsx": "react-jsx",
 
         /* Modules — ESM source consumed by a bundler-style resolver, which is
            what lets ./foo.jsx specifiers resolve to foo.tsx on disk. */
