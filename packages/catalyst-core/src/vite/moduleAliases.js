@@ -25,10 +25,10 @@ function readModuleAliases(packageJsonPath) {
  * Raw (unresolved) alias map for an app root, with the app's own aliases taking
  * precedence over catalyst-core's on key collision.
  *
- * @param {string} appRoot - The consuming application's root directory.
+ * @param {string} [appRoot] - The consuming application's root directory. Defaults to process.cwd().
  * @returns {Record<string, string>} Merged alias name -> raw alias path.
  */
-export function getModuleAliases(appRoot) {
+export function getModuleAliases(appRoot = process.cwd()) {
     const appModuleAliases = readModuleAliases(path.resolve(appRoot, "package.json"))
     const catalystModuleAliases = readModuleAliases(path.resolve(__dirname, "../../package.json"))
 
