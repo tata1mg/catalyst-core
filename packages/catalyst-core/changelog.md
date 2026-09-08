@@ -72,13 +72,13 @@ Hook errors are `CatalystError` values from the framework-wide error registry in
 
 One consequence for error logging: `CatalystError` extends `Error`, so `message` now lives on the prototype rather than as an own property. Reading `error.message` is unaffected, but `JSON.stringify(error)` no longer includes it. Log `error.message` explicitly, or use the `code` and `docUrl` fields.
 
-### Node 22.12 is now the minimum
-
-The error registry is loaded from the native bridge, which is built as CommonJS, so the package relies on `require()` of an ES module. That is unflagged only from Node 22.12 onward, and `engines` now declares `>=22.12`. Node 20 installs will warn, and importing `catalyst-core/hooks` or `catalyst-core/WebBridge` there fails with `ERR_REQUIRE_ESM`.
-
 Two hooks are exempt from the error contract. `useNativeTransition` and `useSafeArea` return no `error` key, because transition failures self-heal into a plain navigation and safe-area insets always resolve to numeric defaults. Two others carry the right key with the wrong type: `error` on `useDeviceInfo` and `useNetworkStatus` is still a plain string rather than an error object, and stays a string until 2.0. The shape of `useAI` is owned by the `catalyst-ai` package and sits outside this contract entirely.
 
 `requestHapticFeedback` and `requestCameraPermission` remain available both as `catalyst-core/hooks` exports and as `WebBridge` methods, and the two versions still differ in their defaults and return types. The hooks exports are the ones to prefer in application code: they are SSR-safe and treat a denied permission as a rejection. The two surfaces are unified at 2.0.
+
+### Node 22.12 is now the minimum
+
+The error registry is loaded from the native bridge, which is built as CommonJS, so the package relies on `require()` of an ES module. That is unflagged only from Node 22.12 onward, and `engines` now declares `>=22.12`. Node 20 installs will warn, and importing `catalyst-core/hooks` or `catalyst-core/WebBridge` there fails with `ERR_REQUIRE_ESM`.
 
 ### App contract violations are reported at startup
 
