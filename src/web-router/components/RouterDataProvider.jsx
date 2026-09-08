@@ -9,7 +9,7 @@ import {
     matchRoutes,
 } from "react-router"
 import { OneMgRouterContext } from "../context.jsx"
-// import sanitizeHtml from "sanitize-html"
+import sanitizeHtml from "sanitize-html"
 
 /**
  * @description  Router Data
@@ -156,8 +156,8 @@ const getMatchedRoutes = ({ matches, outlet }) => {
  */
 const generateRouteKey = (match, searchParamsString = "") => {
     const { pathname, route } = match
-    const sanitizedPathname = pathname
-    const sanitizedParams = searchParamsString
+    const sanitizedPathname = sanitizeHtml(pathname)
+    const sanitizedParams = sanitizeHtml(searchParamsString)
     if (route.children) {
         return `index${sanitizedPathname}${sanitizedParams}`
     }
