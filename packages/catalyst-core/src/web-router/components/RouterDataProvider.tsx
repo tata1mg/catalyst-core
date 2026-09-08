@@ -224,7 +224,7 @@ export const RouterDataProvider = ({
     children,
     initialState,
     fetcherArgs = {},
-    config,
+    config = {},
 }: RouterDataProviderProps): any => {
     const match = useMatch("*")
     const location = useLocation()
