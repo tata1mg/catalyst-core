@@ -59,6 +59,9 @@
         "prettify": "prettier . --write",
         "prepare": "node ../../scripts/safe-rimraf.js ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --extensions '.js,.jsx,.ts,.tsx' --ignore '**/.build/**' && node scripts/strip-ts-sources.mjs ./dist/native && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && tsc -p tsconfig.declarations.json && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
         "prepublishOnly": "npm run prepare",
+        "test": "npm run test:types && vitest run",
+        "test:watch": "vitest",
+        "test:types": "tsc -p tsconfig.test.json --noEmit",
         "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
     },
     "license": "MIT",
@@ -105,6 +108,7 @@
         "@babel/preset-typescript": "^7.24.7",
         "@commitlint/cli": "^19.3.0",
         "@commitlint/config-conventional": "^19.2.2",
+        "@types/node": "^22.20.1",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.5",
         "eslint": "^8.26.0",
@@ -117,7 +121,13 @@
         "husky": "^9.0.11",
         "lint-staged": "^15.2.2",
         "prettier": "^3.2.5",
-        "typescript": "^5.9.3"
+        "typescript": "^7.0.2",
+        "vitest": "4.1.9",
+        "@vitest/coverage-v8": "4.1.9",
+        "@testing-library/react": "16.3.2",
+        "jsdom": "30.0.1",
+        "@testing-library/jest-dom": "7.0.1",
+        "@testing-library/dom": "10.4.1"
     },
     "lint-staged": {
         "*.{js,jsx}": [

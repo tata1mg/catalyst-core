@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebView")
 
@@ -36,7 +37,7 @@ public struct WebView: UIViewRepresentable, Equatable {
             "durationMs": totalTime,
         ])
     }
-    
+
     public func makeUIView(context: Context) -> WKWebView {
         let makeUIViewStart = CFAbsoluteTimeGetCurrent()
         logWithTimestamp("🔨 makeUIView() started")
@@ -155,7 +156,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         return webView
     }
-    
+
     public func updateUIView(_ webView: WKWebView, context: Context) {
         #if DEBUG
         if #available(iOS 16.4, *) {
@@ -163,11 +164,11 @@ public struct WebView: UIViewRepresentable, Equatable {
         }
         #endif
     }
-    
+
     public func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
-    
+
     public static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         // Safely remove observer with error handling
         if coordinator.isObserverAdded {
@@ -193,7 +194,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         logger.debug("WebView cleanup completed")
     }
-    
+
     public class Coordinator: NSObject {
         var parent: WebView
         var nativeBridge: NativeBridge?
@@ -208,7 +209,7 @@ public struct WebView: UIViewRepresentable, Equatable {
         public init(_ parent: WebView) {
             self.parent = parent
         }
-        
+
         func setupNativeBridge(_ webView: WKWebView) {
             // Create a UIViewController to use for presenting any UI
             let hostingController = UIViewController()
@@ -242,7 +243,7 @@ public struct WebView: UIViewRepresentable, Equatable {
             fpsMonitor?.stop()
             fpsMonitor = nil
         }
-        
+
         @objc func handleCameraPinch(_ gesture: UIPinchGestureRecognizer) {
             // No-op when camera is not streaming — don't accidentally zoom the page
             guard parent.cameraManager.isStreaming else { return }
@@ -258,7 +259,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         override public func observeValue(forKeyPath keyPath: String?,
                                  of object: Any?,
-                                 change: [NSKeyValueChangeKey : Any]?,
+                                 change: [NSKeyValueChangeKey: Any]?,
                                  context: UnsafeMutableRawPointer?) {
             if keyPath == #keyPath(WKWebView.estimatedProgress),
                let webView = object as? WKWebView {

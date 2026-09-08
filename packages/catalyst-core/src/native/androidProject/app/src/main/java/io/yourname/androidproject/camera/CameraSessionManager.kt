@@ -7,7 +7,9 @@ import android.util.Size
 import android.view.View
 import android.hardware.camera2.CaptureRequest
 import android.util.Range
+import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -152,6 +154,7 @@ class CameraSessionManager(
 
     // ---- Internal ----
 
+    @OptIn(ExperimentalCamera2Interop::class)
     private fun bindCamera() {
         val future = ProcessCameraProvider.getInstance(activity)
         future.addListener({

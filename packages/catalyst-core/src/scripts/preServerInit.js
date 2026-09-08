@@ -1,7 +1,7 @@
 import path from "path"
 import { createRequire } from "module"
 import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
-import { safeCallNamed } from "../server/utils/validator.js"
+import { validatePreInitServer, handleError, safeCallNamed } from "../server/utils/validator.js"
 
 // src_path is the application root, set by the CLI when it spawns this process.
 // Without it every path below would be resolved against undefined.
@@ -47,4 +47,13 @@ try {
     // No hooks file — preServerInit remains undefined
 }
 await loadEnvironmentVariables()
+
+// preServerInit is an OPTIONAL hook — an app with no server/index.js is
+// valid, so PREFLIGHT-010 (missing) is deliberately not surfaced here. But
+// if the app DID export something under that name and it isn't callable,
+// that's a real mistake worth flagging (PREFLIGHT-011).
+if (preServerInit !== undefined) {
+    const preInitErr = validatePreInitServer(preServerInit)
+    if (preInitErr) handleError(preInitErr)
+}
 await safeCallNamed("preServerInit", preServerInit)
