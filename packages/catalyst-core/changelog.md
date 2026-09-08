@@ -8,6 +8,86 @@
 
 # Changelog
 
+## [0.4.0] - unreleased
+
+This release freezes the public API. The root entry of `catalyst-core` now exports exactly eight names and nothing else: `RouterDataProvider`, `useCurrentRouteData`, `useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. Anything previously reachable through the root entry but not in that list is no longer public. Applications that import a removed name will fail at build time rather than silently resolving to `undefined`.
+
+### React Router is no longer re-exported
+
+`catalyst-core` used to re-export the whole of React Router from its root entry, so `Link`, `Outlet`, `RouterProvider`, `useParams`, `useNavigate` and every other router name could be imported from `catalyst-core`. That re-export is gone.
+
+React Router is now a peer dependency (`^7.18.2`). Install it in the application:
+
+```bash
+npm install react-router@^7.18.2
+```
+
+Then import router names from `react-router` directly. An import line that mixed both sources splits into two:
+
+```js
+// before
+import { useCurrentRouteData, useParams, Link } from "catalyst-core"
+
+// after
+import { useCurrentRouteData } from "catalyst-core"
+import { useParams, Link } from "react-router"
+```
+
+One exception: `client/index.js` imports `RouterProvider` from `react-router/dom`, not from `react-router`. The `react-router/dom` build passes React DOM's `flushSync` into the router, which view transitions and `flushSync` navigations depend on. The `react-router` export renders the same tree but silently skips that.
+
+Because the version is now declared by the application, npm will report a peer dependency conflict if the installed React Router major does not satisfy `^7.18.2`. The server also verifies the resolved version at startup and exits with a clear error if React Router is missing or outside the supported range.
+
+### Removed export paths
+
+- `catalyst-core/caching` — removed. The caching feature was withdrawn and has no replacement.
+- `catalyst-core/document` — removed. Import `Head` and `Body` from the `catalyst-core` root entry instead.
+
+### No default export from the root entry
+
+`split` was previously exported both as a named export and as the default. The default export is gone; use the named one.
+
+```js
+// before
+import split from "catalyst-core"
+
+// after
+import { split } from "catalyst-core"
+```
+
+### Names that are no longer public
+
+These were reachable from the root entry and are now internal: `RouterContext`, `serverDataFetcher`, `mergeHeadElements`, `deleteHeadTagsByDataAttribute`, `getMetaData`, and `useNavigateWithTransition`. In addition, `sanitizeFilePickerOptions` is no longer exported from `catalyst-core/hooks`. None of these have a supported replacement. If an application depends on one of them, open an issue describing the use case before upgrading.
+
+### Native hooks: canonical keys
+
+The native hooks now agree on one set of key names. Every change in this section is additive: no key that a hook returned before has been removed or repointed, so existing components keep working.
+
+Several hooks were missing keys that the rest of the surface already had. `useNotificationPermission` gained `loading`, `data`, `error`, `isNative`, and `isWeb`, and it now reports permission failures as a standard error object instead of only logging them. `useCameraPermission` gained `loading`, `data`, `error`, `execute`, `isNative`, and `isWeb` on the same pattern. `useDeviceInfo` gained `data` alongside its existing `deviceInfo`. `useNativeTransition` gained `loading` alongside `transitioning`. The SSR stub returned by `useAI` reported `isWeb: false`, which was wrong on both counts; it now reports `isWeb: true`.
+
+Where a hook had two names for one value, the shorter one is canonical and the older one is a deprecated alias that will be removed at 2.0: `loading` over `isLoading` and `transitioning`, `data` over `deviceInfo` and `permission`, and `execute` over `request`.
+
+Hooks fall into three categories, and the category decides whether a hook has `execute`. A hook that wraps a single native operation exposes it as `execute` plus a domain-specific alias — `takePhoto`, `pickFile`, `openFile`, `signIn`, `trigger`, `request`. A hook that wraps several distinct operations has no single action to name, so its named functions are the API and it has no `execute` at all: `useVideoStream`, `useDataProtection`, and `useNativeTransition` work this way. A read-only hook reports ambient device state and has no action functions at all: `useNetworkStatus`, `useDeviceInfo`, and `useSafeArea` return state plus the runtime-context keys. `useNotification` is the one exception. It carries `execute` and `schedule` as aliases of `scheduleLocal` for backward compatibility. Both are frozen, both are discouraged, and neither should be read as the pattern for multi-action hooks. `execute` never takes an operation name as a string argument; it takes the arguments of the operation itself.
+
+Hook errors are `CatalystError` values from the framework-wide error registry introduced in this release, carrying a `RUNTIME-NATIVE-*` code, a message, a category, a suggested action, a documentation link, and the originating platform error as `cause`. `useVideoStream` in particular used to report seventeen failures as bare `{ message }` objects with no code at all; those now carry real codes, and a camera denial reports the same code whether it comes from the permission hook or the stream.
+
+One consequence for error logging: `CatalystError` extends `Error`, so `message` now lives on the prototype rather than as an own property. Reading `error.message` is unaffected, but `JSON.stringify(error)` no longer includes it. Log `error.message` explicitly, or use the `code` and `docUrl` fields.
+
+Two hooks are exempt from the error contract. `useNativeTransition` and `useSafeArea` return no `error` key, because transition failures self-heal into a plain navigation and safe-area insets always resolve to numeric defaults. Two others carry the right key with the wrong type: `error` on `useDeviceInfo` and `useNetworkStatus` is still a plain string rather than an error object, and stays a string until 2.0. The shape of `useAI` is owned by the `catalyst-ai` package and sits outside this contract entirely.
+
+`requestHapticFeedback` and `requestCameraPermission` remain available both as `catalyst-core/hooks` exports and as `WebBridge` methods, and the two versions still differ in their defaults and return types. The hooks exports are the ones to prefer in application code: they are SSR-safe and treat a denied permission as a rejection. The two surfaces are unified at 2.0.
+
+### Node 22.12 is now the minimum
+
+The error registry is loaded from the native bridge, which is built as CommonJS, so the package relies on `require()` of an ES module. That is unflagged only from Node 22.12 onward, and `engines` now declares `>=22.12`. Node 20 installs will warn, and importing `catalyst-core/hooks` or `catalyst-core/WebBridge` there fails with `ERR_REQUIRE_ESM`.
+
+### App contract violations are reported at startup
+
+The app contract validators in `server/utils/validator.js` used to log a bare message and return `undefined` when an app was missing a required export, which pushed the real failure into an unrelated `TypeError` deep inside a render. They now report through the shared error reporter instead, naming the specific file and export and what the app must provide, with detail governed by the output mode. Reporting is not fatal: startup continues, so an app that is only partly misconfigured still boots and the startup output explains what will fail.
+
+The route and store checks moved out of the per-request path. `validateGetRoutes` and `validateConfigureStore` now run once when the renderer module loads — at server startup in production, and on the first SSR request in development, where the handler is loaded lazily — rather than once per request inside the handler's `try`/`catch`. The shape of `addMiddlewares` from `server/server.js` is checked during server setup.
+
+Module aliases and `config/config.json` keys are not checked at load time; a missing alias or key still surfaces where it is used. An application that satisfies the contract sees no change. The full contract — the files Catalyst imports by fixed path and the required module aliases — is documented under File Conventions.
+
 ## [0.1.0-beta.2] - 2026-05-06
 
 - Moved Catalyst into a monorepo structure with `catalyst-core`, `create-catalyst-app`, the Catalyst docs app, and the Catalyst core test app managed from one repository.
