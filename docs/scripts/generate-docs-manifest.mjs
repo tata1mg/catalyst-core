@@ -19,10 +19,15 @@
  *   node scripts/generate-docs-manifest.mjs --check <urls.txt>
  *       # print URL parity diff against a canonical list and exit non-zero
  *       # on mismatch (used against the built Docusaurus sitemap)
+ *   node scripts/generate-docs-manifest.mjs --export
+ *       # git archive each non-latest version into versions/. Needs .git, so
+ *       # it never runs as part of npm run build (Docker has no .git). Run
+ *       # it before `docker build` when versions.json lists a live old major.
  */
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import matter from 'gray-matter'
 import GithubSlugger from 'github-slugger'
@@ -40,6 +45,23 @@ const APP_ROOT = path.resolve(__dirname, '..')
 const CONTENT_ROOT = path.resolve(APP_ROOT, 'content')
 const OUT_DIR = path.join(APP_ROOT, 'src/js/generated')
 const ROUTE_BASE = '/content'
+const REPO_ROOT = path.resolve(APP_ROOT, '..')
+const VERSIONS_DIR = path.join(APP_ROOT, 'versions')
+const VERSIONS_FILE = path.resolve(
+    APP_ROOT,
+    process.env.DOCS_VERSIONS || 'versions.json'
+)
+const CHANGELOG = path.resolve(REPO_ROOT, 'packages/catalyst-core/changelog.md')
+
+const readVersions = () => JSON.parse(fs.readFileSync(VERSIONS_FILE, 'utf8'))
+
+const latestOf = (versions) => versions.find((entry) => entry.latest)
+
+const versionDir = (version) => path.join(VERSIONS_DIR, String(version.major))
+
+/** Live versions built from an export; archived ones are links only. */
+const exportedVersions = (versions) =>
+    versions.filter((version) => !version.latest && !version.archived)
 
 const stripPrefix = (segment) => segment.replace(/^\d+-/, '')
 
@@ -92,7 +114,7 @@ const compareOrderKeys = (a, b) => {
 }
 
 /** Docusaurus doc URL: routeBase + cleaned dir segments + doc id (slug/id/frontmatter aware). */
-const urlFor = (relPath, frontmatter) => {
+const urlFor = (relPath, frontmatter, urlBase) => {
     const segments = relPath.split(path.sep)
     const fileName = segments.pop().replace(/\.mdx?$/, '')
     const dirSegments = segments.map(stripPrefix)
@@ -101,16 +123,16 @@ const urlFor = (relPath, frontmatter) => {
         const slug = frontmatter.slug.trim()
         if (slug.startsWith('/')) {
             // Absolute slug replaces the whole path under the route base.
-            return `${ROUTE_BASE}${slug === '/' ? '' : slug}`.replace(/\/$/, '')
+            return `${urlBase}${slug === '/' ? '' : slug}`.replace(/\/$/, '')
         }
-        return [ROUTE_BASE, ...dirSegments, slug].join('/')
+        return [urlBase, ...dirSegments, slug].join('/')
     }
 
     const id =
         typeof frontmatter.id === 'string' && frontmatter.id.trim()
             ? frontmatter.id.trim()
             : stripPrefix(fileName)
-    return [ROUTE_BASE, ...dirSegments, id].join('/')
+    return [urlBase, ...dirSegments, id].join('/')
 }
 
 const stripMarkdown = (markdown) => {
@@ -163,20 +185,43 @@ const firstHeading = (markdown) => {
     return null
 }
 
-const buildPages = () => {
-    if (!fs.existsSync(CONTENT_ROOT)) {
-        throw new Error(`Docs content root not found: ${CONTENT_ROOT}`)
+/** The package changelog, rendered as the last page in the latest partition. */
+const releasePage = (version) => {
+    const raw = fs.readFileSync(CHANGELOG, 'utf8')
+    const plain = stripMarkdown(raw)
+    return {
+        url: `${ROUTE_BASE}/releases`,
+        sourcePath: path
+            .relative(REPO_ROOT, CHANGELOG)
+            .split(path.sep)
+            .join('/'),
+        absPath: CHANGELOG,
+        title: 'Releases',
+        sidebarLabel: 'Releases',
+        description: plain.slice(0, 160),
+        categories: [],
+        orderKey: [Number.MAX_SAFE_INTEGER],
+        toc: extractToc(raw),
+        searchText: `Releases ${plain}`.slice(0, 5000),
+        isMdx: false,
+        version,
+    }
+}
+
+const buildPages = (contentRoot, urlBase, version) => {
+    if (!fs.existsSync(contentRoot)) {
+        throw new Error(`Docs content root not found: ${contentRoot}`)
     }
 
-    const pages = walk(CONTENT_ROOT).map((absPath) => {
-        const relPath = path.relative(CONTENT_ROOT, absPath)
+    const pages = walk(contentRoot).map((absPath) => {
+        const relPath = path.relative(contentRoot, absPath)
         const raw = fs.readFileSync(absPath, 'utf8')
         const { data: frontmatter, content } = matter(raw)
 
         const dirSegments = relPath.split(path.sep).slice(0, -1)
         const categories = dirSegments.map((segment, index) => {
             const meta = readCategoryMeta(
-                path.join(CONTENT_ROOT, ...dirSegments.slice(0, index + 1))
+                path.join(contentRoot, ...dirSegments.slice(0, index + 1))
             )
             return meta?.label || stripPrefix(segment)
         })
@@ -188,7 +233,7 @@ const buildPages = () => {
         const plain = stripMarkdown(content)
 
         return {
-            url: urlFor(relPath, frontmatter),
+            url: urlFor(relPath, frontmatter, urlBase),
             sourcePath: relPath.split(path.sep).join('/'),
             title,
             sidebarLabel: frontmatter.sidebar_label || title,
@@ -198,8 +243,12 @@ const buildPages = () => {
             toc: extractToc(content),
             searchText: `${title} ${plain}`.slice(0, 5000),
             isMdx: absPath.endsWith('.mdx'),
+            absPath,
+            version,
         }
     })
+
+    if (version.latest) pages.push(releasePage(version))
 
     pages.sort((a, b) => compareOrderKeys(a.orderKey, b.orderKey))
 
@@ -242,7 +291,7 @@ const IMAGE_EXTENSIONS = new Set([
  * - docs/content/** (images)      -> public/docs-assets/**    (relative ./x.png refs,
  *                                     rewritten at render time from the page's sourcePath)
  */
-const copyAssets = () => {
+const copyAssets = (contentRoot, staticRoot, imgOut, assetsOut) => {
     const copyTree = (from, to) => {
         if (!fs.existsSync(from)) return 0
         let count = 0
@@ -264,13 +313,11 @@ const copyAssets = () => {
 
     // Clear first: copyTree merges, so a file deleted from the source would
     // otherwise linger here forever and get shipped in the Docker image.
-    const imgOut = path.join(APP_ROOT, 'public/img')
-    const assetsOut = path.join(APP_ROOT, 'public/docs-assets')
     fs.rmSync(imgOut, { recursive: true, force: true })
     fs.rmSync(assetsOut, { recursive: true, force: true })
 
-    const staticCount = copyTree(path.resolve(APP_ROOT, 'static/img'), imgOut)
-    const contentCount = copyTree(CONTENT_ROOT, assetsOut)
+    const staticCount = copyTree(staticRoot, imgOut)
+    const contentCount = copyTree(contentRoot, assetsOut)
     console.log(
         `Copied ${staticCount} static + ${contentCount} content image asset(s)`
     )
@@ -283,11 +330,12 @@ const copyAssets = () => {
  * compile as MDX.
  */
 const compileDoc = async (page) => {
-    const absPath = path.join(CONTENT_ROOT, ...page.sourcePath.split('/'))
     const compiled = await compile(
         {
-            path: absPath,
-            value: normalizeAdmonitionTitles(fs.readFileSync(absPath, 'utf8')),
+            path: page.absPath,
+            value: normalizeAdmonitionTitles(
+                fs.readFileSync(page.absPath, 'utf8')
+            ),
         },
         {
             format: 'mdx',
@@ -317,11 +365,32 @@ const compileDoc = async (page) => {
 const compiledFileName = (page, index) =>
     `page-${index}-${page.sourcePath.replace(/\.mdx?$/, '').replace(/[^a-zA-Z0-9]+/g, '_')}.mjs`
 
-const emit = async (pages) => {
+const emit = async (pages, versions) => {
     fs.mkdirSync(OUT_DIR, { recursive: true })
-    copyAssets()
 
-    const manifest = pages.map(({ orderKey, ...page }) => page)
+    copyAssets(
+        CONTENT_ROOT,
+        path.resolve(APP_ROOT, 'static/img'),
+        path.join(APP_ROOT, 'public/img'),
+        path.join(APP_ROOT, 'public/docs-assets')
+    )
+    // Mirrors the latest layout under public/v/<major>/, mounted by server.js.
+    for (const version of exportedVersions(versions)) {
+        const root = versionDir(version)
+        const out = path.join(APP_ROOT, 'public/v', String(version.major))
+        copyAssets(
+            path.join(root, 'content'),
+            path.join(root, 'static/img'),
+            path.join(out, 'img'),
+            path.join(out, 'docs-assets')
+        )
+    }
+
+    // Internal-only bookkeeping; the manifest keeps the shape the app reads.
+    const manifest = pages.map(({ orderKey, absPath, version, ...page }) => ({
+        ...page,
+        version: version.label,
+    }))
     fs.writeFileSync(
         path.join(OUT_DIR, 'docsManifest.json'),
         JSON.stringify(manifest, null, 2)
@@ -347,6 +416,8 @@ const emit = async (pages) => {
         )
         .join('\n')
 
+    // Once a third live major ships, wrap the non-latest routes in split() —
+    // old versions are cold traffic and need not sit in the main bundle.
     const routeEntries = pages
         .map((page, index) => {
             return `    {
@@ -382,7 +453,11 @@ ${routeEntries}
 export default docsRoutes
 `
     fs.writeFileSync(path.join(OUT_DIR, 'docsRoutes.jsx'), routesFile)
-    emitSeoFiles(pages)
+    fs.writeFileSync(
+        path.join(OUT_DIR, 'versions.json'),
+        JSON.stringify(versions, null, 2)
+    )
+    emitSeoFiles(pages.filter((page) => page.version.latest))
     console.log(`Generated manifest + routes for ${pages.length} pages`)
 }
 
@@ -428,8 +503,53 @@ const emitSeoFiles = (pages) => {
     console.log(`Generated sitemap.xml (${allUrls.length} URLs) + robots.txt`)
 }
 
+/** git archive each non-latest, non-archived version into versions/<major>/. */
+const exportVersions = () => {
+    for (const version of exportedVersions(readVersions())) {
+        const dest = versionDir(version)
+        fs.rmSync(dest, { recursive: true, force: true })
+        fs.mkdirSync(dest, { recursive: true })
+        // Two calls, no shell: a pipeline hides a bad ref behind tar's status.
+        const archive = execFileSync(
+            'git',
+            ['archive', version.ref, 'docs/content', 'docs/static/img'],
+            { cwd: REPO_ROOT, maxBuffer: 1 << 28 }
+        )
+        execFileSync('tar', ['-x', '-C', dest, '--strip-components=1'], {
+            input: archive,
+        })
+        console.log(
+            `Exported ${version.label} -> ${path.relative(APP_ROOT, dest)}`
+        )
+    }
+}
+
 const main = async () => {
-    const pages = buildPages()
+    if (process.argv.includes('--export')) {
+        exportVersions()
+        return
+    }
+
+    const versions = readVersions()
+    const pages = [
+        ...buildPages(CONTENT_ROOT, ROUTE_BASE, latestOf(versions)),
+        ...exportedVersions(versions).flatMap((version) =>
+            buildPages(
+                path.join(versionDir(version), 'content'),
+                `/v/${version.major}${ROUTE_BASE}`,
+                version
+            )
+        ),
+    ]
+
+    const latestBySource = new Map(
+        pages
+            .filter((page) => page.version.latest)
+            .map((page) => [page.sourcePath, page])
+    )
+    for (const page of pages) {
+        page.canonical = latestBySource.get(page.sourcePath)?.url ?? page.url
+    }
 
     const checkIndex = process.argv.indexOf('--check')
     if (checkIndex !== -1) {
@@ -441,7 +561,9 @@ const main = async () => {
                 .map((line) => line.trim())
                 .filter(Boolean)
         )
-        const generated = new Set(pages.map((page) => page.url))
+        const generated = new Set(
+            pages.filter((page) => page.version.latest).map((page) => page.url)
+        )
         const missing = [...canonical]
             .filter((url) => !generated.has(url))
             .sort()
@@ -464,7 +586,7 @@ const main = async () => {
         return
     }
 
-    await emit(pages)
+    await emit(pages, versions)
 }
 
 await main()

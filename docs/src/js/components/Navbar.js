@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
-import { Link } from 'catalyst-core'
+import { Link, useLocation } from 'catalyst-core'
 import { useTheme } from './docs/ThemeContext'
 import SearchModal from './SearchModal'
+import manifest from '../generated/docsManifest.json'
+import versions from '../generated/versions.json'
 
 /**
  * Site navbar. Docs pages are routes in this app, so they are Links again —
@@ -16,6 +18,16 @@ const COMMUNITY_ITEMS = [
         href: 'https://github.com/tata1mg/catalyst-core/discussions',
     },
 ]
+
+/** Each version links to its own first page; archived ones leave the site. */
+const LATEST = versions.find((version) => version.latest)
+const VERSION_ITEMS = versions.map((version) => ({
+    label: version.label,
+    href: version.archived,
+    to: version.archived
+        ? null
+        : manifest.find((page) => page.version === version.label)?.url,
+}))
 
 const IconMenu = () => (
     <svg
@@ -105,6 +117,10 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
     const [searchOpen, setSearchOpen] = useState(false)
     const [menuOpen, setMenuOpen] = useState(false)
     const [communityOpen, setCommunityOpen] = useState(false)
+    const [versionOpen, setVersionOpen] = useState(false)
+    const major = useLocation().pathname.match(/^\/v\/(\d+)\//)?.[1]
+    const current =
+        versions.find((version) => String(version.major) === major) ?? LATEST
 
     const closeMenu = () => setMenuOpen(false)
 
@@ -202,6 +218,39 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
                 <Link to="/content/contribution" onClick={closeMenu}>
                     Contribute
                 </Link>
+                <div className={`hub-dropdown ${versionOpen ? 'open' : ''}`}>
+                    <button
+                        onClick={() => setVersionOpen(!versionOpen)}
+                        aria-expanded={versionOpen}
+                    >
+                        {current.label}
+                        <span className="hub-dropdown-caret">
+                            <IconChevronDown />
+                        </span>
+                    </button>
+                    <div className="hub-dropdown-menu">
+                        {VERSION_ITEMS.map((item) =>
+                            item.to ? (
+                                <Link
+                                    key={item.label}
+                                    to={item.to}
+                                    onClick={closeMenu}
+                                >
+                                    {item.label}
+                                </Link>
+                            ) : (
+                                <a
+                                    key={item.label}
+                                    href={item.href}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    {item.label}
+                                </a>
+                            )
+                        )}
+                    </div>
+                </div>
             </div>
 
             <div className="hub-navbar-right">
