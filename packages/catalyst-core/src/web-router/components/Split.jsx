@@ -75,11 +75,58 @@ const resolveFallback = (identityKey, fallback) => {
 // user actually scrolls near it.
 const foldVisibilityCallbacks = new Map()
 let sharedObserver = null
+// True once we've seen a real (non-hidden-tab) rootBounds reading. Its only
+// job is telling the retry path (below) apart from the well-supported
+// "background tab" case, so it's fine that it's shared across all targets.
+let sawRealRootBounds = false
 const getSharedObserver = () => {
     if (sharedObserver) return sharedObserver
     sharedObserver = new IntersectionObserver(
         (entries) => {
             entries.forEach((entry) => {
+                // rootBounds reads as zero while the document is hidden (a
+                // background tab has no laid-out viewport) — confirmed
+                // directly: document.hidden was true with
+                // window.innerWidth/innerHeight both 0 in exactly this
+                // situation. That's a normal, common state (any background
+                // tab), not a bug, so retrying on a tight timer here would
+                // burn CPU for as long as the tab stays backgrounded — often
+                // the whole session. Instead, wait once for the tab to
+                // become visible, then re-observe. A zero reading that's
+                // *not* explained by document.hidden is the one genuinely
+                // transient case (the browser hasn't finished establishing
+                // the viewport yet, e.g. moments after navigation) — retry
+                // that on the next frame, but only a few times, so a
+                // persistent zero for some other reason can't spin forever.
+                const bounds = entry.rootBounds
+                const boundsInvalid = !bounds || (bounds.width === 0 && bounds.height === 0)
+                if (boundsInvalid) {
+                    const target = entry.target
+                    if (document.hidden) {
+                        const onVisible = () => {
+                            if (document.hidden) return
+                            document.removeEventListener("visibilitychange", onVisible)
+                            if (foldVisibilityCallbacks.has(target)) {
+                                sharedObserver.unobserve(target)
+                                sharedObserver.observe(target)
+                            }
+                        }
+                        document.addEventListener("visibilitychange", onVisible)
+                    } else if (!sawRealRootBounds) {
+                        const attempts = (target.__catalystVisibilityRetries || 0) + 1
+                        target.__catalystVisibilityRetries = attempts
+                        if (attempts <= 5) {
+                            requestAnimationFrame(() => {
+                                if (foldVisibilityCallbacks.has(target)) {
+                                    sharedObserver.unobserve(target)
+                                    sharedObserver.observe(target)
+                                }
+                            })
+                        }
+                    }
+                    return
+                }
+                sawRealRootBounds = true
                 if (entry.isIntersecting || entry.intersectionRatio > 0) {
                     const cb = foldVisibilityCallbacks.get(entry.target)
                     if (cb) {
@@ -157,6 +204,15 @@ const useVisible = (ref, skip, onFire) => {
 // not-yet-visible boundary is hydrated via React's well-supported "suspended
 // during hydration" recovery (scoped to this one boundary) rather than a
 // structural mismatch that can bail out hydration for the whole root.
+//
+// Confirmed necessary, not just cautious: swapping this out for a plain,
+// non-suspending "render the frozen span as Suspense's direct child" (no
+// throw at all) was tried and produces a WORSE failure — React logs "the
+// server rendered HTML didn't match the client... this tree will be
+// regenerated on the client" and discards the whole boundary's subtree,
+// wheras the suspended-during-hydration path recovers scoped to just this
+// boundary. React treats "child suspended" as a well-supported hydration
+// case; "child is a structurally different element" is not.
 const SuspendUntilVisible = ({ promise }) => {
     throw promise
 }
