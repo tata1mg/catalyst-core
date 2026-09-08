@@ -3,7 +3,7 @@ import path from "node:path"
 import readline from "node:readline"
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
-import { bold, cyan, dim, green, red, yellow } from "picocolors"
+import { bold, cyan, dim, green, red, yellow } from "ansis"
 
 const require = createRequire(import.meta.url)
 const { discoverInternalPlugins, resolveInternalPluginsRoot } = require("../native/internalPluginUtils.js")

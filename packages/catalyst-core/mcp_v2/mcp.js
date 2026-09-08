@@ -26,6 +26,7 @@ const tasks = require("./tools/tasks")
 const sync = require("./tools/sync")
 const knowledge = require("./tools/knowledge")
 const github = require("./tools/github")
+const errors = require("./tools/errors")
 
 const MCP_DIR = __dirname
 const DB_PATH = path.join(MCP_DIR, "context.db")
@@ -121,6 +122,7 @@ tasks.init(db)
 sync.init(db)
 knowledge.init(db)
 github.init(projectInfo)
+errors.init()
 
 // ── Intent classification (internal, not exposed as tool) ─────────────────────
 
@@ -232,6 +234,21 @@ const TOOLS = [
                 },
             },
             required: ["symptom"],
+        },
+    },
+    {
+        name: "explain_error",
+        description:
+            "Use when the developer has a specific catalyst-core error code (e.g. 'PREFLIGHT-001', 'BUNDLE-000') and wants to know what it means and how to fix it. Looks it up against the generated errors/ registry. If the code isn't catalyst-owned (e.g. a raw Vite/Rollup/Gradle/Xcode code), says so rather than guessing — those are not reinterpreted.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                code: {
+                    type: "string",
+                    description: "The error code to explain, e.g. 'PREFLIGHT-001'.",
+                },
+            },
+            required: ["code"],
         },
     },
     {
@@ -607,6 +624,7 @@ const TOOL_HANDLERS = {
     sync_knowledge_base: sync.handle_sync_knowledge_base,
     query_knowledge: knowledge.handle_query_knowledge,
     create_github_issue: github.handle_create_github_issue,
+    explain_error: errors.handle_explain_error,
 }
 
 // ── MCP JSON-RPC over stdio ───────────────────────────────────────────────────

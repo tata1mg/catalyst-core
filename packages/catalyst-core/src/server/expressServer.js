@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser"
 import expressStaticGzip from "express-static-gzip"
 import { createServer as createViteServer } from "vite"
 import util from "node:util"
-import pc from "picocolors"
+import pc from "ansis"
 import fs from "fs"
 const { cyan, yellow, green } = pc
 

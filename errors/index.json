@@ -1,0 +1,506 @@
+{
+    "CCA-000": {
+        "category": "CCA",
+        "message": "An upstream command failed",
+        "details": "This wraps an error from npm, tar, or another upstream tool invoked by create-catalyst-app. See the printed upstream message for the actual cause.",
+        "suggestedAction": "Read the upstream error message printed above and fix the underlying issue.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-000.md"
+    },
+    "CCA-001": {
+        "category": "CCA",
+        "message": "Invalid project name",
+        "details": "The project name is not a valid npm package name.",
+        "suggestedAction": "Choose a project name that is a valid npm package name and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-001.md"
+    },
+    "CCA-002": {
+        "category": "CCA",
+        "message": "Target directory already exists",
+        "details": "A file or directory with the project name already exists in the current directory.",
+        "suggestedAction": "Choose a different project name, or remove/rename the existing directory.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-002.md"
+    },
+    "CCA-003": {
+        "category": "CCA",
+        "message": "Invalid language option",
+        "details": "The --lang option must be \"js\" or \"ts\".",
+        "suggestedAction": "Pass --lang js or --lang ts.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-003.md"
+    },
+    "CCA-004": {
+        "category": "CCA",
+        "message": "Invalid state management option",
+        "details": "The --state-management option must be \"rtk\", \"redux\", or \"none\".",
+        "suggestedAction": "Pass a supported --state-management value.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-004.md"
+    },
+    "CCA-005": {
+        "category": "CCA",
+        "message": "Invalid --yes option",
+        "details": "The -y/--yes flag does not accept a non-boolean value.",
+        "suggestedAction": "Use -y or --yes with no value to accept defaults.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-005.md"
+    },
+    "CCA-006": {
+        "category": "CCA",
+        "message": "Failed to pack create-catalyst-app",
+        "details": "npm pack could not produce the tarball used to scaffold the new project.",
+        "suggestedAction": "Check your npm registry access/network connection and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-006.md"
+    },
+    "CCA-007": {
+        "category": "CCA",
+        "message": "Failed to extract template files",
+        "details": "The packed tarball could not be extracted into the new project directory.",
+        "suggestedAction": "Ensure the target directory is writable and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-007.md"
+    },
+    "CCA-008": {
+        "category": "CCA",
+        "message": "MCP server setup failed",
+        "details": "Downloading, installing, or configuring the MCP server failed.",
+        "suggestedAction": "Check your network connection and re-run `catalyst-mcp` inside the project.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-008.md"
+    },
+    "CCA-009": {
+        "category": "CCA",
+        "message": ".gitignore already exists",
+        "details": "The scaffolded project already contains a .gitignore file.",
+        "suggestedAction": "Remove or rename the existing .gitignore before running again, or ignore this warning.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-009.md"
+    },
+    "PREFLIGHT-001": {
+        "category": "PREFLIGHT",
+        "message": "config not found in config folder",
+        "details": "A config object must be exported from the config folder in your project root.",
+        "suggestedAction": "Create config/config.json (or config/index.js) exporting the required config object.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-001.md"
+    },
+    "PREFLIGHT-002": {
+        "category": "PREFLIGHT",
+        "message": "config export is not an object",
+        "details": "The config folder must export a plain object.",
+        "suggestedAction": "Ensure config/config.json exports an object, not a string, array, or function.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-002.md"
+    },
+    "PREFLIGHT-003": {
+        "category": "PREFLIGHT",
+        "message": "required key missing inside config.json",
+        "details": "config.json is missing one or more required keys.",
+        "suggestedAction": "Add the missing key to config.json. See the config.json reference in the framework docs.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-003.md"
+    },
+    "PREFLIGHT-004": {
+        "category": "PREFLIGHT",
+        "message": "package.json not found in the project",
+        "details": "A package.json must exist in the project root directory.",
+        "suggestedAction": "Run this command from the project root, or restore package.json.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-004.md"
+    },
+    "PREFLIGHT-005": {
+        "category": "PREFLIGHT",
+        "message": "package.json should be defined in project root directory",
+        "details": "package.json exists but could not be parsed as an object.",
+        "suggestedAction": "Check package.json for valid JSON syntax.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-005.md"
+    },
+    "PREFLIGHT-006": {
+        "category": "PREFLIGHT",
+        "message": "moduleAliases not found in package.json",
+        "details": "package.json must export a moduleAliases object.",
+        "suggestedAction": "Add a moduleAliases object to package.json.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-006.md"
+    },
+    "PREFLIGHT-007": {
+        "category": "PREFLIGHT",
+        "message": "moduleAliases named object should be exported from package.json",
+        "details": "moduleAliases was found in package.json but is not an object.",
+        "suggestedAction": "Ensure moduleAliases is exported as an object in package.json.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-007.md"
+    },
+    "PREFLIGHT-008": {
+        "category": "PREFLIGHT",
+        "message": "catalyst keyword is restricted for defining aliases",
+        "details": "Module alias keys containing 'catalyst' are reserved by the framework.",
+        "suggestedAction": "Rename the alias to something that does not contain 'catalyst'.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-008.md"
+    },
+    "PREFLIGHT-009": {
+        "category": "PREFLIGHT",
+        "message": "required module alias not defined inside package.json",
+        "details": "One or more required module aliases are missing from moduleAliases.",
+        "suggestedAction": "Add the missing alias to the moduleAliases object in package.json.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-009.md"
+    },
+    "PREFLIGHT-010": {
+        "category": "PREFLIGHT",
+        "message": "preServerInit named function should be defined in server/index.js",
+        "details": "server/index.js must export a preServerInit function.",
+        "suggestedAction": "Export a preServerInit function from server/index.js, or remove the reference to it.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-010.md"
+    },
+    "PREFLIGHT-011": {
+        "category": "PREFLIGHT",
+        "message": "preServerInit should be a function present in server/index.js",
+        "details": "preServerInit was found but is not a function.",
+        "suggestedAction": "Ensure preServerInit is exported as a function.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-011.md"
+    },
+    "PREFLIGHT-012": {
+        "category": "PREFLIGHT",
+        "message": "addMiddlewares named function not found in server/server.js",
+        "details": "server/server.js must export an addMiddlewares function.",
+        "suggestedAction": "Export an addMiddlewares function from server/server.js.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-012.md"
+    },
+    "PREFLIGHT-013": {
+        "category": "PREFLIGHT",
+        "message": "addMiddlewares should be a function present in server/server.js",
+        "details": "addMiddlewares was found but is not a function.",
+        "suggestedAction": "Ensure addMiddlewares is exported as a function.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-013.md"
+    },
+    "PREFLIGHT-014": {
+        "category": "PREFLIGHT",
+        "message": "reducer not found in src/js/containers/App/reducer",
+        "details": "A reducer must be exported from src/js/containers/App/reducer.",
+        "suggestedAction": "Export a reducer from src/js/containers/App/reducer.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-014.md"
+    },
+    "PREFLIGHT-015": {
+        "category": "PREFLIGHT",
+        "message": "reducer should be present in src/js/containers/App/reducer",
+        "details": "The reducer export was found but is not a function.",
+        "suggestedAction": "Ensure the reducer is exported as a function.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-015.md"
+    },
+    "PREFLIGHT-016": {
+        "category": "PREFLIGHT",
+        "message": "configureStore not found in file src/js/store/index.js",
+        "details": "src/js/store/index.js must export a configureStore function.",
+        "suggestedAction": "Export a configureStore function from src/js/store/index.js.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-016.md"
+    },
+    "PREFLIGHT-017": {
+        "category": "PREFLIGHT",
+        "message": "configureStore should be a function exported from src/js/store/index.js",
+        "details": "configureStore was found but is not a function.",
+        "suggestedAction": "Ensure configureStore is exported as a function.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-017.md"
+    },
+    "PREFLIGHT-018": {
+        "category": "PREFLIGHT",
+        "message": "getRoutes not found in file src/js/routes/utils.js",
+        "details": "src/js/routes/utils.js must export a getRoutes function.",
+        "suggestedAction": "Export a getRoutes function from src/js/routes/utils.js.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-018.md"
+    },
+    "PREFLIGHT-019": {
+        "category": "PREFLIGHT",
+        "message": "getRoutes should be a function exported from src/js/routers/index.js",
+        "details": "getRoutes was found but is not a function.",
+        "suggestedAction": "Ensure getRoutes is exported as a function.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-019.md"
+    },
+    "PREFLIGHT-020": {
+        "category": "PREFLIGHT",
+        "message": "document not found in file server/document.js",
+        "details": "server/document.js must export a document component.",
+        "suggestedAction": "Export a document React component from server/document.js.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-020.md"
+    },
+    "PREFLIGHT-021": {
+        "category": "PREFLIGHT",
+        "message": "document should be a react component exported from server/document.js",
+        "details": "document was found but is not a function/component.",
+        "suggestedAction": "Ensure document is exported as a React component (function).",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-021.md"
+    },
+    "PROCESS-001": {
+        "category": "PROCESS",
+        "message": "preServerInit threw an error during server startup",
+        "details": "The preServerInit hook failed. Note: server startup currently continues despite this error (tracked separately as a fix — see issue #298); this code only identifies which hook failed.",
+        "suggestedAction": "Fix the error thrown inside your preServerInit hook (see the cause above).",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PROCESS/PROCESS-001.md"
+    },
+    "PROCESS-002": {
+        "category": "PROCESS",
+        "message": "A user-defined hook threw an error",
+        "details": "A user-defined hook (e.g. onRouteMatch, onFetcherError, onServerError) threw. It was caught so the SSR pipeline keeps running; see the cause above for which hook and why.",
+        "suggestedAction": "Fix the error thrown inside the hook (see the cause above).",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PROCESS/PROCESS-002.md"
+    },
+    "BUNDLE-000": {
+        "category": "BUNDLE",
+        "message": "Build failed in an upstream bundler step",
+        "details": "This is a wrapper around an error from Vite/Rollup or another upstream build tool. See the printed upstream code/message for the actual cause — catalyst-core does not reinterpret it.",
+        "suggestedAction": "Read the upstream error message/code printed above and fix the underlying issue.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/BUNDLE/BUNDLE-000.md"
+    },
+    "IOS-000": {
+        "category": "IOS",
+        "message": "iOS build failed in an upstream toolchain step",
+        "details": "This wraps an error from Xcode/CocoaPods. See the printed upstream output for the cause.",
+        "suggestedAction": "Read the upstream Xcode/CocoaPods error printed above and fix the underlying issue.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-000.md"
+    },
+    "ANDROID-000": {
+        "category": "ANDROID",
+        "message": "Android build failed in an upstream toolchain step",
+        "details": "This wraps an error from Gradle. See the printed upstream output for the cause.",
+        "suggestedAction": "Read the upstream Gradle error printed above and fix the underlying issue.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-000.md"
+    },
+    "RUNTIME-NATIVE-001": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Permission denied",
+        "details": "Required permission was not granted by the user",
+        "suggestedAction": "Grant permission in device settings and try again",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-001.md"
+    },
+    "RUNTIME-NATIVE-002": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Permission required",
+        "details": "This operation requires additional permissions",
+        "suggestedAction": "Grant the required permission to continue",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-002.md"
+    },
+    "RUNTIME-NATIVE-003": {
+        "category": "RUNTIME-NATIVE",
+        "message": "No internet connection",
+        "details": "Network connection is required for this operation",
+        "suggestedAction": "Check your internet connection and try again",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-003.md"
+    },
+    "RUNTIME-NATIVE-004": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Download failed",
+        "details": "The download could not be completed",
+        "suggestedAction": "Check your connection and try again",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-004.md"
+    },
+    "RUNTIME-NATIVE-005": {
+        "category": "RUNTIME-NATIVE",
+        "message": "File not found",
+        "details": "The requested file could not be located",
+        "suggestedAction": "The file may have been moved or deleted",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-005.md"
+    },
+    "RUNTIME-NATIVE-006": {
+        "category": "RUNTIME-NATIVE",
+        "message": "File too large",
+        "details": "File exceeds the maximum size limit",
+        "suggestedAction": "Choose a smaller file or compress the current file",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-006.md"
+    },
+    "RUNTIME-NATIVE-007": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Storage full",
+        "details": "Device storage is full and cannot save the file",
+        "suggestedAction": "Free up some storage space and try again",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-007.md"
+    },
+    "RUNTIME-NATIVE-008": {
+        "category": "RUNTIME-NATIVE",
+        "message": "File corrupted",
+        "details": "The file could not be read or is corrupted",
+        "suggestedAction": "Try selecting a different file",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-008.md"
+    },
+    "RUNTIME-NATIVE-009": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Operation cancelled",
+        "details": "The operation was cancelled by the user",
+        "suggestedAction": "Try again if you want to complete the operation",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-009.md"
+    },
+    "RUNTIME-NATIVE-010": {
+        "category": "RUNTIME-NATIVE",
+        "message": "No file selected",
+        "details": "No file was selected by the user",
+        "suggestedAction": "Select a file and try again",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-010.md"
+    },
+    "RUNTIME-NATIVE-011": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Invalid file type",
+        "details": "The selected file type is not supported",
+        "suggestedAction": "Choose a file with a supported format",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-011.md"
+    },
+    "RUNTIME-NATIVE-012": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Invalid parameters",
+        "details": "One or more parameters passed to the native call were invalid",
+        "suggestedAction": "Check the parameters passed to the native API call",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-012.md"
+    },
+    "RUNTIME-NATIVE-013": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Native feature unavailable",
+        "details": "The native bridge is not available or not initialized",
+        "suggestedAction": "Use web fallback if available",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-013.md"
+    },
+    "RUNTIME-NATIVE-014": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Feature not supported",
+        "details": "This feature is not supported on the current platform",
+        "suggestedAction": "Try using an alternative method or device",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-014.md"
+    },
+    "RUNTIME-NATIVE-015": {
+        "category": "RUNTIME-NATIVE",
+        "message": "An unexpected error occurred",
+        "details": "An internal error occurred while processing the request",
+        "suggestedAction": "Try again or contact support if the problem persists",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-015.md"
+    },
+    "RUNTIME-NATIVE-016": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Camera unavailable",
+        "details": "Camera hardware is not available or accessible",
+        "suggestedAction": "Check if your device has a camera and try again",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-016.md"
+    },
+    "RUNTIME-NATIVE-017": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Camera in use",
+        "details": "Camera is being used by another application",
+        "suggestedAction": "Close other camera apps and try again",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-017.md"
+    },
+    "RUNTIME-NATIVE-018": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Invalid callback interface",
+        "details": "The native platform invoked WebBridge.callback() with an interface name that isn't recognized.",
+        "suggestedAction": "Check the interface name against the registered NATIVE_CALLBACKS list; this usually indicates a native/JS version mismatch.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-018.md"
+    },
+    "RUNTIME-NATIVE-019": {
+        "category": "RUNTIME-NATIVE",
+        "message": "No handler registered for this bridge interface",
+        "details": "Native sent a callback for this interface, but your webview hasn't registered a handler for it yet.",
+        "suggestedAction": "Call WebBridge.register() for this interface before native calls arrive.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-019.md"
+    },
+    "RUNTIME-NATIVE-020": {
+        "category": "RUNTIME-NATIVE",
+        "message": "A registered bridge callback handler threw",
+        "details": "The JS handler registered for this native callback interface threw an error while processing the callback.",
+        "suggestedAction": "Fix the error thrown inside the registered handler (see the cause above).",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-020.md"
+    },
+    "RUNTIME-NATIVE-021": {
+        "category": "RUNTIME-NATIVE",
+        "message": "Invalid bridge callback registration",
+        "details": "WebBridge.register() was called with a non-function callback or an unrecognized interface name.",
+        "suggestedAction": "Pass a function as the callback and a valid interface name from NATIVE_CALLBACKS.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-021.md"
+    },
+    "RUNTIME-NATIVE-022": {
+        "category": "RUNTIME-NATIVE",
+        "message": "WebBridge could not be initialized",
+        "details": "WebBridge.init() was called outside a browser environment (no `window` available).",
+        "suggestedAction": "Call WebBridge.init() in a browser environment, before using bridge features.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-NATIVE/RUNTIME-NATIVE-022.md"
+    },
+    "AI-000": {
+        "category": "AI",
+        "message": "AI provider request failed",
+        "details": "This is a wrapper around a non-2xx response or thrown error from the upstream AI provider (OpenAI/Gemini). See the printed upstream status/message for the actual cause — catalyst-ai does not reinterpret it.",
+        "suggestedAction": "Read the upstream provider error printed above and fix the underlying issue (auth, rate limit, invalid request).",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-000.md"
+    },
+    "AI-001": {
+        "category": "AI",
+        "message": "AI is disabled",
+        "details": "AI_CONFIG.enabled is not set to true.",
+        "suggestedAction": "Set AI_CONFIG.enabled=true in your environment configuration.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-001.md"
+    },
+    "AI-002": {
+        "category": "AI",
+        "message": "AI provider not configured",
+        "details": "The requested provider is unknown, or has no apiKey configured in AI_CONFIG.providers.",
+        "suggestedAction": "Add the provider's apiKey to AI_CONFIG.providers, or use a configured provider.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-002.md"
+    },
+    "AI-003": {
+        "category": "AI",
+        "message": "Invalid AI request body",
+        "details": "The request body is missing a non-empty messages array, or no model could be resolved.",
+        "suggestedAction": "Pass a non-empty messages array, and either a model or a provider defaultModel.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-003.md"
+    },
+    "AI-004": {
+        "category": "AI",
+        "message": "Native AI bridge unavailable",
+        "details": "window.NativeBridge.initAI or window.WebBridge was not found when useNativeAI mounted.",
+        "suggestedAction": "Update catalyst-core to >=0.2.0, add the native AI module, and call WebBridge.init() before mounting useNativeAI.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-004.md"
+    },
+    "AI-005": {
+        "category": "AI",
+        "message": "Native AI stream not ready",
+        "details": "generate() was called before the native side reported a ready stream URL (initAI has not fired ON_AI_READY yet).",
+        "suggestedAction": "Wait for modelReady to become true before calling generate().",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-005.md"
+    },
+    "AI-006": {
+        "category": "AI",
+        "message": "Native AI request failed",
+        "details": "The native AI HTTP endpoint returned a non-ok status or reported an error in its response body.",
+        "suggestedAction": "See the cause above for the native-reported status/message.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-006.md"
+    },
+    "AI-007": {
+        "category": "AI",
+        "message": "Native AI reported an error",
+        "details": "The native platform invoked ON_AI_ERROR — a failure during model load, init, or inference on the native side, not an HTTP request made by this JS code.",
+        "suggestedAction": "See the cause above for the native-reported message.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-007.md"
+    },
+    "AI-008": {
+        "category": "AI",
+        "message": "Web AI worker unavailable",
+        "details": "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
+        "suggestedAction": "Use a browser with module Worker support, or fall back to useCloudAI/useNativeAI.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-008.md"
+    },
+    "AI-009": {
+        "category": "AI",
+        "message": "Web AI worker crashed",
+        "details": "The in-browser AI worker threw during model load or generation (e.g. all device backends failed, or an uncaught exception). See the cause above for the worker's reported message.",
+        "suggestedAction": "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-009.md"
+    },
+    "RUNTIME-WEB-001": {
+        "category": "RUNTIME-WEB",
+        "message": "Rendering failed on the server",
+        "details": "An error was thrown while streaming or rendering the document on the server. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the error thrown during rendering.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-001.md"
+    },
+    "RUNTIME-WEB-002": {
+        "category": "RUNTIME-WEB",
+        "message": "serverFetcher failed",
+        "details": "An error was thrown while executing a route's serverFetcher function(s). This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the error thrown inside serverFetcher.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-002.md"
+    },
+    "RUNTIME-WEB-003": {
+        "category": "RUNTIME-WEB",
+        "message": "App.serverSideFunction failed",
+        "details": "An error was thrown while executing the app-level serverSideFunction hook. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the error thrown inside serverSideFunction.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-003.md"
+    },
+    "RUNTIME-WEB-004": {
+        "category": "RUNTIME-WEB",
+        "message": "Failed to handle document request",
+        "details": "An unhandled error reached the top level of the SSR request handler. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
+        "suggestedAction": "See the cause above for the underlying error.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-004.md"
+    }
+}
