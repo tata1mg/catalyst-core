@@ -1,20 +1,14 @@
-import React, { Suspense, lazy, useContext, useEffect, useId, useReducer, useRef, useState } from "react"
+import React, { Suspense, lazy, useContext, useEffect, useId, useRef, useState } from "react"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import SplitInview from "./SplitInview.jsx"
-
-// Synchronous module cache: importFn → resolved module.
-// Populated by the eager importFn().then() calls at split() invocation time,
-// and by wrapper.load(). Whenever an entry lands here, notifyAll() wakes any
-// mounted instances so they re-render against the resolved module.
-const moduleCache = new Map()
 
 // Collects one promise per SSR-rendered split() call on the client.
 const prefetchPromises = []
 
 /**
  * Resolves once every SSR-rendered split component has been prefetched into
- * moduleCache. No longer required before hydrateRoot: a boundary that
- * suspends before its chunk is ready falls back to its own captured SSR
+ * its own module cache. No longer required before hydrateRoot: a boundary
+ * that suspends before its chunk is ready falls back to its own captured SSR
  * markup (see htmlSnapshots below) instead of a spinner, so hydration can
  * start immediately. Kept for callers that want an explicit "fully loaded"
  * signal.
@@ -28,13 +22,11 @@ export const hydrationReady = () => Promise.all(prefetchPromises)
 const SPLIT_MARKER_STYLE = { display: "contents" }
 
 // innerHTML of every SSR-rendered split() boundary, captured once up front,
-// keyed by the boundary's useId()-derived instanceId (guaranteed to match
-// between the server render and this hydration attempt, even when the same
-// split() call site renders many times, e.g. inside a list). Read
-// synchronously before hydrateRoot runs, while the DOM still holds exactly
-// what the server sent. Used so a boundary that suspends during hydration
-// (its chunk isn't loaded yet) shows its own real server-rendered markup as
-// the Suspense fallback instead of a spinner — no visual flash.
+// keyed by identityKey (see resolveIdentityKey below). Read synchronously
+// before hydrateRoot runs, while the DOM still holds exactly what the server
+// sent. Used so a boundary not yet worth hydrating shows its own real
+// server-rendered markup as the Suspense fallback instead of a generic
+// skeleton — no visual flash.
 const htmlSnapshots = new Map()
 if (typeof document !== "undefined") {
     document.querySelectorAll("[data-catalyst-split]").forEach((el) => {
@@ -43,38 +35,49 @@ if (typeof document !== "undefined") {
     })
 }
 
-const wrapWithMarker = (instanceId, node) =>
-    instanceId ? (
-        <span data-catalyst-split={instanceId} style={SPLIT_MARKER_STYLE}>
-            {node}
-        </span>
-    ) : (
-        node
-    )
+// Identity used to match a boundary's server snapshot to this hydration
+// attempt. cacheKey (auto-injected per import path by inject-cache-key-plugin
+// — see that file) is preferred: it's fixed by *which module this call site
+// imports*, so it survives any of this boundary's siblings changing shape
+// or count between the server render and the client's first render. useId()
+// is a positional fallback for the rare split() call without a cacheKey
+// (e.g. a dynamic, non-statically-analyzable import) — it's the same
+// mechanism split() always used, kept only where nothing better is
+// available. Note this doesn't disambiguate multiple instances of the *same*
+// split() call site (e.g. one rendered per item in a list): they'd share an
+// identityKey and one snapshot would overwrite the other in the Map. That's
+// a pre-existing limitation (useId() alone had the same issue for that
+// pattern) — fixing it would need callers to pass a per-item key, which is
+// a larger API change than today's scope. A shared mutable counter was
+// considered and rejected: it would need to reset per SSR request, and
+// nothing in this module can safely detect "new request" without leaking
+// across concurrent requests on the same server process.
+const resolveIdentityKey = (cacheKey, positionalId) => cacheKey || positionalId
+
+const wrapWithMarker = (identityKey, node) => (
+    <span data-catalyst-split={identityKey} style={SPLIT_MARKER_STYLE}>
+        {node}
+    </span>
+)
 
 // dangerouslySetInnerHTML is safe here: the markup is a byte-for-byte copy of
 // what this same app already rendered and sent to this same browser —
 // nothing new is introduced, it's only replayed until real hydration lands.
-const resolveFallback = (instanceId, fallback) => {
-    const html = instanceId && htmlSnapshots.get(instanceId)
+const resolveFallback = (identityKey, fallback) => {
+    const html = htmlSnapshots.get(identityKey)
     if (html === undefined) return fallback
     return <span style={SPLIT_MARKER_STYLE} dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-// Shared IntersectionObserver gating which ssr:true boundaries actually mount
-// their real, interactive tree on first render. Deliberately a *separate*
-// observer from SplitInview's: SplitInview's 75%-below-viewport margin exists
-// to prefetch ssr:false code ahead of scroll, which is unrelated to (and too
-// generous for) this — every ssr:true boundary already has its real content
-// on screen via SSR, so the only question here is how much of it we spend
-// main-thread time making interactive on load. A tight (0px) margin keeps
-// that to the first fold; everything else stays inert, real, static markup
-// until the user actually scrolls near it.
+// One shared IntersectionObserver for every split() boundary's "worth
+// hydrating yet?" check. A tight (0px) margin keeps eager hydration to the
+// first fold; everything else stays inert, real, static markup until the
+// user actually scrolls near it.
 const foldVisibilityCallbacks = new Map()
-let sharedFoldVisibilityObserver = null
-const getSharedFoldVisibilityObserver = () => {
-    if (sharedFoldVisibilityObserver) return sharedFoldVisibilityObserver
-    sharedFoldVisibilityObserver = new IntersectionObserver(
+let sharedObserver = null
+const getSharedObserver = () => {
+    if (sharedObserver) return sharedObserver
+    sharedObserver = new IntersectionObserver(
         (entries) => {
             entries.forEach((entry) => {
                 if (entry.isIntersecting || entry.intersectionRatio > 0) {
@@ -82,23 +85,23 @@ const getSharedFoldVisibilityObserver = () => {
                     if (cb) {
                         cb()
                         foldVisibilityCallbacks.delete(entry.target)
-                        sharedFoldVisibilityObserver.unobserve(entry.target)
+                        sharedObserver.unobserve(entry.target)
                     }
                 }
             })
         },
         { rootMargin: "0px" }
     )
-    return sharedFoldVisibilityObserver
+    return sharedObserver
 }
 
 // display:contents elements generate no CSS box, so IntersectionObserver can
 // never report one as intersecting (isIntersecting stays false forever, even
-// though the callback does fire) — confirmed against a real browser, not just
-// jsdom. The marker span is display:contents (see SPLIT_MARKER_STYLE above),
-// and so is resolveFallback's own snapshot wrapper, so walk down through any
-// chain of display:contents wrappers to find the first descendant that
-// actually has layout geometry to observe.
+// though the callback does fire) — confirmed against a real browser, not
+// just jsdom. The marker span is display:contents, and so is
+// resolveFallback's own snapshot wrapper, so walk down through any chain of
+// display:contents wrappers to find the first descendant that actually has
+// layout geometry to observe.
 const findObservableNode = (node) => {
     while (node) {
         if (typeof window === "undefined" || !window.getComputedStyle) return node
@@ -109,11 +112,13 @@ const findObservableNode = (node) => {
 }
 
 // Reports whether `ref`'s node has ever intersected the viewport. `skip`
-// (bots — no real viewport to wait on) forces an immediate true. `onFire`
-// runs once, synchronously inside the effect that flips the state, so callers
-// can resolve a companion Suspense gate (see SuspendUntilVisible below) from
-// the same commit-phase callback rather than during render.
-const useFirstFoldVisible = (ref, skip, onFire) => {
+// forces an immediate true — used for bots (no real viewport to wait on)
+// and for boundaries with no snapshot to safely freeze on while waiting
+// (see split()'s `hasSnapshot` below). `onFire` runs once, synchronously
+// inside the effect that flips the state, so callers can resolve a
+// companion Suspense gate (see SuspendUntilVisible below) from the same
+// commit-phase callback rather than during render.
+const useVisible = (ref, skip, onFire) => {
     const [isVisible, setIsVisible] = useState(() => {
         if (typeof window === "undefined") return true
         if (skip || !window.IntersectionObserver) return true
@@ -135,10 +140,10 @@ const useFirstFoldVisible = (ref, skip, onFire) => {
             onFire?.()
         }
         foldVisibilityCallbacks.set(node, fire)
-        getSharedFoldVisibilityObserver().observe(node)
+        getSharedObserver().observe(node)
         return () => {
             foldVisibilityCallbacks.delete(node)
-            if (sharedFoldVisibilityObserver) sharedFoldVisibilityObserver.unobserve(node)
+            if (sharedObserver) sharedObserver.unobserve(node)
         }
     }, [isVisible])
 
@@ -147,8 +152,8 @@ const useFirstFoldVisible = (ref, skip, onFire) => {
 
 // Suspends by throwing its gate's promise — the same generic protocol
 // React.lazy() itself uses. Rendered in place of the real component while a
-// boundary waits for its first-fold visibility check, so the client tree's
-// *shape* (span > Suspense > one child) always matches the server's, and a
+// boundary waits for its visibility check, so the client tree's *shape*
+// (span > Suspense > one child) always matches the server's, and a
 // not-yet-visible boundary is hydrated via React's well-supported "suspended
 // during hydration" recovery (scoped to this one boundary) rather than a
 // structural mismatch that can bail out hydration for the whole root.
@@ -157,56 +162,37 @@ const SuspendUntilVisible = ({ promise }) => {
 }
 
 /**
- * Split component that wraps React's lazy and Suspense for SSR compatibility
+ * Split component that wraps React's lazy and Suspense for SSR compatibility.
+ * Used directly by split()'s server branch; also exported standalone for any
+ * caller that wants ssr:false's original client-only-with-prefetch behavior
+ * without going through split()'s always-SSR contract.
  * @param {Object} props
  * @param {boolean} props.ssr - Whether to render the component on the server
  * @param {React.ComponentType|React.ReactElement} props.fallback - Fallback component for loading state
  * @param {Function} props.children - Function that returns the lazy component import
  * @param {string} props.cacheKey - Resolved path for better asset tracking
  */
-const Split = ({
-    ssr = true,
-    fallback = null,
-    cacheKey,
-    instanceId,
-    rootOptions,
-    onVisible,
-    skipVisibility,
-    children,
-}) => {
-    // Check if we're on the server
+const Split = ({ ssr = true, fallback = null, cacheKey, instanceId, rootOptions, onVisible, children }) => {
     const isServer = typeof window === "undefined"
     if (isServer) {
         if (ssr) {
-            // On server with SSR enabled: actually load and render the component
-            try {
-                // Track this component for asset extraction
-                if (global.__CHUNK_EXTRACTOR__) {
-                    global.__CHUNK_EXTRACTOR__.addComponent(cacheKey)
-                }
-
-                return wrapWithMarker(instanceId, <Suspense fallback={fallback}>{children}</Suspense>)
-            } catch (error) {
-                console.warn("Error loading component for SSR:", error)
-                return fallback
+            if (global.__CHUNK_EXTRACTOR__) {
+                global.__CHUNK_EXTRACTOR__.addComponent(cacheKey)
             }
-        } else {
-            // Match SplitInview's client-side wrapper so hydration doesn't mismatch.
-            // SplitInview renders <div ref>{fallback}</div> until visible; without this
-            // wrap, server outputs `fallback` and client outputs `<div>{fallback}</div>`.
-            return <div>{fallback}</div>
+            return wrapWithMarker(instanceId, <Suspense fallback={fallback}>{children}</Suspense>)
         }
-    } else {
-        const boundaryFallback = resolveFallback(instanceId, fallback)
-        const boundary = skipVisibility ? (
-            <Suspense fallback={boundaryFallback}>{children}</Suspense>
-        ) : (
-            <SplitInview fallback={fallback} rootOptions={rootOptions} onVisible={onVisible}>
-                <Suspense fallback={boundaryFallback}>{children}</Suspense>
-            </SplitInview>
-        )
-        return ssr ? wrapWithMarker(instanceId, boundary) : boundary
+        // Match SplitInview's client-side wrapper so hydration doesn't mismatch.
+        // SplitInview renders <div ref>{fallback}</div> until visible; without this
+        // wrap, server outputs `fallback` and client outputs `<div>{fallback}</div>`.
+        return <div>{fallback}</div>
     }
+
+    const boundary = (
+        <SplitInview fallback={fallback} rootOptions={rootOptions} onVisible={onVisible}>
+            <Suspense fallback={fallback}>{children}</Suspense>
+        </SplitInview>
+    )
+    return ssr ? wrapWithMarker(instanceId, boundary) : boundary
 }
 
 /**
@@ -230,15 +216,9 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
           : undefined
 
     const LazyComponent = lazy(importFn)
-    let loadInFlight = null
 
-    // Per-split instance subscribers. Pending wrapper instances register their
-    // forceUpdate here; notifyAll() wakes them once load() resolves, so they
-    // can re-render against the now-hot module cache.
-    const subscribers = new Set()
-    const notifyAll = () => {
-        subscribers.forEach((fn) => fn())
-    }
+    let loadInFlight = null
+    let loadedModule = null
     const copyRouteStatics = (mod) => {
         const Component = mod?.default || mod
         for (const key of ["clientFetcher", "serverFetcher", "setMetaData"]) {
@@ -247,12 +227,10 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         return mod
     }
 
+    // Tell client which components were SSR'd so split() can eagerly import
+    // them (prevents Suspense fallback flash while the chunk downloads).
     if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
-        const prefetch = importFn().then((mod) => {
-            moduleCache.set(importFn, mod)
-            copyRouteStatics(mod)
-        })
-        prefetchPromises.push(prefetch)
+        prefetchPromises.push(importFn().then(copyRouteStatics))
     }
 
     const wrapper = ({ fallback: fallbackProp, ...props }) => {
@@ -260,15 +238,11 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         const isBotFromWindow = typeof window !== "undefined" && window.__CATALYST_IS_BOT__ === true
         const isBot = Boolean(isBotFromContext || isBotFromWindow)
         const effectiveFallback = fallbackProp !== undefined ? fallbackProp : fallback
-        // Called in wrapper (not Split) so the id matches whichever branch below
-        // actually renders — both must resolve to the same instanceId the
-        // server used for this slot.
-        const instanceId = useId()
+
+        const positionalId = useId()
+        const identityKey = resolveIdentityKey(cacheKey, positionalId)
         const markerRef = useRef(null)
-        // Lazily-created Suspense gate: resolved once this instance's
-        // first-fold visibility check fires. Created via the ref-lazy-init
-        // pattern so it's stable across re-renders without needing its own
-        // effect.
+
         const gateRef = useRef(null)
         if (!gateRef.current) {
             const gate = { resolved: false, promise: null, resolve: null }
@@ -280,47 +254,30 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             })
             gateRef.current = gate
         }
-        const isFirstFoldVisible = useFirstFoldVisible(markerRef, isBot, gateRef.current.resolve)
 
-        const [, forceUpdate] = useReducer((x) => x + 1, 0)
-        useEffect(() => {
-            subscribers.add(forceUpdate)
-            return () => {
-                subscribers.delete(forceUpdate)
-            }
-        }, [])
+        // A missing snapshot means there's nothing safe to freeze this
+        // boundary on while it waits — render it immediately instead of
+        // risking getting stuck showing a bare fallback forever.
+        const hasSnapshot = typeof window !== "undefined" && htmlSnapshots.has(identityKey)
+        const isVisible = useVisible(markerRef, isBot || !hasSnapshot, gateRef.current.resolve)
 
         if (typeof window === "undefined") {
-            // Server: every widget renders for real, regardless of the ssr
-            // option — go through <Split> so ChunkExtractor tracking and the
-            // wrapWithMarker path run exactly as they always have.
-            return (
-                <Split
-                    ssr={true}
-                    fallback={effectiveFallback}
-                    cacheKey={cacheKey}
-                    instanceId={instanceId}
-                    rootOptions={rootOptions}
-                    {...props}
-                    isBot={isBot}
-                >
+            if (global.__CHUNK_EXTRACTOR__) {
+                global.__CHUNK_EXTRACTOR__.addComponent(cacheKey)
+            }
+            return wrapWithMarker(
+                identityKey,
+                <Suspense fallback={effectiveFallback}>
                     <LazyComponent {...props} />
-                </Split>
+                </Suspense>
             )
         }
 
-        // Client: the real, server-rendered content already sits in the DOM
-        // (every widget is SSR'd now, regardless of the ssr option) — the
-        // only question is whether *this* instance is worth spending
-        // main-thread time on to make interactive right now. Only the first
-        // fold is: everything else keeps showing its own captured snapshot,
-        // real and correct-looking but inert, until the user actually
-        // scrolls near it (see useFirstFoldVisible).
-        const boundaryFallback = resolveFallback(instanceId, effectiveFallback)
+        const boundaryFallback = resolveFallback(identityKey, effectiveFallback)
         return (
-            <span ref={markerRef} data-catalyst-split={instanceId} style={SPLIT_MARKER_STYLE}>
+            <span ref={markerRef} data-catalyst-split={identityKey} style={SPLIT_MARKER_STYLE}>
                 <Suspense fallback={boundaryFallback}>
-                    {isFirstFoldVisible ? (
+                    {isVisible ? (
                         <LazyComponent {...props} />
                     ) : (
                         <SuspendUntilVisible promise={gateRef.current.promise} />
@@ -334,17 +291,13 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
 
     /** Same contract as loadable components: RouterDataProvider awaits this before reading serverFetcher/clientFetcher. */
     wrapper.load = () => {
-        const cached = moduleCache.get(importFn)
-        if (cached) return Promise.resolve(cached)
+        if (loadedModule) return Promise.resolve(loadedModule)
         if (!loadInFlight) {
             loadInFlight = importFn()
                 .then((mod) => {
                     copyRouteStatics(mod)
-                    if (typeof window !== "undefined") {
-                        moduleCache.set(importFn, mod)
-                    }
+                    loadedModule = mod
                     loadInFlight = null
-                    notifyAll()
                     return mod
                 })
                 .catch((err) => {
