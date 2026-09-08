@@ -33,6 +33,8 @@ import { useCurrentRouteData } from "catalyst-core"
 import { useParams, Link } from "react-router"
 ```
 
+One exception: `client/index.js` imports `RouterProvider` from `react-router/dom`, not from `react-router`. The `react-router/dom` build passes React DOM's `flushSync` into the router, which view transitions and `flushSync` navigations depend on. The `react-router` export renders the same tree but silently skips that.
+
 Because the version is now declared by the application, npm will report a peer dependency conflict if the installed React Router major does not satisfy `^7.18.2`. The server also verifies the resolved version at startup and exits with a clear error if React Router is missing or outside the supported range.
 
 ### Removed export paths

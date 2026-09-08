@@ -33,7 +33,7 @@ replace `loadableReady()` with `hydrationReady()` before `hydrateRoot()`.
 
 ```javascript
 import { hydrationReady } from "catalyst-core"
-import { RouterProvider } from "react-router"
+import { RouterProvider } from "react-router/dom"
 import { hydrateRoot } from "react-dom/client"
 
 window.addEventListener("load", () => {

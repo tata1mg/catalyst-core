@@ -3,7 +3,7 @@ import "./styles"
 import { hydrateRoot } from "react-dom/client"
 import { Provider } from "react-redux"
 import { hydrationReady } from "catalyst-core"
-import { RouterProvider } from "react-router"
+import { RouterProvider } from "react-router/dom"
 import clientRouter from "catalyst-core/router/ClientRouter"
 import configureStore from "@store"
 
