@@ -9,7 +9,7 @@ import {
     matchRoutes,
 } from "react-router"
 import { OneMgRouterContext } from "../context.jsx"
-// import sanitizeHtml from "sanitize-html"
+import sanitizeHtml from "sanitize-html"
 
 /**
  * @description  Router Data
@@ -73,12 +73,7 @@ export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
         let searchParamsString = ""
         if (searchParams) {
             for (const key in searchParams) {
-                // Encoded before folding into the route/fetcher-data cache key: this
-                // key ends up as an object key in fetcherData, which is later
-                // JSON.stringify'd into an inline SSR <script> (see Body.jsx). A raw
-                // "<", ">" or '"' from a query value here could otherwise break out
-                // of that script tag.
-                searchParamsString += `${encodeURIComponent(key)}=${encodeURIComponent(searchParams[key])}&`
+                searchParamsString += `${key}=${searchParams[key]}&`
             }
             searchParamsString = searchParamsString.slice(0, -1)
             searchParamsString = searchParamsString ? `?${searchParamsString}` : searchParamsString
@@ -161,8 +156,8 @@ const getMatchedRoutes = ({ matches, outlet }) => {
  */
 const generateRouteKey = (match, searchParamsString = "") => {
     const { pathname, route } = match
-    const sanitizedPathname = pathname
-    const sanitizedParams = searchParamsString
+    const sanitizedPathname = sanitizeHtml(pathname)
+    const sanitizedParams = sanitizeHtml(searchParamsString)
     if (route.children) {
         return `index${sanitizedPathname}${sanitizedParams}`
     }
