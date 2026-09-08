@@ -251,7 +251,10 @@ const _renderMarkUp = async (
     const jsx = getComponent(store, context, req, fetcherData, isBot)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
-    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea }
+    // The response status also reaches the document as `statusCode`, which Body
+    // exposes as window.__STATUS_CODE__. `errorCode` stays for custom documents.
+    const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
+    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status }
 
     const CompleteDocument = () => {
         if (CustomDocument) {
@@ -282,7 +285,6 @@ const _renderMarkUp = async (
     }
 
     try {
-        const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
 

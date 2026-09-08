@@ -5,7 +5,7 @@ const DEFAULT_SAFE_AREA = { top: 0, right: 0, bottom: 0, left: 0 }
 /**
  * Body component which will be used in page component
  * @param {object} jsx - page jsx code
- * @param {object} statusCode - document request status code
+ * @param {number|string} statusCode - document request status code
  * @param {object} initialState - initial state object for redux store
  * @param {object} fetcherData - contains data from executing serverFetcher function
  * @param {object} children - contains any child elements defined within the component
@@ -54,7 +54,7 @@ export function Body(props) {
 Body.propTypes = {
     initialState: PropTypes.object,
     jsx: PropTypes.any,
-    statusCode: PropTypes.string,
+    statusCode: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     fetcherData: PropTypes.object,
     children: PropTypes.node,
     safeArea: PropTypes.object,
