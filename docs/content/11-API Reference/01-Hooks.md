@@ -156,20 +156,58 @@ import {
   useNetworkStatus,
   useDataProtection,
   useSafeArea,
+  useDeviceInfo,
+  useVideoStream,
+  useNativeTransition,
 } from "catalyst-core/hooks";
 ```
 
-Most native hooks follow a common pattern:
+Native hooks fall into three categories. Which category a hook belongs to determines whether it has an `execute` function.
 
-- `data`
-- `loading`
-- `error`
-- `progress`
-- `isWeb`
-- `isNative`
-- `execute`
-- `clear`
-- `clearError`
+### Single-action hooks
+
+A hook that wraps exactly one native operation exposes that operation as `execute`, plus a domain-specific alias for the same function, plus state:
+
+- `execute` — start the operation
+- `data` — result payload, `null` until the operation completes
+- `loading` — operation in progress
+- `error` — standardized error object, `null` when there is no error
+- `progress` — progress detail during the operation, where the platform reports it
+- `isWeb` / `isNative` — runtime context
+- `clear` — reset data and error
+- `clearError` — reset error only
+
+`execute` takes the operation's own arguments. It never takes an operation name.
+
+| Hook | Domain alias for `execute` |
+|------|----------------------------|
+| `useCamera` | `takePhoto` |
+| `useFilePicker` | `pickFile` |
+| `useIntent` | `openFile` |
+| `useGoogleSignIn` | `signIn` |
+| `useHapticFeedback` | `trigger`, `triggerHaptic` |
+| `useCameraPermission` | `request` |
+
+`useHapticFeedback` also exposes one shortcut per feedback type (`light`, `medium`, `heavy`, `success`, `warning`, `errorHaptic`, `selection`, `impact`), each of which calls `execute` with that type.
+
+### Multi-action hooks
+
+A hook that wraps several distinct native operations has no meaningful single action, so **the named functions are the API**. These hooks do not have an `execute`:
+
+| Hook | Named functions |
+|------|-----------------|
+| `useNotification` | `scheduleLocal`, `cancelLocal`, `registerForPush`, `updateBadge`, `subscribeToTopic`, `unsubscribeFromTopic`, `getSubscribedTopics`, `requestPermission` |
+| `useVideoStream` | `start`, `stop`, `sendCommand`, `flip` |
+| `useDataProtection` | `setScreenSecure`, `clearWebData` |
+| `useNativeTransition` | `navigate`, `cancelTransition` |
+
+Multi-action hooks still expose the shared state keys (`data`, `loading`, `error`, `isWeb`, `isNative`, `clear`, `clearError`) where they apply.
+
+`useNotification` is the one exception: it carries an `execute` key that aliases `scheduleLocal`, kept for backward compatibility. It is frozen but discouraged, and it is **not** the pattern to copy when writing or consuming multi-action hooks. See [Aliases and Deprecations](#aliases-and-deprecations).
+
+### Read-only hooks
+
+`useNetworkStatus`, `useDeviceInfo`, and `useSafeArea` report ambient device state. They have no action functions at all — they return state plus the runtime-context keys.
 
 ### `getDeviceInfo`
 
@@ -231,24 +269,31 @@ Access camera capture through the native bridge. The hook exposes a standardized
 
 #### Usage
 
+`takePhoto()` returns `undefined`. It hands the request to the native shell and returns immediately — do not `await` it or read a return value. The captured photo arrives asynchronously on `data`, and a failure arrives on `error`. Read both from the hook, and react to the result in an effect if you need to run code when the capture lands.
+
 ```javascript
 function PhotoCapture() {
   const { takePhoto, loading, error, data, isNative } = useCamera();
 
-  const handleCapture = async () => {
-    const photo = await takePhoto();
-    if (photo) {
-      console.log("Photo captured:", photo.fileName);
+  useEffect(() => {
+    if (data) {
+      console.log("Photo captured:", data.fileName);
     }
-  };
+  }, [data]);
 
   return (
-    <button onClick={handleCapture} disabled={loading || !isNative}>
-      Take Photo
-    </button>
+    <>
+      <button onClick={() => takePhoto()} disabled={loading || !isNative}>
+        Take Photo
+      </button>
+      {error && <p>{error.message}</p>}
+      {data && <img src={data.fileSrc} alt="Captured" />}
+    </>
   );
 }
 ```
+
+The same applies to `execute`, `pickFile`, `openFile`, and `signIn`: they dispatch to the native bridge and return `undefined`. `useHapticFeedback`'s `execute` is the exception — when haptics are supported it returns a promise, resolving to the raw native status string on native and to a boolean on the web vibration fallback. When haptics are unsupported it records a `FEATURE_UNSUPPORTED` error and returns `undefined` rather than a promise, so guard on `isSupported` before awaiting.
 
 ### `useFilePicker`
 
@@ -291,7 +336,7 @@ Trigger platform-specific haptic feedback with a standardized interface and sema
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `execute` | `(feedbackType?, options?) => Promise<boolean>` | Trigger haptic feedback |
+| `execute` | `(feedbackType?, options?) => Promise<string \| boolean> \| undefined` | Trigger haptic feedback. Resolves the raw native status string on native, a boolean on the web fallback; returns `undefined` when `isSupported` is `false` |
 | `isSupported` | `boolean` | Haptics available on device |
 | `light` | `function` | Light feedback shortcut |
 | `medium` | `function` | Medium feedback shortcut |
@@ -468,6 +513,187 @@ function ScreenShell({ children }) {
 }
 ```
 
+`useSafeArea` has no `error` key. Insets always resolve to numbers, falling back to `0`.
+
+### `useDeviceInfo`
+
+Read device, screen, and app metadata as React state. This is the hook form of `WebBridge.getDeviceInfo()` documented above — the hook fetches on mount and re-renders when the result arrives, while `getDeviceInfo()` is a one-shot promise you call yourself.
+
+#### Returns
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `data` | `object \| null` | Device metadata payload, `null` until it resolves |
+| `deviceInfo` | `object \| null` | Alias for `data` |
+| `loading` | `boolean` | `true` until the metadata resolves or fails |
+| `error` | `string \| null` | Failure reason — a **string**, not a standard error object |
+| `isNative` | `boolean` | Running inside the native shell |
+| `isWeb` | `boolean` | Running in a browser context |
+| `webFallbackActive` | `boolean` | Serving browser-derived metadata instead of native |
+| `webFallbackDisabled` | `boolean` | On web with the fallback turned off |
+| `setWebFallback` | `function` | Enable or disable the web fallback at runtime |
+
+The `data` payload carries the same fields as `getDeviceInfo()`: `model`, `manufacturer`, `platform`, `screenWidth`, `screenHeight`, `screenDensity`, and `appInfo`. On web, the fallback derives them from `navigator.userAgent`, `screen`, and `window.devicePixelRatio`, with `manufacturer` set to `browser` and `platform` set to `web`.
+
+#### Usage
+
+```javascript
+function DeviceBadge() {
+  const { data, loading, error } = useDeviceInfo();
+
+  if (loading) return <span>Detecting device…</span>;
+  if (error) return <span>Device info unavailable: {error}</span>;
+
+  return <span>{data.platform} · {data.model}</span>;
+}
+```
+
+### `useVideoStream`
+
+Run a live camera preview through the native bridge, with QR detection and stream controls. This is a multi-action hook: it has no `execute`.
+
+#### Returns
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `isStreaming` | `boolean` | Preview is currently running |
+| `streamState` | `object` | `{ zoom, minZoom, maxZoom, torchOn, fpsMin, fpsMax }` |
+| `loading` | `boolean` | Start or stop in progress |
+| `error` | `object \| null` | Standardized error object |
+| `isNative` | `boolean` | Running inside the native shell |
+| `isWeb` | `boolean` | Running in a browser context |
+| `webFallbackActive` | `boolean` | Using `getUserMedia` instead of the native camera |
+| `webFallbackDisabled` | `boolean` | On web with the fallback turned off |
+| `setWebFallback` | `function` | Enable or disable the web fallback at runtime |
+| `mediaStream` | `MediaStream \| null` | The active stream on the web fallback path, `null` on native |
+| `viewfinderRef` | `ref` | Attach to the element that hosts the preview |
+| `start` | `function` | Start the preview |
+| `stop` | `function` | Stop the preview and release the camera |
+| `sendCommand` | `function` | Send a stream command such as zoom or torch |
+| `flip` | `function` | Switch between front and rear camera |
+| `clearError` | `function` | Clear error state only |
+
+On native, the preview renders behind the WebView and `viewfinderRef` marks the cut-out region; `mediaStream` stays `null`. On the web fallback, `mediaStream` holds the `getUserMedia` stream to attach to a `<video>` element.
+
+#### Usage
+
+```javascript
+function QRScanner() {
+  const { start, stop, isStreaming, viewfinderRef, error } = useVideoStream({
+    onQRDetected: (value) => console.log("QR:", value),
+  });
+
+  return (
+    <>
+      <div ref={viewfinderRef} style={{ width: "100%", aspectRatio: "3/4" }} />
+      <button onClick={() => (isStreaming ? stop() : start())}>
+        {isStreaming ? "Stop" : "Scan"}
+      </button>
+      {error && <p>{error.message}</p>}
+    </>
+  );
+}
+```
+
+### `useNativeTransition`
+
+Wrap `useNavigate` with native slide and fade transitions. On native, the shell snapshots the current screen, the route swaps behind the snapshot, and the overlay animates out. On web, the same state machine drives a CSS overlay. This is a multi-action hook: it has no `execute`.
+
+#### Returns
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `navigate` | `(to, options?) => void` | Navigate with a transition |
+| `cancelTransition` | `function` | Cancel an in-flight transition |
+| `transitioning` | `boolean` | A transition is in progress |
+| `loading` | `boolean` | Alias for `transitioning` |
+| `isNative` | `boolean` | Running inside the native shell |
+| `isWeb` | `boolean` | Running in a browser context |
+
+`navigate` accepts the standard react-router `NavigateOptions` plus:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `type` | `"slide" \| "fade"` | `"slide"` | Transition style |
+| `direction` | `"left" \| "right" \| "up" \| "down"` | `"left"` | Slide direction |
+| `duration` | `number` | `300` | Animation duration in ms |
+| `timeout` | `number` | `max(duration * 3, 800)` | Safety timer in ms |
+
+The same options can be passed once to the hook itself as defaults for every `navigate` call.
+
+`useNativeTransition` has no `error` key. Transition failures self-heal: if the native start or commit fails, the hook logs, clears `transitioning`, and falls through to a plain navigation, so the user always lands on the destination route. A native-side safety timer force-fades the overlay if commit never arrives.
+
+#### Usage
+
+```javascript
+function ProductLink({ id }) {
+  const { navigate, transitioning } = useNativeTransition({ type: "slide" });
+
+  return (
+    <button onClick={() => navigate(`/product/${id}`)} disabled={transitioning}>
+      View Product
+    </button>
+  );
+}
+```
+
+## Aliases and Deprecations
+
+Several hooks carry alias keys kept from earlier releases. Both names work and return the same value. **The aliases are removed in 2.0** — write new code against the canonical key.
+
+| Alias | Canonical key | Hooks |
+|-------|---------------|-------|
+| `isLoading` | `loading` | `useCamera`, `useFilePicker`, `useIntent`, `useCameraPermission`, `useNotificationPermission` |
+| `transitioning` | `loading` | `useNativeTransition` |
+| `deviceInfo` | `data` | `useDeviceInfo` |
+| `permission` | `data` | `useCameraPermission`, `useNotificationPermission` |
+| `request` | `execute` | `useCameraPermission` |
+| `photo` | `data` | `useCamera` |
+| `clearPhoto` | `clear` | `useCamera` |
+| `clearFile` | `clear` | `useFilePicker` |
+| `reset` | `clear` | `useIntent` |
+
+`useNotification.execute` and `useNotification.schedule` are aliases of `scheduleLocal`. They are frozen for compatibility but discouraged, and they are **not** the pattern to copy: multi-action hooks expose their named functions as the API and do not define `execute`. `useNotification` is the sole exception, for historical reasons.
+
+### Error shapes
+
+`error` is a `CatalystError` from the framework-wide error registry everywhere, with the exception of two hooks. Native hook failures carry a `RUNTIME-NATIVE-*` code, a human-readable `message`, a `category`, a `suggestedAction`, a `docUrl`, and the originating platform error as `cause`. See the error handling guide for the registry itself.
+
+| Hook | `error` type | Notes |
+|------|--------------|-------|
+| `useDeviceInfo` | `string \| null` | Stays a string until 2.0 |
+| `useNetworkStatus` | `string \| null` | Stays a string until 2.0 |
+
+`useNativeTransition` and `useSafeArea` are error-exempt: neither returns an `error` key at all. Transition failures self-heal into a plain navigation, and safe-area insets always resolve to numeric defaults.
+
+`useAI`'s shape — including its error handling — is owned by the `catalyst-ai` package and is outside this contract.
+
+### Hooks and bridge methods with the same name
+
+`requestHapticFeedback` and `requestCameraPermission` exist both as functions exported from `catalyst-core/hooks` and as methods on `WebBridge`. They are not the same function: the defaults and return types differ.
+
+**`requestHapticFeedback`**
+
+| | `catalyst-core/hooks` export | `WebBridge.requestHapticFeedback` |
+|--|------------------------------|-----------------------------------|
+| Default argument | `"light"` | `"VIRTUAL_KEY"` |
+| Resolves with | The raw status string | The parsed result object |
+| During SSR | `Promise<null>` | Not available — `window.WebBridge` does not exist |
+| Bridge unavailable | Rejects `Native bridge not available` | Rejects on the bridge's own timeout |
+| Uninitialized bridge | Throws synchronously | N/A |
+
+**`requestCameraPermission`**
+
+| | `catalyst-core/hooks` export | `WebBridge.requestCameraPermission` |
+|--|------------------------------|-------------------------------------|
+| Arguments | none | `config` object, e.g. `{ includeDetails: true }` |
+| Resolves with | The status string, only when granted | The parsed result object, whatever the status |
+| On denial | Rejects `Camera permission denied` | Resolves with the denied status |
+| During SSR | `Promise<null>` | Not available — `window.WebBridge` does not exist |
+| Uninitialized bridge | Throws synchronously | N/A |
+
+Prefer the `catalyst-core/hooks` exports in application code: they are SSR-safe and treat denial as a rejection. Use the `WebBridge` methods when you need the full result object or the `config` argument. The two surfaces are unified in 2.0.
+
 ### `useAI`
 
 Generate text through one of three providers, chosen with the `provider` option — the hook picks the underlying implementation for you:
@@ -478,7 +704,7 @@ Generate text through one of three providers, chosen with the `provider` option 
 | `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device LiteRT-LM engine, via an embedded Ktor server (`POST /framework-{sessionId}/ai/stream` or `/generate`) |
 | `"transformers"` | `useWebAI` — **experimental**: in-browser inference quality and WebGPU/WASM backend selection aren't reliable yet on larger models | In-browser, via a Web Worker running Transformers.js |
 
-Requires `@catalyst/ai` to be installed in the app.
+Requires `catalyst-ai` to be installed in the app.
 
 #### Import
 
@@ -593,4 +819,6 @@ The model is instructed (via an injected system prompt) to wrap relevant output 
 
 #### Requirements
 
-Requires `@catalyst/ai` to be installed (`npm install @catalyst/ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
+Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
+
+`useAI`'s return shape is owned by the `catalyst-ai` package and sits outside the native hook contract described on this page. It does not follow the single-action or multi-action categories, and the alias and error-shape rules above do not apply to it.
