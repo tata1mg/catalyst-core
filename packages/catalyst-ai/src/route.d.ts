@@ -72,6 +72,12 @@ interface ExpressRouterLike {
     use(...args: unknown[]): ExpressRouterLike
     get(...args: unknown[]): ExpressRouterLike
     post(...args: unknown[]): ExpressRouterLike
+    // Express routers are themselves middleware with a callable .handle(req,
+    // res, next) — used by route.handlers.test.ts to drive the real GET
+    // /providers and POST /:provider/stream|generate handlers directly,
+    // without spinning up an actual HTTP server/socket (see that file's
+    // header comment for why over supertest).
+    handle(req: unknown, res: unknown, next: (err?: unknown) => void): void
 }
 
 // The real export is an Express Router with _internal attached as an extra

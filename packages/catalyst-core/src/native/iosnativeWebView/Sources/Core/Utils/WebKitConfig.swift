@@ -12,9 +12,9 @@ import CatalystCoreLogic
 public enum WebKitConfig {
     @available(iOS, introduced: 11.0, deprecated: 15.0, message: "Custom WKProcessPool instances have no effect on iOS 15+.")
     public static let sharedProcessPool = WKProcessPool()
-    
+
     private static var legacyPrewarmedWebView: WKWebView?
-    
+
     /// Recreate the legacy shared process pool behavior for iOS versions where it still matters.
     @discardableResult
     public static func prewarmProcessPoolIfNeeded() -> WKWebView? {
@@ -32,7 +32,7 @@ public enum WebKitConfig {
             return legacyPrewarmedWebView
         }
     }
-    
+
     /// Apply the shared process pool only on OS versions where Apple still honors it.
     public static func applySharedProcessPoolIfNeeded(to configuration: WKWebViewConfiguration) {
         if #available(iOS 15, *) {

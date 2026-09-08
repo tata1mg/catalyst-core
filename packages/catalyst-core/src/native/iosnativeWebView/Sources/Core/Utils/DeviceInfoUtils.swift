@@ -37,7 +37,6 @@ class DeviceInfoUtils {
         ]
 
         deviceInfo["appInfo"] = ConfigConstants.appInfo
-        
 
         logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
         return deviceInfo

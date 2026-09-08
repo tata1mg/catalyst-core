@@ -1,0 +1,9 @@
+# Force a template choice — no blank issues (mirrors anthropics/claude-code).
+blank_issues_enabled: false
+contact_links:
+    - name: 💬 Discussions
+      url: https://github.com/tata1mg/catalyst-core/discussions
+      about: Questions, ideas, and proposals that aren't yet a concrete bug or feature request
+    - name: 📖 Documentation
+      url: https://catalyst.1mg.com
+      about: Guides, API reference, and the live error catalog

@@ -11,7 +11,7 @@ import fs from "fs"
 const { cyan, yellow, green } = pc
 
 import { toMountPathPrefix } from "../vite/resolveDevServerConfig.js"
-import { validateMiddleware, safeCall } from "./utils/validator.js"
+import { validateMiddleware, handleError, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
 const { addMiddlewares } = await import(path.join(process.env.src_path, "server/server.js"))
@@ -150,7 +150,11 @@ async function createServer() {
     app.use(cookieParser())
 
     // All the middlewares defined by the user will run here.
-    if (validateMiddleware(addMiddlewares)) addMiddlewares(app)
+    {
+        const middlewareErr = validateMiddleware(addMiddlewares)
+        if (middlewareErr) handleError(middlewareErr)
+        else addMiddlewares(app)
+    }
 
     mountAIRouter(app)
 

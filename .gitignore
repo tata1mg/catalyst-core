@@ -1,5 +1,8 @@
 **/node_modules
 
+# vitest --coverage output (packages/*/coverage/) -- generated locally and in CI
+**/coverage
+
 # Examples — generated config files (created via prompt.txt) and runtime artifacts
 examples/*/config/config.json
 examples/*/google-services.json

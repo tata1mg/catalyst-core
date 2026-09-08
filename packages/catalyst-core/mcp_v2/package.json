@@ -12,10 +12,14 @@
         "test:types": "tsc --noEmit"
     },
     "dependencies": {
-        "better-sqlite3": "^9.4.3"
+        "better-sqlite3": "12.4.6"
     },
     "devDependencies": {
         "typescript": "^7.0.2",
-        "vitest": "^4.1.11"
+        "vitest": "^4.1.11",
+        "yaml": "^2.5.0"
+    },
+    "engines": {
+        "node": ">=20"
     }
 }

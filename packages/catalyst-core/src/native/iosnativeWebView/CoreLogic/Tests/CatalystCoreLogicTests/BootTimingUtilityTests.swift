@@ -94,10 +94,17 @@ final class BootTimingUtilityTests: XCTestCase {
         XCTAssertGreaterThan(elapsedAfter, elapsedBefore,
             "Elapsed time should increase over time")
 
-        // Verify the difference is approximately 10ms (with tolerance for system variance)
+        // Verify the difference is at least the ~10ms sleep, with a floor
+        // to catch a broken/zero calculation. No upper bound: this was
+        // previously capped at 50ms "accounting for system load", but
+        // that's asserting real OS scheduler latency for Thread.sleep,
+        // which a shared/loaded CI runner can legitimately exceed (seen:
+        // 62ms) with zero relation to whether APP_LAUNCH_TIME-based
+        // elapsed-time math is correct. The floor + the
+        // elapsedAfter > elapsedBefore check above already cover the
+        // logic this test exists to verify.
         let difference = elapsedAfter - elapsedBefore
         XCTAssertGreaterThan(difference, 5.0, "Time difference should be at least 5ms")
-        XCTAssertLessThan(difference, 50.0, "Time difference should be less than 50ms (accounting for system load)")
         #else
         XCTAssertTrue(true, "Skipping DEBUG-only test in RELEASE build")
         #endif

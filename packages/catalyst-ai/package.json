@@ -1,7 +1,7 @@
 {
     "name": "catalyst-ai",
     "version": "0.1.0",
-    "description": "AI provider for catalyst-core — cloud/web/native useAI hooks + OpenAI/Gemini SSE route",
+    "description": "AI provider for catalyst-core \u2014 cloud/web/native useAI hooks + OpenAI/Gemini SSE route",
     "main": "src/index.js",
     "exports": {
         ".": "./src/index.js",
@@ -30,6 +30,7 @@
     "devDependencies": {
         "@types/node": "^22.20.1",
         "typescript": "^7.0.2",
-        "vitest": "4.1.9"
+        "vitest": "4.1.9",
+        "@vitest/coverage-v8": "4.1.9"
     }
 }

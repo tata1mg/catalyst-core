@@ -25,7 +25,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         self.cameraManager = cameraManager
         super.init()
     }
-    
+
     func webView(_ webView: WKWebView,
                 decidePolicyFor navigationAction: WKNavigationAction,
                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -166,7 +166,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     for: navigationAction.request
                 )
                 let cacheDurationMs = CatalystPerf.nativeTimeMs() - cacheStartMs
-                
+
                 switch cacheState {
                 case .fresh, .stale:
                     logger.info("✅ Serving fresh/stale cached content")
@@ -190,12 +190,11 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                                        characterEncodingName: "UTF-8",
                                        baseURL: url)
                         }
-                        
+
                         decisionHandler(.cancel)
                         return
                     }
-                    
-                case .expired:
+                    case .expired:
                     logger.info("♻️ Cache expired, fetching fresh content")
                     CatalystPerf.add([
                         "type": "cache-miss-fetch",
@@ -205,7 +204,6 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                         "nativeStartMs": cacheStartMs,
                         "durationMs": cacheDurationMs,
                     ])
-                    break
                 }
             } else {
                 if !isCacheableMethod {
@@ -214,29 +212,29 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
                 }
             }
-            
+
             await MainActor.run {
                 viewModel.setLoading(true, fromCache: false)
             }
             decisionHandler(.allow)
         }
     }
-    
+
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        
+
         guard let response = navigationResponse.response as? HTTPURLResponse,
               let url = response.url else {
             decisionHandler(.allow)
             return
         }
-        
+
         Task {
             if CacheManager.shared.shouldCacheURL(url) {
                 let request = URLRequest(url: url)
-                
-                URLSession.shared.dataTask(with: request) { data, urlResponse, error in
+
+                URLSession.shared.dataTask(with: request) { data, urlResponse, _ in
                     if let data = data,
                        let httpResponse = urlResponse as? HTTPURLResponse {
                         Task {
@@ -249,13 +247,13 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     }
                 }.resume()
             }
-            
+
             await MainActor.run {
                 decisionHandler(.allow)
             }
         }
     }
-    
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         logWithTimestamp("📡 didStartProvisionalNavigation - loading started")
         if hasStartedProfilerNavigation {
@@ -387,23 +385,23 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             }
         }
     }
-    
+
     /// Handle SSL certificate challenges
     /// For localhost connections, trust our self-signed certificate
     /// For all other domains, use default validation
     func webView(_ webView: WKWebView,
                 didReceive challenge: URLAuthenticationChallenge,
                 completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        
+
         let protectionSpace = challenge.protectionSpace
         let host = protectionSpace.host
-        
+
         // Only bypass certificate validation for localhost
         if (host == "localhost" || host == "127.0.0.1") &&
             protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
-            
+
             logger.debug("🔐 SSL challenge for localhost - trusting self-signed certificate")
-            
+
             if let serverTrust = protectionSpace.serverTrust {
                 let credential = URLCredential(trust: serverTrust)
                 completionHandler(.useCredential, credential)
@@ -411,7 +409,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 return
             }
         }
-        
+
         // For all other domains, use default certificate validation
         logger.debug("🔐 SSL challenge for \(host) - using default validation")
         completionHandler(.performDefaultHandling, nil)
@@ -481,7 +479,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         viewModel.setLoading(false, fromCache: true)
         return true
     }
-    
+
     /// Open URL in system browser
     private func openInSystemBrowser(_ url: URL) {
         Task { @MainActor in
@@ -498,14 +496,14 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             }
         }
     }
-    
+
     /// Handle special URL schemes (tel:, mailto:, sms:)
     private func handleSpecialScheme(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
-        
+
         // Only handle tel, mailto, sms
         guard ["tel", "mailto", "sms"].contains(scheme) else { return false }
-        
+
         Task { @MainActor in
             if UIApplication.shared.canOpenURL(url) {
                 // App available to handle the scheme (opens default mail app for mailto)
@@ -519,7 +517,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 }
             }
         }
-        
+
         return true
     }
 
