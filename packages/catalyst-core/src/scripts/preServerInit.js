@@ -3,11 +3,21 @@ import { createRequire } from "module"
 import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
 import { safeCallNamed } from "../server/utils/validator.js"
 
+// src_path is the application root, set by the CLI when it spawns this process.
+// Without it every path below would be resolved against undefined.
+const appRoot = process.env.src_path
+if (!appRoot) {
+    throw new Error(
+        "catalyst-core: process.env.src_path is not set, so the application root cannot be resolved. " +
+            "Start the server with `catalyst serve` or `catalyst start` from the application root."
+    )
+}
+
 // react-router is a peer dependency: fail loudly at startup rather than on a
 // missing export deep inside a render. Resolve from the app root, not from
 // catalyst-core's own tree — the app's copy is the one vite and SSR load.
 const REQUIRED_REACT_ROUTER = "^7.18.2"
-const appRequire = createRequire(path.join(process.env.src_path, "package.json"))
+const appRequire = createRequire(path.join(appRoot, "package.json"))
 let reactRouterVersion
 try {
     reactRouterVersion = appRequire("react-router/package.json").version
@@ -31,7 +41,7 @@ if (!isValid) {
 
 let preServerInit
 try {
-    const hooks = await import(path.join(process.env.src_path, "server/index.js"))
+    const hooks = await import(path.join(appRoot, "server/index.js"))
     preServerInit = hooks.preServerInit
 } catch {
     // No hooks file — preServerInit remains undefined
