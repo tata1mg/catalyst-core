@@ -18,7 +18,7 @@ Key exports from `catalyst-core` package:
 - `catalyst-core/WebBridge` — low-level WebBridge (JS↔native), prefer hooks over this
 
 **GitHub:** `https://github.com/tata1mg/catalyst-core` (MIT, public)
-**Hooks source:** `src/native/bridge/hooks.js`
+**Hooks source:** `src/native/bridge/hooks.ts` (ships as `dist/native/bridge/hooks.js`)
 **Entry point:** `dist/index.jsx`
 
 ---
