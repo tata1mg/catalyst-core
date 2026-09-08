@@ -2,6 +2,12 @@ import React from "react"
 import PropTypes from "prop-types"
 
 const DEFAULT_SAFE_AREA = { top: 0, right: 0, bottom: 0, left: 0 }
+
+// React does not escape the body of an inline <script>, so a "</script>" inside
+// serialized state would end the block early. The JS parser reads \u003c back as
+// "<", so the payload the client sees is unchanged.
+const serialize = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c")
+
 /**
  * Body component which will be used in page component
  * @param {object} jsx - page jsx code
@@ -39,9 +45,9 @@ export function Body(props) {
                 /* eslint-disable */
                 dangerouslySetInnerHTML={{
                     __html: `
-                    window.__INITIAL_STATE__ = ${JSON.stringify(initialState)}
+                    window.__INITIAL_STATE__ = ${serialize(initialState)}
                     window.__STATUS_CODE__ = ${JSON.stringify(statusCode || null)}
-                    window.__ROUTER_INITIAL_DATA__ = ${JSON.stringify(fetcherData)}
+                    window.__ROUTER_INITIAL_DATA__ = ${serialize(fetcherData)}
             `,
                 }}
             />
