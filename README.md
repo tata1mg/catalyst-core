@@ -52,10 +52,12 @@ This repository is a monorepo containing the framework package, scaffolding CLI,
 
 - `packages/catalyst-core`: framework package
 - `packages/create-catalyst-app`: CLI and scaffold templates
-- `apps/catalyst-core-test`: standalone fixture app used to test `catalyst-core`
+- `examples/catalyst-core-test`: standalone fixture app used to test `catalyst-core`
 - `docs`: Catalyst documentation app
 
 ## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for issue and pull-request templates and the review checklist.
 
 Install dependencies and create local docs config before running build/test commands:
 

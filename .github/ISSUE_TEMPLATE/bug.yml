@@ -1,0 +1,108 @@
+name: 🐛 Bug report
+description: Something in catalyst-core is broken, ignored, crashes, regresses, or differs from documented behaviour
+title: "[bug] "
+labels:
+    - bug
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for reporting this. Please fill in the sections below — the more concrete the repro, the faster this gets fixed.
+
+              Before submitting, please check the [existing issues](https://github.com/tata1mg/catalyst-core/issues?q=is%3Aissue+label%3Abug).
+    - type: checkboxes
+      id: preflight
+      attributes:
+          label: Preflight Checklist
+          options:
+              - label: I have searched existing issues and this has not already been reported.
+                required: true
+              - label: This is a single bug, not a bundle of unrelated problems.
+                required: true
+              - label: I have included reproduction steps, environment details, and logs where available.
+                required: true
+    - type: textarea
+      id: whats-wrong
+      attributes:
+          label: What's Wrong?
+          description: What is happening that shouldn't be?
+          placeholder: |
+              After a client-side navigation, `setMetaData` clears the document title instead of updating it.
+      validations:
+          required: true
+    - type: textarea
+      id: steps-to-reproduce
+      attributes:
+          label: Steps to Reproduce
+          description: Numbered steps anyone can follow. Include a minimal app or code snippet if the bug needs specific setup.
+          placeholder: |
+              1. Scaffold an app with `npx create-catalyst-app`.
+              2. Add a second route that calls `setMetaData({ title: "Page 2" })`.
+              3. Navigate from `/` to `/page-2` client-side.
+              4. Observe the `<title>` — it goes blank instead of becoming "Page 2".
+      validations:
+          required: true
+    - type: textarea
+      id: expected-behavior
+      attributes:
+          label: Expected Behavior
+          description: What should happen instead?
+          placeholder: The document title updates to the value passed to `setMetaData`.
+      validations:
+          required: true
+    - type: textarea
+      id: actual-behavior
+      attributes:
+          label: Actual Behavior
+          description: What actually happens? Include the wrong output, wrong state, or stack trace.
+          placeholder: The `<title>` element is emptied on the client-side transition and never repopulated.
+      validations:
+          required: true
+    - type: textarea
+      id: error-logs
+      attributes:
+          label: Error Messages/Logs
+          description: Paste any error output, stack traces, or relevant logs. Automatically formatted as code.
+          render: shell
+      validations:
+          required: false
+    - type: textarea
+      id: environment
+      attributes:
+          label: Environment
+          description: |
+              Fill in what applies:
+              - catalyst-core version (`npm ls catalyst-core`)
+              - Node version (`node --version`)
+              - OS
+              - Web only, or universal (Android / iOS)?
+              - Is this a regression? If so, the last version where it worked.
+          placeholder: |
+              catalyst-core: 1.0.0-rc.3
+              node: 20.11.1
+              OS: macOS 14.5
+              Target: web
+              Regression: yes — worked in 1.0.0-rc.1
+      validations:
+          required: true
+    - type: textarea
+      id: what-i-tried
+      attributes:
+          label: What I Tried
+          description: Workarounds attempted, things ruled out, relevant debugging you've already done.
+      validations:
+          required: false
+    - type: textarea
+      id: additional-information
+      attributes:
+          label: Additional Information
+          description: Screenshots, config snippets, links to a repo that reproduces the issue, anything else useful.
+      validations:
+          required: false
+    - type: textarea
+      id: related-issues
+      attributes:
+          label: Related Issues
+          description: Links to related issues or PRs, if any.
+      validations:
+          required: false

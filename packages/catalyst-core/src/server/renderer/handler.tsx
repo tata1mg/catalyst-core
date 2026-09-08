@@ -11,7 +11,13 @@ import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { serverDataFetcher } from "../../web-router/components/RouterDataProvider.jsx"
 import { getMetaData } from "../../web-router/utils/metaDataUtils.jsx"
-import { validateConfigureStore, validateGetRoutes, safeCall } from "../utils/validator.js"
+import {
+    validateConfigureStore,
+    validateGetRoutes,
+    validateCustomDocument,
+    handleError,
+    safeCall,
+} from "../utils/validator.js"
 import { ChunkExtractor } from "./ChunkExtractor.js"
 import {
     readCssFromDisk,
@@ -88,7 +94,9 @@ validateConfigureStore(createStore)
 let _cachedRoutes: any
 const getCachedRoutes = () => {
     if (_cachedRoutes === undefined) {
-        _cachedRoutes = getRoutes()
+        const getRoutesErr = validateGetRoutes(getRoutes)
+        if (getRoutesErr) handleError(getRoutesErr)
+        _cachedRoutes = getRoutesErr ? null : getRoutes()
     }
     return _cachedRoutes
 }
@@ -257,8 +265,14 @@ const _renderMarkUp = async (
     const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status }
 
     const CompleteDocument = () => {
+        // CustomDocument is an OPTIONAL export (server/document.js) — its
+        // absence is valid, so PREFLIGHT-020 (missing) is not surfaced. If it
+        // IS exported but isn't callable, flag it (PREFLIGHT-021) and fall
+        // back to the built-in document rather than crashing the render.
         if (CustomDocument) {
-            return CustomDocument(finalProps)
+            const customDocErr = validateCustomDocument(CustomDocument)
+            if (customDocErr) handleError(customDocErr)
+            else return CustomDocument(finalProps)
         }
         return (
             <html lang={finalProps.lang}>
@@ -386,6 +400,17 @@ async function _handler(req: any, res: any) {
     try {
         let context: any = {}
         let fetcherData: any = {}
+        // A missing / non-function configureStore is not recoverable per
+        // request: every downstream step (serverSideFunction, data fetchers,
+        // render) assumes a real store. Log the coded error and fail the
+        // request with a 500 rather than rendering with `store = null`, which
+        // surfaces as a confusing render-time crash further down.
+        const configureStoreErr = validateConfigureStore(createStore)
+        if (configureStoreErr) {
+            handleError(configureStoreErr)
+            if (!res.headersSent) res.status(500).send("Internal Server Error")
+            return
+        }
         const store = await createStore({}, req, res)
 
         const cachedRoutes = getCachedRoutes()
