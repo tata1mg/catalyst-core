@@ -1,3 +1,4 @@
+import type { ReactElement } from "react"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { renderEnd, renderStart } from "../../src/server/renderer/render.js"
 
@@ -26,9 +27,13 @@ describe("renderStart", () => {
     const baseArgs = {
         inlineCss: "a{}",
         deferredRouteInlineCss: "b{}",
-        jsScripts: ["s1"],
-        criticalPreloadLinks: ["l1"],
-        deferredPreloadLinks: ["l2"],
+        // renderStart passes these straight through; real callers supply
+        // React elements (handler.tsx -> generateScriptElements). The test
+        // only asserts pass-through equality, so string stand-ins are fine
+        // at runtime — cast to satisfy the typed signature.
+        jsScripts: ["s1"] as unknown as ReactElement[],
+        criticalPreloadLinks: ["l1"] as unknown as ReactElement[],
+        deferredPreloadLinks: ["l2"] as unknown as ReactElement[],
         metaTags: ["<meta>"],
         isBot: false,
         fetcherData: { "/": { data: 1 } },
@@ -65,7 +70,7 @@ describe("renderStart", () => {
 
 describe("renderEnd", () => {
     it("returns the document-body props with empty first-fold placeholders", () => {
-        const jsx = { type: "div" }
+        const jsx = { type: "div" } as unknown as ReactElement
         const out = renderEnd({ k: 1 }, {} as any, jsx, 404, { "/": {} })
 
         expect(out).toEqual({

@@ -1,5 +1,5 @@
 import React from "react"
-import { Outlet } from "catalyst-core"
+import { Outlet } from "react-router"
 
 // Fixture App for the SSR handler tests (#348).
 //

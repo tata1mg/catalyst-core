@@ -1,4 +1,5 @@
 /src
+/scripts
 !/dist
 !/dist/**
 .prettierignore
@@ -9,6 +10,7 @@
 /.github
 commitlint.config.js
 tsconfig.json
+tsconfig.declarations.json
 .catalyst-dev/
 **/androidProject/**/build/*
 *.sh

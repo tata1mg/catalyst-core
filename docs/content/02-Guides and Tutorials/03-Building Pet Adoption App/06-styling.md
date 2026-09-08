@@ -113,7 +113,8 @@ Apply the new classes to `src/js/pages/Home/Home.js`:
 
 ```jsx title="src/js/pages/Home/Home.js"
 import React from "react";
-import { useCurrentRouteData, Link } from "catalyst-core";
+import { useCurrentRouteData } from "catalyst-core";
+import { Link } from "react-router";
 
 const Home = () => {
   const { data, error, isFetching } = useCurrentRouteData();
@@ -161,7 +162,8 @@ Apply classes to `src/js/pages/BreedDetails/BreedDetails.js`:
 
 ```jsx title="src/js/pages/BreedDetails/BreedDetails.js"
 import React from "react";
-import { useCurrentRouteData, useParams, Link } from "catalyst-core";
+import { useCurrentRouteData } from "catalyst-core";
+import { useParams, Link } from "react-router";
 
 const BreedDetails = () => {
   const { breed } = useParams();

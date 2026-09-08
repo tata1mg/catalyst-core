@@ -186,7 +186,7 @@ Visit **[http://localhost:3005/about](http://localhost:3005/about)** - your new 
 Let's add links between pages. Create `src/js/components/Navigation.js`:
 
 ```javascript
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 export default function Navigation() {
   return (
@@ -359,13 +359,12 @@ import { lazy } from 'react';
 const HeavyComponent = lazy(() => import('./HeavyComponent'));
 ```
 
-### 4. Use the Cache
-Cache expensive operations:
+### 4. Split Fetching Between Server and Client
+Use `serverFetcher` for data needed in the initial HTML, and `clientFetcher` for data that can load
+after hydration. This keeps the server response small without leaving the page empty:
 ```javascript
-import { Cache } from 'catalyst-core/universal';
-
-const data = await Cache.get('key') || await fetchData();
-await Cache.set('key', data);
+Home.serverFetcher = async () => ({ listing: await fetchListing() });
+Home.clientFetcher = async () => ({ recommendations: await fetchRecommendations() });
 ```
 
 ---
