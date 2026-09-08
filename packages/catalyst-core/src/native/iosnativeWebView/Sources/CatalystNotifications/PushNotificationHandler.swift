@@ -67,19 +67,19 @@ class PushNotificationHandler: NSObject {
                     }
                 }
             }
-            
+
             // Task 2: Timeout after 30 seconds
             group.addTask {
                 try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
                 return (nil, "FCM token request timed out after 30 seconds. Check network connectivity and Firebase configuration.")
             }
-            
+
             // Return the first result (either token or timeout)
             if let result = await group.next() {
                 group.cancelAll()
                 return result
             }
-            
+
             return (nil, "Unknown error getting FCM token")
         }
         #endif

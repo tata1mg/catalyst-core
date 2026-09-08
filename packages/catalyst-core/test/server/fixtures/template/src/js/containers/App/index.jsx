@@ -1,17 +1,27 @@
 import React from "react"
+import { Outlet } from "catalyst-core"
 
 // Fixture App for the SSR handler tests (#348).
 //
+// Renders <Outlet /> exactly like every real create-catalyst-app template's
+// App — that is how react-router hands the matched child route down. The
+// earlier version rendered `{children}`, which react-router never populates
+// for a nested route, so route components never rendered on the server.
+//
 // App.serverSideFunction is an implicit contract: handler.jsx calls it
 // unconditionally (via tracedAppServerSideFunction) on every request. All
-// 6 real create-catalyst-app templates define it, so the fixture must too
-// — omitting it would make every test throw in the SERVER_SIDE_FUNCTION
-// stage rather than exercising the render path.
+// 6 real templates define it, so the fixture must too — omitting it would
+// make every test throw in the SERVER_SIDE_FUNCTION stage rather than
+// exercising the render path.
 //
 // The tests swap `serverSideFunction` per-case (e.g. to make it throw) via
 // vi.spyOn on this module.
-function App({ children }) {
-    return <main data-testid="app">{children ?? "app-content"}</main>
+function App() {
+    return (
+        <main data-testid="app">
+            <Outlet />
+        </main>
+    )
 }
 
 App.serverSideFunction = async () => {

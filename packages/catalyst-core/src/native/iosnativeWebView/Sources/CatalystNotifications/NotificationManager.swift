@@ -17,7 +17,6 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
     private var navigationHandler: ((URL) -> Void)?
     private var baseURL: String = ""
 
-
     private init() {
         self.localHandler = LocalNotificationHandler(baseURL: "")
         self.pushHandler = PushNotificationHandler()
@@ -62,7 +61,6 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
     private func setupChannels() {
         NotificationChannelManager.setupChannels()
     }
-
 
     // MARK: - Permission Management
 
