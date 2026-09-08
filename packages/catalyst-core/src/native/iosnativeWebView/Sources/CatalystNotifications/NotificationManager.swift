@@ -3,6 +3,7 @@ import UserNotifications
 import UIKit
 import os
 import CatalystCore
+import CatalystCoreLogic
 import FirebaseCore
 import FirebaseMessaging
 
@@ -15,7 +16,6 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
     private let pushHandler: PushNotificationHandler
     private var navigationHandler: ((URL) -> Void)?
     private var baseURL: String = ""
-
 
     private init() {
         self.localHandler = LocalNotificationHandler(baseURL: "")
@@ -61,7 +61,6 @@ public final class NotificationManager: ObservableObject, NotificationHandlerPro
     private func setupChannels() {
         NotificationChannelManager.setupChannels()
     }
-
 
     // MARK: - Permission Management
 

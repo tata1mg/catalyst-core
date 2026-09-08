@@ -1,9 +1,15 @@
 package io.yourname.androidproject
 
+import android.webkit.WebView
 import io.yourname.androidproject.utils.BridgeUtils
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 
 /**
  * Unit tests for BridgeUtils
@@ -12,8 +18,15 @@ import org.junit.Test
  * - Bridge message formatting (3 tests)
  * - Response serialization (2 tests)
  * - Error message formatting (3 tests)
+ * - notifyWeb-family, emitPerfEvent, and log-family calls against a
+ *   mocked WebView (extension — these were previously untested; only the
+ *   pure string/JSON helpers above had coverage). Looper.myLooper() and
+ *   Looper.getMainLooper() both return the SDK stub's default null in a
+ *   JVM unit test, so `null != null` is false and every notifyWeb/
+ *   emitPerfEvent call below takes the synchronous "already on main
+ *   thread" branch directly — no WebView.post dispatch to account for.
  *
- * Total: 8 tests
+ * Total: 8 original + 12 extension tests
  *
  * Note: Tests focus on testable logic and string formatting without WebView
  * following the same pattern as FileUtilsTest.kt
@@ -282,5 +295,172 @@ class BridgeUtilsTest {
         val kbFormatted = BridgeUtils.formatFileSize(1024)
         assertTrue(kbFormatted.contains("."))
         assertTrue(kbFormatted.endsWith("KB"))
+    }
+
+    // ============================================================
+    // CATEGORY 4: notifyWeb* against a mocked WebView (extension)
+    // ============================================================
+
+    @Test
+    fun `notifyWeb evaluates a null-data callback when data is null`() {
+        val webView: WebView = mock()
+
+        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_CAMERA_CAPTURE, null)
+
+        verify(webView).evaluateJavascript(
+            eq("window.WebBridge.callback('ON_CAMERA_CAPTURE', null)"),
+            isNull()
+        )
+    }
+
+    @Test
+    fun `notifyWeb quotes plain-string data as a JS string literal`() {
+        val webView: WebView = mock()
+
+        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_INTENT_SUCCESS, "GRANTED")
+
+        verify(webView).evaluateJavascript(
+            eq("window.WebBridge.callback('ON_INTENT_SUCCESS', ${JSONObject.quote("GRANTED")})"),
+            isNull()
+        )
+    }
+
+    @Test
+    fun `notifyWeb injects JSON-object-shaped data raw, not double-quoted`() {
+        val webView: WebView = mock()
+
+        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, """{"a":1}""")
+
+        verify(webView).evaluateJavascript(
+            eq("""window.WebBridge.callback('ON_DEVICE_INFO_SUCCESS', {"a":1})"""),
+            isNull()
+        )
+    }
+
+    @Test
+    fun `notifyWeb swallows an exception from evaluateJavascript`() {
+        val webView: WebView = mock()
+        org.mockito.kotlin.whenever(webView.evaluateJavascript(any(), isNull()))
+            .thenThrow(RuntimeException("boom"))
+
+        // Does not propagate — notifyWeb catches and logs internally.
+        BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "x")
+    }
+
+    @Test
+    fun `notifyWebError defaults to a fallback message when errorMessage is null`() {
+        val webView: WebView = mock()
+
+        BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, null)
+
+        verify(webView).evaluateJavascript(
+            eq("window.WebBridge.callback('ON_CAMERA_ERROR', ${JSONObject.quote("Unknown error occurred")})"),
+            isNull()
+        )
+    }
+
+    @Test
+    fun `notifyWebSuccess defaults to SUCCESS when successMessage is not provided`() {
+        val webView: WebView = mock()
+
+        BridgeUtils.notifyWebSuccess(webView, BridgeUtils.WebEvents.ON_INTENT_SUCCESS)
+
+        verify(webView).evaluateJavascript(
+            eq("window.WebBridge.callback('ON_INTENT_SUCCESS', ${JSONObject.quote("SUCCESS")})"),
+            isNull()
+        )
+    }
+
+    @Test
+    fun `notifyWebJson injects the JSON payload raw`() {
+        val webView: WebView = mock()
+        val payload = JSONObject().apply { put("ok", true) }
+
+        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, payload)
+
+        verify(webView).evaluateJavascript(
+            eq("window.WebBridge.callback('ON_DEVICE_INFO_SUCCESS', ${payload})"),
+            isNull()
+        )
+    }
+
+    // ============================================================
+    // CATEGORY 5: emitPerfEvent / bridgeCallReceived / bridgeCallDispatched
+    // ============================================================
+
+    @Test
+    fun `emitPerfEvent is a no-op when PerfEventBuffer is disabled`() {
+        val webView: WebView = mock()
+        io.yourname.androidproject.utils.PerfEventBuffer.configure(enabled = false)
+
+        BridgeUtils.emitPerfEvent(webView, JSONObject().apply { put("type", "test") })
+
+        verify(webView, org.mockito.kotlin.never()).evaluateJavascript(any(), any())
+    }
+
+    @Test
+    fun `emitPerfEvent calls evaluateJavascript when enabled`() {
+        val webView: WebView = mock()
+        io.yourname.androidproject.utils.PerfEventBuffer.configure(enabled = true)
+
+        try {
+            BridgeUtils.emitPerfEvent(webView, JSONObject().apply { put("type", "test") })
+            verify(webView).evaluateJavascript(any(), isNull())
+        } finally {
+            io.yourname.androidproject.utils.PerfEventBuffer.configure(enabled = false)
+        }
+    }
+
+    @Test
+    fun `bridgeCallReceived and bridgeCallDispatched do not throw`() {
+        // BuildConfig.DEBUG's value in a JVM unit test depends on the build
+        // variant under test; either branch (no-op or delegate to
+        // PerfEventBuffer) should complete without throwing.
+        BridgeUtils.bridgeCallReceived("call-1", "getDeviceInfo")
+        BridgeUtils.bridgeCallDispatched("call-1")
+    }
+
+    // ============================================================
+    // CATEGORY 6: log helpers
+    // ============================================================
+
+    @Test
+    fun `logDebug, logError, logInfo, and logWarning do not throw`() {
+        BridgeUtils.logDebug("TAG", "debug message")
+        BridgeUtils.logError("TAG", "error message")
+        BridgeUtils.logError("TAG", "error with throwable", RuntimeException("boom"))
+        BridgeUtils.logInfo("TAG", "info message")
+        BridgeUtils.logWarning("TAG", "warning message")
+    }
+
+    // ============================================================
+    // CATEGORY 7: safeExecute
+    // ============================================================
+
+    @Test
+    fun `safeExecute runs the block and does not notify web on success`() {
+        val webView: WebView = mock()
+        var ran = false
+
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "test op") {
+            ran = true
+        }
+
+        assertTrue(ran)
+        verify(webView, org.mockito.kotlin.never()).evaluateJavascript(any(), any())
+    }
+
+    @Test
+    fun `safeExecute catches an exception and notifies web with a formatted error`() {
+        val webView: WebView = mock()
+
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "test op") {
+            throw RuntimeException("boom")
+        }
+
+        verify(webView).evaluateJavascript(
+            eq("window.WebBridge.callback('ON_CAMERA_ERROR', ${JSONObject.quote("Failed to test op: boom")})"),
+            isNull()
+        )
     }
 }

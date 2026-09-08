@@ -10,6 +10,7 @@ import Foundation
 import WebKit
 import JSONSchema
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.messageValidator)
 
@@ -219,7 +220,6 @@ class BridgeMessageValidator {
             "additionalProperties": false
         ]
     ]
-
 
     // MARK: - Public Validation Interface
 
@@ -583,8 +583,7 @@ class BridgeMessageValidator {
         if
             let minFilesValue = object["minFiles"] as? NSNumber,
             let maxFilesValue = object["maxFiles"] as? NSNumber,
-            minFilesValue.intValue > maxFilesValue.intValue
-        {
+            minFilesValue.intValue > maxFilesValue.intValue {
             logger.error("minFiles cannot be greater than maxFiles for pickFile command")
             return BridgeValidationError(
                 message: "minFiles cannot be greater than maxFiles",
@@ -596,8 +595,7 @@ class BridgeMessageValidator {
         if
             let minSizeValue = object["minFileSize"] as? NSNumber,
             let maxSizeValue = object["maxFileSize"] as? NSNumber,
-            minSizeValue.int64Value > maxSizeValue.int64Value
-        {
+            minSizeValue.int64Value > maxSizeValue.int64Value {
             logger.error("minFileSize cannot be greater than maxFileSize for pickFile command")
             return BridgeValidationError(
                 message: "minFileSize cannot be greater than maxFileSize",

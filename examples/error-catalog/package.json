@@ -1,0 +1,38 @@
+{
+    "name": "error-catalog",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "prestart": "node scripts/ensure-config.js",
+        "start": "catalyst start",
+        "serve": "catalyst serve",
+        "build": "catalyst build",
+        "predemo": "node scripts/ensure-config.js",
+        "demo": "node scripts/demo.js",
+        "pretest": "node scripts/ensure-config.js",
+        "test": "vitest run",
+        "pretest:error": "node scripts/ensure-config.js",
+        "test:error": "node scripts/test-error.js",
+        "sync-core": "node ../sync-core.js",
+        "sync-packages": "node ../sync-packages.js --packages ai"
+    },
+    "_moduleAliases": {
+        "@api": "server/api.js",
+        "@containers": "src/js/containers",
+        "@server": "server",
+        "@config": "config",
+        "@css": "src/static/css",
+        "@routes": "src/js/routes/"
+    },
+    "dependencies": {
+        "catalyst-core": "*",
+        "catalyst-ai": "*",
+        "react": "19.0.0",
+        "react-dom": "19.0.0"
+    },
+    "devDependencies": {
+        "@testing-library/react": "^16.1.0",
+        "jsdom": "^25.0.1",
+        "vitest": "4.1.9"
+    }
+}

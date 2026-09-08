@@ -2,6 +2,7 @@ import Foundation
 import WebKit
 import UIKit
 import os
+import CatalystCoreLogic
 
 private let pluginBridgeLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "PluginBridge")
 

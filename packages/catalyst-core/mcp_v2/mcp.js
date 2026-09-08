@@ -133,9 +133,9 @@ const INTENT_PATTERNS = {
     guidance:
         /\b(what\s+is|what\s+are|how\s+does|how\s+do|explain|show\s+me|tell\s+me|hook|api|usage|example)\b/i,
     status: /status|done|complet|finish|check.*config|config.*check|what.*(left|remain|todo|next|pending)|how far|progress/i,
-    // feedback = wants to raise an issue or discussion on GitHub
+    // feedback = wants to raise an issue, PR, or discussion on GitHub
     feedback:
-        /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
+        /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|pull\s*request|open\s+(a\s+)?pr|raise\s+(a\s+)?pr|create\s+(a\s+)?pr|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
     debug: /error|fail|broken|not work|crash|issue|bug|why|wrong/i,
     build: /build|compile|webpack|vite|bundle|android|ios|platform/i,
     sync: /sync|update.*doc|fetch.*doc|latest.*doc/i,
@@ -150,7 +150,7 @@ const INTENT_NEXT_ACTION = {
     build: "answer_only — explain build flow. Do NOT call create_task_plan.",
     sync: "answer_only — sync complete. Do NOT call create_task_plan.",
     feedback:
-        "answer_only — run the GitHub issue workflow and show the created issue URL or markdown fallback. Do NOT call create_task_plan.",
+        "answer_only — run the GitHub issue or PR workflow and show the created URL or markdown fallback. Do NOT call create_task_plan.",
     unknown: "answer_only — unclear intent. Return what you found. Do NOT call create_task_plan.",
 }
 
@@ -606,6 +606,124 @@ const TOOLS = [
             },
         },
     },
+    {
+        name: "create_github_pr",
+        description:
+            "Use when the developer wants to open, raise, create, or publish a GitHub pull request for catalyst-core. Resolves the head branch from the current git checkout (or the head arg), renders the PR body in the shape of the matching .github/PULL_REQUEST_TEMPLATE (fix / feature / chore) from the structured fields, appends the shared checklist, and previews with dry_run:true. Publishes via the GitHub API only when dry_run:false is explicitly passed, and only if the head branch is already pushed to origin (it does not push for you). Default to dry_run:true first. Intent: feedback.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                dry_run: {
+                    type: "boolean",
+                    description:
+                        "Defaults to true. When true, returns the rendered PR preview (title, head → base, change type, body, commits ahead of base) without publishing. Pass false only after explicit developer approval.",
+                },
+                change_type: {
+                    type: "string",
+                    enum: ["fix", "feature", "chore"],
+                    description:
+                        "Which PR template to render. Omit to infer from the title/summary. fix = bug fix, feature = new capability, chore = no behaviour change (deps, CI, refactor, docs).",
+                },
+                title: {
+                    type: "string",
+                    description:
+                        "PR title. Use a conventional-commit prefix (fix: / feat: / chore:) to match the repo's commitlint config.",
+                },
+                body: {
+                    type: "string",
+                    description:
+                        "Full PR description. Already-structured markdown (with ## headings) is preserved as-is; plain text and the structured fields below are laid out in the template's section order.",
+                },
+                summary: {
+                    type: "string",
+                    description:
+                        "One or two sentences on what the PR changes. Used when body is not composed.",
+                },
+                head: {
+                    type: "string",
+                    description:
+                        "Head branch. Defaults to the current branch (git rev-parse --abbrev-ref HEAD).",
+                },
+                base: {
+                    type: "string",
+                    description:
+                        "Base branch to merge into. Defaults to 'main'. Pass the epic/story branch when the PR rides a stack (e.g. epic/329).",
+                },
+                draft: {
+                    type: "boolean",
+                    description: "Open as a draft PR. Defaults to true.",
+                },
+                closes_issue: {
+                    type: ["string", "number"],
+                    description:
+                        "Issue number this PR closes. Renders a 'Closes #<n>' line at the top of the body.",
+                },
+                root_cause: {
+                    type: "string",
+                    description:
+                        "fix: what was actually wrong, at the level of the offending line or contract.",
+                },
+                repro: {
+                    type: "string",
+                    description:
+                        "fix: minimal steps or the failing input that triggered the bug before this change.",
+                },
+                fix: {
+                    type: "string",
+                    description: "fix: what this PR changes and why that closes the root cause.",
+                },
+                regression_test: {
+                    type: "string",
+                    description:
+                        "fix: the test added that fails without the fix and passes with it, or why none was added.",
+                },
+                affected_error_codes: {
+                    type: "string",
+                    description:
+                        "fix: CatalystError codes whose behaviour or wording this touches, or 'none'.",
+                },
+                what: {
+                    type: "string",
+                    description: "feature: the capability being added, in one or two sentences.",
+                },
+                why: {
+                    type: "string",
+                    description: "feature: the problem it solves or the use case it unblocks.",
+                },
+                new_error_codes: {
+                    type: "string",
+                    description:
+                        "feature: new CatalystError code(s) introduced + confirmation errors/ docs were regenerated (node packages/catalyst-core/src/errors/generateDocs.js), or 'No new error codes'.",
+                },
+                coverage_delta: {
+                    type: "string",
+                    description: "feature: what is now covered that was not, and the delta if known.",
+                },
+                change_trigger: {
+                    type: "string",
+                    description:
+                        "chore: what triggered this — dependency bump, CI tweak, flaky job, refactor, doc drift.",
+                },
+                change: {
+                    type: "string",
+                    description: "chore: what this PR does.",
+                },
+                no_behaviour_change: {
+                    type: ["boolean", "string"],
+                    description:
+                        "chore: pass true to check the 'no runtime behaviour change' confirmation box in the rendered body.",
+                },
+                project_path: {
+                    type: "string",
+                    description: "Path to the catalyst repo root. Defaults to detected project root.",
+                },
+                _query: {
+                    type: "string",
+                    description: "Original user query for intent classification.",
+                },
+            },
+        },
+    },
 ]
 
 // ── Tool handler dispatch ─────────────────────────────────────────────────────
@@ -624,6 +742,7 @@ const TOOL_HANDLERS = {
     sync_knowledge_base: sync.handle_sync_knowledge_base,
     query_knowledge: knowledge.handle_query_knowledge,
     create_github_issue: github.handle_create_github_issue,
+    create_github_pr: github.handle_create_github_pr,
     explain_error: errors.handle_explain_error,
 }
 
