@@ -1,6 +1,13 @@
 import React from "react"
 import PropTypes from "prop-types"
 import path from "path"
+
+// Prevents a "</script>" (or any "<...") inside serialized SSR data from
+// closing the real <script> tag early and letting the remainder of the
+// string be parsed as new HTML/script (reflected XSS via query params,
+// route data, etc. that end up in initialState/fetcherData).
+const safeStringify = (value) => JSON.stringify(value).replace(/</g, "\\u003c")
+
 /**
  * Body component which will be used in page component
  * @param {object} jsx - page jsx code
@@ -35,9 +42,9 @@ export function Body(props) {
                 /* eslint-disable */
                 dangerouslySetInnerHTML={{
                     __html: `
-                    window.__INITIAL_STATE__ = ${JSON.stringify(initialState)}
+                    window.__INITIAL_STATE__ = ${safeStringify(initialState)}
                     window.__STATUS_CODE__ = ${statusCode}
-                    window.__ROUTER_INITIAL_DATA__ = ${JSON.stringify(fetcherData)}
+                    window.__ROUTER_INITIAL_DATA__ = ${safeStringify(fetcherData)}
             `,
                 }}
             />
