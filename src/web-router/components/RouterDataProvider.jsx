@@ -73,7 +73,12 @@ export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
         let searchParamsString = ""
         if (searchParams) {
             for (const key in searchParams) {
-                searchParamsString += `${key}=${searchParams[key]}&`
+                // Encoded before folding into the route/fetcher-data cache key: this
+                // key ends up as an object key in fetcherData, which is later
+                // JSON.stringify'd into an inline SSR <script> (see Body.jsx). A raw
+                // "<", ">" or '"' from a query value here could otherwise break out
+                // of that script tag.
+                searchParamsString += `${encodeURIComponent(key)}=${encodeURIComponent(searchParams[key])}&`
             }
             searchParamsString = searchParamsString.slice(0, -1)
             searchParamsString = searchParamsString ? `?${searchParamsString}` : searchParamsString
