@@ -228,6 +228,34 @@ export const registerIslandProviders = (wrapChildren) => {
     islandProviders = wrapChildren
 }
 
+// An island doesn't just lack registered context (Redux, etc.) — it also has
+// none of the ambient context the main tree gets for free just by being
+// mounted where it is, most notably router context. A component using
+// useNavigate/useLocation/Link/etc. throws immediately if mounted somewhere
+// with no <Router> above it, and that's not something registerIslandProviders
+// can fix in general (React Router's data-router APIs don't expose a way to
+// give an arbitrary subtree its context without mounting a second, real
+// <RouterProvider> — which doesn't accept children the way a normal context
+// provider does). Confirmed directly: an uncaught error in an island's first
+// render otherwise takes down far more than that one widget. This boundary
+// contains that: on error, the island falls back to the exact same frozen
+// snapshot it would have shown while still deferred, so a widget that can't
+// work as an island degrades to "stays inert" — the pre-existing, understood
+// failure mode — instead of "crashes visibly."
+class IslandErrorBoundary extends React.Component {
+    state = { hasError: false }
+    static getDerivedStateFromError() {
+        return { hasError: true }
+    }
+    componentDidCatch(error) {
+        // eslint-disable-next-line no-console
+        console.error("[catalyst-core] split() island failed to mount, staying inert:", error)
+    }
+    render() {
+        return this.state.hasError ? this.props.fallback : this.props.children
+    }
+}
+
 /**
  * Split component that wraps React's lazy and Suspense for SSR compatibility.
  * Used directly by split()'s server branch; also exported standalone for any
@@ -354,11 +382,13 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
                 // (see prefetchPromises above) well before this ever fires.
                 islandRootRef.current = createRoot(markerRef.current)
                 islandRootRef.current.render(
-                    islandProviders(
-                        <Suspense fallback={latestFallbackRef.current}>
-                            <LazyComponent {...latestPropsRef.current} />
-                        </Suspense>
-                    )
+                    <IslandErrorBoundary fallback={resolveFallback(identityKey, latestFallbackRef.current)}>
+                        {islandProviders(
+                            <Suspense fallback={latestFallbackRef.current}>
+                                <LazyComponent {...latestPropsRef.current} />
+                            </Suspense>
+                        )}
+                    </IslandErrorBoundary>
                 )
             }
 
