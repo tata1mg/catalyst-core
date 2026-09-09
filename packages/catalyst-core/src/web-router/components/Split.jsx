@@ -356,9 +356,23 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             }
             foldVisibilityCallbacks.set(node, mountIsland)
             getSharedObserver().observe(node)
+
+            // Absolute safety net, independent of the observer entirely:
+            // requestAnimationFrame — which the shared observer's own retry
+            // path relies on — can be fully paused, not just throttled, for
+            // a backgrounded/inactive tab, so a bounded rAF retry can itself
+            // still stall indefinitely in that case. setTimeout is throttled
+            // but not paused the same way, so it's guaranteed to eventually
+            // fire even then. This guarantees every deferred boundary
+            // becomes interactive within a few seconds no matter what the
+            // observer does or doesn't report — a boundary that's a little
+            // early is a far better outcome than one that's frozen forever.
+            const safetyNetTimer = setTimeout(mountIsland, 3000)
+
             return () => {
                 foldVisibilityCallbacks.delete(node)
                 if (sharedObserver) sharedObserver.unobserve(node)
+                clearTimeout(safetyNetTimer)
             }
         }, [shouldDefer])
 
