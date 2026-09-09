@@ -95,65 +95,60 @@ const resolveFallback = (identityKey, fallback) => {
 // user actually scrolls near it.
 const foldVisibilityCallbacks = new Map()
 let sharedObserver = null
-// True once we've seen a real (non-hidden-tab) rootBounds reading. Its only
-// job is telling the retry path (below) apart from the well-supported
-// "background tab" case, so it's fine that it's shared across all targets.
-let sawRealRootBounds = false
+// Bounded retries (via requestAnimationFrame) before giving up on getting a
+// real rootBounds reading and just mounting for real. This used to branch on
+// document.hidden — wait indefinitely for a visibilitychange event before
+// retrying, on the assumption that zero rootBounds only ever happens on a
+// genuinely backgrounded tab (confirmed once: document.hidden was true with
+// window.innerWidth/innerHeight both 0 in that case). That assumption turned
+// out to be false: confirmed directly (both in automated browser tooling and
+// reported independently from a real, foregrounded browser) that
+// document.hidden can read true while window.innerWidth/innerHeight are
+// perfectly normal, non-zero values, and visibilitychange never fires
+// because the tab never actually becomes hidden by any definition a user
+// would recognize. Waiting on that event left every deferred boundary frozen
+// permanently — worse than the CPU cost this was trying to avoid. A bounded
+// retry (rAF is throttled/paused automatically on a truly backgrounded tab,
+// so this doesn't burn CPU there either) that eventually fails open — mounts
+// for real rather than waiting forever — is simpler and can't get stuck.
+const MAX_VISIBILITY_RETRIES = 8
 const getSharedObserver = () => {
     if (sharedObserver) return sharedObserver
     sharedObserver = new IntersectionObserver(
         (entries) => {
             entries.forEach((entry) => {
-                // rootBounds reads as zero while the document is hidden (a
-                // background tab has no laid-out viewport) — confirmed
-                // directly: document.hidden was true with
-                // window.innerWidth/innerHeight both 0 in exactly this
-                // situation. That's a normal, common state (any background
-                // tab), not a bug, so retrying on a tight timer here would
-                // burn CPU for as long as the tab stays backgrounded — often
-                // the whole session. Instead, wait once for the tab to
-                // become visible, then re-observe. A zero reading that's
-                // *not* explained by document.hidden is the one genuinely
-                // transient case (the browser hasn't finished establishing
-                // the viewport yet, e.g. moments after navigation) — retry
-                // that on the next frame, but only a few times, so a
-                // persistent zero for some other reason can't spin forever.
-                const bounds = entry.rootBounds
-                const boundsInvalid = !bounds || (bounds.width === 0 && bounds.height === 0)
-                if (boundsInvalid) {
-                    const target = entry.target
-                    if (document.hidden) {
-                        const onVisible = () => {
-                            if (document.hidden) return
-                            document.removeEventListener("visibilitychange", onVisible)
-                            if (foldVisibilityCallbacks.has(target)) {
-                                sharedObserver.unobserve(target)
-                                sharedObserver.observe(target)
-                            }
-                        }
-                        document.addEventListener("visibilitychange", onVisible)
-                    } else if (!sawRealRootBounds) {
-                        const attempts = (target.__catalystVisibilityRetries || 0) + 1
-                        target.__catalystVisibilityRetries = attempts
-                        if (attempts <= 5) {
-                            requestAnimationFrame(() => {
-                                if (foldVisibilityCallbacks.has(target)) {
-                                    sharedObserver.unobserve(target)
-                                    sharedObserver.observe(target)
-                                }
-                            })
-                        }
-                    }
-                    return
-                }
-                sawRealRootBounds = true
-                if (entry.isIntersecting || entry.intersectionRatio > 0) {
+                const fire = () => {
                     const cb = foldVisibilityCallbacks.get(entry.target)
                     if (cb) {
                         cb()
                         foldVisibilityCallbacks.delete(entry.target)
                         sharedObserver.unobserve(entry.target)
                     }
+                }
+
+                const bounds = entry.rootBounds
+                const boundsInvalid = !bounds || (bounds.width === 0 && bounds.height === 0)
+                if (boundsInvalid) {
+                    const target = entry.target
+                    const attempts = (target.__catalystVisibilityRetries || 0) + 1
+                    target.__catalystVisibilityRetries = attempts
+                    if (attempts <= MAX_VISIBILITY_RETRIES) {
+                        requestAnimationFrame(() => {
+                            if (foldVisibilityCallbacks.has(target)) {
+                                sharedObserver.unobserve(target)
+                                sharedObserver.observe(target)
+                            }
+                        })
+                    } else {
+                        // Retries exhausted without ever seeing real bounds —
+                        // fail open rather than stay frozen forever.
+                        fire()
+                    }
+                    return
+                }
+
+                if (entry.isIntersecting || entry.intersectionRatio > 0) {
+                    fire()
                 }
             })
         },
