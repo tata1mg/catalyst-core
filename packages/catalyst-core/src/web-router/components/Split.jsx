@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useContext, useEffect, useId, useMemo, useRef } from "react"
-import { hydrateRoot } from "react-dom/client"
+import { createRoot } from "react-dom/client"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import SplitInview from "./SplitInview.jsx"
 
@@ -207,15 +207,15 @@ const NEVER_SETTLES = new Promise(() => {})
 //
 // The actual transition to real, interactive content on visibility is done
 // imperatively instead — see mountIsland in split() below — via a completely
-// separate hydrateRoot() call directly on the marker DOM node, bypassing
+// separate React root created directly on the marker DOM node, bypassing
 // this (permanently suspended) outer boundary entirely rather than asking it
 // to update.
 const PermanentlySuspended = () => {
     throw NEVER_SETTLES
 }
 
-// An island's hydrateRoot() call creates a completely independent React fiber
-// root. Nesting it inside the main app's DOM does NOT give it the main tree's
+// An island's own React root is a completely independent fiber tree.
+// Nesting it inside the main app's DOM does NOT give it the main tree's
 // React context — Redux's <Provider>, router context, theme, etc. all live
 // on the main tree's fiber, not the DOM, so a bare island crashes the moment
 // its component reads any of that (e.g. "Cannot destructure property 'store'
@@ -337,8 +337,26 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
 
             const mountIsland = () => {
                 if (islandRootRef.current) return
-                islandRootRef.current = hydrateRoot(
-                    markerRef.current,
+                // createRoot, not hydrateRoot: the marker node's existing
+                // content isn't reliably in one specific shape by this
+                // point. It's usually the real, untouched server DOM
+                // (preserved by React's own "suspended during first
+                // hydration" handling — see PermanentlySuspended above), but
+                // not always — e.g. if something upstream ever did force
+                // that boundary to render its fallback for real, the marker
+                // node instead holds resolveFallback's own wrapper span.
+                // hydrateRoot expects one specific shape and discards +
+                // regenerates on any mismatch, which visibly flashed the
+                // fallback (a skeleton) over real content in exactly that
+                // second case. createRoot doesn't try to match existing
+                // content at all, so it's correct either way. Its own
+                // initial render can briefly show `fallback` while
+                // LazyComponent's chunk loads, same as any fresh Suspense
+                // mount — in practice that's rarely visible, since
+                // SSR'd components are eagerly prefetched on the client
+                // (see prefetchPromises above) well before this ever fires.
+                islandRootRef.current = createRoot(markerRef.current)
+                islandRootRef.current.render(
                     islandProviders(
                         <Suspense fallback={latestFallbackRef.current}>
                             <LazyComponent {...latestPropsRef.current} />
