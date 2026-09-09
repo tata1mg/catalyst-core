@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useContext, useEffect, useId, useRef } from "react"
+import React, { Suspense, lazy, useContext, useEffect, useId, useMemo, useRef } from "react"
 import { hydrateRoot } from "react-dom/client"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import SplitInview from "./SplitInview.jsx"
@@ -28,12 +28,30 @@ const SPLIT_MARKER_STYLE = { display: "contents" }
 // sent. Used so a boundary not yet worth hydrating shows its own real
 // server-rendered markup as the Suspense fallback instead of a generic
 // skeleton — no visual flash.
+//
+// A key seen on more than one element (e.g. the same split() call site
+// rendered once per item in a .map() list — cacheKey is per *import path*,
+// not per instance, see resolveIdentityKey below) is quarantined: deleted
+// from the map entirely rather than left pointing at whichever instance's
+// HTML happened to be captured last. Without this, every colliding instance
+// would freeze on — and only ever show — that one instance's content until
+// it individually hydrated: not a missing snapshot, visibly wrong content.
+// Deleting the key makes hasSnapshot() false for all of them, which routes
+// them through the existing "no snapshot → render for real immediately"
+// path instead.
 const htmlSnapshots = new Map()
 if (typeof document !== "undefined") {
+    const collidingKeys = new Set()
     document.querySelectorAll("[data-catalyst-split]").forEach((el) => {
         const key = el.getAttribute("data-catalyst-split")
-        if (key) htmlSnapshots.set(key, el.innerHTML)
+        if (!key) return
+        if (htmlSnapshots.has(key)) {
+            collidingKeys.add(key)
+            return
+        }
+        htmlSnapshots.set(key, el.innerHTML)
     })
+    collidingKeys.forEach((key) => htmlSnapshots.delete(key))
 }
 
 // Identity used to match a boundary's server snapshot to this hydration
@@ -46,13 +64,14 @@ if (typeof document !== "undefined") {
 // mechanism split() always used, kept only where nothing better is
 // available. Note this doesn't disambiguate multiple instances of the *same*
 // split() call site (e.g. one rendered per item in a list): they'd share an
-// identityKey and one snapshot would overwrite the other in the Map. That's
-// a pre-existing limitation (useId() alone had the same issue for that
-// pattern) — fixing it would need callers to pass a per-item key, which is
-// a larger API change than today's scope. A shared mutable counter was
-// considered and rejected: it would need to reset per SSR request, and
-// nothing in this module can safely detect "new request" without leaking
-// across concurrent requests on the same server process.
+// identityKey. That's a pre-existing limitation (useId() alone had the same
+// issue for that pattern) — fixing it would need callers to pass a per-item
+// key, which is a larger API change than today's scope. The snapshot capture
+// above at least makes that collision fail safe (real immediate render)
+// rather than silently wrong. A shared mutable counter was considered and
+// rejected: it would need to reset per SSR request, and nothing in this
+// module can safely detect "new request" without leaking across concurrent
+// requests on the same server process.
 const resolveIdentityKey = (cacheKey, positionalId) => cacheKey || positionalId
 
 const wrapWithMarker = (identityKey, node) => (
@@ -200,6 +219,20 @@ const PermanentlySuspended = () => {
     throw NEVER_SETTLES
 }
 
+// An island's hydrateRoot() call creates a completely independent React fiber
+// root. Nesting it inside the main app's DOM does NOT give it the main tree's
+// React context — Redux's <Provider>, router context, theme, etc. all live
+// on the main tree's fiber, not the DOM, so a bare island crashes the moment
+// its component reads any of that (e.g. "Cannot destructure property 'store'
+// of ... as it is null" from a connected/useSelector component). The app
+// registers, once at bootstrap, how to wrap an island's real content with
+// whatever context providers its component tree actually needs — same
+// providers, same instances (e.g. the same Redux store) as the main tree.
+let islandProviders = (children) => children
+export const registerIslandProviders = (wrapChildren) => {
+    islandProviders = wrapChildren
+}
+
 /**
  * Split component that wraps React's lazy and Suspense for SSR compatibility.
  * Used directly by split()'s server branch; also exported standalone for any
@@ -308,9 +341,11 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
                 if (islandRootRef.current) return
                 islandRootRef.current = hydrateRoot(
                     markerRef.current,
-                    <Suspense fallback={latestFallbackRef.current}>
-                        <LazyComponent {...latestPropsRef.current} />
-                    </Suspense>
+                    islandProviders(
+                        <Suspense fallback={latestFallbackRef.current}>
+                            <LazyComponent {...latestPropsRef.current} />
+                        </Suspense>
+                    )
                 )
             }
 
@@ -338,6 +373,31 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             }
         }, [])
 
+        // Memoized so this exact element is referentially stable across any
+        // re-render of wrapper that isn't a change to shouldDefer/identityKey
+        // (e.g. an unrelated ancestor re-rendering, a new `fallback` object
+        // from the parent). That referential stability matters: without it,
+        // a fresh element handed React's reconciler on every render reaches
+        // this fiber as "an update" — and this boundary, by design, never
+        // finishes hydrating (PermanentlySuspended's promise never
+        // resolves), so it's the exact same "update reached a still-
+        // dehydrated boundary" case that forces the hydration-abort-and-
+        // retry storm described above. Deliberately excludes fallback from
+        // its deps: when shouldDefer is true, hasSnapshot was true, so
+        // resolveFallback always returns the frozen snapshot HTML and never
+        // reads the fallback prop anyway.
+        const deferredElement = useMemo(
+            () => (
+                <span ref={markerRef} data-catalyst-split={identityKey} style={SPLIT_MARKER_STYLE}>
+                    <Suspense fallback={resolveFallback(identityKey, effectiveFallback)}>
+                        <PermanentlySuspended />
+                    </Suspense>
+                </span>
+            ),
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            [shouldDefer, identityKey]
+        )
+
         if (typeof window === "undefined") {
             if (global.__CHUNK_EXTRACTOR__) {
                 global.__CHUNK_EXTRACTOR__.addComponent(cacheKey)
@@ -359,14 +419,7 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             )
         }
 
-        const boundaryFallback = resolveFallback(identityKey, effectiveFallback)
-        return (
-            <span ref={markerRef} data-catalyst-split={identityKey} style={SPLIT_MARKER_STYLE}>
-                <Suspense fallback={boundaryFallback}>
-                    <PermanentlySuspended />
-                </Suspense>
-            </span>
-        )
+        return deferredElement
     }
 
     wrapper.__cacheKey = cacheKey
