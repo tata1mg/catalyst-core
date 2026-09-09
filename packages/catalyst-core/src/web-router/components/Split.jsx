@@ -344,9 +344,11 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
                 if (islandRootRef.current) return
                 islandRootRef.current = hydrateRoot(
                     markerRef.current,
-                    <Suspense fallback={latestFallbackRef.current}>
-                        <LazyComponent {...latestPropsRef.current} />
-                    </Suspense>
+                    islandProviders(
+                        <Suspense fallback={latestFallbackRef.current}>
+                            <LazyComponent {...latestPropsRef.current} />
+                        </Suspense>
+                    )
                 )
             }
 
