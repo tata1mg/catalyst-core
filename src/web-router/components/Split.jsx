@@ -1,4 +1,5 @@
-import React, { Suspense, lazy, useContext, useEffect, useId, useRef, useState } from "react"
+import React, { Suspense, lazy, useContext, useEffect, useId, useRef } from "react"
+import { hydrateRoot } from "react-dom/client"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import SplitInview from "./SplitInview.jsx"
 
@@ -158,63 +159,45 @@ const findObservableNode = (node) => {
     return null
 }
 
-// Reports whether `ref`'s node has ever intersected the viewport. `skip`
-// forces an immediate true — used for bots (no real viewport to wait on)
-// and for boundaries with no snapshot to safely freeze on while waiting
-// (see split()'s `hasSnapshot` below). `onFire` runs once, synchronously
-// inside the effect that flips the state, so callers can resolve a
-// companion Suspense gate (see SuspendUntilVisible below) from the same
-// commit-phase callback rather than during render.
-const useVisible = (ref, skip, onFire) => {
-    const [isVisible, setIsVisible] = useState(() => {
-        if (typeof window === "undefined") return true
-        if (skip || !window.IntersectionObserver) return true
-        return false
-    })
+// Thrown by PermanentlySuspended below. Never resolves, on purpose: a
+// Suspense boundary whose child suspends on this promise is permanently
+// "still hydrating" from React's point of view, and React never revisits it
+// again (a suspended boundary only re-renders when its promise settles).
+// That's exactly what we want for a not-yet-visible split() boundary — see
+// PermanentlySuspended's own comment for why.
+const NEVER_SETTLES = new Promise(() => {})
 
-    useEffect(() => {
-        if (isVisible) return
-        const node = findObservableNode(ref.current)
-        if (!node) {
-            // No boxed descendant found (e.g. empty content) — fail open
-            // rather than suspend forever.
-            setIsVisible(true)
-            onFire?.()
-            return
-        }
-        const fire = () => {
-            setIsVisible(true)
-            onFire?.()
-        }
-        foldVisibilityCallbacks.set(node, fire)
-        getSharedObserver().observe(node)
-        return () => {
-            foldVisibilityCallbacks.delete(node)
-            if (sharedObserver) sharedObserver.unobserve(node)
-        }
-    }, [isVisible])
-
-    return isVisible
-}
-
-// Suspends by throwing its gate's promise — the same generic protocol
-// React.lazy() itself uses. Rendered in place of the real component while a
-// boundary waits for its visibility check, so the client tree's *shape*
-// (span > Suspense > one child) always matches the server's, and a
-// not-yet-visible boundary is hydrated via React's well-supported "suspended
-// during hydration" recovery (scoped to this one boundary) rather than a
-// structural mismatch that can bail out hydration for the whole root.
+// Placeholder child for a not-yet-visible boundary. Rendered instead of the
+// real LazyComponent so the boundary suspends immediately on its first
+// client render, before it ever gets a chance to hydrate for real.
 //
-// Confirmed necessary, not just cautious: swapping this out for a plain,
-// non-suspending "render the frozen span as Suspense's direct child" (no
-// throw at all) was tried and produces a WORSE failure — React logs "the
-// server rendered HTML didn't match the client... this tree will be
-// regenerated on the client" and discards the whole boundary's subtree,
-// wheras the suspended-during-hydration path recovers scoped to just this
-// boundary. React treats "child suspended" as a well-supported hydration
-// case; "child is a structurally different element" is not.
-const SuspendUntilVisible = ({ promise }) => {
-    throw promise
+// This is deliberate, and depends on a specific, confirmed React behavior:
+// when a Suspense boundary suspends *while attempting its first hydration
+// pass* against real server-rendered DOM, React does not discard that DOM or
+// swap in `fallback` — it leaves the server markup untouched and treats the
+// boundary as "dehydrated", to be retried later if it's ever pinged. Since
+// NEVER_SETTLES is never pinged, that boundary simply stays dehydrated
+// forever: the real server HTML for this widget keeps showing, and this
+// component/boundary is never re-rendered by React again.
+//
+// Confirmed by isolated testing NOT to use a per-visibility state flip
+// instead (e.g. throwing a promise that resolves once IntersectionObserver
+// fires, then having this same boundary swap to the real LazyComponent):
+// that update — any update to a boundary that hasn't "finished hydrating" —
+// makes React log "This Suspense boundary received an update before it
+// finished hydrating" and forces an expensive hydration-abort-and-retry,
+// measured at 900–1000+ wasted re-renders per boundary in isolated testing.
+// On a real page with many split() boundaries, that's exactly what produced
+// the "client is not hydrating" / "page is not interactive" symptoms this
+// design went through several iterations to chase down.
+//
+// The actual transition to real, interactive content on visibility is done
+// imperatively instead — see mountIsland in split() below — via a completely
+// separate hydrateRoot() call directly on the marker DOM node, bypassing
+// this (permanently suspended) outer boundary entirely rather than asking it
+// to update.
+const PermanentlySuspended = () => {
+    throw NEVER_SETTLES
 }
 
 /**
@@ -295,24 +278,65 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
         const positionalId = useId()
         const identityKey = resolveIdentityKey(cacheKey, positionalId)
         const markerRef = useRef(null)
+        const islandRootRef = useRef(null)
 
-        const gateRef = useRef(null)
-        if (!gateRef.current) {
-            const gate = { resolved: false, promise: null, resolve: null }
-            gate.promise = new Promise((res) => {
-                gate.resolve = () => {
-                    gate.resolved = true
-                    res()
-                }
-            })
-            gateRef.current = gate
-        }
+        // useLatest-style refs so the island (mounted imperatively, possibly
+        // long after this render) picks up whatever props/fallback this
+        // widget's parent most recently passed, not just the ones present
+        // the first time this effect below ran.
+        const latestPropsRef = useRef(props)
+        latestPropsRef.current = props
+        const latestFallbackRef = useRef(effectiveFallback)
+        latestFallbackRef.current = effectiveFallback
 
         // A missing snapshot means there's nothing safe to freeze this
-        // boundary on while it waits — render it immediately instead of
-        // risking getting stuck showing a bare fallback forever.
+        // boundary on while it waits — render it for real immediately
+        // instead of risking getting stuck showing a bare fallback forever.
         const hasSnapshot = typeof window !== "undefined" && htmlSnapshots.has(identityKey)
-        const isVisible = useVisible(markerRef, isBot || !hasSnapshot, gateRef.current.resolve)
+        const shouldDefer = typeof window !== "undefined" && !isBot && hasSnapshot && Boolean(window.IntersectionObserver)
+
+        // Mounts the real, interactive widget once it's worth hydrating —
+        // imperatively, via its own independent React root directly on the
+        // marker DOM node, rather than by updating the outer (permanently
+        // suspended) boundary. See PermanentlySuspended's comment for why
+        // this has to be a separate root instead of a state update here.
+        useEffect(() => {
+            if (!shouldDefer) return
+            if (islandRootRef.current) return
+
+            const mountIsland = () => {
+                if (islandRootRef.current) return
+                islandRootRef.current = hydrateRoot(
+                    markerRef.current,
+                    <Suspense fallback={latestFallbackRef.current}>
+                        <LazyComponent {...latestPropsRef.current} />
+                    </Suspense>
+                )
+            }
+
+            const node = findObservableNode(markerRef.current)
+            if (!node) {
+                // No boxed descendant found (e.g. empty content) — fail open
+                // rather than wait forever.
+                mountIsland()
+                return
+            }
+            foldVisibilityCallbacks.set(node, mountIsland)
+            getSharedObserver().observe(node)
+            return () => {
+                foldVisibilityCallbacks.delete(node)
+                if (sharedObserver) sharedObserver.unobserve(node)
+            }
+        }, [shouldDefer])
+
+        // Dispose the island's own root on unmount so it doesn't leak (it's
+        // a separate React root the outer tree doesn't know about and won't
+        // clean up on its own).
+        useEffect(() => {
+            return () => {
+                islandRootRef.current?.unmount()
+            }
+        }, [])
 
         if (typeof window === "undefined") {
             if (global.__CHUNK_EXTRACTOR__) {
@@ -326,15 +350,20 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
             )
         }
 
+        if (!shouldDefer) {
+            return wrapWithMarker(
+                identityKey,
+                <Suspense fallback={effectiveFallback}>
+                    <LazyComponent {...props} />
+                </Suspense>
+            )
+        }
+
         const boundaryFallback = resolveFallback(identityKey, effectiveFallback)
         return (
             <span ref={markerRef} data-catalyst-split={identityKey} style={SPLIT_MARKER_STYLE}>
                 <Suspense fallback={boundaryFallback}>
-                    {isVisible ? (
-                        <LazyComponent {...props} />
-                    ) : (
-                        <SuspendUntilVisible promise={gateRef.current.promise} />
-                    )}
+                    <PermanentlySuspended />
                 </Suspense>
             </span>
         )
