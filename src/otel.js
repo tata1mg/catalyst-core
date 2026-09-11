@@ -28,6 +28,41 @@ export const IS_BOT_KEY = createContextKey("catalyst.is_bot")
 import semanticConventions from "@opentelemetry/semantic-conventions"
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = semanticConventions
 
+const formatMB = (bytes) => (bytes / 1024 / 1024).toFixed(1)
+
+function getLogger() {
+    const l =
+        (typeof logger !== "undefined" && logger) ||
+        (typeof global !== "undefined" && global.logger) ||
+        console
+    return {
+        info: (msg, ...meta) => (l.info ? l.info(msg, ...meta) : console.log(msg, ...meta)),
+        warn: (msg, ...meta) =>
+            l.warn ? l.warn(msg, ...meta) : l.info ? l.info(msg, ...meta) : console.warn(msg, ...meta),
+        error: (msg, ...meta) => (l.error ? l.error(msg, ...meta) : console.error(msg, ...meta)),
+        debug: (msg, ...meta) => (l.debug ? l.debug(msg, ...meta) : console.debug(msg, ...meta)),
+    }
+}
+
+let lastHighMemoryAlertTime = 0
+function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "") {
+    const now = Date.now()
+    // Throttle alert to at most once per 60 seconds
+    if (now - lastHighMemoryAlertTime < 60000) return
+
+    const rssMB = mem.rss / 1024 / 1024
+    const heapUsedMB = mem.heapUsed / 1024 / 1024
+
+    // Alert if RSS > 800MB or HeapUsed > 500MB
+    if (rssMB > 800 || heapUsedMB > 500) {
+        lastHighMemoryAlertTime = now
+        const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
+        getLogger().warn(
+            `⚠️ [OTEL High Memory Warning] RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap ratio: ${ratio}) ${contextStr ? `| Context: ${contextStr}` : ""}`
+        )
+    }
+}
+
 // Bit-range sampling decision helper
 function getDecisionForBits(traceId, start, end, rate) {
     if (rate >= 1.0) return true
@@ -244,9 +279,11 @@ class PromotingSpanProcessor {
         const now = Date.now()
         const TTL = 5 * 60 * 1000
 
+        let expiredBuffer = 0
         for (const [traceId, record] of this.buffer.entries()) {
             if (now - record.timestamp > TTL) {
                 this.buffer.delete(traceId)
+                expiredBuffer++
             } else {
                 break
             }
@@ -263,18 +300,37 @@ class PromotingSpanProcessor {
             // Buffer is filling faster than root spans resolve — unresolved traces
             // are being dropped before ever getting a promotion decision.
             const { rss, heapUsed } = process.memoryUsage()
-            logger.warn(
-                `⚠️ PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${(rss / 1024 / 1024).toFixed(1)}MB, heapUsed=${(heapUsed / 1024 / 1024).toFixed(1)}MB)`
+            getLogger().warn(
+                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${formatMB(rss)}MB, heapUsed=${formatMB(heapUsed)}MB)`
             )
         }
 
+        let expiredPromoted = 0
         for (const [traceId, data] of this.promotedTraces.entries()) {
             if (now - data.timestamp > TTL) {
                 this.promotedTraces.delete(traceId)
+                expiredPromoted++
             } else {
                 break
             }
         }
+
+        let promotedOverflowEvicted = 0
+        if (this.promotedTraces.size > 1024) {
+            const toDelete = this.promotedTraces.size - 1024
+            for (const traceId of this.promotedTraces.keys()) {
+                this.promotedTraces.delete(traceId)
+                promotedOverflowEvicted++
+                if (promotedOverflowEvicted >= toDelete) break
+            }
+            const { rss, heapUsed } = process.memoryUsage()
+            getLogger().warn(
+                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: promotedTraces overflow, dropped ${promotedOverflowEvicted} cache entry(s) (promotedTraces size=${this.promotedTraces.size}, rss=${formatMB(rss)}MB, heapUsed=${formatMB(heapUsed)}MB)`
+            )
+        }
+
+        const mem = process.memoryUsage()
+        checkHighMemoryAlert(mem, `buffer=${this.buffer.size}, promotedCache=${this.promotedTraces.size}`)
     }
 
     forceFlush() {
@@ -285,8 +341,9 @@ class PromotingSpanProcessor {
         if (this.cleanupInterval) {
             clearInterval(this.cleanupInterval)
         }
-        logger.info(
-            `📡 PromotingSpanProcessor: shutting down, discarding ${this.buffer.size} unresolved trace(s) and ${this.promotedTraces.size} promoted-trace record(s)`
+        const mem = process.memoryUsage()
+        getLogger().info(
+            `📡 [OTEL Shutdown] PromotingSpanProcessor: shutting down, discarding ${this.buffer.size} unresolved trace(s) and ${this.promotedTraces.size} promoted-trace record(s) | Memory at exit: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB`
         )
         this.buffer.clear()
         this.promotedTraces.clear()
@@ -331,13 +388,13 @@ function init(config = {}) {
     // OTEL_ENABLE guard in server/expressServer.js and server/renderer/handler.jsx
     // so the SDK, exporters, instrumentations and signal handlers are never set
     // up when tracing is off. Returns the same shape so callers can destructure.
-    if (process.env.OTEL_ENABLE !== true) {
+    if (process.env.OTEL_ENABLE !== true && process.env.OTEL_ENABLE !== "true") {
         return { sdk: null, meter: null }
     }
 
     // Export failures (collector down, batch rejected, ...) otherwise vanish into
     // OTEL's silent default diag logger — route them through the app logger.
-    setGlobalErrorHandler((err) => logger.error("❌ OpenTelemetry export error:", err))
+    setGlobalErrorHandler((err) => getLogger().error("❌ OpenTelemetry export error:", err))
 
     const {
         serviceName = "catalyst-server",
@@ -351,6 +408,7 @@ function init(config = {}) {
         metricHeaders = {},
         batchProcessorConfig = {},
         exportIntervalMillis = 10000,
+        diagnosticsIntervalMillis = 60000,
         instrumentations,
         samplingRate = 1.0,
         grpcCredentials,
@@ -382,7 +440,7 @@ function init(config = {}) {
         const isErrorSamplingEnabled = errorSampling && errorSampling.ENABLED === true
 
         if (isErrorSamplingEnabled) {
-            logger.info("⚙️ OpenTelemetry initializing with Status Aware Error Sampling")
+            getLogger().info("⚙️ OpenTelemetry initializing with Status Aware Error Sampling")
             sampler = new StatusAwareSampler(samplingRate)
 
             const errorSamplingConfig = {
@@ -426,7 +484,25 @@ function init(config = {}) {
         const sdk = new NodeSDK(sdkConfig)
 
         sdk.start()
-        logger.info("✅ OpenTelemetry started successfully")
+        getLogger().info("✅ OpenTelemetry started successfully")
+
+        // Start periodic diagnostic memory heartbeat
+        const heartbeatInterval = setInterval(() => {
+            const mem = process.memoryUsage()
+            const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
+            let bufferInfo = ""
+            if (spanProcessor && spanProcessor.buffer) {
+                bufferInfo = ` | Buffers: active=${spanProcessor.buffer.size}, promotedCache=${spanProcessor.promotedTraces.size}`
+            }
+            getLogger().info(
+                `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
+            )
+            checkHighMemoryAlert(mem, "heartbeat")
+        }, diagnosticsIntervalMillis)
+
+        if (heartbeatInterval.unref) {
+            heartbeatInterval.unref()
+        }
 
         // Initialize custom metrics only if metrics are enabled
         let meter = null
@@ -435,11 +511,18 @@ function init(config = {}) {
         }
 
         const gracefulShutdown = (signal) => {
-            logger.info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval)
+            }
+            const mem = process.memoryUsage()
+            const uptime = process.uptime().toFixed(1)
+            getLogger().info(
+                `📡 [OTEL Shutdown] Received ${signal}, shutting down OpenTelemetry gracefully... [Uptime: ${uptime}s, Memory at exit: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB]`
+            )
             sdk.shutdown()
-                .then(() => logger.info("✅ OpenTelemetry shutdown completed"))
+                .then(() => getLogger().info("✅ OpenTelemetry shutdown completed"))
                 .catch((error) => {
-                    logger.error("❌ Error terminating OpenTelemetry:", error)
+                    getLogger().error("❌ Error terminating OpenTelemetry:", error)
                 })
                 .finally(() => process.exit())
         }
@@ -449,7 +532,7 @@ function init(config = {}) {
 
         return { sdk, meter }
     } catch (error) {
-        logger.error("❌ Failed to initialize OpenTelemetry:", error)
+        getLogger().error("❌ Failed to initialize OpenTelemetry:", error)
         throw error
     }
 }
@@ -464,13 +547,13 @@ function init(config = {}) {
  */
 function createTraceExporter(protocol, url, headers = {}, grpcCredentials) {
     if (protocol.toLowerCase() === "http") {
-        logger.info(`📡 Creating HTTP trace exporter for URL: ${url}`)
+        getLogger().info(`📡 Creating HTTP trace exporter for URL: ${url}`)
         return new OTLPTraceExporterHTTP({
             url: url,
             headers: headers,
         })
     } else if (protocol.toLowerCase() === "grpc") {
-        logger.info(`📡 Creating gRPC trace exporter for URL: ${url}`)
+        getLogger().info(`📡 Creating gRPC trace exporter for URL: ${url}`)
         return new OTLPTraceExporter({
             url: url,
             headers: headers,
@@ -493,13 +576,13 @@ function createTraceExporter(protocol, url, headers = {}, grpcCredentials) {
  */
 function createMetricExporter(protocol, url, headers = {}, grpcCredentials) {
     if (protocol.toLowerCase() === "http") {
-        logger.info(`📊 Creating HTTP metric exporter for URL: ${url}`)
+        getLogger().info(`📊 Creating HTTP metric exporter for URL: ${url}`)
         return new OTLPMetricExporterHTTP({
             url: url,
             headers: headers,
         })
     } else if (protocol.toLowerCase() === "grpc") {
-        logger.info(`📊 Creating gRPC metric exporter for URL: ${url}`)
+        getLogger().info(`📊 Creating gRPC metric exporter for URL: ${url}`)
         return new OTLPMetricExporter({
             url: url,
             headers: headers,
