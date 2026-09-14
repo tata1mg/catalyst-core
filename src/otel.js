@@ -22,6 +22,8 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc"
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
 import { OTLPTraceExporter as OTLPTraceExporterHTTP } from "@opentelemetry/exporter-trace-otlp-http"
 import { OTLPMetricExporter as OTLPMetricExporterHTTP } from "@opentelemetry/exporter-metrics-otlp-http"
+import os from "os"
+import v8 from "v8"
 
 export const IS_BOT_KEY = createContextKey("catalyst.is_bot")
 
@@ -44,8 +46,20 @@ function getLogger() {
     }
 }
 
+// Scale to this process's own environment (host memory / V8 heap ceiling)
+// instead of a fixed MB, since deployments vary widely in size.
+function defaultHighMemoryRssMB() {
+    return Math.round((os.totalmem() * 0.85) / 1024 / 1024)
+}
+
+function defaultHighMemoryHeapUsedMB() {
+    return Math.round((v8.getHeapStatistics().heap_size_limit * 0.8) / 1024 / 1024)
+}
+
 let lastHighMemoryAlertTime = 0
-function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "") {
+function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "", thresholds = {}) {
+    const { rssMB: rssLimitMB = defaultHighMemoryRssMB(), heapUsedMB: heapLimitMB = defaultHighMemoryHeapUsedMB() } =
+        thresholds
     const now = Date.now()
     // Throttle alert to at most once per 60 seconds
     if (now - lastHighMemoryAlertTime < 60000) return
@@ -53,8 +67,7 @@ function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "") {
     const rssMB = mem.rss / 1024 / 1024
     const heapUsedMB = mem.heapUsed / 1024 / 1024
 
-    // Alert if RSS > 800MB or HeapUsed > 500MB
-    if (rssMB > 800 || heapUsedMB > 500) {
+    if (rssMB > rssLimitMB || heapUsedMB > heapLimitMB) {
         lastHighMemoryAlertTime = now
         const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
         getLogger().warn(
@@ -236,8 +249,7 @@ class PromotingSpanProcessor {
                 ? promotionRate
                 : this.config.samplingRate
             for (const s of spansToExport) {
-                // Required, not decorative: batchProcessor.onEnd() below silently
-                // drops any span whose traceFlags aren't SAMPLED.
+                // Required: batchProcessor.onEnd() drops spans without SAMPLED.
                 s.spanContext().traceFlags |= TraceFlags.SAMPLED
                 s.attributes["promoted"] = true
                 s.attributes["sample_rate"] = finalSampleRate
@@ -253,8 +265,7 @@ class PromotingSpanProcessor {
         const finalSampleRate = this.config.reportActualPromotionRate
             ? promotionRate
             : this.config.samplingRate
-        // Required, not decorative: batchProcessor.onEnd() below silently drops
-        // any span whose traceFlags aren't SAMPLED.
+        // Required: batchProcessor.onEnd() drops spans without SAMPLED.
         span.spanContext().traceFlags |= TraceFlags.SAMPLED
         span.attributes["promoted"] = true
         span.attributes["sample_rate"] = finalSampleRate
@@ -262,13 +273,9 @@ class PromotingSpanProcessor {
         this._export([span])
     }
 
-    // Hands promoted spans to the same BatchSpanProcessor used for normal
-    // head-sampled traffic, instead of exporting them directly. Reuses its
-    // queueing/backpressure (maxQueueSize, scheduledDelayMillis, ...) so a burst
-    // of promotions during an incident can't flood the collector with concurrent
-    // export calls. Trade-off: promoted spans export on the next batch flush
-    // instead of instantly. onStart() is a no-op on BatchSpanProcessorBase, so
-    // handing a span straight to onEnd() without a prior onStart() is safe.
+    // Routes promoted spans through the same BatchSpanProcessor as normal
+    // traffic, for its queueing/backpressure. Trade-off: they export on the
+    // next batch flush, not instantly. Skipping onStart() is safe — it's a no-op.
     _export(spans) {
         for (const s of spans) {
             this.batchProcessor.onEnd(s)
@@ -277,8 +284,14 @@ class PromotingSpanProcessor {
 
     _cleanupBuffers() {
         const now = Date.now()
+        // Trade-off: short TTL bounds memory but drops buffered child spans (and
+        // hasChildError) for traces whose root outlives it — clock starts at the
+        // first span seen for that trace, not request start. The root itself is
+        // still evaluated fresh when it ends, so a late error can still promote,
+        // just without children. Revisit if this proves too aggressive.
         const BUFFER_TTL = 60 * 1000 // 60 seconds TTL for unresolved buffer
         const PROMOTED_TTL = 60 * 1000 // 60 seconds TTL for promoted trace cache
+        const mem = process.memoryUsage()
 
         let expiredBuffer = 0
         for (const [traceId, record] of this.buffer.entries()) {
@@ -304,11 +317,9 @@ class PromotingSpanProcessor {
                 bufferOverflowEvicted++
                 if (bufferOverflowEvicted >= toDelete) break
             }
-            // Buffer is filling faster than root spans resolve — unresolved traces
-            // are being dropped before ever getting a promotion decision.
-            const { rss, heapUsed } = process.memoryUsage()
+            // Buffer filling faster than roots resolve — traces dropped pre-promotion.
             getLogger().warn(
-                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${formatMB(rss)}MB, heapUsed=${formatMB(heapUsed)}MB)`
+                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${formatMB(mem.rss)}MB, heapUsed=${formatMB(mem.heapUsed)}MB)`
             )
         }
 
@@ -336,14 +347,18 @@ class PromotingSpanProcessor {
                 promotedOverflowEvicted++
                 if (promotedOverflowEvicted >= toDelete) break
             }
-            const { rss, heapUsed } = process.memoryUsage()
             getLogger().warn(
-                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: promotedTraces overflow, dropped ${promotedOverflowEvicted} cache entry(s) (promotedTraces size=${this.promotedTraces.size}, rss=${formatMB(rss)}MB, heapUsed=${formatMB(heapUsed)}MB)`
+                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: promotedTraces overflow, dropped ${promotedOverflowEvicted} cache entry(s) (promotedTraces size=${this.promotedTraces.size}, rss=${formatMB(mem.rss)}MB, heapUsed=${formatMB(mem.heapUsed)}MB)`
             )
         }
 
-        const mem = process.memoryUsage()
-        checkHighMemoryAlert(mem, `buffer=${this.buffer.size}, promotedCache=${this.promotedTraces.size}`)
+        if (this.config.memoryDiagnostics?.enabled) {
+            checkHighMemoryAlert(
+                mem,
+                `buffer=${this.buffer.size}, promotedCache=${this.promotedTraces.size}`,
+                this.config.memoryDiagnostics
+            )
+        }
     }
 
     forceFlush() {
@@ -382,6 +397,10 @@ class PromotingSpanProcessor {
  * @param {object} [config.metricHeaders]
  * @param {object} [config.batchProcessorConfig] - passed to BatchSpanProcessor (maxQueueSize, scheduledDelayMillis, ...)
  * @param {number} [config.exportIntervalMillis=10000]
+ * @param {number} [config.diagnosticsIntervalMillis=60000] - how often the memory heartbeat logs, ms
+ * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; false disables both
+ * @param {number} [config.highMemoryRssMB] - RSS warning threshold (MB); defaults to 85% of host memory
+ * @param {number} [config.highMemoryHeapUsedMB] - heapUsed warning threshold (MB); defaults to 80% of the V8 heap ceiling
  * @param {Array} [config.instrumentations] - defaults to getNodeAutoInstrumentations()
  * @param {number} [config.samplingRate=1.0] - head-sampling rate in [0, 1] for non-error traffic
  * @param {Function} [config.grpcCredentials]
@@ -397,16 +416,13 @@ class PromotingSpanProcessor {
  * @returns {{sdk: NodeSDK|null, meter: object|null}}
  */
 function init(config = {}) {
-    // OpenTelemetry is opt-in — bail out unless explicitly enabled. Mirrors the
-    // OTEL_ENABLE guard in server/expressServer.js and server/renderer/handler.jsx
-    // so the SDK, exporters, instrumentations and signal handlers are never set
-    // up when tracing is off. Returns the same shape so callers can destructure.
+    // Opt-in — mirrors the same OTEL_ENABLE guard in expressServer.js and
+    // handler.jsx. Returns the same shape either way so callers can destructure.
     if (process.env.OTEL_ENABLE !== true && process.env.OTEL_ENABLE !== "true") {
         return { sdk: null, meter: null }
     }
 
-    // Export failures (collector down, batch rejected, ...) otherwise vanish into
-    // OTEL's silent default diag logger — route them through the app logger.
+    // Routes export failures to the app logger instead of OTEL's silent default.
     setGlobalErrorHandler((err) => getLogger().error("❌ OpenTelemetry export error:", err))
 
     const {
@@ -422,6 +438,9 @@ function init(config = {}) {
         batchProcessorConfig = {},
         exportIntervalMillis = 10000,
         diagnosticsIntervalMillis = 60000,
+        enableMemoryDiagnostics = true,
+        highMemoryRssMB = defaultHighMemoryRssMB(),
+        highMemoryHeapUsedMB = defaultHighMemoryHeapUsedMB(),
         instrumentations,
         samplingRate = 1.0,
         grpcCredentials,
@@ -468,6 +487,11 @@ function init(config = {}) {
                     : [408, 504, 524, 598, 599],
                 promoteBotTraffic: errorSampling.PROMOTE_BOT_TRAFFIC === true,
                 batchProcessorConfig,
+                memoryDiagnostics: {
+                    enabled: enableMemoryDiagnostics,
+                    rssMB: highMemoryRssMB,
+                    heapUsedMB: highMemoryHeapUsedMB,
+                },
             }
 
             spanProcessor = new PromotingSpanProcessor(otlpTraceExporter, errorSamplingConfig)
@@ -499,22 +523,26 @@ function init(config = {}) {
         sdk.start()
         getLogger().info("✅ OpenTelemetry started successfully")
 
-        // Start periodic diagnostic memory heartbeat
-        const heartbeatInterval = setInterval(() => {
-            const mem = process.memoryUsage()
-            const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
-            let bufferInfo = ""
-            if (spanProcessor && spanProcessor.buffer) {
-                bufferInfo = ` | Buffers: active=${spanProcessor.buffer.size}, promotedCache=${spanProcessor.promotedTraces.size}`
-            }
-            getLogger().info(
-                `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
-            )
-            checkHighMemoryAlert(mem, "heartbeat")
-        }, diagnosticsIntervalMillis)
+        // Periodic memory heartbeat; enableMemoryDiagnostics=false skips it entirely.
+        let heartbeatInterval = null
+        if (enableMemoryDiagnostics) {
+            const memoryThresholds = { rssMB: highMemoryRssMB, heapUsedMB: highMemoryHeapUsedMB }
+            heartbeatInterval = setInterval(() => {
+                const mem = process.memoryUsage()
+                const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
+                let bufferInfo = ""
+                if (spanProcessor && spanProcessor.buffer) {
+                    bufferInfo = ` | Buffers: active=${spanProcessor.buffer.size}, promotedCache=${spanProcessor.promotedTraces.size}`
+                }
+                getLogger().info(
+                    `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
+                )
+                checkHighMemoryAlert(mem, "heartbeat", memoryThresholds)
+            }, diagnosticsIntervalMillis)
 
-        if (heartbeatInterval.unref) {
-            heartbeatInterval.unref()
+            if (heartbeatInterval.unref) {
+                heartbeatInterval.unref()
+            }
         }
 
         // Initialize custom metrics only if metrics are enabled
