@@ -277,16 +277,23 @@ class PromotingSpanProcessor {
 
     _cleanupBuffers() {
         const now = Date.now()
-        const TTL = 5 * 60 * 1000
+        const BUFFER_TTL = 60 * 1000 // 60 seconds TTL for unresolved buffer
+        const PROMOTED_TTL = 60 * 1000 // 60 seconds TTL for promoted trace cache
 
         let expiredBuffer = 0
         for (const [traceId, record] of this.buffer.entries()) {
-            if (now - record.timestamp > TTL) {
+            if (now - record.timestamp > BUFFER_TTL) {
                 this.buffer.delete(traceId)
                 expiredBuffer++
             } else {
                 break
             }
+        }
+
+        if (expiredBuffer > 0) {
+            getLogger().info(
+                `🧹 [OTEL Cleanup] PromotingSpanProcessor: evicted ${expiredBuffer} expired unresolved trace(s) from buffer (remaining size=${this.buffer.size})`
+            )
         }
 
         let bufferOverflowEvicted = 0
@@ -307,12 +314,18 @@ class PromotingSpanProcessor {
 
         let expiredPromoted = 0
         for (const [traceId, data] of this.promotedTraces.entries()) {
-            if (now - data.timestamp > TTL) {
+            if (now - data.timestamp > PROMOTED_TTL) {
                 this.promotedTraces.delete(traceId)
                 expiredPromoted++
             } else {
                 break
             }
+        }
+
+        if (expiredPromoted > 0) {
+            getLogger().info(
+                `🧹 [OTEL Cleanup] PromotingSpanProcessor: evicted ${expiredPromoted} expired trace(s) from promotedTraces (remaining size=${this.promotedTraces.size})`
+            )
         }
 
         let promotedOverflowEvicted = 0
