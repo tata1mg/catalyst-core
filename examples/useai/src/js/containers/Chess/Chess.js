@@ -120,18 +120,20 @@ export default function Chess() {
     }, [history]);
 
     // Set up useAI Hook
+    const isLocal = provider === "transformers";
     const useAIResult = useAI({
         provider,
-        sessionMode: "stateful",
+        model: isLocal ? "onnx-community/Qwen2.5-0.5B-Instruct" : undefined,
+        sessionMode: isLocal ? "stateless" : "stateful",
         genConfig: {
             stream: false,
             temperature: 0.1,
             maxTokens: 20
         },
-        systemPrompt: "You are a chess engine playing as Black. Return only the selected move in SAN notation."
+        systemPrompt: "You are a chess engine playing as Black. You will be given the board state and the exact list of legal SAN moves. Choose one move from the list and return ONLY that move. Do not add explanations."
     });
 
-    const { generate, loading, error, output, reset } = useAIResult;
+    const { generate, loading, error, output, reset, clearError, modelReady, downloadProgress } = useAIResult;
 
     // Check game condition
     const checkGameStatus = () => {
@@ -155,7 +157,7 @@ export default function Chess() {
 
     // User selection/move interaction
     const handleSquareClick = (square) => {
-        if (!isPlayerTurn || gameStatus !== "active" || aiThinking || !chessRef.current) return;
+        if (!isPlayerTurn || gameStatus !== "active" || aiThinking || loading || !chessRef.current) return;
 
         const chess = chessRef.current;
         const piece = chess.get(square);
@@ -238,22 +240,34 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
     };
 
     // Listen to AI response
+    const lastOutputRef = useRef("");
     useEffect(() => {
-        if (aiThinking && !loading && !error && chessRef.current) {
+        if (aiThinking && !loading && !error && output && output !== lastOutputRef.current && chessRef.current) {
+            lastOutputRef.current = output;
             setAiThinking(false);
             const chess = chessRef.current;
             const validMoves = chess.moves();
-            const cleanOutput = (output || "").trim().replace(/[\[\]"`'“”’\s]/g, "");
+            const raw = output || "";
+            const stripped = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+            const cleanOutput = stripped.replace(/[\[\]"`'“”’\s]/g, "");
 
-            // Look for case insensitive matches in legal moves
-            const matchedMove = validMoves.find(
+            // 1. Direct case-insensitive match
+            let matchedMove = validMoves.find(
                 m => m.toLowerCase() === cleanOutput.toLowerCase()
             );
+
+            // 2. Tokenized search in stripped response for legal SAN moves
+            if (!matchedMove) {
+                const tokens = stripped.split(/[\s,.;:!?()]+/).map(t => t.replace(/[\[\]"`'“”’]/g, ""));
+                const matchedToken = tokens.find(t => validMoves.some(m => m.toLowerCase() === t.toLowerCase()));
+                if (matchedToken) {
+                    matchedMove = validMoves.find(m => m.toLowerCase() === matchedToken.toLowerCase());
+                }
+            }
 
             if (matchedMove) {
                 executeAIMove(matchedMove);
             } else {
-                // Try fuzzy check or fallback
                 console.warn(`Chess AI returned invalid move: "${output}". Fallback active.`);
                 makeFallbackMove(validMoves);
             }
@@ -263,7 +277,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                 makeFallbackMove(chessRef.current.moves());
             }
         }
-    }, [loading, error, output]);
+    }, [loading, error, output, aiThinking]);
 
     const executeAIMove = (moveStr) => {
         const chess = chessRef.current;
@@ -306,6 +320,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
         setIsPlayerTurn(true);
         setGameStatus("active");
         setAiThinking(false);
+        lastOutputRef.current = "";
         reset();
     };
 
@@ -454,11 +469,11 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                         <div className="flex flex-col gap-5">
                             <div>
                                 <label className="text-[12px] font-semibold text-[var(--text-2)] block mb-2 font-mono">Select AI Engine</label>
-                                <div className="grid grid-cols-2 gap-2 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
+                                <div className="grid grid-cols-3 gap-2 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
                                     <button
                                         type="button"
                                         onClick={() => setProvider("openai")}
-                                        className={`py-2 rounded-lg font-semibold text-[12px] transition cursor-pointer ${
+                                        className={`py-2 px-1 rounded-lg font-semibold text-[10.5px] transition cursor-pointer text-center truncate ${
                                             provider === "openai"
                                                 ? "bg-indigo-500 text-white shadow-md"
                                                 : "text-[var(--text-2)] hover:text-white"
@@ -469,7 +484,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                                     <button
                                         type="button"
                                         onClick={() => setProvider("gemini")}
-                                        className={`py-2 rounded-lg font-semibold text-[12px] transition cursor-pointer ${
+                                        className={`py-2 px-1 rounded-lg font-semibold text-[10.5px] transition cursor-pointer text-center truncate ${
                                             provider === "gemini"
                                                 ? "bg-indigo-500 text-white shadow-md"
                                                 : "text-[var(--text-2)] hover:text-white"
@@ -477,8 +492,79 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                                     >
                                         Gemini (3.5 Flash)
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setProvider("transformers")}
+                                        className={`py-2 px-1 rounded-lg font-semibold text-[10.5px] transition cursor-pointer text-center truncate ${
+                                            provider === "transformers"
+                                                ? "bg-teal-500 text-white shadow-md"
+                                                : "text-[var(--text-2)] hover:text-white"
+                                        }`}
+                                        title="Offline (Local Qwen2.5 0.5B)"
+                                    >
+                                        🔌 Offline (Local)
+                                    </button>
                                 </div>
+                                {provider === "transformers" && (
+                                    <div className="mt-2 text-[10px] text-teal-400/90 font-mono flex items-center justify-between">
+                                        <span>Qwen2.5-0.5B-Instruct</span>
+                                        <span className="px-1.5 py-0.5 bg-teal-500/10 border border-teal-500/20 rounded text-[9px]">EXPERIMENTAL</span>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Local model progress bar / status */}
+                            {provider === "transformers" && (
+                                <div className="pt-4 border-t border-[var(--border)] select-none">
+                                    {loading ? (
+                                        <>
+                                            <div className="flex justify-between text-[10px] font-mono text-[var(--text-3)] mb-1">
+                                                <span className="truncate max-w-[70%]">
+                                                    {downloadProgress?.file
+                                                        ? `Downloading ${downloadProgress.file}`
+                                                        : !modelReady
+                                                            ? "Downloading model weights (~300MB)…"
+                                                            : "Local engine calculating move…"}
+                                                </span>
+                                                <span>{downloadProgress?.percent != null ? `${downloadProgress.percent}%` : "…"}</span>
+                                            </div>
+                                            {downloadProgress?.percent != null && downloadProgress.percent > 0 && (
+                                                <div className="w-full h-1.5 bg-[var(--surface-3)] rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-teal-400 rounded-full transition-all duration-200"
+                                                        style={{ width: `${downloadProgress.percent}%` }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : modelReady ? (
+                                        <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-mono">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                                            <span>Model ready & cached in memory</span>
+                                        </div>
+                                    ) : (
+                                        <div className="text-[10px] text-[var(--text-3)] font-mono">
+                                            First move will download weights (~300MB). Cached thereafter.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Error state */}
+                            {error && (
+                                <div className="pt-4 border-t border-[var(--border)]">
+                                    <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] font-mono flex items-center justify-between gap-2">
+                                        <span className="truncate">⚠️ {error}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => clearError()}
+                                            className="text-[10px] text-red-300 hover:text-white underline cursor-pointer shrink-0"
+                                        >
+                                            Dismiss
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="pt-4 border-t border-[var(--border)] flex items-center justify-between">
                                 <span className="text-[12px] text-[var(--text-2)] font-mono">Status:</span>
