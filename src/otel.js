@@ -22,8 +22,8 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc"
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
 import { OTLPTraceExporter as OTLPTraceExporterHTTP } from "@opentelemetry/exporter-trace-otlp-http"
 import { OTLPMetricExporter as OTLPMetricExporterHTTP } from "@opentelemetry/exporter-metrics-otlp-http"
+import fs from "fs"
 import os from "os"
-import v8 from "v8"
 
 export const IS_BOT_KEY = createContextKey("catalyst.is_bot")
 
@@ -46,20 +46,42 @@ function getLogger() {
     }
 }
 
-// Scale to this process's own environment (host memory / V8 heap ceiling)
-// instead of a fixed MB, since deployments vary widely in size.
-function defaultHighMemoryRssMB() {
-    return Math.round((os.totalmem() * 0.85) / 1024 / 1024)
+// Reads a cgroup limit file; undefined if absent/unbounded ("max", or v1's ~2^63 sentinel).
+function readCgroupLimitBytes(path) {
+    try {
+        const raw = fs.readFileSync(path, "utf8").trim()
+        const bytes = raw === "max" ? NaN : Number(raw)
+        return Number.isFinite(bytes) && bytes > 0 && bytes < Number.MAX_SAFE_INTEGER ? bytes : undefined
+    } catch {
+        return undefined
+    }
 }
 
-function defaultHighMemoryHeapUsedMB() {
-    return Math.round((v8.getHeapStatistics().heap_size_limit * 0.8) / 1024 / 1024)
+// K8s pods have a per-container memory limit that os.totalmem() can't see (it
+// always reports the node's full memory) — read the cgroup limit directly
+// (v2, then v1), falling back to host memory outside a container. Cached: the
+// limit can't change during the process's lifetime, and both thresholds below need it.
+let memoryLimitBytes
+function getMemoryLimitBytes() {
+    return (memoryLimitBytes ??=
+        readCgroupLimitBytes("/sys/fs/cgroup/memory.max") ??
+        readCgroupLimitBytes("/sys/fs/cgroup/memory/memory.limit_in_bytes") ??
+        os.totalmem())
+}
+
+// 85% of the memory limit — leaves headroom before an OOM kill.
+function highMemoryRssMB() {
+    return Math.round((getMemoryLimitBytes() * 0.85) / 1024 / 1024)
+}
+
+// 0.4 = 50% of the memory limit as the heap budget (common container
+// guidance) × 80% of that budget as the warning point.
+function highMemoryHeapUsedMB() {
+    return Math.round((getMemoryLimitBytes() * 0.4) / 1024 / 1024)
 }
 
 let lastHighMemoryAlertTime = 0
-function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "", thresholds = {}) {
-    const { rssMB: rssLimitMB = defaultHighMemoryRssMB(), heapUsedMB: heapLimitMB = defaultHighMemoryHeapUsedMB() } =
-        thresholds
+function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "") {
     const now = Date.now()
     // Throttle alert to at most once per 60 seconds
     if (now - lastHighMemoryAlertTime < 60000) return
@@ -67,7 +89,7 @@ function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "", thre
     const rssMB = mem.rss / 1024 / 1024
     const heapUsedMB = mem.heapUsed / 1024 / 1024
 
-    if (rssMB > rssLimitMB || heapUsedMB > heapLimitMB) {
+    if (rssMB > highMemoryRssMB() || heapUsedMB > highMemoryHeapUsedMB()) {
         lastHighMemoryAlertTime = now
         const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
         getLogger().warn(
@@ -351,14 +373,6 @@ class PromotingSpanProcessor {
                 `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: promotedTraces overflow, dropped ${promotedOverflowEvicted} cache entry(s) (promotedTraces size=${this.promotedTraces.size}, rss=${formatMB(mem.rss)}MB, heapUsed=${formatMB(mem.heapUsed)}MB)`
             )
         }
-
-        if (this.config.memoryDiagnostics?.enabled) {
-            checkHighMemoryAlert(
-                mem,
-                `buffer=${this.buffer.size}, promotedCache=${this.promotedTraces.size}`,
-                this.config.memoryDiagnostics
-            )
-        }
     }
 
     forceFlush() {
@@ -398,9 +412,7 @@ class PromotingSpanProcessor {
  * @param {object} [config.batchProcessorConfig] - passed to BatchSpanProcessor (maxQueueSize, scheduledDelayMillis, ...)
  * @param {number} [config.exportIntervalMillis=10000]
  * @param {number} [config.diagnosticsIntervalMillis=60000] - how often the memory heartbeat logs, ms
- * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; false disables both
- * @param {number} [config.highMemoryRssMB] - RSS warning threshold (MB); defaults to 85% of host memory
- * @param {number} [config.highMemoryHeapUsedMB] - heapUsed warning threshold (MB); defaults to 80% of the V8 heap ceiling
+ * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; false disables both. Warning thresholds aren't configurable — derived from the detected cgroup memory limit (K8s/container), or host memory if none is found.
  * @param {Array} [config.instrumentations] - defaults to getNodeAutoInstrumentations()
  * @param {number} [config.samplingRate=1.0] - head-sampling rate in [0, 1] for non-error traffic
  * @param {Function} [config.grpcCredentials]
@@ -439,8 +451,6 @@ function init(config = {}) {
         exportIntervalMillis = 10000,
         diagnosticsIntervalMillis = 60000,
         enableMemoryDiagnostics = true,
-        highMemoryRssMB = defaultHighMemoryRssMB(),
-        highMemoryHeapUsedMB = defaultHighMemoryHeapUsedMB(),
         instrumentations,
         samplingRate = 1.0,
         grpcCredentials,
@@ -487,11 +497,6 @@ function init(config = {}) {
                     : [408, 504, 524, 598, 599],
                 promoteBotTraffic: errorSampling.PROMOTE_BOT_TRAFFIC === true,
                 batchProcessorConfig,
-                memoryDiagnostics: {
-                    enabled: enableMemoryDiagnostics,
-                    rssMB: highMemoryRssMB,
-                    heapUsedMB: highMemoryHeapUsedMB,
-                },
             }
 
             spanProcessor = new PromotingSpanProcessor(otlpTraceExporter, errorSamplingConfig)
@@ -526,7 +531,6 @@ function init(config = {}) {
         // Periodic memory heartbeat; enableMemoryDiagnostics=false skips it entirely.
         let heartbeatInterval = null
         if (enableMemoryDiagnostics) {
-            const memoryThresholds = { rssMB: highMemoryRssMB, heapUsedMB: highMemoryHeapUsedMB }
             heartbeatInterval = setInterval(() => {
                 const mem = process.memoryUsage()
                 const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
@@ -537,7 +541,7 @@ function init(config = {}) {
                 getLogger().info(
                     `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
                 )
-                checkHighMemoryAlert(mem, "heartbeat", memoryThresholds)
+                checkHighMemoryAlert(mem, "heartbeat")
             }, diagnosticsIntervalMillis)
 
             if (heartbeatInterval.unref) {
