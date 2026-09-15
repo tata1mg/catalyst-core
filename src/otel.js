@@ -101,7 +101,7 @@ function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "", thre
         lastHighMemoryAlertTime = now
         const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
         getLogger().warn(
-            `⚠️ [OTEL High Memory Warning] RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap ratio: ${ratio}) ${contextStr ? `| Context: ${contextStr}` : ""}`
+            `⚠️ [OTEL High Memory Warning] RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap ratio: ${ratio}) ${contextStr ? `| Context: ${contextStr}` : ""}, highMemoryRssMB=${highMemoryRssMB()}, highMemoryHeapUsedMB=${highMemoryHeapUsedMB()}`
         )
     }
 }
