@@ -81,7 +81,15 @@ function highMemoryHeapUsedMB() {
 }
 
 let lastHighMemoryAlertTime = 0
-function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "") {
+function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "", thresholds = {}) {
+    // Overrides exist mainly for testing (e.g. forcing a low threshold on
+    // staging to confirm this actually fires) — production should rely on
+    // the auto-detected default. Validated like init()'s other numeric
+    // configs so a bad value falls back instead of misfiring on every check.
+    const isValidThreshold = (v) => typeof v === "number" && v > 0
+    const rssLimitMB = isValidThreshold(thresholds.rssMB) ? thresholds.rssMB : highMemoryRssMB()
+    const heapLimitMB = isValidThreshold(thresholds.heapUsedMB) ? thresholds.heapUsedMB : highMemoryHeapUsedMB()
+
     const now = Date.now()
     // Throttle alert to at most once per 60 seconds
     if (now - lastHighMemoryAlertTime < 60000) return
@@ -89,7 +97,7 @@ function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "") {
     const rssMB = mem.rss / 1024 / 1024
     const heapUsedMB = mem.heapUsed / 1024 / 1024
 
-    if (rssMB > highMemoryRssMB() || heapUsedMB > highMemoryHeapUsedMB()) {
+    if (rssMB > rssLimitMB || heapUsedMB > heapLimitMB) {
         lastHighMemoryAlertTime = now
         const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
         getLogger().warn(
@@ -412,7 +420,9 @@ class PromotingSpanProcessor {
  * @param {object} [config.batchProcessorConfig] - passed to BatchSpanProcessor (maxQueueSize, scheduledDelayMillis, ...)
  * @param {number} [config.exportIntervalMillis=10000]
  * @param {number} [config.diagnosticsIntervalMillis=60000] - how often the memory heartbeat logs, ms
- * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; false disables both. Warning thresholds aren't configurable — derived from the detected cgroup memory limit (K8s/container), or host memory if none is found.
+ * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; false disables both
+ * @param {number} [config.highMemoryRssMB] - overrides the auto-detected RSS warning threshold (85% of the cgroup/host memory limit); mainly for testing (e.g. forcing a low value on staging to confirm the warning fires)
+ * @param {number} [config.highMemoryHeapUsedMB] - overrides the auto-detected heapUsed warning threshold (40% of the same limit); same testing use case
  * @param {Array} [config.instrumentations] - defaults to getNodeAutoInstrumentations()
  * @param {number} [config.samplingRate=1.0] - head-sampling rate in [0, 1] for non-error traffic
  * @param {Function} [config.grpcCredentials]
@@ -451,6 +461,8 @@ function init(config = {}) {
         exportIntervalMillis = 10000,
         diagnosticsIntervalMillis = 60000,
         enableMemoryDiagnostics = true,
+        highMemoryRssMB,
+        highMemoryHeapUsedMB,
         instrumentations,
         samplingRate = 1.0,
         grpcCredentials,
@@ -531,6 +543,7 @@ function init(config = {}) {
         // Periodic memory heartbeat; enableMemoryDiagnostics=false skips it entirely.
         let heartbeatInterval = null
         if (enableMemoryDiagnostics) {
+            const memoryThresholds = { rssMB: highMemoryRssMB, heapUsedMB: highMemoryHeapUsedMB }
             heartbeatInterval = setInterval(() => {
                 const mem = process.memoryUsage()
                 const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
@@ -541,7 +554,7 @@ function init(config = {}) {
                 getLogger().info(
                     `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
                 )
-                checkHighMemoryAlert(mem, "heartbeat")
+                checkHighMemoryAlert(mem, "heartbeat", memoryThresholds)
             }, diagnosticsIntervalMillis)
 
             if (heartbeatInterval.unref) {
