@@ -16,7 +16,10 @@
         "setupEmulator:android": "catalyst setupEmulator:android",
         "typecheck": "tsc --noEmit",
         "sync-core": "node ../sync-core.js",
-        "sync-packages": "node ../sync-packages.js --packages"
+        "sync-packages": "node ../sync-packages.js --packages",
+        "build:worker": "node cloudflare-adapter/prebuild.mjs",
+        "dev:worker": "npm run build && npm run build:worker && wrangler dev",
+        "deploy:worker": "npm run build && npm run build:worker && wrangler deploy"
     },
     "_moduleAliases": {
         "@api": "api.js",
@@ -32,8 +35,12 @@
         "@reduxjs/toolkit": "^2.10.1",
         "@tailwindcss/postcss": "^4.1.4",
         "@tata1mg/router": "0.1.0-beta",
+        "body-parser": "^1.20.2",
+        "catalyst-ai": "^0.1.0",
         "catalyst-core": "0.3.0-beta.1",
         "chess.js": "^1.4.0",
+        "cookie-parser": "^1.4.6",
+        "express": "^4.18.2",
         "framer-motion": "^12.40.0",
         "react": "19.0.0",
         "react-dom": "19.0.0",
@@ -46,7 +53,14 @@
         "eslint": "^8.26.0",
         "eslint-plugin-react": "^7.34.1",
         "eslint-plugin-react-hooks": "^4.6.0",
-        "typescript": "^5.8.3"
+        "typescript": "^5.8.3",
+        "wrangler": "^4.110.0"
     },
-    "description": "use ai poc app"
+    "description": "use ai poc app",
+    "catalystCloudflare": {
+        "name": "useai-demo",
+        "routes": [
+            "/"
+        ]
+    }
 }

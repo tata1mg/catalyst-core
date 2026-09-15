@@ -7,7 +7,7 @@ import {
     useSearchParams,
     UNSAFE_RouteContext,
     matchRoutes,
-} from "react-router"
+} from "react-router-dom"
 import { OneMgRouterContext } from "../context.jsx"
 // import sanitizeHtml from "sanitize-html"
 

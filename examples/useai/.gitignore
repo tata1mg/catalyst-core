@@ -2,3 +2,11 @@ node_modules
 build
 logs
 config/config.json
+.dev.vars
+
+# @sauravvarma/catalyst-cloudflare (generated)
+worker/index.js
+worker/fs-assets.generated.js
+wrangler.jsonc
+dist
+.wrangler

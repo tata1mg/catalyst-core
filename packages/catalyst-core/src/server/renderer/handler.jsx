@@ -4,7 +4,15 @@ import { Provider } from "react-redux"
 import { Body } from "./document/Body.jsx"
 import { Head } from "./document/Head.jsx"
 
-import { StaticRouter } from "react-router"
+// @tata1mg/router (the app-facing router used by ServerRouter/RouterDataProvider) is
+// still built against react-router-dom v6's hooks/Context — importing StaticRouter from
+// the top-level "react-router" package resolves react-router@7 instead (a separate,
+// incompatible module instance with its own Context objects), so any v6 hook called
+// inside the tree (e.g. @tata1mg/router's useMatch) throws "may be used only in the
+// context of a <Router> component" even though a Router genuinely is mounted - it's just
+// the wrong major version's. react-router-dom/server's StaticRouter is the v6 build that
+// actually matches what ServerRouter's descendants expect.
+import { StaticRouter } from "react-router-dom/server"
 import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
