@@ -166,17 +166,9 @@ self.onmessage = async (e) => {
                 temperature: options?.temperature || 0.3
             });
         } else if (task === "translation") {
-            const streamer = new mod.TextStreamer(pipe.tokenizer, {
-                skip_prompt: true,
-                skip_special_tokens: true,
-                callback_function: (text) => {
-                    self.postMessage({ type: "token", text });
-                }
-            });
             result = await pipe(input.text, {
                 src_lang: options.src_lang,
                 tgt_lang: options.tgt_lang,
-                streamer,
                 max_new_tokens: options?.max_new_tokens || 128
             });
         } else if (task === "question-answering") {
@@ -1124,10 +1116,11 @@ export default function AIPlayground() {
                                                     {translateResult ? (
                                                         <span>
                                                             {translateResult}
-                                                            {streaming && <span className="inline-block w-1.5 h-4 bg-indigo-500 ml-1 animate-pulse align-middle" style={{ backgroundColor: activeDemoData.accent }} />}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-[var(--text-3)] italic font-mono text-[12px]">Streaming translation output...</span>
+                                                        <span className="text-[var(--text-3)] italic font-mono text-[12px]">
+                                                            {loading ? "Translating..." : "Translation output will appear here..."}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </div>
@@ -1139,7 +1132,7 @@ export default function AIPlayground() {
                                             className="cursor-pointer select-none self-end px-5 py-2.5 rounded-xl text-white font-semibold text-[13px] transition duration-150 flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
                                             style={{ backgroundColor: activeDemoData.accent }}
                                         >
-                                            {loading ? "Warming up..." : streaming ? "Translating..." : "Translate Text →"}
+                                            {loading ? "Translating..." : "Translate Text →"}
                                         </button>
                                     </div>
                                 )}
