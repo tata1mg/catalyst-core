@@ -35,22 +35,23 @@ export default function TicTacToe() {
     }, [stats]);
 
     // Set up useAI Hook
+    const isLocal = provider === "transformers";
     const useAIResult = useAI({
         provider,
+        model: isLocal ? "onnx-community/Qwen2.5-0.5B-Instruct" : undefined,
         sessionMode: "stateless",
         genConfig: {
             stream: false,
             temperature: 0.1,
             maxTokens: 10
         },
-        systemPrompt: "You are an AI playing Tic Tac Toe. You play to win and block opponents. Keep responses minimal."
+        systemPrompt: "You are an AI playing Tic Tac Toe. You play to win and block opponents. Keep responses minimal. Respond with ONLY the single digit index (0 to 8) of your move."
     });
 
-    const { generate, loading, error, output, reset, clearError, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
+    const { generate, loading, error, output, reset, clearError, modelReady, downloadProgress } = useAIResult;
 
     // Track AI thinking states manually to sync with hook lifecycle
     const [aiThinking, setAiThinking] = useState(false);
-    const isNativeLoading = provider === "native" && isNative && !modelReady;
 
     // Board analyzer
     const checkWinner = (currentBoard) => {
@@ -68,7 +69,7 @@ export default function TicTacToe() {
 
     // When the user plays a move
     const handleCellClick = (index) => {
-        if (board[index] || !isPlayerTurn || gameStatus !== "active" || aiThinking || isNativeLoading) return;
+        if (board[index] || !isPlayerTurn || gameStatus !== "active" || aiThinking || loading) return;
 
         const nextBoard = [...board];
         nextBoard[index] = "X"; // Player is X
@@ -137,19 +138,29 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
             setAiThinking(false);
             
             const rawOutput = output || "";
-            const cleanText = rawOutput.trim();
-            const match = cleanText.match(/\b[0-8]\b/);
+            const cleanText = rawOutput.trim().replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
             const emptyIndices = board
                 .map((cell, idx) => cell === null ? idx : null)
                 .filter(val => val !== null);
 
-            let chosenIndex = match ? parseInt(match[0], 10) : null;
+            let chosenIndex = null;
+            if (/^[0-8]$/.test(cleanText) && emptyIndices.includes(parseInt(cleanText, 10))) {
+                chosenIndex = parseInt(cleanText, 10);
+            } else {
+                const matches = cleanText.match(/\b[0-8]\b/g);
+                if (matches) {
+                    const matched = matches.map(Number).find(idx => emptyIndices.includes(idx));
+                    if (matched !== undefined) {
+                        chosenIndex = matched;
+                    }
+                }
+            }
 
             // Validation: Make sure the chosen cell is indeed empty
             if (chosenIndex !== null && emptyIndices.includes(chosenIndex)) {
                 executeAIMove(chosenIndex);
             } else {
-                console.warn(`AI returned invalid or empty cell: "${rawOutput}". Fallback engaged.`);
+                console.warn(`AI returned invalid or occupied cell: "${rawOutput}". Fallback engaged.`);
                 makeFallbackMove(board, emptyIndices);
             }
         } else if (aiThinking && error) {
@@ -158,9 +169,8 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                 .map((cell, idx) => cell === null ? idx : null)
                 .filter(val => val !== null);
             makeFallbackMove(board, emptyIndices);
-            clearError();
         }
-    }, [aiThinking, loading, error, output]);
+    }, [aiThinking, loading, error, output, board]);
 
     const executeAIMove = (index) => {
         const nextBoard = [...board];
@@ -294,42 +304,75 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setProvider("native")}
+                                        onClick={() => setProvider("transformers")}
                                         className={`py-2 px-1 rounded-lg font-semibold text-[10.5px] transition cursor-pointer text-center truncate ${
-                                            provider === "native"
-                                                ? "bg-indigo-500 text-white shadow-md"
+                                            provider === "transformers"
+                                                ? "bg-teal-500 text-white shadow-md"
                                                 : "text-[var(--text-2)] hover:text-white"
                                         }`}
-                                        title="Native (On-Device)"
+                                        title="Offline (Local Qwen2.5 0.5B)"
                                     >
-                                        Native (On-Device)
+                                        🔌 Offline (Local)
                                     </button>
                                 </div>
+                                {provider === "transformers" && (
+                                    <div className="mt-2 text-[10px] text-teal-400/90 font-mono flex items-center justify-between">
+                                        <span>Qwen2.5-0.5B-Instruct</span>
+                                        <span className="px-1.5 py-0.5 bg-teal-500/10 border border-teal-500/20 rounded text-[9px]">EXPERIMENTAL</span>
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Native progress bar */}
-                            {provider === "native" && isNative && nativeDownloadProgress && !modelReady && (
+                            {/* Local model progress bar / status */}
+                            {provider === "transformers" && (
                                 <div className="pt-4 border-t border-[var(--border)] select-none">
-                                    <div className="flex justify-between text-[10px] font-mono text-[var(--text-3)] mb-1">
-                                        <span className="truncate max-w-[70%]">
-                                            {nativeDownloadProgress.phase === "engine_init" ? "Engine init" : nativeDownloadProgress.phase}
-                                            {nativeDownloadProgress.detail ? ` · ${nativeDownloadProgress.detail}` : ""}
-                                        </span>
-                                        <span>{nativeDownloadProgress.percent > 0 ? `${nativeDownloadProgress.percent}%` : "…"}</span>
+                                    {loading ? (
+                                        <>
+                                            <div className="flex justify-between text-[10px] font-mono text-[var(--text-3)] mb-1">
+                                                <span className="truncate max-w-[70%]">
+                                                    {downloadProgress?.file
+                                                        ? `Downloading ${downloadProgress.file}`
+                                                        : !modelReady
+                                                            ? "Downloading model weights (~300MB)…"
+                                                            : "Local model thinking…"}
+                                                </span>
+                                                <span>{downloadProgress?.percent != null ? `${downloadProgress.percent}%` : "…"}</span>
+                                            </div>
+                                            {downloadProgress?.percent != null && downloadProgress.percent > 0 && (
+                                                <div className="w-full h-1.5 bg-[var(--surface-3)] rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-teal-400 rounded-full transition-all duration-200"
+                                                        style={{ width: `${downloadProgress.percent}%` }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : modelReady ? (
+                                        <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-mono">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                                            <span>Model ready & cached in memory</span>
+                                        </div>
+                                    ) : (
+                                        <div className="text-[10px] text-[var(--text-3)] font-mono">
+                                            First move will download weights (~300MB). Cached thereafter.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Error state */}
+                            {error && (
+                                <div className="pt-4 border-t border-[var(--border)]">
+                                    <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] font-mono flex items-center justify-between gap-2">
+                                        <span className="truncate">⚠️ {error}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => clearError()}
+                                            className="text-[10px] text-red-300 hover:text-white underline cursor-pointer shrink-0"
+                                        >
+                                            Dismiss
+                                        </button>
                                     </div>
-                                    {nativeDownloadProgress.percent > 0 && (
-                                        <div className="w-full h-1.5 bg-[var(--surface-3)] rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-orange-400 rounded-full transition-all duration-200"
-                                                style={{ width: `${nativeDownloadProgress.percent}%` }}
-                                            />
-                                        </div>
-                                    )}
-                                    {nativeLogs && nativeLogs.length > 0 && (
-                                        <div className="mt-1 text-[9px] font-mono text-[var(--text-3)] truncate opacity-70">
-                                            {nativeLogs[nativeLogs.length - 1]}
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
@@ -396,9 +439,9 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                                     <button
                                         key={index}
                                         onClick={() => handleCellClick(index)}
-                                        disabled={cell !== null || !isPlayerTurn || gameStatus !== "active" || aiThinking || isNativeLoading}
+                                        disabled={cell !== null || !isPlayerTurn || gameStatus !== "active" || aiThinking || loading}
                                         className={`relative flex items-center justify-center rounded-xl bg-[var(--surface-3)]/40 border transition-all duration-300 font-bold ${
-                                            cell === null && isPlayerTurn && gameStatus === "active" && !aiThinking && !isNativeLoading
+                                            cell === null && isPlayerTurn && gameStatus === "active" && !aiThinking && !loading
                                                 ? "hover:bg-[var(--surface-3)] cursor-pointer hover:shadow-lg border-[var(--border)] hover:border-[var(--accent-line)]"
                                                 : "border-[var(--border)]"
                                         } ${
