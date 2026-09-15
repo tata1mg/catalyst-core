@@ -184,8 +184,6 @@ self.onmessage = async (e) => {
             result = await pipe(input.audio, {
                 chunk_length_s: 30,
                 stride_length_s: 5,
-                language: "english",
-                task: "transcribe",
                 streamer
             });
         } else if (task === "image-classification") {
