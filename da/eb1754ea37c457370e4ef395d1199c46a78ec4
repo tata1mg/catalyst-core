@@ -1,0 +1,14 @@
+examples/useai/src/js/containers/AIPlayground/AIPlayground.js
+  h_d7d9de1560f99e 1121-1123,1135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "daeb1754ea37c457370e4ef395d1199c46a78ec4",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
