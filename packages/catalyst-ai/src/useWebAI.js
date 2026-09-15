@@ -21,6 +21,7 @@ let loadedDevice = null;
 async function loadPipeline(model) {
     if (loadedModel === model && pipe) {
         self.postMessage({ type: "log", msg: "[worker] pipeline cache hit — " + model + " on " + loadedDevice });
+        self.postMessage({ type: "model_ready", device: loadedDevice, dtype: null, loadMs: 0, totalBytes: 0 });
         return;
     }
 
@@ -197,6 +198,7 @@ export function useWebAI({
     const [metrics, setMetrics] = useState(null)
 
     const workerRef = useRef(null)
+    const currentModelRef = useRef(null)
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const cancelledRef = useRef(false)
@@ -207,6 +209,7 @@ export function useWebAI({
     useEffect(() => () => {
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        currentModelRef.current = null
     }, [])
 
     const formatPromptRef = useRef(formatPrompt)
@@ -214,11 +217,6 @@ export function useWebAI({
 
     const generate = useCallback(
         ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
-            if (workerRef.current) {
-                workerRef.current.terminate()
-                workerRef.current = null
-            }
-
             const resolvedModel = callModel || modelProp
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
@@ -233,22 +231,29 @@ export function useWebAI({
             setError(null)
             setDownloadProgress(null)
             setMetrics(null)
-            setModelReady(false)
             cancelledRef.current = false
             outputAccRef.current = ""
             if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
 
             const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null }
 
-            let worker
-            try {
-                worker = new Worker(getWorkerBlobUrl(), { type: "module" })
-            } catch (err) {
-                setError(new Error("[catalyst-ai/useWebAI] module worker unavailable: " + (err.message || String(err))))
-                setLoading(false)
-                return
+            let worker = workerRef.current
+            if (!worker || currentModelRef.current !== resolvedModel) {
+                if (worker) {
+                    worker.terminate()
+                    worker = null
+                }
+                setModelReady(false)
+                try {
+                    worker = new Worker(getWorkerBlobUrl(), { type: "module" })
+                } catch (err) {
+                    setError(new Error("[catalyst-ai/useWebAI] module worker unavailable: " + (err.message || String(err))))
+                    setLoading(false)
+                    return
+                }
+                workerRef.current = worker
+                currentModelRef.current = resolvedModel
             }
-            workerRef.current = worker
 
             worker.onmessage = (e) => {
                 const msg = e.data
@@ -304,16 +309,18 @@ export function useWebAI({
                         }
                         setStreaming(false)
                         setLoading(false)
-                        worker.terminate()
-                        workerRef.current = null
                         break
                     case "error":
                         console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
                         setError(new Error(msg.message))
                         setStreaming(false)
                         setLoading(false)
-                        worker.terminate()
-                        workerRef.current = null
+                        if (workerRef.current) {
+                            workerRef.current.terminate()
+                            workerRef.current = null
+                        }
+                        currentModelRef.current = null
+                        setModelReady(false)
                         break
                 }
             }
@@ -323,8 +330,12 @@ export function useWebAI({
                 setError(new Error(e.message || "Worker crashed"))
                 setStreaming(false)
                 setLoading(false)
-                worker.terminate()
-                workerRef.current = null
+                if (workerRef.current) {
+                    workerRef.current.terminate()
+                    workerRef.current = null
+                }
+                currentModelRef.current = null
+                setModelReady(false)
             }
 
             worker.postMessage({
@@ -342,7 +353,10 @@ export function useWebAI({
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        currentModelRef.current = null
         setStreaming(false)
+        setLoading(false)
+        setModelReady(false)
     }, [])
 
     const reset = useCallback(() => {
@@ -350,6 +364,7 @@ export function useWebAI({
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         outputAccRef.current = ""
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        currentModelRef.current = null
         conversationIdRef.current = null
         messagesRef.current = []
         setOutput("")
