@@ -1,0 +1,32 @@
+examples/useai/src/js/containers/AIPlayground/AIPlayground.js
+  s_b26f8e00e072c4::t_7b621b6b35c9c6 99-101,103-108,111-115
+  s_b26f8e00e072c4::t_a3c0aba9cec0d1 647-650
+  s_b26f8e00e072c4::t_f319d0dbc6b832 177-178
+  s_b26f8e00e072c4::t_ff242ac6218455 296-297
+  s_b26f8e00e072c4::t_a2a2bc5de02ace 493-498,503,505
+  s_b26f8e00e072c4::t_cfbd5b999231dd 595-600,611
+  s_b26f8e00e072c4::t_497e232784433f 847-849
+  s_b26f8e00e072c4::t_d9c9e4af7c3ec3 601,615
+  s_b26f8e00e072c4::t_8a9975051db19a 1098-1103,1125-1129,1138-1140
+  s_b26f8e00e072c4::t_77d3e1e7a67b2e 1253-1255
+  s_b26f8e00e072c4::t_af639d3d21a7ec 1239
+  s_b26f8e00e072c4::t_20c16398675b82 31-32,35
+  s_b26f8e00e072c4::t_f7649a99c28a70 642-646,679-680
+  s_b26f8e00e072c4::t_765a128735133d 116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f43c3e42b68ea1a148b1554bba15117da9fdc388",
+  "prompts": {},
+  "sessions": {
+    "s_b26f8e00e072c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fb071b41-3b3a-4465-aa97-c21cef0e4b5c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
