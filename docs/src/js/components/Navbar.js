@@ -19,14 +19,11 @@ const COMMUNITY_ITEMS = [
     },
 ]
 
-/** Each version links to its own first page; archived ones leave the site. */
+/** Each version links to its own first page. */
 const LATEST = versions.find((version) => version.latest)
 const VERSION_ITEMS = versions.map((version) => ({
     label: version.label,
-    href: version.archived,
-    to: version.archived
-        ? null
-        : manifest.find((page) => page.version === version.label)?.url,
+    to: manifest.find((page) => page.version === version.label)?.url,
 }))
 
 const IconMenu = () => (
@@ -229,26 +226,15 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
                         </span>
                     </button>
                     <div className="hub-dropdown-menu">
-                        {VERSION_ITEMS.map((item) =>
-                            item.to ? (
-                                <Link
-                                    key={item.label}
-                                    to={item.to}
-                                    onClick={closeMenu}
-                                >
-                                    {item.label}
-                                </Link>
-                            ) : (
-                                <a
-                                    key={item.label}
-                                    href={item.href}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    {item.label}
-                                </a>
-                            )
-                        )}
+                        {VERSION_ITEMS.map((item) => (
+                            <Link
+                                key={item.label}
+                                to={item.to}
+                                onClick={closeMenu}
+                            >
+                                {item.label}
+                            </Link>
+                        ))}
                     </div>
                 </div>
             </div>

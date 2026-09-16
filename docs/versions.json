@@ -1,7 +1,1 @@
-[
-    { "label": "1.x", "major": 1, "ref": "HEAD", "latest": true },
-    {
-        "label": "0.3 beta",
-        "archived": "https://github.com/tata1mg/catalyst-core/tree/catalyst-core@0.3.0-beta.5/docs"
-    }
-]
+[{ "label": "1.x", "major": 1, "ref": "HEAD", "latest": true }]

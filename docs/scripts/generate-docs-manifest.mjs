@@ -59,9 +59,9 @@ const latestOf = (versions) => versions.find((entry) => entry.latest)
 
 const versionDir = (version) => path.join(VERSIONS_DIR, String(version.major))
 
-/** Live versions built from an export; archived ones are links only. */
+/** Versions built from an export: every one that is not latest. */
 const exportedVersions = (versions) =>
-    versions.filter((version) => !version.latest && !version.archived)
+    versions.filter((version) => !version.latest)
 
 const stripPrefix = (segment) => segment.replace(/^\d+-/, '')
 
@@ -503,7 +503,7 @@ const emitSeoFiles = (pages) => {
     console.log(`Generated sitemap.xml (${allUrls.length} URLs) + robots.txt`)
 }
 
-/** git archive each non-latest, non-archived version into versions/<major>/. */
+/** git archive each non-latest version into versions/<major>/. */
 const exportVersions = () => {
     for (const version of exportedVersions(readVersions())) {
         const dest = versionDir(version)
