@@ -194,6 +194,7 @@ const browserOptimizeDeps = [
     "react-side-effect",
     "react-async-script",
     "normalize.css",
+    "sanitize-html",
 ]
 
 // Node-only / instrumentation dependencies that must never be bundled into the
