@@ -1,7 +1,7 @@
 # How to release.
 #
 # latest:
-#   1. Dispatch this workflow from main with channel=latest and a bump.
+#   1. Dispatch this workflow from main with channel=latest and a version (or a bump).
 #   2. It opens a release/<version> PR that carries the version bumps.
 #   3. Merging that PR pushes packages/*/package.json to main, which runs publish.
 #
@@ -35,8 +35,18 @@ on:
                 required: false
                 type: string
                 default: main
+            version:
+                description: "Explicit X.Y.Z for catalyst-core and create-catalyst-app; overrides bump. For beta/canary this is the base, N comes from npm"
+                required: false
+                type: string
+                default: ""
+            ai_version:
+                description: "Explicit X.Y.Z for catalyst-ai; overrides bump"
+                required: false
+                type: string
+                default: ""
             bump:
-                description: "Version bump"
+                description: "Version bump, used when no explicit version is given"
                 required: true
                 type: choice
                 options:
@@ -50,7 +60,7 @@ on:
                 type: boolean
                 default: false
             pr_number:
-                description: "PR whose merge produced this release, used for release notes"
+                description: "PR to attribute release notes to; on latest it is taken from the merged release PR"
                 required: false
                 type: string
                 default: ""
@@ -99,7 +109,13 @@ jobs:
 
             - name: Bump versions
               id: versions
-              run: node scripts/release/release.js version --bump "${{ inputs.bump }}" ${{ inputs.include_ai && '--include-ai' || '' }}
+              env:
+                  VERSION: ${{ inputs.version }}
+                  AI_VERSION: ${{ inputs.ai_version }}
+              run: |
+                  node scripts/release/release.js version --bump "${{ inputs.bump }}" \
+                    ${{ inputs.include_ai && '--include-ai' || '' }} \
+                    ${VERSION:+--version "$VERSION"} ${AI_VERSION:+--ai-version "$AI_VERSION"}
 
             - name: Open release PR
               if: ${{ !inputs.dry_run }}
@@ -169,6 +185,7 @@ jobs:
         environment: npm
         outputs:
             core_version: ${{ steps.release.outputs.core_version }}
+            core_published: ${{ steps.release.outputs.core_published }}
             published: ${{ steps.release.outputs.published }}
             sha: ${{ steps.release.outputs.sha }}
             pr_number: ${{ needs.guard.outputs.pr_number }}
@@ -199,8 +216,12 @@ jobs:
 
             - name: Publish
               id: release
+              env:
+                  VERSION: ${{ inputs.version }}
+                  AI_VERSION: ${{ inputs.ai_version }}
               run: |
                   node scripts/release/release.js publish \
+                    ${VERSION:+--version "$VERSION"} ${AI_VERSION:+--ai-version "$AI_VERSION"} \
                     --channel "${{ github.event_name == 'push' && 'latest' || inputs.channel }}" \
                     ${{ github.event_name == 'workflow_dispatch' && format('--bump {0}', inputs.bump) || '' }} \
                     ${{ github.event_name == 'workflow_dispatch' && inputs.include_ai && '--include-ai' || '' }} \
@@ -209,8 +230,7 @@ jobs:
     notes:
         needs: publish
         if: >-
-            needs.publish.outputs.published == 'true' &&
-            (github.event_name == 'push' || inputs.channel == 'beta') &&
+            needs.publish.outputs.core_published == 'true' &&
             (needs.publish.outputs.pr_number != '' || inputs.pr_number != '')
         uses: ./.github/workflows/release-automation.yml
         with:

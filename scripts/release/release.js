@@ -113,22 +113,39 @@ function parseArgs(argv) {
     return args
 }
 
+const explicitVersionPattern = /^\d+\.\d+\.\d+$/
+
+function readBump(args) {
+    const bump = args.values["--bump"] || "patch"
+    if (!["patch", "minor", "major"].includes(bump)) {
+        fail(`--bump must be patch, minor or major (got '${bump}')`)
+    }
+    return bump
+}
+
+/** --version (core, cca) or --ai-version (ai) wins over --bump. */
+function nextBase(args, workspace, current) {
+    const flag = workspace === workspaces.ai ? "--ai-version" : "--version"
+    const explicit = args.values[flag]
+    if (!explicit) return semver.inc(stableBase(current), readBump(args))
+    if (!explicitVersionPattern.test(explicit)) {
+        fail(`${flag} must be X.Y.Z (got '${explicit}')`)
+    }
+    return explicit
+}
+
 function syncTemplates(coreVersion) {
     runInherit("node", [syncTemplatesScript, `--package-version=${coreVersion}`])
 }
 
 function commandVersion(args) {
-    const bump = args.values["--bump"] || "patch"
-    if (!["patch", "minor", "major"].includes(bump)) {
-        fail(`--bump must be patch, minor or major (got '${bump}')`)
-    }
-
+    readBump(args)
     const includeAi = args.flags.has("--include-ai")
     const versions = {}
 
     for (const workspace of selectedWorkspaces(includeAi)) {
         const current = readManifest(workspace).version
-        const next = semver.inc(stableBase(current), bump)
+        const next = nextBase(args, workspace, current)
 
         if (versionExists(workspace.name, next)) {
             fail(`${workspace.name}@${next} already exists on npm`)
@@ -225,11 +242,7 @@ function commandPublish(args) {
         fail("--channel must be latest, beta or canary")
     }
 
-    const bump = args.values["--bump"] || "patch"
-    if (!["patch", "minor", "major"].includes(bump)) {
-        fail(`--bump must be patch, minor or major (got '${bump}')`)
-    }
-
+    readBump(args)
     const includeAi = args.flags.has("--include-ai")
     const dryRun = args.flags.has("--dry-run")
     const targets = []
@@ -248,7 +261,7 @@ function commandPublish(args) {
             continue
         }
 
-        const base = semver.inc(stableBase(current), bump)
+        const base = nextBase(args, workspace, current)
         if (versionExists(workspace.name, base)) {
             fail(`${workspace.name}@${base} is already a published stable release, bump required`)
         }
@@ -297,6 +310,7 @@ function commandPublish(args) {
 
     writeOutputs({
         core_version: templatePin,
+        core_published: String(!dryRun && targets.some((target) => target.workspace === workspaces.core)),
         published: dryRun ? "false" : "true",
         sha: run("git", ["rev-parse", "HEAD"]).trim(),
     })
