@@ -28,11 +28,11 @@ const DEMOS = [
         id: "translate",
         name: "Translation",
         icon: "🌐",
-        size: "~600MB",
-        model: "Xenova/nllb-200-distilled-600M",
+        size: "~100MB per language pair",
+        model: null, // resolved per language pair via resolveTranslationModel()
         task: "translation",
         accent: "#6366f1", // indigo
-        desc: "Translate between languages using a heavy universal model."
+        desc: "Translate between English and 5 languages using lightweight MarianMT models."
     },
     {
         id: "qa",
@@ -96,15 +96,23 @@ const DEMOS = [
     }
 ];
 
+// Xenova/opus-mt-{code}-{code} only ships direct pairs through English
+// (verified against the Xenova org's published opus-mt repos), so every
+// pair here must have "en" on one side.
 const LANGUAGES = [
-    { code: "eng_Latn", label: "English" },
-    { code: "fra_Latn", label: "French" },
-    { code: "spa_Latn", label: "Spanish" },
-    { code: "deu_Latn", label: "German" },
-    { code: "hin_Deva", label: "Hindi" },
-    { code: "jpn_Jpan", label: "Japanese" },
-    { code: "zho_Hans", label: "Chinese" }
+    { code: "en", label: "English" },
+    { code: "fr", label: "French" },
+    { code: "es", label: "Spanish" },
+    { code: "de", label: "German" },
+    { code: "hi", label: "Hindi" },
+    { code: "zh", label: "Chinese" }
 ];
+
+function resolveTranslationModel(fromCode, toCode) {
+    if (fromCode === toCode) return null;
+    if (fromCode !== "en" && toCode !== "en") return null; // no direct non-English pair
+    return `Xenova/opus-mt-${fromCode}-${toCode}`;
+}
 
 // Unified Web Worker Script for all pipelines
 const WORKER_SCRIPT = `
@@ -166,9 +174,9 @@ self.onmessage = async (e) => {
                 temperature: options?.temperature || 0.3
             });
         } else if (task === "translation") {
+            // opus-mt/MarianMT models are single-direction (baked into the
+            // chosen model repo), unlike NLLB, so no src_lang/tgt_lang args.
             result = await pipe(input.text, {
-                src_lang: options.src_lang,
-                tgt_lang: options.tgt_lang,
                 max_new_tokens: options?.max_new_tokens || 128
             });
         } else if (task === "question-answering") {
@@ -285,8 +293,8 @@ export default function AIPlayground() {
 
     // 3. Translate
     const [translateText, setTranslateText] = useState("Welcome to the browser-based AI Playground! Everything runs on your device.");
-    const [translateFrom, setTranslateFrom] = useState("eng_Latn");
-    const [translateTo, setTranslateTo] = useState("fra_Latn");
+    const [translateFrom, setTranslateFrom] = useState("en");
+    const [translateTo, setTranslateTo] = useState("fr");
     const [translateResult, setTranslateResult] = useState("");
 
     // 4. Q&A
@@ -482,13 +490,19 @@ export default function AIPlayground() {
                 options: { max_new_tokens: 128, temperature: 0.3 }
             });
         } else if (demoId === "translate") {
+            const translateModel = resolveTranslationModel(translateFrom, translateTo);
+            if (!translateModel) {
+                setError("Pick English on one side — direct translation only exists between English and each other language.");
+                setLoading(false);
+                return;
+            }
             setTranslateResult("");
             workerRef.current.postMessage({
                 type: "run",
                 task: config.task,
-                model: config.model,
+                model: translateModel,
                 input: { text: translateText },
-                options: { src_lang: translateFrom, tgt_lang: translateTo, max_new_tokens: 128 }
+                options: { max_new_tokens: 128 }
             });
         } else if (demoId === "qa") {
             setQaResult(null);
@@ -578,7 +592,13 @@ export default function AIPlayground() {
 
             // Setup MediaRecorder
             const chunks = [];
-            const mediaRecorder = new MediaRecorder(stream);
+            const recorderMimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+                ? "audio/webm;codecs=opus"
+                : "";
+            const mediaRecorder = recorderMimeType
+                ? new MediaRecorder(stream, { mimeType: recorderMimeType })
+                : new MediaRecorder(stream);
+
             mediaRecorderRef.current = mediaRecorder;
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) chunks.push(e.data);
@@ -588,11 +608,11 @@ export default function AIPlayground() {
                 setIsRecording(false);
                 setLoading(true);
 
-                const blob = new Blob(chunks, { type: "audio/wav" });
+                const blob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
                 try {
                     const arrayBuffer = await blob.arrayBuffer();
                     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                    
+
                     const targetSampleRate = 16000;
                     const offlineCtx = new OfflineAudioContext(
                         1, // mono
@@ -619,6 +639,15 @@ export default function AIPlayground() {
                 } catch (decodeErr) {
                     setError("Failed to decode audio: " + (decodeErr.message || String(decodeErr)));
                     setLoading(false);
+                } finally {
+                    if (audioStreamRef.current) {
+                        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+                        audioStreamRef.current = null;
+                    }
+                    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+                        audioContextRef.current.close();
+                    }
+                    audioContextRef.current = null;
                 }
             };
 
@@ -647,9 +676,8 @@ export default function AIPlayground() {
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
         }
-        if (audioStreamRef.current) {
-            audioStreamRef.current.getTracks().forEach((track) => track.stop());
-        }
+        // Media tracks are stopped after mediaRecorder.onstop finishes flushing
+        // its final chunk, to avoid truncating the recording mid-encode.
     };
 
     const handleFileDrop = (e, targetDemo) => {
@@ -816,7 +844,9 @@ export default function AIPlayground() {
                             <span>{activeDemoData.name}</span>
                         </span>
                         <span className="px-2 py-0.5 text-[9px] font-bold bg-white/5 border border-white/10 rounded-full text-[var(--text-2)] font-mono uppercase tracking-wider">
-                            {activeDemoData.model.split("/")[1]}
+                            {activeDemoData.id === "translate"
+                                ? (resolveTranslationModel(translateFrom, translateTo) || "opus-mt").split("/")[1]
+                                : activeDemoData.model.split("/")[1]}
                         </span>
                     </div>
 
@@ -1065,7 +1095,12 @@ export default function AIPlayground() {
                                                 <label className="text-[10px] tracking-wider uppercase text-[var(--text-3)] font-bold">Source Lang</label>
                                                 <select
                                                     value={translateFrom}
-                                                    onChange={(e) => setTranslateFrom(e.target.value)}
+                                                    onChange={(e) => {
+                                                        const next = e.target.value;
+                                                        setTranslateFrom(next);
+                                                        // opus-mt only has direct English<->X pairs
+                                                        if (next !== "en" && translateTo !== "en") setTranslateTo("en");
+                                                    }}
                                                     className="w-full bg-[var(--surface-2)] border border-[var(--border)] rounded-xl px-3 py-2 text-[13px] text-white focus:outline-none focus:border-indigo-500"
                                                 >
                                                     {LANGUAGES.map((l) => (
@@ -1087,7 +1122,11 @@ export default function AIPlayground() {
                                                 <label className="text-[10px] tracking-wider uppercase text-[var(--text-3)] font-bold">Target Lang</label>
                                                 <select
                                                     value={translateTo}
-                                                    onChange={(e) => setTranslateTo(e.target.value)}
+                                                    onChange={(e) => {
+                                                        const next = e.target.value;
+                                                        setTranslateTo(next);
+                                                        if (next !== "en" && translateFrom !== "en") setTranslateFrom("en");
+                                                    }}
                                                     className="w-full bg-[var(--surface-2)] border border-[var(--border)] rounded-xl px-3 py-2 text-[13px] text-white focus:outline-none focus:border-indigo-500"
                                                 >
                                                     {LANGUAGES.map((l) => (
@@ -1096,6 +1135,9 @@ export default function AIPlayground() {
                                                 </select>
                                             </div>
                                         </div>
+                                        <p className="text-[10px] text-[var(--text-3)] font-mono -mt-3 select-none">
+                                            Direct translation only exists between English and each other language.
+                                        </p>
 
                                         {/* Panels grid */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1194,10 +1236,7 @@ export default function AIPlayground() {
                                         {/* Microphone Button */}
                                         <div className="relative my-4">
                                             <motion.button
-                                                onMouseDown={startSpeechRecording}
-                                                onMouseUp={stopSpeechRecording}
-                                                onTouchStart={startSpeechRecording}
-                                                onTouchEnd={stopSpeechRecording}
+                                                onClick={() => (isRecording ? stopSpeechRecording() : startSpeechRecording())}
                                                 whileHover={{ scale: 1.05 }}
                                                 whileTap={{ scale: 0.95 }}
                                                 className={`w-20 h-20 rounded-full border-4 flex items-center justify-center text-2xl shadow-xl transition-colors select-none cursor-grab active:cursor-grabbing ${
@@ -1211,9 +1250,9 @@ export default function AIPlayground() {
                                         </div>
 
                                         <p className="text-[12px] text-[var(--text-2)] max-w-sm select-none">
-                                            {isRecording 
-                                                ? `Recording live: ${recordTime}s (Release button to Transcribe)` 
-                                                : "Hold / Press and hold microphone button to record speech."}
+                                            {isRecording
+                                                ? `Recording live: ${recordTime}s (Click again to stop and transcribe)`
+                                                : "Click the microphone button to start recording speech."}
                                         </p>
 
                                         {/* live audio waveform */}
