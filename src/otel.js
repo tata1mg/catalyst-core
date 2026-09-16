@@ -46,8 +46,8 @@ function getLogger() {
     }
 }
 
-// Reads a cgroup limit file; undefined if absent/unbounded ("max", or v1's ~2^63 sentinel).
-function readCgroupLimitBytes(path) {
+// undefined if the file is absent, or (for a limit) unbounded.
+function readCgroupBytesFile(path) {
     try {
         const raw = fs.readFileSync(path, "utf8").trim()
         const bytes = raw === "max" ? NaN : Number(raw)
@@ -57,16 +57,23 @@ function readCgroupLimitBytes(path) {
     }
 }
 
-// K8s pods have a per-container memory limit that os.totalmem() can't see (it
-// always reports the node's full memory) — read the cgroup limit directly
-// (v2, then v1), falling back to host memory outside a container. Cached: the
-// limit can't change during the process's lifetime, and both thresholds below need it.
+// os.totalmem() reports the node's memory, not the pod's limit — read the
+// cgroup directly instead. Cached: fixed for the process's lifetime.
 let memoryLimitBytes
 function getMemoryLimitBytes() {
     return (memoryLimitBytes ??=
-        readCgroupLimitBytes("/sys/fs/cgroup/memory.max") ??
-        readCgroupLimitBytes("/sys/fs/cgroup/memory/memory.limit_in_bytes") ??
+        readCgroupBytesFile("/sys/fs/cgroup/memory.max") ??
+        readCgroupBytesFile("/sys/fs/cgroup/memory/memory.limit_in_bytes") ??
         os.totalmem())
+}
+
+// Whole-cgroup usage, not just this process's RSS — differs if anything else
+// shares the container. Changes constantly, so never cached (unlike the limit).
+function getCgroupCurrentBytes() {
+    return (
+        readCgroupBytesFile("/sys/fs/cgroup/memory.current") ??
+        readCgroupBytesFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+    )
 }
 
 // 85% of the memory limit — leaves headroom before an OOM kill.
@@ -74,18 +81,15 @@ function highMemoryRssMB() {
     return Math.round((getMemoryLimitBytes() * 0.85) / 1024 / 1024)
 }
 
-// 0.4 = 50% of the memory limit as the heap budget (common container
-// guidance) × 80% of that budget as the warning point.
+// 0.4 = 50% of the limit as heap budget (common container guidance) × 80% warning point.
 function highMemoryHeapUsedMB() {
     return Math.round((getMemoryLimitBytes() * 0.4) / 1024 / 1024)
 }
 
 let lastHighMemoryAlertTime = 0
 function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "", thresholds = {}) {
-    // Overrides exist mainly for testing (e.g. forcing a low threshold on
-    // staging to confirm this actually fires) — production should rely on
-    // the auto-detected default. Validated like init()'s other numeric
-    // configs so a bad value falls back instead of misfiring on every check.
+    // Overrides are mainly for testing (e.g. forcing a low staging threshold).
+    // Validated so a bad value falls back instead of misfiring every check.
     const isValidThreshold = (v) => typeof v === "number" && v > 0
     const rssLimitMB = isValidThreshold(thresholds.rssMB) ? thresholds.rssMB : highMemoryRssMB()
     const heapLimitMB = isValidThreshold(thresholds.heapUsedMB) ? thresholds.heapUsedMB : highMemoryHeapUsedMB()
@@ -419,10 +423,10 @@ class PromotingSpanProcessor {
  * @param {object} [config.metricHeaders]
  * @param {object} [config.batchProcessorConfig] - passed to BatchSpanProcessor (maxQueueSize, scheduledDelayMillis, ...)
  * @param {number} [config.exportIntervalMillis=10000]
- * @param {number} [config.diagnosticsIntervalMillis=60000] - how often the memory heartbeat logs, ms
- * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; false disables both
- * @param {number} [config.highMemoryRssMB] - overrides the auto-detected RSS warning threshold (85% of the cgroup/host memory limit); mainly for testing (e.g. forcing a low value on staging to confirm the warning fires)
- * @param {number} [config.highMemoryHeapUsedMB] - overrides the auto-detected heapUsed warning threshold (40% of the same limit); same testing use case
+ * @param {number} [config.diagnosticsIntervalMillis=60000] - memory heartbeat interval, ms; requires errorSampling.ENABLED
+ * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; requires errorSampling.ENABLED
+ * @param {number} [config.highMemoryRssMB] - overrides the auto-detected RSS warning threshold; for testing; requires errorSampling.ENABLED
+ * @param {number} [config.highMemoryHeapUsedMB] - overrides the auto-detected heapUsed warning threshold; for testing; requires errorSampling.ENABLED
  * @param {Array} [config.instrumentations] - defaults to getNodeAutoInstrumentations()
  * @param {number} [config.samplingRate=1.0] - head-sampling rate in [0, 1] for non-error traffic
  * @param {Function} [config.grpcCredentials]
@@ -540,19 +544,21 @@ function init(config = {}) {
         sdk.start()
         getLogger().info("✅ OpenTelemetry started successfully")
 
-        // Periodic memory heartbeat; enableMemoryDiagnostics=false skips it entirely.
+        // Only under status-aware sampling: that's the only path with unbounded
+        // buffer growth to watch. Plain BatchSpanProcessor's queue is already bounded.
         let heartbeatInterval = null
-        if (enableMemoryDiagnostics) {
+        if (isErrorSamplingEnabled && enableMemoryDiagnostics) {
             const memoryThresholds = { rssMB: highMemoryRssMB, heapUsedMB: highMemoryHeapUsedMB }
             heartbeatInterval = setInterval(() => {
                 const mem = process.memoryUsage()
                 const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
-                let bufferInfo = ""
-                if (spanProcessor && spanProcessor.buffer) {
-                    bufferInfo = ` | Buffers: active=${spanProcessor.buffer.size}, promotedCache=${spanProcessor.promotedTraces.size}`
-                }
+                const bufferInfo = ` | Buffers: active=${spanProcessor.buffer.size}, promotedCache=${spanProcessor.promotedTraces.size}`
+                // Not ratioed against memory.request — no cgroup file exposes it.
+                const cgroupCurrentBytes = getCgroupCurrentBytes()
+                const cgroupInfo =
+                    cgroupCurrentBytes !== undefined ? ` | CgroupCurrent=${formatMB(cgroupCurrentBytes)}MB` : ""
                 getLogger().info(
-                    `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
+                    `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${cgroupInfo}${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
                 )
                 checkHighMemoryAlert(mem, "heartbeat", memoryThresholds)
             }, diagnosticsIntervalMillis)
