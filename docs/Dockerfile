@@ -15,6 +15,7 @@ COPY docs/package.json docs/package-lock.json ./docs/
 RUN npm --prefix docs ci
 
 COPY docs ./docs
+COPY packages/catalyst-core/changelog.md ./packages/catalyst-core/changelog.md
 
 WORKDIR /opt/1mg/web/docs
 

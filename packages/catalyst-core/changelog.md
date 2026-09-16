@@ -1,14 +1,6 @@
-# 1.0.0-beta.1
-
-- Replaced the Webpack build and SSR pipeline with Vite and ESM.
-- Added React 19 Suspense-aware routing, split components, and manifest-based asset loading.
-- Added opt-in request, compression, flush, and bot-aware OpenTelemetry spans.
-- Preserved native application builds, internal plugins, Sentry exports, and safe-area SSR hydration.
-- Removed the legacy `devBuild` and `devServe` commands.
-
 # Changelog
 
-## [0.4.0] - unreleased
+## [1.0.0] - unreleased
 
 This release freezes the public API. The root entry of `catalyst-core` now exports exactly eight names and nothing else: `RouterDataProvider`, `useCurrentRouteData`, `useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. Anything previously reachable through the root entry but not in that list is no longer public. Applications that import a removed name will fail at build time rather than silently resolving to `undefined`.
 
@@ -68,7 +60,7 @@ Where a hook had two names for one value, the shorter one is canonical and the o
 
 Hooks fall into three categories, and the category decides whether a hook has `execute`. A hook that wraps a single native operation exposes it as `execute` plus a domain-specific alias — `takePhoto`, `pickFile`, `openFile`, `signIn`, `trigger`, `request`. A hook that wraps several distinct operations has no single action to name, so its named functions are the API and it has no `execute` at all: `useVideoStream`, `useDataProtection`, and `useNativeTransition` work this way. A read-only hook reports ambient device state and has no action functions at all: `useNetworkStatus`, `useDeviceInfo`, and `useSafeArea` return state plus the runtime-context keys. `useNotification` is the one exception. It carries `execute` and `schedule` as aliases of `scheduleLocal` for backward compatibility. Both are frozen, both are discouraged, and neither should be read as the pattern for multi-action hooks. `execute` never takes an operation name as a string argument; it takes the arguments of the operation itself.
 
-Hook errors are `CatalystError` values from the framework-wide error registry introduced in this release, carrying a `RUNTIME-NATIVE-*` code, a message, a category, a suggested action, a documentation link, and the originating platform error as `cause`. `useVideoStream` in particular used to report seventeen failures as bare `{ message }` objects with no code at all; those now carry real codes, and a camera denial reports the same code whether it comes from the permission hook or the stream.
+Hook errors are `CatalystError` values from the framework-wide error registry introduced in this release, carrying a `RUNTIME-NATIVE-*` code, a message, a category, a suggested action, a documentation link, and the originating platform error as `cause`. `useVideoStream` in particular used to report seventeen failures as bare `{ message }` objects with no code at all; those now carry real codes, and a camera denial reports the same code whether it comes from the permission hook or the stream. The error object's fields changed with it: `action` is now `suggestedAction`, `nativeError` is now `cause`, `recoverable` and `timestamp` are gone, and `code` values are registry codes such as `RUNTIME-NATIVE-001` instead of names such as `PERMISSION_DENIED`, so compare against `ERROR_CODES` from `catalyst-core/errors` rather than string literals.
 
 One consequence for error logging: `CatalystError` extends `Error`, so `message` now lives on the prototype rather than as an own property. Reading `error.message` is unaffected, but `JSON.stringify(error)` no longer includes it. Log `error.message` explicitly, or use the `code` and `docUrl` fields.
 
@@ -88,10 +80,79 @@ The route and store checks moved out of the per-request path. `validateGetRoutes
 
 Module aliases and `config/config.json` keys are not checked at load time; a missing alias or key still surfaces where it is used. An application that satisfies the contract sees no change. The full contract — the files Catalyst imports by fixed path and the required module aliases — is documented under File Conventions.
 
+## [0.3.0-beta.5] - 2026-08-18
+
+- Upgrade react-router-dom v6 to v7.18.2 (CVE fixes) (#399).
+- Docs: clarify setMetaData must return array of JSX elements (#327).
+
+## [0.3.0-beta.4] - 2026-08-10
+
+- Detect CommonJS by parsing, not by matching source text (#397).
+- Sub-path base + HMR config for reverse-proxy dev setups (#379).
+
+## [0.3.0-beta.3] - 2026-08-04
+
+- Resolve semgrep and dependency findings from security scan (#375).
+
+## [0.3.0-beta.2] - 2026-08-03
+
+- @catalyst/cloud-ai — multi-provider AI integration with useAI hook (#288).
+- Eliminate SSR streaming race between onShellReady and onAllReady (#323).
+- Update iOS release docs and MCP guidance (#324).
+- Patch @tailwindcss/postcss base so Vite scans the whole app (#326).
+
+## [0.3.0-beta.1] - 2026-07-15
+
+- Replaced the Webpack build and SSR pipeline with Vite and ESM.
+- Added React 19 Suspense-aware routing, split components, and manifest-based asset loading.
+- Added opt-in request, compression, flush, and bot-aware OpenTelemetry spans.
+- Preserved native application builds, internal plugins, Sentry exports, and safe-area SSR hydration.
+- Removed the legacy `devBuild` and `devServe` commands.
+
+## [0.2.0-beta.3] - 2026-07-14
+
+- Catalyst Profiler Runtime (#274).
+
+## [0.2.0-beta.2] - 2026-07-09
+
+- Route Caching (#287).
+- Android build fixes (#303).
+
+## [0.2.0-beta.1] - 2026-07-08
+
+- Catalyst react + rendering update (#293).
+- Add GitHub feedback integration to Catalyst MCP v2 (#272).
+- Sync MCP v2: extract seeding, delegate docs sync, add FTS + initial sync (#295).
+
+## [0.1.0-beta.7] - 2026-06-29
+
+- Syncing dweb branch with main (#283).
+
+## [0.1.0-beta.6] - 2026-06-11
+
+- Add examples folder with local testing app for catalyst-core (#246).
+
+## [0.1.0-beta.5] - 2026-06-09
+
+- Semgrep Plugin Fixes (#266).
+
+## [0.1.0-beta.4] - 2026-06-03
+
+- Merge video hook, web fallback, and plugin system into monorepo (#258).
+
+## [0.1.0-beta.3] - 2026-06-02
+
+- Security Fixes (semgrep) (#259).
+- Catalyst Docs Mismatches Fix (#244).
+
 ## [0.1.0-beta.2] - 2026-05-06
 
 - Moved Catalyst into a monorepo structure with `catalyst-core`, `create-catalyst-app`, the Catalyst docs app, and the Catalyst core test app managed from one repository.
 - Replaced the internal-package pre-release flow with a local release sandbox that scaffolds a real app using current-branch CCA and a locally packed current-branch `catalyst-core`.
+
+## [0.1.0-canary.9] - 2026-05-06
+
+- Changelog-only update; same code as 0.1.0-beta.2.
 
 ## [0.1.0-canary.8] - 2026-04-15
 
@@ -120,7 +181,7 @@ Module aliases and `config/config.json` keys are not checked at load time; a mis
 - Improved universal app runtime behavior with safe-area inset support, edge-to-edge rendering, and notification permission override fixes.
 - Expanded platform support with offline fallback handling, notification/access-control refinements, localhost HTTP allowances for local development, and file-picker/HTTPS server improvements.
 
-## [0.1.0-canary.4] - 2026-02-12
+## [0.1.0-canary.4] - 2026-02-16
 
 - Added Google Sign-In support for both Android and iOS in Catalyst, enabling a unified native authentication experience for apps built on the framework.
 - Improved release/build reliability with related bridge and CI updates, making integration smoother and more consistent across platforms.
@@ -148,26 +209,26 @@ Module aliases and `config/config.json` keys are not checked at load time; a mis
 - Notification refactor: streamlined config toggle for local vs push, centralized permission/asset handling, and simpler routing into the web app
 - Access control: combined access control config for ios
 
-## [0.0.3-canary.18] - 2025-11-19
+## [0.0.3-canary.18] - 2025-11-25
 
 - Configuration Files
 - Android Native WebView - MainActivity.kt
 - Android Native WebView - CustomWebview.kt
 
-## [0.0.3-canary.17] - 2025-11-19
+## [0.0.3-canary.17] - 2025-11-21
 
-- ✨ Added complete notification system (local & push)
-- 🔔 New useNotification() React hook
-- 📱 Firebase Cloud Messaging conditional build support
-- 🤖 Android notification handling in MainActivity
-- 🔧 5 new notification commands + 5 callbacks in NativeBridge
-- 📦 Auto-processing of notification icons & sounds
-- ⚙️ Conditional dependencies based on notification config
-- 🧹 Updated .gitignore & .npmignore
-- 📋 Enhanced build process with automatic permission injection
-- 🔗 Deep link integration with notifications
+- Added complete notification system (local & push)
+- New useNotification() React hook
+- Firebase Cloud Messaging conditional build support
+- Android notification handling in MainActivity
+- 5 new notification commands + 5 callbacks in NativeBridge
+- Auto-processing of notification icons & sounds
+- Conditional dependencies based on notification config
+- Updated .gitignore & .npmignore
+- Enhanced build process with automatic permission injection
+- Deep link integration with notifications
 
-## [0.0.3-canary.16] - 2025-11-19
+## [0.0.3-canary.16] - 2025-11-20
 
 - FeaturesGallery Support for File Picker: Enhanced file picker to open native gallery for selecting images and videos
 - HTTPS Framework Server: Enabled HTTPS support for the framework server with self-signed SSL certificate
@@ -177,17 +238,17 @@ Module aliases and `config/config.json` keys are not checked at load time; a mis
 
 - Adding Android release support and appInfo key
 
-## [0.0.3-canary.14] - 2025-09-29
+## [0.0.3-canary.14] - 2025-10-29
 
 - Android custom splashscreen
 
-## [0.0.3-canary.13] - 2025-09-28
+## [0.0.3-canary.13] - 2025-10-28
 
 - Multi file support in useFilePicker hook
 - Android multiple app icon support
 - Android whitelisting toggle support
 
-## [0.0.3-canary.12] - 2025-09-26
+## [0.0.3-canary.12] - 2025-10-13
 
 - Universal App Context: Added comprehensive context support for building universal mobile applications
 - OpenTelemetry SDK Integration: Built-in support for observability and performance monitoring with Otel SDK
@@ -198,70 +259,42 @@ Module aliases and `config/config.json` keys are not checked at load time; a mis
 - Enhanced Android native support: Add support for native keyboard and webview resizing in Android
 - Device info API web support: Web support in device info API
 
-## [0.0.3-canary.10] - 2025-09-11
+## [0.0.3-canary.10] - 2025-09-17
 
-- **Sentry import bug fix**
-- **Open telemetry SDK**
+- Sentry import bug fix.
+- Open telemetry SDK.
 
 ## [0.0.3-canary.9] - 2025-09-11
 
-- **App name configuration**
-- **Device Info API**
-- **Access control configuration**
+- App name configuration.
+- Device Info API.
+- Access control configuration.
 
-## [0.0.3-canary.8] - 2025-01-06
+## [0.0.3-canary.8] - 2025-08-08
 
-- **App icon configuration**
-- **Splash screen integration**
-- **Url Whitelisting**
+- App icon configuration.
+- Splash screen integration.
+- Url Whitelisting.
 
-## [0.0.3-canary.7] - 2025-01-06
+## [0.0.3-canary.7] - 2025-08-06
 
-### 🚀 Features
-
-- **Native API Integration**: Enhanced native module integration for better performance
-- **Automated IP Resolution**: Intelligent network detection eliminates manual IP configuration
-- **Universal Build System**: Streamlined one-command builds for both Android and iOS platforms
-- **Enhanced CLI Interface**: Improved command-line tools for better developer experience
-
-### 🐛 Bug Fixes
-
+- Native API Integration: Enhanced native module integration for better performance
+- Automated IP Resolution: Intelligent network detection eliminates manual IP configuration
+- Universal Build System: Streamlined one-command builds for both Android and iOS platforms
+- Enhanced CLI Interface: Improved command-line tools for better developer experience
 - Fixed IP address detection issues on development environments
 - Resolved build configuration conflicts between platforms
 - Improved error handling and recovery mechanisms
-
-### 🔧 Improvements
-
-- **Performance**: Optimized native module loading and execution
-- **Developer Experience**: Enhanced CLI with better error messages and debugging info
-- **Configuration**: Dynamic config updates without requiring restarts
-- **Build Process**: Faster and more reliable build pipeline
-
-### 🧪 Testing & Validation
-
-- ✅ **Android Build**: Verified APK generation, installation, and runtime behavior
-- ✅ **iOS Build**: Tested build process and device compatibility
-- ✅ **IP Detection**: Validated automatic network resolution across platforms
-- ✅ **Native Modules**: Confirmed API integration and performance benchmarks
-- ✅ **CLI Operations**: Tested enhanced command-line workflows and error handling
-
-### 🔄 Breaking Changes
-
-**None** - All changes maintain backward compatibility while enhancing existing functionality
-
-### 📝 Technical Details
-
+- Performance: Optimized native module loading and execution
+- Developer Experience: Enhanced CLI with better error messages and debugging info
+- Configuration: Dynamic config updates without requiring restarts
+- Build Process: Faster and more reliable build pipeline
+- Android Build: Verified APK generation, installation, and runtime behavior
+- iOS Build: Tested build process and device compatibility
+- IP Detection: Validated automatic network resolution across platforms
+- Native Modules: Confirmed API integration and performance benchmarks
+- CLI Operations: Tested enhanced command-line workflows and error handling
 - Improved native API bridge for better cross-platform communication
 - Enhanced error reporting with detailed stack traces and suggestions
 - Optimized build configuration for faster development cycles
 - Added comprehensive logging for debugging and monitoring
-
-### 🔗 Migration Notes
-
-- No migration steps required
-- Existing projects will automatically benefit from improvements
-- Optional: Update CLI usage to leverage new enhanced features
-
-## Version
-
-- Target version: 0.0.3-canary.7
