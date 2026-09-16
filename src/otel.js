@@ -22,11 +22,93 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc"
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node"
 import { OTLPTraceExporter as OTLPTraceExporterHTTP } from "@opentelemetry/exporter-trace-otlp-http"
 import { OTLPMetricExporter as OTLPMetricExporterHTTP } from "@opentelemetry/exporter-metrics-otlp-http"
+import fs from "fs"
+import os from "os"
 
 export const IS_BOT_KEY = createContextKey("catalyst.is_bot")
 
 import semanticConventions from "@opentelemetry/semantic-conventions"
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = semanticConventions
+
+const formatMB = (bytes) => (bytes / 1024 / 1024).toFixed(1)
+
+function getLogger() {
+    const l =
+        (typeof logger !== "undefined" && logger) ||
+        (typeof global !== "undefined" && global.logger) ||
+        console
+    return {
+        info: (msg, ...meta) => (l.info ? l.info(msg, ...meta) : console.log(msg, ...meta)),
+        warn: (msg, ...meta) =>
+            l.warn ? l.warn(msg, ...meta) : l.info ? l.info(msg, ...meta) : console.warn(msg, ...meta),
+        error: (msg, ...meta) => (l.error ? l.error(msg, ...meta) : console.error(msg, ...meta)),
+        debug: (msg, ...meta) => (l.debug ? l.debug(msg, ...meta) : console.debug(msg, ...meta)),
+    }
+}
+
+// undefined if the file is absent, or (for a limit) unbounded.
+function readCgroupBytesFile(path) {
+    try {
+        const raw = fs.readFileSync(path, "utf8").trim()
+        const bytes = raw === "max" ? NaN : Number(raw)
+        return Number.isFinite(bytes) && bytes > 0 && bytes < Number.MAX_SAFE_INTEGER ? bytes : undefined
+    } catch {
+        return undefined
+    }
+}
+
+// os.totalmem() reports the node's memory, not the pod's limit — read the
+// cgroup directly instead. Cached: fixed for the process's lifetime.
+let memoryLimitBytes
+function getMemoryLimitBytes() {
+    return (memoryLimitBytes ??=
+        readCgroupBytesFile("/sys/fs/cgroup/memory.max") ??
+        readCgroupBytesFile("/sys/fs/cgroup/memory/memory.limit_in_bytes") ??
+        os.totalmem())
+}
+
+// Whole-cgroup usage, not just this process's RSS — differs if anything else
+// shares the container. Changes constantly, so never cached (unlike the limit).
+function getCgroupCurrentBytes() {
+    return (
+        readCgroupBytesFile("/sys/fs/cgroup/memory.current") ??
+        readCgroupBytesFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+    )
+}
+
+// 85% of the memory limit — leaves headroom before an OOM kill.
+function highMemoryRssMB() {
+    return Math.round((getMemoryLimitBytes() * 0.85) / 1024 / 1024)
+}
+
+// 0.4 = 50% of the limit as heap budget (common container guidance) × 80% warning point.
+function highMemoryHeapUsedMB() {
+    return Math.round((getMemoryLimitBytes() * 0.4) / 1024 / 1024)
+}
+
+let lastHighMemoryAlertTime = 0
+function checkHighMemoryAlert(mem = process.memoryUsage(), contextStr = "", thresholds = {}) {
+    // Overrides are mainly for testing (e.g. forcing a low staging threshold).
+    // Validated so a bad value falls back instead of misfiring every check.
+    const isValidThreshold = (v) => typeof v === "number" && v > 0
+    const rssLimitMB = isValidThreshold(thresholds.rssMB) ? thresholds.rssMB : highMemoryRssMB()
+    const heapLimitMB = isValidThreshold(thresholds.heapUsedMB) ? thresholds.heapUsedMB : highMemoryHeapUsedMB()
+
+    const now = Date.now()
+    // Throttle alert to at most once per 60 seconds
+    if (now - lastHighMemoryAlertTime < 60000) return
+
+    const rssMB = mem.rss / 1024 / 1024
+    const heapUsedMB = mem.heapUsed / 1024 / 1024
+
+    if (rssMB > rssLimitMB || heapUsedMB > heapLimitMB) {
+        lastHighMemoryAlertTime = now
+        const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
+        getLogger().warn(
+            `⚠️ [OTEL High Memory Warning] RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap ratio: ${ratio}) ${contextStr ? `| Context: ${contextStr}` : ""}`
+        )
+    }
+}
 
 // Bit-range sampling decision helper
 function getDecisionForBits(traceId, start, end, rate) {
@@ -201,8 +283,7 @@ class PromotingSpanProcessor {
                 ? promotionRate
                 : this.config.samplingRate
             for (const s of spansToExport) {
-                // Required, not decorative: batchProcessor.onEnd() below silently
-                // drops any span whose traceFlags aren't SAMPLED.
+                // Required: batchProcessor.onEnd() drops spans without SAMPLED.
                 s.spanContext().traceFlags |= TraceFlags.SAMPLED
                 s.attributes["promoted"] = true
                 s.attributes["sample_rate"] = finalSampleRate
@@ -218,8 +299,7 @@ class PromotingSpanProcessor {
         const finalSampleRate = this.config.reportActualPromotionRate
             ? promotionRate
             : this.config.samplingRate
-        // Required, not decorative: batchProcessor.onEnd() below silently drops
-        // any span whose traceFlags aren't SAMPLED.
+        // Required: batchProcessor.onEnd() drops spans without SAMPLED.
         span.spanContext().traceFlags |= TraceFlags.SAMPLED
         span.attributes["promoted"] = true
         span.attributes["sample_rate"] = finalSampleRate
@@ -227,13 +307,9 @@ class PromotingSpanProcessor {
         this._export([span])
     }
 
-    // Hands promoted spans to the same BatchSpanProcessor used for normal
-    // head-sampled traffic, instead of exporting them directly. Reuses its
-    // queueing/backpressure (maxQueueSize, scheduledDelayMillis, ...) so a burst
-    // of promotions during an incident can't flood the collector with concurrent
-    // export calls. Trade-off: promoted spans export on the next batch flush
-    // instead of instantly. onStart() is a no-op on BatchSpanProcessorBase, so
-    // handing a span straight to onEnd() without a prior onStart() is safe.
+    // Routes promoted spans through the same BatchSpanProcessor as normal
+    // traffic, for its queueing/backpressure. Trade-off: they export on the
+    // next batch flush, not instantly. Skipping onStart() is safe — it's a no-op.
     _export(spans) {
         for (const s of spans) {
             this.batchProcessor.onEnd(s)
@@ -242,14 +318,29 @@ class PromotingSpanProcessor {
 
     _cleanupBuffers() {
         const now = Date.now()
-        const TTL = 5 * 60 * 1000
+        // Trade-off: short TTL bounds memory but drops buffered child spans (and
+        // hasChildError) for traces whose root outlives it — clock starts at the
+        // first span seen for that trace, not request start. The root itself is
+        // still evaluated fresh when it ends, so a late error can still promote,
+        // just without children. Revisit if this proves too aggressive.
+        const BUFFER_TTL = 60 * 1000 // 60 seconds TTL for unresolved buffer
+        const PROMOTED_TTL = 60 * 1000 // 60 seconds TTL for promoted trace cache
+        const mem = process.memoryUsage()
 
+        let expiredBuffer = 0
         for (const [traceId, record] of this.buffer.entries()) {
-            if (now - record.timestamp > TTL) {
+            if (now - record.timestamp > BUFFER_TTL) {
                 this.buffer.delete(traceId)
+                expiredBuffer++
             } else {
                 break
             }
+        }
+
+        if (expiredBuffer > 0) {
+            getLogger().info(
+                `🧹 [OTEL Cleanup] PromotingSpanProcessor: evicted ${expiredBuffer} expired unresolved trace(s) from buffer (remaining size=${this.buffer.size})`
+            )
         }
 
         let bufferOverflowEvicted = 0
@@ -260,20 +351,39 @@ class PromotingSpanProcessor {
                 bufferOverflowEvicted++
                 if (bufferOverflowEvicted >= toDelete) break
             }
-            // Buffer is filling faster than root spans resolve — unresolved traces
-            // are being dropped before ever getting a promotion decision.
-            const { rss, heapUsed } = process.memoryUsage()
-            logger.warn(
-                `⚠️ PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${(rss / 1024 / 1024).toFixed(1)}MB, heapUsed=${(heapUsed / 1024 / 1024).toFixed(1)}MB)`
+            // Buffer filling faster than roots resolve — traces dropped pre-promotion.
+            getLogger().warn(
+                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: buffer overflow, dropped ${bufferOverflowEvicted} unresolved trace(s) (buffer size=${this.buffer.size}, rss=${formatMB(mem.rss)}MB, heapUsed=${formatMB(mem.heapUsed)}MB)`
             )
         }
 
+        let expiredPromoted = 0
         for (const [traceId, data] of this.promotedTraces.entries()) {
-            if (now - data.timestamp > TTL) {
+            if (now - data.timestamp > PROMOTED_TTL) {
                 this.promotedTraces.delete(traceId)
+                expiredPromoted++
             } else {
                 break
             }
+        }
+
+        if (expiredPromoted > 0) {
+            getLogger().info(
+                `🧹 [OTEL Cleanup] PromotingSpanProcessor: evicted ${expiredPromoted} expired trace(s) from promotedTraces (remaining size=${this.promotedTraces.size})`
+            )
+        }
+
+        let promotedOverflowEvicted = 0
+        if (this.promotedTraces.size > 1024) {
+            const toDelete = this.promotedTraces.size - 1024
+            for (const traceId of this.promotedTraces.keys()) {
+                this.promotedTraces.delete(traceId)
+                promotedOverflowEvicted++
+                if (promotedOverflowEvicted >= toDelete) break
+            }
+            getLogger().warn(
+                `⚠️ [OTEL Buffer Overflow] PromotingSpanProcessor: promotedTraces overflow, dropped ${promotedOverflowEvicted} cache entry(s) (promotedTraces size=${this.promotedTraces.size}, rss=${formatMB(mem.rss)}MB, heapUsed=${formatMB(mem.heapUsed)}MB)`
+            )
         }
     }
 
@@ -285,8 +395,9 @@ class PromotingSpanProcessor {
         if (this.cleanupInterval) {
             clearInterval(this.cleanupInterval)
         }
-        logger.info(
-            `📡 PromotingSpanProcessor: shutting down, discarding ${this.buffer.size} unresolved trace(s) and ${this.promotedTraces.size} promoted-trace record(s)`
+        const mem = process.memoryUsage()
+        getLogger().info(
+            `📡 [OTEL Shutdown] PromotingSpanProcessor: shutting down, discarding ${this.buffer.size} unresolved trace(s) and ${this.promotedTraces.size} promoted-trace record(s) | Memory at exit: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB`
         )
         this.buffer.clear()
         this.promotedTraces.clear()
@@ -312,6 +423,10 @@ class PromotingSpanProcessor {
  * @param {object} [config.metricHeaders]
  * @param {object} [config.batchProcessorConfig] - passed to BatchSpanProcessor (maxQueueSize, scheduledDelayMillis, ...)
  * @param {number} [config.exportIntervalMillis=10000]
+ * @param {number} [config.diagnosticsIntervalMillis=60000] - memory heartbeat interval, ms; requires errorSampling.ENABLED
+ * @param {boolean} [config.enableMemoryDiagnostics=true] - memory heartbeat + high-memory warnings; requires errorSampling.ENABLED
+ * @param {number} [config.highMemoryRssMB] - overrides the auto-detected RSS warning threshold; for testing; requires errorSampling.ENABLED
+ * @param {number} [config.highMemoryHeapUsedMB] - overrides the auto-detected heapUsed warning threshold; for testing; requires errorSampling.ENABLED
  * @param {Array} [config.instrumentations] - defaults to getNodeAutoInstrumentations()
  * @param {number} [config.samplingRate=1.0] - head-sampling rate in [0, 1] for non-error traffic
  * @param {Function} [config.grpcCredentials]
@@ -327,17 +442,14 @@ class PromotingSpanProcessor {
  * @returns {{sdk: NodeSDK|null, meter: object|null}}
  */
 function init(config = {}) {
-    // OpenTelemetry is opt-in — bail out unless explicitly enabled. Mirrors the
-    // OTEL_ENABLE guard in server/expressServer.js and server/renderer/handler.jsx
-    // so the SDK, exporters, instrumentations and signal handlers are never set
-    // up when tracing is off. Returns the same shape so callers can destructure.
-    if (process.env.OTEL_ENABLE !== true) {
+    // Opt-in — mirrors the same OTEL_ENABLE guard in expressServer.js and
+    // handler.jsx. Returns the same shape either way so callers can destructure.
+    if (process.env.OTEL_ENABLE !== true && process.env.OTEL_ENABLE !== "true") {
         return { sdk: null, meter: null }
     }
 
-    // Export failures (collector down, batch rejected, ...) otherwise vanish into
-    // OTEL's silent default diag logger — route them through the app logger.
-    setGlobalErrorHandler((err) => logger.error("❌ OpenTelemetry export error:", err))
+    // Routes export failures to the app logger instead of OTEL's silent default.
+    setGlobalErrorHandler((err) => getLogger().error("❌ OpenTelemetry export error:", err))
 
     const {
         serviceName = "catalyst-server",
@@ -351,6 +463,10 @@ function init(config = {}) {
         metricHeaders = {},
         batchProcessorConfig = {},
         exportIntervalMillis = 10000,
+        diagnosticsIntervalMillis = 60000,
+        enableMemoryDiagnostics = true,
+        highMemoryRssMB,
+        highMemoryHeapUsedMB,
         instrumentations,
         samplingRate = 1.0,
         grpcCredentials,
@@ -382,7 +498,7 @@ function init(config = {}) {
         const isErrorSamplingEnabled = errorSampling && errorSampling.ENABLED === true
 
         if (isErrorSamplingEnabled) {
-            logger.info("⚙️ OpenTelemetry initializing with Status Aware Error Sampling")
+            getLogger().info("⚙️ OpenTelemetry initializing with Status Aware Error Sampling")
             sampler = new StatusAwareSampler(samplingRate)
 
             const errorSamplingConfig = {
@@ -426,7 +542,31 @@ function init(config = {}) {
         const sdk = new NodeSDK(sdkConfig)
 
         sdk.start()
-        logger.info("✅ OpenTelemetry started successfully")
+        getLogger().info("✅ OpenTelemetry started successfully")
+
+        // Only under status-aware sampling: that's the only path with unbounded
+        // buffer growth to watch. Plain BatchSpanProcessor's queue is already bounded.
+        let heartbeatInterval = null
+        if (isErrorSamplingEnabled && enableMemoryDiagnostics) {
+            const memoryThresholds = { rssMB: highMemoryRssMB, heapUsedMB: highMemoryHeapUsedMB }
+            heartbeatInterval = setInterval(() => {
+                const mem = process.memoryUsage()
+                const ratio = (mem.rss / (mem.heapUsed || 1)).toFixed(2)
+                const bufferInfo = ` | Buffers: active=${spanProcessor.buffer.size}, promotedCache=${spanProcessor.promotedTraces.size}`
+                // Not ratioed against memory.request — no cgroup file exposes it.
+                const cgroupCurrentBytes = getCgroupCurrentBytes()
+                const cgroupInfo =
+                    cgroupCurrentBytes !== undefined ? ` | CgroupCurrent=${formatMB(cgroupCurrentBytes)}MB` : ""
+                getLogger().info(
+                    `📊 [OTEL Heartbeat] Memory: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB (RSS/Heap: ${ratio})${cgroupInfo}${bufferInfo} | Uptime: ${process.uptime().toFixed(0)}s`
+                )
+                checkHighMemoryAlert(mem, "heartbeat", memoryThresholds)
+            }, diagnosticsIntervalMillis)
+
+            if (heartbeatInterval.unref) {
+                heartbeatInterval.unref()
+            }
+        }
 
         // Initialize custom metrics only if metrics are enabled
         let meter = null
@@ -435,11 +575,18 @@ function init(config = {}) {
         }
 
         const gracefulShutdown = (signal) => {
-            logger.info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval)
+            }
+            const mem = process.memoryUsage()
+            const uptime = process.uptime().toFixed(1)
+            getLogger().info(
+                `📡 [OTEL Shutdown] Received ${signal}, shutting down OpenTelemetry gracefully... [Uptime: ${uptime}s, Memory at exit: RSS=${formatMB(mem.rss)}MB, HeapUsed=${formatMB(mem.heapUsed)}MB, HeapTotal=${formatMB(mem.heapTotal)}MB, External=${formatMB(mem.external)}MB]`
+            )
             sdk.shutdown()
-                .then(() => logger.info("✅ OpenTelemetry shutdown completed"))
+                .then(() => getLogger().info("✅ OpenTelemetry shutdown completed"))
                 .catch((error) => {
-                    logger.error("❌ Error terminating OpenTelemetry:", error)
+                    getLogger().error("❌ Error terminating OpenTelemetry:", error)
                 })
                 .finally(() => process.exit())
         }
@@ -449,7 +596,7 @@ function init(config = {}) {
 
         return { sdk, meter }
     } catch (error) {
-        logger.error("❌ Failed to initialize OpenTelemetry:", error)
+        getLogger().error("❌ Failed to initialize OpenTelemetry:", error)
         throw error
     }
 }
@@ -464,13 +611,13 @@ function init(config = {}) {
  */
 function createTraceExporter(protocol, url, headers = {}, grpcCredentials) {
     if (protocol.toLowerCase() === "http") {
-        logger.info(`📡 Creating HTTP trace exporter for URL: ${url}`)
+        getLogger().info(`📡 Creating HTTP trace exporter for URL: ${url}`)
         return new OTLPTraceExporterHTTP({
             url: url,
             headers: headers,
         })
     } else if (protocol.toLowerCase() === "grpc") {
-        logger.info(`📡 Creating gRPC trace exporter for URL: ${url}`)
+        getLogger().info(`📡 Creating gRPC trace exporter for URL: ${url}`)
         return new OTLPTraceExporter({
             url: url,
             headers: headers,
@@ -493,13 +640,13 @@ function createTraceExporter(protocol, url, headers = {}, grpcCredentials) {
  */
 function createMetricExporter(protocol, url, headers = {}, grpcCredentials) {
     if (protocol.toLowerCase() === "http") {
-        logger.info(`📊 Creating HTTP metric exporter for URL: ${url}`)
+        getLogger().info(`📊 Creating HTTP metric exporter for URL: ${url}`)
         return new OTLPMetricExporterHTTP({
             url: url,
             headers: headers,
         })
     } else if (protocol.toLowerCase() === "grpc") {
-        logger.info(`📊 Creating gRPC metric exporter for URL: ${url}`)
+        getLogger().info(`📊 Creating gRPC metric exporter for URL: ${url}`)
         return new OTLPMetricExporter({
             url: url,
             headers: headers,
