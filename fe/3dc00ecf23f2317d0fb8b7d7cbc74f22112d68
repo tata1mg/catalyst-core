@@ -1,0 +1,21 @@
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/NativeBridgeTests.swift
+  s_65362eab812ce9::t_32139cd73b36e1 446-448,453,479-481,486,532-534,539
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/BootTimingUtilityTests.swift
+  s_65362eab812ce9::t_2c36896801087a 203-206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "fe3dc00ecf23f2317d0fb8b7d7cbc74f22112d68",
+  "prompts": {},
+  "sessions": {
+    "s_65362eab812ce9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f18fe53c-c211-455a-96c1-845ef8c14413",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,561 @@
+examples/catalyst-core-test/src/static/css/base/pet-styles.scss
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-77
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/BootTimingUtility.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-30
+packages/catalyst-core/src/server/expressServer.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 14,164-168
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/AppDelegate.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 12,68-72
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Constants/CatalystConstants.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-154
+examples/error-catalog/scenarios/bundle.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-27
+examples/catalyst-core-test/src/js/layouts/MainLayout/MainLayout.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-23
+packages/catalyst-core/test/server/fixtures/template/src/js/containers/App/index.jsx
+  s_c729ac6e4b46ab::t_eaf82a670caf79 2
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1,3-33
+examples/sync-packages.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 77-81,87-88
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/NativeCameraManager.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5,80-81,100,102,108
+examples/catalyst-core-test/src/js/pages/About/About.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-25
+examples/catalyst-core-test/src/js/routes/utils.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-42
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/design/DesignTokensTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-207
+.github/ISSUE_TEMPLATE/dependencies.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-52
+packages/catalyst-core/vitest.config.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-93
+.github/ISSUE_TEMPLATE/documentation.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-49
+examples/error-catalog/package.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-38
+packages/catalyst-core/src/native/buildAndroid/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 6
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsErrorPathTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-106
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NetworkMonitor.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-114
+packages/catalyst-core/test/server/fixtures/template/server/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-10
+examples/error-catalog/scenarios/preflight.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-282
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FileSizeRouterUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-471
+packages/catalyst-core/src/native/androidProject/settings.gradle.kts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 37-47
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/ResourceURLProtocol.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 11,19,25,68,86,93,96,102,116,126,129,134,136,142,160
+examples/catalyst-core-test/src/js/pages/BreedDetails/BreedDetails.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-65
+packages/catalyst-core/test/server/ChunkExtractor.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-97
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,40,159,167,171,197,212,246,262
+.husky/pre-commit
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-16
+packages/catalyst-core/src/server/utils/validator.ts
+  s_c729ac6e4b46ab::t_eaf82a670caf79 129,145,150
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 11-19,99-101,105-107,111-113,161
+  s_c729ac6e4b46ab::t_83680ccc4f6600 30-32,36-38,42-44,48-65,67,71-73,77-92,95
+packages/catalyst-core/test/server/handler.assets.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-331
+packages/catalyst-core/mcp_v2/tools/errors.d.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-20
+examples/catalyst-core-test/api.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-15
+examples/error-catalog/scenarios/ai.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-107
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FrameworkServerUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-300
+CONTRIBUTING.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-59
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/SecurityCheckSchedulerTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-166
+packages/catalyst-core/test/errors/registry.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-108
+examples/catalyst-core-test/tests/main.spec.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-57
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeJavaScriptInterface.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 12,150
+packages/catalyst-ai/src/route.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 607-626
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/plugins/PluginBridgeTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3-4,6,10,14,16-24,26-69,72-97,223-506
+packages/catalyst-core/src/native/androidProject/gradle/libs.versions.toml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 15-31,45-48,52-56
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/FilePickerHandlerTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,362
+packages/catalyst-ai/test/route.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-177
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/PerfEventBuffer.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4
+packages/catalyst-core/test/server/fixtures/template/src/js/store/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-19
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeDelegateHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 12
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/AnyCodableTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-154
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/WebKitConfig.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 10,15,17,35
+tools/oxlint-plugins/catalyst-errors.mjs
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-60
+packages/catalyst-core/mcp_v2/package.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 9-12,15-23
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebCacheManagerTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3-5,7,9-11,14,17-23,25-28,30-39,43-44,46-51,54-56,59-61,64-66,68-72,76-77,83,87-90,92-94,98,102-105,108-113,116-160,164,168-172,174,176-178,183-185,189-191,193-194,196-199,201,203-204,208-210
+examples/error-catalog/scenarios/client.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-60
+packages/catalyst-ai/test/route.handlers.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-488
+packages/catalyst-core/src/native/buildIos/config.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 138-141,144,146,153-156,159-163
+examples/catalyst-core-test/playwright.config.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-24
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/BarcodeDetectorTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-132
+packages/catalyst-core/test/server/validator.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-228
+packages/create-catalyst-app/tsconfig.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-23
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/utils.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-39
+packages/catalyst-core/src/errors/generateDocs.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 10,31-32,35,48-49,51,57-68,71,77,91-92,94
+packages/catalyst-core/src/scripts/serve.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,18-20
+examples/error-catalog/test/ai-hooks.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-35
+examples/error-catalog/src/js/containers/App/Home.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-5
+.github/PULL_REQUEST_TEMPLATE/fix.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-39
+packages/catalyst-core/test/server/fixtures/template/server/document.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-19
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Camera/VideoStreamState.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-44
+examples/error-catalog/scenarios/process.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-51
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeFileHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 12,307
+examples/catalyst-core-test/src/static/css/base/styles.scss
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-3
+packages/catalyst-core/src/web-router/components/SsrRequestContext.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-53
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/PerfEventBufferTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-133
+packages/create-catalyst-app/test/errors.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-219
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FileUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3-9,11,13,15-24,27,29-34,36-38,42-84,86,90-92,96-99,101-106,108-110,112-115,119-122,124-127,131,135-137,141-154,158-161,163-165,167-174,178-186,190,194-199,201,203-204,206-212,214,216-217,221-223,227,231-241,243-245,247-251,253,255-258,262-266,270,273-297
+examples/error-catalog/scenarios/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-70
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashViewModel.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,20,24,31,33,41,44,49,54,66,70,73,76,81
+packages/catalyst-core/src/web-router/components/SplitInview.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-112
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/CacheManagerTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3
+.github/PULL_REQUEST_TEMPLATE/chore.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-29
+.github/workflows/node.js.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5-6,10-341,347,349,352-369,371-378,380-400,402-635,637-644,646-659,662-1034,1037-1321,1323-1326,1329-1341,1345,1348,1350
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/URLWhitelistManager.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-224
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/iosnativeWebViewApp.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 12,25-26,28
+examples/error-catalog/README.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-156
+examples/error-catalog/test/mapping.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-18
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Protocols/NotificationHandlerProtocol.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-35
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NotificationHandlerProviderTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-59
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NotificationHandlerTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-430
+docs/src/js/data/errorsCatalog.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-108
+examples/catalyst-core-test/src/js/containers/Home/Home.scss
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-34
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 90-94,223,230-236,240,252-261,276-285,287,315-419
+  s_c729ac6e4b46ab::t_81e2e31d8f3a3f 420-421
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-391
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/VideoStreamStateTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-91
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CacheManager.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,11,17,29,35,46,91,121,126,131,150,153,162,171,174,179,186,202,206,212,231,235,242,244,252,263,268,275,279,285,312
+packages/catalyst-core/src/scripts/preflight.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-111
+.nvmrc
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/SafeAreaUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-108
+packages/catalyst-core/src/scripts/preServerInit.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,50-58
+packages/catalyst-core/mcp_v2/vitest.config.mjs
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-22
+examples/error-catalog/scenarios/cca.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-65
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/ConfigMappingTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-301
+packages/catalyst-core/tsconfig.json
+  s_c729ac6e4b46ab::t_eaf82a670caf79 14
+.github/ISSUE_TEMPLATE/question.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-39
+README.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 55,60
+  s_c729ac6e4b46ab::t_46f0ea4dad3436 61
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/CameraSessionManager.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 10,12,157
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-71
+packages/create-catalyst-app/scripts/errors.cjs
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 135-142,144
+.github/ISSUE_TEMPLATE/enhancement.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-61
+packages/catalyst-core/src/native/terminalProgress.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1
+packages/catalyst-core/mcp_v2/tsconfig.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-25
+docs/src/js/components/docs/ErrorsIndexPage.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-282
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,28,169,193,197,215,222,226,232,236-237,250,256,388,395,398,402,404,412,482,499,503,506,520
+.gitignore
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3-5,77-80
+examples/catalyst-core-test/src/js/containers/App/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-16
+examples/error-catalog/config/config.template.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-25
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/BridgeUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3,8-12,21-27,29,299-465
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/FrameworkServerUtils.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 67-83,108-115,530-547
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NetworkMonitorTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-119
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5
+examples/error-catalog/server/server.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/FilePickerHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 13,186,201,381-383,393,406,415,421,426,433,442,451,827,834,842,848,977,986,991,1006
+examples/error-catalog/scenarios/runtime-web.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-75
+packages/catalyst-core/src/web-router/vitest.setup.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-12
+packages/catalyst-core/mcp_v2/mcp.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 136,138,153,609-726,745
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Constants/ConfigConstants.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-75
+docs/src/js/components/docs/ErrorPage.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-168
+examples/catalyst-core-test/src/js/pages/Home/Home.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-57
+examples/catalyst-core-test/server/server.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-25
+examples/error-catalog/scripts/demo.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-297
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/TorchControllerTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-150
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Package.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-36
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/URLWhitelistManagerTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-367
+packages/catalyst-core/src/web-router/context.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-10
+package.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4-6,20,22,27-28
+.github/PULL_REQUEST_TEMPLATE.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-33
+packages/catalyst-core/src/web-router/components/RouterDataProvider.server.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-98
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/VideoStreamStateMachineTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-120
+packages/catalyst-core/src/web-router/components/MetaTag.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-100
+packages/catalyst-core/test/errors/docsDrift.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-113
+packages/catalyst-core/test/server/handler.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-210
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/PushNotificationUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-119
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashView.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 2,44,53,56,64,92
+packages/catalyst-core/test/server/render.test.ts
+  s_c729ac6e4b46ab::t_eaf82a670caf79 1,30-36,73
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 2-29,37-72,74-90
+packages/catalyst-core/src/native/buildIos/plugins.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 200,208-213,217,226
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5
+packages/catalyst-core/src/native/setupEmulatorIos.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4
+examples/catalyst-core-test/src/js/routes/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-39
+examples/catalyst-core-test/src/static/css/base/index.scss
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/BootTimingUtilityTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-254
+examples/error-catalog/scenarios/_baseline.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-69
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewModel.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,44,48,59,62,66,70
+packages/catalyst-core/src/native/androidSetup.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5
+packages/catalyst-core/mcp_v2/tools/github.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 123-157,1160-1350,1354-1358
+examples/error-catalog/vitest.config.mjs
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-8
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/VideoStreamStateTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-62
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/BarcodeDetector.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4-5,77
+examples/error-catalog/src/js/containers/App/reducer.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-7
+packages/catalyst-core/tsconfig.test.json
+  s_c729ac6e4b46ab::t_eaf82a670caf79 4-7,13,15-22
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-3,8-12,14,23
+examples/catalyst-core-test/.gitignore
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-10
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CameraTransportUtils.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 12,364
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/SecurityCheckManagerTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-260
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/NetworkMonitorTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-271
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/LocalNotificationHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 6,198-202,298
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/ZoomController.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 14-20,97-99,268-271,273-275,403-413
+packages/create-catalyst-app/package.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 12-15,28-32,34-37
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/UtilsKtTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-152
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/MetricsMonitorTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-359
+packages/catalyst-core/src/native/androidProject/build.gradle.kts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 10
+.github/PULL_REQUEST_TEMPLATE/feature.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-36
+docs/src/static/css/base/docs.scss
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 613-616,1329-1693
+examples/catalyst-core-test/src/js/components/Footer/Footer.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-26
+docs/src/js/components/docs/DocsSidebar.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1,4,10-18,20-23,44-58,79,116-235,238-247,257-273
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Camera/VideoStreamStateMachine.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-62
+packages/catalyst-core/src/scripts/start.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,18-21
+examples/error-catalog/scenarios/mapping.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-124
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/DownloadUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-197
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView.xcodeproj/project.pbxproj
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 22,61
+.github/ISSUE_TEMPLATE/bug.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-108
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/DeviceInfoUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-167
+packages/catalyst-core/src/native/buildIos/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 6
+packages/catalyst-core/test/server/scriptUtils.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-103
+packages/catalyst-core/mcp_v2/test/github.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-177
+examples/error-catalog/scripts/ensure-config.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-18
+.oxlintrc.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-25
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NullNotificationHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-85
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/PushNotificationHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5,70,76,82,200
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-906
+docs/src/js/routes/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4-5,20-34
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Notifications/NotificationModels.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-156
+examples/catalyst-core-test/client/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-23
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 30,99
+packages/catalyst-core/test/server/extract.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-128
+packages/catalyst-core/src/scripts/build.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 9-15
+packages/catalyst-core/src/web-router/components/Split.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-167
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 13,177,216,275-279,403-404,421-422,425-432
+examples/error-catalog/tsconfig.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-12
+.github/ISSUE_TEMPLATE/config.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-9
+examples/catalyst-core-test/webpackConfig.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-6
+packages/catalyst-ai/package.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4,11-14,29-34
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsLoopbackTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-243
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/ViewfinderMapperTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-143
+examples/error-catalog/test/client.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-95
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/WebViewTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 4
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/ImageHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 9,24,42,48,51,56,59,65,71,80,87,95,97,102,107,115,117,120,163,190,200,207,221,225,231,234,242,251,265,276,281,286,294,300,305,310,444,456,462,465
+examples/catalyst-core-test/src/js/components/Header/Header.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-39
+examples/error-catalog/server/document.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-3
+examples/error-catalog/src/js/containers/App/index.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-14
+packages/catalyst-ai/vitest.config.mjs
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-20
+packages/catalyst-core/src/native/iosnativeWebView/.swiftlint.yml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-66
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/NotificationManager.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 6
+docs/src/js/components/docs/ErrorsUnavailable.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-51
+packages/catalyst-core/src/native/iosnativeWebView/Package.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 9,14,24,30-36
+examples/catalyst-core-test/package.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-38
+examples/error-catalog/src/js/store/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-2
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/ZoomControllerTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-421
+packages/catalyst-core/package.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 62-64,124-130
+  s_c729ac6e4b46ab::t_eaf82a670caf79 111
+packages/catalyst-core/src/native/androidProject/app/src/main/AndroidManifest.xml
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 8-11
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/VideoStreamStateMachineTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-171
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/IntentUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-244
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/CatalystConstantsTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-192
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NotificationUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3-11,15-22,24,26-35,38,40-46,48-55,57-67,69,72-76,78-80,82-101,103-111,114-119,122-125,127-140,142,144-154,158-159,161-165,169,173-175,179-182,184-188,190-191,193-194,198-200,202-203,207-209,213-222,225-227,229-246,249-252,254-261,265-268,272-282,285,287-291,293-299,302-315,318-319,323-332,335,337-338,340-350,352-363,366-394,396-411
+examples/error-catalog/.npmrc
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1
+packages/catalyst-core/mcp_v2/tools/github.d.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-41
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/CameraSessionManager.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 5
+packages/catalyst-ai/src/route.d.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-88
+packages/catalyst-ai/tsconfig.json
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-23
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/NativeBridgeTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 439,446-448,453,472,479-481,486,525,532-534,539
+packages/catalyst-core/test/server/userAgentUtil.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-48
+examples/error-catalog/server/api.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-5
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 17,32-35,725
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/OfflineCacheServiceTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-302
+packages/create-catalyst-app/scripts/errors.d.cts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-55
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/FridaDetectorTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-193
+examples/error-catalog/server/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1
+packages/catalyst-core/mcp_v2/test/errors.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-123
+examples/catalyst-core-test/src/js/utils/dogApi.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-37
+examples/catalyst-core-test/server/document.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-20
+examples/error-catalog/scenarios/build-native.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-52
+examples/catalyst-core-test/server/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-2
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/BridgeMessageValidatorTests.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3
+docs/src/js/data/errorsSource.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-30
+packages/create-catalyst-app/vitest.config.mjs
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-24
+packages/catalyst-core/src/web-router/components/Split.server.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-52
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/HoldControllerTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-155
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/TransitionManager.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 114-116
+examples/catalyst-core-test/src/js/containers/Home/Home.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-23
+examples/error-catalog/src/js/routes/index.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-10
+packages/catalyst-core/test/errors/index.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-200
+packages/catalyst-core/.npmignore
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 35-37
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/HoldController.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/DeviceInfoUtils.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 11
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 13,586,598
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/index.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-72
+examples/error-catalog/src/js/routes/utils.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-4
+examples/catalyst-core-test/README.md
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-25
+examples/error-catalog/scripts/test-error.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-560
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NativeBridgeTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 278-285,287-292,294-296,298-299,303-306,308-309,313-316,318-319,323-358,360-373,377-403
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NotificationHandlerProvider.swift
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-20
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-310
+packages/catalyst-core/test/scripts/preflight.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-121
+scripts/test-catalyst-core.sh
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 6
+examples/error-catalog/test/scenarios.test.ts
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-412
+examples/catalyst-core-test/client/styles.js
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-4
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/CameraUtilsTest.kt
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 3-6,8,10,12-19,22,24-30,32-36,40-73,75,79-81,85-88,90-99,103,107-108,110-113,115,119-121,123-126,130,134-138,140-142,144-149,151-154,158-160,162-164,166-169,173,177-186,190-194,197-208,210-214
+packages/catalyst-core/src/web-router/utils/metaDataUtils.test.jsx
+  s_c729ac6e4b46ab::t_b5265c90f2e8e1 1-188
+package-lock.json
+  s_c729ac6e4b46ab::t_3de0e812c66d26 13-77,82-83,112-113,122-123,136-137,145-146,175-176,193-195,198-199,210-211,222-223,238-239,259-260,277-278,294-295,303-304,316-317,329-330,346-347,358-359,367-368,385-386,402-403,415-416,424-425,433-434,442-443,457-458,469-471,474,485-486,502-503,518-519,534-535,551-552,569-570,586-588,604-605,617-618,632-633,648-649,664-665,679-680,694-695,711-712,727-728,745-746,763-764,779-780,795-796,811-812,828-829,849-850,866-867,883-884,900-901,916-917,933-934,949-950,966-967,982-983,998-999,1014-1015,1031-1032,1049-1050,1065-1066,1081-1082,1097-1098,1113-1114,1130-1131,1145-1147,1154,1165-1166,1182-1183,1199-1200,1215-1216,1230-1231,1246-1247,1266-1267,1283-1284,1299-1300,1315-1316,1331-1332,1347-1348,1365-1366,1381-1382,1397-1398,1417-1418,1433-1434,1448-1449,1463-1464,1479-1481,1496-1497,1513-1514,1529-1530,1544-1546,1562-1563,1578-1579,1594-1595,1610-1611,1629-1630,1645-1646,1662-1663,1679-1680,1696-1697,1782-1783,1799-1800,1814-1815,1835-1836,1854-1855,1873-1874,1882-1883,1895-1897,1901,1903,1905,1913-1915,1925-1947,1959-1960,1981-1982,1995-1996,2009-2010,2027-2028,2037-2038,2051-2052,2064-2066,2078-2079,2094-2095,2116-2117,2126-2127,2141-2142,2158-2159,2176-2177,2192-2193,2202-2203,2213-2216,2220-2222,2225-2228,2231-2235,2238-2239,2241-2244,2247-2250,2254,2257,2260,2263-2266,2268-2271,2273,2276,2279-2282,2286,2289-2292,2296-2297,2300,2303-2306,2308-2320,2323-2326,2328-2337,2340-2344,2347-2350,2352-2362,2364-2365,2368-2372,2375-2378,2380-2390,2392,2394-2395,2398-2401,2403-2415,2417-2420,2423-2440,2443-2446,2449-2451,2454-2460,2462-2465,2467,2470-2476,2479-2483,2486-2492,2494-2499,2502-2508,2510-2516,2518-2524,2526-2531,2534-2540,2542-2545,2547,2550-2556,2558-2561,2563,2566-2572,2574-2577,2579,2582-2588,2591-2593,2595,2598-2601,2608,2611,2614-2620,2623-2625,2627,2630-2636,2638-2641,2643,2646-2652,2654-2657,2659,2662-2665,2667,2672-2675,2678-2684,2686-2689,2691,2694-2700,2702-2707,2710-2716,2718-2721,2723,2726-2732,2734-2737,2739,2742-2748,2750-2753,2755,2758-2764,2766-2769,2771,2774-2780,2782-2785,2787,2790-2796,2798-2801,2803,2806-2812,2814-2817,2819,2822-2828,2830-2833,2835,2838-2874,2877,2880,2883,2886-2896,2898-2899,2902-2906,2909,2912-2916,2919-2927,2930,2933,2936-2940,2943-5230,5233,5236,5239-5242,5244-5245,5248-5252,5255-5276,5279-5283,5286-5294,5297-5301,5304-5321,5324-5327,5331-5334,5337-5341,5344-5348,5351-5355,5358-5364,5367-5370,5373-5374,5377-5380,5384-5386,5388-5389,5394-5395,5407-5408,5415-5418,5429-5430,5439-5440,5456-5457,5471-5473,5485-5486,5507-5508,5522-5523,5526-5535,5538-5539,5555-5556,5561-5562,5568-5569,5591-5592,5612-5613,5631-5632,5650-5651,5667-5668,5687-5696,5699-5700,5709-5727,5736-5737,5746-5747,5762-5763,5777-5778,5791-5792,5804-5805,5809-5811,5820-5829,5832-5833,5848,5870-5871,5879-5880,5887,5895-5896,5906-5908,5925-5929,5940-5941,5946-5947,5955-5956,5974-5975,5987-5988,6001-6009,6012-6013,6023-6025,6050-6059,6062-6063,6075-6076,6101-6102,6110-6111,6126-6127,6143-6144,6158-6159,6168-6169,6184-6185,6197-6198,6204-6205,6211-6212,6221-6222,6236-6237,6249-6250,6267-6268,6327-6328,6334-6335,6344-6345,6350-6351,6361-6362,6373-6374,6391-6392,6400-6401,6406-6407,6412-6413,6424-6425,6433-6434,6446-6447,6459-6460,6478-6479,6484-6485,6493-6494,6506-6507,6511-6513,6517-6520,6528-6530,6556-6557,6578-6579,6591-6611,6621-6622,6632-6660,6663-6664,6681-6682,6699-6700,6716-6718,6723-6724,6738-6744,6747-6748,6754-6755,6763-6764,6781-6782,6799-6800,6806-6815,6818-6819,6828-6829,6832-6901,6904-6908,6910-6912,6915-6919,6924-6925,6934-6935,6947-6948,6961-6962,6966-6968,6973-6974,6986-6987,6994-6996,6999,7007-7008,7017-7018,7030-7031,7039-7040,7106-7124,7127-7128,7136-7137,7144-7146,7171-7177,7180-7181,7192-7193,7208-7209,7220-7222,7226-7228,7230-7231,7242-7243,7283-7284,7292-7293,7298-7299,7310-7312,7367-7368,7383-7384,7416-7417,7437-7438,7450-7451,7463-7464,7487-7488,7502-7503,7518-7519,7528-7529,7542-7543,7552-7553,7562-7563,7579-7580,7589-7590,7605-7606,7622-7623,7635-7636,7642-7643,7659-7660,7672-7673,7689-7690,7702-7703,7709-7710,7725-7726,7741-7742,7757-7758,7767-7768,7780-7781,7793-7794,7811-7812,7824-7825,7837-7838,7850-7851,7863-7864,7872-7879,7883-7884,7893-7894,7902-7903,7909-7910,7931-7940,7943-7944,7989-7990,7999-8000,8008-8009,8014-8015,8021-8022,8028-8029,8047-8048,8052-8053,8060-8076,8085-8086,8107-8108,8119-8120,8137-8138,8146-8147,8152-8153,8165-8167,8170,8173,8178-8179,8191-8207,8209-8211,8215-8223,8225-8227,8229-8231,8244-8245,8260-8261,8269-8270,8278-8279,8284-8285,8291-8292,8297-8299,8311-8312,8319-8321,8325-8328,8330-8333,8344-8345,8354-8355,8364-8365,8373-8374,8383-8384,8396-8397,8420-8421,8433-8434,8446-8447,8464-8466,8483-8485,8504-8505,8518-8519,8534-8535,8550-8551,8567-8568,8579-8580,8585-8586,8592-8593,8605-8606,8614-8615,8627-8628,8643-8644,8655-8656,8671-8672,8683-8684,8690-8691,8698-8739,8742-8743,8762-8763,8768-8769,8778-8779,8794-8795,8806-8807,8817-8818,8822-8823,8838-8839,8847-8848,8858-8859,8868-8869,8875-8884,8887-8889,8898-8899,8904-8905,8914-8915,8929-8930,8938-8939,8947-8948,8965-8966,8971-8972,8991-8992,9007-9008,9021-9022,9038-9039,9051-9052,9067-9068,9085-9086,9100-9115,9118-9119,9128-9129,9144-9145,9157-9158,9177-9178,9190-9191,9203-9204,9216-9217,9225-9226,9242-9243,9252-9253,9262-9263,9272-9278,9281-9282,9300-9301,9313-9314,9329-9330,9342-9343,9359-9360,9377-9378,9390-9391,9406-9407,9419-9420,9435-9436,9447-9511,9514-9517,9519-9525,9527-9530,9532-9536,9538,9543-9544,9561-9562,9571-9572,9589,9599-9600,9637-9638,9652-9653,9668-9669,9680-9681,9684-9688,9691-9711,9714-9732,9737-9738,9749-9750,9756-9757,9762-9763,9769-9770,9776-9777,9788-9789,9798-9799,9815-9816,9831-9832,9841-9842,9850-9851,9865-9866,9874-9875,9886-10134,10137-10138,10150-10151,10156-10157,10184-10185,10201-10203,10206-10207,10210,10215-10216,10222-10223,10229-10230,10236-10238,10244-10245,10251-10252,10258-10259,10265-10266,10272-10273,10279-10280,10286-10287,10293-10294,10300-10301,10307-10308,10327-10328,10343-10344,10377-10378,10389-10390,10398-10399,10405-10436,10439-10440,10452-10453,10461-10462,10468-10474,10477-10478,10486-10487,10499-10500,10508-10509,10515-10516,10524-10525,10537-10538,10548-10550,10558-10559,10570-10571,10583-10584,10594-10603,10606-10607,10618-10619,10627-10628,10636-10637,10648-10649,10669-10670,10674-10676,10683,10693-10694,10700-10701,10709-10710,10715-10716,10725-10726,10732-10733,10743-10745,10762-10764,10772-10773,10783-10784,10799-10800,10812-10813,10830-10831,10842-10843,10852-10853,10873-10874,10889-10890,10908-10909,10925-10938,10941-10942,10953-10954,10962-10963,10980-10981,10996-10997,11013-11015,11019-11020,11031-11034,11037-11038,11041,11044-11077,11080-11083,11086,11089,11095-11106,11109-11110,11118-11119,11130-11131,11148-11149,11152-11164,11167-11168,11175-11177,11180,11185-11186,11194-11195,11204-11205,11211-11228,11233-11234,11239-11240,11250-11252,11264-11265,11273-11274,11282-11283,11294-11295,11303-11305,11320,11322,11332-11333,11341-11343,11356-11400,11403-11404,11416-11417,11427-11428,11438-11447,11449-11451,11454-11455,11466-11467,11487-11488,11496-11497,11510-11512,11519-11521,11524,11527,11532-11533,11538-11539,11555-11556,11561-11562,11584-11585,11607-11608,11620-11622,11635-11644,11646-11655,11660-11661,11683-11684,11690-11691,11703-11704,11713-11714,11734-11735,11752-11753,11758-11760,11772-11773,11782-11783,11792-11793,11814-11815,11824-11825,11841-11842,11857-11858,11868-11869,11874-11877,11886-11924,11926-11928,11941-11966,11972-11973,11996-11997,12016-12017,12036-12037,12053-12054,12063-12064,12090-12091,12094-12120,12122-12124,12143-12144,12157-12159,12169-12174,12176-12179,12182-12187,12190-12191,12199-12200,12223-12224,12232-12233,12238-12239,12259-12260,12277-12278,12293-12294,12308-12309,12314-12315,12326-12327,12332-12333,12345-12346,12354-12356,12360-12361,12374-12375,12390-12391,12408-12409,12425-12431,12434-12435,12446-12447,12452-12453,12462-12463,12479-12480,12487-12495,12498-12499,12507-12508,12517-12518,12534-12540,12543-12544,12550-12556,12559-12560,12582-12583,12592-12593,12610-12611,12638-12639,12648-12650,12654-12655,12658-12661,12671-12673,12677-12678,12680,12691-12692,12709-12710,12725-12726,12736-12748,12751-12752,12762-12773,12776-12777,12788-12800,12803-12807,12809-12813,12816,12819-12825,12828-12832,12834-12835,12838,12843-12844,12862-12863,12869-12870,12876-12884,12888-12890,12899-12900,12913-12916,12919,12921-12922,12925-12929,12932-12942,12944-12945,12948-12954,12957-12958,12969-12970,12976-13001,13013-13014,13019-13020,13032-13033,13045-13046,13058-13059,13073-13074,13093-13094,13115-13116,13135-13137,13141,13144-13166,13171-13172,13197-13198,13214-13223,13225-13227,13233-13234,13243-13244,13257-13258,13267-13268,13277-13278,13290-13291,13298-13300,13329-13330,13339-13340,13354-13355,13363-13364,13372-13373,13380-13382,13385-13389,13395,13404-13406,13408-13412,13421,13424,13427-13430,13458-13459,13470-13612,13615,13618-13622,13624-13627,13629-13630,13635-13636,13651-13652,13671-13672,13699-13700,13717-13719,13738-13754,13823-13824,13833-13834,13851-13852,13857-13858,13868-13884,13887-13888,13897-13898,13903-13904,13918-13920,13938-13939,13948-13949,13958-13959,13965-13966,13975-13976,13990-13991,14003-14004,14016-14017,14026-14027,14041-14046,14093-14096,14099,14108,14111-14112,14140-14143,14146,14148-14149,14174-14177,14180-14185,14188,14191-14245,14265-14269,14274-14275
+packages/catalyst-core/mcp_v2/package-lock.json
+  s_c729ac6e4b46ab::t_69b27d918f2676 1-2031
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "0bed63ae627f94d318258a981b071992e8492826",
+  "prompts": {},
+  "sessions": {
+    "s_c729ac6e4b46ab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a46bf67-f930-49da-ba60-35e731475e24",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

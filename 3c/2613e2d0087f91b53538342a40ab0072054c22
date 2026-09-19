@@ -1,0 +1,57 @@
+packages/catalyst-core/src/native/bridge/errors.ts
+  3a0f4ce98dc8011b 6-36,206-210,230,328,330
+packages/catalyst-core/src/native/bridge/hooks/useSafeArea.ts
+  3a0f4ce98dc8011b 5-6,8-17,38,57
+packages/catalyst-core/src/native/bridge/hooks/useFilePicker.ts
+  3a0f4ce98dc8011b 13,166-217,219,279-280
+packages/catalyst-core/package.json
+  3a0f4ce98dc8011b 34
+packages/catalyst-core/src/native/bridge/hooks/useCamera.ts
+  3a0f4ce98dc8011b 7,10-63,281-312,321,323-324
+packages/catalyst-core/src/native/bridge/hooks/useDeviceInfo.ts
+  3a0f4ce98dc8011b 4,6-41,43
+packages/catalyst-core/src/native/bridge/hooks/useIntent.ts
+  3a0f4ce98dc8011b 6,8-40,90
+packages/catalyst-core/src/globals.d.ts
+  3a0f4ce98dc8011b 31-59
+packages/catalyst-core/src/native/bridge/hooks/useNotification.ts
+  3a0f4ce98dc8011b 7-8,11,14,72-97,99,162-219,221-222,224-225
+packages/catalyst-core/src/native/bridge/WebBridge.ts
+  3a0f4ce98dc8011b 9,32,46,49,67-77,448-453,457
+packages/catalyst-core/src/native/bridge/hooks/useNetworkStatus.ts
+  3a0f4ce98dc8011b 6,8-29
+packages/catalyst-core/src/native/bridge/hooks/useHapticFeedback.ts
+  3a0f4ce98dc8011b 65,116-120
+packages/catalyst-core/src/native/bridge/utils/CameraUtils.ts
+  3a0f4ce98dc8011b 10-30
+packages/catalyst-core/src/native/bridge/safeArea.ts
+  3a0f4ce98dc8011b 1-6,9-11
+packages/catalyst-core/src/native/bridge/useBaseHook.ts
+  3a0f4ce98dc8011b 4,7-85,93-94,117,119-120,131,151,177,205,230,250,332,339
+packages/catalyst-core/scripts/strip-ts-sources.mjs
+  3a0f4ce98dc8011b 1-98
+packages/catalyst-core/src/native/bridge/hooks/useNativeTransition.ts
+  3a0f4ce98dc8011b 7-8,12-50,66,71-73,163
+packages/catalyst-core/src/native/bridge/utils/NativeBridge.ts
+  3a0f4ce98dc8011b 9-21,237,247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "3c2613e2d0087f91b53538342a40ab0072054c22",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 887,
+      "total_deletions": 106,
+      "accepted_lines": 953,
+      "overriden_lines": 1
+    }
+  }
+}

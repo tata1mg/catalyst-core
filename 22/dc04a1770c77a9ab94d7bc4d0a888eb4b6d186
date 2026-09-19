@@ -1,0 +1,26 @@
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_abbac7e1770c30::t_7fb22e053f1a12 135-141
+  s_abbac7e1770c30::t_da09bd1399acee 315-387,410-411,418-451
+  s_abbac7e1770c30::t_63e6751753172d 452-454
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "22dc04a1770c77a9ab94d7bc4d0a888eb4b6d186",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_abbac7e1770c30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4085bc31-9037-435d-ae5c-82adf34a4ec1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

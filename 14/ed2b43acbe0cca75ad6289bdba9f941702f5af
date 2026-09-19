@@ -1,0 +1,23 @@
+packages/create-catalyst-app/test/errors.test.cjs
+  s_4402816142cf62::t_ae05e88d405519 136-151
+packages/catalyst-core/test/errors/docsDrift.test.js
+  s_4402816142cf62::t_1a56cc9537cd05 70-83
+packages/create-catalyst-app/scripts/errors.cjs
+  s_4402816142cf62::t_68a7f078878432 139-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "14ed2b43acbe0cca75ad6289bdba9f941702f5af",
+  "prompts": {},
+  "sessions": {
+    "s_4402816142cf62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a32d928-2145-4f65-b230-552ae10bd35e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

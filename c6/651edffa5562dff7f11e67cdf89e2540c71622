@@ -1,0 +1,25 @@
+packages/catalyst-core/src/native/bridge/hooks/useVideoStream.js
+  3a0f4ce98dc8011b 323-324,327-328,343,347-348,363,382,386
+packages/catalyst-core/src/native/bridge/hooks/useNotification.js
+  3a0f4ce98dc8011b 103-110,249-288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "c6651edffa5562dff7f11e67cdf89e2540c71622",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 186,
+      "overriden_lines": 0
+    }
+  }
+}

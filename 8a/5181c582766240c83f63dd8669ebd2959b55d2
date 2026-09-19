@@ -1,0 +1,38 @@
+packages/catalyst-core/mcp_v2/package.json
+  s_ebae651b5fcd4d::t_8df864459c1c60 19-20
+packages/catalyst-core/mcp_v2/test/github.test.ts
+  s_ebae651b5fcd4d::t_3c231985f44792 1-54,56-97,99-177
+  s_ebae651b5fcd4d::t_6757474da35dfd 55,98
+packages/catalyst-core/mcp_v2/tools/github.js
+  s_ebae651b5fcd4d::t_6757474da35dfd 143-144,1163,1194,1222,1233,1242,1328
+  s_ebae651b5fcd4d::t_4e1802033c36c8 1160-1162,1164-1193,1195-1221,1223-1232,1234-1241,1243-1327,1329-1350,1354-1358
+  s_ebae651b5fcd4d::t_ed6880be563fa7 123-142,145-157
+packages/catalyst-core/mcp_v2/tools/github.d.ts
+  s_ebae651b5fcd4d::t_d53bcb16c50197 1-41
+packages/catalyst-core/mcp_v2/tsconfig.json
+  s_ebae651b5fcd4d::t_004e759da36852 23
+packages/catalyst-core/mcp_v2/mcp.js
+  s_ebae651b5fcd4d::t_f0da6fd86ec3ec 136,138
+  s_ebae651b5fcd4d::t_dc624e5a1085e7 745
+  s_ebae651b5fcd4d::t_a026e9612f65a2 609-638,641-643,646-657,660-662,665-667,670-681,684-703,706-726
+  s_ebae651b5fcd4d::t_6757474da35dfd 639-640,644-645,658-659,663-664,668-669,682-683,704-705
+  s_ebae651b5fcd4d::t_b4db7a08e5f584 153
+packages/catalyst-core/mcp_v2/package-lock.json
+  s_ebae651b5fcd4d::t_2106f42d16a08f 15-16,2013-2028
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "8a5181c582766240c83f63dd8669ebd2959b55d2",
+  "prompts": {},
+  "sessions": {
+    "s_ebae651b5fcd4d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3097325-258f-4919-b958-e2438e0c724e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

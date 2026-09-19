@@ -1,0 +1,29 @@
+.nvmrc
+  s_4402816142cf62::t_ac6bda0bdf85cc 1
+.github/workflows/node.js.yml
+  s_4402816142cf62::t_f0efd7e82785a2 50
+packages/catalyst-core/vitest.config.js
+  s_4402816142cf62::t_adb578451880e8 5
+package.json
+  s_4402816142cf62::t_8f16aecd8bdc23 4-6
+README.md
+  s_4402816142cf62::t_4206d15616ee31 55
+scripts/test-catalyst-core.sh
+  s_4402816142cf62::t_c893f6f7912cd5 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "a7c6bd7eaa79d878089a6a24bbae413e747bcbce",
+  "prompts": {},
+  "sessions": {
+    "s_4402816142cf62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a32d928-2145-4f65-b230-552ae10bd35e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

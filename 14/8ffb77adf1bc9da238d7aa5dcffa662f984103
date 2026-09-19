@@ -1,0 +1,35 @@
+packages/catalyst-core/src/native/bridge/hooks/useCamera.js
+  3a0f4ce98dc8011b 5,236,297-298,300,322,325-328,356-361,371-377
+packages/catalyst-core/src/native/bridge/errors.js
+  3a0f4ce98dc8011b 117-124
+packages/catalyst-core/src/native/bridge/hooks/useDeviceInfo.js
+  3a0f4ce98dc8011b 61
+packages/catalyst-core/src/native/bridge/hooks/useNativeTransition.js
+  3a0f4ce98dc8011b 221
+packages/catalyst-core/src/native/bridge/hooks/useAI.js
+  3a0f4ce98dc8011b 84
+packages/catalyst-core/src/native/bridge/hooks/useNotification.js
+  3a0f4ce98dc8011b 5,74,93,96-97,112-117,127-132
+packages/catalyst-core/src/native/bridge/hooks/useVideoStream.js
+  3a0f4ce98dc8011b 6,61-65,76-77,79,85-86,88,117-123,149-150,152,160-163,174-175,177,188-191,205-206,208,304-305,307,316-319,342-345,352-355,370-371,373,383-384,386,397,418,439,459
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "148ffb77adf1bc9da238d7aa5dcffa662f984103",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 725,
+      "total_deletions": 224,
+      "accepted_lines": 719,
+      "overriden_lines": 0
+    }
+  }
+}

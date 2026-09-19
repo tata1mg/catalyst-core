@@ -1,0 +1,24 @@
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_cbea663a13314a::t_e7f028e6265b17 324-341,351,366
+  s_cbea663a13314a::t_c4d8a44cea6ddd 367-370,372-381
+  s_cbea663a13314a::t_50ea00b12668e0 385,388
+  s_cbea663a13314a::t_2df1e57615ab39 371
+  s_cbea663a13314a::t_fdf07712dc450f 342-350
+  s_cbea663a13314a::t_debc98bd3f8092 382-383
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a4a8bacb4a4920b05fc99f11855de557b41097a7",
+  "prompts": {},
+  "sessions": {
+    "s_cbea663a13314a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1b43752-575a-4960-973a-284fa8571046",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

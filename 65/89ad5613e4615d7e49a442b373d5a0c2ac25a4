@@ -1,0 +1,28 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/ZoomControllerTest.kt
+  s_517e689629005e::t_78fb749ba0b939 401-402,404
+  s_517e689629005e::t_a98ae7fe9e6eec 117-118,120
+  s_517e689629005e::t_9adbb9ec8ca7d8 1-116,119,121-400,403,405-421
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/DeviceInfoUtilsTest.kt
+  s_517e689629005e::t_d8af6090ccc310 1-167
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/SecurityCheckSchedulerTest.kt
+  s_517e689629005e::t_c4815a24859d92 44-58
+  s_517e689629005e::t_6164cef7dfe288 1-19,22-43,59-109,112-115,117-119,123,125-131,135-137,139-141,143-144,146-153,157,165-166
+  s_517e689629005e::t_49c5e94c94ad6b 110-111,116,120-122,124,132-134,138,142,145,154-156,158-164
+  s_517e689629005e::t_5cb715b1105eba 20-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "6589ad5613e4615d7e49a442b373d5a0c2ac25a4",
+  "prompts": {},
+  "sessions": {
+    "s_517e689629005e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b92ffca-6e58-4f4b-b2a3-e6cc6bb648f0",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

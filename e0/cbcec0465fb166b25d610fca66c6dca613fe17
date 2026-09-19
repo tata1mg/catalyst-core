@@ -1,0 +1,28 @@
+package.json
+  s_37c16653d4dde9::t_e7820a8a7b9320 29-30
+  s_37c16653d4dde9::t_6eaef96f2f6689 27-28,31
+packages/catalyst-core/src/scripts/generateOfflineManifest.js
+  s_37c16653d4dde9::t_45d7ba11bef66e 71-75
+packages/catalyst-core/src/server/expressServer.js
+  s_37c16653d4dde9::t_765cbee52142a9 87-94,98-99,112
+packages/catalyst-core/src/vite/vite.config.js
+  s_37c16653d4dde9::t_a7b828e4fb50bb 61-66
+package-lock.json
+  s_37c16653d4dde9::t_65bdee78033f57 2886,2919,4601-4602,5170,5737,6367,6883,7569,8919,8930,8952,8959,8973,8989,9006,9019,9043,9070,9121,9135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e0cbcec0465fb166b25d610fca66c6dca613fe17",
+  "prompts": {},
+  "sessions": {
+    "s_37c16653d4dde9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "948e76b0-d0ae-46e8-a83a-49981bf1596c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

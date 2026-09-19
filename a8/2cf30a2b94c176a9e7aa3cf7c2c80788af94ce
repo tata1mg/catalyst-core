@@ -1,0 +1,22 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NativeBridgeTest.kt
+  s_517e689629005e::t_aa9bc7cd99a06e 278-285,287-292,294-296,298-299,303-306,308-309,313-316,318-319,323-358,360-373,377-403
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_517e689629005e::t_bbfcb76514f13a 99
+  s_517e689629005e::t_df3469f3247fe2 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a82cf30a2b94c176a9e7aa3cf7c2c80788af94ce",
+  "prompts": {},
+  "sessions": {
+    "s_517e689629005e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b92ffca-6e58-4f4b-b2a3-e6cc6bb648f0",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

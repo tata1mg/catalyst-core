@@ -1,0 +1,66 @@
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_abbac7e1770c30::t_7d57e9c91d4024 3,211-309
+packages/catalyst-core/test/server/fixtures/template/server/index.js
+  s_abbac7e1770c30::t_40d86804fb9f16 1-10
+packages/catalyst-core/test/server/fixtures/template/server/document.jsx
+  s_abbac7e1770c30::t_40d86804fb9f16 1-19
+packages/catalyst-core/test/server/scriptUtils.test.ts
+  s_abbac7e1770c30::t_40d86804fb9f16 1-103
+packages/catalyst-core/vitest.config.ts
+  s_abbac7e1770c30::t_7d57e9c91d4024 1-12,34-41,44-64,67-72,76-79,87
+packages/catalyst-core/src/web-router/components/Split.server.test.jsx
+  s_abbac7e1770c30::t_40d86804fb9f16 1-52
+packages/catalyst-core/test/server/render.test.ts
+  s_abbac7e1770c30::t_40d86804fb9f16 1-85
+packages/catalyst-core/mcp_v2/package.json
+  s_abbac7e1770c30::t_7d57e9c91d4024 15,20-22
+packages/catalyst-core/src/web-router/utils/metaDataUtils.test.jsx
+  s_abbac7e1770c30::t_7d57e9c91d4024 61-75
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/utils.jsx
+  s_abbac7e1770c30::t_40d86804fb9f16 1-31
+packages/catalyst-core/test/server/fixtures/template/src/js/containers/App/index.jsx
+  s_abbac7e1770c30::t_40d86804fb9f16 1-23
+packages/catalyst-core/test/server/fixtures/template/src/js/store/index.js
+  s_abbac7e1770c30::t_40d86804fb9f16 1-19
+packages/catalyst-core/test/server/validator.test.ts
+  s_abbac7e1770c30::t_b08f505d5a7dfb 1,12-14,17,121-124,126-132,140,149,155-161,169,173,177-180,182-186,191,196-198,204-211
+  s_abbac7e1770c30::t_7d57e9c91d4024 120,125,133-139,141-148,150-154,162-168,170-172,174-176,181,187-190,192-195,199-203,212
+packages/catalyst-core/src/web-router/components/Split.test.jsx
+  s_abbac7e1770c30::t_7d57e9c91d4024 109-152
+packages/catalyst-core/src/web-router/hooks.test.jsx
+  s_abbac7e1770c30::t_40d86804fb9f16 1-18
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/index.jsx
+  s_abbac7e1770c30::t_40d86804fb9f16 1-46
+packages/catalyst-core/test/server/handler.test.ts
+  s_abbac7e1770c30::t_40d86804fb9f16 1-178
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_abbac7e1770c30::t_40d86804fb9f16 1-71
+packages/catalyst-core/src/web-router/components/RouterDataProvider.server.test.jsx
+  s_abbac7e1770c30::t_40d86804fb9f16 1-98
+packages/catalyst-core/test/server/extract.test.ts
+  s_abbac7e1770c30::t_40d86804fb9f16 1-128
+packages/catalyst-core/test/server/userAgentUtil.test.ts
+  s_abbac7e1770c30::t_40d86804fb9f16 1-48
+packages/catalyst-core/test/server/ChunkExtractor.test.ts
+  s_abbac7e1770c30::t_40d86804fb9f16 1-97
+.github/workflows/node.js.yml
+  s_abbac7e1770c30::t_8d9a5dd5263dd9 135-138,145-154
+packages/catalyst-core/mcp_v2/package-lock.json
+  s_abbac7e1770c30::t_f4c1ab2d7d40f0 1-2011
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4496d2ddb39850492954a19b5379ad2cdb4ed0f1",
+  "prompts": {},
+  "sessions": {
+    "s_abbac7e1770c30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4085bc31-9037-435d-ae5c-82adf34a4ec1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

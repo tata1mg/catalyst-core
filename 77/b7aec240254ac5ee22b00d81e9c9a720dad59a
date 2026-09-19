@@ -1,0 +1,23 @@
+docs/server/server.js
+  28e97f8b30dd01e7 8-13,23,36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "77b7aec240254ac5ee22b00d81e9c9a720dad59a",
+  "prompts": {
+    "28e97f8b30dd01e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d629a74e-ca3f-40c6-8744-6349e45ba35a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 14,
+      "total_deletions": 4,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}

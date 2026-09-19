@@ -1,0 +1,19 @@
+examples/error-catalog/package.json
+  s_c729ac6e4b46ab::t_c5bb5d8f2d4dac 31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "1effa37c786da8335c94220e82bf4a3351fdf28d",
+  "prompts": {},
+  "sessions": {
+    "s_c729ac6e4b46ab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a46bf67-f930-49da-ba60-35e731475e24",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

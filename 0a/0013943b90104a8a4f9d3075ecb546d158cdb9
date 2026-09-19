@@ -1,0 +1,19 @@
+package.json
+  s_4402816142cf62::t_c6d4f9d68c4134 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "0a0013943b90104a8a4f9d3075ecb546d158cdb9",
+  "prompts": {},
+  "sessions": {
+    "s_4402816142cf62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a32d928-2145-4f65-b230-552ae10bd35e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

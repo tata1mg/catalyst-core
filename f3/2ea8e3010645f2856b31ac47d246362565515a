@@ -1,0 +1,19 @@
+.github/workflows/test-cancel.yml
+  s_18ebc815cd25d6::t_c686cb116ea8f4 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f32ea8e3010645f2856b31ac47d246362565515a",
+  "prompts": {},
+  "sessions": {
+    "s_18ebc815cd25d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e59121fb-58b1-4c4d-962e-60babb96864d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

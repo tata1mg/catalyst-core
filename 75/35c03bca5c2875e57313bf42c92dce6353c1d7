@@ -1,0 +1,49 @@
+packages/catalyst-core/src/native/iosnativeWebView/Package.swift
+  s_d1d2a3ad805770::t_30e7c387c77bc2 9
+  s_d1d2a3ad805770::t_c8a0934d8d14ec 14,24
+  s_d1d2a3ad805770::t_bc060d97b80aec 30-36
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CacheManager.swift
+  s_d1d2a3ad805770::t_c9c5147f9bb34f 4
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_d1d2a3ad805770::t_6075adcc933f18 4
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/BootTimingUtility.swift
+  s_d1d2a3ad805770::t_175ee9ab655610 12-13,18
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_d1d2a3ad805770::t_75a4dd3abdcb05 13
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  s_d1d2a3ad805770::t_c9adc0bb2193b3 5
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/BootTimingUtilityTests.swift
+  s_d1d2a3ad805770::t_18d6a77b0e6ed2 3
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/iosnativeWebViewApp.swift
+  s_d1d2a3ad805770::t_27a7b1d2cf29c1 12
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_d1d2a3ad805770::t_9764c6e776cc32 4
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/AppDelegate.swift
+  s_d1d2a3ad805770::t_3abb1d2b33dc43 12
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Package.swift
+  s_d1d2a3ad805770::t_1b6e1f97287540 1-36
+.gitignore
+  s_d1d2a3ad805770::t_534243b7f00b42 82-84
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/WebKitConfig.swift
+  s_d1d2a3ad805770::t_9c8d45bc62f8bb 10
+packages/catalyst-core/src/native/buildIos/plugins.js
+  s_d1d2a3ad805770::t_7595794b652904 200,208-213,217,226
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView.xcodeproj/project.pbxproj
+  s_d1d2a3ad805770::t_3bfc444bf3130e 26,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "7535c03bca5c2875e57313bf42c92dce6353c1d7",
+  "prompts": {},
+  "sessions": {
+    "s_d1d2a3ad805770": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8e984c3-3a98-43b0-a19a-64996f057441",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": null
+    }
+  }
+}

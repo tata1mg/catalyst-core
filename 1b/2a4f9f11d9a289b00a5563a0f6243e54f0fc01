@@ -1,0 +1,26 @@
+packages/catalyst-core/src/native/androidProject/gradle/libs.versions.toml
+  s_d1d2a3ad805770::t_0e66a3cbe18bbb 15-20
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_d1d2a3ad805770::t_c2e20e15400d1f 308-349,359,361-366
+  s_d1d2a3ad805770::t_ad15e3b0a704e8 350-358,360
+  s_d1d2a3ad805770::t_f3c27a7d05c75b 90-94
+.github/workflows/node.js.yml
+  s_d1d2a3ad805770::t_1be4ebe6b1cd24 106
+  s_d1d2a3ad805770::t_831c41d7a349b6 78-86,90-105,107-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "1b2a4f9f11d9a289b00a5563a0f6243e54f0fc01",
+  "prompts": {},
+  "sessions": {
+    "s_d1d2a3ad805770": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8e984c3-3a98-43b0-a19a-64996f057441",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

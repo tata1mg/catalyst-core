@@ -1,0 +1,42 @@
+packages/catalyst-ai/test/route.handlers.test.ts
+  s_8120292fcc76bd::t_32ad693b885b08 1-61,70-89,91-97,99-110,112,121-133,135-147,149-166,168-174,176-182,184-190,192-224,226-251,253-271,273-296,298-313,315-317,319-351,353-376,378-393,395-414,416-425,427-431,433-445,459-462
+  s_8120292fcc76bd::t_ebaa1890ce828a 62-69,90,98,111,113-120
+  s_8120292fcc76bd::t_7ddd271b73bf64 453-457
+  s_8120292fcc76bd::t_132eb2aa20d8a1 446-452,458
+  s_8120292fcc76bd::t_47a30efe938643 134
+  s_8120292fcc76bd::t_a7b53c15c6cdcf 148
+  s_8120292fcc76bd::t_39acdbcea00760 167
+  s_8120292fcc76bd::t_79b54653a37fbe 175
+  s_8120292fcc76bd::t_a697c9a3f7e098 183
+  s_8120292fcc76bd::t_7c555c27eae13d 191
+  s_8120292fcc76bd::t_feefd4380a75cb 225
+  s_8120292fcc76bd::t_100bc52d5cfb53 252
+  s_8120292fcc76bd::t_754a0122f2dedf 272
+  s_8120292fcc76bd::t_ab9f9a8938391d 297
+  s_8120292fcc76bd::t_4c7db8bce13a2a 314
+  s_8120292fcc76bd::t_d434796c3f4b1b 318
+  s_8120292fcc76bd::t_2c2f53164b974f 352
+  s_8120292fcc76bd::t_ca4d97572252d1 377
+  s_8120292fcc76bd::t_7e6bec7c7da2da 394
+  s_8120292fcc76bd::t_e8f57a354d57fb 415
+  s_8120292fcc76bd::t_832399116e8957 426
+  s_8120292fcc76bd::t_317e7609e57cba 432
+packages/catalyst-ai/src/route.d.ts
+  s_8120292fcc76bd::t_0e394258fd18fe 75-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "b2729843c99321f5099ffc43f6fc274f50799368",
+  "prompts": {},
+  "sessions": {
+    "s_8120292fcc76bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f056c7a-ca7d-437f-8778-966f40dc2509",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

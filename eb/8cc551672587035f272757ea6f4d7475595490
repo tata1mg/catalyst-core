@@ -1,0 +1,19 @@
+.github/workflows/node.js.yml
+  s_8120292fcc76bd::t_6ad1d642cb89b8 28,38,75,78,112,115,247,273,384,413,536,814,817
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "eb8cc551672587035f272757ea6f4d7475595490",
+  "prompts": {},
+  "sessions": {
+    "s_8120292fcc76bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f056c7a-ca7d-437f-8778-966f40dc2509",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

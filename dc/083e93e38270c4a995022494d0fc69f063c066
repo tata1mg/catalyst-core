@@ -1,0 +1,99 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/PerfEventBuffer.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 4
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeDelegateHandler.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 12
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CameraTransportUtils.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 12
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_d1d2a3ad805770::t_fab638332d4537 331
+  s_d1d2a3ad805770::t_7929251e999aee 137
+  s_d1d2a3ad805770::t_f91bd35f388566 93-101
+  s_d1d2a3ad805770::t_2aba5047fd23b8 286
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/WebViewTests.swift
+  s_d1d2a3ad805770::t_988450993e94e0 4
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/BridgeMessageValidatorTests.swift
+  s_d1d2a3ad805770::t_e63e41af80b205 3
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/URLWhitelistManager.swift
+  s_d1d2a3ad805770::t_096785d45e23f7 25-26
+  s_d1d2a3ad805770::t_4616d9e29f638b 69-85
+  s_d1d2a3ad805770::t_6a7ca2cb0a53b3 142-150
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 5
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/FilePickerHandlerTests.swift
+  s_d1d2a3ad805770::t_e63e41af80b205 4
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/PushNotificationHandler.swift
+  s_d1d2a3ad805770::t_94fcf7e14601dd 5
+packages/catalyst-core/.npmignore
+  s_d1d2a3ad805770::t_1e092c6193da91 33-35
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Camera/VideoStreamState.swift
+  s_d1d2a3ad805770::t_c141c0be0b1336 18
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 13
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashView.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 2
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/LocalNotificationHandler.swift
+  s_d1d2a3ad805770::t_94fcf7e14601dd 6
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NetworkMonitor.swift
+  s_d1d2a3ad805770::t_8155ec47bc5b3e 5-11
+  s_d1d2a3ad805770::t_f52f010bac37aa 35-40
+  s_d1d2a3ad805770::t_db505927a0d20e 58
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeJavaScriptInterface.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 12
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/NotificationManager.swift
+  s_d1d2a3ad805770::t_94fcf7e14601dd 6
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/DeviceInfoUtils.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 11
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 17
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/ZoomController.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 5
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/HoldController.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 3
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeFileHandler.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 12
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsTests.swift
+  s_d1d2a3ad805770::t_5931484ccf98a8 1-391
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Constants/ConfigConstants.swift
+  s_d1d2a3ad805770::t_9d9375c48a9985 1-3,10-12,14-15,17-22,24,26,28-37,39-41,43-44,46-48,51-75
+  s_d1d2a3ad805770::t_04ae9f33c71c85 4-9,13,16,23,25,27,38,42,45,49-50
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Camera/VideoStreamStateMachine.swift
+  s_d1d2a3ad805770::t_3fd0b050ebe2cc 11-44
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NotificationHandlerTests.swift
+  s_d1d2a3ad805770::t_5931484ccf98a8 1-430
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashViewModel.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 4
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/CacheManagerTests.swift
+  s_d1d2a3ad805770::t_e63e41af80b205 3
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/URLWhitelistManagerTests.swift
+  s_d1d2a3ad805770::t_5931484ccf98a8 1-367
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/CameraSessionManager.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 5
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewModel.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 4
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/ImageHandler.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 9
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/FilePickerHandler.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 13
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/ConfigMappingTests.swift
+  s_d1d2a3ad805770::t_5931484ccf98a8 1-301
+packages/catalyst-core/src/native/buildIos/config.js
+  s_d1d2a3ad805770::t_056ea571a761e6 138-141,144,146,153-156,159-163
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/NativeCameraManager.swift
+  s_d1d2a3ad805770::t_fe254573d783a2 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "dc083e93e38270c4a995022494d0fc69f063c066",
+  "prompts": {},
+  "sessions": {
+    "s_d1d2a3ad805770": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8e984c3-3a98-43b0-a19a-64996f057441",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

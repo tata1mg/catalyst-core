@@ -1,0 +1,25 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NotificationUtilsTest.kt
+  s_cbea663a13314a::t_e569d776a7a714 367-379,405
+  s_cbea663a13314a::t_1860d3f356e502 335,338-342,344,347,351,354,358,361
+  s_cbea663a13314a::t_6321d984b65c9b 382-391
+  s_cbea663a13314a::t_ab98b2db966820 8,12,14,16-21
+  s_cbea663a13314a::t_affa65d09e38a1 271-274,288
+  s_cbea663a13314a::t_ace98c3c2088d4 261-270,275-287,289-334,336-337,343,345-346,348-350,352-353,355-357,359-360,362-366,380-381,392-404,406-410
+  s_cbea663a13314a::t_e6a8d24b1f1c9c 48-67,69,76,80-81,85-92,96,116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "96018f1b1d6857719fd97955504ba9309f9afce3",
+  "prompts": {},
+  "sessions": {
+    "s_cbea663a13314a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1b43752-575a-4960-973a-284fa8571046",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

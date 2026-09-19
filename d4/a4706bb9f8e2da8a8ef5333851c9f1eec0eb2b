@@ -1,0 +1,19 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/BootTimingUtilityTests.swift
+  s_8120292fcc76bd::t_60417768e3b105 97-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d4a4706bb9f8e2da8a8ef5333851c9f1eec0eb2b",
+  "prompts": {},
+  "sessions": {
+    "s_8120292fcc76bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f056c7a-ca7d-437f-8778-966f40dc2509",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

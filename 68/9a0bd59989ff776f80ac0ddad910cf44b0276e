@@ -1,0 +1,25 @@
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-019.md
+  s_4402816142cf62::t_5538298f8a6187 11,15
+errors/index.json
+  s_4402816142cf62::t_c0efccf3402de8 313-314
+packages/catalyst-core/src/errors/registry.js
+  s_4402816142cf62::t_e63dc7de658c1c 353-355,482
+packages/catalyst-core/src/errors/index.js
+  s_4402816142cf62::t_17dfea672b167b 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "689a0bd59989ff776f80ac0ddad910cf44b0276e",
+  "prompts": {},
+  "sessions": {
+    "s_4402816142cf62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a32d928-2145-4f65-b230-552ae10bd35e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

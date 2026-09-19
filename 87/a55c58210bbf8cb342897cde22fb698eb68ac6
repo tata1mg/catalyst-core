@@ -1,0 +1,59 @@
+packages/catalyst-core/test/server/userAgentUtil.test.ts
+  s_abbac7e1770c30::t_1f1d47577ef1b7 1-11,13-20,22-26,28-31,33-44,46-48
+  s_abbac7e1770c30::t_2c8e25c95387df 12,21,27,32,45
+packages/catalyst-core/test/server/extract.test.ts
+  s_abbac7e1770c30::t_5ba7535521caf4 1-12,14-20,22-23,25-39,41-42,44-49,51-55,57-60,62-67,69-112
+  s_abbac7e1770c30::t_4a1d4870e5ccc1 40,43,50,56,61,68
+  s_abbac7e1770c30::t_04554c0a2ef8a9 13
+  s_abbac7e1770c30::t_3f65bf8cdf5a0b 21,24
+packages/catalyst-core/test/server/render.test.ts
+  s_abbac7e1770c30::t_515429bd2af8f7 1-85
+packages/catalyst-core/test/server/fixtures/template/server/index.js
+  s_abbac7e1770c30::t_f0a987c5a3821a 1-10
+packages/catalyst-core/test/server/handler.test.ts
+  s_abbac7e1770c30::t_90be4a22bd3a93 79-82,87-89
+  s_abbac7e1770c30::t_a892bf949dd564 161-163
+  s_abbac7e1770c30::t_70bffbbb60a3ec 38-41
+  s_abbac7e1770c30::t_64a60347be2851 1-37,42-78,83-86,90-160,164-165
+packages/catalyst-core/test/server/fixtures/template/src/js/store/index.js
+  s_abbac7e1770c30::t_5004e2126854aa 1-19
+packages/catalyst-core/test/server/validator.test.ts
+  s_abbac7e1770c30::t_3028eade088d50 1-150
+packages/catalyst-core/test/server/ChunkExtractor.test.ts
+  s_abbac7e1770c30::t_fc8082fe795e3d 1-76
+packages/catalyst-core/test/server/scriptUtils.test.ts
+  s_abbac7e1770c30::t_4d27b8fc9e7e97 1-53
+packages/catalyst-core/vitest.config.ts
+  s_abbac7e1770c30::t_b61d9556e57859 63-68
+  s_abbac7e1770c30::t_491ae486c81cf9 44-50,57-58
+  s_abbac7e1770c30::t_08254e149d6cc9 51-56,59-60
+  s_abbac7e1770c30::t_130c600f5fc020 1,4-12
+  s_abbac7e1770c30::t_1ab0f6457b916c 13
+packages/catalyst-core/test/server/fixtures/template/server/document.jsx
+  s_abbac7e1770c30::t_a744781e84c03c 1-19
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_abbac7e1770c30::t_cc91b50938e0cb 1-19
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/utils.jsx
+  s_abbac7e1770c30::t_c91da18c39e3e0 3
+  s_abbac7e1770c30::t_82abdb8e1232c4 1-2,4-31
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/index.jsx
+  s_abbac7e1770c30::t_6fff59d4ea7b19 1-20
+packages/catalyst-core/test/server/fixtures/template/src/js/containers/App/index.jsx
+  s_abbac7e1770c30::t_1fa8a013437773 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "87a55c58210bbf8cb342897cde22fb698eb68ac6",
+  "prompts": {},
+  "sessions": {
+    "s_abbac7e1770c30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4085bc31-9037-435d-ae5c-82adf34a4ec1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,65 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeJavaScriptInterface.swift
+  s_1150025a52e5b2::t_f90202af865991 150
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_1150025a52e5b2::t_f90202af865991 586,598
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/PushNotificationHandler.swift
+  s_1150025a52e5b2::t_f90202af865991 70,76,82,200
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_1150025a52e5b2::t_f90202af865991 177,216,403-404
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/LocalNotificationHandler.swift
+  s_1150025a52e5b2::t_f90202af865991 298
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/NativeCameraManager.swift
+  s_1150025a52e5b2::t_f90202af865991 80-81,100,102,108
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/NativeBridgeTests.swift
+  s_1150025a52e5b2::t_f90202af865991 439,472,525
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashView.swift
+  s_1150025a52e5b2::t_f90202af865991 44,53,56,64,92
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_1150025a52e5b2::t_f90202af865991 510,513,516
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/TransitionManager.swift
+  s_1150025a52e5b2::t_f90202af865991 114-116
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/WebKitConfig.swift
+  s_1150025a52e5b2::t_f90202af865991 15,17,35
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/ResourceURLProtocol.swift
+  s_1150025a52e5b2::t_f90202af865991 11,19,25,68,86,93,96,102,116,126,129,134,136,142,160
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_1150025a52e5b2::t_f90202af865991 725
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_1150025a52e5b2::t_f90202af865991 40,159,167,171,197,212,246,262
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewModel.swift
+  s_1150025a52e5b2::t_f90202af865991 44,48,59,62,66,70
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_1150025a52e5b2::t_f90202af865991 28,169,193,197,215,222,226,232,236-237,250,256,388,395,398,402,404,412,482,499,503,506,520
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashViewModel.swift
+  s_1150025a52e5b2::t_f90202af865991 20,24,31,33,41,44,49,54,66,70,73,76,81
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/FilePickerHandler.swift
+  s_1150025a52e5b2::t_f90202af865991 186,201,393,406,415,421,426,433,442,451,827,834,842,848,977,986,991,1006
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeFileHandler.swift
+  s_1150025a52e5b2::t_f90202af865991 307
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CameraTransportUtils.swift
+  s_1150025a52e5b2::t_f90202af865991 364
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/FilePickerHandlerTests.swift
+  s_1150025a52e5b2::t_f90202af865991 362
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NotificationHandlerProvider.swift
+  s_1150025a52e5b2::t_f90202af865991 14
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CacheManager.swift
+  s_1150025a52e5b2::t_f90202af865991 11,17,29,35,46,91,121,126,131,150,153,162,171,174,179,186,202,206,212,231,235,242,244,252,263,268,275,279,285,312
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/ImageHandler.swift
+  s_1150025a52e5b2::t_f90202af865991 24,42,48,51,56,59,65,71,80,87,95,97,102,107,115,117,120,163,190,200,207,221,225,231,234,242,251,265,276,281,286,294,300,305,310,444,456,462,465
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "1bee7ec135f5b4d8f51b8680b8cf3bc2bfef2c45",
+  "prompts": {},
+  "sessions": {
+    "s_1150025a52e5b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fb4c0969-e5e9-438b-9ebb-2e224153d480",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
