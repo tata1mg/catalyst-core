@@ -24,7 +24,7 @@
         "@css": "src/static/css",
         "@routes": "src/js/routes/",
         "@store": "src/js/store/index.js",
-        "@webmcp": "src/js/webmcp/",
+        "@devtools": "src/js/devtools/",
         "@pages": "src/js/pages/"
     },
     "dependencies": {

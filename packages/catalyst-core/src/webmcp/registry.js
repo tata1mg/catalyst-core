@@ -3,19 +3,19 @@
  * a framework (not a component-scoped library) can own.
  *
  * Responsibilities:
- *   - Single point that talks to `document.modelContext` (native or shim).
+ *   - Single point that talks to `document.modelContext` (native, or a shim
+ *     the app opted into via `catalyst-core/webmcp/shim`).
  *   - Track every live tool with its *owner* (a hook instance) and the
  *     *route path* it was registered under.
  *   - Give `WebMcpProvider` a way to abort every tool belonging to routes
  *     that are no longer matched (agent navigated away → stale tools die).
  *   - Namespacing: if two routes both want "add_to_cart", the later one is
- *     rejected loudly rather than silently clobbering (shim's last-wins).
+ *     rejected loudly rather than silently clobbering.
  *
  * This module holds process-wide singleton state on purpose — there is one
  * `document.modelContext` per document, so there is one registry.
  */
 
-import { ensureModelContext, hasNative } from "./shim.js"
 import { WebMcpError, WEBMCP_ERROR_CODES, toWebMcpError } from "./errors.js"
 
 /** ownerKey -> { name, routePath, receipt, abortController, spec } */
@@ -41,16 +41,32 @@ function deepEqual(a, b) {
 }
 
 /**
- * The backend `document.modelContext` — or, when there is none (SSR, unit
- * tests with no DOM), an in-memory stand-in so the registry's own logic
- * (collision detection, reap, invoke) stays exercisable. The stand-in never
- * touches globals and never persists past the process.
+ * The backend `document.modelContext` — native, or whatever the app
+ * installed there itself (e.g. `catalyst-core/webmcp/shim`'s `installShim()`
+ * for a browser with no native WebMCP support yet). Registry code makes no
+ * distinction between the two; whoever put an object at `document.
+ * modelContext` (or `navigator.modelContext`) owns that decision, not this
+ * module.
+ *
+ * When there is NONE (SSR, unit tests with no DOM, or a browser where the
+ * app chose not to install a shim), falls back to an in-memory stand-in so
+ * the registry's own logic (collision detection, reap, invoke) stays
+ * exercisable. The stand-in never touches globals and never persists past
+ * the process — it is a safety net, not a substitute for real discovery: an
+ * agent watching `document.modelContext` sees nothing while it's active. See
+ * WebMcpProvider's one-time console.warn for surfacing that to a developer.
  */
 function ctx() {
-    const { api } = ensureModelContext()
+    const api = existingModelContext()
     if (api) return api
     if (!_fallbackApi) _fallbackApi = createFallbackBackend()
     return _fallbackApi
+}
+
+function existingModelContext() {
+    if (typeof document !== "undefined" && document.modelContext) return document.modelContext
+    if (typeof navigator !== "undefined" && navigator.modelContext) return navigator.modelContext
+    return null
 }
 
 let _fallbackApi = null
@@ -91,8 +107,9 @@ function createFallbackBackend() {
 }
 
 /**
- * Lifecycle events for the dev panel. Emitted here (framework layer) rather
- * than inside the shim, so the panel behaves identically on a native backend.
+ * Lifecycle events for a dev panel or other observer. Emitted here
+ * (framework layer) rather than inside any shim, so behaviour is identical
+ * whether the backend is native or a shim.
  *   webmcp:register    { id, name, routePath, replaced }
  *   webmcp:unregister  { id, name }
  *   webmcp:execute:start { callId, name, args }
@@ -103,12 +120,19 @@ function emit(type, detail) {
     try {
         document.dispatchEvent(new CustomEvent(type, { detail }))
     } catch {
-        /* CustomEvent unavailable — panel just won't live-update */
+        /* CustomEvent unavailable — an observer just won't live-update */
     }
 }
 
+/**
+ * Whether the active backend is genuinely native — as opposed to nothing
+ * (the in-memory fallback) or an app-installed shim (which self-marks with
+ * `__isWebMcpShim`, the same convention `catalyst-core/webmcp/shim` uses).
+ * A dev panel or other observer can use this to label what it's showing.
+ */
 export function isNative() {
-    return hasNative()
+    const api = existingModelContext()
+    return !!api && !api.__isWebMcpShim
 }
 
 /**
@@ -146,7 +170,7 @@ export function registerTool(ownerKey, routePath, spec) {
 
     // The mutable, user-facing half of the spec. updateToolSpec() swaps
     // fields on this object in place, then re-registers with the backend so
-    // the agent-visible schema (what Chrome/the shim actually serialised at
+    // the agent-visible schema (what Chrome/a shim actually serialised at
     // registerTool time) reflects the change too — mutating this object
     // alone only affects our own validation, not what the agent sees.
     const userSpec = {
@@ -265,11 +289,11 @@ export function updateToolRoute(ownerKey, routePath) {
  *      the instant this runs — it never sees a torn-down registration.
  *   2. The backend registration is refreshed: the old receipt is
  *      unregistered and a fresh wrappedSpec is registered under the SAME
- *      `live` entry, so `document.modelContext`/the shim actually serves the
- *      updated description/inputSchema to the agent. Mutating `userSpec`
- *      alone (as an earlier version of this function did) only fixed our
- *      own validation — Chrome had already captured the stale schema at the
- *      original `registerTool` call and never saw the update.
+ *      `live` entry, so `document.modelContext` actually serves the updated
+ *      description/inputSchema to the agent. Mutating `userSpec` alone (as
+ *      an earlier version of this function did) only fixed our own
+ *      validation — the backend had already captured the stale schema at
+ *      the original `registerTool` call and never saw the update.
  *
  * This is NOT the WEBMCP_ABORTED bug from useTool's mount effect: that bug
  * was re-running `registerTool` with a FRESH ownerKey/AbortController on
@@ -291,7 +315,7 @@ export function updateToolSpec(ownerKey, { description, inputSchema, annotations
     // when a particular dep (e.g. a UI-only selection that doesn't affect the
     // schema shape) didn't actually change the CONTENT. Re-registering with
     // the backend on every such no-op call would spam unregister/register
-    // (visible as spurious REGISTERED events in the dev panel) for no reason.
+    // (visible as spurious REGISTERED events to any observer) for no reason.
     const changed =
         (description !== undefined && description !== entry.userSpec.description) ||
         (inputSchema !== undefined && !deepEqual(inputSchema, entry.userSpec.inputSchema)) ||
@@ -353,7 +377,7 @@ export function unregisterTool(ownerKey) {
  * unregistered. Tools with routePath "" (not route-scoped) are left alone.
  *
  * @param {Set<string>} matchedPaths
- * @returns {string[]} names of tools that were reaped (for logging / the panel)
+ * @returns {string[]} names of tools that were reaped (for logging / a panel)
  */
 export function reapUnmatched(matchedPaths) {
     const reaped = []
@@ -370,7 +394,7 @@ export function reapUnmatched(matchedPaths) {
 /**
  * Invoke a tool by name through the registry's own wrapped execute (which
  * emits the execute:start/end events and applies arg validation + abort
- * checks). Used by the dev panel so it works regardless of whether the
+ * checks). Useful to a dev panel so it works regardless of whether the
  * backend exposes a page-side executeTool().
  */
 export async function invokeTool(name, args = {}) {
@@ -430,20 +454,21 @@ export function __resetForTests() {
 }
 
 /**
- * Test-only: what the BACKEND (native document.modelContext, or the
- * in-memory fallback in unit tests) thinks the current tool list/schemas
- * are — as opposed to `inspect()`, which reports the registry's own
- * bookkeeping. Used to assert that updateToolSpec()'s re-register actually
- * reaches the agent-visible side, not just our internal validation.
+ * Test-only: what the BACKEND (native document.modelContext, an installed
+ * shim, or the in-memory fallback in unit tests) thinks the current tool
+ * list/schemas are — as opposed to `inspect()`, which reports the
+ * registry's own bookkeeping. Used to assert that updateToolSpec()'s
+ * re-register actually reaches the agent-visible side, not just our
+ * internal validation.
  */
 export function __getBackendTools() {
     return ctx().getTools()
 }
 
-/** Snapshot for the dev panel. */
+/** Snapshot for a dev panel or other observer. */
 export function inspect() {
     return {
-        isNative: hasNative(),
+        isNative: isNative(),
         tools: Array.from(live.values()).map((e) => ({
             name: e.name,
             routePath: e.routePath,
@@ -455,15 +480,15 @@ export function inspect() {
 }
 
 /**
- * Very shallow inputSchema check — POC-grade. Only looks at top-level
- * `properties`, `type: number|string|boolean|integer`, and `minimum`.
- * Enough to demonstrate "the agent sent a bad arg and got a typed error"
- * without pulling in a JSON Schema validator.
+ * Shallow inputSchema check — only looks at top-level `properties`,
+ * `type: number|string|boolean|integer`, and `minimum`. Enough to reject
+ * obviously-wrong agent args with a typed error without pulling in a full
+ * JSON Schema validator.
  */
 function shallowValidate(schema, args) {
     if (!schema || schema.type !== "object" || !schema.properties) return null
     for (const [key, propSchema] of Object.entries(schema.properties)) {
-        if (!(key in args) || args[key] === undefined) continue // required-ness not enforced in POC
+        if (!(key in args) || args[key] === undefined) continue // required-ness not enforced here
         const val = args[key]
         const t = propSchema.type
         if (t === "number" || t === "integer") {

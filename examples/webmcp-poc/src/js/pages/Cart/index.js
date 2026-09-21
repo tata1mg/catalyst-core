@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { Link } from "react-router"
 import { useSelector, useDispatch } from "react-redux"
-import { useTool } from "@webmcp"
+import { useTool } from "catalyst-core/webmcp"
 import {
     selectCartItems,
     selectCartTotal,

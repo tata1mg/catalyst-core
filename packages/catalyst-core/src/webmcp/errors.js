@@ -1,16 +1,16 @@
 /**
- * WebMcpError — POC-local error type for the WebMCP integration layer.
+ * WebMcpError — the error type for catalyst-core's WebMCP integration.
  *
  * Shaped deliberately like catalyst-core's `CatalystError` (same `.code`,
- * `.details`, `.suggestedAction`, `.cause` fields) so that a later, real
- * integration can swap these ad-hoc codes for registry codes from
- * `catalyst-core/errors` without changing any call sites.
- *
- * The framework's own error registry (PREFLIGHT_* / RUNTIME_WEB_* / AI_* …)
- * has no code that means "a page tool's execute() threw" or "the agent
- * called a tool that isn't registered on this route", so the POC defines
- * its own small set here. See the discussion's §4b ("errors mapped through
- * Catalyst's CatalystError registry") — that mapping is a phase-2 item.
+ * `.details`, `.suggestedAction`, `.cause` fields) so a later integration can
+ * swap these ad-hoc codes for registry codes from `catalyst-core/errors`
+ * without changing any call sites. The framework's own error registry
+ * (PREFLIGHT_* / RUNTIME_WEB_* / AI_* …) has no code that means "a page
+ * tool's execute() threw" or "the agent called a tool that isn't registered
+ * on this route", so this module defines its own small set. That mapping
+ * (folding these into the shared registry) is a follow-up, not part of this
+ * migration — src/errors/registry.js has its own contract tests (#411) that
+ * this module deliberately does not touch.
  */
 
 export const WEBMCP_ERROR_CODES = Object.freeze({
@@ -36,7 +36,7 @@ export class WebMcpError extends Error {
         if (cause !== undefined) this.cause = cause
     }
 
-    /** Plain object suitable for returning to an agent / rendering in the dev panel. */
+    /** Plain object suitable for returning to an agent / rendering in a dev panel. */
     toResult() {
         return {
             ok: false,

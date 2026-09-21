@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
-import { ensureModelContext } from "./shim.js"
-import { inspect, invokeTool } from "./registry.js"
+import { installShim } from "catalyst-core/webmcp/shim"
+import { inspect, invokeTool } from "catalyst-core/webmcp"
 
 /**
  * DevPanel — a hand-driven stand-in for a browser AI agent.
@@ -14,9 +14,13 @@ import { inspect, invokeTool } from "./registry.js"
  * (a call ran and returned / threw).
  *
  * Rendered via portal into the <div id="webmcp-panel" /> that App mounts.
- * Client-only.
+ * Client-only. Self-sufficient: subscribes to the registry's own lifecycle
+ * events and reads inspect() directly, rather than taking tick/snapshot
+ * props from WebMcpProvider — core's provider ships no UI or panel-specific
+ * state, only the registry events every consumer (this panel included) can
+ * subscribe to.
  */
-export function DevPanel({ tick, snapshot }) {
+export function DevPanel() {
     const [mountEl, setMountEl] = useState(null)
     const [open, setOpen] = useState(true)
     const [log, setLog] = useState([]) // { kind, at, ...payload }
@@ -76,7 +80,7 @@ export function DevPanel({ tick, snapshot }) {
                 inputSchema: { type: "object", properties: {} },
             }))
 
-        const { api } = ensureModelContext()
+        const { api } = installShim()
         if (api && typeof api.getTools === "function") {
             try {
                 const raw = api.getTools()
@@ -99,7 +103,7 @@ export function DevPanel({ tick, snapshot }) {
         }
         return fromRegistry()
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tick, log.length])
+    }, [log.length])
 
     async function runSelected() {
         if (!selected) return
@@ -129,7 +133,7 @@ export function DevPanel({ tick, snapshot }) {
         <div style={S.root}>
             <div style={S.header} onClick={() => setOpen((o) => !o)}>
                 <strong>WebMCP</strong>
-                <span style={S.badge}>{snapshot && snapshot.isNative ? "native" : "shim"}</span>
+                <span style={S.badge}>{reg.isNative ? "native" : "shim"}</span>
                 <span style={S.count}>{discovered.length} tool(s)</span>
                 <span style={S.toggle}>{open ? "▾" : "▸"}</span>
             </div>

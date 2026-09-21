@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { useParams, Link } from "react-router"
 import { useSelector, useDispatch } from "react-redux"
-import { useTool, WebMcpError, WEBMCP_ERROR_CODES } from "@webmcp"
+import { useTool, WebMcpError, WEBMCP_ERROR_CODES } from "catalyst-core/webmcp"
 import { selectProducts } from "../../store/productsSlice"
 import { addToCart } from "../../store/cartSlice"
 import css from "./ProductDetail.scss"
