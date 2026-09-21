@@ -47,13 +47,13 @@ function narrate(kind, detail) {
         if (name === 'navigate') return `Navigating to ${args?.path ?? ''}…`
         if (name === 'get_page_info') return 'Reading the current page…'
         if (name === 'get_current_route') return 'Checking what tools are callable…'
-        const argsText = args && Object.keys(args).length ? JSON.stringify(args) : ''
+        const argsText = args && Object.keys(args).length ? truncate(JSON.stringify(args)) : ''
         return `Calling ${name}(${argsText})…`
     }
 
     // kind === 'end'
     if (!ok) {
-        return `${name} failed: ${error?.message || 'unknown error'}`
+        return `${name} failed: ${truncate(error?.message || 'unknown error')}`
     }
     if (name === 'search_docs') {
         const count = result?.count ?? (Array.isArray(result?.results) ? result.results.length : undefined)
@@ -63,8 +63,13 @@ function narrate(kind, detail) {
         const dest = result?.url || result?.path
         return dest ? `Navigated to ${dest}.` : `${name} done.`
     }
-    if (typeof result === 'string') return result
-    return `${name} → ${result === undefined ? 'done' : JSON.stringify(result)}`
+    if (typeof result === 'string') return truncate(result)
+    return result === undefined ? `${name} done.` : `${name} → ${truncate(JSON.stringify(result))}`
+}
+
+/** Keeps an unknown-shape result readable in a toast rather than dumping raw JSON. */
+function truncate(text, max = 240) {
+    return text.length > max ? `${text.slice(0, max)}…` : text
 }
 
 function iconFor(toast) {
@@ -145,42 +150,74 @@ const WebMcpToastBridge = () => {
         <div style={S.stack} aria-live="polite">
             {visible.map((t) => (
                 <div key={t.id} style={{ ...S.toast, ...(t.ok === false ? S.toastError : {}) }}>
-                    <span style={S.icon}>{iconFor(t)}</span>
-                    <span style={S.text}>{t.text}</span>
+                    <div style={S.header}>
+                        <span style={S.icon}>{iconFor(t)}</span>
+                        <span style={S.label}>{labelFor(t)}</span>
+                    </div>
+                    <div style={S.body}>{t.text}</div>
                 </div>
             ))}
         </div>
     )
 }
 
+/** Short bold label for the toast header — the tool name, or "AI" for a narrate() push. */
+function labelFor(toast) {
+    if (toast.source === 'narrate') return 'AI'
+    return toast.name || 'webmcp'
+}
+
 const S = {
     stack: {
         position: 'fixed',
         right: 16,
-        bottom: 16,
+        top: 16,
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
         zIndex: 999999,
         pointerEvents: 'none',
-        maxWidth: 360,
+        width: 320,
     },
     toast: {
         display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
+        flexDirection: 'column',
+        gap: 4,
         padding: '10px 14px',
         borderRadius: 8,
         background: 'rgba(17, 24, 39, 0.92)',
         color: '#f9fafb',
         boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-        font: '13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        font: '13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     },
     toastError: {
         background: 'rgba(127, 29, 29, 0.95)',
     },
-    icon: { flexShrink: 0 },
-    text: { wordBreak: 'break-word' },
+    header: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+    },
+    icon: { flexShrink: 0, fontSize: 12 },
+    label: {
+        fontWeight: 700,
+        fontSize: 11,
+        letterSpacing: 0.3,
+        textTransform: 'uppercase',
+        color: '#9ca3af',
+    },
+    body: {
+        wordBreak: 'break-word',
+        whiteSpace: 'pre-wrap',
+        maxHeight: 96,
+        overflowY: 'auto',
+        // Long results (a search_docs dump, a multi-line error) scroll
+        // inside the toast instead of stretching it to cover the page —
+        // this is the "content structure" fix: a short label up top always
+        // stays visible, and only the body (which can be arbitrarily long)
+        // is capped and scrollable.
+        pointerEvents: 'auto',
+    },
 }
 
 export default WebMcpToastBridge
