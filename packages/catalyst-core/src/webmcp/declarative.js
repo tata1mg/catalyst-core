@@ -43,6 +43,8 @@
  * This resolves open question #4 in the discussion for the POC.
  */
 
+import { WebMcpError, WEBMCP_ERROR_CODES } from "./errors.js"
+
 /** "/product/:id" -> "product" ; "/products" -> "products" ; "/" -> "home" */
 export function toolNameFromPath(pathPattern) {
     const segs = String(pathPattern)
@@ -136,17 +138,31 @@ export function declarativeToolFor(route, navigate) {
 /**
  * The two fixed framework tools from §4c.
  *
- * @param routes      flat route table (from getRoutes())
+ * @param routes      flat route table `navigate`'s enum is built from — already
+ *                    run through the app's `filterNavigable`, if any (see
+ *                    WebMcpProvider). Parameterised routes ("/product/:id")
+ *                    are reachable through their own declarative tool, so
+ *                    only static paths are ever offered here.
  * @param navigate    react-router navigate fn
  * @param getCurrent  () => ({ pathname, params, patterns, tools })
+ * @param allRoutes   the FULL flat route table, before filterNavigable —
+ *                    optional, used only to give a more useful error when an
+ *                    agent asks for a path that's a real route but was
+ *                    deliberately excluded from `navigate` (e.g. one of many
+ *                    generated content pages, reachable through the app's
+ *                    own search/read tools instead).
  */
-export function frameworkTools(routes, navigate, getCurrent) {
+export function frameworkTools(routes, navigate, getCurrent, allRoutes) {
     // Closed set of navigable destinations. Parameterised routes ("/product/:id")
     // are reachable through their own declarative tool, so we list only the
     // static paths here.
     const staticPaths = routes
         .map((r) => (r.path.startsWith("/") ? r.path : `/${r.path}`))
         .filter((p) => !p.includes(":"))
+
+    const allPaths = allRoutes
+        ? allRoutes.map((r) => (r.path.startsWith("/") ? r.path : `/${r.path}`))
+        : staticPaths
 
     return [
         {
@@ -162,7 +178,17 @@ export function frameworkTools(routes, navigate, getCurrent) {
             annotations: { readOnlyHint: true },
             execute: async ({ path } = {}) => {
                 if (!staticPaths.includes(path)) {
-                    throw new Error(`"${path}" is not a navigable page. One of: ${staticPaths.join(", ")}`)
+                    // A real route, just not one `navigate` offers (e.g. deliberately
+                    // excluded via filterNavigable) — say so, rather than implying
+                    // the path doesn't exist at all. get_current_route's own tool
+                    // list is the generic way to discover what IS callable right now.
+                    const isKnownButExcluded = allPaths.includes(path)
+                    throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                        message: isKnownButExcluded
+                            ? `"${path}" exists but isn't a navigate() destination. Call get_current_route to see ` +
+                              "what other tools are callable right now — this app likely exposes it through one of those instead."
+                            : `"${path}" is not a navigable page. One of: ${staticPaths.join(", ")}`,
+                    })
                 }
                 navigate(path)
                 return { navigated: true, path }

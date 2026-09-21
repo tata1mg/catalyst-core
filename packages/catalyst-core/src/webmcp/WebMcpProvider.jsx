@@ -133,7 +133,7 @@ export function WebMcpProvider({ children, routes, filterNavigable }) {
         // Framework: navigate + get_current_route + get_page_info.
         const navigableRoutes = filterNavigable ? flatRoutes.filter(filterNavigable) : flatRoutes
         const fw = [
-            ...frameworkTools(navigableRoutes, navigate, getCurrent),
+            ...frameworkTools(navigableRoutes, navigate, getCurrent, flatRoutes),
             pageInfoTool(
                 () => routeFactsRef.current.matches,
                 () => ({})

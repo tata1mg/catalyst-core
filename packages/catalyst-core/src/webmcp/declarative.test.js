@@ -72,6 +72,24 @@ describe("declarative helpers", () => {
         await nav.execute({ path: "/cart" })
         expect(navigate).toHaveBeenCalledWith("/cart")
     })
+
+    it("frameworkTools: navigate gives a distinct, actionable error for a route excluded via filterNavigable", async () => {
+        const navigate = vi.fn()
+        const navigableRoutes = [{ path: "/" }, { path: "/errors" }]
+        const allRoutes = [{ path: "/" }, { path: "/errors" }, { path: "/content/foo" }, { path: "/content/bar" }]
+        const [nav] = frameworkTools(navigableRoutes, navigate, () => ({}), allRoutes)
+
+        // A genuinely unknown path still gets the generic "not a navigable page" message.
+        await expect(nav.execute({ path: "/nope" })).rejects.toMatchObject({ code: "WEBMCP_INVALID_ARGS" })
+        await expect(nav.execute({ path: "/nope" })).rejects.toThrow(/not a navigable page/)
+
+        // A real route that was deliberately excluded gets a DIFFERENT, more
+        // useful message — pointing the agent at get_current_route instead of
+        // implying the page doesn't exist.
+        await expect(nav.execute({ path: "/content/foo" })).rejects.toMatchObject({ code: "WEBMCP_INVALID_ARGS" })
+        await expect(nav.execute({ path: "/content/foo" })).rejects.toThrow(/exists but isn't a navigate\(\) destination/)
+        expect(navigate).not.toHaveBeenCalled()
+    })
 })
 
 describe("pageInfo.flattenHeadElements", () => {
