@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import { useTheme } from './docs/ThemeContext'
 import SearchModal from './SearchModal'
 

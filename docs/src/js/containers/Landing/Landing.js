@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import CopyButton from '../../components/CopyButton'
 import styles from './Landing.scss'
 

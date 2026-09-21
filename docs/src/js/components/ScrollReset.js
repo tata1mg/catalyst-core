@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useLocation } from 'catalyst-core'
+import { useLocation } from 'react-router'
 
 /**
  * Resets the window scroll position on route change. Without this, switching

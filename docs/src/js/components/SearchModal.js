@@ -1,33 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'catalyst-core'
-import manifest from '../generated/docsManifest.json'
-
-/**
- * In-browser docs search (same model as the docs site's local-search plugin):
- * the index is the build-time manifest; matching happens client-side.
- */
-const search = (query) => {
-    const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
-    if (!terms.length) return []
-
-    return manifest
-        .map((page) => {
-            const title = page.title.toLowerCase()
-            const body = page.searchText.toLowerCase()
-            let score = 0
-            for (const term of terms) {
-                if (title.includes(term)) score += 10
-                else if (body.includes(term)) score += 1
-                else return null
-            }
-            return { page, score }
-        })
-        .filter(Boolean)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10)
-        .map((entry) => entry.page)
-}
+import { Link } from 'react-router'
+import { search } from '../search.js'
 
 const SearchModal = ({ open, onClose }) => {
     const [query, setQuery] = useState('')
