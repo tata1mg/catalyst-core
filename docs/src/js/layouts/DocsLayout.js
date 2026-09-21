@@ -72,7 +72,20 @@ const DocsLayout = () => {
                 })
             }
             navigate(url)
-            return { navigated: true, url }
+            // Nudge, not automatic: open_doc still doesn't call
+            // scrollToAndHighlightArticle itself (that stays the agent's own
+            // call, per the earlier decision to split them) — but an agent
+            // that read the result and never even considered
+            // highlight_content is a real gap a description alone didn't
+            // close in practice. Putting the suggestion directly in the
+            // return value the agent just received is much harder to miss
+            // than a sentence buried in a tool description read once at
+            // discovery time.
+            return {
+                navigated: true,
+                url,
+                hint: 'If the person is watching the page, call highlight_content now to show them where this is.',
+            }
         },
     })
 

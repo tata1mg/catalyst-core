@@ -56,6 +56,7 @@ check("a relevant result exists in the top results", !!target, target?.title)
 
 r = await call("open_doc", { url: target.url })
 check("open_doc navigated", r.ok && r.r.navigated, JSON.stringify(r))
+check("open_doc's result nudges the agent toward highlight_content", r.ok && typeof r.r.hint === "string" && /highlight_content/.test(r.r.hint), r.r?.hint)
 await page.waitForTimeout(500)
 
 const browserUrl = await page.url()
