@@ -1,16 +1,27 @@
 /**
  * Declarative WebMCP tools — the §4a layer of discussion #466.
  *
- * A route's page component carries a static:
+ * A route declares its own tool config directly in routes/index.js, next to
+ * `path`/`component` — NOT as a static on the page component:
  *
- *   ProductList.tool = {
- *     description: "Browse the product catalogue, optionally filtered.",
- *     searchParams: {
- *       category: { type: "string", enum: ["footwear","electronics","apparel"], description: "..." },
- *       maxPrice: { type: "number", description: "upper price bound in INR" },
- *     },
- *     annotations: { readOnlyHint: true },
- *   }
+ *   { path: "/products", component: ProductList, tool: {
+ *       description: "Browse the product catalogue, optionally filtered.",
+ *       searchParams: {
+ *         category: { type: "string", enum: ["footwear","electronics","apparel"], description: "..." },
+ *         maxPrice: { type: "number", description: "upper price bound in INR" },
+ *       },
+ *       annotations: { readOnlyHint: true },
+ *   } }
+ *
+ * `route.tool` over a `Component.tool` static: routing config belongs with
+ * the route, and — unlike a component static — it survives lazy-loading. A
+ * component rendered through Split (packages/catalyst-core/src/web-router/
+ * components/Split.tsx) only has its statics copied onto the lazy wrapper
+ * for the keys Split's own copyRouteStatics() lists (clientFetcher/
+ * serverFetcher/setMetaData); a `tool` static would silently vanish behind
+ * Split. `route.tool` needs no such patch: getRoutes() returns the route
+ * table directly, before any Split wrapping happens. No app has ever shipped
+ * the component-static form, so there is no fallback to carry here.
  *
  * From that + the route's path pattern, the framework derives a full WebMCP
  * tool with zero extra wiring:
@@ -81,12 +92,11 @@ export function buildInputSchema(pathPattern, toolStatic) {
 }
 
 /**
- * Turn one route (with a `.tool` static on its component) into a registrable
- * WebMCP tool spec. `navigate` is react-router's navigate fn.
+ * Turn one route (with a `.tool` config) into a registrable WebMCP tool
+ * spec. `navigate` is react-router's navigate fn.
  */
 export function declarativeToolFor(route, navigate) {
-    const Component = route && route.component
-    const toolStatic = Component && Component.tool
+    const toolStatic = route && route.tool
     if (!toolStatic) return null
 
     const pattern = route.path.startsWith("/") ? route.path : `/${route.path}`

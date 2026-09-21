@@ -26,6 +26,21 @@ let _callSeq = 0
 export const newOwnerKey = () => `owner_${(++_ownerSeq).toString(36)}`
 
 /**
+ * Structural equality for JSON-schema-shaped values (inputSchema,
+ * annotations) — good enough here because both are always plain
+ * JSON-serialisable objects (no functions, no cycles, key order doesn't
+ * matter for a schema's meaning).
+ */
+function deepEqual(a, b) {
+    if (a === b) return true
+    if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false
+    const aKeys = Object.keys(a)
+    const bKeys = Object.keys(b)
+    if (aKeys.length !== bKeys.length) return false
+    return aKeys.every((k) => Object.prototype.hasOwnProperty.call(b, k) && deepEqual(a[k], b[k]))
+}
+
+/**
  * The backend `document.modelContext` — or, when there is none (SSR, unit
  * tests with no DOM), an in-memory stand-in so the registry's own logic
  * (collision detection, reap, invoke) stays exercisable. The stand-in never
@@ -129,6 +144,18 @@ export function registerTool(ownerKey, routePath, spec) {
 
     const abortController = new AbortController()
 
+    // The mutable, user-facing half of the spec. updateToolSpec() swaps
+    // fields on this object in place, then re-registers with the backend so
+    // the agent-visible schema (what Chrome/the shim actually serialised at
+    // registerTool time) reflects the change too — mutating this object
+    // alone only affects our own validation, not what the agent sees.
+    const userSpec = {
+        description: spec.description || "",
+        inputSchema: spec.inputSchema || { type: "object", properties: {} },
+        annotations: spec.annotations || {},
+        execute: spec.execute,
+    }
+
     // Wrap execute so: (a) the AbortSignal is passed through to the tool,
     // (b) a call that arrives after this owner is genuinely gone from the
     // registry is rejected, (c) thrown errors become WebMcpError.
@@ -139,43 +166,50 @@ export function registerTool(ownerKey, routePath, spec) {
     // re-render) the old controller is aborted but the tool is still very much
     // usable under a fresh entry. Only a real unmount / route-reap removes the
     // owner from `live`, and that is the true "no longer active" signal.
-    const wrappedSpec = {
-        name: spec.name,
-        description: spec.description || "",
-        inputSchema: spec.inputSchema || { type: "object", properties: {} },
-        annotations: spec.annotations || {},
-        execute: async (args = {}) => {
-            const callId = `call_${(++_callSeq).toString(36)}`
-            emit("webmcp:execute:start", { callId, name: spec.name, args })
-            try {
-                const current = live.get(ownerKey)
-                const stillActive =
-                    !!current || Array.from(live.values()).some((e) => e.name === spec.name)
-                if (!stillActive) {
-                    throw new WebMcpError(WEBMCP_ERROR_CODES.ABORTED, {
-                        message: `Tool "${spec.name}" is no longer active (its component unmounted or its route was left).`,
+    function buildWrappedSpec() {
+        return {
+            name: spec.name,
+            description: userSpec.description,
+            inputSchema: userSpec.inputSchema,
+            annotations: userSpec.annotations,
+            execute: async (args = {}) => {
+                const callId = `call_${(++_callSeq).toString(36)}`
+                emit("webmcp:execute:start", { callId, name: spec.name, args })
+                try {
+                    const current = live.get(ownerKey)
+                    const stillActive =
+                        !!current || Array.from(live.values()).some((e) => e.name === spec.name)
+                    if (!stillActive) {
+                        throw new WebMcpError(WEBMCP_ERROR_CODES.ABORTED, {
+                            message: `Tool "${spec.name}" is no longer active (its component unmounted or its route was left).`,
+                        })
+                    }
+                    // Read inputSchema/execute through userSpec (by reference,
+                    // captured in this closure) so a call in flight when
+                    // updateToolSpec() mutates it still validates + dispatches
+                    // against whatever is current right now — not what was
+                    // current when this particular wrapper was built.
+                    const signal = current ? current.abortController.signal : abortController.signal
+                    const argErr = shallowValidate(userSpec.inputSchema, args)
+                    if (argErr) throw argErr
+                    const result = await userSpec.execute(args, { signal })
+                    emit("webmcp:execute:end", { callId, name: spec.name, ok: true, result })
+                    return result
+                } catch (err) {
+                    const wrapped = toWebMcpError(err)
+                    emit("webmcp:execute:end", {
+                        callId,
+                        name: spec.name,
+                        ok: false,
+                        error: { message: wrapped.message, code: wrapped.code },
                     })
+                    throw wrapped
                 }
-                // Prefer the currently-live entry's signal if this exact wrapper
-                // was superseded by a re-register.
-                const signal = current ? current.abortController.signal : abortController.signal
-                const argErr = shallowValidate(spec.inputSchema, args)
-                if (argErr) throw argErr
-                const result = await spec.execute(args, { signal })
-                emit("webmcp:execute:end", { callId, name: spec.name, ok: true, result })
-                return result
-            } catch (err) {
-                const wrapped = toWebMcpError(err)
-                emit("webmcp:execute:end", {
-                    callId,
-                    name: spec.name,
-                    ok: false,
-                    error: { message: wrapped.message, code: wrapped.code },
-                })
-                throw wrapped
-            }
-        },
+            },
+        }
     }
+
+    const wrappedSpec = buildWrappedSpec()
 
     let rawReceipt
     try {
@@ -190,7 +224,16 @@ export function registerTool(ownerKey, routePath, spec) {
     // best-effort `api.unregisterTool(name)` when the receipt can't do it.
     const receipt = normaliseReceipt(rawReceipt, spec.name, api)
 
-    live.set(ownerKey, { name: spec.name, routePath: routePath || "", receipt, abortController, spec: wrappedSpec })
+    live.set(ownerKey, {
+        name: spec.name,
+        routePath: routePath || "",
+        receipt,
+        abortController,
+        spec: wrappedSpec,
+        userSpec,
+        api,
+        buildWrappedSpec,
+    })
     emit("webmcp:register", {
         id: receipt.id,
         name: spec.name,
@@ -209,6 +252,85 @@ export function registerTool(ownerKey, routePath, spec) {
 export function updateToolRoute(ownerKey, routePath) {
     const entry = live.get(ownerKey)
     if (entry) entry.routePath = routePath || ""
+}
+
+/**
+ * Swap description/inputSchema/annotations on a live tool — used by
+ * useTool(spec, deps) when a dep changes. Two things happen, both without
+ * touching `ownerKey` or `abortController`:
+ *
+ *   1. `entry.userSpec` is mutated in place, so a call ALREADY in flight
+ *      (dispatched through the OLD wrappedSpec.execute closure, which reads
+ *      userSpec by reference) validates + resolves against the new schema
+ *      the instant this runs — it never sees a torn-down registration.
+ *   2. The backend registration is refreshed: the old receipt is
+ *      unregistered and a fresh wrappedSpec is registered under the SAME
+ *      `live` entry, so `document.modelContext`/the shim actually serves the
+ *      updated description/inputSchema to the agent. Mutating `userSpec`
+ *      alone (as an earlier version of this function did) only fixed our
+ *      own validation — Chrome had already captured the stale schema at the
+ *      original `registerTool` call and never saw the update.
+ *
+ * This is NOT the WEBMCP_ABORTED bug from useTool's mount effect: that bug
+ * was re-running `registerTool` with a FRESH ownerKey/AbortController on
+ * every route recompute. Here the owner and controller are identical across
+ * the swap — `live.get(ownerKey)` still resolves for an in-flight call, and
+ * `current.abortController` is the same object before and after.
+ *
+ * `execute` itself is deliberately NOT accepted here — useTool's own
+ * specRef-through-liveSpec.execute indirection already means every call
+ * dispatches to the latest closure regardless of deps, so there is nothing
+ * for a deps change to update on that front.
+ */
+export function updateToolSpec(ownerKey, { description, inputSchema, annotations } = {}) {
+    const entry = live.get(ownerKey)
+    if (!entry) return
+
+    // Deep-equal, not reference-equal: callers (useTool's deps effect) pass a
+    // freshly-built inputSchema/annotations object on every dep change, even
+    // when a particular dep (e.g. a UI-only selection that doesn't affect the
+    // schema shape) didn't actually change the CONTENT. Re-registering with
+    // the backend on every such no-op call would spam unregister/register
+    // (visible as spurious REGISTERED events in the dev panel) for no reason.
+    const changed =
+        (description !== undefined && description !== entry.userSpec.description) ||
+        (inputSchema !== undefined && !deepEqual(inputSchema, entry.userSpec.inputSchema)) ||
+        (annotations !== undefined && !deepEqual(annotations, entry.userSpec.annotations))
+    if (!changed) return
+
+    if (description !== undefined) entry.userSpec.description = description
+    if (inputSchema !== undefined) entry.userSpec.inputSchema = inputSchema
+    if (annotations !== undefined) entry.userSpec.annotations = annotations
+
+    // Re-register with the backend so the agent-visible schema updates too.
+    // Best-effort teardown of the old receipt (native impls vary in whether
+    // unregister exists/throws); the new registerTool call is what actually
+    // matters — the old entry in `live` is overwritten with the new receipt
+    // and wrappedSpec, everything else (ownerKey, abortController) untouched.
+    try {
+        entry.receipt && entry.receipt.unregister && entry.receipt.unregister()
+    } catch {
+        /* best effort, same as unregisterTool */
+    }
+    const newWrappedSpec = entry.buildWrappedSpec()
+    let rawReceipt
+    try {
+        rawReceipt = entry.api.registerTool(newWrappedSpec)
+    } catch {
+        // Backend rejected the re-register (e.g. a transient native error).
+        // Leave the entry's userSpec updated (our own validation is still
+        // correct) but keep the OLD receipt/spec live rather than losing the
+        // registration entirely.
+        return
+    }
+    entry.receipt = normaliseReceipt(rawReceipt, entry.name, entry.api)
+    entry.spec = newWrappedSpec
+    emit("webmcp:register", {
+        id: entry.receipt.id,
+        name: entry.name,
+        routePath: entry.routePath,
+        replaced: true,
+    })
 }
 
 /** Unregister one owner's tool (hook unmount). Idempotent. */
@@ -305,6 +427,17 @@ export function __resetForTests() {
     for (const key of Array.from(live.keys())) unregisterTool(key)
     live.clear()
     _fallbackApi = null
+}
+
+/**
+ * Test-only: what the BACKEND (native document.modelContext, or the
+ * in-memory fallback in unit tests) thinks the current tool list/schemas
+ * are — as opposed to `inspect()`, which reports the registry's own
+ * bookkeeping. Used to assert that updateToolSpec()'s re-register actually
+ * reaches the agent-visible side, not just our internal validation.
+ */
+export function __getBackendTools() {
+    return ctx().getTools()
 }
 
 /** Snapshot for the dev panel. */

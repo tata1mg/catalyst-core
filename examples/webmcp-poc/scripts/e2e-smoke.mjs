@@ -44,6 +44,8 @@ const consoleLines = []
 page.on("console", (m) => consoleLines.push(`[${m.type()}] ${m.text()}`))
 
 const names = () => page.evaluate(() => window.document.modelContext.getTools().map((t) => t.name).sort())
+const getTool = (name) =>
+    page.evaluate((n) => window.document.modelContext.getTools().find((t) => t.name === n), name)
 const call = (name, args = {}) =>
     page.evaluate(
         async ([n, a]) => {
@@ -99,10 +101,19 @@ t = await names()
 check("on /product/:id : add_to_cart NOW present", t.includes("add_to_cart"), JSON.stringify(t))
 
 // ── 5. Imperative action + typed errors ─────────────────────────────────────
+// trail-runner-x is a sized (footwear) product: add_to_cart is size-gated.
 r = await call("add_to_cart", { quantity: 2 })
-check("add_to_cart({quantity:2}) ran + returned a human string", r.ok && /Trail Runner X/.test(r.r), JSON.stringify(r))
-r = await call("add_to_cart", { quantity: "lots" })
+check("add_to_cart with no size on a sized product → error", !r.ok, JSON.stringify(r))
+r = await call("add_to_cart", { quantity: 2, size: "9" })
+check(
+    "add_to_cart({quantity:2, size:'9'}) ran + returned a structured result",
+    r.ok && r.r.id === "trail-runner-x" && r.r.size === "9" && /Trail Runner X/.test(r.r.note || ""),
+    JSON.stringify(r)
+)
+r = await call("add_to_cart", { quantity: "lots", size: "9" })
 check("add_to_cart bad args → typed error", !r.ok && r.code === "WEBMCP_INVALID_ARGS", JSON.stringify(r))
+r = await call("add_to_cart", { quantity: 1, size: "not-a-size" })
+check("add_to_cart with an invalid size → error", !r.ok, JSON.stringify(r))
 
 // ── 6. navigate() to cart; route-scoped tool swaps ─────────────────────────
 r = await call("navigate", { path: "/cart" })
@@ -110,10 +121,67 @@ check("navigate({path:'/cart'}) ok", r.ok && r.r.navigated, JSON.stringify(r))
 await page.waitForTimeout(500)
 t = await names()
 check("on /cart : checkout present, add_to_cart gone", t.includes("checkout") && !t.includes("add_to_cart"), JSON.stringify(t))
+check("on /cart : get_cart, remove_from_cart, update_quantity present", ["get_cart", "remove_from_cart", "update_quantity"].every((n) => t.includes(n)), JSON.stringify(t))
 r = await call("add_to_cart", { quantity: 1 })
 check("stale add_to_cart call on /cart rejected", !r.ok, JSON.stringify(r))
+
+// ── 6a. get_cart reflects the earlier add_to_cart({quantity:2, size:'9'}) ──
+r = await call("get_cart")
+check(
+    "get_cart shows the item added on the product page",
+    r.ok && r.r.items.length === 1 && r.r.items[0].id === "trail-runner-x" && r.r.items[0].quantity === 2 && r.r.items[0].size === "9",
+    JSON.stringify(r)
+)
+
+// ── 6b. remove_from_cart/update_quantity schemas reflect LIVE cart contents ─
+// This is the deps-array swap (useTool(spec, deps) → registry.updateToolSpec)
+// actually reaching the agent-visible schema in a real browser, not just the
+// vitest fallback backend.
+let tool = await getTool("remove_from_cart")
+check(
+    "remove_from_cart's id enum includes trail-runner-x (deps swap reached the shim)",
+    tool && Array.isArray(tool.inputSchema.properties.id.enum) && tool.inputSchema.properties.id.enum.includes("trail-runner-x"),
+    JSON.stringify(tool)
+)
+
+// ── 6c. update_quantity moves the SAME cart UI an agent would be watching ──
+r = await call("update_quantity", { id: "trail-runner-x", quantity: 5 })
+check("update_quantity ran", r.ok && r.r.quantity === 5, JSON.stringify(r))
+await page.waitForTimeout(300)
+const qtyInputValue = await page.inputValue('input[aria-label="Quantity for Trail Runner X"]')
+check("update_quantity's dispatch visibly moved the cart page's qty input", qtyInputValue === "5", qtyInputValue)
+r = await call("get_cart")
+check("get_cart confirms the new quantity", r.ok && r.r.items[0].quantity === 5, JSON.stringify(r))
+
+// ── 6d. remove_from_cart is idempotent — a retry after success is a no-op ──
+r = await call("remove_from_cart", { id: "trail-runner-x" })
+check("remove_from_cart ran", r.ok && r.r.removed === true, JSON.stringify(r))
+r = await call("remove_from_cart", { id: "trail-runner-x" })
+check("retrying remove_from_cart on an already-removed item doesn't throw", r.ok && r.r.removed === false, JSON.stringify(r))
+
+// ── 6e. empty-cart guard: no unsatisfiable enum:[] on the id property ──────
+tool = await getTool("remove_from_cart")
+check("remove_from_cart's id prop has no enum when the cart is empty", tool && tool.inputSchema.properties.id.enum === undefined, JSON.stringify(tool))
+
 r = await call("checkout")
-check("checkout ran", r.ok && /placed/i.test(r.r), JSON.stringify(r))
+check("retrying checkout on an already-empty cart doesn't throw", r.ok && r.r.placed === false, JSON.stringify(r))
+
+// re-add so the later checkout-succeeds assertion still has something to place
+// (navigate's enum is static paths only — /product/:id goes through the
+// declarative "product" tool, same as step 4)
+r = await call("product", { id: "trail-runner-x" })
+check("navigate back to product to re-add", r.ok, JSON.stringify(r))
+await page.waitForTimeout(400)
+r = await call("add_to_cart", { quantity: 1, size: "9" })
+check("re-added an item ahead of checkout", r.ok, JSON.stringify(r))
+r = await call("navigate", { path: "/cart" })
+check("navigate to /cart ok", r.ok, JSON.stringify(r))
+await page.waitForTimeout(400)
+
+r = await call("checkout")
+check("checkout ran", r.ok && r.r.placed === true && !!r.r.orderId, JSON.stringify(r))
+r = await call("checkout")
+check("retrying checkout on an already-empty cart doesn't throw (2nd time)", r.ok && r.r.placed === false, JSON.stringify(r))
 
 // ── 7. navigate() rejects an unknown destination ──────────────────────────
 r = await call("navigate", { path: "/nope" })

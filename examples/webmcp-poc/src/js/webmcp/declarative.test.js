@@ -34,18 +34,21 @@ describe("declarative helpers", () => {
         expect(s.required).not.toContain("variant")
     })
 
-    it("declarativeToolFor returns null when the component has no .tool", () => {
+    it("declarativeToolFor returns null when the route has no .tool config", () => {
         expect(declarativeToolFor({ path: "/x", component: () => null }, vi.fn())).toBeNull()
     })
 
-    it("declarativeToolFor navigates with filled path + query", async () => {
+    it("declarativeToolFor reads route.tool", async () => {
         const navigate = vi.fn()
-        const Component = () => null
-        Component.tool = {
-            description: "list",
-            searchParams: { category: { type: "string" }, maxPrice: { type: "number" } },
+        const route = {
+            path: "/products",
+            component: () => null,
+            tool: {
+                description: "list",
+                searchParams: { category: { type: "string" }, maxPrice: { type: "number" } },
+            },
         }
-        const spec = declarativeToolFor({ path: "/products", component: Component }, navigate)
+        const spec = declarativeToolFor(route, navigate)
         expect(spec.name).toBe("products")
         expect(spec.annotations.readOnlyHint).toBe(true)
 

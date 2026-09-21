@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { useParams, Link } from "react-router"
 import { useSelector, useDispatch } from "react-redux"
-import { useTool } from "@webmcp"
+import { useTool, WebMcpError, WEBMCP_ERROR_CODES } from "@webmcp"
 import { selectProducts } from "../../store/productsSlice"
 import { addToCart } from "../../store/cartSlice"
 import css from "./ProductDetail.scss"
@@ -13,26 +13,60 @@ function ProductDetail() {
     const product = (products || []).find((p) => p.id === id)
 
     const [quantity, setQuantity] = useState(1)
+    const [selectedSize, setSelectedSize] = useState(null)
     const [feedback, setFeedback] = useState("")
 
-    useTool({
-        name: "add_to_cart",
-        description: "Add the current product to the cart.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                quantity: {
-                    type: "number",
-                    minimum: 1,
+    const hasSizes = !!(product && product.sizes && product.sizes.length)
+    const sizes = (product && product.sizes) || []
+
+    // Size-gated: when the product has sizes, `size` is optional in the
+    // schema (not `required` — the shopper's own UI selection is a valid
+    // source) but execute() rejects the call if neither an explicit `size`
+    // arg nor a UI-selected one is available. deps: [product.id, hasSizes] —
+    // NOT selectedSize: the schema/description don't depend on which size is
+    // picked, only on whether the product HAS sizes at all, and execute()
+    // already reads the live selectedSize via specRef on every call
+    // regardless of deps. Including it here would trigger a pointless
+    // backend re-register on every dropdown pick (registry.updateToolSpec's
+    // deep-equal guard would no-op it, but there's no reason to even ask).
+    useTool(
+        {
+            name: "add_to_cart",
+            description: hasSizes
+                ? "Add the current product to the cart. Increments any existing quantity for this size — " +
+                  "call get_cart to confirm the result, don't assume. This product requires a size: pass one, " +
+                  "or the shopper's currently selected size on the page is used if you omit it."
+                : "Add the current product to the cart. Increments any existing quantity — call get_cart to " +
+                  "confirm the result, don't assume.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    quantity: { type: "number", minimum: 1 },
+                    ...(hasSizes ? { size: { type: "string", enum: sizes, description: "size to add" } } : {}),
                 },
             },
+            execute: async ({ quantity: qty = 1, size } = {}) => {
+                if (!product) return "Product not found."
+                const chosenSize = size != null ? size : selectedSize
+                if (hasSizes && !chosenSize) {
+                    throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                        message: `"${product.name}" requires a size. Pass one of: ${sizes.join(", ")}.`,
+                    })
+                }
+                if (hasSizes && !sizes.includes(chosenSize)) {
+                    throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                        message: `"${chosenSize}" is not a valid size for "${product.name}". One of: ${sizes.join(", ")}.`,
+                    })
+                }
+                dispatch(addToCart({ id: product.id, quantity: qty, size: hasSizes ? chosenSize : null }))
+                const note = hasSizes
+                    ? `Added ${qty}× ${product.name} (size ${chosenSize}) to cart.`
+                    : `Added ${qty}× ${product.name} to cart.`
+                return { id: product.id, addedQuantity: qty, size: hasSizes ? chosenSize : null, note }
+            },
         },
-        execute: async ({ quantity = 1 } = {}) => {
-            if (!product) return "Product not found."
-            dispatch(addToCart({ id: product.id, quantity }))
-            return `Added ${quantity}× ${product.name} to cart.`
-        },
-    })
+        [product && product.id, hasSizes]
+    )
 
     if (!product) {
         return (
@@ -56,8 +90,16 @@ function ProductDetail() {
     }
 
     const handleAddToCart = () => {
-        dispatch(addToCart({ id: product.id, quantity }))
-        setFeedback(`Added ${quantity}× ${product.name} to cart!`)
+        if (hasSizes && !selectedSize) {
+            setFeedback("Please select a size first.")
+            return
+        }
+        dispatch(addToCart({ id: product.id, quantity, size: hasSizes ? selectedSize : null }))
+        setFeedback(
+            hasSizes
+                ? `Added ${quantity}× ${product.name} (size ${selectedSize}) to cart!`
+                : `Added ${quantity}× ${product.name} to cart!`
+        )
     }
 
     return (
@@ -87,6 +129,27 @@ function ProductDetail() {
 
                 <div className={css.price}>₹{product.price}</div>
                 <p className={css.description}>{product.description}</p>
+
+                {hasSizes && (
+                    <div className={css.actions}>
+                        <label htmlFor="size-select" className={css.qtyLabel}>
+                            Size:
+                        </label>
+                        <select
+                            id="size-select"
+                            className={css.qtyInput}
+                            value={selectedSize || ""}
+                            onChange={(e) => setSelectedSize(e.target.value || null)}
+                        >
+                            <option value="">Select size</option>
+                            {sizes.map((s) => (
+                                <option key={s} value={s}>
+                                    {s}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
                 <div className={css.actions}>
                     <label htmlFor="quantity-input" className={css.qtyLabel}>
@@ -133,11 +196,7 @@ ProductDetail.setMetaData = () => [
     <meta key="d" name="description" content="Full details, price and add-to-cart for a single product." />,
 ]
 
-ProductDetail.tool = {
-    description:
-        "Open a specific product's detail page by its id (slug), e.g. \"trail-runner-x\". " +
-        "Ids come from the product listing.",
-    annotations: { readOnlyHint: true },
-}
+// Declarative WebMCP tool config now lives on the route (routes/index.js),
+// not here — see webmcp/declarative.js for why.
 
 export default ProductDetail

@@ -137,22 +137,7 @@ ProductList.setMetaData = () => [
     <meta key="og" property="og:title" content="Product catalogue" />,
 ]
 
-ProductList.tool = {
-    description:
-        "Browse the product catalogue. Optionally filter by category and/or a maximum price (INR). " +
-        "Returns by navigating to the filtered listing.",
-    searchParams: {
-        category: {
-            type: "string",
-            enum: ["footwear", "electronics", "apparel"],
-            description: "restrict to one product category",
-        },
-        maxPrice: {
-            type: "number",
-            description: "only show products at or below this price, in INR (e.g. 3000)",
-        },
-    },
-    annotations: { readOnlyHint: true },
-}
+// Declarative WebMCP tool config now lives on the route (routes/index.js),
+// not here — see webmcp/declarative.js for why.
 
 export default ProductList

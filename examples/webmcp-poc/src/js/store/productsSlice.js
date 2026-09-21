@@ -8,6 +8,7 @@ const initialState = {
             price: 2799,
             category: "footwear",
             description: "Lightweight trail running shoes with aggressive grip and breathable mesh.",
+            sizes: ["7", "8", "9", "10", "11"],
         },
         {
             id: "cloud-strider-pro",
@@ -15,6 +16,7 @@ const initialState = {
             price: 3899,
             category: "footwear",
             description: "High-cushion road running shoes engineered for distance comfort.",
+            sizes: ["7", "8", "9", "10", "11"],
         },
         {
             id: "urban-leather-loafer",
@@ -22,6 +24,7 @@ const initialState = {
             price: 4499,
             category: "footwear",
             description: "Handcrafted genuine leather loafers with slip-on silhouette.",
+            sizes: ["8", "9", "10", "11"],
         },
         {
             id: "aerosound-wireless-anc",
@@ -50,6 +53,7 @@ const initialState = {
             price: 3299,
             category: "apparel",
             description: "Temperature-regulating merino wool blend hoodie with kangaroo pocket.",
+            sizes: ["S", "M", "L", "XL"],
         },
         {
             id: "dryfit-training-tee",
@@ -57,6 +61,7 @@ const initialState = {
             price: 899,
             category: "apparel",
             description: "Moisture-wicking athletic tee built with 4-way stretch fabric.",
+            sizes: ["S", "M", "L", "XL"],
         },
     ],
 }

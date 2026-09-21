@@ -1,10 +1,10 @@
 import { useContext, useEffect, useRef, useState } from "react"
 import { RouteContext } from "./routeContext.js"
-import { registerTool, unregisterTool, updateToolRoute, newOwnerKey } from "./registry.js"
+import { registerTool, unregisterTool, updateToolRoute, updateToolSpec, newOwnerKey } from "./registry.js"
 
 /**
  * useTool — register an imperative WebMCP action tool for the lifetime of the
- * calling component.
+ * calling component, or for the lifetime of a `deps` window within it.
  *
  * What the hook adds on top of a raw `document.modelContext.registerTool`:
  *
@@ -18,6 +18,17 @@ import { registerTool, unregisterTool, updateToolRoute, newOwnerKey } from "./re
  *     living in `useEffect` is the deferral — no `hydrationReady` needed.
  *   - Stable identity: the tool spec is read through a ref, so re-renders with
  *     a new inline `execute` closure don't churn the registration.
+ *   - `deps` (optional, useEffect-style array): when a value in `deps`
+ *     changes, the tool's description/inputSchema/annotations/execute are
+ *     swapped IN PLACE on the still-live registration via updateToolSpec() —
+ *     never torn down and re-registered. A real unmount (or the route no
+ *     longer matching) is still the only thing that unregisters. This matters
+ *     because a naive effect-array re-registration would reopen the
+ *     WEBMCP_ABORTED bug fixed earlier: an agent call in flight against the
+ *     old AbortController would be orphaned the instant a dep (e.g. cart
+ *     quantity) changed mid-call. Swapping in place keeps the same
+ *     AbortController and receipt across a deps change, so an in-flight call
+ *     always completes against a live entry.
  *
  * @param {{
  *   name: string,
@@ -26,6 +37,9 @@ import { registerTool, unregisterTool, updateToolRoute, newOwnerKey } from "./re
  *   annotations?: object,
  *   execute: (args: any, ctx: { signal: AbortSignal }) => Promise<any>,
  * }} spec
+ * @param {any[]} [deps] omit to behave exactly as before (register once on
+ *   mount, keyed only by tool name); pass an array to also refresh the spec
+ *   in place whenever an entry changes.
  *
  * @returns {{
  *   status: "idle" | "registered" | "error",
@@ -33,7 +47,7 @@ import { registerTool, unregisterTool, updateToolRoute, newOwnerKey } from "./re
  *   error: import("./errors.js").WebMcpError | null,
  * }}
  */
-export function useTool(spec) {
+export function useTool(spec, deps) {
     const specRef = useRef(spec)
     specRef.current = spec
 
@@ -85,6 +99,23 @@ export function useTool(spec) {
         if (typeof document === "undefined") return
         updateToolRoute(ownerKeyRef.current, routePath || "")
     }, [routePath])
+
+    // Optional deps array: refresh description/inputSchema/annotations/execute
+    // on the existing registration in place whenever a dep changes. Skipped
+    // entirely when the caller doesn't pass `deps` — that's the "register
+    // once, execute always reads specRef.current" behaviour from above, which
+    // already reflects the latest closure on every call.
+    useEffect(() => {
+        if (deps === undefined) return
+        if (typeof document === "undefined") return
+        const s = specRef.current
+        updateToolSpec(ownerKeyRef.current, {
+            description: s.description,
+            inputSchema: s.inputSchema,
+            annotations: s.annotations,
+        })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, deps || [])
 
     return state
 }
