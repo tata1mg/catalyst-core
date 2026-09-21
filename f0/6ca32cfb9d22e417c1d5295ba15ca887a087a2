@@ -1,0 +1,66 @@
+docs/scripts/webmcp-e2e-smoke.mjs
+  s_b0e8727f0b555e::t_69c5c601a5cae8 1-20
+  s_b0e8727f0b555e::t_546a4769e49055 21-23
+  s_398b5feea69474::t_5ec7c0a7a1d58c 24-71
+docs/src/js/components/docs/ErrorPage.js
+  s_b0e8727f0b555e::t_f1fd8204ca128f 2-3
+docs/src/js/containers/App/index.js
+  s_b0e8727f0b555e::t_fb24630c8563be 2
+docs/src/js/containers/Landing/Landing.js
+  s_b0e8727f0b555e::t_621e41ce84b023 2
+docs/client/index.js
+  s_b0e8727f0b555e::t_e6c4ec633ea5dd 4-5
+docs/src/js/containers/NotFound.js
+  s_b0e8727f0b555e::t_621e41ce84b023 2
+docs/src/js/components/docs/DocsSidebar.js
+  s_b0e8727f0b555e::t_621e41ce84b023 2
+docs/package.json
+  s_b0e8727f0b555e::t_2e76f03505429d 13-14
+docs/src/js/components/docs/DocPage.js
+  s_b0e8727f0b555e::t_621e41ce84b023 3
+docs/src/js/search.js
+  s_b0e8727f0b555e::t_616ce03bb3a743 1-36
+docs/src/js/components/ScrollReset.js
+  s_b0e8727f0b555e::t_3fbd1878879d76 2
+docs/src/js/components/Navbar.js
+  s_b0e8727f0b555e::t_51ffd217ab836b 2
+docs/buildConfig.js
+  s_b0e8727f0b555e::t_24dfafa234b4a6 3-23
+docs/src/js/layouts/DocsLayout.js
+  s_b0e8727f0b555e::t_9b0c18c5de547c 3
+  s_b0e8727f0b555e::t_933d851dd12846 68-70
+  s_b0e8727f0b555e::t_ab27565281989c 2,8,14-20,22-67,71-87
+docs/src/js/components/SearchModal.js
+  s_b0e8727f0b555e::t_dd2d446fdec49c 4
+  s_b0e8727f0b555e::t_19f61060410745 3
+docs/src/js/components/docs/ErrorsIndexPage.js
+  s_b0e8727f0b555e::t_5e564ef73e74e9 2-3
+docs/src/js/routes/utils.js
+  s_b0e8727f0b555e::t_870696fdf0e6a4 60-62,65
+  s_b0e8727f0b555e::t_6ece089e9ce61a 3-4,8-14,43-46,54-59,63-64
+  s_b0e8727f0b555e::t_73fd6a86a30ad3 66-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f06ca32cfb9d22e417c1d5295ba15ca887a087a2",
+  "prompts": {},
+  "sessions": {
+    "s_398b5feea69474": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5252df88-5c1f-40c0-99e7-83af4b8be109",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
