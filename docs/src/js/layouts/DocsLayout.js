@@ -30,8 +30,8 @@ const DocsLayout = () => {
         name: 'search_docs',
         description:
             'Search the Catalyst documentation by keyword. Returns matching pages with title, URL, and category. ' +
-            'Call open_doc with a result URL to navigate there, or get_doc_content to read the full page text ' +
-            '(e.g. to ground a written answer — search_docs alone only returns a short description).',
+            'Call get_doc_content with a result URL to open it and read the full page text — this is the usual ' +
+            'next step, since search_docs alone only returns a short description, not enough to answer from.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -57,7 +57,11 @@ const DocsLayout = () => {
     // either). An agent gets a valid `url` from search_docs's own results.
     useTool({
         name: 'open_doc',
-        description: "Open a documentation page by its URL — get the URL from search_docs' results first.",
+        description:
+            "Open a documentation page by its URL, WITHOUT reading its content — get the URL from search_docs' " +
+            'results first. Most of the time get_doc_content is what you want instead (it opens the page AND ' +
+            'returns its text in one call); use open_doc on its own only when you just want to move the page ' +
+            "somewhere (e.g. handing off to the person) without needing the content yourself.",
         inputSchema: {
             type: 'object',
             properties: {
@@ -110,18 +114,30 @@ const DocsLayout = () => {
         },
     })
 
-    // Read-only. Gives an agent the actual doc CONTENT to ground an answer
-    // on — e.g. "paste an error, find the relevant doc, write a fix" needs
-    // more than the title/description search_docs returns. This does NOT
-    // generate a solution itself (a page has no LLM to call) — it hands the
-    // agent driving the page enough real text to write one accurately,
-    // rather than the agent guessing from a title alone.
+    // Gives an agent the actual doc CONTENT to ground an answer on — e.g.
+    // "paste an error, find the relevant doc, write a fix" needs more than
+    // the title/description search_docs returns. This does NOT generate a
+    // solution itself (a page has no LLM to call) — it hands the agent
+    // driving the page enough real text to write one accurately, rather
+    // than the agent guessing from a title alone.
+    //
+    // ALSO navigates to the page it's reading — NOT readOnlyHint. Earlier
+    // this stayed pure-read and open_doc handled navigation separately; in
+    // practice, an agent that already has the content it needs to answer
+    // has no reason to make a second call just to move the page, so
+    // navigation silently never happened even while the agent correctly
+    // answered from real doc content. Reading a page and being ON that page
+    // are now the same action, which is also just how a person actually
+    // uses a docs site — you don't know a page's content without opening
+    // it. highlight_content stays a separate, agent-chosen call.
     useTool({
         name: 'get_doc_content',
         description:
-            'Read the full text content of a documentation page by its URL (from search_docs\' results). Use this ' +
-            'before answering a question or writing a solution based on a specific doc page — get_page_info/' +
-            'search_docs alone only give a short description, not enough to ground a real answer on.',
+            'Open a documentation page and read its full text content, by URL (from search_docs\' results). This ' +
+            'is the tool to use before answering a question or writing a solution based on a specific doc page — ' +
+            'get_page_info/search_docs alone only give a short description, not enough to ground a real answer on. ' +
+            'Also navigates the page there, so use open_doc separately only if you want to open a page WITHOUT ' +
+            "reading its content first (e.g. handing off to the person to read it themselves).",
         inputSchema: {
             type: 'object',
             properties: {
@@ -129,7 +145,6 @@ const DocsLayout = () => {
             },
             required: ['url'],
         },
-        annotations: { readOnlyHint: true },
         execute: async ({ url } = {}) => {
             const doc = getDocByUrl(url)
             if (!doc) {
@@ -137,12 +152,14 @@ const DocsLayout = () => {
                     message: `"${url}" is not a known documentation page. Call search_docs to find a valid URL.`,
                 })
             }
+            navigate(url)
             return {
                 url: doc.url,
                 title: doc.title,
                 categories: doc.categories,
                 content: doc.searchText,
                 toc: doc.toc,
+                hint: 'If the person is watching the page, call highlight_content now to show them where this is.',
             }
         },
     })

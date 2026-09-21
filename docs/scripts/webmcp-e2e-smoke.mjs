@@ -5,10 +5,13 @@
  * over the build-time manifest, not a POC's toy product catalogue).
  *
  * Drives the agreed test flow: search_docs("ssr data fetching") ->
- * open_doc(result) -> confirm the browser actually navigated + get_page_info
- * reflects the new page. Also checks the empty-tool-list-on-content-pages
- * boundary (open_doc rejects an unknown url; navigate's enum excludes the
- * generated /content/ routes per routes/utils.js's isNavigableForAgents).
+ * get_doc_content(result) -> confirm the browser actually navigated AND
+ * real page content came back in the same call (get_doc_content is the
+ * primary read+navigate tool now — see DocsLayout.js's comment on why
+ * open_doc alone wasn't enough: an agent with content already in hand from
+ * get_doc_content had no reason to also call open_doc, so a pure-read
+ * get_doc_content silently never moved the page in practice). open_doc is
+ * tested separately as the narrower "navigate without reading" tool.
  *
  * Prerequisites:
  *   1. `npm install --no-save --legacy-peer-deps playwright-core` in this dir
@@ -47,39 +50,49 @@ check("all 7 tools present on home page", ["get_current_route","get_doc_content"
 let r0 = await call("highlight_content")
 check("highlight_content on a non-article page reports highlighted:false", r0.ok && r0.r.highlighted === false, JSON.stringify(r0))
 
-// Simulated agent flow for "Find the page that explains SSR data fetching and open it."
+// --- Primary flow: search_docs -> get_doc_content (reads AND navigates) ---
 let r = await call("search_docs", { query: "ssr data fetching" })
 check("search_docs found results", r.ok && r.r.count > 0, JSON.stringify(r.r?.results?.map(x=>x.title)))
 
 const target = r.ok && r.r.results.find(x => /ssr|fetch/i.test(x.title))
 check("a relevant result exists in the top results", !!target, target?.title)
 
-r = await call("open_doc", { url: target.url })
-check("open_doc navigated", r.ok && r.r.navigated, JSON.stringify(r))
-check("open_doc's result nudges the agent toward highlight_content", r.ok && typeof r.r.hint === "string" && /highlight_content/.test(r.r.hint), r.r?.hint)
+r = await call("get_doc_content", { url: target.url })
+check("get_doc_content returns real page content", r.ok && typeof r.r.content === "string" && r.r.content.length > 100, r.ok ? `${r.r.content.length} chars` : JSON.stringify(r))
+check("get_doc_content's result nudges the agent toward highlight_content", r.ok && typeof r.r.hint === "string" && /highlight_content/.test(r.r.hint), r.r?.hint)
 await page.waitForTimeout(500)
 
-const browserUrl = await page.url()
-check("browser actually navigated to the target page", decodeURIComponent(browserUrl).endsWith(target.url), browserUrl)
+let browserUrl = await page.url()
+check("get_doc_content ALSO navigated the browser there", decodeURIComponent(browserUrl).endsWith(target.url), browserUrl)
 
-// open_doc does NOT auto-highlight (split from highlight_content per user feedback) —
-// the agent decides separately whether to call it.
+// highlight_content stays a separate, agent-chosen call — not automatic.
 let hasHighlight = await page.evaluate(() => !!document.querySelector(".webmcp-doc-highlight"))
-check("open_doc alone does not trigger the highlight", hasHighlight === false, String(hasHighlight))
+check("get_doc_content alone does not trigger the highlight", hasHighlight === false, String(hasHighlight))
 
 r = await call("highlight_content")
 check("highlight_content on the doc page reports highlighted:true", r.ok && r.r.highlighted === true, JSON.stringify(r))
 hasHighlight = await page.evaluate(() => !!document.querySelector(".webmcp-doc-highlight"))
 check("highlight_content actually applies the highlight class", hasHighlight === true, String(hasHighlight))
 
-r = await call("get_doc_content", { url: target.url })
-check("get_doc_content returns real page content", r.ok && typeof r.r.content === "string" && r.r.content.length > 100, r.ok ? `${r.r.content.length} chars` : JSON.stringify(r))
-
 r = await call("get_page_info")
 check("get_page_info reflects the new page", r.ok && r.r.title, r.r?.title)
 
+// --- open_doc: the narrower "navigate without reading" tool ---
+r = await call("navigate", { path: "/" })
+check("reset to home via navigate", r.ok, JSON.stringify(r))
+await page.waitForTimeout(300)
+
+r = await call("open_doc", { url: target.url })
+check("open_doc alone still navigates", r.ok && r.r.navigated, JSON.stringify(r))
+await page.waitForTimeout(500)
+browserUrl = await page.url()
+check("open_doc alone actually moved the browser", decodeURIComponent(browserUrl).endsWith(target.url), browserUrl)
+
 r = await call("open_doc", { url: "/content/not-a-real-page" })
 check("open_doc rejects an unknown url with a typed error", !r.ok && r.code === "WEBMCP_INVALID_ARGS", JSON.stringify(r))
+
+r = await call("get_doc_content", { url: "/content/not-a-real-page" })
+check("get_doc_content rejects an unknown url with a typed error", !r.ok && r.code === "WEBMCP_INVALID_ARGS", JSON.stringify(r))
 
 r = await call("navigate", { path: "/content/some-doc" })
 check("navigate rejects a /content/ path (excluded from its enum)", !r.ok, JSON.stringify(r))
