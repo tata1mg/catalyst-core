@@ -6,7 +6,7 @@ import DocumentBootstrap from '../components/DocumentBootstrap'
 import Navbar from '../components/Navbar'
 import ScrollReset from '../components/ScrollReset'
 import { search, isKnownDocUrl, getDocByUrl } from '../search.js'
-import { scrollToAndHighlightArticle } from '../scrollHighlight.js'
+import { scrollToAndHighlightArticle, scrollToAndHighlightArticleAfterNavigation } from '../scrollHighlight.js'
 
 /**
  * Site chrome. The docs grid itself (sidebar, article, TOC) belongs to
@@ -76,34 +76,30 @@ const DocsLayout = () => {
                 })
             }
             navigate(url)
-            // Nudge, not automatic: open_doc still doesn't call
-            // scrollToAndHighlightArticle itself (that stays the agent's own
-            // call, per the earlier decision to split them) — but an agent
-            // that read the result and never even considered
-            // highlight_content is a real gap a description alone didn't
-            // close in practice. Putting the suggestion directly in the
-            // return value the agent just received is much harder to miss
-            // than a sentence buried in a tool description read once at
-            // discovery time.
-            return {
-                navigated: true,
-                url,
-                hint: 'If the person is watching the page, call highlight_content now to show them where this is.',
-            }
+            // Auto-highlight, not a hint: a hint field in the result asking
+            // the agent to call highlight_content afterward was reliably
+            // ignored across multiple live sessions — the same failure mode
+            // get_doc_content hit before it started navigating unprompted.
+            // A navigation the person can't see happen isn't useful even
+            // when it "worked", so this waits for the new page to mount and
+            // highlights it every time, no agent action required.
+            const highlighted = await scrollToAndHighlightArticleAfterNavigation()
+            return { navigated: true, url, highlighted }
         },
     })
 
-    // Separate from open_doc on purpose: the agent decides whether drawing
-    // the person's eye to the article is useful for this turn (e.g. after
-    // landing on a long page, or specifically when walking someone through
-    // "here's the section that answers that") rather than it happening
-    // unconditionally on every navigation.
+    // A separate, standalone tool for RE-highlighting without a fresh
+    // navigation (e.g. the person scrolled away, or the agent wants to draw
+    // attention to something mid-conversation without moving the page).
+    // open_doc and get_doc_content already auto-highlight on navigation —
+    // this exists for the case that isn't tied to navigating at all.
     useTool({
         name: 'highlight_content',
         description:
-            "Scroll the current page's main content into view and briefly highlight it — use this to draw the " +
-            'person\'s attention to what you just navigated to, when that\'s useful (e.g. right after open_doc, ' +
-            "or when pointing out where an answer lives). Not automatic — call it only when it adds value.",
+            "Scroll the current page's main content into view and briefly highlight it, without navigating " +
+            'anywhere new — open_doc and get_doc_content already do this automatically right after they ' +
+            'navigate, so you usually don\'t need to call this yourself. Use it to re-highlight later in the ' +
+            "conversation (e.g. the person scrolled away, or you're pointing out something on the current page).",
         inputSchema: { type: 'object', properties: {} },
         annotations: { readOnlyHint: true },
         execute: async () => {
@@ -121,15 +117,17 @@ const DocsLayout = () => {
     // driving the page enough real text to write one accurately, rather
     // than the agent guessing from a title alone.
     //
-    // ALSO navigates to the page it's reading — NOT readOnlyHint. Earlier
-    // this stayed pure-read and open_doc handled navigation separately; in
-    // practice, an agent that already has the content it needs to answer
-    // has no reason to make a second call just to move the page, so
-    // navigation silently never happened even while the agent correctly
-    // answered from real doc content. Reading a page and being ON that page
-    // are now the same action, which is also just how a person actually
-    // uses a docs site — you don't know a page's content without opening
-    // it. highlight_content stays a separate, agent-chosen call.
+    // ALSO navigates to the page it's reading — NOT readOnlyHint. An agent
+    // that already has the content it needs to answer has no reason to make
+    // a second call just to move the page, so a pure-read version silently
+    // never navigated even while correctly answering from real doc content.
+    // Reading a page and being ON that page are now the same action.
+    //
+    // ALSO auto-highlights after navigating (not a hint asking the agent to
+    // call highlight_content separately) — that hint was reliably ignored
+    // across multiple live sessions, same failure mode as the navigation
+    // gap above. A navigation the person can't see isn't useful even when
+    // the agent's answer is correct.
     useTool({
         name: 'get_doc_content',
         description:
@@ -153,13 +151,14 @@ const DocsLayout = () => {
                 })
             }
             navigate(url)
+            const highlighted = await scrollToAndHighlightArticleAfterNavigation()
             return {
                 url: doc.url,
                 title: doc.title,
                 categories: doc.categories,
                 content: doc.searchText,
                 toc: doc.toc,
-                hint: 'If the person is watching the page, call highlight_content now to show them where this is.',
+                highlighted,
             }
         },
     })

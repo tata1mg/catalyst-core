@@ -5,13 +5,16 @@
  * over the build-time manifest, not a POC's toy product catalogue).
  *
  * Drives the agreed test flow: search_docs("ssr data fetching") ->
- * get_doc_content(result) -> confirm the browser actually navigated AND
- * real page content came back in the same call (get_doc_content is the
- * primary read+navigate tool now — see DocsLayout.js's comment on why
- * open_doc alone wasn't enough: an agent with content already in hand from
- * get_doc_content had no reason to also call open_doc, so a pure-read
- * get_doc_content silently never moved the page in practice). open_doc is
- * tested separately as the narrower "navigate without reading" tool.
+ * get_doc_content(result) -> confirm the browser actually navigated, real
+ * page content came back in the same call, AND the page auto-scrolled +
+ * highlighted without any further tool call (get_doc_content/open_doc both
+ * navigate AND auto-highlight now — see DocsLayout.js's comments on why:
+ * first a pure-read get_doc_content never navigated because an agent with
+ * content already in hand had no reason to also call open_doc, then even
+ * once navigation was automatic, a "call highlight_content yourself" hint
+ * in the result was reliably ignored across multiple live sessions, so
+ * both navigating tools now highlight unconditionally). highlight_content
+ * remains a standalone tool for RE-highlighting without a fresh navigation.
  *
  * Prerequisites:
  *   1. `npm install --no-save --legacy-peer-deps playwright-core` in this dir
@@ -59,32 +62,33 @@ check("a relevant result exists in the top results", !!target, target?.title)
 
 r = await call("get_doc_content", { url: target.url })
 check("get_doc_content returns real page content", r.ok && typeof r.r.content === "string" && r.r.content.length > 100, r.ok ? `${r.r.content.length} chars` : JSON.stringify(r))
-check("get_doc_content's result nudges the agent toward highlight_content", r.ok && typeof r.r.hint === "string" && /highlight_content/.test(r.r.hint), r.r?.hint)
-await page.waitForTimeout(500)
+check("get_doc_content reports it auto-highlighted", r.ok && r.r.highlighted === true, JSON.stringify(r))
 
 let browserUrl = await page.url()
 check("get_doc_content ALSO navigated the browser there", decodeURIComponent(browserUrl).endsWith(target.url), browserUrl)
 
-// highlight_content stays a separate, agent-chosen call — not automatic.
+// get_doc_content now auto-highlights (awaits the post-navigation poll
+// itself before returning) — no separate highlight_content call needed.
 let hasHighlight = await page.evaluate(() => !!document.querySelector(".webmcp-doc-highlight"))
-check("get_doc_content alone does not trigger the highlight", hasHighlight === false, String(hasHighlight))
-
-r = await call("highlight_content")
-check("highlight_content on the doc page reports highlighted:true", r.ok && r.r.highlighted === true, JSON.stringify(r))
-hasHighlight = await page.evaluate(() => !!document.querySelector(".webmcp-doc-highlight"))
-check("highlight_content actually applies the highlight class", hasHighlight === true, String(hasHighlight))
+check("get_doc_content's auto-highlight actually applied the class", hasHighlight === true, String(hasHighlight))
 
 r = await call("get_page_info")
 check("get_page_info reflects the new page", r.ok && r.r.title, r.r?.title)
 
-// --- open_doc: the narrower "navigate without reading" tool ---
+// --- highlight_content: standalone RE-highlight, no navigation involved ---
+await page.waitForTimeout(1700) // let the first highlight's animation fully clear
+r = await call("highlight_content")
+check("highlight_content on the current doc page reports highlighted:true", r.ok && r.r.highlighted === true, JSON.stringify(r))
+hasHighlight = await page.evaluate(() => !!document.querySelector(".webmcp-doc-highlight"))
+check("highlight_content actually (re)applies the highlight class", hasHighlight === true, String(hasHighlight))
+
+// --- open_doc: the narrower "navigate without reading" tool — also auto-highlights ---
 r = await call("navigate", { path: "/" })
 check("reset to home via navigate", r.ok, JSON.stringify(r))
 await page.waitForTimeout(300)
 
 r = await call("open_doc", { url: target.url })
-check("open_doc alone still navigates", r.ok && r.r.navigated, JSON.stringify(r))
-await page.waitForTimeout(500)
+check("open_doc navigates and reports it auto-highlighted", r.ok && r.r.navigated && r.r.highlighted === true, JSON.stringify(r))
 browserUrl = await page.url()
 check("open_doc alone actually moved the browser", decodeURIComponent(browserUrl).endsWith(target.url), browserUrl)
 
