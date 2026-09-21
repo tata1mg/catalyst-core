@@ -1,0 +1,24 @@
+docs/scripts/webmcp-e2e-smoke.mjs
+  s_b0e8727f0b555e::t_ba803298c69b8c 8-14,53,60-62,65-66,68,70,80-90,94-95
+  s_b0e8727f0b555e::t_582c2e4992a1c6 96
+docs/src/js/layouts/DocsLayout.js
+  s_b0e8727f0b555e::t_eeb5aa5e990855 33-34
+  s_b0e8727f0b555e::t_c024c970cc56ce 60-64
+  s_b0e8727f0b555e::t_db00fe0988c360 117-132,136-140,155,162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "67f653c3484ca1e32ac6b61f6fb29ce34a6c42c0",
+  "prompts": {},
+  "sessions": {
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
