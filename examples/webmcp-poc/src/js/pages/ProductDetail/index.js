@@ -46,7 +46,16 @@ function ProductDetail() {
                 },
             },
             execute: async ({ quantity: qty = 1, size } = {}) => {
-                if (!product) return "Product not found."
+                if (!product) {
+                    // The route matched (/product/:id) but no product with this id
+                    // exists — e.g. an agent invented an id it never got from
+                    // `products`/`get_cart`. Surfacing this as a typed error (not a
+                    // "successful" string result) lets the agent distinguish
+                    // "nothing happened, try a different id" from "it worked."
+                    throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                        message: `No product found with id "${id}". Call products() to see valid ids.`,
+                    })
+                }
                 const chosenSize = size != null ? size : selectedSize
                 if (hasSizes && !chosenSize) {
                     throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
