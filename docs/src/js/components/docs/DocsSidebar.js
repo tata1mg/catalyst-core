@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import manifest from '../../generated/docsManifest.json'
 import { loadErrorsCatalog, groupByCategory } from '../../data/errorsCatalog'
 

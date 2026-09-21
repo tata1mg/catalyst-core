@@ -307,7 +307,7 @@ export const RouterDataProvider = ({
     }, [match.pathname, match.params])
 
     return (
-        <OneMgRouterContext.Provider value={{ matchedRoutes, refetchData, clear }}>
+        <OneMgRouterContext.Provider value={{ matchedRoutes, refetchData, clear, location, params, navigate }}>
             <RouterContext.Provider value={{ ...routeData, refetch: refetchData } as any}>
                 {children}
             </RouterContext.Provider>
@@ -364,4 +364,35 @@ export const useRouterData = (): RoutesData => {
     }
 
     return context
+}
+
+/**
+ * Router state (location, params, navigate, the matched-route chain) read
+ * through OneMgRouterContext rather than react-router's own hooks directly.
+ *
+ * Exists so a `catalyst-core/*` SUBPATH package (e.g. `catalyst-core/webmcp`)
+ * can read router state without importing react-router itself. A subpath is
+ * a separate module resolution root from the app's own react-router import
+ * under Vite's dev SSR (react-router is deliberately excluded from
+ * vite.config.js's `dedupe`), so two `useLocation()` calls made from two
+ * different entry points can land on two different react-router module
+ * instances with two different, mutually invisible RouterContexts — the
+ * hook throws "may be used only in the context of a <Router> component"
+ * even though a <Router> genuinely is an ancestor. Going through this
+ * context instead relies only on `react`'s context identity, and `react`
+ * (unlike react-router) IS deduped.
+ *
+ * @throws If used outside RouterDataProvider Context
+ */
+export const useRouterState = () => {
+    const context = useContext(OneMgRouterContext)
+    if (context.location === undefined) {
+        throw new Error("useRouterState must be used within a RouterDataProvider")
+    }
+    return {
+        location: context.location as Location,
+        params: (context.params || {}) as Params,
+        navigate: context.navigate as NavigateFunction,
+        matchedRoutes: context.matchedRoutes || [],
+    }
 }

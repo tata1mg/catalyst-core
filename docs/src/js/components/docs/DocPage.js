@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { MDXProvider } from '@mdx-js/react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import manifest from '../../generated/docsManifest.json'
 import DocsSidebar from './DocsSidebar'
 import CodeBlock from './CodeBlock'
