@@ -41,7 +41,11 @@ await page.goto(`${BASE}/`, { waitUntil: "networkidle" })
 await page.waitForTimeout(700)
 
 let t = await page.evaluate(() => window.document.modelContext.getTools().map(t=>t.name).sort())
-check("all 5 tools present on home page", ["get_current_route","get_page_info","navigate","open_doc","search_docs"].every(n => t.includes(n)), JSON.stringify(t))
+check("all 7 tools present on home page", ["get_current_route","get_doc_content","get_page_info","highlight_content","navigate","open_doc","search_docs"].every(n => t.includes(n)), JSON.stringify(t))
+
+// highlight_content on the home page (no .doc-article) reports false, not an error.
+let r0 = await call("highlight_content")
+check("highlight_content on a non-article page reports highlighted:false", r0.ok && r0.r.highlighted === false, JSON.stringify(r0))
 
 // Simulated agent flow for "Find the page that explains SSR data fetching and open it."
 let r = await call("search_docs", { query: "ssr data fetching" })
@@ -56,6 +60,19 @@ await page.waitForTimeout(500)
 
 const browserUrl = await page.url()
 check("browser actually navigated to the target page", decodeURIComponent(browserUrl).endsWith(target.url), browserUrl)
+
+// open_doc does NOT auto-highlight (split from highlight_content per user feedback) —
+// the agent decides separately whether to call it.
+let hasHighlight = await page.evaluate(() => !!document.querySelector(".webmcp-doc-highlight"))
+check("open_doc alone does not trigger the highlight", hasHighlight === false, String(hasHighlight))
+
+r = await call("highlight_content")
+check("highlight_content on the doc page reports highlighted:true", r.ok && r.r.highlighted === true, JSON.stringify(r))
+hasHighlight = await page.evaluate(() => !!document.querySelector(".webmcp-doc-highlight"))
+check("highlight_content actually applies the highlight class", hasHighlight === true, String(hasHighlight))
+
+r = await call("get_doc_content", { url: target.url })
+check("get_doc_content returns real page content", r.ok && typeof r.r.content === "string" && r.r.content.length > 100, r.ok ? `${r.r.content.length} chars` : JSON.stringify(r))
 
 r = await call("get_page_info")
 check("get_page_info reflects the new page", r.ok && r.r.title, r.r?.title)

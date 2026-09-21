@@ -5,7 +5,8 @@ import { ThemeProvider } from '../components/docs/ThemeContext'
 import DocumentBootstrap from '../components/DocumentBootstrap'
 import Navbar from '../components/Navbar'
 import ScrollReset from '../components/ScrollReset'
-import { search, isKnownDocUrl } from '../search.js'
+import { search, isKnownDocUrl, getDocByUrl } from '../search.js'
+import { scrollToAndHighlightArticle } from '../scrollHighlight.js'
 
 /**
  * Site chrome. The docs grid itself (sidebar, article, TOC) belongs to
@@ -28,8 +29,9 @@ const DocsLayout = () => {
     useTool({
         name: 'search_docs',
         description:
-            'Search the Catalyst documentation by keyword. Returns matching pages with title, URL, and category — ' +
-            'call open_doc with a result URL to navigate there.',
+            'Search the Catalyst documentation by keyword. Returns matching pages with title, URL, and category. ' +
+            'Call open_doc with a result URL to navigate there, or get_doc_content to read the full page text ' +
+            '(e.g. to ground a written answer — search_docs alone only returns a short description).',
         inputSchema: {
             type: 'object',
             properties: {
@@ -71,6 +73,64 @@ const DocsLayout = () => {
             }
             navigate(url)
             return { navigated: true, url }
+        },
+    })
+
+    // Separate from open_doc on purpose: the agent decides whether drawing
+    // the person's eye to the article is useful for this turn (e.g. after
+    // landing on a long page, or specifically when walking someone through
+    // "here's the section that answers that") rather than it happening
+    // unconditionally on every navigation.
+    useTool({
+        name: 'highlight_content',
+        description:
+            "Scroll the current page's main content into view and briefly highlight it — use this to draw the " +
+            'person\'s attention to what you just navigated to, when that\'s useful (e.g. right after open_doc, ' +
+            "or when pointing out where an answer lives). Not automatic — call it only when it adds value.",
+        inputSchema: { type: 'object', properties: {} },
+        annotations: { readOnlyHint: true },
+        execute: async () => {
+            const highlighted = scrollToAndHighlightArticle()
+            return highlighted
+                ? { highlighted: true }
+                : { highlighted: false, note: 'This page has no main content to highlight (not a doc article page).' }
+        },
+    })
+
+    // Read-only. Gives an agent the actual doc CONTENT to ground an answer
+    // on — e.g. "paste an error, find the relevant doc, write a fix" needs
+    // more than the title/description search_docs returns. This does NOT
+    // generate a solution itself (a page has no LLM to call) — it hands the
+    // agent driving the page enough real text to write one accurately,
+    // rather than the agent guessing from a title alone.
+    useTool({
+        name: 'get_doc_content',
+        description:
+            'Read the full text content of a documentation page by its URL (from search_docs\' results). Use this ' +
+            'before answering a question or writing a solution based on a specific doc page — get_page_info/' +
+            'search_docs alone only give a short description, not enough to ground a real answer on.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                url: { type: 'string', description: 'a URL returned by search_docs, e.g. "/content/Introduction/why-catalyst"' },
+            },
+            required: ['url'],
+        },
+        annotations: { readOnlyHint: true },
+        execute: async ({ url } = {}) => {
+            const doc = getDocByUrl(url)
+            if (!doc) {
+                throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                    message: `"${url}" is not a known documentation page. Call search_docs to find a valid URL.`,
+                })
+            }
+            return {
+                url: doc.url,
+                title: doc.title,
+                categories: doc.categories,
+                content: doc.searchText,
+                toc: doc.toc,
+            }
         },
     })
 

@@ -34,3 +34,8 @@ export function search(query, { limit = 10 } = {}) {
 export function isKnownDocUrl(url) {
     return manifest.some((page) => page.url === url)
 }
+
+/** The full manifest entry for one page — used by get_doc_content to hand an agent real grounding text. */
+export function getDocByUrl(url) {
+    return manifest.find((page) => page.url === url) || null
+}
