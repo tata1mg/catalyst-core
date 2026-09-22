@@ -86,13 +86,10 @@ At minimum, define the core web server values:
 {
   "NODE_SERVER_HOSTNAME": "0.0.0.0",
   "NODE_SERVER_PORT": 3005,
-  "WEBPACK_DEV_SERVER_HOSTNAME": "0.0.0.0",
-  "WEBPACK_DEV_SERVER_PORT": 3006,
   "BUILD_OUTPUT_PATH": "build",
   "PUBLIC_STATIC_ASSET_PATH": "/static/",
   "PUBLIC_STATIC_ASSET_URL": "/static/",
   "CLIENT_ENV_VARIABLES": ["API_URL"],
-  "ANALYZE_BUNDLE": false,
   "API_URL": "https://api.example.com"
 }
 ```

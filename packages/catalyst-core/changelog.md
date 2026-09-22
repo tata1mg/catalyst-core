@@ -5,6 +5,7 @@
 - Added opt-in request, compression, flush, and bot-aware OpenTelemetry spans.
 - Preserved native application builds, internal plugins, Sentry exports, and safe-area SSR hydration.
 - Removed the legacy `devBuild` and `devServe` commands.
+- Stopped requiring and reading `WEBPACK_DEV_SERVER_HOSTNAME`, `WEBPACK_DEV_SERVER_PORT`, and `ANALYZE_BUNDLE`, which can now be removed from `config/config.json`.
 
 # Changelog
 

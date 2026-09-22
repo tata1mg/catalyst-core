@@ -22,13 +22,7 @@ export const renderStart = ({
     isBot: boolean
     fetcherData: Record<string, any>
 }) => {
-    const { IS_DEV_COMMAND, WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT } = process.env
-
-    let publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
-
-    if (JSON.parse(IS_DEV_COMMAND)) {
-        publicAssetPath = `http://${WEBPACK_DEV_SERVER_HOSTNAME}:${WEBPACK_DEV_SERVER_PORT}/assets/`
-    }
+    const publicAssetPath = `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}`
 
     return {
         inlineCss,
