@@ -303,7 +303,7 @@ function commandPublish(args) {
         if (target.workspace === workspaces.core) {
             waitForNpm(target.workspace.name, target.version, dryRun)
         }
-        if (channel !== "canary") {
+        if (channel === "latest") {
             pushTag(target.workspace, target.version, dryRun)
         }
     }
