@@ -436,6 +436,7 @@ const TOOLS = [
                         "seo_metadata",
                         "transport_architecture",
                         "webview_config",
+                        "version_migration",
                     ],
                     description:
                         "Optional: only pass when you are certain of the section. Omit if unsure — wrong section returns zero results.",

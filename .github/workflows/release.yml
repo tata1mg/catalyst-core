@@ -1,0 +1,240 @@
+# How to release.
+#
+# latest:
+#   1. Dispatch this workflow from main with channel=latest and a version (or a bump).
+#   2. It opens a release/<version> PR that carries the version bumps.
+#   3. Merging that PR pushes packages/*/package.json to main, which runs publish.
+#
+# beta / canary:
+#   Dispatch from main with the channel and source_ref set to the branch you want
+#   released. The prerelease number is picked from npm and written into the
+#   checkout only; nothing is committed and no PR is opened.
+#
+# The workflow definition always comes from main; source_ref only selects the code.
+# The release PR is opened with github.token, so pull_request CI does not run on it
+# (it carries version bumps and the lockfile, nothing else).
+# The first stable is 1.0.0 via bump=major: prerelease bases bump past 0.3.0, so a
+# 0.3.0 stable is unreachable by design.
+
+name: Release
+
+on:
+    workflow_dispatch:
+        inputs:
+            channel:
+                description: "Release channel"
+                required: true
+                type: choice
+                options:
+                    - latest
+                    - beta
+                    - canary
+                default: beta
+            source_ref:
+                description: "Branch to release for beta/canary, ignored for latest"
+                required: false
+                type: string
+                default: main
+            version:
+                description: "Explicit X.Y.Z for catalyst-core and create-catalyst-app; overrides bump. For beta/canary this is the base, N comes from npm"
+                required: false
+                type: string
+                default: ""
+            ai_version:
+                description: "Explicit X.Y.Z for catalyst-ai; overrides bump"
+                required: false
+                type: string
+                default: ""
+            bump:
+                description: "Version bump, used when no explicit version is given"
+                required: true
+                type: choice
+                options:
+                    - patch
+                    - minor
+                    - major
+                default: patch
+            include_ai:
+                description: "Also release catalyst-ai"
+                required: false
+                type: boolean
+                default: false
+            pr_number:
+                description: "PR to attribute release notes to; on latest it is taken from the merged release PR"
+                required: false
+                type: string
+                default: ""
+            dry_run:
+                description: "Dry run"
+                required: false
+                type: boolean
+                default: false
+    push:
+        branches:
+            - main
+        paths:
+            - "packages/*/package.json"
+
+permissions:
+    contents: write
+    pull-requests: write
+    id-token: write
+
+concurrency:
+    group: release
+    cancel-in-progress: false
+
+jobs:
+    prepare:
+        if: github.event_name == 'workflow_dispatch' && inputs.channel == 'latest'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+            - name: Require main
+              if: ${{ !inputs.dry_run }}
+              env:
+                  BRANCH: ${{ github.ref_name }}
+              run: |
+                  if [ "$BRANCH" != "main" ]; then
+                    echo "::error::latest releases must be dispatched from main (current: $BRANCH)"
+                    exit 1
+                  fi
+
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version: "22.14.0"
+
+            - run: npm ci --ignore-scripts
+
+            - name: Bump versions
+              id: versions
+              env:
+                  VERSION: ${{ inputs.version }}
+                  AI_VERSION: ${{ inputs.ai_version }}
+              run: |
+                  node scripts/release/release.js version --bump "${{ inputs.bump }}" \
+                    ${{ inputs.include_ai && '--include-ai' || '' }} \
+                    ${VERSION:+--version "$VERSION"} ${AI_VERSION:+--ai-version "$AI_VERSION"}
+
+            - name: Open release PR
+              if: ${{ !inputs.dry_run }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  CORE_VERSION: ${{ steps.versions.outputs.core_version }}
+                  CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
+                  AI_VERSION: ${{ steps.versions.outputs.ai_version }}
+              run: |
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git config user.name "github-actions[bot]"
+
+                  BRANCH="release/$CORE_VERSION"
+
+                  if git ls-remote --exit-code origin "refs/heads/$BRANCH" >/dev/null 2>&1; then
+                    echo "::error::$BRANCH already exists, delete it first"
+                    exit 1
+                  fi
+
+                  SUMMARY="catalyst-core@$CORE_VERSION create-catalyst-app@$CCA_VERSION"
+                  BODY="- catalyst-core@$CORE_VERSION"$'\n'"- create-catalyst-app@$CCA_VERSION"
+
+                  if [ -n "$AI_VERSION" ]; then
+                    SUMMARY="$SUMMARY catalyst-ai@$AI_VERSION"
+                    BODY="$BODY"$'\n'"- catalyst-ai@$AI_VERSION"
+                  fi
+
+                  git checkout -b "$BRANCH"
+                  git commit -am "chore: release $SUMMARY"
+                  git push origin "$BRANCH"
+
+                  gh pr create --base main --head "$BRANCH" \
+                    --title "chore: release $SUMMARY" \
+                    --body "$BODY"
+
+    # runs before the npm environment is entered, so a stray push cannot reach it
+    guard:
+        if: github.event_name == 'push'
+        runs-on: ubuntu-latest
+        outputs:
+            pr_number: ${{ steps.pr.outputs.number }}
+        steps:
+            - name: Require a release/* PR
+              id: pr
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  read -r HEAD_REF PR_NUMBER < <(gh api \
+                    "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+                    --jq 'if length > 0 then "\(.[0].head.ref) \(.[0].number)" else "none none" end' \
+                    2>/dev/null || echo "none none")
+
+                  case "$HEAD_REF" in
+                    release/*) ;;
+                    *)
+                      echo "::error::push to main did not come from a release/* PR (head: $HEAD_REF)"
+                      exit 1
+                      ;;
+                  esac
+
+                  echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+    publish:
+        needs: guard
+        if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && inputs.channel != 'latest') || needs.guard.result == 'success') }}
+        runs-on: ubuntu-latest
+        environment: npm
+        outputs:
+            core_version: ${{ steps.release.outputs.core_version }}
+            core_published: ${{ steps.release.outputs.core_published }}
+            published: ${{ steps.release.outputs.published }}
+            sha: ${{ steps.release.outputs.sha }}
+            pr_number: ${{ needs.guard.outputs.pr_number }}
+        steps:
+            - name: Require main
+              if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
+              env:
+                  BRANCH: ${{ github.ref_name }}
+              run: |
+                  if [ "$BRANCH" != "main" ]; then
+                    echo "::error::releases must be dispatched from main (current: $BRANCH)"
+                    exit 1
+                  fi
+
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+              with:
+                  ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || '' }}
+
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+              with:
+                  node-version: "22.14.0"
+                  registry-url: "https://registry.npmjs.org"
+
+            - run: npm ci --ignore-scripts
+
+            # Node 22 ships npm 10, which cannot do trusted publishing over OIDC.
+            - run: npm install -g npm@11.5.1
+
+            - name: Publish
+              id: release
+              env:
+                  VERSION: ${{ inputs.version }}
+                  AI_VERSION: ${{ inputs.ai_version }}
+              run: |
+                  node scripts/release/release.js publish \
+                    ${VERSION:+--version "$VERSION"} ${AI_VERSION:+--ai-version "$AI_VERSION"} \
+                    --channel "${{ github.event_name == 'push' && 'latest' || inputs.channel }}" \
+                    ${{ github.event_name == 'workflow_dispatch' && format('--bump {0}', inputs.bump) || '' }} \
+                    ${{ github.event_name == 'workflow_dispatch' && inputs.include_ai && '--include-ai' || '' }} \
+                    ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
+
+    notes:
+        needs: publish
+        if: >-
+            needs.publish.outputs.core_published == 'true' &&
+            (needs.publish.outputs.pr_number != '' || inputs.pr_number != '')
+        uses: ./.github/workflows/release-automation.yml
+        with:
+            version: ${{ needs.publish.outputs.core_version }}
+            npm_tag: ${{ github.event_name == 'push' && 'latest' || inputs.channel }}
+            pr_number: ${{ needs.publish.outputs.pr_number || inputs.pr_number }}
+            commit_sha: ${{ needs.publish.outputs.sha }}

@@ -21,9 +21,9 @@ import { loadErrorsCatalog, groupByCategory } from '../../data/errorsCatalog'
 const ERRORS_BASE = '/errors'
 const MCP_URL = '/content/mcp-integration'
 
-const buildTree = () => {
+const buildTree = (version) => {
     const root = { label: null, items: [] }
-    for (const page of manifest) {
+    for (const page of manifest.filter((page) => page.version === version)) {
         let node = root
         for (const category of page.categories) {
             let child = node.items.find(
@@ -42,7 +42,10 @@ const buildTree = () => {
 }
 
 const Caret = ({ open }) => (
-    <span className={`docs-sidebar-caret ${open ? 'open' : ''}`} aria-hidden="true">
+    <span
+        className={`docs-sidebar-caret ${open ? 'open' : ''}`}
+        aria-hidden="true"
+    >
         <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -220,7 +223,10 @@ const ErrorReferenceGroup = ({ currentUrl, errorsCatalog }) => {
                             />
                         ))
                     ) : (
-                        <div className="errors-sidebar-skeleton" aria-hidden="true">
+                        <div
+                            className="errors-sidebar-skeleton"
+                            aria-hidden="true"
+                        >
                             {Array.from({ length: 6 }).map((_, i) => (
                                 <div key={i} className="errors-skeleton-row" />
                             ))}
@@ -232,8 +238,14 @@ const ErrorReferenceGroup = ({ currentUrl, errorsCatalog }) => {
     )
 }
 
-const DocsSidebar = ({ currentUrl, mobileOpen, onClose, errorsCatalog }) => {
-    const tree = useMemo(buildTree, [])
+const DocsSidebar = ({
+    currentUrl,
+    version,
+    mobileOpen,
+    onClose,
+    errorsCatalog,
+}) => {
+    const tree = useMemo(() => buildTree(version), [version])
 
     // Error reference sits just above the MCP Integration page. Split the
     // top-level items there; append if MCP isn't in the manifest.
@@ -242,7 +254,10 @@ const DocsSidebar = ({ currentUrl, mobileOpen, onClose, errorsCatalog }) => {
             (it) => it.type === 'page' && it.page.url === MCP_URL
         )
         if (idx === -1) return { before: tree.items, after: [] }
-        return { before: tree.items.slice(0, idx), after: tree.items.slice(idx) }
+        return {
+            before: tree.items.slice(0, idx),
+            after: tree.items.slice(idx),
+        }
     }, [tree])
 
     return (
@@ -254,7 +269,9 @@ const DocsSidebar = ({ currentUrl, mobileOpen, onClose, errorsCatalog }) => {
                     role="presentation"
                 />
             )}
-            <aside className={`docs-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+            <aside
+                className={`docs-sidebar ${mobileOpen ? 'mobile-open' : ''}`}
+            >
                 <TreeLevel
                     node={{ items: before }}
                     currentUrl={currentUrl}
