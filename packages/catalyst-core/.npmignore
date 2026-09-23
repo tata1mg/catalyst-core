@@ -13,6 +13,8 @@ tsconfig.json
 tsconfig.declarations.json
 .catalyst-dev/
 **/androidProject/**/build/*
+**/iosnativeWebView/build/**
+**/androidProject/.gradle/**
 *.sh
 context.md
 .claude/
