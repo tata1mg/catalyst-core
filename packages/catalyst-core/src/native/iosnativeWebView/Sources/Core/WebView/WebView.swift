@@ -22,6 +22,7 @@ public struct WebView: UIViewRepresentable, Equatable {
         self.cameraManager = cameraManager
         let initialURL = URL(string: urlString)
         self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel, initialURL: initialURL, cameraManager: cameraManager)
+        CacheManager.shared.configure(patterns: RuntimeConfig.cachePattern)
 
         // Register our custom URL protocol for caching
         let protocolStart = CFAbsoluteTimeGetCurrent()
@@ -59,7 +60,7 @@ public struct WebView: UIViewRepresentable, Equatable {
         configuration.defaultWebpagePreferences = preferences
 
         #if DEBUG
-        if ConfigConstants.Profiler.enabled {
+        if RuntimeConfig.profilerEnabled {
             configuration.userContentController.addUserScript(
                 WKUserScript(
                     source: "window.__CATALYST_PROFILER_ENABLED = true;",
@@ -81,7 +82,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         webView.navigationDelegate = navigationDelegate
         #if DEBUG
-        if ConfigConstants.Profiler.enabled {
+        if RuntimeConfig.profilerEnabled {
             webView.scrollView.delegate = context.coordinator
         }
         #endif
@@ -148,10 +149,11 @@ public struct WebView: UIViewRepresentable, Equatable {
         let makeUIViewTime = (CFAbsoluteTimeGetCurrent() - makeUIViewStart) * 1000
         logWithTimestamp("🔨 makeUIView() completed (took \(String(format: "%.2f", makeUIViewTime))ms)")
         #if DEBUG
-        if ConfigConstants.Profiler.enabled {
+        if RuntimeConfig.profilerEnabled {
             context.coordinator.startKeyboardPerfTracking(webView)
         }
         #endif
+        viewModel.didCreateWebView()
 
         return webView
     }
@@ -188,9 +190,6 @@ public struct WebView: UIViewRepresentable, Equatable {
         coordinator.pluginBridge = nil
         coordinator.hostingController = nil
 
-        // Unregister custom URL protocol
-        ResourceURLProtocol.unregister()
-
         logger.debug("WebView cleanup completed")
     }
     
@@ -216,7 +215,11 @@ public struct WebView: UIViewRepresentable, Equatable {
 
             // Create and register the native bridge
             let bridge = NativeBridge(webView: webView, viewController: hostingController, cameraManager: parent.cameraManager)
-            let pluginBridge = PluginBridge(webView: webView, viewController: hostingController)
+            let pluginBridge = PluginBridge(
+                webView: webView,
+                viewController: hostingController,
+                webViewModel: parent.viewModel
+            )
 
             // Inject WebViewModel for safe area handling
             Task { @MainActor in
@@ -231,7 +234,7 @@ public struct WebView: UIViewRepresentable, Equatable {
             self.nativeBridge = bridge
             self.pluginBridge = pluginBridge
             #if DEBUG
-            if ConfigConstants.Profiler.enabled {
+            if RuntimeConfig.profilerEnabled {
                 self.fpsMonitor = DisplayLinkPerfMonitor(webView: webView)
                 self.fpsMonitor?.start()
             }

@@ -35,7 +35,7 @@ class DeviceInfoUtils {
             "screenDensity": screen.scale
         ]
 
-        deviceInfo["appInfo"] = ConfigConstants.appInfo
+        deviceInfo["appInfo"] = RuntimeConfig.appInfo
         
 
         logger.debug("Device info retrieved successfully: \(deviceInfo.description)")

@@ -1,0 +1,321 @@
+/* TryApp-specific styles. Shared controls (groups, buttons, segments,
+   banners, inputs) come from ../shared/appKit.scss. */
+
+/* Web-only pitch card. */
+.card {
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    margin: 16px 0;
+
+    h2 {
+        margin: 0 0 8px;
+        font-size: var(--text-xl);
+    }
+
+    p {
+        margin: 0;
+        font-size: var(--text-md);
+        color: var(--hub-text-muted);
+        line-height: 1.5;
+    }
+}
+
+/* ── Scan panel (camera not yet open) ───────────────────────────────── */
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 20px 24px;
+    border-radius: var(--radius-lg);
+    background: var(--hub-card-background);
+    border: 1px solid var(--hub-border);
+}
+
+.qrMark {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-md);
+    background: var(--hub-primary-soft);
+    color: var(--hub-primary);
+
+    svg {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+.panelTitle {
+    margin: 0 0 6px;
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--hub-text);
+}
+
+.panelBody {
+    margin: 0 0 20px;
+    max-width: 280px;
+    font-size: var(--text-md);
+    line-height: 1.5;
+    color: var(--hub-text-muted);
+}
+
+.panelNote {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--hub-text-muted);
+}
+
+.code {
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    background: var(--hub-background);
+    border: 1px solid var(--hub-border);
+}
+
+/* ── Recents ────────────────────────────────────────────────────────── */
+
+.recents {
+    margin-top: 24px;
+
+    h3 {
+        font-size: var(--text-sm);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--hub-text-muted);
+        margin: 0 0 8px;
+        padding-left: 4px;
+    }
+}
+
+.recentRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 50px;
+    padding: 13px 16px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    color: var(--hub-text);
+    font-size: var(--text-md);
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color var(--dur-fast) var(--ease);
+
+    & + .recentRow {
+        border-top: 1px solid var(--hub-border);
+    }
+
+    &:active {
+        background: var(--hub-primary-softer);
+    }
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: default;
+
+        &:active {
+            background: none;
+        }
+    }
+}
+
+.recentUrl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recentChevron {
+    flex-shrink: 0;
+    color: var(--hub-text-muted);
+    line-height: 0;
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+/* ── Full-screen scanner (native camera renders BEHIND the WebView) ──── */
+
+/* html[data-shell="app"] .shell-only sets display:block, which outranks the
+   plain `hidden` attribute — without this the scan page keeps painting
+   through the transparent overlay. */
+:global(.app-screen[hidden]) {
+    display: none !important;
+}
+
+.scanOverlay {
+    position: fixed;
+    inset: 0;
+    /* Above .hub-bottom-nav (30) so the tab bar cannot paint over the camera
+       and strand the user with no way to exit. */
+    z-index: 40;
+    background: transparent;
+    display: grid;
+    /* Top rail is fixed; the middle row absorbs the slack so the viewfinder
+       stays optically centred on any screen height. */
+    grid-template-rows: auto 1fr;
+    padding: calc(10px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
+}
+
+/* Both html AND body paint --hub-background; both must go transparent or the
+   canvas stays opaque and hides the native camera behind the WebView. */
+:global(html):has(.scanOverlay),
+:global(body):has(.scanOverlay) {
+    background: transparent !important;
+}
+
+.scanTop {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.scanCenter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    /* Lift the viewfinder a touch above true centre — optically balanced
+       against the top rail. */
+    padding-bottom: 56px;
+}
+
+@keyframes viewfinderIn {
+    from {
+        opacity: 0;
+        transform: scale(1.06);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.viewfinder {
+    position: relative;
+    width: min(262px, 70vw);
+    aspect-ratio: 1;
+    border-radius: var(--radius-xl);
+    /* Scrim everywhere except the cutout, so the QR area stays bright. */
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.55);
+    animation: viewfinderIn var(--dur-slow) var(--ease);
+}
+
+/* Corner brackets read as a scan target without boxing in the whole frame. */
+.corner {
+    position: absolute;
+    width: 34px;
+    height: 34px;
+    border: 3px solid #fff;
+}
+
+.cornerTl {
+    top: -1px;
+    left: -1px;
+    border-right: none;
+    border-bottom: none;
+    border-radius: var(--radius-xl) 0 0 0;
+}
+
+.cornerTr {
+    top: -1px;
+    right: -1px;
+    border-left: none;
+    border-bottom: none;
+    border-radius: 0 var(--radius-xl) 0 0;
+}
+
+.cornerBl {
+    bottom: -1px;
+    left: -1px;
+    border-right: none;
+    border-top: none;
+    border-radius: 0 0 0 var(--radius-xl);
+}
+
+.cornerBr {
+    bottom: -1px;
+    right: -1px;
+    border-left: none;
+    border-top: none;
+    border-radius: 0 0 var(--radius-xl) 0;
+}
+
+/* The viewfinder paints its scrim with a 2000px box-shadow, which covers any
+   later sibling. Lift the copy into its own layer so it stays legible. */
+.scanCopy {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.scanTitle {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.scanCaption {
+    margin: 0;
+    max-width: 268px;
+    text-align: center;
+    font-size: var(--text-md);
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.82);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.scanCode {
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    background: rgba(255, 255, 255, 0.16);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: #fff;
+}
+
+.scanClose {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(20, 20, 28, 0.68);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fff;
+    cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease);
+
+    svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    &:active {
+        transform: scale(0.92);
+    }
+}

@@ -264,21 +264,7 @@ class NativeBridge(
 
     init {
         try {
-            // Load allowed URLs from properties for whitelisting
-            allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
-                .split(",")
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-
-            accessControlEnabled = properties
-                .getProperty("accessControl.enabled", "false")
-                .equals("true", ignoreCase = true)
-
-            if (accessControlEnabled && allowedUrls.isNotEmpty()) {
-                BridgeUtils.logDebug(TAG, "Whitelisting enabled with ${allowedUrls.size} allowed URLs")
-            } else if (!accessControlEnabled) {
-                BridgeUtils.logDebug(TAG, "Access control disabled; whitelist checks will be skipped")
-            }
+            setupAccessControl()
 
             initializeCameraLauncher()
             initializePermissionLauncher()
@@ -293,6 +279,16 @@ class NativeBridge(
         } catch (e: Exception) {
             BridgeUtils.logError(TAG, "Error initializing NativeBridge", e)
         }
+    }
+
+    private fun setupAccessControl() {
+        allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
+            .split(",")
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+        accessControlEnabled = properties
+            .getProperty("accessControl.enabled", "false")
+            .equals("true", ignoreCase = true)
     }
 
     @JavascriptInterface

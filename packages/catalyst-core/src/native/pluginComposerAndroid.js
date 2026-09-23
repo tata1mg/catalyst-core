@@ -113,7 +113,6 @@ function validatePlugins(plugins) {
     const configKeys = new Set()
     const dependencies = new Map()
     const selectorKeys = new Map()
-
     for (const plugin of plugins) {
         if (pluginIds.has(plugin.id)) {
             throw new Error(`Duplicate plugin id detected: ${plugin.id}`)
@@ -378,6 +377,25 @@ function updateAndroidManifestPermissions(manifestPath, selectedPermissions, all
     fs.writeFileSync(manifestPath, manifest)
 }
 
+function updateNetworkSecurityConfig(androidProjectPath, allowCleartext) {
+    const configPath = path.join(
+        androidProjectPath,
+        "app",
+        "src",
+        "main",
+        "res",
+        "xml",
+        "network_security_config.xml"
+    )
+    let config = fs.readFileSync(configPath, "utf8")
+    const baseConfig = /(<base-config\b[^>]*\bcleartextTrafficPermitted=")(?:true|false)(")/
+    if (!baseConfig.test(config)) {
+        throw new Error(`Could not find base cleartext policy in ${configPath}`)
+    }
+    config = config.replace(baseConfig, `$1${allowCleartext ? "true" : "false"}$2`)
+    fs.writeFileSync(configPath, config)
+}
+
 function findDependenciesBlockRange(gradleText, gradlePath) {
     const headerMatch = gradleText.match(/^dependencies\s*\{/m)
     if (!headerMatch || headerMatch.index == null) {
@@ -482,6 +500,10 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
         manifestPath,
         selected.flatMap((plugin) => plugin.android?.permissions || []),
         discovered.flatMap((plugin) => plugin.android?.permissions || [])
+    )
+    updateNetworkSecurityConfig(
+        androidProjectPath,
+        selected.some((plugin) => plugin.android?.allowCleartext)
     )
     updateGradleDependencies(
         gradlePath,

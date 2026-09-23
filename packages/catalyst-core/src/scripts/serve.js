@@ -43,6 +43,7 @@ function startProd() {
                     "NODE_ENV",
                     "IS_DEV_COMMAND",
                     "APPLICATION",
+                    "CATALYST_QR",
                     ...Object.keys(argumentsObject),
                 ]),
             },

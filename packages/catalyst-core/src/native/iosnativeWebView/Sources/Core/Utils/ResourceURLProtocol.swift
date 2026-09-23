@@ -17,12 +17,6 @@ final class ResourceURLProtocol: URLProtocol {
         logger.info("✅ ResourceURLProtocol registered for GET cache interception")
     }
     
-    static func unregister() {
-        guard isRegistered else { return }
-        URLProtocol.unregisterClass(self)
-        isRegistered = false
-    }
-    
     // MARK: - URLProtocol
   override class func canInit(with request: URLRequest) -> Bool {
     guard let url = request.url else {

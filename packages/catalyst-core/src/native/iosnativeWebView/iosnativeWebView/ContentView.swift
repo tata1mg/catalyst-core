@@ -1,52 +1,35 @@
 import SwiftUI
-import os
 import WebKit
 import CatalystCore
 
-private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "ContentView")
-
 public struct ContentView: View {
     @StateObject private var webViewModel = WebViewModel()
-    // @StateObject ensures cameraManager survives SwiftUI view rebuilds.
     @StateObject private var cameraManager = NativeCameraManager(
-        onEvent: { _, _ in },   // placeholder; real handler set in NativeBridge
+        onEvent: { _, _ in },
         onError: { _ in }
     )
-
-    private static var startURL: String {
-        let base = ConfigConstants.url
-        let initial = ConfigConstants.initial_url
-        guard !initial.isEmpty else { return base }
-        let path = initial.hasPrefix("/") ? initial : "/\(initial)"
-        return base + path
-    }
 
     public init() {}
 
     public var body: some View {
         ZStack {
-            // Camera preview layer — sits behind the WebView (index 0)
             CameraPreviewView(cameraManager: cameraManager)
                 .ignoresSafeArea()
-                .allowsHitTesting(false)   // touches pass through to WebView
+                .allowsHitTesting(false)
 
-            // Normal remote URL - isolated from state changes
-            // Conditionally apply edge-to-edge based on config (matches Android behavior)
-            if ConfigConstants.EdgeToEdge.enabled {
-                WebViewContainer(urlString: ContentView.startURL, viewModel: webViewModel, cameraManager: cameraManager)
-                    .ignoresSafeArea()
-                    .onAppear {
-                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: enabled]")
-                    }
-            } else {
-                WebViewContainer(urlString: ContentView.startURL, viewModel: webViewModel, cameraManager: cameraManager)
-                    .onAppear {
-                        logger.info("WebView appeared with URL: \(ContentView.startURL) [Edge-to-edge: disabled]")
-                    }
-            }
+            WebViewContainer(
+                urlString: webViewModel.rootURL,
+                viewModel: webViewModel,
+                cameraManager: cameraManager
+            )
+            .id(webViewModel.webViewGeneration)
+            .ignoresSafeArea(
+                .all,
+                edges: webViewModel.edgeToEdgeEnabled ? .all : []
+            )
 
             // Show splash screen if enabled in configuration
-            if ConfigConstants.splashScreenEnabled {
+            if RuntimeConfig.splashScreenEnabled {
                 SplashView(webViewModel: webViewModel).zIndex(1)
             } else if webViewModel.isLoading {
                 // Show old progress bar if splash screen is disabled and still loading
