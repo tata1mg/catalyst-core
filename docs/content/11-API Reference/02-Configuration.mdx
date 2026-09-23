@@ -18,13 +18,10 @@ These keys are part of the core web runtime:
 |-----|------|----------|---------|
 | `NODE_SERVER_HOSTNAME` | `string` | Yes | Hostname for the Node SSR server |
 | `NODE_SERVER_PORT` | `number` | Yes | Port for the Node SSR server |
-| `WEBPACK_DEV_SERVER_HOSTNAME` | `string` | Yes | Hostname for the webpack dev server |
-| `WEBPACK_DEV_SERVER_PORT` | `number` | Yes | Port for the webpack dev server |
 | `BUILD_OUTPUT_PATH` | `string` | Yes | Output directory for production assets |
 | `PUBLIC_STATIC_ASSET_PATH` | `string` | Yes | Public mount path for static assets |
 | `PUBLIC_STATIC_ASSET_URL` | `string` | Yes | Base URL for emitted static assets |
 | `CLIENT_ENV_VARIABLES` | `string[]` | Yes | Variables that should be exposed to the client bundle |
-| `ANALYZE_BUNDLE` | `boolean` | Yes | Enables bundle analysis output |
 
 Application-specific values such as `API_URL` can also live in this file. They are available on the server through `process.env`.
 
@@ -131,3 +128,4 @@ Place splash assets at:
 - Using `CLIENT_ENV_KEYS` is outdated. The current key is `CLIENT_ENV_VARIABLES`.
 - iOS build types are case-sensitive: use `Debug` or `Release`.
 - `LOCAL_IP` should be a reachable LAN IP for emulator or device builds.
+- `WEBPACK_DEV_SERVER_HOSTNAME`, `WEBPACK_DEV_SERVER_PORT`, and `ANALYZE_BUNDLE` are no longer required or read, so you can delete them or leave them in place.

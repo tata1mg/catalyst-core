@@ -4,13 +4,7 @@ import { renderEnd, renderStart } from "../../src/server/renderer/render.js"
 
 // Pure prop-shaping helpers pulled in by handler.jsx (#348 coverage).
 
-const ENV_KEYS = [
-    "IS_DEV_COMMAND",
-    "WEBPACK_DEV_SERVER_HOSTNAME",
-    "WEBPACK_DEV_SERVER_PORT",
-    "PUBLIC_STATIC_ASSET_URL",
-    "PUBLIC_STATIC_ASSET_PATH",
-]
+const ENV_KEYS = ["PUBLIC_STATIC_ASSET_URL", "PUBLIC_STATIC_ASSET_PATH"]
 let saved: Record<string, string | undefined>
 
 beforeEach(() => {
@@ -39,8 +33,7 @@ describe("renderStart", () => {
         fetcherData: { "/": { data: 1 } },
     }
 
-    it("passes props through and builds publicAssetPath from the PUBLIC_STATIC_ASSET_* env (prod branch)", () => {
-        process.env.IS_DEV_COMMAND = "false"
+    it("passes props through and builds publicAssetPath from the PUBLIC_STATIC_ASSET_* env", () => {
         process.env.PUBLIC_STATIC_ASSET_URL = "https://cdn.example.com"
         process.env.PUBLIC_STATIC_ASSET_PATH = "/static/"
 
@@ -53,18 +46,6 @@ describe("renderStart", () => {
         expect(out.metaTags).toEqual(["<meta>"])
         expect(out.isBot).toBe(false)
         expect(out.fetcherData).toEqual({ "/": { data: 1 } })
-    })
-
-    it("uses the webpack dev-server host/port for publicAssetPath when IS_DEV_COMMAND is true", () => {
-        process.env.IS_DEV_COMMAND = "true"
-        process.env.WEBPACK_DEV_SERVER_HOSTNAME = "localhost"
-        process.env.WEBPACK_DEV_SERVER_PORT = "8081"
-        process.env.PUBLIC_STATIC_ASSET_URL = "https://cdn.example.com"
-        process.env.PUBLIC_STATIC_ASSET_PATH = "/static/"
-
-        const out = renderStart(baseArgs)
-
-        expect(out.publicAssetPath).toBe("http://localhost:8081/assets/")
     })
 })
 

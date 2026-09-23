@@ -113,7 +113,6 @@ beforeEach(() => {
     process.env.src_path = path.dirname(buildDir)
     process.env.BUILD_OUTPUT_PATH = path.basename(buildDir)
     process.env.APPLICATION = "test"
-    process.env.IS_DEV_COMMAND = "false"
     process.env.PUBLIC_STATIC_ASSET_URL = "http://localhost"
     process.env.PUBLIC_STATIC_ASSET_PATH = "/assets/"
     vi.spyOn(console, "error").mockImplementation(() => {})

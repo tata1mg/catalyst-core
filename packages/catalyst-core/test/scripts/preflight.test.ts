@@ -13,13 +13,10 @@ import { ERROR_CODES } from "../../src/errors/registry.js"
 const VALID_CONFIG = {
     NODE_SERVER_HOSTNAME: "localhost",
     NODE_SERVER_PORT: 3000,
-    WEBPACK_DEV_SERVER_HOSTNAME: "localhost",
-    WEBPACK_DEV_SERVER_PORT: 3001,
     BUILD_OUTPUT_PATH: "build",
     PUBLIC_STATIC_ASSET_PATH: "/assets/",
     PUBLIC_STATIC_ASSET_URL: "http://localhost:3000",
     CLIENT_ENV_VARIABLES: [],
-    ANALYZE_BUNDLE: false,
 }
 const VALID_PKG = {
     name: "fixture-app",

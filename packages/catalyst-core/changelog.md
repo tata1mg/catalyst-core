@@ -79,6 +79,7 @@ The app contract validators in `server/utils/validator.js` used to log a bare me
 The route and store checks moved out of the per-request path. `validateGetRoutes` and `validateConfigureStore` now run once when the renderer module loads — at server startup in production, and on the first SSR request in development, where the handler is loaded lazily — rather than once per request inside the handler's `try`/`catch`. The shape of `addMiddlewares` from `server/server.js` is checked during server setup.
 
 Module aliases and `config/config.json` keys are not checked at load time; a missing alias or key still surfaces where it is used. An application that satisfies the contract sees no change. The full contract — the files Catalyst imports by fixed path and the required module aliases — is documented under File Conventions.
+The webpack-era keys `WEBPACK_DEV_SERVER_HOSTNAME`, `WEBPACK_DEV_SERVER_PORT` and `ANALYZE_BUNDLE` are no longer required or read; remove them from `config/config.json`.
 
 ## [0.3.0-beta.5] - 2026-08-18
 
