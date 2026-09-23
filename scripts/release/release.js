@@ -1,7 +1,6 @@
 const fs = require("fs")
 const path = require("path")
 const { execFileSync } = require("child_process")
-const semver = require("semver")
 
 const repoRoot = path.resolve(__dirname, "..", "..")
 const syncTemplatesScript = path.join(repoRoot, "scripts", "release", "sync-cca-templates.js")
@@ -65,10 +64,6 @@ function readManifest(workspace) {
     return JSON.parse(fs.readFileSync(manifestPath(workspace), "utf8"))
 }
 
-function stableBase(version) {
-    return `${semver.major(version)}.${semver.minor(version)}.${semver.patch(version)}`
-}
-
 function setVersion(workspace, version) {
     run("npm", ["pkg", "set", `version=${version}`, "--workspace", workspace.dir])
 }
@@ -113,25 +108,13 @@ function parseArgs(argv) {
     return args
 }
 
-const explicitVersionPattern = /^\d+\.\d+\.\d+$/
-
-function readBump(args) {
-    const bump = args.values["--bump"] || "patch"
-    if (!["patch", "minor", "major"].includes(bump)) {
-        fail(`--bump must be patch, minor or major (got '${bump}')`)
-    }
-    return bump
-}
-
-/** --version (core, cca) or --ai-version (ai) wins over --bump. */
-function nextBase(args, workspace, current) {
+/** --version (core, cca) or --ai-version (ai): the X.Y.Z base, always explicit. */
+function requiredBase(args, workspace) {
     const flag = workspace === workspaces.ai ? "--ai-version" : "--version"
-    const explicit = args.values[flag]
-    if (!explicit) return semver.inc(stableBase(current), readBump(args))
-    if (!explicitVersionPattern.test(explicit)) {
-        fail(`${flag} must be X.Y.Z (got '${explicit}')`)
-    }
-    return explicit
+    const base = args.values[flag]
+    if (!base) fail(`${flag} is required (X.Y.Z)`)
+    if (!channelPatterns.latest.test(base)) fail(`${flag} must be X.Y.Z (got '${base}')`)
+    return base
 }
 
 function syncTemplates(coreVersion) {
@@ -139,13 +122,12 @@ function syncTemplates(coreVersion) {
 }
 
 function commandVersion(args) {
-    readBump(args)
     const includeAi = args.flags.has("--include-ai")
     const versions = {}
 
     for (const workspace of selectedWorkspaces(includeAi)) {
         const current = readManifest(workspace).version
-        const next = nextBase(args, workspace, current)
+        const next = requiredBase(args, workspace)
 
         if (versionExists(workspace.name, next)) {
             fail(`${workspace.name}@${next} already exists on npm`)
@@ -242,7 +224,6 @@ function commandPublish(args) {
         fail("--channel must be latest, beta or canary")
     }
 
-    readBump(args)
     const includeAi = args.flags.has("--include-ai")
     const dryRun = args.flags.has("--dry-run")
     const targets = []
@@ -261,9 +242,9 @@ function commandPublish(args) {
             continue
         }
 
-        const base = nextBase(args, workspace, current)
+        const base = requiredBase(args, workspace)
         if (versionExists(workspace.name, base)) {
-            fail(`${workspace.name}@${base} is already a published stable release, bump required`)
+            fail(`${workspace.name}@${base} is already a published stable release, pick a new version`)
         }
 
         const version = nextPrereleaseVersion(workspace, base, channel)
