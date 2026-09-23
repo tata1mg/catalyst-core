@@ -1,7 +1,7 @@
 # How to release.
 #
 # latest:
-#   1. Dispatch this workflow from main with channel=latest and a version (or a bump).
+#   1. Dispatch this workflow from main with channel=latest and the version to release.
 #   2. It opens a release/<version> PR that carries the version bumps.
 #   3. Merging that PR pushes packages/*/package.json to main, which runs publish.
 #
@@ -13,8 +13,7 @@
 # The workflow definition always comes from main; source_ref only selects the code.
 # The release PR is opened with github.token, so pull_request CI does not run on it
 # (it carries version bumps and the lockfile, nothing else).
-# The first stable is 1.0.0 via bump=major: prerelease bases bump past 0.3.0, so a
-# 0.3.0 stable is unreachable by design.
+# Versions are always given as X.Y.Z; beta and canary append -<channel>.N themselves.
 
 name: Release
 
@@ -36,24 +35,14 @@ on:
                 type: string
                 default: main
             version:
-                description: "Explicit X.Y.Z for catalyst-core and create-catalyst-app; overrides bump. For beta/canary this is the base, N comes from npm"
-                required: false
-                type: string
-                default: ""
-            ai_version:
-                description: "Explicit X.Y.Z for catalyst-ai; overrides bump"
-                required: false
-                type: string
-                default: ""
-            bump:
-                description: "Version bump, used when no explicit version is given"
+                description: "X.Y.Z for catalyst-core and create-catalyst-app. beta/canary append -<channel>.N, picked from npm"
                 required: true
-                type: choice
-                options:
-                    - patch
-                    - minor
-                    - major
-                default: patch
+                type: string
+            ai_version:
+                description: "X.Y.Z for catalyst-ai, required when include_ai is set"
+                required: false
+                type: string
+                default: ""
             include_ai:
                 description: "Also release catalyst-ai"
                 required: false
@@ -113,9 +102,9 @@ jobs:
                   VERSION: ${{ inputs.version }}
                   AI_VERSION: ${{ inputs.ai_version }}
               run: |
-                  node scripts/release/release.js version --bump "${{ inputs.bump }}" \
+                  node scripts/release/release.js version --version "$VERSION" \
                     ${{ inputs.include_ai && '--include-ai' || '' }} \
-                    ${VERSION:+--version "$VERSION"} ${AI_VERSION:+--ai-version "$AI_VERSION"}
+                    ${AI_VERSION:+--ai-version "$AI_VERSION"}
 
             - name: Open release PR
               if: ${{ !inputs.dry_run }}
@@ -223,7 +212,6 @@ jobs:
                   node scripts/release/release.js publish \
                     ${VERSION:+--version "$VERSION"} ${AI_VERSION:+--ai-version "$AI_VERSION"} \
                     --channel "${{ github.event_name == 'push' && 'latest' || inputs.channel }}" \
-                    ${{ github.event_name == 'workflow_dispatch' && format('--bump {0}', inputs.bump) || '' }} \
                     ${{ github.event_name == 'workflow_dispatch' && inputs.include_ai && '--include-ai' || '' }} \
                     ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
 
