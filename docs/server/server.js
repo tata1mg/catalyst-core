@@ -98,6 +98,12 @@ export function addMiddlewares(app) {
             maxAge: '1d',
         })
     )
+    // Older versions keep the same layout under /v/<major>/. Misses fall
+    // through to the router, which owns /v/<major>/content/... pages.
+    app.use(
+        '/v',
+        express.static(path.join(__dirname, '../public/v'), { maxAge: '1d' })
+    )
 
     // Browsers request /favicon.ico regardless of the <link rel="icon">, and the
     // icon only exists under the generated img/ tree — express.static needs a
