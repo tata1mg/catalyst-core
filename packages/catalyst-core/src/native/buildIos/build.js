@@ -415,6 +415,17 @@ module.exports = function createBuildPhase(ctx) {
     // works the same way on every devicectl version. Falls back to
     // xcodebuild -showdestinations below on any failure (old devicectl, no
     // physical device, malformed output), so this only needs to work when it can.
+    // Matches the identifier format Apple's own tooling uses (hex digits and
+    // hyphens only, e.g. a UUID or the shorter legacy 40-char UDID). device.udid
+    // is later interpolated unquoted into shell command strings (xcodebuild
+    // -destination, xcrun devicectl --device, see installAndLaunchOnPhysicalDevice
+    // and buildProjectForPhysicalDevice) — the old instruments-based parser
+    // structurally constrained what could reach that string via its own regex;
+    // this is the equivalent guard for the JSON-based devicectl path, so a
+    // malformed or hostile identifier in devicectl's output can't inject shell
+    // syntax rather than just being rejected as "not a device".
+    const VALID_UDID_RE = /^[A-Fa-f0-9-]+$/
+
     function tryDevicectl() {
         const tmpPath = path.join(os.tmpdir(), `catalyst-devicectl-${process.pid}-${Date.now()}.json`)
         try {
@@ -430,6 +441,7 @@ module.exports = function createBuildPhase(ctx) {
                     udid: d.hardwareProperties?.udid ?? d.identifier,
                     type: "physical",
                 }))
+                .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
         } catch {
             return []
         } finally {
