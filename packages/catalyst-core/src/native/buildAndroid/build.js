@@ -2,6 +2,7 @@
 
 const fs = require("fs")
 const path = require("path")
+const { spawn, execFileSync } = require("child_process")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
 
 const DEFAULT_DEPLOYMENT_PATH = "./deployment"
@@ -115,41 +116,181 @@ function createBuildPhase(ctx) {
         }
     }
 
+    // Returns the serial of an online emulator (adb state "device"), or null if
+    // none is online. `devices.includes("emulator")` alone would also match a
+    // serial like "emulator-5554" whose state is "offline" or still enumerating —
+    // i.e. a device that's connected but not actually ready — so this checks the
+    // state column explicitly rather than doing a substring match.
     async function checkEmulator(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
             const devices = ctx.runCommand(`${ADB_PATH} devices`)
-            return devices.includes("emulator")
+            const onlineEmulator = devices
+                .split("\n")
+                .map((line) => line.trim().split(/\s+/))
+                .find(([id, state]) => id?.startsWith("emulator-") && state === "device")
+            return onlineEmulator ? onlineEmulator[0] : null
         } catch (error) {
             progress.log("Error checking emulator status: " + error.message, "error")
-            return false
+            return null
         }
     }
 
+    // The Android emulator binary is a long-running server process — it does not
+    // exit after boot, it keeps running until the emulator window is closed. Using
+    // runInteractiveCommand (which only resolves on the child's `close` event, see
+    // utils.js) would block forever waiting for an exit that never happens before
+    // the app finishes booting. Spawn it detached instead (same approach as
+    // androidSetup.js's startEmulator) and let handleEmulatorSetup poll for
+    // readiness separately.
+    /**
+     * Launch the emulator detached and return once it has actually spawned
+     * (not once it exits — see the note above on why runInteractiveCommand
+     * can't be used here).
+     * @returns {Promise<number>} the spawned process's pid, so a caller whose
+     *   boot-readiness wait times out can kill it instead of leaving a
+     *   CPU/RAM-heavy orphaned emulator running past a failed build.
+     */
     async function startEmulator(EMULATOR_PATH, androidConfig) {
         progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
-        // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - EMULATOR_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-        return ctx
-            .runInteractiveCommand(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {})
-            .then(() => {
-                progress.log("Emulator started successfully", "success")
+        return new Promise((resolve, reject) => {
+            // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - spawn with an argv array (no shell), so androidConfig.emulatorName can't be interpreted as shell syntax even though it comes from a locally-editable config file.
+            const child = spawn(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {
+                detached: true,
+                stdio: "ignore",
             })
-            .catch((error) => {
+            child.once("error", (error) => {
                 progress.log("Error starting emulator: " + error.message, "error")
-                throw error
+                reject(error)
             })
+            // "error" only fires for spawn failures (e.g. bad EMULATOR_PATH); once the
+            // process has actually spawned we can detach and let the caller poll adb
+            // for boot readiness rather than waiting on this child at all.
+            child.once("spawn", () => {
+                const { pid } = child
+                child.unref()
+                progress.log("Emulator process started, waiting for it to boot...", "info")
+                resolve(pid)
+            })
+        })
+    }
+
+    // Best-effort cleanup for an emulator process this build spawned but that
+    // never became ready — kills the whole detached process group (negative pid)
+    // so we don't leave a CPU/RAM-heavy orphaned emulator running after a failed
+    // build. Never throws: a failure here shouldn't mask the original timeout error.
+    function killOrphanedEmulator(pid, emulatorName) {
+        try {
+            process.kill(-pid, "SIGTERM")
+            progress.log(`Stopped orphaned emulator process (pid ${pid}) after boot failure`, "info")
+        } catch (error) {
+            progress.log(
+                `Could not stop orphaned emulator "${emulatorName}" (pid ${pid}): ${error.message}. ` +
+                    "You may need to quit it manually.",
+                "warning"
+            )
+        }
+    }
+
+    function listEmulatorSerials(ADB_PATH) {
+        try {
+            // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
+            const devices = ctx.runCommand(`${ADB_PATH} devices`)
+            return devices
+                .split("\n")
+                .map((line) => line.trim().split(/\s+/)[0])
+                .filter((id) => id && id.startsWith("emulator-"))
+        } catch {
+            return []
+        }
+    }
+
+    // Waits for a NEW emulator-XXXX serial to appear in `adb devices` (one not in
+    // knownSerials, captured before startEmulator was called), so boot polling can
+    // be scoped to the emulator this build just launched rather than whichever
+    // device `adb shell` (with no -s) happens to pick when multiple are connected.
+    async function waitForNewEmulatorSerial(ADB_PATH, knownSerials, { timeoutMs = 30000, pollIntervalMs = 1000 } = {}) {
+        const deadline = Date.now() + timeoutMs
+        while (Date.now() < deadline) {
+            const current = listEmulatorSerials(ADB_PATH)
+            const newSerial = current.find((id) => !knownSerials.includes(id))
+            if (newSerial) return newSerial
+            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        }
+        return null
+    }
+
+    /**
+     * Poll a specific emulator (by adb serial, e.g. "emulator-5554") until it
+     * reports a completed boot and a stopped boot animation, or the timeout
+     * elapses.
+     * @param {string} ADB_PATH Path to the adb executable.
+     * @param {string} serial The emulator's adb serial to target (adb -s).
+     * @param {Object} [options]
+     * @param {number} [options.timeoutMs=120000] Overall deadline in milliseconds.
+     * @param {number} [options.pollIntervalMs=2000] Delay between readiness checks.
+     * @returns {Promise<boolean>} true once both readiness signals are observed;
+     *   false if the deadline elapses first (a transient/hung adb call counts
+     *   against the same deadline via the per-call execFileSync timeout below).
+     */
+    async function waitForEmulatorBoot(ADB_PATH, serial, { timeoutMs = 120000, pollIntervalMs = 2000 } = {}) {
+        const deadline = Date.now() + timeoutMs
+        const getprop = (prop) => {
+            const remaining = Math.max(deadline - Date.now(), 1000)
+            return execFileSync(ADB_PATH, ["-s", serial, "shell", "getprop", prop], {
+                encoding: "utf8",
+                timeout: remaining,
+            }).trim()
+        }
+        while (Date.now() < deadline) {
+            try {
+                const bootCompleted = getprop("sys.boot_completed")
+                const bootAnimDone = getprop("init.svc.bootanim")
+                if (bootCompleted === "1" && bootAnimDone === "stopped") return true
+            } catch {
+                // adb not ready yet (device still enumerating), or this call hit its
+                // own per-call timeout — either way, keep polling against the outer
+                // deadline rather than treating it as fatal.
+            }
+            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        }
+        return false
+    }
+
+    // Message mirrors errors/registry.js ERROR_DEFINITIONS[ANDROID-001] (see
+    // errors/ANDROID/ANDROID-001.md) — this CJS subtree can't import the ESM
+    // error registry (see buildErrorFormat.js), so the code is prefixed onto the
+    // thrown message directly rather than imported.
+    function emulatorBootTimeoutError(detail) {
+        return new Error(`[ANDROID-001] Timed out waiting for the Android emulator to boot: ${detail}`)
     }
 
     async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
         progress.log("Setting up emulator...", "info")
-        const emulatorRunning = await checkEmulator(ADB_PATH)
-        if (!emulatorRunning) {
+        let serial = await checkEmulator(ADB_PATH)
+        let pid = null
+        if (!serial) {
             progress.log("No emulator running, attempting to start one...", "info")
-            await startEmulator(EMULATOR_PATH, androidConfig)
-            await new Promise((resolve) => setTimeout(resolve, 5000))
+            const knownSerials = listEmulatorSerials(ADB_PATH)
+            pid = await startEmulator(EMULATOR_PATH, androidConfig)
+            serial = await waitForNewEmulatorSerial(ADB_PATH, knownSerials)
+            if (!serial) {
+                killOrphanedEmulator(pid, androidConfig.emulatorName)
+                throw emulatorBootTimeoutError(
+                    `emulator "${androidConfig.emulatorName}" never appeared in adb devices`
+                )
+            }
         } else {
-            progress.log("Emulator already running", "success")
+            progress.log(`Emulator ${serial} already online, confirming it's fully booted...`, "info")
         }
+        // Wait for boot readiness whether the emulator was already online (it may
+        // still be finishing its boot animation) or was just launched above.
+        const booted = await waitForEmulatorBoot(ADB_PATH, serial)
+        if (!booted) {
+            if (pid) killOrphanedEmulator(pid, androidConfig.emulatorName)
+            throw emulatorBootTimeoutError(`emulator "${androidConfig.emulatorName}" (${serial}) never finished booting`)
+        }
+        progress.log("Emulator booted successfully", "success")
         return { type: "emulator", name: androidConfig.emulatorName }
     }
 
@@ -363,6 +504,7 @@ function createBuildPhase(ctx) {
         checkEmulator,
         handleEmulatorSetup,
         startEmulator,
+        waitForEmulatorBoot,
         buildApp,
         launchApp,
         createAABConfig,
