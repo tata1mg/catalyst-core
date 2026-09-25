@@ -617,15 +617,29 @@ module.exports = function createBuildPhase(ctx) {
         try {
             progress.log("Launching iOS Simulator...")
             const simulatorsJson = JSON.parse(execSync("xcrun simctl list devices -j").toString())
+            // Multiple devices can share a name across runtimes (e.g. leftover devices
+            // from an old Xcode install after an upgrade) — simctl marks the ones whose
+            // runtime bundle is gone as isAvailable: false, and those fail to boot with
+            // "cannot determine the runtime bundle". Don't let iteration order silently
+            // pick one of those over the available device: prefer an available match,
+            // and among available matches prefer one that's already booted.
+            const isDeviceAvailable = (device) => device.isAvailable !== false
             let foundSimulator = null,
                 foundSimulatorId = null,
                 isBooted = false
             Object.entries(simulatorsJson.devices).forEach(([, devices]) => {
                 devices.forEach((device) => {
-                    if (device.name === simulatorName) {
+                    if (device.name !== simulatorName) return
+                    const available = isDeviceAvailable(device)
+                    const alreadyBooted = device.state === "Booted"
+                    const isBetterMatch =
+                        !foundSimulator ||
+                        (available && !isDeviceAvailable(foundSimulator)) ||
+                        (available === isDeviceAvailable(foundSimulator) && alreadyBooted && !isBooted)
+                    if (isBetterMatch) {
                         foundSimulator = device
                         foundSimulatorId = device.udid
-                        isBooted = device.state === "Booted"
+                        isBooted = alreadyBooted
                     }
                 })
             })
