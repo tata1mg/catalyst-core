@@ -376,7 +376,7 @@ module.exports = function createBuildPhase(ctx) {
         console.log("Focusing on Simulator...")
         const simulatorAppBundleId = resolveSimulatorAppBundleId()
         if (!simulatorAppBundleId) {
-            console.log(SIMULATOR_APP_NOT_FOUND_WARNING)
+            progress.log(SIMULATOR_APP_NOT_FOUND_WARNING, "warning")
             return
         }
         await runCommand(`osascript -e 'tell application id "${simulatorAppBundleId}" to activate'`)
@@ -442,7 +442,11 @@ module.exports = function createBuildPhase(ctx) {
                     type: "physical",
                 }))
                 .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
-        } catch {
+        } catch (error) {
+            progress.log(
+                `devicectl detection failed (${error.message}); falling back to xcodebuild destinations`,
+                "warning"
+            )
             return []
         } finally {
             try {
