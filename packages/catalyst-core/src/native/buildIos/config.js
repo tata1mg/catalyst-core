@@ -182,6 +182,7 @@ public enum ConfigConstants {
                 for (const [key, value] of Object.entries(iosConfig)) {
                     if (addedKeys.has(key)) continue
                     configContent += "\n" + generateSwiftProperty(key, value)
+                    addedKeys.add(key)
                 }
             }
 
@@ -268,7 +269,7 @@ public enum ConfigConstants {
             // is set, which every create-catalyst-app scaffold omits by default (#485).
             if (!addedKeys.has("cachePattern")) {
                 progress.log("cachePattern not found in config, adding default (no patterns)", "info")
-                configContent += generateSwiftProperty("cachePattern", [])
+                configContent += "\n" + generateSwiftProperty("cachePattern", [])
                 addedKeys.add("cachePattern")
             }
 

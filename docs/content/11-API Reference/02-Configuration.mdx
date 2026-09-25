@@ -83,7 +83,7 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 | `WEBVIEW_CONFIG.ios.simulatorName` | No | Used for simulator builds |
 | `WEBVIEW_CONFIG.ios.deviceUDID` | No | For physical device builds |
 | `WEBVIEW_CONFIG.ios.developmentTeam` | Required with `deviceUDID` | Apple team ID for signing |
-| `WEBVIEW_CONFIG.ios.cachePattern` | No | Glob-style URL pattern(s) (string or array) the native WebView cache should match; defaults to no patterns (caching disabled) when unset |
+| `WEBVIEW_CONFIG.ios.cachePattern` | No | Array of glob-style URL patterns (e.g. `["*.css", "*.js"]`) the native WebView cache should match — a single string is treated as one literal pattern, not comma-split; when unset, no pattern-based caching is enabled (offline-route caching can still apply) |
 
 ## Access Control
 
