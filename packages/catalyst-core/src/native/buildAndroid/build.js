@@ -2,6 +2,7 @@
 
 const fs = require("fs")
 const path = require("path")
+const { spawn } = require("child_process")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
 
 const DEFAULT_DEPLOYMENT_PATH = "./deployment"
@@ -126,18 +127,51 @@ function createBuildPhase(ctx) {
         }
     }
 
+    // The Android emulator binary is a long-running server process — it does not
+    // exit after boot, it keeps running until the emulator window is closed. Using
+    // runInteractiveCommand (which only resolves on the child's `close` event, see
+    // utils.js) would block forever waiting for an exit that never happens before
+    // the app finishes booting. Spawn it detached instead (same approach as
+    // androidSetup.js's startEmulator) and let handleEmulatorSetup poll for
+    // readiness separately.
     async function startEmulator(EMULATOR_PATH, androidConfig) {
         progress.log(`Starting emulator: ${androidConfig.emulatorName}...`, "info")
-        // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - EMULATOR_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-        return ctx
-            .runInteractiveCommand(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {})
-            .then(() => {
-                progress.log("Emulator started successfully", "success")
+        return new Promise((resolve, reject) => {
+            // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - spawn with an argv array (no shell), so androidConfig.emulatorName can't be interpreted as shell syntax even though it comes from a locally-editable config file.
+            const child = spawn(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {
+                detached: true,
+                stdio: "ignore",
             })
-            .catch((error) => {
+            child.once("error", (error) => {
                 progress.log("Error starting emulator: " + error.message, "error")
-                throw error
+                reject(error)
             })
+            // "error" only fires for spawn failures (e.g. bad EMULATOR_PATH); once the
+            // process has actually spawned we can detach and let the caller poll adb
+            // for boot readiness rather than waiting on this child at all.
+            child.once("spawn", () => {
+                child.unref()
+                progress.log("Emulator process started, waiting for it to boot...", "info")
+                resolve()
+            })
+        })
+    }
+
+    async function waitForEmulatorBoot(ADB_PATH, { timeoutMs = 120000, pollIntervalMs = 2000 } = {}) {
+        const deadline = Date.now() + timeoutMs
+        while (Date.now() < deadline) {
+            try {
+                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
+                const bootCompleted = ctx.runCommand(`${ADB_PATH} shell getprop sys.boot_completed`).trim()
+                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
+                const bootAnimDone = ctx.runCommand(`${ADB_PATH} shell getprop init.svc.bootanim`).trim()
+                if (bootCompleted === "1" && bootAnimDone === "stopped") return true
+            } catch {
+                // adb not ready yet (device still enumerating) — keep polling.
+            }
+            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        }
+        return false
     }
 
     async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
@@ -146,7 +180,13 @@ function createBuildPhase(ctx) {
         if (!emulatorRunning) {
             progress.log("No emulator running, attempting to start one...", "info")
             await startEmulator(EMULATOR_PATH, androidConfig)
-            await new Promise((resolve) => setTimeout(resolve, 5000))
+            const booted = await waitForEmulatorBoot(ADB_PATH)
+            if (!booted) {
+                throw new Error(
+                    `Timed out waiting for emulator "${androidConfig.emulatorName}" to finish booting`
+                )
+            }
+            progress.log("Emulator booted successfully", "success")
         } else {
             progress.log("Emulator already running", "success")
         }
@@ -363,6 +403,7 @@ function createBuildPhase(ctx) {
         checkEmulator,
         handleEmulatorSetup,
         startEmulator,
+        waitForEmulatorBoot,
         buildApp,
         launchApp,
         createAABConfig,
