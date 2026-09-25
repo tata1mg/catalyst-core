@@ -157,14 +157,42 @@ function createBuildPhase(ctx) {
         })
     }
 
-    async function waitForEmulatorBoot(ADB_PATH, { timeoutMs = 120000, pollIntervalMs = 2000 } = {}) {
+    function listEmulatorSerials(ADB_PATH) {
+        try {
+            // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
+            const devices = ctx.runCommand(`${ADB_PATH} devices`)
+            return devices
+                .split("\n")
+                .map((line) => line.trim().split(/\s+/)[0])
+                .filter((id) => id && id.startsWith("emulator-"))
+        } catch {
+            return []
+        }
+    }
+
+    // Waits for a NEW emulator-XXXX serial to appear in `adb devices` (one not in
+    // knownSerials, captured before startEmulator was called), so boot polling can
+    // be scoped to the emulator this build just launched rather than whichever
+    // device `adb shell` (with no -s) happens to pick when multiple are connected.
+    async function waitForNewEmulatorSerial(ADB_PATH, knownSerials, { timeoutMs = 30000, pollIntervalMs = 1000 } = {}) {
+        const deadline = Date.now() + timeoutMs
+        while (Date.now() < deadline) {
+            const current = listEmulatorSerials(ADB_PATH)
+            const newSerial = current.find((id) => !knownSerials.includes(id))
+            if (newSerial) return newSerial
+            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        }
+        return null
+    }
+
+    async function waitForEmulatorBoot(ADB_PATH, serial, { timeoutMs = 120000, pollIntervalMs = 2000 } = {}) {
         const deadline = Date.now() + timeoutMs
         while (Date.now() < deadline) {
             try {
-                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-                const bootCompleted = ctx.runCommand(`${ADB_PATH} shell getprop sys.boot_completed`).trim()
-                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-                const bootAnimDone = ctx.runCommand(`${ADB_PATH} shell getprop init.svc.bootanim`).trim()
+                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH/serial are derived from trusted internal config and adb's own device list, not user input.
+                const bootCompleted = ctx.runCommand(`${ADB_PATH} -s ${serial} shell getprop sys.boot_completed`).trim()
+                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH/serial are derived from trusted internal config and adb's own device list, not user input.
+                const bootAnimDone = ctx.runCommand(`${ADB_PATH} -s ${serial} shell getprop init.svc.bootanim`).trim()
                 if (bootCompleted === "1" && bootAnimDone === "stopped") return true
             } catch {
                 // adb not ready yet (device still enumerating) — keep polling.
@@ -179,11 +207,18 @@ function createBuildPhase(ctx) {
         const emulatorRunning = await checkEmulator(ADB_PATH)
         if (!emulatorRunning) {
             progress.log("No emulator running, attempting to start one...", "info")
+            const knownSerials = listEmulatorSerials(ADB_PATH)
             await startEmulator(EMULATOR_PATH, androidConfig)
-            const booted = await waitForEmulatorBoot(ADB_PATH)
+            const serial = await waitForNewEmulatorSerial(ADB_PATH, knownSerials)
+            if (!serial) {
+                throw new Error(
+                    `Timed out waiting for emulator "${androidConfig.emulatorName}" to appear in adb devices`
+                )
+            }
+            const booted = await waitForEmulatorBoot(ADB_PATH, serial)
             if (!booted) {
                 throw new Error(
-                    `Timed out waiting for emulator "${androidConfig.emulatorName}" to finish booting`
+                    `Timed out waiting for emulator "${androidConfig.emulatorName}" (${serial}) to finish booting`
                 )
             }
             progress.log("Emulator booted successfully", "success")
