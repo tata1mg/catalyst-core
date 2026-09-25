@@ -403,14 +403,23 @@ module.exports = function createBuildPhase(ctx) {
     // ─── Physical device ──────────────────────────────────────────────────────
 
     // `instruments -s devices` is deprecated and its plain-text output is fragile
-    // to parse. `xcrun devicectl list devices --json-output -` is the modern,
+    // to parse. `xcrun devicectl list devices --json-output <path>` is the modern,
     // structured replacement (Xcode 15+) and is already used elsewhere in this
     // file for install/launch, so use it as the primary detection source too.
     // Note: devicectl lists simulators as well as physical devices, so filter on
     // hardwareProperties.reality === "physical".
+    //
+    // Write to a temp file rather than `--json-output -` (stdout): Apple's own
+    // scripting guidance is a file path, and stdout support for `-` isn't
+    // guaranteed across every Xcode version this needs to run on — a temp file
+    // works the same way on every devicectl version. Falls back to
+    // xcodebuild -showdestinations below on any failure (old devicectl, no
+    // physical device, malformed output), so this only needs to work when it can.
     function tryDevicectl() {
+        const tmpPath = path.join(os.tmpdir(), `catalyst-devicectl-${process.pid}-${Date.now()}.json`)
         try {
-            const raw = execSync("xcrun devicectl list devices --json-output -").toString()
+            execSync(`xcrun devicectl list devices --json-output "${tmpPath}"`) // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - tmpPath is built from os.tmpdir()/process.pid/Date.now(), not user input.
+            const raw = fs.readFileSync(tmpPath, "utf8")
             const parsed = JSON.parse(raw)
             const devices = parsed?.result?.devices ?? []
             return devices
@@ -418,11 +427,17 @@ module.exports = function createBuildPhase(ctx) {
                 .map((d) => ({
                     name: d.deviceProperties?.name ?? "Physical Device",
                     version: d.deviceProperties?.osVersionNumber ?? "Unknown",
-                    udid: d.identifier,
+                    udid: d.hardwareProperties?.udid ?? d.identifier,
                     type: "physical",
                 }))
         } catch {
             return []
+        } finally {
+            try {
+                fs.unlinkSync(tmpPath)
+            } catch {
+                // Nothing to clean up if the command failed before writing the file.
+            }
         }
     }
 
