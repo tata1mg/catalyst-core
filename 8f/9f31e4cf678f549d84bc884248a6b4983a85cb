@@ -1,0 +1,23 @@
+packages/catalyst-core/test/server/render.test.js
+  992655b0b49d5b47 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "8f9f31e4cf678f549d84bc884248a6b4983a85cb",
+  "prompts": {
+    "992655b0b49d5b47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b756c4d4-7f26-4d4c-9d0f-5726b8e3a3d3",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 29,
+      "total_deletions": 0,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    }
+  }
+}
