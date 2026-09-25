@@ -32,7 +32,18 @@ const loadEnvironmentVariables = async () => {
         // server process — a wholesale replace here silently discarded all of them
         // except the small filterKeys allowlist, before any request handler got a
         // chance to read them.
-        Object.assign(process.env, newConfig)
+        //
+        // Build the merge in a plain object and reassign process.env, rather than
+        // Object.assign(process.env, newConfig) directly: writing through the real
+        // process.env setter coerces every value to a string (process.env.X = true
+        // becomes the string "true"), which would break consumers that compare a
+        // config boolean strictly (e.g. expressServer.ts's
+        // `process.env.OTEL_ENABLE === true` — see its own comment noting it relies
+        // on process.env holding a real boolean here). Reassigning a plain object
+        // preserves the primitive types newConfig already carries, same as the
+        // original wholesale-replace behavior did for config.json values, while
+        // still keeping every pre-existing process.env entry via the spread.
+        process.env = { ...process.env, ...newConfig }
     } catch (error) {
         console.error("Error loading environment variables:", error)
         throw error
