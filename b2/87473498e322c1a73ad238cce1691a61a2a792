@@ -1,0 +1,26 @@
+errors/ANDROID/ANDROID-001.md
+  s_8911efba706780::t_607a6418399de3 1-15
+packages/catalyst-core/src/errors/registry.js
+  s_8911efba706780::t_44f996eeae533c 241-248
+  s_8911efba706780::t_b7500c45633abf 32
+errors/index.json
+  s_8911efba706780::t_607a6418399de3 254-260
+packages/catalyst-core/src/native/buildAndroid/build.js
+  s_8911efba706780::t_62e8941dde0585 205-212,222-223,228-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b287473498e322c1a73ad238cce1691a61a2a792",
+  "prompts": {},
+  "sessions": {
+    "s_8911efba706780": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5270f5b6-95d7-4d4b-9517-85b9e2f1bff1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
