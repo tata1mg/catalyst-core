@@ -68,6 +68,33 @@ module.exports = function createBuildPhase(ctx) {
         }
     }
 
+    // Xcode 27 replaced the standalone Simulator.app (com.apple.iphonesimulator)
+    // with DeviceHub.app (com.apple.dt.Devices); older Xcode installs still ship
+    // the former. Resolve whichever is actually installed instead of hardcoding
+    // the app name, which no longer resolves via `open -a` on either app.
+    function resolveSimulatorAppBundleId() {
+        const candidates = ["com.apple.dt.Devices", "com.apple.iphonesimulator"]
+        for (const bundleId of candidates) {
+            try {
+                execSync(`osascript -e 'id of app id "${bundleId}"'`, { stdio: "ignore" }) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - bundleId is a fixed internal candidate list, not user input.
+                return bundleId
+            } catch {
+                // Not installed under this bundle id; try the next candidate.
+            }
+        }
+        return null
+    }
+
+    // Text mirrors errors/registry.js ERROR_DEFINITIONS[IOS-001] (see
+    // errors/IOS/IOS-001.md) — this CJS subtree can't import the ESM error
+    // registry (see buildErrorFormat.js), so the message is duplicated here
+    // rather than imported. This condition is recoverable (the simulator can
+    // still boot headlessly via simctl) so callers log it as a warning
+    // instead of throwing.
+    const SIMULATOR_APP_NOT_FOUND_WARNING =
+        "[IOS-001] Could not find an installed iOS Simulator app (checked DeviceHub.app and the legacy Simulator.app). " +
+        "The simulator is booted but its window may not be visible. Suggested action: confirm a full Xcode.app is installed and selected via xcode-select -p, then open it once from Spotlight."
+
     // ─── Clean ────────────────────────────────────────────────────────────────
 
     async function cleanBuildArtifacts() {
@@ -347,7 +374,12 @@ module.exports = function createBuildPhase(ctx) {
 
     async function focusSimulator() {
         console.log("Focusing on Simulator...")
-        await runCommand(`osascript -e 'tell application "Simulator" to activate'`)
+        const simulatorAppBundleId = resolveSimulatorAppBundleId()
+        if (!simulatorAppBundleId) {
+            progress.log(SIMULATOR_APP_NOT_FOUND_WARNING, "warning")
+            return
+        }
+        await runCommand(`osascript -e 'tell application id "${simulatorAppBundleId}" to activate'`)
     }
 
     async function installAndLaunchApp(APP_PATH) {
@@ -370,6 +402,61 @@ module.exports = function createBuildPhase(ctx) {
 
     // ─── Physical device ──────────────────────────────────────────────────────
 
+    // `instruments -s devices` is deprecated and its plain-text output is fragile
+    // to parse. `xcrun devicectl list devices --json-output <path>` is the modern,
+    // structured replacement (Xcode 15+) and is already used elsewhere in this
+    // file for install/launch, so use it as the primary detection source too.
+    // Note: devicectl lists simulators as well as physical devices, so filter on
+    // hardwareProperties.reality === "physical".
+    //
+    // Write to a temp file rather than `--json-output -` (stdout): Apple's own
+    // scripting guidance is a file path, and stdout support for `-` isn't
+    // guaranteed across every Xcode version this needs to run on — a temp file
+    // works the same way on every devicectl version. Falls back to
+    // xcodebuild -showdestinations below on any failure (old devicectl, no
+    // physical device, malformed output), so this only needs to work when it can.
+    // Matches the identifier format Apple's own tooling uses (hex digits and
+    // hyphens only, e.g. a UUID or the shorter legacy 40-char UDID). device.udid
+    // is later interpolated unquoted into shell command strings (xcodebuild
+    // -destination, xcrun devicectl --device, see installAndLaunchOnPhysicalDevice
+    // and buildProjectForPhysicalDevice) — the old instruments-based parser
+    // structurally constrained what could reach that string via its own regex;
+    // this is the equivalent guard for the JSON-based devicectl path, so a
+    // malformed or hostile identifier in devicectl's output can't inject shell
+    // syntax rather than just being rejected as "not a device".
+    const VALID_UDID_RE = /^[A-Fa-f0-9-]+$/
+
+    function tryDevicectl() {
+        const tmpPath = path.join(os.tmpdir(), `catalyst-devicectl-${process.pid}-${Date.now()}.json`)
+        try {
+            execSync(`xcrun devicectl list devices --json-output "${tmpPath}"`) // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - tmpPath is built from os.tmpdir()/process.pid/Date.now(), not user input.
+            const raw = fs.readFileSync(tmpPath, "utf8")
+            const parsed = JSON.parse(raw)
+            const devices = parsed?.result?.devices ?? []
+            return devices
+                .filter((d) => d.hardwareProperties?.reality === "physical")
+                .map((d) => ({
+                    name: d.deviceProperties?.name ?? "Physical Device",
+                    version: d.deviceProperties?.osVersionNumber ?? "Unknown",
+                    udid: d.hardwareProperties?.udid ?? d.identifier,
+                    type: "physical",
+                }))
+                .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
+        } catch (error) {
+            progress.log(
+                `devicectl detection failed (${error.message}); falling back to xcodebuild destinations`,
+                "warning"
+            )
+            return []
+        } finally {
+            try {
+                fs.unlinkSync(tmpPath)
+            } catch {
+                // Nothing to clean up if the command failed before writing the file.
+            }
+        }
+    }
+
     async function detectPhysicalDevices() {
         progress.start("deviceDetection")
         const { iosConfig } = ctx
@@ -379,67 +466,24 @@ module.exports = function createBuildPhase(ctx) {
             const configuredUDID = iosConfig.deviceUDID
             if (configuredUDID) {
                 progress.log(`Using configured device UDID: ${configuredUDID}`, "info")
-                try {
-                    const instrumentsOutput = execSync("instruments -s devices").toString()
-                    if (instrumentsOutput.includes(configuredUDID)) {
-                        const deviceLine = instrumentsOutput
-                            .split("\n")
-                            .find((line) => line.includes(configuredUDID))
-                        if (deviceLine) {
-                            const nameMatch = deviceLine.match(/^(.+?)\s+\(/)
-                            const versionMatch = deviceLine.match(/\((\d+\.\d+(?:\.\d+)?)\)/)
-                            const deviceName = nameMatch ? nameMatch[1].trim() : "Physical Device"
-                            const deviceVersion = versionMatch ? versionMatch[1] : "Unknown"
-                            progress.log(
-                                `✅ Found configured physical device: ${deviceName} (${deviceVersion})`,
-                                "success"
-                            )
-                            physicalDevices.push({
-                                name: deviceName,
-                                version: deviceVersion,
-                                udid: configuredUDID,
-                                type: "physical",
-                            })
-                            progress.complete("deviceDetection")
-                            return physicalDevices[0]
-                        }
-                    } else {
-                        progress.log(`⚠️  Configured device UDID not found in connected devices`, "warning")
-                        progress.log("Falling back to auto-detection...", "info")
-                    }
-                } catch (error) {
-                    progress.log(`Error verifying configured device: ${error.message}`, "warning")
-                    progress.log("Falling back to auto-detection...", "info")
+                const configuredDevice = tryDevicectl().find((d) => d.udid === configuredUDID)
+                if (configuredDevice) {
+                    progress.log(
+                        `✅ Found configured physical device: ${configuredDevice.name} (${configuredDevice.version})`,
+                        "success"
+                    )
+                    progress.complete("deviceDetection")
+                    return configuredDevice
                 }
+                progress.log(`⚠️  Configured device UDID not found in connected devices`, "warning")
+                progress.log("Falling back to auto-detection...", "info")
             } else {
                 progress.log("No device UDID configured, using auto-detection", "info")
             }
 
-            const tryInstruments = () => {
-                try {
-                    const out = execSync("instruments -s devices").toString()
-                    return out
-                        .split("\n")
-                        .filter((line) => {
-                            const m = line.match(
-                                /^(.+?)\s+\((\d+\.\d+(?:\.\d+)?)\)\s+\[([A-F0-9-]{36})\](?:\s+\(Simulator\))?$/
-                            )
-                            return m && !line.includes("(Simulator)")
-                        })
-                        .map((line) => {
-                            const [, name, version, udid] = line.match(
-                                /^(.+?)\s+\((\d+\.\d+(?:\.\d+)?)\)\s+\[([A-F0-9-]{36})\]/
-                            )
-                            return { name: name.trim(), version, udid, type: "physical" }
-                        })
-                } catch {
-                    return []
-                }
-            }
-
-            physicalDevices = tryInstruments()
+            physicalDevices = tryDevicectl()
             if (physicalDevices.length > 0)
-                progress.log(`Found ${physicalDevices.length} physical device(s) via instruments`, "success")
+                progress.log(`Found ${physicalDevices.length} physical device(s) via devicectl`, "success")
 
             if (physicalDevices.length === 0) {
                 try {
@@ -471,28 +515,6 @@ module.exports = function createBuildPhase(ctx) {
                 } catch (error) {
                     progress.log("xcodebuild destinations failed", "warning")
                     progress.log(`Error: ${error.message}`, "error")
-                }
-            }
-
-            if (physicalDevices.length === 0) physicalDevices = tryInstruments()
-
-            if (physicalDevices.length === 0) {
-                try {
-                    for (const line of execSync("xcrun devicectl list devices").toString().split("\n")) {
-                        if (line.includes("Connected") && !line.includes("Simulator")) {
-                            const udidMatch = line.match(/([A-F0-9-]{36})/)
-                            const nameMatch = line.match(/^(.+?)\s+\(/)
-                            if (udidMatch && nameMatch)
-                                physicalDevices.push({
-                                    name: nameMatch[1].trim(),
-                                    version: "Unknown",
-                                    udid: udidMatch[1],
-                                    type: "physical",
-                                })
-                        }
-                    }
-                } catch {
-                    progress.log("devicectl command not available or failed", "warning")
                 }
             }
 
@@ -626,15 +648,29 @@ module.exports = function createBuildPhase(ctx) {
         try {
             progress.log("Launching iOS Simulator...")
             const simulatorsJson = JSON.parse(execSync("xcrun simctl list devices -j").toString())
+            // Multiple devices can share a name across runtimes (e.g. leftover devices
+            // from an old Xcode install after an upgrade) — simctl marks the ones whose
+            // runtime bundle is gone as isAvailable: false, and those fail to boot with
+            // "cannot determine the runtime bundle". Don't let iteration order silently
+            // pick one of those over the available device: prefer an available match,
+            // and among available matches prefer one that's already booted.
+            const isDeviceAvailable = (device) => device.isAvailable !== false
             let foundSimulator = null,
                 foundSimulatorId = null,
                 isBooted = false
             Object.entries(simulatorsJson.devices).forEach(([, devices]) => {
                 devices.forEach((device) => {
-                    if (device.name === simulatorName) {
+                    if (device.name !== simulatorName) return
+                    const available = isDeviceAvailable(device)
+                    const alreadyBooted = device.state === "Booted"
+                    const isBetterMatch =
+                        !foundSimulator ||
+                        (available && !isDeviceAvailable(foundSimulator)) ||
+                        (available === isDeviceAvailable(foundSimulator) && alreadyBooted && !isBooted)
+                    if (isBetterMatch) {
                         foundSimulator = device
                         foundSimulatorId = device.udid
-                        isBooted = device.state === "Booted"
+                        isBooted = alreadyBooted
                     }
                 })
             })
@@ -676,10 +712,15 @@ module.exports = function createBuildPhase(ctx) {
             } else {
                 progress.log(`Simulator ${simulatorName} is already booted`, "success")
             }
-            progress.log("Opening Simulator.app...")
-            await runCommand("open -a Simulator")
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-            await runCommand("osascript -e 'tell application \"Simulator\" to activate'")
+            const simulatorAppBundleId = resolveSimulatorAppBundleId()
+            if (simulatorAppBundleId) {
+                progress.log("Opening simulator UI...")
+                await runCommand(`open -b ${simulatorAppBundleId}`)
+                await new Promise((resolve) => setTimeout(resolve, 1000))
+                await runCommand(`osascript -e 'tell application id "${simulatorAppBundleId}" to activate'`)
+            } else {
+                progress.log(SIMULATOR_APP_NOT_FOUND_WARNING, "warning")
+            }
             progress.log("iOS Simulator launched successfully.", "success")
             progress.complete("launchSimulator")
         } catch (error) {
