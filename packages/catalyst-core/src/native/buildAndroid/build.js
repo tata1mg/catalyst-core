@@ -202,6 +202,14 @@ function createBuildPhase(ctx) {
         return false
     }
 
+    // Message mirrors errors/registry.js ERROR_DEFINITIONS[ANDROID-001] (see
+    // errors/ANDROID/ANDROID-001.md) — this CJS subtree can't import the ESM
+    // error registry (see buildErrorFormat.js), so the code is prefixed onto the
+    // thrown message directly rather than imported.
+    function emulatorBootTimeoutError(detail) {
+        return new Error(`[ANDROID-001] Timed out waiting for the Android emulator to boot: ${detail}`)
+    }
+
     async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
         progress.log("Setting up emulator...", "info")
         const emulatorRunning = await checkEmulator(ADB_PATH)
@@ -211,14 +219,14 @@ function createBuildPhase(ctx) {
             await startEmulator(EMULATOR_PATH, androidConfig)
             const serial = await waitForNewEmulatorSerial(ADB_PATH, knownSerials)
             if (!serial) {
-                throw new Error(
-                    `Timed out waiting for emulator "${androidConfig.emulatorName}" to appear in adb devices`
+                throw emulatorBootTimeoutError(
+                    `emulator "${androidConfig.emulatorName}" never appeared in adb devices`
                 )
             }
             const booted = await waitForEmulatorBoot(ADB_PATH, serial)
             if (!booted) {
-                throw new Error(
-                    `Timed out waiting for emulator "${androidConfig.emulatorName}" (${serial}) to finish booting`
+                throw emulatorBootTimeoutError(
+                    `emulator "${androidConfig.emulatorName}" (${serial}) never finished booting`
                 )
             }
             progress.log("Emulator booted successfully", "success")
