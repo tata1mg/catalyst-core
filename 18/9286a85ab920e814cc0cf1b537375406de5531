@@ -1,0 +1,37 @@
+errors/IOS/IOS-001.md
+  s_8911efba706780::t_e7600eca053d0d 1-15
+packages/catalyst-core/src/errors/registry.js
+  s_8911efba706780::t_8a8bb2a6db78e4 31
+  s_8911efba706780::t_f94a8a51dc52e1 235-241
+packages/catalyst-core/src/native/buildIos/build.js
+  s_8911efba706780::t_c6d91922de54fc 379
+  s_8911efba706780::t_3fcdd957897d65 405-428,438-445,447-448,453,455
+  s_8911efba706780::t_1e901e0028e118 71-87
+  s_8911efba706780::t_5f5844224aecc9 670-676,678
+  s_8911efba706780::t_22fca8c6c45af9 88-97
+  s_8911efba706780::t_b4663a97954b74 377-378,380-382
+  s_8911efba706780::t_7ce0ef50fd7176 677
+packages/catalyst-core/src/native/setupEmulatorIos.js
+  s_8911efba706780::t_8df478533ef203 343-347,349-350,352-354,356
+  s_8911efba706780::t_a3b63915b0791b 355
+  s_8911efba706780::t_fc7066ea8693f3 280-289
+  s_8911efba706780::t_9c25b40dc21ef1 263-279
+errors/index.json
+  s_8911efba706780::t_e7600eca053d0d 247-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "189286a85ab920e814cc0cf1b537375406de5531",
+  "prompts": {},
+  "sessions": {
+    "s_8911efba706780": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5270f5b6-95d7-4d4b-9517-85b9e2f1bff1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
