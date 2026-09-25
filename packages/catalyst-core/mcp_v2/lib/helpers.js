@@ -60,10 +60,20 @@ function findCatalystRoot() {
         let dir = start
         while (dir !== path.parse(dir).root) {
             const pkgPath = path.join(dir, "package.json")
+            // A package.json inside a node_modules segment is an installed copy, not
+            // the catalyst-core source repo itself — for the standard install layout
+            // (<app>/node_modules/catalyst-core/mcp_v2/mcp.js), walking up from
+            // __dirname hits catalyst-core's own installed package.json (name:
+            // "catalyst-core") before it ever reaches the consumer app's root. Only
+            // the isSourcePackage branch below should match on pkg.name, and only for
+            // a real (non-node_modules) source checkout — otherwise keep climbing so
+            // the walk finds the consumer's package.json instead, which matches via
+            // the deps["catalyst-core"] branch further down.
+            const isInstalledCopy = dir.split(path.sep).includes("node_modules")
             if (fs.existsSync(pkgPath)) {
                 try {
                     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
-                    if (pkg.name === "catalyst-core") {
+                    if (pkg.name === "catalyst-core" && !isInstalledCopy) {
                         const sourceVersion = pkg.version || null
                         return {
                             dir,
