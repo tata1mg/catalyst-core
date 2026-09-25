@@ -182,6 +182,7 @@ public enum ConfigConstants {
                 for (const [key, value] of Object.entries(iosConfig)) {
                     if (addedKeys.has(key)) continue
                     configContent += "\n" + generateSwiftProperty(key, value)
+                    addedKeys.add(key)
                 }
             }
 
@@ -260,6 +261,16 @@ public enum ConfigConstants {
             if (!addedKeys.has("appInfo")) {
                 configContent += '\n    public static let appInfo = ""'
                 addedKeys.add("appInfo")
+            }
+
+            // Ensure cachePattern always exists (default to no patterns, i.e. caching
+            // opt-in disabled) — CacheManager.swift references ConfigConstants.cachePattern
+            // unconditionally, and it's only emitted above when WEBVIEW_CONFIG.ios.cachePattern
+            // is set, which every create-catalyst-app scaffold omits by default (#485).
+            if (!addedKeys.has("cachePattern")) {
+                progress.log("cachePattern not found in config, adding default (no patterns)", "info")
+                configContent += "\n" + generateSwiftProperty("cachePattern", [])
+                addedKeys.add("cachePattern")
             }
 
             configContent += `\n}`
