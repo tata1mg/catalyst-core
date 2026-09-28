@@ -86,6 +86,10 @@ export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modu
         })
     )
 
+// nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - asset paths come from the Vite build manifest generated at build time, never from a request, so there is no user-controlled input here.
+const resolveCssFilePath = (asset, basePath) =>
+    path.isAbsolute(asset) ? asset : path.join(basePath, asset.replace(/^\/+/, ""))
+
 /**
  * Read CSS files from disk and return concatenated CSS string for inlining.
  * @param {string[]} cssPaths - Relative CSS paths (from manifest).
@@ -103,8 +107,7 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
         seen.add(asset)
         if (asset.startsWith("http")) continue
 
-        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - asset paths come from the Vite build manifest generated at build time, never from a request, so there is no user-controlled input here.
-        const filePath = path.isAbsolute(asset) ? asset : path.join(basePath, asset.replace(/^\/+/, ""))
+        const filePath = resolveCssFilePath(asset, basePath)
 
         try {
             if (!process.cssFileCache[filePath]) {
@@ -121,6 +124,28 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
     return chunks.join("\n")
 }
 
+/**
+ * Filters cssPaths down to those actually inlined by a prior readCssFromDisk call for the same
+ * basePath (i.e. present and non-empty in process.cssFileCache). The client-side appendChild patch
+ * (see generateInlinedCssUrlsBootstrapScript) must only be told about these — a URL for a path whose
+ * CSS silently failed to read would suppress Vite's own fetch with nothing to fall back on.
+ * @param {string[]} cssPaths - Relative CSS paths (from manifest).
+ * @param {string} basePath  - Build output directory on disk.
+ * @returns {string[]} The subset of cssPaths whose content is cached (deduped).
+ */
+export const getInlinedCssPaths = (cssPaths = [], basePath) => {
+    const seen = new Set()
+    const inlined = []
+    for (const asset of cssPaths) {
+        if (!asset || seen.has(asset) || asset.startsWith("http")) continue
+        seen.add(asset)
+        if (process.cssFileCache[resolveCssFilePath(asset, basePath)]) {
+            inlined.push(asset)
+        }
+    }
+    return inlined
+}
+
 // ── React elements (for SSR rendering inside <Head>) ───────────────────
 
 /**
@@ -134,10 +159,55 @@ export const generateScriptElements = (jsUrls = []) =>
 // ── HTML strings (for streaming injection after body via res.write) ────
 
 /**
- * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body).
+ * Inline bootstrap <script>. Records which CSS URLs were already inlined as <style> for this
+ * response (window.__INLINED_CSS_URLS__) and patches document.head.appendChild so that if
+ * hydration's dynamic-import prefetch (via Vite's own __vitePreload) tries to insert a
+ * <link rel="stylesheet"> for one of those URLs, its href is swapped to an inert `data:` URI
+ * before insertion — eliminating the redundant network fetch while `load` still fires
+ * (from the browser resolving the data: URI), so Vite's own preload promise resolves normally.
+ * The link is removed from the DOM once its own `load` fires, so it doesn't linger.
+ *
+ * The link is still genuinely inserted (not left detached) deliberately: Vite's __vitePreload
+ * appears to dedupe/cache concurrent requests for the same dependency URL in a way that depends
+ * on the link actually being connected — a detached node whose `load` is dispatched synthetically
+ * resolves the widget that triggered it, but leaves any other widget concurrently awaiting the
+ * same URL hanging forever (verified empirically: real hydration prefetches ~10 SSR'd widgets at
+ * once, several sharing common CSS deps; a detached-node version left 9 of them stuck pending
+ * indefinitely, with only the first resolving — no errors, just a silent hang).
+ *
+ * Removing on `load` — rather than never inserting — is safe for the same concurrent-widget case:
+ * every widget's `__vitePreload` deps are enumerated synchronously (in the same tick split()s run
+ * in), so any dedup check against this exact link has already happened by the time `load` fires
+ * asynchronously and removal runs. A widget that somehow checks after removal just creates (and
+ * this patch again neutralizes) a fresh link for the same URL — still zero network fetches, only
+ * a harmless redundant no-op, never a hang. Verified under staggered/shared-dependency timing
+ * before relying on this in the real app.
+ *
+ * CSS not in this set — e.g. reached only via later client-side navigation, never inlined for
+ * this response — is left untouched and fetches exactly as Vite already does.
  */
-export const generateCssLinkStrings = (cssUrls = []) =>
-    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}">`).join("")
+export const generateInlinedCssUrlsBootstrapScript = (cssUrls = []) => {
+    const urlsJson = JSON.stringify([...new Set(cssUrls)])
+    return (
+        `<script>window.__INLINED_CSS_URLS__=new Set(${urlsJson});` +
+        `(function(){var o=document.head.appendChild.bind(document.head);` +
+        `document.head.appendChild=function(n){try{if(n&&n.tagName==="LINK"&&n.rel==="stylesheet"` +
+        `&&window.__INLINED_CSS_URLS__&&window.__INLINED_CSS_URLS__.has(n.href)){n.href="data:text/css,";` +
+        `n.rel="prefetch";n.removeAttribute("as");` +
+        `n.addEventListener("load",function(){try{n.remove()}catch(e){}})}}` +
+        `catch(e){}return o(n)}})()</script>`
+    )
+}
+
+/**
+ * Extends window.__INLINED_CSS_URLS__ (see generateInlinedCssUrlsBootstrapScript) with CSS URLs
+ * inlined after the initial <head> — the first-ever deferred <style> streamed for a route.
+ */
+export const generateInlinedCssUrlsExtendScript = (cssUrls = []) => {
+    if (!cssUrls.length) return ""
+    const urlsJson = JSON.stringify([...new Set(cssUrls)])
+    return `<script>${urlsJson}.forEach(function(u){window.__INLINED_CSS_URLS__.add(u)})</script>`
+}
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
