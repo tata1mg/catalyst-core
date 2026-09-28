@@ -35,9 +35,10 @@ function runInherit(command, args) {
     execFileSync(command, args, { cwd: repoRoot, stdio: "inherit" })
 }
 
+// The repo .npmrc sets min-release-age, which would hide versions published minutes ago.
 function npmViewOrNull(args) {
     try {
-        return run("npm", ["view", ...args]).trim()
+        return run("npm", ["view", ...args, "--min-release-age=0"]).trim()
     } catch {
         return null
     }
@@ -149,30 +150,41 @@ function commandVersion(args) {
 }
 
 // next prerelease number for `<base>-<channel>.N`, starting at 1
-function nextPrereleaseVersion(workspace, base, channel) {
+function highestPrereleaseNumber(packageName, base, channel) {
     const pattern = new RegExp(`^${base.replace(/\./g, "\\.")}-${channel}\\.(\\d+)$`)
-    const numbers = publishedVersions(workspace.name)
+    const numbers = publishedVersions(packageName)
         .map((version) => version.match(pattern))
         .filter(Boolean)
         .map((match) => Number(match[1]))
+    return numbers.length > 0 ? Math.max(...numbers) : 0
+}
 
-    return `${base}-${channel}.${numbers.length > 0 ? Math.max(...numbers) + 1 : 1}`
+/**
+ * One N for every package sharing a base. If the highest N is missing from any
+ * of them, an earlier run stopped part way, so that N is reused and the
+ * packages already on npm are skipped at publish time. Otherwise N moves on.
+ */
+function resolvePrereleaseNumber(highestByPackage) {
+    const highest = Math.max(...highestByPackage)
+    if (highest === 0) return 1
+    return highestByPackage.every((n) => n === highest) ? highest + 1 : highest
 }
 
 function waitForNpm(packageName, version, dryRun) {
     if (dryRun) {
         return
     }
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const attempts = 12
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
         if (versionExists(packageName, version)) {
             return
         }
-        if (attempt < 3) {
-            console.log(`waiting for ${packageName}@${version} on npm (${attempt}/3)`)
+        if (attempt < attempts) {
+            console.log(`waiting for ${packageName}@${version} on npm (${attempt}/${attempts})`)
             execFileSync("sleep", ["10"])
         }
     }
-    fail(`${packageName}@${version} was not visible on npm after 3 attempts`)
+    fail(`${packageName}@${version} was not visible on npm after ${attempts} attempts`)
 }
 
 function publishWorkspace(workspace, version, channel, dryRun) {
@@ -227,6 +239,7 @@ function commandPublish(args) {
     const includeAi = args.flags.has("--include-ai")
     const dryRun = args.flags.has("--dry-run")
     const targets = []
+    const pending = []
 
     // on latest the version filter decides what ships, so consider every workspace;
     // --include-ai only widens the prerelease channels
@@ -246,10 +259,19 @@ function commandPublish(args) {
         if (versionExists(workspace.name, base)) {
             fail(`${workspace.name}@${base} is already a published stable release, pick a new version`)
         }
+        pending.push({ workspace, base })
+    }
 
-        const version = nextPrereleaseVersion(workspace, base, channel)
-        setVersion(workspace, version)
-        targets.push({ workspace, version })
+    for (const base of new Set(pending.map((entry) => entry.base))) {
+        const group = pending.filter((entry) => entry.base === base)
+        const number = resolvePrereleaseNumber(
+            group.map((entry) => highestPrereleaseNumber(entry.workspace.name, base, channel))
+        )
+        for (const { workspace } of group) {
+            const version = `${base}-${channel}.${number}`
+            setVersion(workspace, version)
+            targets.push({ workspace, version })
+        }
     }
 
     if (targets.length === 0) {
@@ -297,13 +319,17 @@ function commandPublish(args) {
     })
 }
 
-const [subcommand, ...rest] = process.argv.slice(2)
-const parsed = parseArgs(rest)
+module.exports = { resolvePrereleaseNumber }
 
-if (subcommand === "version") {
-    commandVersion(parsed)
-} else if (subcommand === "publish") {
-    commandPublish(parsed)
-} else {
-    fail("usage: release.js <version|publish> [options]")
+if (require.main === module) {
+    const [subcommand, ...rest] = process.argv.slice(2)
+    const parsed = parseArgs(rest)
+
+    if (subcommand === "version") {
+        commandVersion(parsed)
+    } else if (subcommand === "publish") {
+        commandPublish(parsed)
+    } else {
+        fail("usage: release.js <version|publish> [options]")
+    }
 }
