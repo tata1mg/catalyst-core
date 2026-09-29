@@ -96,19 +96,21 @@ function findCatalystRoot() {
                     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
                     const declaredRef = deps["catalyst-core"]
                     if (declaredRef) {
-                        const nmPath = path.join(dir, "node_modules", "catalyst-core")
-                        const installed = fs.existsSync(nmPath)
-                        // Read the actual installed version from node_modules
+                        // A fixed `<dir>/node_modules/catalyst-core` path only finds a
+                        // flat install. In a hoisted workspace (npm/yarn workspaces,
+                        // pnpm with hoisting) the package can live several levels above
+                        // `dir` instead. require.resolve with `paths` walks node_modules
+                        // up the tree the same way Node's own module resolution does, so
+                        // it finds the installed copy regardless of hoisting.
                         let installedVersion = null
-                        if (installed) {
-                            try {
-                                const nmPkg = JSON.parse(
-                                    fs.readFileSync(path.join(nmPath, "package.json"), "utf8")
-                                )
-                                installedVersion = nmPkg.version || null
-                            } catch {
-                                /* ignore */
-                            }
+                        let installed = false
+                        try {
+                            const nmPkgPath = require.resolve("catalyst-core/package.json", { paths: [dir] })
+                            const nmPkg = JSON.parse(fs.readFileSync(nmPkgPath, "utf8"))
+                            installedVersion = nmPkg.version || null
+                            installed = true
+                        } catch {
+                            /* not installed relative to dir */
                         }
                         const isGithubRef = declaredRef.startsWith("github:") || declaredRef.includes("#")
                         return {
