@@ -4,6 +4,7 @@ import svgr from "vite-plugin-svgr"
 import { builtinModules, createRequire } from "node:module"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 import { resolveDevBase, buildDevServer } from "./resolveDevServerConfig.js"
+import { getModuleAliases } from "./moduleAliases.js"
 
 /**
  * Treat all .scss imports as CSS modules (webpack compat).
@@ -103,35 +104,7 @@ const __dirname = dirname(__filename)
 import path from "path"
 import fs from "fs"
 
-const packageJsonConfig = path.resolve(process.env.src_path, "package.json")
-const catalystPackageJsonConfig = path.resolve(__dirname, "../../package.json")
-
-let packageJsonContent, catalystPackageJsonContent
-let _moduleAliases = {},
-    catalyst_moduleAliases = {}
-
-try {
-    packageJsonContent = fs.readFileSync(packageJsonConfig, "utf8")
-    const packageJson = JSON.parse(packageJsonContent)
-    _moduleAliases = packageJson._moduleAliases || {}
-} catch (error) {
-    // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - packageJsonConfig is a build-time-resolved local path, not attacker-controlled; console.warn here does no printf-style substitution.
-    console.warn(`Failed to read or parse package.json from ${packageJsonConfig}:`, error.message)
-}
-
-try {
-    catalystPackageJsonContent = fs.readFileSync(catalystPackageJsonConfig, "utf8")
-    const catalystPackageJson = JSON.parse(catalystPackageJsonContent)
-    catalyst_moduleAliases = catalystPackageJson._moduleAliases || {}
-} catch (error) {
-    console.warn(
-        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - catalystPackageJsonConfig is a build-time-resolved local path, not attacker-controlled; console.warn here does no printf-style substitution.
-        `Failed to read or parse catalyst package.json from ${catalystPackageJsonConfig}:`,
-        error.message
-    )
-}
-
-const allAliases = { ..._moduleAliases, ...catalyst_moduleAliases }
+const allAliases = getModuleAliases(process.env.src_path)
 
 import { imageUrl, fontUrl } from "./scssParams.js"
 

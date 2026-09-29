@@ -1,6 +1,7 @@
 import XCTest
 import WebKit
 import SwiftUI
+@testable import CatalystCoreLogic
 @testable import CatalystCore
 
 /**
