@@ -71,6 +71,13 @@ export const LEDGER = {
     // way ANDROID-000 is, and CI runners here don't have the Android SDK/an AVD
     // available to drive a real (or realistically stalled) boot.
     "ANDROID-001": "not-example-reproducible",
+    // ── IOS ─────────────────────────────────────────────────────────────────
+    // IOS-001 (no Simulator/DeviceHub app installed) requires the actual
+    // absence of Xcode's Simulator.app/DeviceHub.app on the host — not
+    // reproducible by breaking config the way IOS-000 is, and CI runners here
+    // are Linux (no Xcode at all) so this can never fire in this environment
+    // either way.
+    "IOS-001": "not-example-reproducible",
 }
 
 export default scenarios
