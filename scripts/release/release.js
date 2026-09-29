@@ -174,7 +174,7 @@ function waitForNpm(packageName, version, dryRun) {
     if (dryRun) {
         return
     }
-    const attempts = 12
+    const attempts = 60
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
         if (versionExists(packageName, version)) {
             return
