@@ -435,6 +435,13 @@ module.exports = function createBuildPhase(ctx) {
             const devices = parsed?.result?.devices ?? []
             return devices
                 .filter((d) => d.hardwareProperties?.reality === "physical")
+                // devicectl lists every device it has ever paired with, reachable or
+                // not — a device that's unplugged or out of range still shows up with
+                // reality: "physical". Only tunnelState !== "unavailable" is actually
+                // installable/launchable right now; "disconnected" (paired, USB/Wi-Fi
+                // not currently active but developer-mode discoverable) still works for
+                // wired installs, so only "unavailable" is excluded here.
+                .filter((d) => d.connectionProperties?.tunnelState !== "unavailable")
                 .map((d) => ({
                     name: d.deviceProperties?.name ?? "Physical Device",
                     version: d.deviceProperties?.osVersionNumber ?? "Unknown",
