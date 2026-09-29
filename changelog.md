@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0] - unreleased
+## [1.0.0] - 2026-09-29
 
 This release freezes the public API. The root entry of `catalyst-core` now exports exactly eight names and nothing else: `RouterDataProvider`, `useCurrentRouteData`, `useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. Anything previously reachable through the root entry but not in that list is no longer public. Applications that import a removed name will fail at build time rather than silently resolving to `undefined`.
 
