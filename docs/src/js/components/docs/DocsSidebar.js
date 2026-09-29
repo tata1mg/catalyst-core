@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'catalyst-core'
 import manifest from '../../generated/docsManifest.json'
+import versions from '../../generated/versions.json'
 import { loadErrorsCatalog, groupByCategory } from '../../data/errorsCatalog'
 
 /**
@@ -238,9 +239,12 @@ const ErrorReferenceGroup = ({ currentUrl, errorsCatalog }) => {
     )
 }
 
+// Pages outside the versioned manifest (the /errors routes) get latest's nav.
+const LATEST_LABEL = versions.find((entry) => entry.latest).label
+
 const DocsSidebar = ({
     currentUrl,
-    version,
+    version = LATEST_LABEL,
     mobileOpen,
     onClose,
     errorsCatalog,

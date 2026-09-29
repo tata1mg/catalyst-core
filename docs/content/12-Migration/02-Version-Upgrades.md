@@ -120,7 +120,14 @@ explicitly, or use the `code` and `docUrl` fields.
 Missing or malformed app-contract exports are reported once at startup, naming the file, the
 export, and what the application must provide. Reporting is not fatal: startup continues instead
 of failing later inside an unrelated render. An application that satisfies the contract sees no
-change. The contract is documented under
+change.
+
+The configuration checks are stricter. `catalyst start`, `build` and `serve` now exit before
+starting when `config/config.json` is missing one of `NODE_SERVER_HOSTNAME`, `NODE_SERVER_PORT`,
+`BUILD_OUTPUT_PATH`, `PUBLIC_STATIC_ASSET_PATH`, `PUBLIC_STATIC_ASSET_URL` or
+`CLIENT_ENV_VARIABLES`, or when `package.json` is missing one of the `@api`, `@containers`,
+`@server`, `@config`, `@css` or `@routes` module aliases. Apps created from the templates already
+have all of them. The contract is documented under
 [File Conventions](../11-API%20Reference/03-File-Conventions.md).
 
 ---
