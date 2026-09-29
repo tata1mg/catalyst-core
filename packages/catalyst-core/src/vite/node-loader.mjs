@@ -3,9 +3,7 @@ import { dirname, resolve as resolvePath, join, extname } from "path"
 import { readFileSync, existsSync, statSync } from "fs"
 import { createRequire } from "module"
 import { transformSync } from "esbuild"
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+import { getModuleAliases } from "./moduleAliases.js"
 
 // Cache for loaded aliases
 let aliasCache = null
@@ -20,32 +18,7 @@ function loadAliases() {
 
     const appRoot = process.env.src_path || process.cwd()
 
-    const appPackageJsonConfig = resolvePath(appRoot, "package.json")
-    const catalystPackageJsonConfig = resolvePath(__dirname, "../../package.json")
-
-    let appModuleAliases = {}
-    let catalystModuleAliases = {}
-
-    // Read aliases from consuming application's package.json
-    try {
-        const appPackageJsonContent = readFileSync(appPackageJsonConfig, "utf8")
-        const appPackageJson = JSON.parse(appPackageJsonContent)
-        appModuleAliases = appPackageJson._moduleAliases || {}
-    } catch (error) {
-        // Silently fail if app package.json doesn't exist or is invalid
-    }
-
-    // Read aliases from catalyst-core's package.json
-    try {
-        const catalystPackageJsonContent = readFileSync(catalystPackageJsonConfig, "utf8")
-        const catalystPackageJson = JSON.parse(catalystPackageJsonContent)
-        catalystModuleAliases = catalystPackageJson._moduleAliases || {}
-    } catch (error) {
-        // Silently fail if catalyst package.json doesn't exist or is invalid
-    }
-
-    // Application aliases take precedence over catalyst-core aliases
-    const allAliases = { ...catalystModuleAliases, ...appModuleAliases }
+    const allAliases = getModuleAliases(appRoot)
 
     // Convert aliases to resolved paths
     aliasCache = {}

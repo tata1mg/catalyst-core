@@ -1,0 +1,61 @@
+name: ✨ Feature request / enhancement
+description: A new capability, universal hook behaviour, CLI improvement, or framework ergonomics change
+title: "[feature] "
+labels:
+    - enhancement
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for the suggestion. Focus on the problem first — the solution is easier to discuss once the need is clear.
+
+              Before submitting, please check the [existing requests](https://github.com/tata1mg/catalyst-core/issues?q=is%3Aissue+label%3Aenhancement)
+              — and confirm this is a single request, not several bundled together.
+    - type: textarea
+      id: summary
+      attributes:
+          label: Summary
+          description: One or two sentences on what you want.
+          placeholder: A `useTool` hook that registers a WebMCP tool scoped to the mounted component.
+      validations:
+          required: true
+    - type: textarea
+      id: motivation
+      attributes:
+          label: Motivation
+          description: What problem does this solve? What's painful or impossible today?
+          placeholder: |
+              Today there's no first-class way to expose a route action to a browser agent — you hand-write a `useEffect` with an `AbortController` and a schema in every component.
+      validations:
+          required: true
+    - type: textarea
+      id: proposed-behaviour
+      attributes:
+          label: Proposed Behaviour
+          description: How would you like it to work? Describe the ideal developer experience.
+          placeholder: |
+              `useTool({ name, description, inputSchema, execute })` registers on mount, unregisters on unmount, and is gated on `hydrationReady`.
+      validations:
+          required: true
+    - type: textarea
+      id: example-usage
+      attributes:
+          label: Example Usage / Output
+          description: A code sketch, CLI invocation, or sample output showing the feature in use.
+          render: jsx
+      validations:
+          required: false
+    - type: textarea
+      id: proposed-fix
+      attributes:
+          label: Proposed Fix
+          description: If you have an implementation approach in mind, outline it. Optional.
+      validations:
+          required: false
+    - type: textarea
+      id: optional-followups
+      attributes:
+          label: Optional Follow-ups
+          description: Related improvements that could come later, explicitly out of scope for this request.
+      validations:
+          required: false

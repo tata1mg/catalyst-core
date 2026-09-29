@@ -1,6 +1,8 @@
 package io.yourname.androidproject.camera
 
 import android.util.Log
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.barcode.BarcodeScanner
@@ -72,6 +74,7 @@ class BarcodeDetector(
         scanner = null
     }
 
+    @OptIn(ExperimentalGetImage::class)
     private fun processFrame(imageProxy: ImageProxy, activeScanner: BarcodeScanner) {
         val mediaImage = imageProxy.image
         if (mediaImage == null) {

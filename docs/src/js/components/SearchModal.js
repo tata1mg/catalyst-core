@@ -2,16 +2,21 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'catalyst-core'
 import manifest from '../generated/docsManifest.json'
+import versions from '../generated/versions.json'
 
 /**
  * In-browser docs search (same model as the docs site's local-search plugin):
- * the index is the build-time manifest; matching happens client-side.
+ * the index is the build-time manifest; matching happens client-side. Older
+ * versions stay out of the index so results never point at stale pages.
  */
+const LATEST = versions.find((version) => version.latest)?.label
+const index = manifest.filter((page) => page.version === LATEST)
+
 const search = (query) => {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
     if (!terms.length) return []
 
-    return manifest
+    return index
         .map((page) => {
             const title = page.title.toLowerCase()
             const body = page.searchText.toLowerCase()

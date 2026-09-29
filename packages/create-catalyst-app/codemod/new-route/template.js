@@ -1,6 +1,6 @@
 const fs = require("fs")
 const path = require("path")
-const pc = require("picocolors")
+const pc = require("ansis")
 
 // Function to create component using given input
 function createNewComponent({ componentName, containersDir }) {

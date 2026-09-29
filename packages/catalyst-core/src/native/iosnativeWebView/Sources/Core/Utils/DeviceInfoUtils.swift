@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "DeviceInfoUtils")
 
@@ -36,7 +37,6 @@ class DeviceInfoUtils {
         ]
 
         deviceInfo["appInfo"] = ConfigConstants.appInfo
-        
 
         logger.debug("Device info retrieved successfully: \(deviceInfo.description)")
         return deviceInfo

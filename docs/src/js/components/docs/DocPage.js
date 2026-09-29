@@ -5,14 +5,14 @@ import manifest from '../../generated/docsManifest.json'
 import DocsSidebar from './DocsSidebar'
 import CodeBlock from './CodeBlock'
 
-const bySourcePath = new Map(manifest.map((page) => [page.sourcePath, page]))
+const versionBase = (url) => url.match(/^\/v\/\d+/)?.[0] ?? ''
 
 /**
  * Resolve a markdown file link to its canonical URL. Docusaurus supports two
  * forms in content: relative (./x.md, ../dir/y.mdx) and absolute-from-content
  * source paths (/content/11-API%20Reference/04-SSR-Lifecycle.md).
  */
-const resolveDocFileLink = (href, fromSourcePath) => {
+const resolveDocFileLink = (href, fromSourcePath, bySourcePath) => {
     const [rawTarget, hash = ''] = href.split('#')
     const target = decodeURIComponent(rawTarget)
     if (!/\.mdx?$/.test(target)) return null
@@ -36,6 +36,17 @@ const resolveDocFileLink = (href, fromSourcePath) => {
 
 const buildComponents = (meta) => {
     const sourceDir = meta.sourcePath.split('/').slice(0, -1).join('/')
+    const bySourcePath = new Map(
+        manifest
+            .filter((page) => page.version === meta.version)
+            .map((page) => [page.sourcePath, page])
+    )
+    // Old pages carry absolute paths that would otherwise land on latest.
+    const versionPrefix = versionBase(meta.url)
+    const withPrefix = (value) =>
+        versionPrefix && /^\/(content|img|docs-assets)\//.test(value)
+            ? `${versionPrefix}${value}`
+            : value
 
     return {
         a: ({ href = '', children, ...rest }) => {
@@ -53,18 +64,22 @@ const buildComponents = (meta) => {
                     </a>
                 )
             }
-            const docUrl = resolveDocFileLink(href, meta.sourcePath)
+            const docUrl = resolveDocFileLink(
+                href,
+                meta.sourcePath,
+                bySourcePath
+            )
             return (
-                <Link to={docUrl || href} {...rest}>
+                <Link to={docUrl || withPrefix(href)} {...rest}>
                     {children}
                 </Link>
             )
         },
         img: ({ src = '', alt = '', ...rest }) => {
-            let resolved = src
+            let resolved = withPrefix(src)
             if (!/^([a-z]+:|\/)/i.test(src)) {
                 const clean = src.replace(/^\.\//, '')
-                resolved = `/docs-assets/${sourceDir ? `${sourceDir}/` : ''}${clean}`
+                resolved = `${versionPrefix}/docs-assets/${sourceDir ? `${sourceDir}/` : ''}${clean}`
             }
             return <img src={resolved} alt={alt} loading="lazy" {...rest} />
         },
@@ -125,6 +140,7 @@ const DocPage = ({ meta, Content }) => {
             </button>
             <DocsSidebar
                 currentUrl={meta.url}
+                version={meta.version}
                 mobileOpen={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
             />
@@ -136,6 +152,14 @@ const DocPage = ({ meta, Content }) => {
                     ))}
                     <span> › {meta.title}</span>
                 </nav>
+                {versionBase(meta.url) && (
+                    <p className="doc-version-notice">
+                        You are viewing {meta.version} docs.{' '}
+                        {meta.canonical !== meta.url && (
+                            <Link to={meta.canonical}>Latest →</Link>
+                        )}
+                    </p>
+                )}
                 <article className="doc-article markdown-body">
                     <MDXProvider components={components}>
                         <Content />

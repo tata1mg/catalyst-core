@@ -3,7 +3,7 @@
 set -e
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-FIXTURE_DIR="$ROOT_DIR/apps/catalyst-core-test"
+FIXTURE_DIR="$ROOT_DIR/examples/catalyst-core-test"
 PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/catalyst-core-test.XXXXXX")
 
 cleanup() {

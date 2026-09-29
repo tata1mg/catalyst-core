@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
+import { ERROR_CODES, createError } from "catalyst-core/errors"
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
@@ -57,14 +58,15 @@ export function useNativeAI({
         if (!enabled) return
 
         if (!window.NativeBridge?.initAI) {
-            setError(new Error(
-                "[catalyst-ai/useNativeAI] window.NativeBridge.initAI not found. " +
-                "Update catalyst-core to >=0.2.0 and add the android module to settings.gradle.kts."
-            ))
+            setError(createError(ERROR_CODES.AI_NATIVE_BRIDGE_UNAVAILABLE, {
+                message: "window.NativeBridge.initAI not found. Update catalyst-core to >=0.2.0 and add the android module to settings.gradle.kts.",
+            }))
             return
         }
         if (!window.WebBridge) {
-            setError(new Error("[catalyst-ai/useNativeAI] WebBridge not initialized — call WebBridge.init() before mounting useNativeAI"))
+            setError(createError(ERROR_CODES.AI_NATIVE_BRIDGE_UNAVAILABLE, {
+                message: "WebBridge not initialized — call WebBridge.init() before mounting useNativeAI.",
+            }))
             return
         }
 
@@ -76,14 +78,21 @@ export function useNativeAI({
                     setModelReady(true)
                     setNativeDownloadProgress(null)
                 }
-            } catch (_) {}
+            } catch (_) {
+                // Deliberately silent: a malformed ON_AI_READY payload just means this
+                // ready signal is skipped, not a user-facing failure — the native side
+                // will fire again or the missing modelReady state will surface on its own.
+            }
         }
 
         const onProgress = (data) => {
             try {
                 const parsed = typeof data === "string" ? JSON.parse(data) : data
                 setNativeDownloadProgress(parsed)
-            } catch (_) {}
+            } catch (_) {
+                // Deliberately silent: a malformed progress payload just means this
+                // progress tick is skipped, not a user-facing failure.
+            }
         }
 
         const onLog = (data) => {
@@ -91,17 +100,21 @@ export function useNativeAI({
                 const parsed = typeof data === "string" ? JSON.parse(data) : data
                 const msg = parsed?.message ?? String(data)
                 setNativeLogs((prev) => [...prev.slice(-99), msg])
-            } catch (_) {}
+            } catch (_) {
+                // Deliberately silent: a malformed log payload just means this
+                // log line is skipped, not a user-facing failure.
+            }
         }
 
         const onError = (data) => {
+            let msg
             try {
                 const parsed = typeof data === "string" ? JSON.parse(data) : data
-                const msg = parsed?.message ?? String(data)
-                setError(new Error(msg))
+                msg = parsed?.message ?? String(data)
             } catch (_) {
-                setError(new Error(String(data)))
+                msg = String(data)
             }
+            setError(createError(ERROR_CODES.AI_NATIVE_CALLBACK_ERROR, { message: msg }))
         }
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_READY, onReady)
@@ -122,7 +135,7 @@ export function useNativeAI({
         async ({ messages, genConfig: callGenConfig = {} }) => {
             const url = nativeStreamUrlRef.current
             if (!url) {
-                setError(new Error("[catalyst-ai/useNativeAI] stream URL not ready — did initAI fire?"))
+                setError(createError(ERROR_CODES.AI_NATIVE_STREAM_NOT_READY))
                 return
             }
 
@@ -159,11 +172,17 @@ export function useNativeAI({
                         signal: controller.signal,
                     })
 
-                    if (!response.ok) throw new Error(`Native AI HTTP error: ${response.status}`)
+                    if (!response.ok) {
+                        throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, {
+                            message: `Native AI HTTP error: ${response.status}`,
+                        })
+                    }
                     setLoading(false)
 
                     const data = await response.json()
-                    if (data.error) throw new Error(data.error)
+                    if (data.error) {
+                        throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, { message: data.error })
+                    }
 
                     if (sessionMode === "stateful" && data.conversationId) {
                         conversationIdRef.current = data.conversationId
@@ -185,7 +204,11 @@ export function useNativeAI({
                     signal: controller.signal,
                 })
 
-                if (!response.ok) throw new Error(`Native AI HTTP error: ${response.status}`)
+                if (!response.ok) {
+                    throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, {
+                        message: `Native AI HTTP error: ${response.status}`,
+                    })
+                }
 
                 setLoading(false)
                 setStreaming(true)
@@ -203,35 +226,43 @@ export function useNativeAI({
                         buffer = lines.pop() || ""
                         for (const line of lines) {
                             if (!line.startsWith("data: ")) continue
+                            // JSON.parse failure means a malformed/partial SSE chunk — skip it.
+                            // A parsed data.error is a real signal and must propagate to the
+                            // outer catch, not be swallowed here alongside parse failures.
+                            let data
                             try {
-                                const data = JSON.parse(line.slice(6))
-                                if (data.done) {
-                                    setStreaming(false)
-                                    const genMs = Math.round(performance.now() - t0)
-                                    const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0
-                                    const streamMetrics = { device: "native", ttftMs, tps, totalTokens: tokenCount, genMs }
-                                    setMetrics(streamMetrics)
-                                    historyRef.current.push(streamMetrics)
-                                    return
+                                data = JSON.parse(line.slice(6))
+                            } catch (_) {
+                                continue
+                            }
+                            if (data.done) {
+                                setStreaming(false)
+                                const genMs = Math.round(performance.now() - t0)
+                                const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0
+                                const streamMetrics = { device: "native", ttftMs, tps, totalTokens: tokenCount, genMs }
+                                setMetrics(streamMetrics)
+                                historyRef.current.push(streamMetrics)
+                                return
+                            }
+                            if (sessionMode === "stateful" && data.conversationId) {
+                                conversationIdRef.current = data.conversationId
+                            }
+                            if (typeof data.token === "string") {
+                                if (ttftMs === null) ttftMs = Math.round(performance.now() - t0)
+                                tokenCount++
+                                outputAccRef.current += data.token
+                                outputAccRef.current = outputAccRef.current.replace(ATTACHMENT_TAG_RE, parseAttachmentTag)
+                                if (!rafRef.current) {
+                                    const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
+                                    rafRef.current = schedule(() => {
+                                        rafRef.current = null
+                                        setOutput(outputAccRef.current)
+                                    })
                                 }
-                                if (sessionMode === "stateful" && data.conversationId) {
-                                    conversationIdRef.current = data.conversationId
-                                }
-                                if (typeof data.token === "string") {
-                                    if (ttftMs === null) ttftMs = Math.round(performance.now() - t0)
-                                    tokenCount++
-                                    outputAccRef.current += data.token
-                                    outputAccRef.current = outputAccRef.current.replace(ATTACHMENT_TAG_RE, parseAttachmentTag)
-                                    if (!rafRef.current) {
-                                        const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
-                                        rafRef.current = schedule(() => {
-                                            rafRef.current = null
-                                            setOutput(outputAccRef.current)
-                                        })
-                                    }
-                                }
-                                if (data.error) throw new Error(data.error)
-                            } catch (_) {}
+                            }
+                            if (data.error) {
+                                throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, { message: data.error })
+                            }
                         }
                     }
                 } finally {

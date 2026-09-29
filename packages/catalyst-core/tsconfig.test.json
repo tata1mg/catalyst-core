@@ -1,0 +1,23 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": [
+            "node",
+            "vitest/globals"
+        ],
+        "noEmit": true,
+        "emitDeclarationOnly": false,
+        "declaration": false,
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "target": "es2022"
+    },
+    "include": [
+        "test",
+        "src/globals.d.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

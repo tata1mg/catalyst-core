@@ -1,5 +1,6 @@
 import React from 'react'
 import { Head, Body } from 'catalyst-core'
+import manifest from '../src/js/generated/docsManifest.json'
 
 // Carried over from the Docusaurus config's headTags — without these every
 // shared link loses its social card.
@@ -9,19 +10,27 @@ const SITE_URL = (process.env.SITE_URL || 'https://catalyst.1mg.com').replace(
     /\/$/,
     ''
 )
+// originalUrl is percent-encoded; manifest URLs are not (53 old pages have spaces).
+const CANONICAL_BY_PATH = new Map(
+    manifest.map((page) => [encodeURI(page.url), encodeURI(page.canonical)])
+)
 
 function Document(props) {
     // Both /content/faqs and /content/faqs/ serve the same page, so without a
     // canonical the two forms compete as duplicates in the index. Normalize to
     // the slash-less form the sitemap advertises.
     const rawPath = (props?.req?.originalUrl || '/').split('?')[0].split('#')[0]
-    const canonicalPath =
-        rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
+    const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
+    // Older versions point their canonical at the latest page they came from.
+    const canonicalPath = CANONICAL_BY_PATH.get(path) ?? path
 
     return (
         <html lang="en">
             <Head {...props}>
                 <link rel="canonical" href={`${SITE_URL}${canonicalPath}`} />
+                {/^\/v\/\d+\//.test(path) && (
+                    <meta name="robots" content="noindex" />
+                )}
                 <link rel="icon" href="/img/favicon.ico" />
                 <meta property="og:type" content="website" />
                 <meta

@@ -1,1 +1,16 @@
-npm run lint-staged
+RED='\033[31m'; RESET='\033[0m'
+fail() { printf "${RED}✖ %s${RESET}\n" "$1"; exit 1; }
+
+# Local fast-feedback subset only — NOT a substitute for CI enforcement
+# (see #415). CI is the actual required gate; these are bypassable via
+# --no-verify and exist purely for a quick pre-commit signal.
+
+npm run lint-staged || fail "lint-staged failed"
+
+npm run test:unit || fail "unit/contract tests failed"
+
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --verbose || fail "gitleaks detected a potential secret in the staged diff"
+else
+    echo "⚠ gitleaks not installed locally — skipping secret scan (still enforced in CI)"
+fi

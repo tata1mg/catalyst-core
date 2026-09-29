@@ -1,4 +1,4 @@
-const pc = require("picocolors")
+const pc = require("ansis")
 
 module.exports = function (fileInfo, api, options) {
     const jscodeshift = api.jscodeshift

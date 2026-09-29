@@ -135,18 +135,32 @@ module.exports = function createConfigPhase(ctx) {
     async function generateConfigConstants() {
         progress.start("config")
         try {
+            // CatalystCoreLogic (#432): ConfigConstants moved into the nested
+            // CoreLogic/ package so it can be consumed by swift-test-only code
+            // without pulling in UIKit. This generator must write to the new
+            // location, not the old Sources/Core/Constants/ path.
             const appConfigPath = path.join(
                 PROJECT_DIR, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PROJECT_DIR is the fixed generated iOS project directory.
+                "CoreLogic",
                 "Sources",
-                "Core",
+                "CatalystCoreLogic",
                 "Constants",
                 "ConfigConstants.swift"
             )
             const appConfigDir = path.dirname(appConfigPath)
             if (!fs.existsSync(appConfigDir)) fs.mkdirSync(appConfigDir, { recursive: true })
 
+            // CatalystCoreLogic's Package.swift declares platforms: [.iOS(.v17),
+            // .macOS(.v13)] so `swift test` can run this file on plain macOS (no
+            // simulator). UIKit doesn't exist there, so CGFloat needs the same
+            // canImport guard already used in the checked-in CatalystConstants.swift.
             let configContent = `// This file is auto-generated. Do not edit.
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 public enum ConfigConstants {
     public static let url = "${url}"`
@@ -168,6 +182,7 @@ public enum ConfigConstants {
                 for (const [key, value] of Object.entries(iosConfig)) {
                     if (addedKeys.has(key)) continue
                     configContent += "\n" + generateSwiftProperty(key, value)
+                    addedKeys.add(key)
                 }
             }
 
@@ -246,6 +261,16 @@ public enum ConfigConstants {
             if (!addedKeys.has("appInfo")) {
                 configContent += '\n    public static let appInfo = ""'
                 addedKeys.add("appInfo")
+            }
+
+            // Ensure cachePattern always exists (default to no patterns, i.e. caching
+            // opt-in disabled) — CacheManager.swift references ConfigConstants.cachePattern
+            // unconditionally, and it's only emitted above when WEBVIEW_CONFIG.ios.cachePattern
+            // is set, which every create-catalyst-app scaffold omits by default (#485).
+            if (!addedKeys.has("cachePattern")) {
+                progress.log("cachePattern not found in config, adding default (no patterns)", "info")
+                configContent += "\n" + generateSwiftProperty("cachePattern", [])
+                addedKeys.add("cachePattern")
             }
 
             configContent += `\n}`

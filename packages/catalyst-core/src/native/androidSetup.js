@@ -1,8 +1,8 @@
 import fs from "fs"
 import path from "path"
-import { exec, spawn } from "child_process"
+import { spawn } from "child_process"
 import { runCommand, validateAndCompleteConfig } from "./utils.js"
-import TerminalProgress from "./TerminalProgress.js"
+import TerminalProgress from "./terminalProgress.js"
 import { setupServer } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))

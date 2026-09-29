@@ -17,7 +17,8 @@ Create `src/js/layouts/MainLayout/MainLayout.js`:
 
 ```jsx title="src/js/layouts/MainLayout/MainLayout.js"
 import React from "react";
-import { Outlet, split } from "catalyst-core";
+import { split } from "catalyst-core";
+import { Outlet } from "react-router";
 import Header from "../../components/Header/Header";
 
 // Lazy load the Footer component
@@ -51,7 +52,7 @@ Create `src/js/components/Header/Header.js`:
 
 ```jsx title="src/js/components/Header/Header.js"
 import React from "react";
-import { Link } from "catalyst-core";
+import { Link } from "react-router";
 
 const Header = () => {
   return (
