@@ -40,7 +40,7 @@ Your root `package.json` must define a `_moduleAliases` object containing all si
 | `@css` | `src/static/css` |
 | `@routes` | `src/js/routes/` |
 
-Alias names may not contain the string `catalyst`; that keyword is reserved for the framework's own internal aliases.
+Alias names may not start with `@catalyst`; that prefix is reserved for the framework's own internal aliases.
 
 ### Startup Validation
 
@@ -52,7 +52,7 @@ Three checks are wired:
 - The `addMiddlewares` export from `server/server.js` is validated for shape during server setup.
 - A missing `server/server.js` does fail at startup outright: its import is unguarded, unlike the try/catch around `server/index.js`.
 
-Module aliases and `config/config.json` keys are not validated at startup. A missing alias or config key surfaces as a resolution or runtime error where it is used. See [Configuration](/docs/configuration) for the full key list.
+`catalyst start`, `build` and `serve` also check `config/config.json` and `package.json` before doing anything else, and unlike the checks above these are fatal. The command exits with a coded error if either file is missing or cannot be parsed, if `config.json` lacks any of `NODE_SERVER_HOSTNAME`, `NODE_SERVER_PORT`, `BUILD_OUTPUT_PATH`, `PUBLIC_STATIC_ASSET_PATH`, `PUBLIC_STATIC_ASSET_URL` or `CLIENT_ENV_VARIABLES`, or if the module aliases above are missing one of the six or define a name starting with `@catalyst`. Apps created from the templates already have all of them. See [Configuration](/docs/configuration) for the full key list.
 
 ## Core Project Layout
 

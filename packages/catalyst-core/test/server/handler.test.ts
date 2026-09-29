@@ -82,13 +82,11 @@ function makeReqRes(url = "/") {
 
 // Set the env handler.jsx + its render helpers read at module load /
 // render time before the first import. In production these are always set
-// by serve.js / start.js; unset here they'd make render.js:18
-// (`JSON.parse(IS_DEV_COMMAND)`) throw and the render promise hang.
+// by serve.js / start.js.
 beforeEach(() => {
     process.env.src_path = process.cwd()
     process.env.BUILD_OUTPUT_PATH = "build"
     process.env.APPLICATION = "test"
-    process.env.IS_DEV_COMMAND = "false"
     process.env.PUBLIC_STATIC_ASSET_URL = "http://localhost"
     process.env.PUBLIC_STATIC_ASSET_PATH = "/assets/"
     vi.spyOn(console, "error").mockImplementation(() => {})

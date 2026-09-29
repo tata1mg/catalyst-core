@@ -260,6 +260,33 @@ async function configureSimulator(config) {
 //     }
 // }
 
+// Xcode 27 replaced the standalone Simulator.app (com.apple.iphonesimulator)
+// with DeviceHub.app (com.apple.dt.Devices); older Xcode installs still ship
+// the former. Resolve whichever is actually installed instead of hardcoding
+// the app name, which no longer resolves via `open -a` on either app.
+function resolveSimulatorAppBundleId() {
+    const candidates = ["com.apple.dt.Devices", "com.apple.iphonesimulator"]
+    for (const bundleId of candidates) {
+        try {
+            execSync(`osascript -e 'id of app id "${bundleId}"'`, { stdio: "ignore" })
+            return bundleId
+        } catch {
+            // Not installed under this bundle id; try the next candidate.
+        }
+    }
+    return null
+}
+
+// Text mirrors errors/registry.js ERROR_DEFINITIONS[IOS-001] (see
+// errors/IOS/IOS-001.md) — this CJS subtree can't import the ESM error
+// registry (see native/buildErrorFormat.js), so the message is duplicated
+// here rather than imported. This condition is recoverable (the simulator
+// can still boot headlessly via simctl) so callers log it as a warning
+// instead of throwing.
+const SIMULATOR_APP_NOT_FOUND_WARNING =
+    "[IOS-001] Could not find an installed iOS Simulator app (checked DeviceHub.app and the legacy Simulator.app). " +
+    "The simulator is booted but its window may not be visible. Suggested action: confirm a full Xcode.app is installed and selected via xcode-select -p, then open it once from Spotlight."
+
 async function launchIOSSimulator(simulatorName) {
     progress.log("Launching iOS Simulator...")
     try {
@@ -313,15 +340,20 @@ async function launchIOSSimulator(simulatorName) {
             console.log(`Simulator ${simulatorName} is already booted`)
         }
 
-        // Open Simulator.app and focus
-        progress.log("Opening Simulator.app...")
-        runCommand("open -a Simulator")
+        // Open the simulator UI (DeviceHub on Xcode 27+, Simulator.app on older Xcode) and focus it
+        const simulatorAppBundleId = resolveSimulatorAppBundleId()
+        if (simulatorAppBundleId) {
+            progress.log("Opening simulator UI...")
+            runCommand(`open -b ${simulatorAppBundleId}`)
 
-        // Give the simulator a moment to open/focus
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+            // Give the simulator a moment to open/focus
+            await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        // Activate the Simulator.app window to bring it to front
-        runCommand("osascript -e 'tell application \"Simulator\" to activate'")
+            // Activate the simulator UI window to bring it to front
+            runCommand(`osascript -e 'tell application id "${simulatorAppBundleId}" to activate'`)
+        } else {
+            progress.log(SIMULATOR_APP_NOT_FOUND_WARNING, "warning")
+        }
 
         console.log("iOS Simulator launched successfully.")
     } catch (error) {

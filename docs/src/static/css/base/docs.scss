@@ -709,6 +709,24 @@ body {
     }
 }
 
+.doc-version-notice {
+    font-size: var(--text-sm);
+    color: var(--hub-text-muted);
+    border: 1px solid var(--hub-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+
+    a {
+        color: var(--hub-primary);
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
 .doc-toc {
     position: sticky;
     top: calc(76px + env(safe-area-inset-top));

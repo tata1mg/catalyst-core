@@ -12,11 +12,11 @@ Catalyst uses `config/config.json` for configuration. Variables defined here are
 
 ## How variables are loaded
 
-Before the server starts, Catalyst reads `config/config.json` and replaces `process.env` with its contents. This has two effects that differ from plain Node.js:
+Before the server starts, Catalyst reads `config/config.json` and merges its contents over the inherited `process.env`, winning on any key both define. This has two effects that differ from plain Node.js:
 
 1. **JSON types are preserved.** In plain Node, `process.env` values are always strings. In a Catalyst server, a value keeps the type it has in `config.json`: `"OTEL_ENABLE": true` is read as the boolean `true`, and `"NODE_SERVER_PORT": 3005` as the number `3005`. Objects and arrays are stored as JSON strings and need `JSON.parse` on read. Write checks accordingly: `process.env.OTEL_ENABLE === true`, not `=== "true"`.
 
-2. **`config.json` is the single source.** Shell environment variables are not carried over into the server process, apart from a small internal allowlist the CLI passes through. To make a value available at runtime, define it in `config.json` rather than exporting it in the shell or injecting it from the container environment.
+2. **`config.json` wins over the shell.** Shell and container-injected environment variables are still inherited, but a key defined in `config.json` overrides the shell value for that key. To make a value available at runtime without touching `config.json`, export it in the shell or inject it from the container environment — it will pass through as long as `config.json` doesn't also define that key.
 
 ---
 
@@ -28,14 +28,11 @@ All variables in `config.json` are available on the server through `process.env.
 |----------|---------|-------------|
 | `NODE_SERVER_HOSTNAME` | `"localhost"` | Server hostname |
 | `NODE_SERVER_PORT` | `3005` | Server port |
-| `WEBPACK_DEV_SERVER_HOSTNAME` | `"localhost"` | Dev server hostname |
-| `WEBPACK_DEV_SERVER_PORT` | `3006` | Dev server port |
 | `BUILD_OUTPUT_PATH` | `"build"` | Build output directory |
 | `PUBLIC_STATIC_ASSET_PATH` | `"/assets/"` | Path for serving static assets |
 | `PUBLIC_STATIC_ASSET_URL` | `"http://localhost:3006"` | Base URL for assets (use CDN URL in production) |
 | `NODE_ENV` | `"development"` | Node environment |
 | `API_URL` | `""` | Base URL for API requests |
-| `ANALYZE_BUNDLE` | `false` | Enable webpack bundle analyzer |
 | `ENABLE_DEBUG_LOGS` | `false` | Enable debug-level logging |
 | `ENABLE_CONSOLE_LOGGING` | `true` | Enable console output |
 | `CLIENT_ENV_VARIABLES` | `[]` | Variables to expose to client |
@@ -61,5 +58,7 @@ const apiUrl = process.env.API_URL;       // "https://api.example.com"
 const analyticsId = process.env.ANALYTICS_ID; // "UA-123456"
 const secret = process.env.SECRET_KEY;    // undefined (not exposed)
 ```
+
+A shell variable also ends up in the client bundle if its key is listed in `CLIENT_ENV_VARIABLES`, since that list is applied after the shell/`config.json` merge.
 
 > **Security Warning:** Variables in `CLIENT_ENV_VARIABLES` are visible in the browser. Never expose secrets, API keys with write access, or database credentials.

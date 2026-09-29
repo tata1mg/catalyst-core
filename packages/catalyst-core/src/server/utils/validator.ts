@@ -50,13 +50,10 @@ const validateConfigFile = (obj: any) => {
     const requiredConfigKeys = [
         "NODE_SERVER_HOSTNAME",
         "NODE_SERVER_PORT",
-        "WEBPACK_DEV_SERVER_HOSTNAME",
-        "WEBPACK_DEV_SERVER_PORT",
         "BUILD_OUTPUT_PATH",
         "PUBLIC_STATIC_ASSET_PATH",
         "PUBLIC_STATIC_ASSET_URL",
         "CLIENT_ENV_VARIABLES",
-        "ANALYZE_BUNDLE",
     ]
     for (const key of requiredConfigKeys) {
         if (!(key in obj))

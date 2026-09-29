@@ -305,10 +305,12 @@ async function executeBuild(scen: any): Promise<{ passed: boolean; output: strin
 async function executeCcaCli(scen: any): Promise<{ passed: boolean; output: string }> {
     return new Promise((resolve) => {
         const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cca-scen-"))
+        const ccaPackage = path.resolve(repoRoot, "packages", "create-catalyst-app", "package.json")
+        const ccaVersion = JSON.parse(fs.readFileSync(ccaPackage, "utf8")).version
         const mockNpmScript = `#!/bin/sh
 if [ "$1" = "pack" ]; then
     mkdir -p package/templates/common package/templates/context-js package/templates/redux-js package/templates/default-js
-    echo '{"name":"create-catalyst-app","version":"0.3.0-beta.5"}' > package/package.json
+    echo '{"name":"create-catalyst-app","version":"${ccaVersion}"}' > package/package.json
     echo '{"name":"app"}' > package/templates/common/package.json
     echo '{"name":"app"}' > package/templates/context-js/package.json
     echo '{"name":"app"}' > package/templates/redux-js/package.json
@@ -317,7 +319,7 @@ if [ "$1" = "pack" ]; then
     echo '# template gitignore' > package/templates/context-js/.gitignore
     echo '# template gitignore' > package/templates/redux-js/.gitignore
     echo '# template gitignore' > package/templates/default-js/.gitignore
-    tar -czf create-catalyst-app-0.3.0-beta.5.tgz package
+    tar -czf create-catalyst-app-${ccaVersion}.tgz package
     exit 0
 fi
 exit 0

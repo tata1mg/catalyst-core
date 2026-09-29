@@ -5,6 +5,12 @@ import expressStaticGzip from 'express-static-gzip'
 // Server middlewares are added here.
 
 export function addMiddlewares(app) {
+    function stripPrefix(req, prefix) {
+        const path = '/' + req.path.slice(prefix.length).replace(/^[/\\]+/, '')
+        const qs = req.originalUrl.indexOf('?')
+        return qs === -1 ? path : path + req.originalUrl.slice(qs)
+    }
+
     // The Docusaurus site this replaced was mounted under /public_docs, and
     // every indexed URL carries that prefix (catalyst.1mg.com/public_docs/content/...).
     // This app serves the same permalinks at the root, so the old prefix has to
@@ -14,8 +20,7 @@ export function addMiddlewares(app) {
             req.path === '/public_docs' ||
             req.path.startsWith('/public_docs/')
         ) {
-            const target = req.originalUrl.replace(/^\/public_docs\/?/, '/')
-            return res.redirect(301, target)
+            return res.redirect(301, stripPrefix(req, '/public_docs'))
         }
         next()
     })
@@ -28,8 +33,7 @@ export function addMiddlewares(app) {
             req.path === '/private_docs' ||
             req.path.startsWith('/private_docs/')
         ) {
-            const target = req.originalUrl.replace(/^\/private_docs\/?/, '/')
-            return res.redirect(301, target)
+            return res.redirect(301, stripPrefix(req, '/private_docs'))
         }
         next()
     })
@@ -97,6 +101,12 @@ export function addMiddlewares(app) {
         express.static(path.join(__dirname, '../public/docs-assets'), {
             maxAge: '1d',
         })
+    )
+    // Older versions keep the same layout under /v/<major>/. Misses fall
+    // through to the router, which owns /v/<major>/content/... pages.
+    app.use(
+        '/v',
+        express.static(path.join(__dirname, '../public/v'), { maxAge: '1d' })
     )
 
     // Browsers request /favicon.ico regardless of the <link rel="icon">, and the
