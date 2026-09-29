@@ -29,6 +29,7 @@ export const ERROR_CODES = {
     BUNDLE_UPSTREAM_ERROR: "BUNDLE-000",
     IOS_UPSTREAM_ERROR: "IOS-000",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
+    ANDROID_EMULATOR_BOOT_TIMEOUT: "ANDROID-001",
 
     RUNTIME_NATIVE_PERMISSION_DENIED: "RUNTIME-NATIVE-001",
     RUNTIME_NATIVE_PERMISSION_REQUIRED: "RUNTIME-NATIVE-002",
@@ -236,6 +237,14 @@ export const ERROR_DEFINITIONS = {
         defaultMessage: "Android build failed in an upstream toolchain step",
         defaultDetails: "This wraps an error from Gradle. See the printed upstream output for the cause.",
         suggestedAction: "Read the upstream Gradle error printed above and fix the underlying issue.",
+    },
+    [ERROR_CODES.ANDROID_EMULATOR_BOOT_TIMEOUT]: {
+        category: "ANDROID",
+        defaultMessage: "Timed out waiting for the Android emulator to boot",
+        defaultDetails:
+            "buildApp:android launched the configured AVD but it did not appear in `adb devices` or did not finish booting (sys.boot_completed=1 and init.svc.bootanim=stopped) within the timeout.",
+        suggestedAction:
+            "Try booting the AVD manually first (emulator -avd <name>) to see the actual startup error, check available disk space/RAM, or increase the emulator's cold-boot allowance if the device is unusually slow.",
     },
 
     [ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED]: {
