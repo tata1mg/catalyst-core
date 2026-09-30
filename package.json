@@ -17,7 +17,8 @@
         "docs:build": "npm --prefix docs run build",
         "docs:start": "npm --prefix docs run start",
         "test:example": "sh ./scripts/test-all.sh",
-        "test:unit": "npm run test --workspaces --if-present && npm --prefix packages/catalyst-core/mcp_v2 test",
+        "test:release": "node --test \"scripts/release/*.test.js\"",
+        "test:unit": "npm run test --workspaces --if-present && npm --prefix packages/catalyst-core/mcp_v2 test && npm run test:release",
         "lint": "npm run lint --workspaces --if-present",
         "lint:oxlint": "oxlint . --quiet",
         "lint-staged": "lint-staged"
