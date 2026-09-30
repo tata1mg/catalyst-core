@@ -206,10 +206,22 @@ body {
     background: var(--hub-navbar-background);
     border-bottom: 1px solid var(--hub-border);
 
+    /* The blur lives on a layer behind the bar, not on the bar itself:
+       backdrop-filter makes an element the containing block for its fixed
+       children, which collapsed the mobile menu (.hub-navbar-items, fixed to
+       the viewport) into the bar's own 60px box. */
     @supports (backdrop-filter: blur(1px)) {
-        background: var(--hub-chrome-bg);
-        backdrop-filter: blur(18px) saturate(1.8);
-        -webkit-backdrop-filter: blur(18px) saturate(1.8);
+        background: transparent;
+
+        &::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: var(--hub-chrome-bg);
+            backdrop-filter: blur(18px) saturate(1.8);
+            -webkit-backdrop-filter: blur(18px) saturate(1.8);
+        }
     }
 }
 
