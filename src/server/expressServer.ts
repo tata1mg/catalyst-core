@@ -142,6 +142,7 @@ function serveBuildFile(
         const filePath = path.join(buildPath, fileName)
         if (!fs.existsSync(filePath)) return next()
         res.set(headers)
+        // nosemgrep: javascript.express.security.audit.express-res-sendfile.express-res-sendfile - filePath is buildPath joined with a hardcoded literal fileName (see serveBuildFile call sites), never request-derived.
         res.sendFile(filePath)
     })
 }
