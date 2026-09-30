@@ -4,7 +4,7 @@ import { ThemeProvider } from '../components/docs/ThemeContext'
 import DocumentBootstrap from '../components/DocumentBootstrap'
 import Navbar from '../components/Navbar'
 
-// Top-level catch-all. Lives outside HubLayout because the framework only
+// Top-level catch-all. Lives outside DocsLayout because the framework only
 // sends HTTP 404 when the outermost matched route's path is "*"
 // (see catalyst-core server/renderer/handler.jsx), so it renders its own
 // navbar chrome.

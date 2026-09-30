@@ -18,7 +18,8 @@
         "@server": "server",
         "@config": "config",
         "@css": "src/static/css",
-        "@routes": "src/js/routes/"
+        "@routes": "src/js/routes/",
+        "catalyst-core/PluginBridge": "node_modules/catalyst-core/dist/native/plugin-bridge/PluginBridge.js"
     },
     "dependencies": {
         "@mdx-js/react": "^3.1.1",
