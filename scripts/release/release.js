@@ -1,6 +1,7 @@
 const fs = require("fs")
 const path = require("path")
 const { execFileSync } = require("child_process")
+const semver = require("semver")
 
 const repoRoot = path.resolve(__dirname, "..", "..")
 const syncTemplatesScript = path.join(repoRoot, "scripts", "release", "sync-cca-templates.js")
@@ -21,6 +22,18 @@ const channelPatterns = {
 function fail(message) {
     console.error(message)
     process.exit(1)
+}
+
+function appendSummary(text) {
+    if (process.env.GITHUB_STEP_SUMMARY) {
+        fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, text)
+    }
+}
+
+// user-facing lines go to the job summary too
+function log(line) {
+    console.log(line)
+    appendSummary(`- ${line}\n`)
 }
 
 function matchesChannel(channel, version) {
@@ -136,7 +149,7 @@ function commandVersion(args) {
 
         setVersion(workspace, next)
         versions[workspace.name] = next
-        console.log(`${workspace.name}: ${current} -> ${next}`)
+        log(`${workspace.name}: ${current} -> ${next}`)
     }
 
     syncTemplates(versions[workspaces.core.name])
@@ -170,6 +183,31 @@ function resolvePrereleaseNumber(highestByPackage) {
     return highestByPackage.every((n) => n === highest) ? highest + 1 : highest
 }
 
+/**
+ * Highest version on npm below `version` on the same channel or stable. Release notes
+ * cover the commits since its gitHead, so the sha is only returned when npm has one.
+ */
+function previousRelease(packageName, version, channel) {
+    const previous = publishedVersions(packageName)
+        .filter((candidate) => matchesChannel(channel, candidate) || matchesChannel("latest", candidate))
+        .filter((candidate) => semver.lt(candidate, version))
+        .sort(semver.rcompare)[0]
+    if (!previous) {
+        return { version: "", sha: "" }
+    }
+    const gitHead = npmViewOrNull([`${packageName}@${previous}`, "gitHead"])
+    return { version: previous, sha: /^[0-9a-f]{40}$/.test(gitHead || "") ? gitHead : "" }
+}
+
+function previousOutputs(coreVersion, channel) {
+    const previous = previousRelease(workspaces.core.name, coreVersion, channel)
+    if (previous.version) {
+        const sha = previous.sha ? previous.sha.slice(0, 7) : "no gitHead"
+        log(`previous release: ${workspaces.core.name}@${previous.version} (${sha})`)
+    }
+    return { previous_version: previous.version, previous_sha: previous.sha }
+}
+
 function waitForNpm(packageName, version, dryRun) {
     if (dryRun) {
         return
@@ -189,10 +227,10 @@ function waitForNpm(packageName, version, dryRun) {
 
 function publishWorkspace(workspace, version, channel, dryRun) {
     if (versionExists(workspace.name, version)) {
-        console.log(`${workspace.name}@${version} already on npm, skipping publish`)
+        log(`${workspace.name}@${version} already on npm, skipping publish`)
         if (npmViewOrNull([`${workspace.name}@${channel}`, "version"]) !== version) {
             if (dryRun) {
-                console.log(`would move dist-tag ${channel} to ${workspace.name}@${version}`)
+                log(`would move dist-tag ${channel} to ${workspace.name}@${version}`)
             } else {
                 runInherit("npm", ["dist-tag", "add", `${workspace.name}@${version}`, channel])
             }
@@ -203,31 +241,33 @@ function publishWorkspace(workspace, version, channel, dryRun) {
     const publishArgs = ["publish", "--workspace", workspace.dir, "--tag", channel, "--access", "public"]
 
     if (dryRun) {
-        console.log(`would publish ${workspace.name}@${version} --tag ${channel}`)
+        log(`would publish ${workspace.name}@${version} --tag ${channel}`)
         runInherit("npm", [...publishArgs, "--dry-run"])
         return
     }
 
     runInherit("npm", publishArgs)
+    log(`published ${workspace.name}@${version}`)
 }
 
 function pushTag(workspace, version, dryRun) {
     const tag = `${workspace.name}@${version}`
     try {
         run("git", ["ls-remote", "--exit-code", "--tags", "origin", `refs/tags/${tag}`])
-        console.log(`tag ${tag} already exists`)
+        log(`tag ${tag} already exists`)
         return
     } catch {
         // absent tag is the expected case
     }
 
     if (dryRun) {
-        console.log(`would tag ${tag}`)
+        log(`would tag ${tag}`)
         return
     }
 
     run("git", ["tag", tag])
     runInherit("git", ["push", "origin", tag])
+    log(`tagged ${tag}`)
 }
 
 function commandPublish(args) {
@@ -240,6 +280,8 @@ function commandPublish(args) {
     const dryRun = args.flags.has("--dry-run")
     const targets = []
     const pending = []
+
+    appendSummary(`### Release: ${channel}${dryRun ? " (dry run)" : ""}\n\n`)
 
     // on latest the version filter decides what ships, so consider every workspace;
     // --include-ai only widens the prerelease channels
@@ -275,8 +317,13 @@ function commandPublish(args) {
     }
 
     if (targets.length === 0) {
-        console.log("nothing to publish")
-        writeOutputs({ published: "false" })
+        log("nothing to publish")
+        const coreVersion = readManifest(workspaces.core).version
+        writeOutputs({
+            published: "false",
+            core_version: coreVersion,
+            ...previousOutputs(coreVersion, channel),
+        })
         return
     }
 
@@ -284,7 +331,7 @@ function commandPublish(args) {
         if (!matchesChannel(channel, target.version)) {
             fail(`${target.workspace.name}@${target.version} is not a valid ${channel} version`)
         }
-        console.log(`${target.workspace.name}@${target.version} -> ${channel}`)
+        log(`${target.workspace.name}@${target.version} -> ${channel}`)
     }
 
     const coreTarget = targets.find((target) => target.workspace === workspaces.core)
@@ -294,20 +341,23 @@ function commandPublish(args) {
         fail(`template pin catalyst-core@${templatePin} is not published on npm`)
     }
 
+    const previous = previousOutputs(templatePin, channel)
+
     syncTemplates(templatePin)
 
     if (channel === "latest") {
         runInherit("node", [checkStableDepsScript, workspaces.core.dir, workspaces.cca.dir])
     }
 
-    // core's prepublishOnly runs the build, under --dry-run too
+    // core's prepublishOnly runs the build, under --dry-run too. Tag before waiting on
+    // npm so a timed-out wait does not leave a published version untagged.
     for (const target of targets) {
         publishWorkspace(target.workspace, target.version, channel, dryRun)
-        if (target.workspace === workspaces.core) {
-            waitForNpm(target.workspace.name, target.version, dryRun)
-        }
         if (channel === "latest") {
             pushTag(target.workspace, target.version, dryRun)
+        }
+        if (target.workspace === workspaces.core) {
+            waitForNpm(target.workspace.name, target.version, dryRun)
         }
     }
 
@@ -316,10 +366,11 @@ function commandPublish(args) {
         core_published: String(!dryRun && targets.some((target) => target.workspace === workspaces.core)),
         published: dryRun ? "false" : "true",
         sha: run("git", ["rev-parse", "HEAD"]).trim(),
+        ...previous,
     })
 }
 
-module.exports = { resolvePrereleaseNumber }
+module.exports = { resolvePrereleaseNumber, previousRelease }
 
 if (require.main === module) {
     const [subcommand, ...rest] = process.argv.slice(2)
