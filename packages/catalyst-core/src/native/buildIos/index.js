@@ -3,7 +3,7 @@
 const { execFile, execFileSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
-const TerminalProgress = require("../TerminalProgress.js").default
+const TerminalProgress = require("../terminalProgress.js").default
 
 const createConfigPhase = require("./config.js")
 const createPluginsPhase = require("./plugins.js")

@@ -1,304 +1,300 @@
 package io.yourname.androidproject
 
+import android.content.ContentResolver
+import android.content.Context
+import android.database.Cursor
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.util.Base64
+import android.webkit.MimeTypeMap
 import io.yourname.androidproject.utils.FileUtils
+import org.junit.After
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
+import org.mockito.MockedStatic
+import org.mockito.Mockito.mockStatic
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
+import java.io.ByteArrayInputStream
+import kotlin.io.path.createTempDirectory
 
 /**
- * Unit tests for FileUtils
+ * Unit tests for FileUtils.
  *
- * Tests cover:
- * - File size calculation (3 tests)
- * - MIME type detection (4 tests)
- * - URI to file path conversion (3 tests)
- * - File validation (2 tests)
+ * The previous version of this file imported FileUtils but never called
+ * a single method on it — assertions ran against a locally redefined
+ * formatFileSize/MIME-lookup instead of the real class, so it passed
+ * while contributing 0% coverage. Rewritten to call FileUtils directly,
+ * following the mockStatic(...) + mocked Context/Cursor pattern
+ * established in OfflineCacheServiceTest.kt.
  *
- * Total: 12 tests
- *
- * Note: Tests focus on testable logic and algorithms without Android Context
- * following the same pattern as CustomWebviewTest.kt
+ * Base64 and MimeTypeMap are Android SDK statics with no real
+ * implementation in a JVM unit test — mocked here so
+ * convertUriToBase64/getMimeType exercise FileUtils' actual logic.
  */
 class FileUtilsTest {
 
-    // ============================================================
-    // CATEGORY 1: File Size Calculation (3 tests)
-    // ============================================================
+    private lateinit var cacheDir: java.io.File
+    private lateinit var context: Context
+    private lateinit var contentResolver: ContentResolver
+    private lateinit var uri: Uri
+    private lateinit var base64Mock: MockedStatic<Base64>
 
-    /**
-     * Test file size formatting helper
-     * Validates correct conversion from bytes to human-readable format
-     */
-    @Test
-    fun testFileSizeFormatting_bytes() {
-        // Test bytes
-        val size1 = 512L
-        val formatted1 = formatFileSize(size1)
-        assertEquals("512 B", formatted1)
+    @Before
+    fun setUp() {
+        cacheDir = createTempDirectory(prefix = "catalyst-fileutils-test").toFile()
+        contentResolver = mock()
+        context = mock {
+            on { getContentResolver() } doReturn contentResolver
+            on { getCacheDir() } doReturn cacheDir
+        }
+        uri = mock {
+            on { toString() } doReturn "content://fake/file"
+        }
 
-        // Test KB
-        val size2 = 2048L // 2 KB
-        val formatted2 = formatFileSize(size2)
-        assertEquals("2.00 KB", formatted2)
-
-        // Test MB
-        val size3 = 5242880L // 5 MB
-        val formatted3 = formatFileSize(size3)
-        assertEquals("5.00 MB", formatted3)
+        base64Mock = mockStatic(Base64::class.java)
+        base64Mock.`when`<String> { Base64.encodeToString(any(), any()) }
+            .thenAnswer { invocation ->
+                val bytes = invocation.getArgument<ByteArray>(0)
+                java.util.Base64.getEncoder().encodeToString(bytes)
+            }
     }
 
-    /**
-     * Test file size limits validation
-     * Validates max file size constraints (50 MB)
-     */
-    @Test
-    fun testFileSizeLimits_withinLimit() {
-        val maxSizeBytes = 50 * 1024 * 1024L // 50 MB
-
-        // Test valid sizes
-        val validSize1 = 1024L // 1 KB - should be valid
-        assertTrue(validSize1 <= maxSizeBytes)
-
-        val validSize2 = 10 * 1024 * 1024L // 10 MB - should be valid
-        assertTrue(validSize2 <= maxSizeBytes)
-
-        val validSize3 = maxSizeBytes // Exactly at limit - should be valid
-        assertTrue(validSize3 <= maxSizeBytes)
+    @After
+    fun tearDown() {
+        base64Mock.close()
+        cacheDir.deleteRecursively()
     }
 
-    /**
-     * Test file size exceeding limits
-     * Validates rejection of files larger than 50 MB
-     */
-    @Test
-    fun testFileSizeLimits_exceedsLimit() {
-        val maxSizeBytes = 50 * 1024 * 1024L // 50 MB
-
-        // Test invalid sizes
-        val invalidSize1 = 51 * 1024 * 1024L // 51 MB - should be invalid
-        assertFalse(invalidSize1 <= maxSizeBytes)
-
-        val invalidSize2 = 100 * 1024 * 1024L // 100 MB - should be invalid
-        assertFalse(invalidSize2 <= maxSizeBytes)
+    private fun stubQueryCursor(name: String?, size: Long?) {
+        val cursor: Cursor = mock {
+            on { getColumnIndex(OpenableColumns.DISPLAY_NAME) } doReturn (if (name != null) 0 else -1)
+            on { getColumnIndex(OpenableColumns.SIZE) } doReturn (if (size != null) 1 else -1)
+            on { moveToFirst() } doReturn true
+            on { getString(0) } doReturn name
+            on { getLong(1) } doReturn (size ?: 0L)
+        }
+        whenever(contentResolver.query(eq(uri), isNull(), isNull(), isNull(), isNull())) doReturn cursor
     }
 
     // ============================================================
-    // CATEGORY 2: MIME Type Detection (4 tests)
+    // getFileSize
     // ============================================================
 
-    /**
-     * Test MIME type detection for common image formats
-     * Validates detection of PNG, JPG, JPEG, GIF
-     */
     @Test
-    fun testDetectMimeType_imageFormats() {
-        // Note: MimeTypeMap is mocked in unit tests, so we test the logic structure
-        // In real scenarios, these would return actual MIME types
-
-        val pngPath = "test_image.png"
-        val jpgPath = "test_image.jpg"
-        val jpegPath = "test_image.jpeg"
-        val gifPath = "test_image.gif"
-
-        // Test extension extraction logic
-        assertEquals("png", pngPath.substringAfterLast(".", ""))
-        assertEquals("jpg", jpgPath.substringAfterLast(".", ""))
-        assertEquals("jpeg", jpegPath.substringAfterLast(".", ""))
-        assertEquals("gif", gifPath.substringAfterLast(".", ""))
+    fun `getFileSize returns the size reported by the content resolver cursor`() {
+        stubQueryCursor(name = "photo.jpg", size = 5242880L)
+        assertEquals(5242880L, FileUtils.getFileSize(context, uri))
     }
 
-    /**
-     * Test MIME type detection for document formats
-     * Validates detection of PDF, DOC, DOCX, TXT
-     */
     @Test
-    fun testDetectMimeType_documentFormats() {
-        val pdfPath = "document.pdf"
-        val docPath = "document.doc"
-        val docxPath = "document.docx"
-        val txtPath = "document.txt"
-
-        // Test extension extraction logic
-        assertEquals("pdf", pdfPath.substringAfterLast(".", ""))
-        assertEquals("doc", docPath.substringAfterLast(".", ""))
-        assertEquals("docx", docxPath.substringAfterLast(".", ""))
-        assertEquals("txt", txtPath.substringAfterLast(".", ""))
+    fun `getFileSize returns 0 when the cursor has no SIZE column`() {
+        stubQueryCursor(name = "photo.jpg", size = null)
+        assertEquals(0L, FileUtils.getFileSize(context, uri))
     }
 
-    /**
-     * Test MIME type detection for unknown/missing extensions
-     * Validates fallback to star/star for unknown types
-     */
     @Test
-    fun testDetectMimeType_unknownExtension() {
-        val noExtension = "filename_without_extension"
-        val unknownExt = "file.xyz123"
-
-        // Test fallback behavior for files without extensions
-        val ext1 = noExtension.substringAfterLast(".", "")
-        assertEquals("", ext1) // No extension found
-
-        // Test extension extraction for unknown types
-        val ext2 = unknownExt.substringAfterLast(".", "")
-        assertEquals("xyz123", ext2)
-    }
-
-    /**
-     * Test MIME type detection with special characters
-     * Validates handling of complex file paths with dots
-     */
-    @Test
-    fun testDetectMimeType_specialCases() {
-        // Multiple dots in filename
-        val multipleDots = "my.file.name.pdf"
-        assertEquals("pdf", multipleDots.substringAfterLast(".", ""))
-
-        // Hidden file (starts with dot)
-        val hiddenFile = ".gitignore"
-        assertEquals("gitignore", hiddenFile.substringAfterLast(".", ""))
-
-        // Path with directories containing dots
-        val pathWithDots = "/path/to.folder/file.jpg"
-        assertEquals("jpg", pathWithDots.substringAfterLast(".", ""))
-
-        // Uppercase extension
-        val uppercaseExt = "IMAGE.PNG"
-        assertEquals("PNG", uppercaseExt.substringAfterLast(".", ""))
+    fun `getFileSize returns 0 when the query itself throws`() {
+        whenever(contentResolver.query(eq(uri), isNull(), isNull(), isNull(), isNull()))
+            .thenThrow(RuntimeException("boom"))
+        assertEquals(0L, FileUtils.getFileSize(context, uri))
     }
 
     // ============================================================
-    // CATEGORY 3: URI to File Path Conversion (3 tests)
+    // getFileName / getDisplayName
     // ============================================================
 
-    /**
-     * Test filename cleaning for filesystem safety
-     * Validates removal of special characters
-     */
     @Test
-    fun testFilenameCleaning_specialCharacters() {
-        val unsafeFilename1 = "file name with spaces.pdf"
-        val cleaned1 = unsafeFilename1.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
-        assertEquals("file_name_with_spaces.pdf", cleaned1)
-
-        val unsafeFilename2 = "file@#$%name!.jpg"
-        val cleaned2 = unsafeFilename2.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
-        assertEquals("file____name_.jpg", cleaned2)
-
-        val unsafeFilename3 = "file/name\\with:slashes.txt"
-        val cleaned3 = unsafeFilename3.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
-        assertEquals("file_name_with_slashes.txt", cleaned3)
+    fun `getFileName returns the display name reported by the cursor`() {
+        stubQueryCursor(name = "report.pdf", size = 100L)
+        assertEquals("report.pdf", FileUtils.getFileName(context, uri))
     }
 
-    /**
-     * Test temporary file naming with timestamp
-     * Validates unique filename generation
-     */
     @Test
-    fun testTempFileNaming_withTimestamp() {
-        val baseFilename = "upload.pdf"
-        val timestamp1 = System.currentTimeMillis()
-        val tempName1 = "temp_${timestamp1}_$baseFilename"
-
-        // Wait 1ms to ensure different timestamp
-        Thread.sleep(1)
-
-        val timestamp2 = System.currentTimeMillis()
-        val tempName2 = "temp_${timestamp2}_$baseFilename"
-
-        // Verify timestamps are different
-        assertNotEquals(timestamp1, timestamp2)
-        assertNotEquals(tempName1, tempName2)
-
-        // Verify format is correct
-        assertTrue(tempName1.startsWith("temp_"))
-        assertTrue(tempName1.endsWith("_upload.pdf"))
+    fun `getFileName returns unknown_file when the cursor has no DISPLAY_NAME column`() {
+        stubQueryCursor(name = null, size = 100L)
+        assertEquals("unknown_file", FileUtils.getFileName(context, uri))
     }
 
-    /**
-     * Test directory structure for temporary files
-     * Validates cache directory organization
-     */
     @Test
-    fun testTempFileDirectory_structure() {
-        // Test accessible files directory structure
-        val cacheDir = "/data/data/com.app/cache"
-        val accessibleDir = "$cacheDir/accessible_files"
-
-        assertTrue(accessibleDir.contains("cache"))
-        assertTrue(accessibleDir.endsWith("accessible_files"))
-
-        // Test downloaded files directory structure
-        val downloadedDir = "$cacheDir/downloaded_files"
-        assertTrue(downloadedDir.contains("cache"))
-        assertTrue(downloadedDir.endsWith("downloaded_files"))
+    fun `getDisplayName delegates to getFileName`() {
+        stubQueryCursor(name = "vacation.png", size = 10L)
+        assertEquals(FileUtils.getFileName(context, uri), FileUtils.getDisplayName(context, uri))
     }
 
     // ============================================================
-    // CATEGORY 4: File Validation (2 tests)
+    // getMimeType
     // ============================================================
 
-    /**
-     * Test base64 size limit validation
-     * Validates 10 MB limit for base64 conversion
-     */
     @Test
-    fun testBase64SizeLimit_validation() {
-        val base64Limit = 10 * 1024 * 1024L // 10 MB
-
-        // Small file - should be eligible for base64
-        val smallFile = 1024L // 1 KB
-        assertTrue(smallFile <= base64Limit)
-
-        // Medium file - should be eligible for base64
-        val mediumFile = 5 * 1024 * 1024L // 5 MB
-        assertTrue(mediumFile <= base64Limit)
-
-        // Exactly at limit - should be eligible
-        val atLimit = base64Limit
-        assertTrue(atLimit <= base64Limit)
-
-        // Large file - should NOT be eligible for base64
-        val largeFile = 15 * 1024 * 1024L // 15 MB
-        assertFalse(largeFile <= base64Limit)
+    fun `getMimeType returns the content resolver's reported type when present`() {
+        whenever(contentResolver.getType(uri)) doReturn "image/png"
+        assertEquals("image/png", FileUtils.getMimeType(context, uri))
     }
 
-    /**
-     * Test cleanup of old temporary files
-     * Validates 24-hour age threshold logic
-     */
     @Test
-    fun testTempFileCleanup_ageThreshold() {
-        val maxAgeMillis = 24 * 60 * 60 * 1000L // 24 hours
-        val currentTime = System.currentTimeMillis()
+    fun `getMimeType falls back to extension lookup when resolver has no type`() {
+        whenever(contentResolver.getType(uri)) doReturn null
+        stubQueryCursor(name = "document.pdf", size = 10L)
 
-        // Recent file - should NOT be deleted
-        val recentFileAge = currentTime - (1 * 60 * 60 * 1000L) // 1 hour old
-        val recentFileAgeMillis = currentTime - recentFileAge
-        assertTrue(recentFileAgeMillis < maxAgeMillis)
+        val mimeTypeMap: MimeTypeMap = mock {
+            on { getMimeTypeFromExtension("pdf") } doReturn "application/pdf"
+        }
+        val mimeTypeMapMock = mockStatic(MimeTypeMap::class.java)
+        mimeTypeMapMock.`when`<MimeTypeMap> { MimeTypeMap.getSingleton() } doReturn mimeTypeMap
+        try {
+            assertEquals("application/pdf", FileUtils.getMimeType(context, uri))
+        } finally {
+            mimeTypeMapMock.close()
+        }
+    }
 
-        // File at threshold - should NOT be deleted
-        val thresholdFileAge = currentTime - maxAgeMillis
-        val thresholdFileAgeMillis = currentTime - thresholdFileAge
-        assertFalse(thresholdFileAgeMillis > maxAgeMillis) // Not old enough
-
-        // Old file - should be deleted
-        val oldFileAge = currentTime - (48 * 60 * 60 * 1000L) // 48 hours old
-        val oldFileAgeMillis = currentTime - oldFileAge
-        assertTrue(oldFileAgeMillis > maxAgeMillis)
+    @Test
+    fun `getMimeType returns star-star when resolver throws`() {
+        whenever(contentResolver.getType(uri)).thenThrow(RuntimeException("boom"))
+        assertEquals("*/*", FileUtils.getMimeType(context, uri))
     }
 
     // ============================================================
-    // Helper Methods
+    // convertUriToBase64
     // ============================================================
 
-    /**
-     * Helper: Format file size in human-readable format
-     * Mirrors BridgeUtils.formatFileSize logic
-     */
-    private fun formatFileSize(bytes: Long): String {
-        return when {
-            bytes < 1024 -> "$bytes B"
-            bytes < 1024 * 1024 -> String.format("%.2f KB", bytes / 1024.0)
-            else -> String.format("%.2f MB", bytes / (1024.0 * 1024.0))
+    @Test
+    fun `convertUriToBase64 encodes the stream contents`() {
+        val content = "hello world".toByteArray()
+        whenever(contentResolver.openInputStream(uri)) doReturn ByteArrayInputStream(content)
+
+        val result = FileUtils.convertUriToBase64(context, uri)
+
+        assertEquals(java.util.Base64.getEncoder().encodeToString(content), result)
+    }
+
+    @Test
+    fun `convertUriToBase64 returns null when the stream cannot be opened`() {
+        whenever(contentResolver.openInputStream(uri)) doReturn null
+        assertNull(FileUtils.convertUriToBase64(context, uri))
+    }
+
+    @Test
+    fun `convertUriToBase64 returns null when opening the stream throws`() {
+        whenever(contentResolver.openInputStream(uri)).thenThrow(RuntimeException("boom"))
+        assertNull(FileUtils.convertUriToBase64(context, uri))
+    }
+
+    // ============================================================
+    // cleanupTempFiles
+    // ============================================================
+
+    @Test
+    fun `cleanupTempFiles deletes files older than maxAgeMillis under accessible_files`() {
+        val accessibleDir = java.io.File(cacheDir, "accessible_files").apply { mkdirs() }
+        val oldFile = java.io.File(accessibleDir, "temp_old.bin").apply {
+            createNewFile()
+            setLastModified(System.currentTimeMillis() - (48 * 60 * 60 * 1000L))
+        }
+
+        FileUtils.cleanupTempFiles(context, maxAgeMillis = 24 * 60 * 60 * 1000L)
+
+        assertFalse(oldFile.exists())
+    }
+
+    @Test
+    fun `cleanupTempFiles keeps files younger than maxAgeMillis`() {
+        val accessibleDir = java.io.File(cacheDir, "accessible_files").apply { mkdirs() }
+        val recentFile = java.io.File(accessibleDir, "temp_recent.bin").apply {
+            createNewFile()
+            setLastModified(System.currentTimeMillis() - (1 * 60 * 60 * 1000L))
+        }
+
+        FileUtils.cleanupTempFiles(context, maxAgeMillis = 24 * 60 * 60 * 1000L)
+
+        assertTrue(recentFile.exists())
+        recentFile.delete()
+    }
+
+    @Test
+    fun `cleanupTempFiles does nothing when accessible_files does not exist`() {
+        // No accessible_files dir created — should not throw.
+        FileUtils.cleanupTempFiles(context, maxAgeMillis = 24 * 60 * 60 * 1000L)
+    }
+
+    // ============================================================
+    // createTempFile
+    // ============================================================
+
+    @Test
+    fun `createTempFile sanitizes unsafe characters from the filename`() {
+        val file = FileUtils.createTempFile(context, "my file (final)!.txt")
+        assertEquals("my_file__final__.txt", file.name)
+        assertEquals("downloaded_files", file.parentFile?.name)
+    }
+
+    @Test
+    fun `createTempFile respects a custom subDir`() {
+        val file = FileUtils.createTempFile(context, "a.txt", subDir = "custom_dir")
+        assertEquals("custom_dir", file.parentFile?.name)
+    }
+
+    // ============================================================
+    // uriToFile
+    // ============================================================
+
+    @Test
+    fun `uriToFile copies the stream into a real temp file`() {
+        val content = "file contents".toByteArray()
+        whenever(contentResolver.query(eq(uri), isNull(), isNull(), isNull(), isNull())) doReturn null
+        whenever(contentResolver.openInputStream(uri)) doReturn ByteArrayInputStream(content)
+
+        val result = FileUtils.uriToFile(context, uri)
+
+        assertNotNull(result)
+        assertTrue(result!!.exists())
+        assertArrayEquals(content, result.readBytes())
+        result.delete()
+    }
+
+    @Test
+    fun `uriToFile returns null when opening the stream throws`() {
+        whenever(contentResolver.query(eq(uri), isNull(), isNull(), isNull(), isNull())) doReturn null
+        whenever(contentResolver.openInputStream(uri)).thenThrow(RuntimeException("boom"))
+
+        assertNull(FileUtils.uriToFile(context, uri))
+    }
+
+    // ============================================================
+    // detectMimeType (pure, no Context)
+    // ============================================================
+
+    @Test
+    fun `detectMimeType resolves a known extension via MimeTypeMap`() {
+        val mimeTypeMap: MimeTypeMap = mock {
+            on { getMimeTypeFromExtension("jpg") } doReturn "image/jpeg"
+        }
+        val mimeTypeMapMock = mockStatic(MimeTypeMap::class.java)
+        mimeTypeMapMock.`when`<MimeTypeMap> { MimeTypeMap.getSingleton() } doReturn mimeTypeMap
+        try {
+            assertEquals("image/jpeg", FileUtils.detectMimeType("/path/to/photo.jpg"))
+        } finally {
+            mimeTypeMapMock.close()
+        }
+    }
+
+    @Test
+    fun `detectMimeType falls back to star-star for an unrecognized extension`() {
+        val mimeTypeMap: MimeTypeMap = mock {
+            on { getMimeTypeFromExtension(any()) } doReturn null
+        }
+        val mimeTypeMapMock = mockStatic(MimeTypeMap::class.java)
+        mimeTypeMapMock.`when`<MimeTypeMap> { MimeTypeMap.getSingleton() } doReturn mimeTypeMap
+        try {
+            assertEquals("*/*", FileUtils.detectMimeType("/path/to/file.unknownext"))
+        } finally {
+            mimeTypeMapMock.close()
         }
     }
 }

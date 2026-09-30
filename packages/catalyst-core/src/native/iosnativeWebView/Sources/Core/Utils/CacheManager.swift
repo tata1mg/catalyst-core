@@ -1,19 +1,20 @@
 import Foundation
 import CryptoKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "CacheManager")
 
 public final class CacheManager {
     public static let shared = CacheManager()
     private let queue = DispatchQueue(label: "com.app.cachemanager", attributes: .concurrent)
-    
+
     enum CacheState {
         case fresh      // Content is within fresh window
         case stale     // Content is in stale-while-revalidate window
         case expired   // Content is expired
     }
-    
+
     private struct CachePolicy {
         static let freshWindow: TimeInterval = CatalystConstants.Cache.freshWindow
         static let staleWindow: TimeInterval = CatalystConstants.Cache.staleWindow
@@ -32,7 +33,7 @@ public final class CacheManager {
         let timestamp: Date
         let mimeType: String
         let urlString: String
-        
+
         var response: HTTPURLResponse? {
             guard let url = URL(string: urlString) else { return nil }
             return HTTPURLResponse(
@@ -43,7 +44,7 @@ public final class CacheManager {
             )
         }
     }
-    
+
     private init() {
         let initStart = CFAbsoluteTimeGetCurrent()
 
@@ -129,17 +130,17 @@ public final class CacheManager {
             }
         }
     }
-    
+
     private func getCacheKey(for url: URL) -> String {
         let digest = SHA256.hash(data: Data(url.absoluteString.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }
-    
+
     private func getCacheFilePath(for url: URL) -> URL {
         return cacheDirectory.appendingPathComponent(getCacheKey(for: url))
             .appendingPathExtension("cache")
     }
-    
+
     func shouldCacheURL(_ url: URL) -> Bool {
         let urlString = url.absoluteString
 
@@ -160,10 +161,10 @@ public final class CacheManager {
         guard let url = request.url else { return false }
         return shouldCacheURL(url) || OfflineCacheService.shared.shouldCacheOfflineRouteSubresource(request)
     }
-    
+
     private func getCacheState(for timestamp: Date) -> CacheState {
         let age = Date().timeIntervalSince(timestamp)
-        
+
         if age <= CachePolicy.freshWindow {
             return .fresh
         } else if age <= (CachePolicy.freshWindow + CachePolicy.staleWindow) {
@@ -172,7 +173,7 @@ public final class CacheManager {
             return .expired
         }
     }
-    
+
     func getCachedResource(for request: URLRequest) async -> (Data?, CacheState, String?) {
         let manager = self
         return await withCheckedContinuation { continuation in
@@ -181,22 +182,22 @@ public final class CacheManager {
                     continuation.resume(returning: (nil, .expired, nil))
                     return
                 }
-                
+
                 if let cachedResource = manager.resourceCache[urlString] {
                     let state = manager.getCacheState(for: cachedResource.timestamp)
-                    
+
                     switch state {
                     case .fresh:
                         logger.info("🟢 Fresh cache hit for: \(urlString)")
                         continuation.resume(returning: (cachedResource.data, .fresh, cachedResource.mimeType))
-                        
+
                     case .stale:
                         logger.info("🟡 Stale cache hit for: \(urlString)")
                         Task {
                             await manager.revalidateResource(request: request)
                         }
                         continuation.resume(returning: (cachedResource.data, .stale, cachedResource.mimeType))
-                        
+
                     case .expired:
                         logger.info("🔴 Cache expired for: \(urlString)")
                         continuation.resume(returning: (nil, .expired, nil))
@@ -212,17 +213,17 @@ public final class CacheManager {
             }
         }
     }
-    
+
     private func revalidateResource(request: URLRequest) async {
         logger.info("🔄 Starting revalidation for: \(request.url?.absoluteString ?? "")")
         let fetchStartMs = CatalystPerf.nativeTimeMs()
-        
+
         do {
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = []
             let networkSession = URLSession(configuration: configuration)
             let (data, response) = try await networkSession.data(for: request)
-            
+
             if let httpResponse = response as? HTTPURLResponse,
                isCacheableResponse(httpResponse, for: request) {
                 CatalystPerf.add([
@@ -241,20 +242,20 @@ public final class CacheManager {
             logger.error("Revalidation failed: \(error.localizedDescription)")
         }
     }
-    
+
     func storeCachedResponse(_ response: HTTPURLResponse, data: Data, for request: URLRequest) {
         queue.async(flags: .barrier) {
             guard let url = request.url else { return }
-            
+
             let resource = CachedResource(
                 data: data,
                 timestamp: Date(),
                 mimeType: response.mimeType ?? "application/octet-stream",
                 urlString: url.absoluteString
             )
-            
+
             self.resourceCache[url.absoluteString] = resource
-            
+
             let cachedResponse = CachedURLResponse(
                 response: response,
                 data: data,
@@ -262,7 +263,7 @@ public final class CacheManager {
                 storagePolicy: .allowed
             )
             self.session.configuration.urlCache?.storeCachedResponse(cachedResponse, for: request)
-            
+
             let cacheFile = self.getCacheFilePath(for: url)
             do {
                 let encodedData = try JSONEncoder().encode(resource)
@@ -273,29 +274,29 @@ public final class CacheManager {
             }
         }
     }
-    
+
     func clearCache() {
         queue.async(flags: .barrier) {
             self.resourceCache.removeAll()
             self.session.configuration.urlCache?.removeAllCachedResponses()
-            
+
             try? FileManager.default.removeItem(at: self.cacheDirectory)
             try? FileManager.default.createDirectory(
                 at: self.cacheDirectory,
                 withIntermediateDirectories: true,
                 attributes: nil
             )
-            
+
             logger.info("All caches cleared")
         }
     }
-    
+
     func createCacheableRequest(from url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.cachePolicy = .returnCacheDataElseLoad
         return request
     }
-    
+
     func isCacheableResponse(_ response: HTTPURLResponse) -> Bool {
         guard let url = response.url else { return false }
         return (200...299 ~= response.statusCode) && shouldCacheURL(url)
@@ -322,7 +323,7 @@ public final class CacheManager {
             mimeType.hasSuffix("+json") ||
             mimeType == "text/event-stream"
     }
-    
+
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
         let memoryUsed = session.configuration.urlCache?.currentMemoryUsage ?? 0
 

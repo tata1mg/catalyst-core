@@ -1,10 +1,18 @@
 import path from "path"
 import { spawn } from "child_process"
-import { arrayToObject } from "./scriptUtils.js"
+import { arrayToObject, resolveOutputMode, getDebugEnvInfo } from "./scriptUtils.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { readFileSync, existsSync, rmSync } from "fs"
 import { createRequire } from "module"
+import { wrapForeignError, formatError } from "../errors/index.js"
+import { runStaticPreflightOrExit } from "./preflight.js"
+
+// Fail fast on a misconfigured app (missing/invalid config.json, package.json,
+// or moduleAliases) with a coded, doc-linked error — must run before the raw
+// config.json read below, which would otherwise crash with a bare
+// ENOENT/SyntaxError on a broken config.
+runStaticPreflightOrExit()
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -42,6 +50,7 @@ function runBuildStep(args, options) {
 async function build() {
     const commandLineArguments = process.argv.slice(2)
     const argumentsObject = arrayToObject(commandLineArguments)
+    const outputMode = resolveOutputMode(process.argv)
     const dirname = path.resolve(__dirname, "../../")
 
     // Read package.json
@@ -63,6 +72,7 @@ async function build() {
         VITE_BUILD_MODE: "true",
         APPLICATION: name || "catalyst_app",
         NODE_OPTIONS: `--loader ${loaderPath}`,
+        CATALYST_OUTPUT_MODE: outputMode,
         ...argumentsObject,
         filterKeys: JSON.stringify([
             "src_path",
@@ -93,8 +103,10 @@ async function build() {
                 env: { ...baseEnv, CATALYST_VITE_CACHE_ID: "client" },
             }),
         ])
-    } catch {
+    } catch (err) {
         console.error("❌ Build failed!")
+        const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
+        console.error(formatError(wrapForeignError("BUNDLE", err), outputMode, debugEnv))
         process.exit(1)
     }
 

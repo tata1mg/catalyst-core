@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import CatalystCore
+import CatalystCoreLogic
 
 public struct ContentView: View {
     @StateObject private var webViewModel = WebViewModel()

@@ -1,0 +1,49 @@
+name: 📖 Documentation improvement
+description: Docs, examples, README, guides, migration notes, or API reference need to be added or corrected
+title: "[docs] "
+labels:
+    - documentation
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for helping keep the docs accurate. Point at the specific page or example where you can.
+    - type: textarea
+      id: summary
+      attributes:
+          label: Summary
+          description: What's wrong, missing, or unclear?
+          placeholder: The universal-app setup guide doesn't mention that `ai.enabled` must be set before `sync-core`.
+      validations:
+          required: true
+    - type: textarea
+      id: current-documentation
+      attributes:
+          label: Current Documentation
+          description: Quote or link the text as it stands today (or note that nothing covers this).
+          placeholder: |
+              https://catalyst.1mg.com/public_docs/content/Guides%20and%20Tutorials/First%20Universal%20App/first-universal-app
+              — the "Enable AI" section jumps straight to `catalyst buildApp:android`.
+      validations:
+          required: true
+    - type: textarea
+      id: suggested-documentation
+      attributes:
+          label: Suggested Documentation
+          description: What should it say instead? A rough draft is fine.
+      validations:
+          required: true
+    - type: textarea
+      id: affected-pages
+      attributes:
+          label: Affected Pages / Examples
+          description: List every page, example app, or README section that needs the same change.
+      validations:
+          required: false
+    - type: textarea
+      id: optional-followups
+      attributes:
+          label: Optional Follow-ups
+          description: Related doc gaps worth tracking separately.
+      validations:
+          required: false

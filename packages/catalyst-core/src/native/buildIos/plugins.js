@@ -197,7 +197,7 @@ import PackageDescription
 
 let package = Package(
     name: "iosnativeWebView",
-    platforms: [.iOS(.v17)],
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "CatalystCore", targets: ["CatalystCore"])`
 
@@ -205,9 +205,16 @@ let package = Package(
                     packageContent += `,\n        .library(name: "CatalystNotifications", targets: ["CatalystNotifications"])`
                 }
 
+                // CatalystCoreLogic (#432) is a local nested package (CoreLogic/), not a
+                // remote dependency, so it has no `url` and cannot flow through
+                // mergePackageDependency/formatSwiftPackageEntries (both keyed on url).
+                // Emitted as a literal .package(path:) entry instead. Its own
+                // Package.swift is static/checked-in (no config-dependent content), so
+                // it is never itself regenerated here.
                 packageContent += `
     ],
     dependencies: [
+        .package(path: "CoreLogic"),
 ${formatSwiftPackageEntries(packageDependencies).join(",\n")}
     ],
     targets: [
@@ -216,6 +223,7 @@ ${formatSwiftPackageEntries(packageDependencies).join(",\n")}
         .target(
             name: "CatalystCore",
             dependencies: [
+                .product(name: "CatalystCoreLogic", package: "CoreLogic"),
 ${formatSwiftProductEntries(coreDependencies).join(",\n")}
             ],
             path: "Sources/Core"

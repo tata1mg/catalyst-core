@@ -1,5 +1,6 @@
 import XCTest
 import WebKit
+import CatalystCoreLogic
 @testable import CatalystCore
 
 /**

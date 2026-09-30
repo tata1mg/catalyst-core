@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import CatalystCoreLogic
 
 public final class CompanionPlugin: CatalystPlugin {
     public init() {}

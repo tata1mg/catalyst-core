@@ -11,9 +11,13 @@ config/config.json
 # Emitted by scripts/generate-docs-manifest.mjs on every build
 src/js/generated/
 public/img/
+public/v/
 public/docs-assets/
 public/sitemap.xml
 public/robots.txt
+
+# Exported by scripts/generate-docs-manifest.mjs --export
+/versions/
 # Dependencies
 */node_modules
 
