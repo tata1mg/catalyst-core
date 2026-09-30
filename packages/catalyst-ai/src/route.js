@@ -588,6 +588,7 @@ router.post("/:provider/generate", async (req, res) => {
 
     try {
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.generate dispatches to openaiGenerate/geminiGenerate, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
+        // nosemgrep: javascript.express.security.express-wkhtml-injection.express-wkhtmltoimage-injection - false positive: no wkhtmltoimage/PhantomJS is used; see the note above on adapter.generate.
         const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
