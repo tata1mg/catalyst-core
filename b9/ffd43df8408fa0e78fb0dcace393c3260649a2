@@ -1,0 +1,34 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_c7fe34a005da55::t_c35427018d6b5f 336-342
+  s_c7fe34a005da55::t_6b678ed5d50efc 584-585,592-629,850-851
+  s_c7fe34a005da55::t_83982de2f3d31d 540-541,543,547-553,559,562,568
+  s_c7fe34a005da55::t_010c454ea9cf81 630-631,642-644,646-652,654-657,659,661-662
+  s_c7fe34a005da55::t_a52c6b87c581d5 335,632
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NetworkMonitorTests.swift
+  s_c7fe34a005da55::t_2542bba44c8dfa 36,52-60,62-66,75,98
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsConnectionHandlerTests.swift
+  s_c7fe34a005da55::t_e175d653310eea 1-19,22-25,44-57,61-80,84-85,92,96-98,102-121,123-124,127-133
+  s_c7fe34a005da55::t_010c454ea9cf81 86-91
+  s_c7fe34a005da55::t_3390020ad92d8f 20-21,26-43,58-60,81-83,93-95,99-101
+  s_c7fe34a005da55::t_bc3a18f1bba11e 122,125-126
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsLoopbackTests.swift
+  s_c7fe34a005da55::t_c35427018d6b5f 133-211
+  s_c7fe34a005da55::t_325acc91949563 21-24,26-30,88
+  s_c7fe34a005da55::t_74374b1a62ee7e 54-87,89-108,215,235,251,270,282,293,307,337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b9ffd43df8408fa0e78fb0dcace393c3260649a2",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
