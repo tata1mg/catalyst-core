@@ -100,6 +100,14 @@
     --code-tag: #22863a;
     --code-attr: #005cc5;
     --code-operator: #d73a49;
+
+    /* Safe-area insets. In the Companion shell env() reads 0 (no
+       viewport-fit=cover), so DocumentBootstrap and ShellSync override these
+       inline on <html> with the insets the native shell reports. */
+    --safe-area-top: env(safe-area-inset-top);
+    --safe-area-right: env(safe-area-inset-right);
+    --safe-area-bottom: env(safe-area-inset-bottom);
+    --safe-area-left: env(safe-area-inset-left);
 }
 
 :root[data-theme="dark"] {
@@ -201,8 +209,8 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: env(safe-area-inset-top) 16px 0;
-    height: calc(60px + env(safe-area-inset-top));
+    padding: var(--safe-area-top) 16px 0;
+    height: calc(60px + var(--safe-area-top));
     background: var(--hub-navbar-background);
     border-bottom: 1px solid var(--hub-border);
 
@@ -481,7 +489,7 @@ body {
     .hub-navbar-items {
         display: none;
         position: fixed;
-        top: calc(60px + env(safe-area-inset-top));
+        top: calc(60px + var(--safe-area-top));
         left: 0;
         right: 0;
         bottom: 0;
@@ -550,8 +558,8 @@ body {
     border-right: 1px solid var(--hub-border);
     padding: 20px 12px 40px;
     position: sticky;
-    top: calc(60px + env(safe-area-inset-top));
-    height: calc(100vh - 60px - env(safe-area-inset-top));
+    top: calc(60px + var(--safe-area-top));
+    height: calc(100vh - 60px - var(--safe-area-top));
     overflow-y: auto;
 }
 
@@ -663,15 +671,21 @@ body {
     .docs-mobile-sidebar-toggle {
         display: inline-flex;
         position: fixed;
-        bottom: calc(16px + env(safe-area-inset-bottom));
+        bottom: calc(16px + var(--safe-area-bottom));
         left: 16px;
         z-index: 55;
         box-shadow: var(--hub-shadow-2);
     }
 
+    /* In the Companion shell the bottom tab bar owns that corner — float the
+       menu toggle above it. */
+    html[data-shell="app"] .docs-mobile-sidebar-toggle {
+        bottom: calc(88px + var(--safe-area-bottom));
+    }
+
     .docs-sidebar {
         position: fixed;
-        top: calc(60px + env(safe-area-inset-top));
+        top: calc(60px + var(--safe-area-top));
         left: 0;
         bottom: 0;
         width: min(84vw, 360px);
@@ -688,7 +702,7 @@ body {
 
     .docs-sidebar-backdrop {
         position: fixed;
-        inset: calc(60px + env(safe-area-inset-top)) 0 0;
+        inset: calc(60px + var(--safe-area-top)) 0 0;
         background: var(--hub-scrim);
         z-index: 57;
         animation: hub-fade-in var(--dur-med) var(--ease);
@@ -741,7 +755,7 @@ body {
 
 .doc-toc {
     position: sticky;
-    top: calc(76px + env(safe-area-inset-top));
+    top: calc(76px + var(--safe-area-top));
     align-self: start;
     padding: 16px 16px 16px 0;
     font-size: var(--text-sm);
@@ -844,7 +858,7 @@ body {
 
     h2[id],
     h3[id] {
-        scroll-margin-top: calc(76px + env(safe-area-inset-top));
+        scroll-margin-top: calc(76px + var(--safe-area-top));
     }
 
     a {
@@ -1242,6 +1256,17 @@ body {
 }
 
 /* ── Misc pages / shared ────────────────────────────────────────────── */
+
+.hub-showcase {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 24px;
+    text-align: center;
+
+    p {
+        color: var(--hub-text-muted);
+    }
+}
 
 /* Infima-style shims the ported homepage markup uses. */
 .container {
@@ -1720,4 +1745,321 @@ body {
     .errors-skeleton-row {
         animation: none;
     }
+}
+
+/* ── Platform visibility (data-shell stamped pre-paint by DocumentBootstrap).
+      Safe default: with no JS or a failed script, only the web variant shows. */
+
+html:not([data-shell="app"]) .shell-only {
+    display: none;
+}
+
+html[data-shell="app"] {
+    .web-only {
+        display: none;
+    }
+
+    /* Keep the fixed tab bar from covering the end of any scrolling screen. */
+    .docs-site {
+        padding-bottom: calc(72px + var(--safe-area-bottom));
+    }
+
+    body {
+        -webkit-tap-highlight-color: transparent;
+        overscroll-behavior-y: none;
+    }
+
+    /* Pages that present as native screens bring their own chrome; the docs
+       navbar would read as "website". data-shell is stamped pre-paint, so
+       there is no flash of navbar before this applies. */
+    body:has(.app-screen) .hub-navbar {
+        display: none;
+    }
+}
+
+/* ── Bottom tab bar ─────────────────────────────────────────────────── */
+
+.hub-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Below 40 on purpose: the Showcase camera stage and Try scanner overlays
+       sit at 40 and must cover the tab bar while streaming. */
+    z-index: 30;
+    display: flex;
+    border-top: 1px solid var(--hub-border);
+    padding: 6px 12px calc(6px + var(--safe-area-bottom));
+}
+
+/* Status-bar backdrop for the edge-to-edge shell. App screens have no sticky
+   header, so without it their content scrolls under the clock and battery.
+   On docs pages the navbar (z-index 60) already covers this strip. */
+html[data-shell="app"] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--safe-area-top);
+    z-index: 30;
+    pointer-events: none;
+}
+
+/* Shared chrome for the tab bar and the status-bar backdrop. Both leave the
+   paint path while the native camera streams (see .cameraStage in
+   Showcase.scss and .scanOverlay in TryApp.scss). */
+.hub-bottom-nav,
+html[data-shell="app"] body::before {
+    background: var(--hub-navbar-background);
+
+    @supports (backdrop-filter: blur(1px)) {
+        background: var(--hub-chrome-bg);
+        backdrop-filter: blur(18px) saturate(1.8);
+        -webkit-backdrop-filter: blur(18px) saturate(1.8);
+    }
+}
+
+.hub-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    padding: 4px 0;
+    min-height: 50px;
+    font-family: inherit;
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--hub-text-muted);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--dur-med) var(--ease);
+
+    svg {
+        width: 22px;
+        height: 22px;
+        display: block;
+    }
+
+    &.active {
+        color: var(--hub-primary);
+
+        .hub-bottom-nav-icon {
+            background: var(--hub-primary-soft);
+        }
+    }
+
+    &:active .hub-bottom-nav-icon {
+        transform: scale(0.9);
+    }
+}
+
+/* Soft pill behind the active tab icon — reads native, animates on switch. */
+.hub-bottom-nav-icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    line-height: 0;
+    transition:
+        background-color var(--dur-med) var(--ease),
+        transform var(--dur-med) var(--ease-spring);
+}
+
+.hub-bottom-nav-label {
+    line-height: 1.2;
+}
+
+/* ── App-screen chrome (shell-mode pages with native presentation) ──── */
+
+.app-screen-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: calc(14px + var(--safe-area-top)) 0 12px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.app-screen-back {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-left: -10px;
+    border-radius: var(--radius-full);
+    text-decoration: none;
+    color: var(--hub-primary);
+    transition: background-color var(--dur-fast) var(--ease);
+
+    svg {
+        width: 26px;
+        height: 26px;
+    }
+
+    &:active {
+        background: var(--hub-primary-soft);
+    }
+}
+
+.app-screen-title {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* ── Companion home (/app) ──────────────────────────────────────────── */
+
+/* A flex item of .docs-site, which already provides the full-height column
+   and the shell's tab-bar clearance. */
+.app-home {
+    flex: 1;
+    width: 100%;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: calc(20px + var(--safe-area-top)) 20px 48px;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-home-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: var(--text-xl);
+    margin-bottom: 30px;
+
+    .hub-logo {
+        height: 30px;
+    }
+}
+
+.app-home-main h1 {
+    font-size: var(--text-4xl);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin: 0 0 22px;
+}
+
+/* Rendered as <button> so navigation can run through useNativeTransition;
+   these reset the UA button defaults back to the card presentation. */
+.app-home-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    width: 100%;
+    border: 1px solid var(--hub-border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    margin-bottom: 12px;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--hub-text);
+    background: var(--hub-card-background);
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--dur-fast) var(--ease),
+        border-color var(--dur-med) var(--ease);
+
+    &:active {
+        transform: scale(0.985);
+    }
+
+    h2 {
+        margin: 0 0 6px;
+        font-size: var(--text-xl);
+        font-weight: 650;
+    }
+
+    p {
+        margin: 0;
+        color: var(--hub-text-muted);
+        font-size: var(--text-md);
+        line-height: 1.5;
+    }
+}
+
+.app-home-card-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--hub-primary-soft);
+    color: var(--hub-primary);
+
+    svg {
+        width: 22px;
+        height: 22px;
+    }
+}
+
+.app-home-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-home-card-chevron {
+    align-self: center;
+    flex-shrink: 0;
+    color: var(--hub-text-muted);
+    line-height: 0;
+
+    svg {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+.app-home-card-primary {
+    border-color: var(--hub-primary);
+    background: linear-gradient(135deg, var(--hub-primary-soft), var(--hub-primary-softer) 60%),
+        var(--hub-card-background);
+    box-shadow: 0 0 0 1px var(--hub-primary);
+}
+
+.app-home-badge {
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--hub-primary);
+    background: var(--hub-primary-soft);
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 3px 9px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+/* Also used as a <button> in the shell variant (transition-driven nav). */
+.app-home-secondary {
+    display: inline-block;
+    margin-top: 18px;
+    padding: 10px 0;
+    background: none;
+    border: none;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--hub-primary);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.app-home-muted {
+    color: var(--hub-text-muted);
+}
+
+.app-home-main p {
+    line-height: 1.6;
 }
