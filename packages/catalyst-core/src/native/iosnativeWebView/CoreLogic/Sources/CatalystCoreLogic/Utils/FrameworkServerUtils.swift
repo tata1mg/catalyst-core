@@ -333,6 +333,14 @@ public class FrameworkServerUtils {
     }
 
     /**
+     * Number of client connections currently tracked by the server.
+     * Internal so tests can wait on connection lifecycle events instead of sleeping.
+     */
+    func activeConnectionCount() -> Int {
+        return connectionQueue.sync { activeConnections.count }
+    }
+
+    /**
      * Get server port
      */
     func getServerPort() -> UInt16 {
@@ -529,28 +537,35 @@ public class FrameworkServerUtils {
         let port = NWEndpoint.Port(integerLiteral: serverPort)
         // parameters.requiredLocalEndpoint = .hostPort(host: host, port: port)
 
-        listener = try NWListener(using: parameters, on: port)
+        let newListener = try NWListener(using: parameters, on: port)
+        listener = newListener
 
-        listener?.newConnectionHandler = { [weak self] connection in
+        newListener.newConnectionHandler = { [weak self] connection in
             self?.handleNewConnection(connection)
         }
 
-        listener?.stateUpdateHandler = { [weak self] state in
+        newListener.stateUpdateHandler = { [weak self, weak newListener] state in
+            // NWListener delivers state changes asynchronously, so a cancelled
+            // or failed listener can report after stopServer() -> startServer()
+            // has already installed a replacement. Only the current listener
+            // may flip isServerRunning; a stale callback would otherwise mark a
+            // healthy new server as stopped.
+            let isCurrent = { self?.listener === newListener }
             switch state {
             case .ready:
                 logger.debug("NW server ready on port \(self?.serverPort ?? 0)")
             case .failed(let error):
                 logger.error("NW server failed: \(error.localizedDescription)")
-                self?.isServerRunning = false
+                if isCurrent() { self?.isServerRunning = false }
             case .cancelled:
                 logger.debug("NW server cancelled")
-                self?.isServerRunning = false
+                if isCurrent() { self?.isServerRunning = false }
             default:
                 break
             }
         }
 
-        listener?.start(queue: .global(qos: .utility))
+        newListener.start(queue: .global(qos: .utility))
     }
 
     private func handleNewConnection(_ connection: NWConnection) {
@@ -566,27 +581,52 @@ public class FrameworkServerUtils {
             let wrapper = ConnectionWrapper(connection: connection, timeout: self.connectionTimeoutSeconds)
             self.activeConnections.insert(wrapper)
 
-            connection.stateUpdateHandler = { [weak self, weak wrapper] state in
-                switch state {
-                case .ready:
-                    self?.receiveHTTPRequest(on: connection)
-                case .failed(let error):
-                    logger.debug("Connection failed: \(error.localizedDescription)")
-                    if let wrapper = wrapper {
-                        self?.removeConnection(wrapper)
-                    }
-                    connection.cancel()
-                case .cancelled:
-                    logger.debug("Connection cancelled")
-                    if let wrapper = wrapper {
-                        self?.removeConnection(wrapper)
-                    }
-                default:
-                    break
-                }
+            connection.stateUpdateHandler = { [weak self] state in
+                self?.handleConnectionStateChange(state, on: connection)
             }
 
             connection.start(queue: .global(qos: .utility))
+        }
+    }
+
+    /// Reacts to a client connection's state change. Internal (not private) so
+    /// tests can drive the failed/cancelled paths directly: which one Network.framework
+    /// reports for a dropped client is timing-dependent, so real sockets cannot
+    /// exercise them reliably.
+    func handleConnectionStateChange(_ state: NWConnection.State, on connection: NWConnection) {
+        switch state {
+        case .ready:
+            receiveHTTPRequest(on: connection)
+        case .failed(let error):
+            logger.debug("Connection failed: \(error.localizedDescription)")
+            removeTrackedConnection(for: connection)
+            connection.cancel()
+        case .cancelled:
+            logger.debug("Connection cancelled")
+            removeTrackedConnection(for: connection)
+        default:
+            break
+        }
+    }
+
+    /// Internal for the same reason as handleConnectionStateChange.
+    func handleReceiveError(_ error: NWError, on connection: NWConnection) {
+        logger.error("Error receiving request: \(error.localizedDescription)")
+        connection.cancel()
+    }
+
+    /// Internal for the same reason as handleConnectionStateChange.
+    func handleSendCompletion(_ error: NWError?, on connection: NWConnection) {
+        if let error = error {
+            logger.debug("Error sending response: \(error.localizedDescription)")
+        }
+        connection.cancel()
+    }
+
+    private func removeTrackedConnection(for connection: NWConnection) {
+        let wrapper = connectionQueue.sync { activeConnections.first { $0.connection === connection } }
+        if let wrapper = wrapper {
+            removeConnection(wrapper)
         }
     }
 
@@ -599,23 +639,27 @@ public class FrameworkServerUtils {
 
     private func receiveHTTPRequest(on connection: NWConnection) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] data, _, isComplete, error in
+            self?.handleReceivedData(data, isComplete: isComplete, error: error, on: connection)
+        }
+    }
 
-            if let error = error {
-                logger.error("Error receiving request: \(error.localizedDescription)")
-                connection.cancel()
-                return
-            }
+    /// Completion body of receiveHTTPRequest. Internal so tests can drive the
+    /// error branch directly; a real receive error is timing-dependent.
+    func handleReceivedData(_ data: Data?, isComplete: Bool, error: NWError?, on connection: NWConnection) {
+        if let error = error {
+            handleReceiveError(error, on: connection)
+            return
+        }
 
-            guard let data = data, let requestString = String(data: data, encoding: .utf8) else {
-                self?.sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
-                return
-            }
+        guard let data = data, let requestString = String(data: data, encoding: .utf8) else {
+            sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
+            return
+        }
 
-            self?.processHTTPRequest(requestString, on: connection)
+        processHTTPRequest(requestString, on: connection)
 
-            if isComplete {
-                connection.cancel()
-            }
+        if isComplete {
+            connection.cancel()
         }
     }
 
@@ -803,11 +847,8 @@ public class FrameworkServerUtils {
         }
         let responseData = responseHeaderData + body
 
-        connection.send(content: responseData, completion: .contentProcessed { error in
-            if let error = error {
-                logger.debug("Error sending response: \(error.localizedDescription)")
-            }
-            connection.cancel()
+        connection.send(content: responseData, completion: .contentProcessed { [weak self] error in
+            self?.handleSendCompletion(error, on: connection)
         })
     }
 
