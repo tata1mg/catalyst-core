@@ -9,7 +9,14 @@ const path = require("path")
 const fs = require("fs")
 var validate = require("validate-npm-package-name")
 const packageJson = require("../package.json")
-const { CCAError, createError, wrapForeignError, formatError, resolveOutputMode, getDebugEnvInfo } = require("./errors.cjs")
+const {
+    CCAError,
+    createError,
+    wrapForeignError,
+    formatError,
+    resolveOutputMode,
+    getDebugEnvInfo,
+} = require("./errors.cjs")
 const outputMode = resolveOutputMode(process.argv)
 // Colored (red) prefix only applies in default mode — verbose/debug boxes
 // own their coloring internally (see errors.cjs#box).

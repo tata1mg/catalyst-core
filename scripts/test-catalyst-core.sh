@@ -19,6 +19,9 @@ npm ci
 # Build catalyst-core
 npm run prepare --workspace packages/catalyst-core
 
+# Core loader behavior and other focused unit tests
+npm run test:unit --workspace packages/catalyst-core
+
 # Install template dependencies with current-branch catalyst-core
 npm pack --workspace packages/catalyst-core --pack-destination "$PACK_DIR" --ignore-scripts --silent >/dev/null
 CORE_TARBALL=$(find "$PACK_DIR" -name "catalyst-core-*.tgz" -print -quit)

@@ -1,7 +1,7 @@
 import React from "react"
-import { describe, expect, it, vi, beforeEach } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { act, render, screen, waitFor } from "@testing-library/react"
-import { MemoryRouter, Routes, Route, useRoutes } from "react-router"
+import { MemoryRouter, Routes, Route } from "react-router"
 import {
     RouterDataProvider,
     useRouterData,
@@ -202,7 +202,9 @@ describe("useCurrentRouteData", () => {
         // fetcher path is never taken, so initialState should be
         // reflected as-is for at least the first render before any
         // effect fires.
-        renderAtPage({ initialState: { "/page": { data: { hello: "world" }, error: null, isFetched: true } } })
+        renderAtPage({
+            initialState: { "/page": { data: { hello: "world" }, error: null, isFetched: true } },
+        })
         await waitFor(() => {
             const parsed = JSON.parse(screen.getByTestId("current").textContent)
             expect(parsed.data).toEqual({ hello: "world" })
@@ -210,7 +212,6 @@ describe("useCurrentRouteData", () => {
     })
 
     it("exposes refetch() which re-runs the route fetcher and updates the route data", async () => {
-        const clientFetcher = vi.fn().mockResolvedValue({ n: 1 })
         function RefetchPage() {
             const { refetch, data } = useCurrentRouteData()
             return (
@@ -233,7 +234,7 @@ describe("useCurrentRouteData", () => {
                         // loadable-shaped component so fetchRouteData resolves clientFetcher (jsdom has window)
                     />
                 </Routes>
-            </MemoryRouter>,
+            </MemoryRouter>
         )
         // route object here has no component -> refetch still runs
         // fetchRouteData (which finds no fetcher) and writes an
@@ -248,9 +249,11 @@ describe("useCurrentRouteData", () => {
         vi.useFakeTimers()
         try {
             let clearFn
-            function ClearPage() {
+            // Hands clear() out through an effect: assigning the outer variable
+            // during render is a side effect the react-compiler lint rejects.
+            const ClearPage = ({ onReady }) => {
                 const { clear } = useCurrentRouteData()
-                clearFn = clear
+                React.useEffect(() => onReady(clear), [onReady, clear])
                 return <div data-testid="ready">ready</div>
             }
             render(
@@ -263,12 +266,12 @@ describe("useCurrentRouteData", () => {
                                     initialState={{ "/page": { data: { keep: 1 }, isFetched: true } }}
                                     config={{}}
                                 >
-                                    <ClearPage />
+                                    <ClearPage onReady={(fn) => (clearFn = fn)} />
                                 </RouterDataProvider>
                             }
                         />
                     </Routes>
-                </MemoryRouter>,
+                </MemoryRouter>
             )
             expect(typeof clearFn).toBe("function")
             act(() => {
@@ -303,7 +306,7 @@ describe("useCurrentRouteData", () => {
                         }
                     />
                 </Routes>
-            </MemoryRouter>,
+            </MemoryRouter>
         )
         await waitFor(() => expect(screen.getByTestId("ready")).toBeInTheDocument())
     })

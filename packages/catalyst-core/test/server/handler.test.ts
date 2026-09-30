@@ -107,7 +107,7 @@ describe("SSR handler", () => {
 
         expect(res.status).toHaveBeenCalledWith(200)
         const html = res.getHtml()
-        expect(html).toContain("data-testid=\"doc-root\"")
+        expect(html).toContain('data-testid="doc-root"')
         expect(html).toContain("<html")
         // the bot marker script the tail transform always appends
         expect(html).toContain("window.__CATALYST_IS_BOT__=false")
@@ -139,12 +139,8 @@ describe("SSR handler", () => {
     })
 
     it("propagates a throwing App.serverSideFunction: logs SERVER_SIDE_FUNCTION, still responds", async () => {
-        const AppModule = await import(
-            "../server/fixtures/template/src/js/containers/App/index.jsx"
-        )
-        vi.spyOn(AppModule.default, "serverSideFunction").mockRejectedValueOnce(
-            new Error("server-side boom"),
-        )
+        const AppModule = await import("../server/fixtures/template/src/js/containers/App/index.jsx")
+        vi.spyOn(AppModule.default, "serverSideFunction").mockRejectedValueOnce(new Error("server-side boom"))
 
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         const { req, res } = makeReqRes("/")

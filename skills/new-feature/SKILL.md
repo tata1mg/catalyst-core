@@ -17,6 +17,7 @@ context you don't (e.g. this might not belong under the current epic at all).
 ## Step 1 — Locate or create the tracking issue
 
 Ask:
+
 - Does this already have a GitHub issue? If yes, get the number and read it.
 - If no: does it belong under the current 1.0 epic (#329)? If yes, which Story?
   List the open stories (`gh issue view 329 --json body` or check the sub-issues
@@ -42,6 +43,7 @@ Ask:
 ## Step 3 — Proposal before code (gate)
 
 Before writing any implementation:
+
 - Post a design comment on the issue covering: what's being built, why this
   approach over alternatives, what files/modules it touches, and a closing
   section on **why this matters for the current release** (ties back to the
@@ -55,12 +57,12 @@ Before writing any implementation:
 
 - Before writing new code, look for an existing pattern to follow rather than
   inventing one. Examples already established in this repo:
-  - Error codes / registry pattern: `packages/catalyst-core/src/errors/`
-  - MCP tool pattern: `packages/catalyst-core/mcp_v2/tools/*.js` (each exports
-    `init(...)` + `handle_<name>`, registered in `mcp_v2/mcp.js`'s tool list and
-    dispatch map)
-  - Validator pattern: `packages/catalyst-core/src/scripts/validator.js` /
-    `src/server/utils/validator.js`
+    - Error codes / registry pattern: `packages/catalyst-core/src/errors/`
+    - MCP tool pattern: `packages/catalyst-core/mcp_v2/tools/*.js` (each exports
+      `init(...)` + `handle_<name>`, registered in `mcp_v2/mcp.js`'s tool list and
+      dispatch map)
+    - Validator pattern: `packages/catalyst-core/src/scripts/validator.js` /
+      `src/server/utils/validator.js`
 - Watch for module-system boundaries: `src/native/` is CJS-only (see its local
   `package.json` with `"type": "commonjs"`), while most of the rest of
   `packages/catalyst-core/src` is ESM. Code crossing that boundary can't use a
@@ -74,6 +76,7 @@ Before writing any implementation:
 ## Step 5 — Docs
 
 Ask whether this change needs:
+
 - An entry under `docs/content/` (user-facing framework docs), and/or
 - A new entry under the top-level `errors/<CATEGORY>/` folder, if it introduces
   a new error code (see Step 4's registry pattern — docs are generated from

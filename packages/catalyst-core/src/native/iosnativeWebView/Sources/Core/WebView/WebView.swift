@@ -23,6 +23,7 @@ public struct WebView: UIViewRepresentable, Equatable {
         self.cameraManager = cameraManager
         let initialURL = URL(string: urlString)
         self.navigationDelegate = WebViewNavigationDelegate(viewModel: viewModel, initialURL: initialURL, cameraManager: cameraManager)
+        CacheManager.shared.configure(patterns: RuntimeConfig.cachePattern)
 
         // Register our custom URL protocol for caching
         let protocolStart = CFAbsoluteTimeGetCurrent()
@@ -59,8 +60,13 @@ public struct WebView: UIViewRepresentable, Equatable {
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
+        // Match mobile Safari: honor playsinline instead of forcing fullscreen,
+        // and let muted video autoplay. Media with sound still needs a tap.
+        configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = .audio
+
         #if DEBUG
-        if ConfigConstants.Profiler.enabled {
+        if RuntimeConfig.profilerEnabled {
             configuration.userContentController.addUserScript(
                 WKUserScript(
                     source: "window.__CATALYST_PROFILER_ENABLED = true;",
@@ -82,7 +88,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
         webView.navigationDelegate = navigationDelegate
         #if DEBUG
-        if ConfigConstants.Profiler.enabled {
+        if RuntimeConfig.profilerEnabled {
             webView.scrollView.delegate = context.coordinator
         }
         #endif
@@ -90,6 +96,12 @@ public struct WebView: UIViewRepresentable, Equatable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
+        // Edge-to-edge pages lay out under the system bars and pad themselves
+        // from the insets the bridge reports, so the scroll view must not inset
+        // them a second time. Android draws under the bars the same way.
+        if viewModel.edgeToEdgeEnabled {
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
+        }
 
         // Add our pinch recognizer to route camera zoom when streaming.
         // Web page zoom is disabled via user-scalable=no in the viewport meta tag.
@@ -149,10 +161,11 @@ public struct WebView: UIViewRepresentable, Equatable {
         let makeUIViewTime = (CFAbsoluteTimeGetCurrent() - makeUIViewStart) * 1000
         logWithTimestamp("🔨 makeUIView() completed (took \(String(format: "%.2f", makeUIViewTime))ms)")
         #if DEBUG
-        if ConfigConstants.Profiler.enabled {
+        if RuntimeConfig.profilerEnabled {
             context.coordinator.startKeyboardPerfTracking(webView)
         }
         #endif
+        viewModel.didCreateWebView()
 
         return webView
     }
@@ -189,9 +202,6 @@ public struct WebView: UIViewRepresentable, Equatable {
         coordinator.pluginBridge = nil
         coordinator.hostingController = nil
 
-        // Unregister custom URL protocol
-        ResourceURLProtocol.unregister()
-
         logger.debug("WebView cleanup completed")
     }
 
@@ -217,7 +227,11 @@ public struct WebView: UIViewRepresentable, Equatable {
 
             // Create and register the native bridge
             let bridge = NativeBridge(webView: webView, viewController: hostingController, cameraManager: parent.cameraManager)
-            let pluginBridge = PluginBridge(webView: webView, viewController: hostingController)
+            let pluginBridge = PluginBridge(
+                webView: webView,
+                viewController: hostingController,
+                webViewModel: parent.viewModel
+            )
 
             // Inject WebViewModel for safe area handling
             Task { @MainActor in
@@ -232,7 +246,7 @@ public struct WebView: UIViewRepresentable, Equatable {
             self.nativeBridge = bridge
             self.pluginBridge = pluginBridge
             #if DEBUG
-            if ConfigConstants.Profiler.enabled {
+            if RuntimeConfig.profilerEnabled {
                 self.fpsMonitor = DisplayLinkPerfMonitor(webView: webView)
                 self.fpsMonitor?.start()
             }

@@ -157,7 +157,9 @@ describe("getMetaData", () => {
     it("merges tags from multiple matched routes, later routes winning on conflict", () => {
         const matchedRoutes = [
             {
-                route: { component: { setMetaData: () => [<meta key="a" name="shared" content="parent" />] } },
+                route: {
+                    component: { setMetaData: () => [<meta key="a" name="shared" content="parent" />] },
+                },
             },
             {
                 route: { component: { setMetaData: () => [<meta key="b" name="shared" content="child" />] } },

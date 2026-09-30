@@ -265,9 +265,12 @@ export const RouterDataProvider = ({
         (wait: any = 0) => {
             // TODO :: Need to think this use case
             // eslint-disable-next-line no-unused-vars
-            const timeout = setTimeout(() => {
-                setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...INITIAL_DATA_STATE } }))
-            }, [wait] as any)
+            const timeout = setTimeout(
+                () => {
+                    setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...INITIAL_DATA_STATE } }))
+                },
+                [wait] as any
+            )
         }
 
     const [routeData, setRouteData] = useState<RoutesData>(initialState)

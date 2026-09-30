@@ -10,7 +10,9 @@ async function main() {
     try {
         await buildAndroidApp()
     } catch (error) {
-        console.error(formatBuildError({ code: "ANDROID-000", category: "ANDROID", upstreamName: "Gradle", error }))
+        console.error(
+            formatBuildError({ code: "ANDROID-000", category: "ANDROID", upstreamName: "Gradle", error })
+        )
         process.exit(1)
     }
     process.exit(0)

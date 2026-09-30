@@ -34,6 +34,7 @@
             "types": "./dist/native/bridge/hooks.d.ts",
             "default": "./dist/native/bridge/hooks.js"
         },
+        "./PluginBridge": "./dist/native/plugin-bridge/PluginBridge.js",
         "./errors": "./dist/errors/index.js",
         "./sentry": "./dist/sentry.cjs",
         "./otel": "./dist/otel.js"
@@ -62,6 +63,7 @@
         "test": "npm run test:types && vitest run",
         "test:watch": "vitest",
         "test:types": "tsc -p tsconfig.test.json --noEmit",
+        "test:unit": "node --test tests/*.test.mjs",
         "test:fixture": "sh ../../scripts/test-catalyst-core.sh"
     },
     "license": "MIT",
@@ -74,8 +76,10 @@
         "body-parser": "^1.20.2",
         "compression": "^1.7.4",
         "cookie-parser": "^1.4.6",
+        "esbuild": "^0.25.0",
         "express": "^4.18.2",
         "express-static-gzip": "^2.1.7",
+        "qrcode-terminal": "^0.12.0",
         "react": "19.0.0",
         "react-dom": "19.0.0",
         "react-helmet-async": "^1.3.0",

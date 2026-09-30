@@ -47,6 +47,7 @@ function startProd() {
                     "src_path",
                     "NODE_ENV",
                     "APPLICATION",
+                    "CATALYST_QR",
                     ...Object.keys(argumentsObject),
                 ]),
             },

@@ -48,7 +48,7 @@ describe("serverDataFetcher (node environment — serverFetcher branch)", () => 
         expect(serverFetcher).toHaveBeenCalledWith(
             expect.objectContaining({ route: routes[0] }),
             { some: "arg" },
-            undefined,
+            undefined
         )
         expect(clientFetcher).not.toHaveBeenCalled()
     })

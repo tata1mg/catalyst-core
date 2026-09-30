@@ -601,8 +601,12 @@ function createAssetsPhase(ctx) {
             ]
 
             for (const metadataName of metadataNames) {
+                // [^<>] keeps the match inside ONE tag. A [\s\S]*? here anchors at
+                // the first <meta-data in the file (the FileProvider's) and eats
+                // everything up to the notification entry — including </provider> —
+                // corrupting the manifest on every build after the first.
                 const metadataRegex = new RegExp(
-                    `\\s*<meta-data\\s+[^>]*?android:name="${metadataName}"[^>]*?\\/>`,
+                    `\\s*<meta-data\\s+[^<>]*?android:name="${metadataName}"[^<>]*?\\/>`,
                     "gi"
                 )
                 manifestContent = manifestContent.replace(metadataRegex, "")

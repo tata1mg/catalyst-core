@@ -1,10 +1,6 @@
 import { readFileSync } from "fs"
 import path from "path"
-import {
-    validateConfigFile,
-    validatePackageJson,
-    validateModuleAlias,
-} from "../server/utils/validator.js"
+import { validateConfigFile, validatePackageJson, validateModuleAlias } from "../server/utils/validator.js"
 import { formatError, createError, ERROR_CODES } from "../errors/index.js"
 import { resolveOutputMode } from "./scriptUtils.js"
 

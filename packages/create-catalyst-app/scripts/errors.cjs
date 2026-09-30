@@ -46,7 +46,7 @@ const ERROR_DEFINITIONS = {
         category: "CCA",
         defaultMessage: "Invalid language option",
         defaultDetails: 'The --lang option must be "js" or "ts".',
-        suggestedAction: 'Pass --lang js or --lang ts.',
+        suggestedAction: "Pass --lang js or --lang ts.",
     },
     [ERROR_CODES.CCA_INVALID_STATE_MANAGEMENT_OPTION]: {
         category: "CCA",
@@ -82,7 +82,8 @@ const ERROR_DEFINITIONS = {
         category: "CCA",
         defaultMessage: ".gitignore already exists",
         defaultDetails: "The scaffolded project already contains a .gitignore file.",
-        suggestedAction: "Remove or rename the existing .gitignore before running again, or ignore this warning.",
+        suggestedAction:
+            "Remove or rename the existing .gitignore before running again, or ignore this warning.",
     },
 }
 
@@ -139,7 +140,9 @@ function wrapForeignError(err) {
     // Trimmed and checked for emptiness too — a blank/whitespace-only .code
     // (still typeof "string") must not produce a dangling "(upstream: )".
     const upstreamCode = err && typeof err.code === "string" ? err.code.trim() : ""
-    const message = upstreamCode ? `An upstream command failed (upstream: ${upstreamCode})` : "An upstream command failed"
+    const message = upstreamCode
+        ? `An upstream command failed (upstream: ${upstreamCode})`
+        : "An upstream command failed"
     return createError(ERROR_CODES.CCA_UPSTREAM_ERROR, {
         message,
         cause: err,

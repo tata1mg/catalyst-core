@@ -1,0 +1,47 @@
+{
+    "BUILD_OUTPUT_PATH": "build",
+    "WEBVIEW_CONFIG": {
+        "LOCAL_IP": "catalyst.1mg.com",
+        "port": "443",
+        "initial_url": "app",
+        "appInfo": "",
+        "useHttps": true,
+        "profiler": {
+            "enabled": false
+        },
+        "notifications": {
+            "enabled": false
+        },
+        "edgeToEdge": {
+            "enabled": true
+        },
+        "plugins": {
+            "companion": true
+        },
+        "googleSignIn": {
+            "enabled": false,
+            "clientId": "",
+            "iosClientId": ""
+        },
+        "accessControl": {
+            "enabled": false,
+            "allowedUrls": []
+        },
+        "android": {
+            "appName": "Catalyst Companion",
+            "packageName": "io.catalyst.companion",
+            "buildType": "debug",
+            "cachePattern": "",
+            "sdkPath": "",
+            "emulatorName": ""
+        },
+        "ios": {
+            "appName": "Catalyst Companion",
+            "appBundleId": "io.catalyst.companion",
+            "developmentTeam": "",
+            "buildType": "Debug",
+            "simulatorName": "",
+            "cachePattern": ""
+        }
+    }
+}

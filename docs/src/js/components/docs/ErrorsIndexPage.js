@@ -126,12 +126,16 @@ const ErrorsIndexPage = () => {
                     <h1>Error reference</h1>
                     <p>
                         Every coded error the Catalyst framework can emit. Each
-                        entry is the same content shown by the <code>Docs:</code>{' '}
-                        link printed alongside the error in your terminal.
+                        entry is the same content shown by the{' '}
+                        <code>Docs:</code> link printed alongside the error in
+                        your terminal.
                     </p>
 
                     {unavailable ? (
-                        <ErrorsUnavailable reason={data.reason} onRetry={retry} />
+                        <ErrorsUnavailable
+                            reason={data.reason}
+                            onRetry={retry}
+                        />
                     ) : isFetching || !data ? (
                         <Skeleton />
                     ) : (
@@ -236,7 +240,10 @@ const ErrorsIndexPage = () => {
                                                         to={`/errors/${category}/${code}`}
                                                     >
                                                         <span className="errors-code-msg">
-                                                            {catalog[code].message}
+                                                            {
+                                                                catalog[code]
+                                                                    .message
+                                                            }
                                                         </span>
                                                         <span className="errors-code">
                                                             {code}

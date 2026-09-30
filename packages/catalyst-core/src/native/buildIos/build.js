@@ -433,22 +433,24 @@ module.exports = function createBuildPhase(ctx) {
             const raw = fs.readFileSync(tmpPath, "utf8")
             const parsed = JSON.parse(raw)
             const devices = parsed?.result?.devices ?? []
-            return devices
-                .filter((d) => d.hardwareProperties?.reality === "physical")
-                // devicectl lists every device it has ever paired with, reachable or
-                // not — a device that's unplugged or out of range still shows up with
-                // reality: "physical". Only tunnelState !== "unavailable" is actually
-                // installable/launchable right now; "disconnected" (paired, USB/Wi-Fi
-                // not currently active but developer-mode discoverable) still works for
-                // wired installs, so only "unavailable" is excluded here.
-                .filter((d) => d.connectionProperties?.tunnelState !== "unavailable")
-                .map((d) => ({
-                    name: d.deviceProperties?.name ?? "Physical Device",
-                    version: d.deviceProperties?.osVersionNumber ?? "Unknown",
-                    udid: d.hardwareProperties?.udid ?? d.identifier,
-                    type: "physical",
-                }))
-                .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
+            return (
+                devices
+                    .filter((d) => d.hardwareProperties?.reality === "physical")
+                    // devicectl lists every device it has ever paired with, reachable or
+                    // not — a device that's unplugged or out of range still shows up with
+                    // reality: "physical". Only tunnelState !== "unavailable" is actually
+                    // installable/launchable right now; "disconnected" (paired, USB/Wi-Fi
+                    // not currently active but developer-mode discoverable) still works for
+                    // wired installs, so only "unavailable" is excluded here.
+                    .filter((d) => d.connectionProperties?.tunnelState !== "unavailable")
+                    .map((d) => ({
+                        name: d.deviceProperties?.name ?? "Physical Device",
+                        version: d.deviceProperties?.osVersionNumber ?? "Unknown",
+                        udid: d.hardwareProperties?.udid ?? d.identifier,
+                        type: "physical",
+                    }))
+                    .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
+            )
         } catch (error) {
             progress.log(
                 `devicectl detection failed (${error.message}); falling back to xcodebuild destinations`,
@@ -543,6 +545,28 @@ module.exports = function createBuildPhase(ctx) {
         }
     }
 
+    // Command-line build settings outrank the values baked into project.pbxproj, so
+    // signing configured in config.json (WEBVIEW_CONFIG.ios) is applied here as
+    // overrides. When nothing is configured the command is left untouched so existing
+    // projects keep relying on whatever the Xcode project itself declares.
+    function makeDeviceSigningOverrides(iosConfig) {
+        const developmentTeam = iosConfig?.developmentTeam || ""
+        const provisioningProfile = iosConfig?.provisioningProfile || ""
+        if (!developmentTeam && !provisioningProfile) return ""
+        if (provisioningProfile) {
+            return ` \
+        CODE_SIGN_STYLE=Manual \
+        DEVELOPMENT_TEAM="${developmentTeam}" \
+        PROVISIONING_PROFILE_SPECIFIER="${provisioningProfile}" \
+        -allowProvisioningUpdates`
+        }
+        return ` \
+        CODE_SIGN_STYLE=Automatic \
+        DEVELOPMENT_TEAM="${developmentTeam}" \
+        PROVISIONING_PROFILE_SPECIFIER="" \
+        -allowProvisioningUpdates`
+    }
+
     async function buildProjectForPhysicalDevice(scheme, bundleId, derivedDataPath, projectName, device) {
         progress.log(`Building for physical device: ${device.name}`, "info")
         const projectPath = `${process.cwd()}/${projectName}.xcodeproj`
@@ -553,13 +577,16 @@ module.exports = function createBuildPhase(ctx) {
             isNotificationsEnabled ? "Building with notifications enabled" : "Building without notifications",
             "info"
         )
+        const signingOverrides = makeDeviceSigningOverrides(ctx.iosConfig)
+        if (signingOverrides)
+            progress.log("Applying config-driven code signing overrides for device build", "info")
         const buildCommand = `xcodebuild \
         -scheme ${scheme} \
         -sdk iphoneos \
         -configuration Debug \
         -destination platform=iOS,id=${device.udid} \
         PRODUCT_BUNDLE_IDENTIFIER=${bundleId} \
-        ONLY_ACTIVE_ARCH=YES \
+        ONLY_ACTIVE_ARCH=YES${signingOverrides} \
         build`
         progress.log(`Executing command: ${buildCommand}`, "info")
         return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 })

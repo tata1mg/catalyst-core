@@ -25,8 +25,9 @@ public final class CacheManager {
     private let session: URLSession
     private var resourceCache: [String: CachedResource] = [:]
     private let cacheDirectory: URL
-    private let compiledCachePatterns: [NSRegularExpression]
-
+    private let patternsLock = NSLock()
+    private var compiledCachePatterns: [NSRegularExpression]
+    
     private struct CachedResource: Codable {
         let data: Data
         let timestamp: Date
@@ -61,17 +62,7 @@ public final class CacheManager {
         )
 
         // Pre-compile regex patterns for better performance
-        self.compiledCachePatterns = ConfigConstants.cachePattern.compactMap { pattern in
-            do {
-                return try NSRegularExpression(
-                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
-                    options: .caseInsensitive
-                )
-            } catch {
-                logger.error("Failed to compile cache pattern '\(pattern)': \(error)")
-                return nil
-            }
-        }
+        self.compiledCachePatterns = Self.compilePatterns(ConfigConstants.cachePattern)
 
         let configuration = URLSessionConfiguration.default
         configuration.requestCachePolicy = .returnCacheDataElseLoad
@@ -89,6 +80,27 @@ public final class CacheManager {
         loadCacheFromDisk()
     }
 
+    func configure(patterns: [String]) {
+        let compiled = Self.compilePatterns(patterns)
+        patternsLock.lock()
+        compiledCachePatterns = compiled
+        patternsLock.unlock()
+    }
+
+    private static func compilePatterns(_ patterns: [String]) -> [NSRegularExpression] {
+        patterns.compactMap { pattern in
+            do {
+                return try NSRegularExpression(
+                    pattern: pattern.replacingOccurrences(of: "*", with: ".*"),
+                    options: .caseInsensitive
+                )
+            } catch {
+                logger.error("Failed to compile cache pattern '\(pattern)': \(error)")
+                return nil
+            }
+        }
+    }
+    
     private func loadCacheFromDisk() {
         let loadStart = CFAbsoluteTimeGetCurrent()
 
@@ -132,8 +144,10 @@ public final class CacheManager {
     func shouldCacheURL(_ url: URL) -> Bool {
         let urlString = url.absoluteString
 
-        // Use pre-compiled regex patterns for better performance
-        for regex in compiledCachePatterns {
+        patternsLock.lock()
+        let patterns = compiledCachePatterns
+        patternsLock.unlock()
+        for regex in patterns {
             let range = NSRange(urlString.startIndex..., in: urlString)
             if regex.firstMatch(in: urlString, options: [], range: range) != nil {
                 return true

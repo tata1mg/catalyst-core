@@ -48,9 +48,7 @@ describe("MetaTag", () => {
         await waitFor(() => {
             expect(document.head.querySelector('meta[name="description"]')).not.toBeNull()
         })
-        expect(document.head.querySelector('meta[name="description"]').getAttribute("content")).toBe(
-            "hello"
-        )
+        expect(document.head.querySelector('meta[name="description"]').getAttribute("content")).toBe("hello")
     })
 
     it("keeps the placeholder meta tag when no route provides setMetaData", () => {

@@ -41,6 +41,14 @@ function readPlainObject(value, fieldName, sourcePath) {
     return value
 }
 
+function readBoolean(value, fieldName, sourcePath, defaultValue = false) {
+    if (value == null) return defaultValue
+    if (typeof value !== "boolean") {
+        throw new Error(`'${fieldName}' must be a boolean in ${sourcePath}`)
+    }
+    return value
+}
+
 function cloneJsonValue(value, fieldName, sourcePath) {
     try {
         return JSON.parse(JSON.stringify(value))
@@ -198,6 +206,11 @@ function parsePluginManifest(pluginDir) {
             ? {
                   // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pluginDir is discovered from the internal plugin root and the child directory is fixed.
                   sourceDir: path.join(pluginDir, "android"),
+                  allowCleartext: readBoolean(
+                      androidConfig.allowCleartext,
+                      "android.allowCleartext",
+                      manifestPath
+                  ),
                   permissions: readStringArray(
                       androidConfig.permissions,
                       "android.permissions",

@@ -1,6 +1,6 @@
-import React, { Suspense } from "react"
+import React from "react"
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
-import { render, screen, waitFor, act } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import Split, { split } from "./Split.jsx"
 import { SsrRequestProvider } from "./SsrRequestContext.jsx"
 
@@ -122,7 +122,9 @@ describe("split()", () => {
         const setMetaData = () => {}
         const importFn = vi
             .fn()
-            .mockResolvedValue({ default: Object.assign(() => <span>c</span>, { clientFetcher, setMetaData }) })
+            .mockResolvedValue({
+                default: Object.assign(() => <span>c</span>, { clientFetcher, setMetaData }),
+            })
         const LazyThing = split(importFn, {})
         await LazyThing.load()
         expect(LazyThing.clientFetcher).toBe(clientFetcher)

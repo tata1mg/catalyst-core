@@ -92,9 +92,9 @@ const ErrorPage = () => {
                         <div className="error-unknown-code" role="alert">
                             <h1>{code}</h1>
                             <p>
-                                No error with this code is in the catalog. It may
-                                be from a newer or older version of Catalyst, or
-                                the code in the link is wrong.
+                                No error with this code is in the catalog. It
+                                may be from a newer or older version of
+                                Catalyst, or the code in the link is wrong.
                             </p>
                             <p>
                                 <Link to="/errors">Browse all error codes</Link>
@@ -115,7 +115,10 @@ const ErrorPage = () => {
                             </Field>
                             <p className="error-source-link">
                                 <a
-                                    href={githubBlobUrlFor(entry.category, code)}
+                                    href={githubBlobUrlFor(
+                                        entry.category,
+                                        code
+                                    )}
                                     target="_blank"
                                     rel="noreferrer"
                                 >

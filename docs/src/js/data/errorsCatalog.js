@@ -72,7 +72,10 @@ export async function loadErrorsCatalog() {
     }
 
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        return { ok: false, reason: 'the error index was not in the expected shape' }
+        return {
+            ok: false,
+            reason: 'the error index was not in the expected shape',
+        }
     }
 
     cache = { data, at: Date.now() }
@@ -93,7 +96,9 @@ export function groupByCategory(data) {
     return [...byCategory.entries()]
         .map(([category, codes]) => ({
             category,
-            codes: codes.sort((a, b) => a.localeCompare(b, 'en', { numeric: true })),
+            codes: codes.sort((a, b) =>
+                a.localeCompare(b, 'en', { numeric: true })
+            ),
         }))
         .sort((a, b) => a.category.localeCompare(b.category))
 }

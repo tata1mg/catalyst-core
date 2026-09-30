@@ -8,7 +8,7 @@
 
 import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import Split from "./Split.jsx"
 
 afterEach(() => {
@@ -24,7 +24,7 @@ describe("Split (server)", () => {
         const html = renderToStaticMarkup(
             <Split ssr cacheKey="pages/Widget" fallback={<span>fallback</span>}>
                 <p>real child</p>
-            </Split>,
+            </Split>
         )
 
         expect(addComponent).toHaveBeenCalledWith("pages/Widget")
@@ -35,7 +35,7 @@ describe("Split (server)", () => {
         const html = renderToStaticMarkup(
             <Split ssr cacheKey="pages/NoExtractor">
                 <p>child ok</p>
-            </Split>,
+            </Split>
         )
         expect(html).toContain("child ok")
     })
@@ -44,7 +44,7 @@ describe("Split (server)", () => {
         const html = renderToStaticMarkup(
             <Split ssr={false} cacheKey="pages/Deferred" fallback={<span>loading…</span>}>
                 <p>should not appear</p>
-            </Split>,
+            </Split>
         )
         expect(html).toBe("<div><span>loading…</span></div>")
         expect(html).not.toContain("should not appear")

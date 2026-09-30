@@ -7,9 +7,7 @@ import { configDefaults, defineConfig } from "vitest/config"
 // "node" project aliases it to a minimal fixture template under
 // test/server/fixtures/template so those modules can be tested at all.
 // Issue #348.
-const templateFixture = fileURLToPath(
-    new URL("./test/server/fixtures/template", import.meta.url),
-)
+const templateFixture = fileURLToPath(new URL("./test/server/fixtures/template", import.meta.url))
 
 // Two projects sharing this one config, kept in `projects` rather than a
 // separate vitest.workspace.ts so there's a single vitest.config.ts to
@@ -73,10 +71,7 @@ export default defineConfig({
                 test: {
                     name: "node",
                     environment: "node",
-                    include: [
-                        "test/**/*.test.ts",
-                        "src/web-router/**/*.server.test.{js,jsx}",
-                    ],
+                    include: ["test/**/*.test.ts", "src/web-router/**/*.server.test.{js,jsx}"],
                 },
             },
             {

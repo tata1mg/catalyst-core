@@ -41,7 +41,9 @@ async function main() {
         // line and break the box shape). Bypass it here and use plain
         // console.error instead, matching buildAppAndroid.js; progress.log
         // is unaffected everywhere else in this build.
-        console.error(formatBuildError({ code: "IOS-000", category: "IOS", upstreamName: "Xcode/CocoaPods", error }))
+        console.error(
+            formatBuildError({ code: "IOS-000", category: "IOS", upstreamName: "Xcode/CocoaPods", error })
+        )
         process.exit(1)
     }
     process.exit(0)

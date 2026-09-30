@@ -125,7 +125,7 @@ class BridgeCommandHandler {
         self.filePickerHandler = filePickerHandler
 
         commandLogger.debug("BridgeCommandHandler initialized")
-        commandLogger.debug("Notifications enabled: \(ConfigConstants.Notifications.enabled)")
+        commandLogger.debug("Notifications enabled: \(RuntimeConfig.notificationsEnabled)")
     }
 
     // Inject webView reference for commands that need direct WKWebView access
@@ -262,7 +262,7 @@ class BridgeCommandHandler {
 
     func googleSignIn(params: Any?) {
         #if canImport(GoogleSignIn)
-        guard ConfigConstants.GoogleSignIn.enabled else {
+        guard RuntimeConfig.googleSignInEnabled else {
             delegate?.sendErrorCallback(
                 eventName: "ON_GOOGLE_SIGN_IN_ERROR",
                 error: "Google Sign-In is disabled in config",
@@ -273,7 +273,7 @@ class BridgeCommandHandler {
 
         let options = GoogleSignInOptions.from(params: params)
 
-        let resolvedClientId = (options.clientId ?? ConfigConstants.GoogleSignIn.clientId)
+        let resolvedClientId = (options.clientId ?? RuntimeConfig.googleClientId)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !resolvedClientId.isEmpty else {
@@ -628,7 +628,7 @@ class BridgeCommandHandler {
     // TODO: replace json data parsing with file intent flow logic
     func requestNotificationPermission() {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Notification permission requested but notifications are disabled in config")
             delegate?.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: "DENIED")
             return
@@ -655,7 +655,7 @@ class BridgeCommandHandler {
 
     func checkNotificationPermissionStatus() {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Check notification permission status called but notifications are disabled in config")
             delegate?.sendStringCallback(eventName: "NOTIFICATION_PERMISSION_STATUS", data: "DENIED")
             return
@@ -680,7 +680,7 @@ class BridgeCommandHandler {
 
     func scheduleLocalNotification(_ configString: String?) {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Local notification requested but notifications are disabled in config")
             delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_SCHEDULED", data: [
                 "success": false,
@@ -759,7 +759,7 @@ class BridgeCommandHandler {
 
     func cancelLocalNotification(_ notificationId: String?) {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Cancel notification requested but notifications are disabled in config")
             delegate?.sendJSONCallback(eventName: "LOCAL_NOTIFICATION_CANCELLED", data: [
                 "notificationId": notificationId ?? "",
@@ -785,7 +785,7 @@ class BridgeCommandHandler {
 
     func registerForPushNotifications() {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Push notification registration requested but notifications are disabled in config")
             delegate?.sendJSONCallback(eventName: "PUSH_NOTIFICATION_TOKEN", data: [
                 "success": false,
@@ -824,7 +824,7 @@ class BridgeCommandHandler {
 
     func subscribeToTopic(_ configString: String?) {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Topic subscription requested but notifications are disabled in config")
             delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                 "success": false,
@@ -868,7 +868,7 @@ class BridgeCommandHandler {
 
     func unsubscribeFromTopic(_ configString: String?) {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Topic unsubscription requested but notifications are disabled in config")
             delegate?.sendJSONCallback(eventName: "TOPIC_SUBSCRIPTION_RESULT", data: [
                 "success": false,
@@ -912,7 +912,7 @@ class BridgeCommandHandler {
 
     func getSubscribedTopics() {
         // Check if notifications are enabled in config
-        guard ConfigConstants.Notifications.enabled else {
+        guard RuntimeConfig.notificationsEnabled else {
             commandLogger.warning("Get subscribed topics requested but notifications are disabled in config")
             delegate?.sendJSONCallback(eventName: "SUBSCRIBED_TOPICS_RESULT", data: [
                 "topics": [],
@@ -958,7 +958,7 @@ class BridgeCommandHandler {
         guard lastConfiguredGoogleClientId != clientId else { return }
         lastConfiguredGoogleClientId = clientId
 
-        let iosClientId = ConfigConstants.GoogleSignIn.iosClientId
+        let iosClientId = RuntimeConfig.googleIosClientId
         let serverClientId = clientId  // This is the Web Client ID
         let configClientId = !iosClientId.isEmpty ? iosClientId : serverClientId
 

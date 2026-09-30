@@ -40,13 +40,16 @@ describe("init() + handle_explain_error() — packaged path (dist/errors-index.j
         init()
     })
 
-    it.runIf(packagedIndexExists())("finds a known code via the packaged path and reports it as catalyst-owned", () => {
-        const result = handle_explain_error({ code: "PREFLIGHT-001" })
-        expect(result.is_catalyst_owned).toBe(true)
-        expect(result.category).toBe("PREFLIGHT")
-        expect(result.message).toBeTruthy()
-        expect(result.docUrl).toContain("PREFLIGHT-001.md")
-    })
+    it.runIf(packagedIndexExists())(
+        "finds a known code via the packaged path and reports it as catalyst-owned",
+        () => {
+            const result = handle_explain_error({ code: "PREFLIGHT-001" })
+            expect(result.is_catalyst_owned).toBe(true)
+            expect(result.category).toBe("PREFLIGHT")
+            expect(result.message).toBeTruthy()
+            expect(result.docUrl).toContain("PREFLIGHT-001.md")
+        }
+    )
 })
 
 describe("init() + handle_explain_error() — monorepo-root fallback (errors/index.json)", () => {

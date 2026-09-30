@@ -6,7 +6,9 @@ import cookieParser from "cookie-parser"
 import expressStaticGzip from "express-static-gzip"
 import { createServer as createViteServer } from "vite"
 import util from "node:util"
+import os from "node:os"
 import pc from "ansis"
+import qrcode from "qrcode-terminal"
 import fs from "fs"
 const { cyan, yellow, green } = pc
 
@@ -130,13 +132,72 @@ const __dirname = path.dirname(__filename)
 
 const isProduction = process.env.NODE_ENV === "production"
 
-function serveBuildFile(
-    app: any,
-    buildPath: string,
-    urlPath: string,
-    fileName: string,
-    headers: any = {}
-) {
+// ─── LAN address resolution for the Catalyst Companion QR code ────────────────
+
+// A host is usable for the QR only if a phone on the same network can reach it,
+// so loopback and link-local (169.254.*) addresses are rejected.
+function isExternalIPv4(address: string | null | undefined): boolean {
+    if (!address) return false
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(address)) return false
+    if (address.startsWith("127.") || address.startsWith("169.254.")) return false
+    return true
+}
+
+// Returns the LAN IPv4 to encode in the QR, or null when the machine has none.
+// Prefers an explicitly configured non-loopback hostname over interface scanning.
+export function resolveLanAddress(
+    hostname: string | undefined,
+    interfaces: NodeJS.Dict<os.NetworkInterfaceInfo[]> = os.networkInterfaces()
+): string | null {
+    if (isExternalIPv4(hostname)) return hostname
+
+    for (const details of Object.values(interfaces)) {
+        for (const net of details ?? []) {
+            // Node 18.0-18.3 reported family as a number (4/6), not "IPv4"/"IPv6".
+            const family = String(net.family)
+            if ((family !== "IPv4" && family !== "4") || net.internal) continue
+            if (isExternalIPv4(net.address)) return net.address
+        }
+    }
+
+    return null
+}
+
+// TTY-only by default so CI logs are not spammed with ASCII blocks.
+// CATALYST_QR=1 forces the QR on, CATALYST_QR=0 suppresses it even on a TTY.
+function shouldPrintQr(env = process.env, isTTY = process.stdout.isTTY): boolean {
+    if (env.CATALYST_QR === "0") return false
+    if (env.CATALYST_QR === "1") return true
+    return Boolean(isTTY)
+}
+
+const PREVIEW_CONFIG_SCHEMA = 1
+
+function readWebviewConfig(srcPath = process.env.src_path): Record<string, any> {
+    try {
+        const configPath = path.join(srcPath, "config", "config.json")
+        const { WEBVIEW_CONFIG } = JSON.parse(fs.readFileSync(configPath, "utf8"))
+        return WEBVIEW_CONFIG ?? {}
+    } catch {
+        return {}
+    }
+}
+
+export function buildPreviewConfig(webviewConfig: Record<string, any> = {}) {
+    const config = { ...webviewConfig }
+    delete config.android
+    delete config.ios
+    return { schema: PREVIEW_CONFIG_SCHEMA, config }
+}
+
+function servePreviewConfig(app: any) {
+    app.get("/__catalyst/preview-config", (_req: any, res: any) => {
+        res.set("Cache-Control", "no-store")
+        res.json(buildPreviewConfig(readWebviewConfig()))
+    })
+}
+
+function serveBuildFile(app: any, buildPath: string, urlPath: string, fileName: string, headers: any = {}) {
     app.get(urlPath, (_req: any, res: any, next: any) => {
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fileName is always a hardcoded literal passed at each serveBuildFile call site, never derived from the request.
         const filePath = path.join(buildPath, fileName)
@@ -159,6 +220,8 @@ async function createServer() {
 
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
+
+    if (!isProduction) servePreviewConfig(app)
 
     // All the middlewares defined by the user will run here.
     {
@@ -301,6 +364,22 @@ async function createServer() {
         console.log(
             util.format("\tLocal:".padEnd(8), cyan(`http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}`))
         )
+
+        // Print a scannable LAN URL so a phone running the Catalyst Companion
+        // app can reach this server. Silently skipped when there is no LAN.
+        const lanAddress = resolveLanAddress(NODE_SERVER_HOSTNAME)
+        if (lanAddress) {
+            const lanUrl = `http://${lanAddress}:${NODE_SERVER_PORT}`
+
+            if (lanAddress !== NODE_SERVER_HOSTNAME) {
+                console.log(util.format("\tNetwork:".padEnd(8), cyan(lanUrl)))
+            }
+
+            if (shouldPrintQr()) {
+                console.log("\nScan with Catalyst Companion to preview on your phone:")
+                qrcode.generate(lanUrl, { small: true }, (code) => console.log(code))
+            }
+        }
 
         if (process.env.NODE_ENV === "development") {
             console.log("\nNote that the development build is not optimized.")

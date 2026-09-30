@@ -144,7 +144,10 @@ const safeCallNamed = async (hookName, fn, ...args) => {
     try {
         return await fn(...args)
     } catch (e) {
-        const code = hookName === "preServerInit" ? ERROR_CODES.PROCESS_SERVER_INIT_FAILED : ERROR_CODES.PROCESS_USER_HOOK_FAILED
+        const code =
+            hookName === "preServerInit"
+                ? ERROR_CODES.PROCESS_SERVER_INIT_FAILED
+                : ERROR_CODES.PROCESS_USER_HOOK_FAILED
         const wrapped = createError(code, {
             details: `The "${hookName}" hook threw. See the cause below.`,
             cause: e,

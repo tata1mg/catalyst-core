@@ -1253,7 +1253,21 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-lint, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs:
+            [
+                detect-changes,
+                lint,
+                unit-and-contract-tests,
+                web-integration-smoke,
+                error-catalog,
+                android-lint,
+                android-unit-and-coverage,
+                catalyst-ai-android-compile,
+                catalyst-ai-android-integration,
+                ios-swiftlint,
+                ios-corelogic-and-coverage,
+                ios-app-simulator-tests,
+            ]
         if: always()
         runs-on: ubuntu-latest
         steps:

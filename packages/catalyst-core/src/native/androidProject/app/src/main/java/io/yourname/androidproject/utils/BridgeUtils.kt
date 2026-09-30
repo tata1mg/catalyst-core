@@ -16,6 +16,11 @@ object BridgeUtils {
 
     private const val TAG = "BridgeUtils"
 
+    // Native events may arrive before the web bridge initializes.
+    private fun webBridgeCallback(eventName: String, dataLiteral: String): String =
+        "window.WebBridge && typeof window.WebBridge.callback === 'function' && " +
+            "window.WebBridge.callback('$eventName', $dataLiteral)"
+
     // File size limits (from CatalystConstants)
     const val MAX_FILE_SIZE_BYTES = CatalystConstants.FileTransport.FRAMEWORK_SERVER_SIZE_LIMIT
     const val MAX_FILE_SIZE_MB = CatalystConstants.FileTransport.FRAMEWORK_SERVER_SIZE_LIMIT_MB
@@ -185,13 +190,13 @@ object BridgeUtils {
                     val safeData = data
                         .replace(" ", "\\u2028")
                         .replace(" ", "\\u2029")
-                    "window.WebBridge.callback('${event.eventName}', $safeData)"
+                    webBridgeCallback(event.eventName, safeData)
                 } else {
                     val quotedData = org.json.JSONObject.quote(data)
-                    "window.WebBridge.callback('${event.eventName}', $quotedData)"
+                    webBridgeCallback(event.eventName, quotedData)
                 }
             } else {
-                "window.WebBridge.callback('${event.eventName}', null)"
+                webBridgeCallback(event.eventName, "null")
             }
 
             webView.evaluateJavascript(jsCode, null)
@@ -246,7 +251,7 @@ object BridgeUtils {
             val safeJson = jsonData.toString()
                 .replace(" ", "\\u2028")
                 .replace(" ", "\\u2029")
-            val jsCode = "window.WebBridge.callback('${event.eventName}', $safeJson)"
+            val jsCode = webBridgeCallback(event.eventName, safeJson)
             webView.evaluateJavascript(jsCode, null)
             Log.d(TAG, "✅ Web JSON notification sent: ${event.eventName}")
         } catch (e: Exception) {

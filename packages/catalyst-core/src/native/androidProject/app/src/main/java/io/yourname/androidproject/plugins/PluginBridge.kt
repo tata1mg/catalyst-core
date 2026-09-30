@@ -233,8 +233,10 @@ class PluginBridgeContext(
         val commandLiteral = command?.takeIf { it.isNotBlank() }?.let(JSONObject::quote) ?: "null"
 
         webView.post {
+            // Native callbacks may arrive before the web bridge initializes.
             webView.evaluateJavascript(
-                "window.PluginBridgeWeb && window.PluginBridgeWeb.callback($pluginLiteral, $eventLiteral, $dataLiteral, $requestLiteral, $commandLiteral);",
+                "window.PluginBridgeWeb && typeof window.PluginBridgeWeb.callback === 'function' && " +
+                    "window.PluginBridgeWeb.callback($pluginLiteral, $eventLiteral, $dataLiteral, $requestLiteral, $commandLiteral);",
                 null
             )
         }

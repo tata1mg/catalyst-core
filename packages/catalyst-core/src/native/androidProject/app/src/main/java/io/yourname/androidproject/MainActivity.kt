@@ -37,6 +37,17 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         private const val PREF_SAFE_AREA_BOTTOM = "safe_area_bottom"
         private const val PREF_SAFE_AREA_LEFT = "safe_area_left"
         private const val PREF_SAFE_AREA_CACHED = "safe_area_cached"
+
+        private data class RuntimeConfigSession(
+            val properties: Map<String, String>,
+            val targetUrl: String,
+            val onActivityReady: (MainActivity) -> Unit
+        )
+
+        @Volatile
+        private var runtimeConfigSession: RuntimeConfigSession? = null
+        @Volatile
+        private var skipWebViewRestore = false
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -50,6 +61,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var currentUrl: String = ""
     private var edgeToEdgeEnabled = false
     private var latestSafeAreaInsets: SafeAreaInsets = SafeAreaInsets.ZERO
+    private var backPressInterceptor: (() -> Boolean)? = null
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -144,6 +156,40 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     // Public method for NativeBridge to get current safe area insets
     fun getCurrentSafeAreaInsets(): SafeAreaInsets = latestSafeAreaInsets
+
+    fun loadUrlThroughWebView(url: String) {
+        customWebView.updateLastTargetUrl(url)
+        loadUrlWithSafeArea(url)
+    }
+
+    fun replaceUrlThroughWebView(url: String, onReplaced: () -> Unit = {}) {
+        customWebView.resetHistoryAfterNextPage(url, onReplaced)
+        loadUrlThroughWebView(url)
+    }
+
+    fun setBackPressInterceptor(interceptor: (() -> Boolean)?) {
+        backPressInterceptor = interceptor
+    }
+
+    fun restartWithRuntimeConfig(
+        values: Map<String, String>,
+        targetUrl: String,
+        onActivityReady: (MainActivity) -> Unit
+    ) {
+        runtimeConfigSession = RuntimeConfigSession(values, targetUrl, onActivityReady)
+        skipWebViewRestore = true
+        recreate()
+    }
+
+    fun clearRuntimeConfig() {
+        runtimeConfigSession = null
+        skipWebViewRestore = true
+        recreate()
+    }
+
+    fun abandonRuntimeConfig() {
+        runtimeConfigSession = null
+    }
 
     fun clearWebCache() {
         customWebView.clearAllCache()
@@ -274,6 +320,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.setProperty("buildType", if (BuildConfig.DEBUG) "debug" else "release")
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
         }
+        runtimeConfigSession?.properties?.forEach { (key, value) ->
+            properties.setProperty(key, value)
+        }
         io.yourname.androidproject.utils.PerfEventBuffer.configure(
             properties.getProperty("profiler.enabled", "false").toBoolean()
         )
@@ -326,7 +375,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         )
 
         // Handle state restoration
-        if (savedInstanceState == null) {
+        if (savedInstanceState == null || skipWebViewRestore || runtimeConfigSession != null) {
             customWebView.clearCache()
         } else {
             try {
@@ -366,6 +415,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         // Setup back press handler (modern API)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (backPressInterceptor?.invoke() == true) {
+                    return
+                }
                 if (customWebView.canGoBack()) {
                     if (BuildConfig.DEBUG) {
                         BridgeUtils.emitPerfEvent(customWebView.getWebView(), org.json.JSONObject().apply {
@@ -381,6 +433,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 }
             }
         })
+
+        runtimeConfigSession?.onActivityReady?.invoke(this)
         
         // Load URL based on environment and deep link data
         try {
@@ -390,7 +444,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 val port = properties.getProperty("port", "3005")
                 val useHttps = properties.getProperty("useHttps", "false").toBoolean()
                 val protocol = if (useHttps) "https" else "http"
-                currentUrl = "$protocol://$local_ip:$port/$initial_url"
+                currentUrl = runtimeConfigSession?.targetUrl
+                    ?: "$protocol://$local_ip:$port/$initial_url"
                 customWebView.updateLastTargetUrl(currentUrl)
             
 
@@ -417,6 +472,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             // Fallback to local asset as a last resort
             // customWebView.loadUrl("file:///android_asset/build/public/error.html")
         }
+        skipWebViewRestore = false
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -435,7 +491,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         try {
-            customWebView.saveState(outState)
+            if (runtimeConfigSession == null && !skipWebViewRestore) {
+                customWebView.saveState(outState)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save WebView state: ${e.message}")
         }

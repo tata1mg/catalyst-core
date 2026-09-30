@@ -220,7 +220,7 @@ describe("SSR handler — critical asset collection", () => {
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         const { req, res } = makeReqRes(
             "/",
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         )
 
         await handler(req, res)
@@ -260,7 +260,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         const deferredStyleIdx = html.indexOf("<style>.widget{color:blue}</style>")
         expect(deferredStyleIdx).toBeGreaterThan(htmlEnd)
         expect(html).toContain(
-            '<script type="module" src="http://localhost/assets/widget.def456.js"></script>',
+            '<script type="module" src="http://localhost/assets/widget.def456.js"></script>'
         )
         expect(html.indexOf('src="http://localhost/assets/widget.def456.js"')).toBeGreaterThan(htmlEnd)
     })
@@ -277,7 +277,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         await first.res.waitForEnd()
         const firstHtml = first.res.getHtml()
         expect(firstHtml.indexOf("<style>.widget{color:blue}</style>")).toBeGreaterThan(
-            firstHtml.indexOf("</html>"),
+            firstHtml.indexOf("</html>")
         )
 
         // Second visit — same route key. getCachedDeferredCssPathsForRoute
@@ -300,7 +300,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         // Warm-cache modulepreload for the deferred JS learned last visit
         // (getDeferredPreloadScriptUrls -> deferredPreloadLinks, Head.jsx:33).
         const preloadIdx = secondHtml.indexOf(
-            '<link rel="modulepreload" href="http://localhost/assets/widget.def456.js"',
+            '<link rel="modulepreload" href="http://localhost/assets/widget.def456.js"'
         )
         expect(preloadIdx).toBeGreaterThan(-1)
         expect(preloadIdx).toBeLessThan(headEnd)
@@ -313,7 +313,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         const { req, res } = makeReqRes(
             "/widget",
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         )
 
         await handler(req, res)

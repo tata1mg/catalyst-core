@@ -41,7 +41,11 @@ const ErrorsUnavailable = ({ code, category, reason, onRetry }) => (
             .
         </p>
         {onRetry && (
-            <button type="button" className="errors-offline-retry" onClick={onRetry}>
+            <button
+                type="button"
+                className="errors-offline-retry"
+                onClick={onRetry}
+            >
                 Retry
             </button>
         )}
