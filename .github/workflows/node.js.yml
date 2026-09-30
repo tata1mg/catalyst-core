@@ -568,7 +568,10 @@ jobs:
                   path: coverage-baseline-android.json
                   key: coverage-baseline-android-v1
 
+            # always(): the report is most needed when the regression gate
+            # above fails, to see exactly which lines changed.
             - name: Upload Jacoco coverage report
+              if: always()
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
                   name: android-jacoco-report
