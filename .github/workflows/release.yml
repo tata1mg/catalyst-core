@@ -1,19 +1,34 @@
 # How to release.
 #
 # latest:
-#   1. Dispatch this workflow from main with channel=latest and the version to release.
+#   1. Dispatch this workflow from main with channel=latest and the version to release
+#      (include_ai + ai_version to ship catalyst-ai too).
 #   2. It opens a release/<version> PR that carries the version bumps.
 #   3. Merging that PR pushes packages/*/package.json to main, which runs publish.
+#      guard only lets it through when the commit came from a release/* branch of this
+#      repo. Other pushes touching those files (dependency bumps) end green with a notice.
 #
 # beta / canary:
 #   Dispatch from main with the channel and source_ref set to the branch you want
 #   released. The prerelease number is picked from npm and written into the
 #   checkout only; nothing is committed and no PR is opened.
 #
+# Release notes cover the commits since the previous catalyst-core release on the same
+# channel or stable (its npm gitHead). Without one they fall back to a single PR: the
+# merged release PR on latest, pr_number on beta/canary. Prerelease notes only run
+# when pr_number is given.
+#
+# If publish fails part way, use "Re-run failed jobs": packages already on npm are
+# skipped, the tag is pushed right after each publish, and notes still run.
+#
+# publish runs in the "release" concurrency group, so releases never overlap. A newer
+# run can still replace an older one that is waiting for the group.
+#
 # The workflow definition always comes from main; source_ref only selects the code.
 # The release PR is opened with github.token, so pull_request CI does not run on it
 # (it carries version bumps and the lockfile, nothing else).
-# Versions are always given as X.Y.Z; beta and canary append -<channel>.N themselves.
+# Versions are always given as X.Y.Z; beta and canary append -<channel>.N themselves,
+# picked from npm. dry_run publishes, tags and opens nothing.
 
 name: Release
 
@@ -21,7 +36,7 @@ on:
     workflow_dispatch:
         inputs:
             channel:
-                description: "Release channel"
+                description: "Channel"
                 required: true
                 type: choice
                 options:
@@ -29,35 +44,35 @@ on:
                     - beta
                     - canary
                 default: beta
+            version:
+                description: "Version (X.Y.Z, no suffix)"
+                required: true
+                type: string
             source_ref:
-                description: "Branch to release for beta/canary, ignored for latest"
+                description: "Branch (beta/canary only)"
                 required: false
                 type: string
                 default: main
-            version:
-                description: "X.Y.Z for catalyst-core and create-catalyst-app. beta/canary append -<channel>.N, picked from npm"
-                required: true
-                type: string
-            ai_version:
-                description: "X.Y.Z for catalyst-ai, required when include_ai is set"
-                required: false
-                type: string
-                default: ""
-            include_ai:
-                description: "Also release catalyst-ai"
-                required: false
-                type: boolean
-                default: false
-            pr_number:
-                description: "PR to attribute release notes to; on latest it is taken from the merged release PR"
-                required: false
-                type: string
-                default: ""
             dry_run:
-                description: "Dry run"
+                description: "Dry run (publish nothing)"
                 required: false
                 type: boolean
                 default: false
+            include_ai:
+                description: "Include catalyst-ai"
+                required: false
+                type: boolean
+                default: false
+            ai_version:
+                description: "catalyst-ai version (X.Y.Z)"
+                required: false
+                type: string
+                default: ""
+            pr_number:
+                description: "Release notes PR (beta/canary only)"
+                required: false
+                type: string
+                default: ""
     push:
         branches:
             - main
@@ -68,10 +83,6 @@ permissions:
     contents: write
     pull-requests: write
     id-token: write
-
-concurrency:
-    group: release
-    cancel-in-progress: false
 
 jobs:
     prepare:
@@ -136,47 +147,84 @@ jobs:
                   git commit -am "chore: release $SUMMARY"
                   git push origin "$BRANCH"
 
-                  gh pr create --base main --head "$BRANCH" \
+                  PR_URL=$(gh pr create --base main --head "$BRANCH" \
                     --title "chore: release $SUMMARY" \
-                    --body "$BODY"
+                    --body "$BODY")
+                  echo "$PR_URL"
+                  echo "Release PR: $PR_URL" >> "$GITHUB_STEP_SUMMARY"
 
     # runs before the npm environment is entered, so a stray push cannot reach it
     guard:
         if: github.event_name == 'push'
         runs-on: ubuntu-latest
         outputs:
-            pr_number: ${{ steps.pr.outputs.number }}
+            release: ${{ steps.pr.outputs.release }}
+            pr_number: ${{ steps.pr.outputs.pr_number }}
         steps:
             - name: Require a release/* PR
               id: pr
               env:
                   GH_TOKEN: ${{ github.token }}
+                  COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
               run: |
-                  read -r HEAD_REF PR_NUMBER < <(gh api \
-                    "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
-                    --jq 'if length > 0 then "\(.[0].head.ref) \(.[0].number)" else "none none" end' \
-                    2>/dev/null || echo "none none")
+                  # merged PR into main that carries this commit: "<head ref> <number> <head repo>"
+                  FILTER='[.[] | select(.merged_at != null and .base.ref == "main")] | first // empty
+                    | "\(.head.ref) \(.number) \(.head.repo.full_name // "")"'
+
+                  # the commit -> PR link can lag right after a merge
+                  for ATTEMPT in 1 2 3 4; do
+                    if ! PR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq "$FILTER"); then
+                      echo "::error::could not list pull requests for $GITHUB_SHA"
+                      exit 1
+                    fi
+                    if [ -n "$PR" ] || [ "$ATTEMPT" = 4 ]; then
+                      break
+                    fi
+                    sleep 10
+                  done
+
+                  if [ -z "$PR" ]; then
+                    case "$COMMIT_MESSAGE" in
+                      "chore: release "*)
+                        echo "::error::$GITHUB_SHA looks like a release commit but no merged release PR was found"
+                        exit 1
+                        ;;
+                    esac
+                    echo "::notice::$GITHUB_SHA did not come from a merged PR into main, nothing is published"
+                    echo "release=false" >> "$GITHUB_OUTPUT"
+                    exit 0
+                  fi
+
+                  read -r HEAD_REF PR_NUMBER HEAD_REPO <<< "$PR"
 
                   case "$HEAD_REF" in
-                    release/*) ;;
-                    *)
-                      echo "::error::push to main did not come from a release/* PR (head: $HEAD_REF)"
-                      exit 1
+                    release/*)
+                      if [ "$HEAD_REPO" = "$GITHUB_REPOSITORY" ]; then
+                        echo "release=true" >> "$GITHUB_OUTPUT"
+                        echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+                        exit 0
+                      fi
                       ;;
                   esac
 
-                  echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+                  echo "::notice::PR #$PR_NUMBER ($HEAD_REPO:$HEAD_REF) is not a release PR, nothing is published"
+                  echo "release=false" >> "$GITHUB_OUTPUT"
 
     publish:
         needs: guard
-        if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && inputs.channel != 'latest') || needs.guard.result == 'success') }}
+        if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && inputs.channel != 'latest') || (needs.guard.result == 'success' && needs.guard.outputs.release == 'true')) }}
         runs-on: ubuntu-latest
         environment: npm
+        concurrency:
+            group: release
+            cancel-in-progress: false
         outputs:
             core_version: ${{ steps.release.outputs.core_version }}
             core_published: ${{ steps.release.outputs.core_published }}
             published: ${{ steps.release.outputs.published }}
             sha: ${{ steps.release.outputs.sha }}
+            previous_version: ${{ steps.release.outputs.previous_version }}
+            previous_sha: ${{ steps.release.outputs.previous_sha }}
             pr_number: ${{ needs.guard.outputs.pr_number }}
         steps:
             - name: Require main
@@ -215,14 +263,19 @@ jobs:
                     ${{ github.event_name == 'workflow_dispatch' && inputs.include_ai && '--include-ai' || '' }} \
                     ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
 
+            - name: Explain re-run
+              if: failure()
+              run: |
+                  echo "Re-run failed jobs to finish: packages already on npm are skipped." >> "$GITHUB_STEP_SUMMARY"
+
+    # on push, a re-run where core is already on npm publishes nothing but still sends notes
     notes:
         needs: publish
-        if: >-
-            needs.publish.outputs.core_published == 'true' &&
-            (needs.publish.outputs.pr_number != '' || inputs.pr_number != '')
+        if: ${{ !cancelled() && needs.publish.result == 'success' && (github.event_name == 'push' || needs.publish.outputs.core_published == 'true') && (needs.publish.outputs.pr_number != '' || inputs.pr_number != '') }}
         uses: ./.github/workflows/release-automation.yml
         with:
             version: ${{ needs.publish.outputs.core_version }}
             npm_tag: ${{ github.event_name == 'push' && 'latest' || inputs.channel }}
             pr_number: ${{ needs.publish.outputs.pr_number || inputs.pr_number }}
             commit_sha: ${{ needs.publish.outputs.sha }}
+            previous_sha: ${{ needs.publish.outputs.previous_sha }}
