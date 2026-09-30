@@ -112,9 +112,11 @@ jobs:
               env:
                   VERSION: ${{ inputs.version }}
                   AI_VERSION: ${{ inputs.ai_version }}
+                  INCLUDE_AI: ${{ inputs.include_ai && '--include-ai' || '' }}
               run: |
+                  # INCLUDE_AI is intentionally unquoted: empty means no argument
                   node scripts/release/release.js version --version "$VERSION" \
-                    ${{ inputs.include_ai && '--include-ai' || '' }} \
+                    $INCLUDE_AI \
                     ${AI_VERSION:+--ai-version "$AI_VERSION"}
 
             - name: Open release PR
@@ -256,12 +258,16 @@ jobs:
               env:
                   VERSION: ${{ inputs.version }}
                   AI_VERSION: ${{ inputs.ai_version }}
+                  CHANNEL: ${{ github.event_name == 'push' && 'latest' || inputs.channel }}
+                  INCLUDE_AI: ${{ github.event_name == 'workflow_dispatch' && inputs.include_ai && '--include-ai' || '' }}
+                  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
               run: |
+                  # INCLUDE_AI and DRY_RUN are intentionally unquoted: empty means no argument
                   node scripts/release/release.js publish \
                     ${VERSION:+--version "$VERSION"} ${AI_VERSION:+--ai-version "$AI_VERSION"} \
-                    --channel "${{ github.event_name == 'push' && 'latest' || inputs.channel }}" \
-                    ${{ github.event_name == 'workflow_dispatch' && inputs.include_ai && '--include-ai' || '' }} \
-                    ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
+                    --channel "$CHANNEL" \
+                    $INCLUDE_AI \
+                    $DRY_RUN
 
             - name: Explain re-run
               if: failure()

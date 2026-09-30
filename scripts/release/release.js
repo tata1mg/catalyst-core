@@ -162,14 +162,29 @@ function commandVersion(args) {
     })
 }
 
-// next prerelease number for `<base>-<channel>.N`, starting at 1
-function highestPrereleaseNumber(packageName, base, channel) {
-    const pattern = new RegExp(`^${base.replace(/\./g, "\\.")}-${channel}\\.(\\d+)$`)
-    const numbers = publishedVersions(packageName)
+/**
+ * Escapes regex metacharacters so `text` matches literally when interpolated into a
+ * RegExp. Used for `base` and `channel`, which come from workflow inputs and must
+ * never be interpreted as pattern syntax (semgrep detect-non-literal-regexp).
+ */
+function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+// highest `N` among `versions` shaped exactly `<base>-<channel>.N`, or 0 if none.
+// Pure (takes the published version list) so it can be tested without `npm view`.
+function highestPrereleaseNumberIn(versions, base, channel) {
+    const pattern = new RegExp(`^${escapeRegExp(base)}-${escapeRegExp(channel)}\\.(\\d+)$`)
+    const numbers = versions
         .map((version) => version.match(pattern))
         .filter(Boolean)
         .map((match) => Number(match[1]))
     return numbers.length > 0 ? Math.max(...numbers) : 0
+}
+
+// next prerelease number for `<base>-<channel>.N`, starting at 1
+function highestPrereleaseNumber(packageName, base, channel) {
+    return highestPrereleaseNumberIn(publishedVersions(packageName), base, channel)
 }
 
 /**
@@ -370,7 +385,7 @@ function commandPublish(args) {
     })
 }
 
-module.exports = { resolvePrereleaseNumber, previousRelease }
+module.exports = { resolvePrereleaseNumber, previousRelease, escapeRegExp, highestPrereleaseNumberIn }
 
 if (require.main === module) {
     const [subcommand, ...rest] = process.argv.slice(2)

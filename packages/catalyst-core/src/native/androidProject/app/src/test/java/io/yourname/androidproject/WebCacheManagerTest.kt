@@ -209,4 +209,30 @@ class WebCacheManagerTest {
         val manager = WebCacheManager(context)
         manager.cleanup()
     }
+
+    /**
+     * cleanup() wraps its work in withContext(Dispatchers.IO). When the caller is
+     * already on Dispatchers.IO the call completes inline without suspending, which
+     * is a distinct code path (the final `return Unit`). The tests above call from a
+     * test dispatcher, which always suspends, so that path only ran in CI when some
+     * other test happened to call from an IO thread, moving the coverage number by
+     * one line between runs. Calling from IO explicitly makes it deterministic.
+     */
+    @Test
+    fun `cleanup called from an IO dispatcher completes without suspending`() = kotlinx.coroutines.runBlocking {
+        val manager = WebCacheManager(context)
+        val webviewCacheDir = File(cacheDir, "webview_cache")
+        val freshFile = File(webviewCacheDir, "fresh-entry")
+        freshFile.writeText("fresh")
+        val expiredFile = File(webviewCacheDir, "expired-entry")
+        expiredFile.writeText("expired")
+        expiredFile.setLastModified(System.currentTimeMillis() - java.util.concurrent.TimeUnit.HOURS.toMillis(26))
+
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            manager.cleanup()
+        }
+
+        assertTrue("Fresh file should survive cleanup", freshFile.exists())
+        assertFalse("Expired file should be deleted by cleanup", expiredFile.exists())
+    }
 }

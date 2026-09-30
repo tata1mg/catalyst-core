@@ -33,7 +33,7 @@ final class NetworkMonitorTests: XCTestCase {
     /// Waits for a real NWPath from a fresh, short-lived monitor. Not the
     /// shared NetworkMonitor singleton — an independent NWPathMonitor so
     /// this test doesn't depend on NetworkMonitor's internal state/timing.
-    private func waitForRealPath(timeout: TimeInterval = 5) -> NWPath? {
+    private func waitForRealPath(timeout: TimeInterval = 30) -> NWPath? {
         let monitor = NWPathMonitor()
         let expectation = self.expectation(description: "NWPathMonitor delivered a path")
         var capturedPath: NWPath?
@@ -49,10 +49,21 @@ final class NetworkMonitorTests: XCTestCase {
         return capturedPath
     }
 
-    func testMapPathToStatus_RealPathProducesConsistentIsOnline() throws {
-        guard let path = waitForRealPath() else {
-            throw XCTSkip("No NWPath delivered within timeout — cannot exercise mapPathToStatus without a live path")
+    /// Returns a live path. The wait ends as soon as one arrives, so the generous
+    /// timeout only matters on a starved runner. If none arrives: on CI (`CI` set)
+    /// the test fails, since a silent skip would drop NetworkMonitor coverage and
+    /// make the coverage baseline non-deterministic; elsewhere it skips.
+    private func requireRealPath() throws -> NWPath {
+        if let path = waitForRealPath() { return path }
+        let message = "No NWPath delivered within timeout — cannot exercise mapPathToStatus without a live path"
+        if ProcessInfo.processInfo.environment["CI"] != nil {
+            throw NSError(domain: "NetworkMonitorTests", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
         }
+        throw XCTSkip(message)
+    }
+
+    func testMapPathToStatus_RealPathProducesConsistentIsOnline() throws {
+        let path = try requireRealPath()
 
         let status = NetworkMonitor.mapPathToStatus(path)
 
@@ -61,9 +72,7 @@ final class NetworkMonitorTests: XCTestCase {
     }
 
     func testMapPathToStatus_RealPathTypeMatchesActualInterface() throws {
-        guard let path = waitForRealPath() else {
-            throw XCTSkip("No NWPath delivered within timeout — cannot exercise mapPathToStatus without a live path")
-        }
+        let path = try requireRealPath()
 
         let status = NetworkMonitor.mapPathToStatus(path)
 
@@ -86,9 +95,7 @@ final class NetworkMonitorTests: XCTestCase {
     }
 
     func testMapPathToStatus_IsPureAndDeterministicForSamePath() throws {
-        guard let path = waitForRealPath() else {
-            throw XCTSkip("No NWPath delivered within timeout — cannot exercise mapPathToStatus without a live path")
-        }
+        let path = try requireRealPath()
 
         let first = NetworkMonitor.mapPathToStatus(path)
         let second = NetworkMonitor.mapPathToStatus(path)
