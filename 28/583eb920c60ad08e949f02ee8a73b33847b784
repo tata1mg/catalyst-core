@@ -1,0 +1,21 @@
+packages/catalyst-ai/src/route.js
+  s_c7fe34a005da55::t_dd48b8fd35aee0 591
+packages/catalyst-core/src/server/expressServer.ts
+  s_c7fe34a005da55::t_d4da0d512b085d 145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "28583eb920c60ad08e949f02ee8a73b33847b784",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
