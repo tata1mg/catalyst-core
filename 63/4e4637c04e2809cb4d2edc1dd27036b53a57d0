@@ -1,0 +1,23 @@
+.github/workflows/release.yml
+  s_c7fe34a005da55::t_e4f283e65b1373 115,117,119,261-263,265,268-270
+docs/package-lock.json
+  s_c7fe34a005da55::t_c87acce6485212 2384-2386,6854-6856
+package-lock.json
+  s_c7fe34a005da55::t_91b89282288f64 5900-5902,5913,5938-5953,5955-5957,8115-8117,9632-9634,10715-10717,13285-13287
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "634e4637c04e2809cb4d2edc1dd27036b53a57d0",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
