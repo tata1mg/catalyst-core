@@ -164,7 +164,8 @@ function commandVersion(args) {
 
 // next prerelease number for `<base>-<channel>.N`, starting at 1
 function highestPrereleaseNumber(packageName, base, channel) {
-    const pattern = new RegExp(`^${base.replace(/\./g, "\\.")}-${channel}\\.(\\d+)$`)
+    const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const pattern = new RegExp(`^${escape(base)}-${escape(channel)}\\.(\\d+)$`)
     const numbers = publishedVersions(packageName)
         .map((version) => version.match(pattern))
         .filter(Boolean)
