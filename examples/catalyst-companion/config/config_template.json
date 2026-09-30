@@ -1,21 +1,11 @@
 {
-    "NODE_SERVER_HOSTNAME": "localhost",
-    "NODE_SERVER_PORT": 3005,
-    "WEBPACK_DEV_SERVER_HOSTNAME": "localhost",
-    "WEBPACK_DEV_SERVER_PORT": 3006,
     "BUILD_OUTPUT_PATH": "build",
-    "PUBLIC_STATIC_ASSET_PATH": "/assets/",
-    "PUBLIC_STATIC_ASSET_URL": "http://localhost:3005",
-    "API_URL": "",
-    "ANALYZE_BUNDLE": false,
-    "DOCS_URL": "",
-    "CLIENT_ENV_VARIABLES": ["API_URL", "DOCS_URL"],
     "WEBVIEW_CONFIG": {
-        "LOCAL_IP": "localhost",
-        "port": "3005",
+        "LOCAL_IP": "catalyst.1mg.com",
+        "port": "443",
         "initial_url": "app",
         "appInfo": "",
-        "useHttps": false,
+        "useHttps": true,
         "profiler": {
             "enabled": false
         },
@@ -23,7 +13,7 @@
             "enabled": false
         },
         "edgeToEdge": {
-            "enabled": false
+            "enabled": true
         },
         "plugins": {
             "companion": true

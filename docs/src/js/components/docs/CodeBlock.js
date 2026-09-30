@@ -4,7 +4,7 @@ import { Highlight } from 'prism-react-renderer'
 /**
  * Fenced code block renderer. Tokens are emitted with classNames only — the
  * palette (github light / dracula dark, matching the Docusaurus site) lives in
- * hub.scss under [data-theme] scopes. Inline theme styles would bake one
+ * docs.scss under [data-theme] scopes. Inline theme styles would bake one
  * theme's colors into the SSR HTML and flash on hydration for users of the
  * other theme.
  */

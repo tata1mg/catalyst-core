@@ -1,7 +1,9 @@
 package io.yourname.androidproject.plugins.internal.companion
 
+import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -18,6 +20,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
@@ -37,6 +40,7 @@ class CompanionPlugin : CatalystPlugin {
     companion object {
         private const val TAG = "CompanionPlugin"
         private const val OPEN = "openPreview"
+        private const val SET_APPEARANCE = "setAppearance"
         private const val OPENED = "onPreviewOpened"
         private const val ERROR = "onPreviewError"
         private const val CANCELLED = "PREVIEW_CANCELLED"
@@ -62,6 +66,10 @@ class CompanionPlugin : CatalystPlugin {
     }
 
     override fun handle(command: String, data: JSONObject?, bridge: PluginBridgeContext) {
+        if (command == SET_APPEARANCE) {
+            applyAppearance(bridge, data?.optString("theme"))
+            return
+        }
         if (command != OPEN) {
             sendError(bridge, "Unsupported command: $command", "UNSUPPORTED_COMMAND")
             return
@@ -230,6 +238,9 @@ class CompanionPlugin : CatalystPlugin {
             }
             previewUrl = url
             bridge.callback(OPENED, JSONObject().put("url", url))
+            // The hub's setAppearance override must not leak into the preview;
+            // the hub re-sends its theme when it reloads after exit.
+            resetAppearance(host)
             host.restartWithRuntimeConfig(
                 properties,
                 url,
@@ -475,6 +486,28 @@ class CompanionPlugin : CatalystPlugin {
             value.toFloat(),
             context.resources.displayMetrics
         ).toInt()
+
+    // Keeps the system bar icons readable on the page theme. The app draws
+    // edge to edge, so the bars sit on the page's own background: dark pages
+    // need light icons and vice versa.
+    private fun applyAppearance(bridge: PluginBridgeContext, theme: String?) {
+        if (theme != "dark" && theme != "light") return
+        val activity = bridge.activity
+        activity.runOnUiThread { setLightBars(activity, theme == "light") }
+    }
+
+    // Back to what the system night mode implies: light bars (dark icons)
+    // unless the device is in night mode.
+    private fun resetAppearance(activity: Activity) {
+        val nightMode = activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        setLightBars(activity, nightMode != Configuration.UI_MODE_NIGHT_YES)
+    }
+
+    private fun setLightBars(activity: Activity, lightBars: Boolean) {
+        val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        controller.isAppearanceLightStatusBars = lightBars
+        controller.isAppearanceLightNavigationBars = lightBars
+    }
 
     private fun sendError(bridge: PluginBridgeContext, message: String, code: String) {
         bridge.callback(ERROR, JSONObject().put("message", message).put("code", code))

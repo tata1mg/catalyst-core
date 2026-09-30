@@ -60,6 +60,11 @@ public struct WebView: UIViewRepresentable, Equatable {
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
+        // Match mobile Safari: honor playsinline instead of forcing fullscreen,
+        // and let muted video autoplay. Media with sound still needs a tap.
+        configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = .audio
+
         #if DEBUG
         if RuntimeConfig.profilerEnabled {
             configuration.userContentController.addUserScript(
@@ -91,6 +96,12 @@ public struct WebView: UIViewRepresentable, Equatable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
+        // Edge-to-edge pages lay out under the system bars and pad themselves
+        // from the insets the bridge reports, so the scroll view must not inset
+        // them a second time. Android draws under the bars the same way.
+        if viewModel.edgeToEdgeEnabled {
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
+        }
 
         // Add our pinch recognizer to route camera zoom when streaming.
         // Web page zoom is disabled via user-scalable=no in the viewport meta tag.

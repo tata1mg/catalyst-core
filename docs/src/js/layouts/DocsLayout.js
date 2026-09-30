@@ -3,7 +3,9 @@ import { Outlet } from 'catalyst-core'
 import { ThemeProvider } from '../components/docs/ThemeContext'
 import DocumentBootstrap from '../components/DocumentBootstrap'
 import Navbar from '../components/Navbar'
+import BottomNav from '../components/BottomNav'
 import ScrollReset from '../components/ScrollReset'
+import ShellSync from '../components/ShellSync'
 
 /**
  * Site chrome. The docs grid itself (sidebar, article, TOC) belongs to
@@ -17,6 +19,8 @@ const DocsLayout = () => (
         <div className="docs-site">
             <Navbar />
             <Outlet />
+            <BottomNav />
+            <ShellSync />
         </div>
     </ThemeProvider>
 )

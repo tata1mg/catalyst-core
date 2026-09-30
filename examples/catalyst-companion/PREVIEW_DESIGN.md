@@ -30,7 +30,7 @@ MainActivity
    → reads webview_config.properties (assets/, baked at build time)
    → loads currentUrl
         ↓
-   client/index.js → WebBridge.init()
+   page's client entry → WebBridge.init()
         ↓
    window.NativeBridge / window.PluginBridge callable from JS
 ```
@@ -195,7 +195,7 @@ Same native-vs-web split as phasing above.
   no new shell system needed.
 - `/app` stays the top-level companion-home route with its own chrome,
   separate from the docs navbar, per the existing route table
-  (`src/js/routes/index.js`).
+  (`docs/src/js/routes/index.js`).
 
 ## Critical decisions
 

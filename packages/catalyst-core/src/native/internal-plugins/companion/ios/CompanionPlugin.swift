@@ -7,8 +7,43 @@ public final class CompanionPlugin: CatalystPlugin {
 
     public func handle(command: String, data: Any?, bridge: PluginBridgeContext) {
         Task { @MainActor in
+            if command == CompanionAppearance.command {
+                CompanionAppearance.apply(data, bridge: bridge)
+                return
+            }
             CompanionPreviewSession.shared.handle(command: command, data: data, bridge: bridge)
         }
+    }
+}
+
+/// Keeps native chrome in step with the page theme. The app draws edge to edge,
+/// so the status bar sits on the page's own background; with the default style
+/// following the system appearance, a dark page on a light-mode phone would get
+/// dark icons. Overriding the window's style flips the status bar icons and
+/// also the plugin's native sheets and alerts.
+@MainActor
+private enum CompanionAppearance {
+    static let command = "setAppearance"
+
+    static func apply(_ data: Any?, bridge: PluginBridgeContext) {
+        guard let theme = (data as? [String: Any])?["theme"] as? String,
+              let window = bridge.viewController?.view.window ?? bridge.webView?.window else {
+            return
+        }
+        switch theme {
+        case "dark": window.overrideUserInterfaceStyle = .dark
+        case "light": window.overrideUserInterfaceStyle = .light
+        default: window.overrideUserInterfaceStyle = .unspecified
+        }
+    }
+
+    /// Hands appearance back to the system so the hub's override does not
+    /// leak into a preview. The hub re-sends its theme when it reloads.
+    static func reset(bridge: PluginBridgeContext) {
+        guard let window = bridge.viewController?.view.window ?? bridge.webView?.window else {
+            return
+        }
+        window.overrideUserInterfaceStyle = .unspecified
     }
 }
 
@@ -211,6 +246,7 @@ private final class CompanionPreviewSession {
             return
         }
         bridge.callback(eventName: openedEvent, data: ["url": url.absoluteString])
+        CompanionAppearance.reset(bridge: bridge)
         DispatchQueue.main.async {
             model.replaceWebView(url: url.absoluteString, edgeToEdgeEnabled: edgeToEdgeEnabled)
         }

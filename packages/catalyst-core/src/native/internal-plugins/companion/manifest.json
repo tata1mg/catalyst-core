@@ -6,7 +6,7 @@
     "description": "Loads confirmed Catalyst app URLs in Companion with session-scoped config and native exit controls.",
     "category": "developer",
     "platforms": ["android", "ios"],
-    "commands": ["openPreview"],
+    "commands": ["openPreview", "setAppearance"],
     "android": {
         "className": "io.yourname.androidproject.plugins.internal.companion.CompanionPlugin",
         "allowCleartext": true,
