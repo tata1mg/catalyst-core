@@ -2,6 +2,13 @@ import XCTest
 import Foundation
 @testable import CatalystCoreLogic
 
+/// Thrown on CI when the loopback server never becomes reachable, so the test
+/// fails instead of silently skipping and dropping coverage.
+private struct LoopbackServerUnavailable: Error, CustomStringConvertible {
+    let message: String
+    var description: String { message }
+}
+
 /**
  * In-process loopback HTTP tests for FrameworkServerUtils.
  *
@@ -23,11 +30,6 @@ import Foundation
  * skips the test; on CI an unavailable server fails it, so loopback coverage
  * can never silently drop and skew the coverage-regression baseline.
  */
-private struct LoopbackServerUnavailable: Error, CustomStringConvertible {
-    let message: String
-    var description: String { message }
-}
-
 final class FrameworkServerUtilsLoopbackTests: XCTestCase {
 
     var frameworkServer: FrameworkServerUtils!
@@ -44,9 +46,10 @@ final class FrameworkServerUtilsLoopbackTests: XCTestCase {
         }
         tempFileURL = nil
 
-        if frameworkServer.isRunning() {
-            frameworkServer.stopServer()
-        }
+        // Unconditional: a listener that failed asynchronously reports
+        // isRunning() == false but still holds its timer and listener, which
+        // must not leak into later tests.
+        frameworkServer.stopServer()
         frameworkServer = nil
         super.tearDown()
     }
