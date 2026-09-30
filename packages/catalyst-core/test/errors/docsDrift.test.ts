@@ -47,13 +47,17 @@ describe("generated error docs match committed output (docs-drift check)", () =>
             const scratchPath = path.join(scratchDir, relPath)
 
             if (!existsSync(committedPath)) {
-                mismatches.push(`${relPath}: missing from committed errors/ — run generateDocs.js and commit the output`)
+                mismatches.push(
+                    `${relPath}: missing from committed errors/ — run generateDocs.js and commit the output`
+                )
                 continue
             }
             const committed = readFileSync(committedPath, "utf8")
             const fresh = readFileSync(scratchPath, "utf8")
             if (committed !== fresh) {
-                mismatches.push(`${relPath}: committed content differs from what generateDocs() produces today`)
+                mismatches.push(
+                    `${relPath}: committed content differs from what generateDocs() produces today`
+                )
             }
         }
         expect(mismatches).toEqual([])
@@ -70,10 +74,16 @@ describe("generated error docs match committed output (docs-drift check)", () =>
                 mismatches.push(`${code}: missing from committed errors/index.json`)
                 continue
             }
-            if (entry.category !== def.category) mismatches.push(`${code}: index.json category "${entry.category}" !== registry "${def.category}"`)
-            if (entry.message !== def.defaultMessage) mismatches.push(`${code}: index.json message drifted from registry defaultMessage`)
-            if (entry.details !== def.defaultDetails) mismatches.push(`${code}: index.json details drifted from registry defaultDetails`)
-            if (entry.suggestedAction !== def.suggestedAction) mismatches.push(`${code}: index.json suggestedAction drifted from registry`)
+            if (entry.category !== def.category)
+                mismatches.push(
+                    `${code}: index.json category "${entry.category}" !== registry "${def.category}"`
+                )
+            if (entry.message !== def.defaultMessage)
+                mismatches.push(`${code}: index.json message drifted from registry defaultMessage`)
+            if (entry.details !== def.defaultDetails)
+                mismatches.push(`${code}: index.json details drifted from registry defaultDetails`)
+            if (entry.suggestedAction !== def.suggestedAction)
+                mismatches.push(`${code}: index.json suggestedAction drifted from registry`)
         }
         expect(mismatches).toEqual([])
     })
@@ -86,7 +96,9 @@ describe("generated error docs match committed output (docs-drift check)", () =>
         const stale: string[] = []
         for (const [code, entry] of Object.entries(committedIndex)) {
             if (ownedCategories.has(entry.category) && !(code in ERROR_DEFINITIONS)) {
-                stale.push(`${code}: stale entry in errors/index.json — its category ("${entry.category}") is core-owned but this code no longer exists in the registry`)
+                stale.push(
+                    `${code}: stale entry in errors/index.json — its category ("${entry.category}") is core-owned but this code no longer exists in the registry`
+                )
             }
         }
         expect(stale).toEqual([])

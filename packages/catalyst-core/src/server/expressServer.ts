@@ -197,13 +197,7 @@ function servePreviewConfig(app: any) {
     })
 }
 
-function serveBuildFile(
-    app: any,
-    buildPath: string,
-    urlPath: string,
-    fileName: string,
-    headers: any = {}
-) {
+function serveBuildFile(app: any, buildPath: string, urlPath: string, fileName: string, headers: any = {}) {
     app.get(urlPath, (_req: any, res: any, next: any) => {
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fileName is always a hardcoded literal passed at each serveBuildFile call site, never derived from the request.
         const filePath = path.join(buildPath, fileName)

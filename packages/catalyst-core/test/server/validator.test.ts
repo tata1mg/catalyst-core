@@ -113,12 +113,42 @@ describe("validateModuleAlias", () => {
 })
 
 describe.each([
-    ["validatePreInitServer", validatePreInitServer, ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_MISSING, ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION],
-    ["validateMiddleware", validateMiddleware, ERROR_CODES.PREFLIGHT_MIDDLEWARE_MISSING, ERROR_CODES.PREFLIGHT_MIDDLEWARE_NOT_FUNCTION],
-    ["validateReducerFunction", validateReducerFunction, ERROR_CODES.PREFLIGHT_REDUCER_MISSING, ERROR_CODES.PREFLIGHT_REDUCER_NOT_FUNCTION],
-    ["validateConfigureStore", validateConfigureStore, ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_MISSING, ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_NOT_FUNCTION],
-    ["validateGetRoutes", validateGetRoutes, ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING, ERROR_CODES.PREFLIGHT_GET_ROUTES_NOT_FUNCTION],
-    ["validateCustomDocument", validateCustomDocument, ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_MISSING, ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_NOT_FUNCTION],
+    [
+        "validatePreInitServer",
+        validatePreInitServer,
+        ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_MISSING,
+        ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION,
+    ],
+    [
+        "validateMiddleware",
+        validateMiddleware,
+        ERROR_CODES.PREFLIGHT_MIDDLEWARE_MISSING,
+        ERROR_CODES.PREFLIGHT_MIDDLEWARE_NOT_FUNCTION,
+    ],
+    [
+        "validateReducerFunction",
+        validateReducerFunction,
+        ERROR_CODES.PREFLIGHT_REDUCER_MISSING,
+        ERROR_CODES.PREFLIGHT_REDUCER_NOT_FUNCTION,
+    ],
+    [
+        "validateConfigureStore",
+        validateConfigureStore,
+        ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_MISSING,
+        ERROR_CODES.PREFLIGHT_CONFIGURE_STORE_NOT_FUNCTION,
+    ],
+    [
+        "validateGetRoutes",
+        validateGetRoutes,
+        ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING,
+        ERROR_CODES.PREFLIGHT_GET_ROUTES_NOT_FUNCTION,
+    ],
+    [
+        "validateCustomDocument",
+        validateCustomDocument,
+        ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_MISSING,
+        ERROR_CODES.PREFLIGHT_CUSTOM_DOCUMENT_NOT_FUNCTION,
+    ],
 ] as const)("%s (function validator)", (_name, fn, missingCode, notFnCode) => {
     it("returns null for a function", () => {
         expect(fn(() => {})).toBeNull()
@@ -179,7 +209,9 @@ describe("safeCallNamed", () => {
         await safeCallNamed("preServerInit", () => {
             throw new Error("x")
         })
-        const logged = (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().join("\n")
+        const logged = (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls
+            .flat()
+            .join("\n")
         expect(logged).toContain("preServerInit")
     })
     it("is a no-op for a non-function", async () => {
@@ -208,7 +240,9 @@ describe("handleError output mode", () => {
             // server:" prefix).
             const mod = await import("../../src/server/utils/validator.js")
             mod.handleError(createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING))
-            const logged = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().join("\n")
+            const logged = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls
+                .flat()
+                .join("\n")
             expect(logged).not.toContain("Failed to start server:")
         } finally {
             if (saved === undefined) delete process.env.CATALYST_OUTPUT_MODE

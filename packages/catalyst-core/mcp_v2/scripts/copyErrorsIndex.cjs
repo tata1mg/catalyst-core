@@ -19,7 +19,9 @@ const DEST_PATH = path.join(__dirname, "..", "..", "dist", "errors-index.json")
 
 function copyErrorsIndex() {
     if (!fs.existsSync(SOURCE_PATH)) {
-        console.log(`[copyErrorsIndex] ${SOURCE_PATH} not found, skipping (run generateDocs.js first for explain_error to work)`)
+        console.log(
+            `[copyErrorsIndex] ${SOURCE_PATH} not found, skipping (run generateDocs.js first for explain_error to work)`
+        )
         return
     }
     fs.mkdirSync(path.dirname(DEST_PATH), { recursive: true })

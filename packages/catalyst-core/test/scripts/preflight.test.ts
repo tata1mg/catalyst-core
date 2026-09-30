@@ -41,10 +41,7 @@ function writeApp({ config, pkg }: { config?: unknown; pkg?: unknown }) {
         )
     }
     if (pkg !== undefined) {
-        writeFileSync(
-            path.join(appDir, "package.json"),
-            typeof pkg === "string" ? pkg : JSON.stringify(pkg)
-        )
+        writeFileSync(path.join(appDir, "package.json"), typeof pkg === "string" ? pkg : JSON.stringify(pkg))
     }
 }
 

@@ -173,7 +173,13 @@ async function buildDirectory(srcDir, outDir, relativeDir, stats, claimedOutputs
 
         if (entry.isDirectory()) {
             if (relativeDir === "" && SKIPPED_DIRS.has(entry.name)) continue
-            await buildDirectory(inputPath, path.join(outDir, entry.name), relativePath, stats, claimedOutputs)
+            await buildDirectory(
+                inputPath,
+                path.join(outDir, entry.name),
+                relativePath,
+                stats,
+                claimedOutputs
+            )
             continue
         }
 

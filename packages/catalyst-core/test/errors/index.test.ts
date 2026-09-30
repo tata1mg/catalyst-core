@@ -22,9 +22,13 @@ describe("createError()", () => {
         expect(err.code).toBe(ERROR_CODES.PREFLIGHT_CONFIG_MISSING)
         expect(err.category).toBe("PREFLIGHT")
         expect(err.message).toBe("config not found in config folder")
-        expect(err.details).toBe("A config object must be exported from the config folder in your project root.")
+        expect(err.details).toBe(
+            "A config object must be exported from the config folder in your project root."
+        )
         expect(err.suggestedAction).toContain("config/config.json")
-        expect(err.docUrl).toBe("https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-001.md")
+        expect(err.docUrl).toBe(
+            "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-001.md"
+        )
         expect(err.cause).toBeUndefined()
     })
 
@@ -105,8 +109,12 @@ describe("wrapSSRError()", () => {
     it("maps each SSR stage to its RUNTIME-WEB code", () => {
         expect(wrapSSRError("RENDER", new Error()).code).toBe(ERROR_CODES.RUNTIME_WEB_RENDER_FAILED)
         expect(wrapSSRError("FETCHER", new Error()).code).toBe(ERROR_CODES.RUNTIME_WEB_FETCHER_FAILED)
-        expect(wrapSSRError("SERVER_SIDE_FUNCTION", new Error()).code).toBe(ERROR_CODES.RUNTIME_WEB_SERVER_SIDE_FUNCTION_FAILED)
-        expect(wrapSSRError("REQUEST_HANDLING", new Error()).code).toBe(ERROR_CODES.RUNTIME_WEB_REQUEST_HANDLING_FAILED)
+        expect(wrapSSRError("SERVER_SIDE_FUNCTION", new Error()).code).toBe(
+            ERROR_CODES.RUNTIME_WEB_SERVER_SIDE_FUNCTION_FAILED
+        )
+        expect(wrapSSRError("REQUEST_HANDLING", new Error()).code).toBe(
+            ERROR_CODES.RUNTIME_WEB_REQUEST_HANDLING_FAILED
+        )
     })
 
     it("throws on an unknown stage rather than silently producing a bad code", () => {
@@ -134,9 +142,11 @@ describe("wrapProviderError()", () => {
 
 describe("formatError()", () => {
     const err = createError(ERROR_CODES.PREFLIGHT_CONFIG_MISSING)
-    const errWithCause = createError(ERROR_CODES.PREFLIGHT_CONFIG_MISSING, { cause: new Error("ENOENT: no such file") })
+    const errWithCause = createError(ERROR_CODES.PREFLIGHT_CONFIG_MISSING, {
+        cause: new Error("ENOENT: no such file"),
+    })
 
-    it("defaults to \"default\" mode when no mode is passed (WebBridge.js's browser call sites rely on this)", () => {
+    it('defaults to "default" mode when no mode is passed (WebBridge.js\'s browser call sites rely on this)', () => {
         expect(formatError(err)).toBe(formatError(err, "default"))
     })
 
