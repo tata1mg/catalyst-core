@@ -32,11 +32,6 @@ final class NativeBridgeAI: NativeAIEngine {
         ),
     ]
 
-    /// LiteRT-LM's Swift `sendMessageStream` is documented to yield the text generated so far, so each
-    /// chunk is converted to a delta (see StreamDelta). UNVERIFIED against a real model run: if tokens
-    /// turn out to arrive as deltas, set this to false.
-    private static let streamsCumulativeText = true
-
     let kind: EngineKind = .liteRT
     private(set) var serverSystemPrompt = ""
 
@@ -100,15 +95,14 @@ final class NativeBridgeAI: NativeAIEngine {
 
         // genConfig is ignored, matching Android's ConversationConfig() defaults.
         let updates = active.sendMessageStream(Message(prompt))
-        let cumulative = Self.streamsCumulativeText
 
         let tokens = AsyncThrowingStream<String, Error> { continuation in
             let task = Task {
-                var delta = StreamDelta()
                 do {
+                    // sendMessageStream yields deltas (LiteRT-LM's own tests build the reply with
+                    // `accumulated += chunk.toString`), which is already what an SSE `token` frame carries.
                     for try await message in updates {
-                        let text = message.toString
-                        let piece = cumulative ? delta.next(text) : text
+                        let piece = message.toString
                         if !piece.isEmpty { continuation.yield(piece) }
                     }
                     continuation.finish()

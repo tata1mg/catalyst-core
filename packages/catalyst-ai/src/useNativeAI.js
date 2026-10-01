@@ -28,6 +28,9 @@ export function useNativeAI({
     sessionMode = "stateless",
     defaultGenConfig = {},
     enabled = true,
+    engine,
+    model,
+    modelPath,
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
 
@@ -122,7 +125,15 @@ export function useNativeAI({
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_PROGRESS, onProgress)
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_LOG, onLog)
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_ERROR, onError)
-        initNativeAI({ attachmentComponents, systemPrompt })
+        // engine: "auto" (default) | "litert" | "foundation-models" (iOS); model / modelPath pick the LiteRT-LM
+        // model on both platforms. Only defined values are sent so native defaults apply otherwise.
+        initNativeAI({
+            attachmentComponents,
+            systemPrompt,
+            ...(engine !== undefined && { engine }),
+            ...(model !== undefined && { model }),
+            ...(modelPath !== undefined && { modelPath }),
+        })
 
         return () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_READY)

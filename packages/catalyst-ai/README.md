@@ -28,3 +28,36 @@ third-party code fetched over the network at runtime. If your app has a Content-
 you'll need to allow `https://cdn.jsdelivr.net` for `worker-src`/`script-src`, or fork this
 provider to bundle the library instead. Treat `useWebAI` as a demo/fallback path, not
 production-ready, per the EXPERIMENTAL note in its source.
+
+## Native AI on iOS
+
+`useNativeAI` (and `useAI({ provider: "native" })`) also runs on-device on iOS. Set
+`ai.enabled: true` in `WEBVIEW_CONFIG`, install `catalyst-ai` in the app, and build the iOS app as usual.
+The build then adds this package's `plugins/ai` module, the LiteRT-LM Swift package, and the
+`com.apple.developer.kernel.increased-memory-limit` entitlement.
+
+**Requirements**
+
+- **Git LFS** on every machine that builds the iOS app (`brew install git-lfs && git lfs install`). The
+  LiteRT-LM Swift package needs it; the build stops early with instructions if it is missing.
+- Apple Silicon Mac for the simulator (the LiteRT-LM binary has no Intel simulator slice).
+- Adds roughly 120 MB (LiteRT-LM) to the app binary.
+- On a device, the **Increased Memory Limit** capability must be allowed for your App ID, or signing fails.
+
+**Engines.** Two on-device engines sit behind the same hook, chosen when `initAI` runs (`engine` option):
+
+| `engine` | Behaviour |
+| --- | --- |
+| `"auto"` (default) | LiteRT-LM if its model is already downloaded; otherwise Apple Foundation Models if available; otherwise LiteRT-LM, which downloads the model first. |
+| `"litert"` | LiteRT-LM (Gemma 4 E2B by default). The model, about 2.6 GB, is downloaded once into Application Support (excluded from iCloud backup). Progress arrives as `nativeDownloadProgress`. Needs an iPhone 13 Pro or newer (6 GB RAM). |
+| `"foundation-models"` | Apple's system model: no download, iOS 26+ on Apple Intelligence devices, about 4,000 tokens of context shared by the system prompt, history and reply. |
+
+`auto` never starts the large download on its own just because Foundation Models happens to be
+available. To use the downloadable model on such a device, pass `engine: "litert"`:
+
+```js
+const ai = useAI({ provider: "native", engine: "litert", model: "gemma-4-E2B" })
+```
+
+`model` and `modelPath` work on both platforms. The `ON_AI_READY` payload includes `engine` so the UI
+can show which one is active.

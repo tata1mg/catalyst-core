@@ -69,7 +69,12 @@ final class PluginAICallbacks: AIBridgeCallbacks {
     }
 
     func ensureFrameworkServerRunning() -> Bool {
-        FrameworkServerUtils.shared.isRunning() || FrameworkServerUtils.shared.startServer()
+        let server = FrameworkServerUtils.shared
+        if server.isRunning() { return true }
+        // startServer() schedules a cleanup Timer, which only fires on a thread with a run loop; initAI
+        // runs on a background task, so start it on the main thread like the file/camera paths do.
+        if Thread.isMainThread { return server.startServer() }
+        return DispatchQueue.main.sync { server.startServer() }
     }
 
     func getFrameworkServerPort() -> Int { Int(FrameworkServerUtils.shared.getServerPort()) }

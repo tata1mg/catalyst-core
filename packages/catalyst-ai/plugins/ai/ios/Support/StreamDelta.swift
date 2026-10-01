@@ -2,10 +2,9 @@
 //  StreamDelta.swift
 //  catalyst-ai (iOS)
 //
-//  Android's token flow yields deltas, and the JS side appends each `token` frame. The iOS engines
-//  stream the text generated so far (LiteRT-LM's Swift sendMessageStream per its docs, and Foundation
-//  Models snapshots), so each update is converted to the new suffix before it reaches the SSE frame.
-//  Without this the UI would render duplicated text.
+//  The JS side appends each SSE `token` frame, so frames must carry deltas. LiteRT-LM already streams
+//  deltas, but Apple Foundation Models streams snapshots (the text so far), so those are converted
+//  to the new suffix here. Without this the UI would render duplicated text.
 //
 
 import Foundation

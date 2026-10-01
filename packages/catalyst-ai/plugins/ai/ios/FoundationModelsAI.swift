@@ -30,6 +30,11 @@ enum FoundationModelsSupport {
 }
 
 #if canImport(FoundationModels)
+// The app's deployment target is iOS 17 but FoundationModels is iOS 26+. Every use below sits inside
+// `#available(iOS 26.0, *)`, so the toolchain links the framework weakly (LC_LOAD_WEAK_DYLIB, verified in a
+// linked iOS 17 simulator binary) and iOS 17-25 launches normally with the framework absent. Keep all
+// FoundationModels references inside this availability-gated class, or the link becomes strong and dyld
+// will refuse to launch the app on those versions.
 import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
