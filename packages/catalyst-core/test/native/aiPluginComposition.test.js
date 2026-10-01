@@ -66,12 +66,18 @@ test("composeIosPlugins: ai plugin contributes sources, registry entry, LiteRT-L
 
     assert.equal(composition.pluginCount, 1)
     assert.deepEqual(
-        composition.iosDependencies.map((d) => ({ url: d.url, products: d.products, requirement: d.requirement })),
+        composition.iosDependencies.map((d) => ({
+            path: d.url,
+            package: d.package,
+            products: d.products,
+            requirement: d.requirement,
+        })),
         [
             {
-                url: "https://github.com/google-ai-edge/LiteRT-LM",
+                path: path.join(aiPluginsRoot, "ai", "LiteRTLM"),
+                package: "LiteRTLM",
                 products: ["LiteRTLM"],
-                requirement: { type: "exact", version: "0.17.1" },
+                requirement: { type: "path", version: "local" },
             },
         ]
     )
@@ -109,4 +115,37 @@ test("composeIosPlugins: ai plugin is NOT composed when the ai toggle is off", (
     assert.equal(composition.pluginCount, 0)
     assert.deepEqual(composition.iosDependencies, [])
     assert.deepEqual(composition.entitlements, {})
+})
+
+test("local-path iOS dependencies: must stay inside the plugin dir and exist", () => {
+    const dir = tempDir()
+    const write = (dependency) => {
+        const pluginDir = fs.mkdtempSync(path.join(dir, "p-"))
+        fs.mkdirSync(path.join(pluginDir, "Local"))
+        fs.mkdirSync(path.join(pluginDir, "ios"))
+        fs.writeFileSync(
+            path.join(pluginDir, "manifest.json"),
+            JSON.stringify({
+                id: "io.test.local",
+                configKey: "local",
+                version: "1.0.0",
+                displayName: "Local",
+                description: "x",
+                category: "test",
+                platforms: ["ios"],
+                commands: ["go"],
+                ios: { className: "LocalPlugin", dependencies: [dependency] },
+            })
+        )
+        return pluginDir
+    }
+    const { parsePluginManifest } = require("../../src/native/internalPluginUtils.js")
+
+    const ok = parsePluginManifest(write({ path: "Local", products: ["Local"] }))
+    assert.equal(ok.ios.dependencies[0].requirement.type, "path")
+    assert.equal(ok.ios.dependencies[0].package, "Local")
+
+    assert.throws(() => parsePluginManifest(write({ path: "../outside", products: ["X"] })), /must stay within the plugin directory/)
+    assert.throws(() => parsePluginManifest(write({ path: "Missing", products: ["X"] })), /does not exist/)
+    assert.throws(() => parsePluginManifest(write({ path: "Local", from: "1.0.0", products: ["X"] })), /must not also set/)
 })

@@ -9,12 +9,12 @@
 import Foundation
 
 enum AIPromptBuilder {
-    /// Like Android, nothing is built unless attachmentComponents is non-empty.
+    /// The app's systemPrompt, plus the attachment-component instructions when components are registered.
     static func build(_ options: AIOptions, log: (String) -> Void = { _ in }) -> String {
         let components = options.attachmentComponents
         guard !components.isEmpty else {
-            log("[attachments] No attachmentComponents provided — skipping system prompt injection")
-            return ""
+            log("[attachments] No attachmentComponents provided — using the app systemPrompt only (\(options.systemPrompt.count) chars)")
+            return options.systemPrompt
         }
 
         let names = components.keys.sorted()

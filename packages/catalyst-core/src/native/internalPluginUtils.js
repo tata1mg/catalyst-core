@@ -76,6 +76,41 @@ function readIosUrlSchemes(value, fieldName, sourcePath) {
     })
 }
 
+function readLocalIosDependency(entry, entryField, sourcePath) {
+    const pluginDir = path.dirname(sourcePath)
+    const relativePath = mustBeNonEmptyString(entry.path, `${entryField}.path`, sourcePath)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - containment within pluginDir is enforced immediately below.
+    const resolved = path.resolve(pluginDir, relativePath)
+    if (resolved !== pluginDir && !resolved.startsWith(`${pluginDir}${path.sep}`)) {
+        throw new Error(`'${entryField}.path' must stay within the plugin directory: ${relativePath} in ${sourcePath}`)
+    }
+    if (!isDir(resolved)) {
+        throw new Error(`'${entryField}.path' does not exist: ${relativePath} in ${sourcePath}`)
+    }
+    if (entry.from != null || entry.exact != null || entry.url != null) {
+        throw new Error(`'${entryField}' with 'path' must not also set 'url', 'from' or 'exact' in ${sourcePath}`)
+    }
+
+    const products = readStringArray(entry.products, `${entryField}.products`, sourcePath, {
+        required: true,
+        nonEmpty: true,
+    })
+    if (new Set(products).size !== products.length) {
+        throw new Error(`Duplicate product(s) found in '${entryField}.products' in ${sourcePath}`)
+    }
+
+    return {
+        // The absolute path doubles as the identity key the composer merges dependencies on.
+        url: resolved,
+        package:
+            entry.package == null
+                ? path.basename(resolved)
+                : mustBeNonEmptyString(entry.package, `${entryField}.package`, sourcePath),
+        products,
+        requirement: { type: "path", version: "local" },
+    }
+}
+
 function readIosDependencies(value, fieldName, sourcePath) {
     if (value == null) {
         return []
@@ -89,6 +124,13 @@ function readIosDependencies(value, fieldName, sourcePath) {
         const entryField = `${fieldName}[${index}]`
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
             throw new Error(`'${entryField}' must be an object in ${sourcePath}`)
+        }
+
+        // A dependency is either a remote package ({ url, from|exact }) or a Swift package shipped inside
+        // the plugin itself ({ path }, relative to the plugin directory). Local packages let a plugin
+        // pin a vendored copy instead of cloning a large or LFS-backed upstream repo.
+        if (entry.path != null) {
+            return readLocalIosDependency(entry, entryField, sourcePath)
         }
 
         const url = mustBeNonEmptyString(entry.url, `${entryField}.url`, sourcePath)

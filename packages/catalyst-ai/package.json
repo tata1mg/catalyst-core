@@ -16,6 +16,7 @@
         "!plugins/ai/Package.swift",
         "!plugins/ai/Tests",
         "!plugins/ai/.build",
+        "!plugins/**/.build",
         "README.md"
     ],
     "scripts": {

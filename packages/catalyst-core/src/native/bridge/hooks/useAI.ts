@@ -11,10 +11,28 @@ function getBrowserConfig() {
     }
 }
 
-function resolveMode(provider) {
+// On-device providers. "native" lets the platform pick (iOS: LiteRT-LM if its model is downloaded, else
+// Apple Foundation Models, else LiteRT-LM); "litert" and "foundation-models" pin an engine. They can be set
+// per call (useAI({ provider })) or app-wide in AI_CONFIG.browser.provider, optionally with
+// AI_CONFIG.browser.engine instead of an alias.
+const NATIVE_ENGINE_BY_PROVIDER = {
+    native: undefined,
+    litert: "litert",
+    "foundation-models": "foundation-models",
+}
+
+export function resolveMode(provider) {
     if (provider === "transformers") return "local"
-    if (provider === "native") return "native"
+    if (Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)) return "native"
     return "cloud"
+}
+
+/** Engine to pin for the native provider: an explicit option wins, then the provider alias, then config. */
+export function resolveNativeEngine(provider, explicitEngine, config) {
+    const aliasEngine = Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)
+        ? NATIVE_ENGINE_BY_PROVIDER[provider]
+        : undefined
+    return explicitEngine ?? aliasEngine ?? config?.engine
 }
 
 function isNativeAIAvailable() {
@@ -46,7 +64,8 @@ const _pkg =
         : null
 
 // provider: "transformers" → useWebAI   (catalyst-ai)
-//           "native"       → useNativeAI (catalyst-ai, falls back to useCloudAI if bridge unavailable)
+//           "native" | "litert" | "foundation-models"
+//                          → useNativeAI (catalyst-ai, falls back to useCloudAI if bridge unavailable)
 //           anything else  → useCloudAI  (catalyst-ai, default)
 // The shape of this hook is owned by the catalyst-ai package and sits outside
 // the native hook contract entirely, so its options and result stay loose here.
@@ -58,7 +77,13 @@ export function useAI(options: any = {}) {
 
     const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
     const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
-    const nativeResult = _pkg ? _pkg.useNativeAI({ ...options, enabled: mode === "native" }) : emptyHook()
+    const nativeResult = _pkg
+        ? _pkg.useNativeAI({
+              ...options,
+              enabled: mode === "native",
+              engine: resolveNativeEngine(resolvedProvider, options.engine, config),
+          })
+        : emptyHook()
 
     if (typeof window === "undefined") return emptyHook()
 

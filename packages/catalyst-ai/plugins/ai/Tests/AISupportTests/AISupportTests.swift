@@ -28,9 +28,12 @@ final class AIOptionsTests: XCTestCase {
 }
 
 final class AIPromptBuilderTests: XCTestCase {
-    func testEmptyComponents_BuildsNothing_LikeAndroid() {
-        let options = AIOptions(optionsRaw: #"{"systemPrompt":"be nice"}"#)
-        XCTAssertEqual(AIPromptBuilder.build(options), "")
+    func testNoComponents_StillUsesTheAppSystemPrompt() {
+        XCTAssertEqual(AIPromptBuilder.build(AIOptions(optionsRaw: #"{"systemPrompt":"  be nice  "}"#)), "be nice")
+    }
+
+    func testNoComponentsAndNoPrompt_IsEmpty() {
+        XCTAssertEqual(AIPromptBuilder.build(AIOptions(optionsRaw: nil)), "")
     }
 
     func testBuildsAppPromptInstructionAndSortedComponentSummary() {

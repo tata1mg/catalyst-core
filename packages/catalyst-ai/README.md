@@ -34,14 +34,14 @@ production-ready, per the EXPERIMENTAL note in its source.
 `useNativeAI` (and `useAI({ provider: "native" })`) also runs on-device on iOS. Set
 `ai.enabled: true` in `WEBVIEW_CONFIG`, install `catalyst-ai` in the app, and build the iOS app as usual.
 The build then adds this package's `plugins/ai` module, the LiteRT-LM Swift package, and the
-`com.apple.developer.kernel.increased-memory-limit` entitlement.
+`com.apple.developer.kernel.increased-memory-limit` entitlement. None of this happens unless
+`ai.enabled` is true: installing `catalyst-ai` alone adds nothing to the iOS build. The LiteRT-LM Swift wrapper
+is vendored (`plugins/ai/LiteRTLM`), so no Git LFS or large clone is needed.
 
 **Requirements**
 
-- **Git LFS** on every machine that builds the iOS app (`brew install git-lfs && git lfs install`). The
-  LiteRT-LM Swift package needs it; the build stops early with instructions if it is missing.
 - Apple Silicon Mac for the simulator (the LiteRT-LM binary has no Intel simulator slice).
-- Adds roughly 120 MB (LiteRT-LM) to the app binary.
+- Adds roughly 120 MB (the LiteRT-LM framework, downloaded once by SwiftPM) to the app binary.
 - On a device, the **Increased Memory Limit** capability must be allowed for your App ID, or signing fails.
 
 **Engines.** Two on-device engines sit behind the same hook, chosen when `initAI` runs (`engine` option):
@@ -56,8 +56,18 @@ The build then adds this package's `plugins/ai` module, the LiteRT-LM Swift pack
 available. To use the downloadable model on such a device, pass `engine: "litert"`:
 
 ```js
-const ai = useAI({ provider: "native", engine: "litert", model: "gemma-4-E2B" })
+const ai = useAI({ provider: "litert", model: "gemma-4-E2B" })      // pin LiteRT-LM
+const ai = useAI({ provider: "foundation-models" })                  // pin Apple Foundation Models
 ```
+
+The provider names `native` (auto), `litert` and `foundation-models` can also be set app-wide in the AI
+config, so components don't have to choose:
+
+```json
+"AI_CONFIG": { "browser": { "provider": "foundation-models" } }
+```
+
+(`"provider": "native"` with `"engine": "litert"` is equivalent to `"provider": "litert"`.)
 
 `model` and `modelPath` work on both platforms. The `ON_AI_READY` payload includes `engine` so the UI
 can show which one is active.

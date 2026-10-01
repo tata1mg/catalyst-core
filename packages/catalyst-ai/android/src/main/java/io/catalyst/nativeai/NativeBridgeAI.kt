@@ -125,7 +125,9 @@ class NativeBridgeAI(
     private fun buildSystemPrompt(options: JSONObject) {
         val attachmentComponents = options.optJSONObject("attachmentComponents")
         if (attachmentComponents == null || attachmentComponents.length() == 0) {
-            log("[attachments] No attachmentComponents provided — skipping system prompt injection")
+            // No components to describe, but the app's own systemPrompt must still reach the model.
+            systemPrompt = options.optString("systemPrompt", "").trim()
+            log("[attachments] No attachmentComponents provided — using the app systemPrompt only (${systemPrompt.length} chars)")
             return
         }
 
