@@ -1,0 +1,20 @@
+examples/useai/src/js/containers/Chess/Chess.js
+  s_142fca248d57d5::t_b78c3cf73e5fc2 125-127,136-139,163,445,462,485-496,500-525
+  s_142fca248d57d5::t_f5513cab0db386 526
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "93c8c5cf4f8a2d1b5fd0fa3ccc750eeb1a2b1a85",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
