@@ -12,6 +12,10 @@
         "scripts",
         "android/src",
         "android/build.gradle.kts",
+        "plugins",
+        "!plugins/ai/Package.swift",
+        "!plugins/ai/Tests",
+        "!plugins/ai/.build",
         "README.md"
     ],
     "scripts": {

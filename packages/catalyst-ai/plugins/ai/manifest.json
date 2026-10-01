@@ -1,0 +1,24 @@
+{
+    "id": "io.catalyst.ai",
+    "configKey": "ai",
+    "version": "0.1.1",
+    "displayName": "Catalyst AI",
+    "description": "On-device AI for iOS: LiteRT-LM (downloaded Gemma model) with an Apple Foundation Models fallback, streamed to useAI over the framework server.",
+    "category": "ai",
+    "platforms": ["ios"],
+    "commands": ["initAI", "clearConversation"],
+    "ios": {
+        "className": "CatalystAIPlugin",
+        "dependencies": [
+            {
+                "url": "https://github.com/google-ai-edge/LiteRT-LM",
+                "package": "LiteRT-LM",
+                "products": ["LiteRTLM"],
+                "exact": "0.17.1"
+            }
+        ],
+        "entitlements": {
+            "com.apple.developer.kernel.increased-memory-limit": true
+        }
+    }
+}
