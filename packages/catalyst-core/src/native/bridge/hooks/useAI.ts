@@ -18,6 +18,9 @@ function resolveMode(provider) {
 }
 
 function isNativeAIAvailable() {
+    // catalyst-ai knows both platforms (Android's NativeBridge, iOS's injected plugin manifest).
+    // Older catalyst-ai versions don't export it, so fall back to the Android-only check.
+    if (_pkg && typeof _pkg.isNativeAIAvailable === "function") return _pkg.isNativeAIAvailable()
     const nb = typeof window !== "undefined" && window.NativeBridge
     return nb && typeof nb.isAIAvailable === "function" && nb.isAIAvailable()
 }

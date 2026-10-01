@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
+import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation } from "./nativeTransport.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
@@ -57,9 +58,9 @@ export function useNativeAI({
     useEffect(() => {
         if (!enabled) return
 
-        if (!window.NativeBridge?.initAI) {
+        if (!getNativeAIPlatform()) {
             setError(createError(ERROR_CODES.AI_NATIVE_BRIDGE_UNAVAILABLE, {
-                message: "window.NativeBridge.initAI not found. Update catalyst-core to >=0.2.0 and add the android module to settings.gradle.kts.",
+                message: describeNativeAIUnavailable(),
             }))
             return
         }
@@ -121,7 +122,7 @@ export function useNativeAI({
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_PROGRESS, onProgress)
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_LOG, onLog)
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_ERROR, onError)
-        window.NativeBridge.initAI(JSON.stringify({ attachmentComponents, systemPrompt }))
+        initNativeAI({ attachmentComponents, systemPrompt })
 
         return () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_READY)
@@ -305,9 +306,7 @@ export function useNativeAI({
         outputAccRef.current = ""
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         conversationIdRef.current = null
-        if (window.NativeBridge?.clearNativeConversation) {
-            window.NativeBridge.clearNativeConversation()
-        }
+        clearNativeConversation()
         setOutput("")
         setError(null)
         setMetrics(null)
