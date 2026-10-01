@@ -28,9 +28,7 @@ function renderMetaTag({ matchedRoutes = [], routerData = {} } = {}) {
 describe("MetaTag", () => {
     afterEach(() => {
         document.head.innerHTML = ""
-})
-=======
-})
+    })
 
     it("renders without crashing when there are no matched routes", () => {
         expect(() => renderMetaTag()).not.toThrow()
@@ -50,9 +48,7 @@ describe("MetaTag", () => {
         await waitFor(() => {
             expect(document.head.querySelector('meta[name="description"]')).not.toBeNull()
         })
-        expect(document.head.querySelector('meta[name="description"]').getAttribute("content")).toBe(
-            "hello"
-        )
+        expect(document.head.querySelector('meta[name="description"]').getAttribute("content")).toBe("hello")
     })
 
     it("renders no metadata when no route provides setMetaData", () => {
@@ -112,5 +108,4 @@ describe("MetaTag", () => {
             expect(document.head.querySelector('meta[name="description"]')).toBeNull()
         })
     })
-=======
 })
