@@ -31,7 +31,7 @@ Catalyst exposes two groups of hooks:
 | `useNetworkStatus` | Read online status and network type | Yes | Yes | Yes |
 | `useDataProtection` | Use native data protection and encryption helpers | No | Yes | Yes |
 | `useSafeArea` | Read native safe-area insets | Yes | Yes | Yes |
-| `useAI` | Generate text via cloud, native on-device, or in-browser models | Partial | Yes | Yes |
+| `useAI` | Generate text via cloud, native on-device (Gemma 4 E2B, Apple Foundation Models), or in-browser models | Partial | Yes | Yes |
 
 `Partial` means behavior depends on browser support or fallback behavior in the web environment.
 
@@ -696,15 +696,17 @@ Prefer the `catalyst-core/hooks` exports in application code: they are SSR-safe 
 
 ### `useAI`
 
-Generate text through one of three providers, chosen with the `provider` option — the hook picks the underlying implementation for you:
+Generate text through a cloud API, an on-device model, or an in-browser model, chosen with the `provider` option — the hook picks the underlying implementation for you:
 
 | `provider` | Implementation | Where it runs |
 |------------|-----------------|----------------|
 | `"openai"` \| `"gemini"` (default) | `useCloudAI` | Node server route (`POST /ai/:provider/stream` or `/generate`) |
-| `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device LiteRT-LM engine, via an embedded Ktor server (`POST /framework-{sessionId}/ai/stream` or `/generate`) |
+| `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device, engine chosen automatically — see [On-device engines](#on-device-engines). Android uses an embedded Ktor server and iOS uses the framework server, both at `POST /framework-{sessionId}/ai/stream` or `/generate` |
+| `"litert"` | `useNativeAI`, pinned to LiteRT-LM | On-device Gemma 4 E2B (Android and iOS) |
+| `"foundation-models"` | `useNativeAI`, pinned to Apple Foundation Models | On-device Apple system model (iOS 26+ only, no download) |
 | `"transformers"` | `useWebAI` — **experimental**: in-browser inference quality and WebGPU/WASM backend selection aren't reliable yet on larger models | In-browser, via a Web Worker running Transformers.js |
 
-Requires `catalyst-ai` to be installed in the app.
+Requires `catalyst-ai` to be installed in the app. To run the on-device providers, also set `WEBVIEW_CONFIG.ai.enabled` — see [On-Device AI](/content/11-API%20Reference/02-Configuration.mdx).
 
 #### Import
 
@@ -716,12 +718,38 @@ import { useAI } from "catalyst-core/hooks";
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `provider` | `string` | `"openai"`, `"gemini"`, `"native"`, or `"transformers"`. Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
-| `model` | `string` | Model id. Required for `transformers`; optional override for cloud/native. |
+| `provider` | `string` | `"openai"`, `"gemini"`, `"native"`, `"litert"`, `"foundation-models"`, or `"transformers"`. Defaults to the provider configured in `AI_CONFIG.browser`. |
+| `model` | `string` | Model id. Required for `transformers`; optional override for cloud/native (on-device default: `gemma-4-E2B`). |
+| `engine` | `string` | On-device only: `"auto"` (default), `"litert"` or `"foundation-models"`. Explicit option wins over the provider alias, which wins over `AI_CONFIG.browser.engine`. |
+| `modelPath` | `string` | On-device only: load a custom LiteRT-LM model file instead of the default download. |
 | `genConfig` | `object` | Default generation config, merged with any per-call `genConfig` passed to `generate()`. See below. |
 | `systemPrompt` | `string` | System prompt prepended to every generation. |
 | `sessionMode` | `string` | `"stateless"` (default) or `"stateful"` — see Stateful Sessions below. |
 | `attachmentComponents` | `object` | Map of component name → `{ attrs, hint }`, enabling structured output. See Attachment Components below. |
+
+#### On-device engines
+
+Two engines can serve `native` generation, behind the same hook:
+
+| Engine | Model | Download | Platforms |
+|--------|-------|----------|-----------|
+| `litert` | [Gemma 4 E2B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) via LiteRT-LM | ~2.6 GB, once, on first use | Android, iOS (iPhone 13 Pro or newer, 6 GB RAM) |
+| `foundation-models` | Apple's system model | None | iOS 26+ on Apple Intelligence devices; about 4,000 tokens of context shared by system prompt, history and reply |
+
+With `provider: "native"` (engine `auto`), the engine is chosen in this order: LiteRT-LM if its model is already downloaded, then Apple Foundation Models if available, then LiteRT-LM, which downloads the model first. `auto` never starts the large download just because Foundation Models happens to be available — to use Gemma on such a device, pin it:
+
+```javascript
+useAI({ provider: "litert", model: "gemma-4-E2B" });   // Gemma 4 E2B
+useAI({ provider: "foundation-models" });              // Apple Foundation Models (iOS)
+```
+
+To pick one for the whole app, set it in `config/config.json` instead of in each component:
+
+```json
+"AI_CONFIG": { "browser": { "provider": "foundation-models" } }
+```
+
+Android only has the `litert` engine. `isNative` is `true` for all on-device providers, and the `ON_AI_READY` payload reports which `engine` is active.
 
 #### Returns
 
@@ -789,7 +817,7 @@ function Summarizer() {
 Pass `sessionMode: "stateful"` to carry conversation context across calls. The mechanism is different for each provider, since each has a different notion of "session":
 
 - **Cloud** — the client sends `conversationId` in the request body; the server translates it into the underlying provider's own continuation token (`previous_response_id` for OpenAI, `previous_interaction_id` for Gemini) and returns a fresh `conversationId` with each response.
-- **Native** — the client sends `conversationId` to the Ktor route; the Android engine reuses the same LiteRT-LM `Conversation` object when the incoming id matches its current one, otherwise starts a new one. `reset()` also tells the native bridge to drop that object.
+- **Native** — the client sends `conversationId` to the on-device route (Ktor on Android, the framework server on iOS); the engine reuses its current LiteRT-LM `Conversation` (or Foundation Models session) when the incoming id matches, otherwise starts a new one. `reset()` also tells the native bridge to drop it.
 - **Web (experimental)** — there is no engine-side session at all. "Stateful" here means the hook accumulates prior `{ role, content }` turns client-side and replays the full history into every `generate()` call — real chat, not KV-cache reuse. `conversationId` is just a locally-generated id for the UI to key off; it carries no meaning beyond the hook instance.
 
 `reset()` clears output, conversation history, and `conversationId` in all three cases. `sessionMode: "stateless"` (the default) makes every `generate()` call independent.
@@ -819,6 +847,6 @@ The model is instructed (via an injected system prompt) to wrap relevant output 
 
 #### Requirements
 
-Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
+Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). On-device providers also need `WEBVIEW_CONFIG.ai.enabled: true` and a native rebuild — installing the package alone adds nothing to the app. iOS specifics (Apple Silicon simulator, ~120 MB framework, increased-memory-limit entitlement) are in [On-Device AI](/content/11-API%20Reference/02-Configuration.mdx). Without `catalyst-ai`, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
 
 `useAI`'s return shape is owned by the `catalyst-ai` package and sits outside the native hook contract described on this page. It does not follow the single-action or multi-action categories, and the alias and error-shape rules above do not apply to it.

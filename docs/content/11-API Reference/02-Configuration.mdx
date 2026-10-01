@@ -22,6 +22,7 @@ These keys are part of the core web runtime:
 | `PUBLIC_STATIC_ASSET_PATH` | `string` | Yes | Public mount path for static assets |
 | `PUBLIC_STATIC_ASSET_URL` | `string` | Yes | Base URL for emitted static assets |
 | `CLIENT_ENV_VARIABLES` | `string[]` | Yes | Variables that should be exposed to the client bundle |
+| `AI_CONFIG` | `object` | No | Server and cloud settings for `catalyst-ai` — see [On-Device AI](#on-device-ai) |
 
 Application-specific values such as `API_URL` can also live in this file. They are available on the server through `process.env`.
 
@@ -122,6 +123,44 @@ Place splash assets at:
 
 - `public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}`
 - `public/ios/splashscreen.{png|jpg|jpeg}`
+
+## On-Device AI
+
+`catalyst-ai` can run Gemma 4 E2B (LiteRT-LM) or Apple Foundation Models directly on the device. Two separate settings control this, and they do different things:
+
+| Setting | Controls |
+|---------|----------|
+| `AI_CONFIG.enabled` (top level of `config.json`) | The `/ai` server routes and cloud providers (OpenAI, Gemini) |
+| `WEBVIEW_CONFIG.ai.enabled` | Whether the native on-device AI module is built into the Android/iOS app |
+
+For on-device AI, set `WEBVIEW_CONFIG.ai.enabled` to `true`, run `npm install catalyst-ai`, and rebuild the native app. Installing the package alone adds nothing to the build, and if `ai.enabled` is set without the package installed the build warns and skips the plugin.
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "ai": { "enabled": true }
+  },
+  "AI_CONFIG": {
+    "enabled": true,
+    "browser": { "provider": "native" }
+  }
+}
+```
+
+| `AI_CONFIG.browser` key | Values | Notes |
+|-------------------------|--------|-------|
+| `provider` | `"native"`, `"litert"`, `"foundation-models"`, `"openai"`, `"gemini"`, `"transformers"` | `"native"` lets the platform choose; the other two pin an engine |
+| `engine` | `"auto"`, `"litert"`, `"foundation-models"` | Equivalent to the provider aliases; an explicit `useAI` option wins |
+| `model` | `string` | On-device default is `gemma-4-E2B` |
+
+**iOS requirements**
+
+- An Apple Silicon Mac is needed for the simulator (the LiteRT-LM binary has no Intel simulator slice).
+- LiteRT-LM adds about 120 MB to the app binary, and the Gemma 4 E2B model (about 2.6 GB) is downloaded once on first use.
+- The build adds the `com.apple.developer.kernel.increased-memory-limit` entitlement. On a physical device, that capability must be enabled for your App ID or signing fails.
+- Foundation Models needs iOS 26+ on an Apple Intelligence device, and does not work in a simulator older than the host macOS.
+
+For engine selection and the `useAI` options, see [`useAI`](/content/11-API%20Reference/01-Hooks.md). The [MCP server](/content/15-MCP.md) can also check these settings for you.
 
 ## Validation Notes
 
