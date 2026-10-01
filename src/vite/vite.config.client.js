@@ -74,7 +74,7 @@ const createClientConfig = async () => {
                             return undefined
                         }
                         if (
-                            /[\\/]node_modules[\\/](react|react-dom|scheduler|react-fast-compare|react-side-effect)[\\/]/.test(
+                            /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(
                                 id
                             )
                         ) {
