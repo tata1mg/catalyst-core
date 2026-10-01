@@ -11,13 +11,11 @@ export const MetaTag = (): any => {
     const { matchedRoutes } = useContext(OneMgRouterContext)
     const routeData = useRouterData()
     const location = useLocation()
-    const [metaTags, setMetaTags] = useState<any[]>([<meta key={0}></meta>])
+    const [metaTags, setMetaTags] = useState<any[]>([])
 
     useEffect(() => {
         const mergedMetaTags = getMetaData(matchedRoutes, routeData)
-        if (Array.isArray(mergedMetaTags) && mergedMetaTags.length > 0) {
-            setMetaTags(mergedMetaTags)
-        }
+        setMetaTags(Array.isArray(mergedMetaTags) ? mergedMetaTags : [])
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location])
 
