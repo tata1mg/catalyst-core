@@ -1,0 +1,25 @@
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_85852169a71392::t_f25db8978fcabb 163
+  s_85852169a71392::t_8c553c7459a875 25,127-162
+  s_85852169a71392::t_af67351ed21392 164
+"docs/content/11-API Reference/01-Hooks.md"
+  s_85852169a71392::t_f333db592fd5e2 34,699,704-706,709,721-724,730-753,820,850
+docs/content/15-MCP.md
+  s_85852169a71392::t_8c553c7459a875 43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2308d2a760587d8131c1a2ed6879c59b571872da",
+  "prompts": {},
+  "sessions": {
+    "s_85852169a71392": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "327d1c72-2d70-4583-bbeb-f1547fe47a07",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
