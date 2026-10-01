@@ -291,7 +291,29 @@ function resolvePluginConfig(WEBVIEW_CONFIG) {
     return pluginConfig
 }
 
+/**
+ * catalyst-ai ships its native iOS module as a plugin (plugins/ai in the npm package). It is
+ * composed only when the app opts in with WEBVIEW_CONFIG.ai.enabled, mirroring Android's
+ * syncAIPackageIfEnabled. Returns the extra plugin roots plus the toggle to merge into the
+ * plugin config; when the package is missing it warns and leaves the build untouched.
+ */
+function resolveAIPluginSource(WEBVIEW_CONFIG, projectRoot, log = () => {}) {
+    if (WEBVIEW_CONFIG?.ai?.enabled !== true) {
+        return { roots: [], toggles: {} }
+    }
+
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fixed package-relative path under the app's node_modules.
+    const aiPluginsRoot = path.join(projectRoot, "node_modules", "catalyst-ai", "plugins")
+    if (!isDir(aiPluginsRoot)) {
+        log("ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI plugin", "warning")
+        return { roots: [], toggles: {} }
+    }
+
+    return { roots: [aiPluginsRoot], toggles: { ai: true } }
+}
+
 module.exports = {
+    resolveAIPluginSource,
     discoverInternalPlugins,
     parsePluginManifest,
     resolvePluginConfig,

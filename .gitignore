@@ -156,3 +156,7 @@ simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
 *.xcshareddata
 **/node_modules
+
+# SwiftPM build output (catalyst-ai plugin test harness)
+packages/catalyst-ai/plugins/ai/.build/
+packages/catalyst-ai/plugins/ai/.swiftpm/
