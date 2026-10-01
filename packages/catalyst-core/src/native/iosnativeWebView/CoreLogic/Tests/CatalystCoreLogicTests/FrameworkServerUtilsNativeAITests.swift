@@ -219,8 +219,21 @@ final class FrameworkServerUtilsNativeAITests: XCTestCase {
         XCTAssertTrue(reply.contains("413"))
     }
 
+    func testPost_ClientClosesBeforeSendingDeclaredBody_Returns400() async throws {
+        try requireRunningServer()
+        server.setNativeAiSupplier(stubSupplier(tokens: ["must not run"]))
+        let head = "POST /framework-\(server.getSessionId())/ai/stream HTTP/1.1\r\nContent-Length: 50\r\n\r\n"
+        let reply = try Self.rawExchange(
+            port: server.getServerPort(), writes: [head, "{\"prompt\":\"x\"}"], pauseBetween: 0.1, halfCloseAfterWrites: true
+        )
+        XCTAssertTrue(reply.contains("400"))
+        XCTAssertFalse(reply.contains("must not run"))
+    }
+
     /// Writes each chunk on a plain TCP socket (with a pause between), then reads until the server closes.
-    private static func rawExchange(port: UInt16, writes: [String], pauseBetween: TimeInterval) throws -> String {
+    private static func rawExchange(
+        port: UInt16, writes: [String], pauseBetween: TimeInterval, halfCloseAfterWrites: Bool = false
+    ) throws -> String {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd != -1 else { throw XCTSkip("socket() failed") }
         defer { close(fd) }
@@ -241,6 +254,8 @@ final class FrameworkServerUtilsNativeAITests: XCTestCase {
             _ = chunk.withCString { send(fd, $0, strlen($0), 0) }
             if pauseBetween > 0 { Thread.sleep(forTimeInterval: pauseBetween) }
         }
+
+        if halfCloseAfterWrites { shutdown(fd, SHUT_WR) }
 
         var received = Data()
         var buffer = [UInt8](repeating: 0, count: 4096)

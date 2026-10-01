@@ -147,5 +147,15 @@ test("local-path iOS dependencies: must stay inside the plugin dir and exist", (
 
     assert.throws(() => parsePluginManifest(write({ path: "../outside", products: ["X"] })), /must stay within the plugin directory/)
     assert.throws(() => parsePluginManifest(write({ path: "Missing", products: ["X"] })), /does not exist/)
+
+    // A symlink inside the plugin that points outside it must be rejected (lexically it looks contained).
+    const escapeDir = write({ path: "Local", products: ["X"] })
+    const outside = fs.mkdtempSync(path.join(dir, "outside-"))
+    fs.symlinkSync(outside, path.join(escapeDir, "Link"))
+    const manifestPath = path.join(escapeDir, "manifest.json")
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    manifest.ios.dependencies = [{ path: "Link", products: ["X"] }]
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest))
+    assert.throws(() => parsePluginManifest(escapeDir), /resolves outside the plugin directory/)
     assert.throws(() => parsePluginManifest(write({ path: "Local", from: "1.0.0", products: ["X"] })), /must not also set/)
 })

@@ -87,6 +87,13 @@ function readLocalIosDependency(entry, entryField, sourcePath) {
     if (!isDir(resolved)) {
         throw new Error(`'${entryField}.path' does not exist: ${relativePath} in ${sourcePath}`)
     }
+    // The lexical check above does not see symlinks: re-check containment on canonical paths so a link
+    // inside the plugin cannot point the Swift package outside it, and return the canonical path.
+    const realPluginDir = fs.realpathSync(pluginDir)
+    const realResolved = fs.realpathSync(resolved)
+    if (realResolved !== realPluginDir && !realResolved.startsWith(`${realPluginDir}${path.sep}`)) {
+        throw new Error(`'${entryField}.path' resolves outside the plugin directory: ${relativePath} in ${sourcePath}`)
+    }
     if (entry.from != null || entry.exact != null || entry.url != null) {
         throw new Error(`'${entryField}' with 'path' must not also set 'url', 'from' or 'exact' in ${sourcePath}`)
     }
@@ -101,10 +108,10 @@ function readLocalIosDependency(entry, entryField, sourcePath) {
 
     return {
         // The absolute path doubles as the identity key the composer merges dependencies on.
-        url: resolved,
+        url: realResolved,
         package:
             entry.package == null
-                ? path.basename(resolved)
+                ? path.basename(realResolved)
                 : mustBeNonEmptyString(entry.package, `${entryField}.package`, sourcePath),
         products,
         requirement: { type: "path", version: "local" },

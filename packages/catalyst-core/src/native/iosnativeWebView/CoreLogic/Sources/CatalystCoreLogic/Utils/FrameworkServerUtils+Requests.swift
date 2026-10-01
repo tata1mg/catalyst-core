@@ -62,7 +62,14 @@ extension FrameworkServerUtils {
             sendHTTPResponse(on: connection, statusCode: 413, body: "Payload Too Large")
             return
         }
-        if body.count < expected && !isComplete {
+        if body.count < expected {
+            if isComplete {
+                // The client closed the connection before sending the declared body: reject rather than
+                // handle a truncated request.
+                discardPendingRequest(for: connection)
+                sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
+                return
+            }
             requestStateLock.lock(); pendingRequests[key] = buffer; requestStateLock.unlock()
             receiveHTTPRequest(on: connection)
             return
