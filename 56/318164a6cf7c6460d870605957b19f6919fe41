@@ -1,0 +1,22 @@
+packages/catalyst-core/src/native/bridge/hooks/useNativeTransition.ts
+  s_142fca248d57d5::t_3f4fe2a73204e6 9-11,70-75
+packages/catalyst-core/test/hooks/useNativeTransition.ssr.test.ts
+  s_142fca248d57d5::t_3f4fe2a73204e6 1-8,10-21
+  s_142fca248d57d5::t_9a8976cf45893e 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "56318164a6cf7c6460d870605957b19f6919fe41",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
