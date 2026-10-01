@@ -107,6 +107,7 @@ export default function TicTacToe() {
 
         if (emptyIndices.length === 0) return;
 
+        sawLoadingRef.current = false;
         setAiThinking(true);
 
         const promptMsg = `The game is Tic Tac Toe. You are 'O' and the player is 'X'.
@@ -128,11 +129,16 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
         }
     };
 
-    // Listen to AI response completion
-    const lastOutputRef = useRef("");
+    // Listen to AI response completion. A reply is "new" once this move's request has been seen loading and
+    // has finished — not when the text differs from the previous reply, because a model can legitimately
+    // answer the same digit twice in a row (comparing text left the game waiting forever).
+    const sawLoadingRef = useRef(false);
     useEffect(() => {
-        if (aiThinking && !loading && !error && output && output !== lastOutputRef.current) {
-            lastOutputRef.current = output;
+        if (aiThinking && loading) sawLoadingRef.current = true;
+    }, [aiThinking, loading]);
+    useEffect(() => {
+        if (aiThinking && sawLoadingRef.current && !loading && !error && output) {
+            sawLoadingRef.current = false;
             // When loading finishes, evaluate output
             setAiThinking(false);
             
@@ -153,6 +159,7 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
                 makeFallbackMove(board, emptyIndices);
             }
         } else if (aiThinking && error) {
+            sawLoadingRef.current = false;
             setAiThinking(false);
             const emptyIndices = board
                 .map((cell, idx) => cell === null ? idx : null)
@@ -221,7 +228,7 @@ IMPORTANT: Respond with ONLY the number of the index (0 to 8) that you choose. D
         setGameStatus("active");
         setWinningLine(null);
         setAiThinking(false);
-        lastOutputRef.current = "";
+        sawLoadingRef.current = false;
         reset();
     };
 
