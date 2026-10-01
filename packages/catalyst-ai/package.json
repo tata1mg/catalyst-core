@@ -7,6 +7,13 @@
         ".": "./src/index.js",
         "./route": "./src/route.js"
     },
+    "files": [
+        "src",
+        "scripts",
+        "android/src",
+        "android/build.gradle.kts",
+        "README.md"
+    ],
     "scripts": {
         "preinstall": "node ./scripts/check-peer.js",
         "test": "npm run test:types && vitest run",
