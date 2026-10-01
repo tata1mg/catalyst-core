@@ -122,7 +122,9 @@ export default function Chess() {
     // Set up useAI Hook
     const useAIResult = useAI({
         provider,
-        sessionMode: "stateful",
+        // Every prompt carries the full position and legal moves, so on-device models (small context
+        // windows) start each move fresh instead of piling the whole game into one conversation.
+        sessionMode: provider === "native" ? "stateless" : "stateful",
         genConfig: {
             stream: false,
             temperature: 0.1,
@@ -131,7 +133,10 @@ export default function Chess() {
         systemPrompt: "You are a chess engine playing as Black. Return only the selected move in SAN notation."
     });
 
-    const { generate, loading, error, output, reset } = useAIResult;
+    const { generate, loading, error, output, reset, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
+
+    // The on-device model (LiteRT-LM / Apple Foundation Models) loads or downloads once; hold moves until it is ready.
+    const isNativeLoading = provider === "native" && isNative && !modelReady;
 
     // Check game condition
     const checkGameStatus = () => {
@@ -155,7 +160,7 @@ export default function Chess() {
 
     // User selection/move interaction
     const handleSquareClick = (square) => {
-        if (!isPlayerTurn || gameStatus !== "active" || aiThinking || !chessRef.current) return;
+        if (!isPlayerTurn || gameStatus !== "active" || aiThinking || isNativeLoading || !chessRef.current) return;
 
         const chess = chessRef.current;
         const piece = chess.get(square);
@@ -437,7 +442,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
             <div className="text-center md:text-left mb-8">
                 <h1 className="text-4xl font-semibold text-white tracking-tight mb-2">Chess Grandmaster AI</h1>
                 <p className="text-[14px] leading-relaxed text-[var(--text-2)] max-w-[60ch]">
-                    Play Chess against a cloud AI opponent. Choose your engine provider to see how they perform in complex chess logic and positional strategy.
+                    Play Chess against a cloud or on-device AI opponent. Choose your engine to see how each performs in complex chess logic and positional strategy.
                 </p>
             </div>
 
@@ -454,7 +459,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                         <div className="flex flex-col gap-5">
                             <div>
                                 <label className="text-[12px] font-semibold text-[var(--text-2)] block mb-2 font-mono">Select AI Engine</label>
-                                <div className="grid grid-cols-2 gap-2 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
+                                <div className="grid grid-cols-3 gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
                                     <button
                                         type="button"
                                         onClick={() => setProvider("openai")}
@@ -477,8 +482,47 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                                     >
                                         Gemini (3.5 Flash)
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setProvider("native")}
+                                        className={`py-2 rounded-lg font-semibold text-[12px] transition cursor-pointer ${
+                                            provider === "native"
+                                                ? "bg-indigo-500 text-white shadow-md"
+                                                : "text-[var(--text-2)] hover:text-white"
+                                        }`}
+                                        title="Native (On-Device)"
+                                    >
+                                        Native (On-Device)
+                                    </button>
                                 </div>
                             </div>
+
+                            {/* On-device model: only meaningful in the native app builds */}
+                            {provider === "native" && !isNative && (
+                                <div className="text-[11px] font-mono text-amber-400/80">
+                                    On-device AI is not available here (use the Android or iOS app with ai.enabled). Falling back to cloud.
+                                </div>
+                            )}
+                            {provider === "native" && isNative && !modelReady && (
+                                <div className="select-none">
+                                    <div className="flex justify-between text-[10px] font-mono text-[var(--text-3)] mb-1">
+                                        <span className="truncate max-w-[70%]">
+                                            {nativeDownloadProgress
+                                                ? `${nativeDownloadProgress.phase === "engine_init" ? "Engine init" : nativeDownloadProgress.phase}${nativeDownloadProgress.detail ? ` · ${nativeDownloadProgress.detail}` : ""}`
+                                                : "Preparing on-device model…"}
+                                        </span>
+                                        <span>{nativeDownloadProgress && nativeDownloadProgress.percent > 0 ? `${nativeDownloadProgress.percent}%` : "…"}</span>
+                                    </div>
+                                    {nativeDownloadProgress && nativeDownloadProgress.percent > 0 && (
+                                        <div className="w-full h-1.5 bg-[var(--surface-3)] rounded-full overflow-hidden">
+                                            <div className="h-full bg-orange-400 rounded-full transition-all duration-200" style={{ width: `${nativeDownloadProgress.percent}%` }} />
+                                        </div>
+                                    )}
+                                    {nativeLogs && nativeLogs.length > 0 && (
+                                        <div className="mt-1 text-[9px] font-mono text-[var(--text-3)] truncate opacity-70">{nativeLogs[nativeLogs.length - 1]}</div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="pt-4 border-t border-[var(--border)] flex items-center justify-between">
                                 <span className="text-[12px] text-[var(--text-2)] font-mono">Status:</span>
