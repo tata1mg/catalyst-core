@@ -33,8 +33,11 @@ extension FrameworkServerUtils {
         }
 
         let key = ObjectIdentifier(connection)
+        // Append to the connection's own buffer in place: `old + new` would copy every byte received so far on
+        // each 8 KB read.
         requestStateLock.lock()
-        let buffer = (pendingRequests[key] ?? Data()) + data
+        var buffer = pendingRequests.removeValue(forKey: key) ?? Data()
+        buffer.append(data)
         requestStateLock.unlock()
 
         let terminator = Data("\r\n\r\n".utf8)
@@ -55,7 +58,11 @@ extension FrameworkServerUtils {
 
         let headerData = buffer[buffer.startIndex..<headerEnd.lowerBound]
         let body = buffer[headerEnd.upperBound...]
-        let expected = Self.contentLength(inHeaders: headerData)
+        guard let expected = Self.contentLength(inHeaders: headerData) else {
+            discardPendingRequest(for: connection)
+            sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
+            return
+        }
 
         if expected > Self.maxBodyBytes {
             discardPendingRequest(for: connection)
@@ -85,15 +92,34 @@ extension FrameworkServerUtils {
         requestStateLock.unlock()
     }
 
-    static func contentLength(inHeaders headerData: Data) -> Int {
-        guard let text = String(data: headerData, encoding: .utf8) else { return 0 }
+    /// The declared body length: 0 when there is no Content-Length header, nil when it is malformed or negative
+    /// (the request is then rejected instead of being read as an empty body).
+    static func contentLength(inHeaders headerData: Data) -> Int? {
+        guard let text = String(data: headerData, encoding: .utf8) else { return nil }
         for line in text.components(separatedBy: "\r\n") {
             let parts = line.split(separator: ":", maxSplits: 1)
             if parts.count == 2, parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length" {
-                return Int(parts[1].trimmingCharacters(in: .whitespaces)) ?? 0
+                guard let length = Int(parts[1].trimmingCharacters(in: .whitespaces)), length >= 0 else { return nil }
+                return length
             }
         }
         return 0
+    }
+
+    /// True when the peer is on this device. The listener is not bound to loopback only (that predates the AI
+    /// routes and also serves files), so the AI routes — which run the on-device model — check the peer themselves.
+    static func isLoopbackPeer(_ endpoint: NWEndpoint) -> Bool {
+        guard case let .hostPort(host, _) = endpoint else { return false }
+        switch host {
+        case .ipv4(let address):
+            return address.isLoopback
+        case .ipv6(let address):
+            return address.isLoopback || address.asIPv4?.isLoopback == true
+        case .name(let name, _):
+            return name == "localhost"
+        @unknown default:
+            return false
+        }
     }
 
     func dispatchRequest(headerData: Data, body: Data, isComplete: Bool, on connection: NWConnection) {
@@ -130,6 +156,11 @@ extension FrameworkServerUtils {
         let isAIRoute = components[1] == aiPrefix + "stream" || components[1] == aiPrefix + "generate"
 
         if isAIRoute {
+            guard Self.isLoopbackPeer(connection.endpoint) else {
+                logger.warning("Rejected AI request from a non-loopback peer")
+                sendHTTPResponse(on: connection, statusCode: 403, body: "Forbidden")
+                return false
+            }
             switch method {
             case "OPTIONS":
                 sendAIPreflight(on: connection)

@@ -17,6 +17,10 @@ final class CatalystAIBridge: AIBridge {
     private var engines: [EngineKind: NativeAIEngine] = [:]
     private var activeEngine: NativeAIEngine?
     private var isInitializing = false
+    // An initAI that arrives mid-initialisation (typically the page reloaded and asked again) is not dropped:
+    // it runs once the current one finishes, so the new WebView still gets its ready/error events.
+    private var hasQueuedInit = false
+    private var queuedOptionsRaw: String?
 
     func attach(callbacks: AIBridgeCallbacks) {
         lock.lock(); defer { lock.unlock() }
@@ -24,17 +28,32 @@ final class CatalystAIBridge: AIBridge {
     }
 
     func initAI(optionsRaw: String?) {
-        let (cb, alreadyRunning): (AIBridgeCallbacks?, Bool) = lock.withLock {
-            let alreadyRunning = isInitializing
-            if callbacks != nil && !alreadyRunning { isInitializing = true }
-            return (callbacks, alreadyRunning)
+        let startNow: Bool = lock.withLock {
+            guard callbacks != nil else { return false }
+            if isInitializing {
+                hasQueuedInit = true
+                queuedOptionsRaw = optionsRaw
+                return false
+            }
+            isInitializing = true
+            return true
         }
-
-        guard let cb = cb, !alreadyRunning else { return } // duplicate call: ignored, like Android's AlreadyRunning
+        guard startNow else { return }
 
         Task.detached(priority: .userInitiated) { [self] in
-            await run(optionsRaw: optionsRaw, callbacks: cb)
-            lock.withLock { isInitializing = false }
+            var next = optionsRaw
+            while true {
+                await run(optionsRaw: next)
+                let queued: (again: Bool, options: String?) = lock.withLock {
+                    guard hasQueuedInit else { isInitializing = false; return (false, nil) }
+                    hasQueuedInit = false
+                    let options = queuedOptionsRaw
+                    queuedOptionsRaw = nil
+                    return (true, options)
+                }
+                guard queued.again else { break }
+                next = queued.options
+            }
         }
     }
 
@@ -45,14 +64,21 @@ final class CatalystAIBridge: AIBridge {
 
     // MARK: - Private
 
-    private func run(optionsRaw: String?, callbacks cb: AIBridgeCallbacks) async {
-        guard cb.ensureFrameworkServerRunning() else {
-            cb.onError("FrameworkServer not running — cannot expose AI stream", code: NativeAIErrorCode.requestFailed)
+    /// Every event goes to the callbacks attached *now*: initialisation can outlive the WebView that started it
+    /// (a long download, then a reload), and its result must reach the page that is actually showing.
+    private func run(optionsRaw: String?) async {
+        guard let first = currentCallbacks() else { return }
+        func emit(_ send: (AIBridgeCallbacks) -> Void) {
+            if let cb = currentCallbacks() { send(cb) }
+        }
+
+        guard first.ensureFrameworkServerRunning() else {
+            emit { $0.onError("FrameworkServer not running — cannot expose AI stream", code: NativeAIErrorCode.requestFailed) }
             return
         }
 
         let options = AIOptions(optionsRaw: optionsRaw)
-        let log: AILogHandler = { cb.onLog($0) }
+        let log: AILogHandler = { message in emit { $0.onLog(message) } }
 
         let choice = EngineSelection.choose(
             requested: options.engine,
@@ -63,13 +89,13 @@ final class CatalystAIBridge: AIBridge {
         switch choice {
         case .success(let selected): kind = selected
         case .failure(let error):
-            cb.onError("Failed to load native AI model: \(error.message)", code: error.code)
+            emit { $0.onError("Failed to load native AI model: \(error.message)", code: error.code) }
             return
         }
         log("Native AI engine: \(kind.rawValue)")
 
         guard let engine = engine(for: kind) else {
-            cb.onError("Failed to load native AI model: engine \(kind.rawValue) is not supported on this OS", code: NativeAIErrorCode.requestFailed)
+            emit { $0.onError("Failed to load native AI model: engine \(kind.rawValue) is not supported on this OS", code: NativeAIErrorCode.requestFailed) }
             return
         }
 
@@ -77,11 +103,12 @@ final class CatalystAIBridge: AIBridge {
             try await engine.prepare(options: options)
         } catch {
             let code = (error as? NativeAIError)?.code ?? NativeAIErrorCode.requestFailed
-            cb.onError("Failed to load native AI model: \(error.localizedDescription)", code: code)
+            emit { $0.onError("Failed to load native AI model: \(error.localizedDescription)", code: code) }
             return
         }
 
         lock.withLock { activeEngine = engine }
+        guard let cb = currentCallbacks() else { return }
         cb.setNativeAiSupplier { prompt, genConfig, conversationId in
             try await engine.supply(prompt: prompt, genConfig: genConfig, conversationId: conversationId)
         }

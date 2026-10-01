@@ -160,4 +160,5 @@ src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift
 # SwiftPM build output (catalyst-ai plugin test harness)
 packages/catalyst-ai/plugins/ai/.build/
 packages/catalyst-ai/plugins/ai/**/.build/
+!packages/catalyst-ai/plugins/ai/scripts/*.sh
 packages/catalyst-ai/plugins/ai/.swiftpm/

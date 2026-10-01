@@ -23,7 +23,7 @@ final class NativeBridgeAI: NativeAIEngine {
         "gemma-4-E2B": ModelEntry(
             url: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
             filename: "gemma-4-E2B-it.litertlm",
-            sizeHint: 1_870_000_000
+            sizeHint: 2_588_147_712
         ),
         "qwen3-0.6B": ModelEntry(
             url: "https://huggingface.co/litert-community/Qwen3-0.6B-it-litert-lm/resolve/main/Qwen3-0.6B-it-int4.litertlm",
@@ -39,6 +39,7 @@ final class NativeBridgeAI: NativeAIEngine {
     private let onProgress: AIProgressHandler
     private let lock = NSLock()
     private var engine: Engine?
+    private var loadedModelPath: String?
     private var conversation: Conversation?
     private var conversationId: String?
 
@@ -153,14 +154,23 @@ final class NativeBridgeAI: NativeAIEngine {
     }
 
     private func ensureEngine(modelPath: String) async throws {
-        let existing = lock.withLock { engine }
-        if existing != nil {
+        // A warm engine is only reusable for the model it was built from; a different model or path replaces it
+        // (and drops the conversation, which belongs to the old engine).
+        let reusable = lock.withLock { engine != nil && loadedModelPath == modelPath }
+        if reusable {
             onLog("Engine already loaded — reusing warm instance")
             return
         }
+        lock.withLock {
+            if engine != nil { onLog("Model changed — replacing the loaded engine") }
+            engine = nil
+            loadedModelPath = nil
+            conversation = nil
+            conversationId = nil
+        }
         onProgress("engine_init", 0, 0, 0, "loading")
         let created = try await tryCreateEngine(modelPath: modelPath)
-        lock.withLock { engine = created }
+        lock.withLock { engine = created; loadedModelPath = modelPath }
         onLog("LiteRT-LM engine ready")
         onProgress("engine_init", 100, 0, 0, "ready")
     }
@@ -254,7 +264,12 @@ private final class ModelDownloader: NSObject, URLSessionDownloadDelegate {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 self.continuation = continuation
-                let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+                // timeoutIntervalForRequest is the idle limit (no bytes for 60 s fails the transfer, so a stalled
+                // download cannot hold initialisation); the resource limit bounds even a slow-but-moving one.
+                let configuration = URLSessionConfiguration.default
+                configuration.timeoutIntervalForRequest = 60
+                configuration.timeoutIntervalForResource = 4 * 60 * 60
+                let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
                 self.session = session
                 session.downloadTask(with: url).resume()
             }

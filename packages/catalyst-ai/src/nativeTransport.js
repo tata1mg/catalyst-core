@@ -78,3 +78,12 @@ export function clearNativeConversation() {
         postToIosPlugin("clearConversation", null)
     }
 }
+
+/**
+ * Native errors carry a registry code (e.g. AI-003 invalid request, AI-005 stream not ready). Use it when it is a
+ * code the registry knows (`isKnownCode`), otherwise fall back, so apps can tell failures apart without trusting
+ * arbitrary strings from the native side.
+ */
+export function pickNativeErrorCode(code, fallback, isKnownCode) {
+    return typeof code === "string" && code.startsWith("AI-") && isKnownCode(code) ? code : fallback
+}

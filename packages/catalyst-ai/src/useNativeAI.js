@@ -1,7 +1,22 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
-import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation } from "./nativeTransport.js"
+import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation, pickNativeErrorCode } from "./nativeTransport.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
+
+const isKnownCode = (code) => Object.values(ERROR_CODES).includes(code)
+
+// Keep the native-reported registry code (and message) on HTTP failures; the body is { error, code } JSON.
+async function nativeHttpError(response) {
+    let body = null
+    try {
+        body = await response.json()
+    } catch (_) {
+        // Not JSON (e.g. a proxy error page): fall through to the status-based message.
+    }
+    return createError(pickNativeErrorCode(body?.code, ERROR_CODES.AI_NATIVE_REQUEST_FAILED, isKnownCode), {
+        message: body?.error || `Native AI HTTP error: ${response.status}`,
+    })
+}
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
@@ -112,13 +127,15 @@ export function useNativeAI({
 
         const onError = (data) => {
             let msg
+            let code
             try {
                 const parsed = typeof data === "string" ? JSON.parse(data) : data
                 msg = parsed?.message ?? String(data)
+                code = parsed?.code
             } catch (_) {
                 msg = String(data)
             }
-            setError(createError(ERROR_CODES.AI_NATIVE_CALLBACK_ERROR, { message: msg }))
+            setError(createError(pickNativeErrorCode(code, ERROR_CODES.AI_NATIVE_CALLBACK_ERROR, isKnownCode), { message: msg }))
         }
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_READY, onReady)
@@ -140,6 +157,10 @@ export function useNativeAI({
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_PROGRESS)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_LOG)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_ERROR)
+            // A changed engine/model re-initialises native AI: drop the old stream URL and readiness so
+            // generate() waits for the new session instead of using the previous engine.
+            nativeStreamUrlRef.current = null
+            setModelReady(false)
         }
         // Re-initialise when the engine/model selection changes (e.g. switching provider "litert" ->
         // "foundation-models"). attachmentComponents / systemPrompt are objects/strings that callers often
@@ -188,15 +209,13 @@ export function useNativeAI({
                     })
 
                     if (!response.ok) {
-                        throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, {
-                            message: `Native AI HTTP error: ${response.status}`,
-                        })
+                        throw await nativeHttpError(response)
                     }
                     setLoading(false)
 
                     const data = await response.json()
                     if (data.error) {
-                        throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, { message: data.error })
+                        throw createError(pickNativeErrorCode(data.code, ERROR_CODES.AI_NATIVE_REQUEST_FAILED, isKnownCode), { message: data.error })
                     }
 
                     if (sessionMode === "stateful" && data.conversationId) {
@@ -220,9 +239,7 @@ export function useNativeAI({
                 })
 
                 if (!response.ok) {
-                    throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, {
-                        message: `Native AI HTTP error: ${response.status}`,
-                    })
+                    throw await nativeHttpError(response)
                 }
 
                 setLoading(false)
@@ -276,7 +293,7 @@ export function useNativeAI({
                                 }
                             }
                             if (data.error) {
-                                throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, { message: data.error })
+                                throw createError(pickNativeErrorCode(data.code, ERROR_CODES.AI_NATIVE_REQUEST_FAILED, isKnownCode), { message: data.error })
                             }
                         }
                     }

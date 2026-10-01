@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import Network
 @testable import CatalystCoreLogic
 
 /// Loopback tests for the native-AI routes (/ai/stream, /ai/generate) using a stub supplier,
@@ -299,6 +300,34 @@ final class FrameworkServerUtilsNativeAITests: XCTestCase {
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 503)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(json["code"] as? String, NativeAIErrorCode.streamNotReady)
+    }
+
+    // MARK: - Loopback-only AI routes, Content-Length validation
+
+    func testIsLoopbackPeer_AcceptsLocalAddressesOnly() throws {
+        func endpoint(_ host: NWEndpoint.Host) -> NWEndpoint { .hostPort(host: host, port: 5000) }
+        XCTAssertTrue(FrameworkServerUtils.isLoopbackPeer(endpoint(.ipv4(try XCTUnwrap(IPv4Address("127.0.0.1"))))))
+        XCTAssertTrue(FrameworkServerUtils.isLoopbackPeer(endpoint(.ipv6(try XCTUnwrap(IPv6Address("::1"))))))
+        XCTAssertTrue(FrameworkServerUtils.isLoopbackPeer(endpoint(.ipv6(try XCTUnwrap(IPv6Address("::ffff:127.0.0.1"))))))
+        XCTAssertFalse(FrameworkServerUtils.isLoopbackPeer(endpoint(.ipv4(try XCTUnwrap(IPv4Address("192.168.1.20"))))))
+        XCTAssertFalse(FrameworkServerUtils.isLoopbackPeer(endpoint(.ipv6(try XCTUnwrap(IPv6Address("fe80::1"))))))
+        XCTAssertFalse(FrameworkServerUtils.isLoopbackPeer(.unix(path: "/tmp/x")))
+    }
+
+    func testContentLength_ParsesValidAbsentAndRejectsMalformed() {
+        func length(_ headers: String) -> Int?? { .some(FrameworkServerUtils.contentLength(inHeaders: Data(headers.utf8))) }
+        XCTAssertEqual(length("POST / HTTP/1.1\r\nContent-Length: 12"), .some(12))
+        XCTAssertEqual(length("POST / HTTP/1.1\r\ncontent-length:7"), .some(7))
+        XCTAssertEqual(length("GET / HTTP/1.1\r\nHost: x"), .some(0))
+        XCTAssertEqual(length("POST / HTTP/1.1\r\nContent-Length: abc"), .some(nil))
+        XCTAssertEqual(length("POST / HTTP/1.1\r\nContent-Length: -5"), .some(nil))
+    }
+
+    func testPost_MalformedContentLength_Returns400() async throws {
+        try requireRunningServer()
+        let head = "POST /framework-\(server.getSessionId())/ai/stream HTTP/1.1\r\nContent-Length: nope\r\n\r\n"
+        let reply = try Self.rawExchange(port: server.getServerPort(), writes: [head], pauseBetween: 0)
+        XCTAssertTrue(reply.contains("400"))
     }
 
     func testNativeAIStreamURL_NilWhenStopped_AndNamesSessionWhenRunning() throws {

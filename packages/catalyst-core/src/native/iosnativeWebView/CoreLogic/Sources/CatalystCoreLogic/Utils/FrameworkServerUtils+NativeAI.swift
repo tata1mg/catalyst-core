@@ -15,11 +15,18 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app"
 extension FrameworkServerUtils {
     // MARK: - Native AI API
 
+    /// Installs the engine that answers `POST /ai/stream` and `POST /ai/generate`. Each request calls the supplier
+    /// with the (system-prompt-prefixed) prompt, the request's `genConfig` and its conversation id. While it is
+    /// `nil` (the default, and after passing `nil`) both routes answer "not ready" (`AI-005`) instead of running.
+    /// Set by the AI plugin once its engine has loaded.
     public func setNativeAiSupplier(_ supplier: NativeAISupplier?) {
         aiLock.lock(); defer { aiLock.unlock() }
         nativeAiSupplier = supplier
     }
 
+    /// Sets the system prompt the server prepends (as `"<prompt>\n\n<user prompt>"`) to every AI request before it
+    /// reaches the supplier. Pass an empty string to prepend nothing, for engines that keep their instructions in
+    /// their own session. Read per request, so changes apply to the next one.
     public func setNativeSystemPrompt(_ systemPrompt: String) {
         aiLock.lock(); defer { aiLock.unlock() }
         nativeSystemPrompt = systemPrompt
@@ -63,9 +70,16 @@ extension FrameworkServerUtils {
         task?.cancel()
     }
 
+    /// A client that stops reading must not keep the model running: if a write is not accepted within this long,
+    /// the connection is dropped, which fails the send, ends the stream and cancels generation upstream.
+    static let aiWriteTimeout: TimeInterval = 30
+
     private func sendRaw(_ data: Data, on connection: NWConnection) async -> Bool {
         await withCheckedContinuation { continuation in
+            let deadline = DispatchWorkItem { connection.cancel() }
+            DispatchQueue.global().asyncAfter(deadline: .now() + Self.aiWriteTimeout, execute: deadline)
             connection.send(content: data, completion: .contentProcessed { error in
+                deadline.cancel()
                 if let error = error {
                     logger.debug("AI stream send failed: \(error.localizedDescription)")
                 }
@@ -129,8 +143,8 @@ extension FrameworkServerUtils {
         } catch is CancellationError {
             logger.debug("Native AI stream cancelled (client disconnected)")
         } catch {
-            logger.error("Native AI stream error: \(error.localizedDescription)")
             let code = (error as? NativeAIError)?.code ?? NativeAIErrorCode.requestFailed
+            logger.error("Native AI stream error [\(code)] conversation=\(request.conversationId ?? "<new>"): \(error.localizedDescription)")
             _ = await sendRaw(NativeAISSE.error(error.localizedDescription, code: code), on: connection)
         }
     }
@@ -198,8 +212,9 @@ extension FrameworkServerUtils {
         } catch let error as NativeAIError where error.message.hasPrefix("generate timed out") {
             fail(504, error.message, error.code)
         } catch {
-            logger.error("Native AI generate error: \(error.localizedDescription)")
-            fail(500, error.localizedDescription, (error as? NativeAIError)?.code ?? NativeAIErrorCode.requestFailed)
+            let code = (error as? NativeAIError)?.code ?? NativeAIErrorCode.requestFailed
+            logger.error("Native AI generate error [\(code)] conversation=\(request.conversationId ?? "<new>"): \(error.localizedDescription)")
+            fail(500, error.localizedDescription, code)
         }
     }
 

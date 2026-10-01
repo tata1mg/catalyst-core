@@ -107,3 +107,21 @@ describe("describeNativeAIUnavailable", () => {
         expect(t.describeNativeAIUnavailable()).toMatch(/NativeBridge\.initAI/)
     })
 })
+
+describe("pickNativeErrorCode", () => {
+    const known = (code: string) => ["AI-003", "AI-005", "AI-006"].includes(code)
+
+    it("keeps a registry AI code reported by native", async () => {
+        const t = await transport
+        expect(t.pickNativeErrorCode("AI-005", "AI-007", known)).toBe("AI-005")
+        expect(t.pickNativeErrorCode("AI-003", "AI-006", known)).toBe("AI-003")
+    })
+
+    it("falls back for unknown, non-AI or non-string codes", async () => {
+        const t = await transport
+        expect(t.pickNativeErrorCode("AI-999", "AI-007", known)).toBe("AI-007")
+        expect(t.pickNativeErrorCode("RUNTIME-NATIVE-001", "AI-007", () => true)).toBe("AI-007")
+        expect(t.pickNativeErrorCode(undefined, "AI-007", known)).toBe("AI-007")
+        expect(t.pickNativeErrorCode({ code: "AI-005" }, "AI-007", known)).toBe("AI-007")
+    })
+})
