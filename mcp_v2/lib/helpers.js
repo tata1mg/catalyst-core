@@ -37,8 +37,17 @@ function versionOlderThan(a, b) {
     return false
 }
 
+const VITE_RUNTIME_VERSION = "0.3.0-beta.1"
+
+function catalystGeneration(version) {
+    const parsed = parseVersion(version)
+    if (!parsed) return "unknown"
+    return versionOlderThan(version, VITE_RUNTIME_VERSION) ? "legacy" : "current"
+}
+
 /**
- * Walk up the directory tree looking for a package.json that depends on Catalyst.
+ * Walk up the directory tree looking for a package.json that depends on Catalyst,
+ * or the catalyst-core package source itself when developing this repo.
  * Returns { dir, pkg, catalystPackageName, catalystVersion, installedVersion, versionMeta } or null.
  */
 function findCatalystRoot() {
@@ -51,25 +60,57 @@ function findCatalystRoot() {
         let dir = start
         while (dir !== path.parse(dir).root) {
             const pkgPath = path.join(dir, "package.json")
+            // A package.json inside a node_modules segment is an installed copy, not
+            // the catalyst-core source repo itself — for the standard install layout
+            // (<app>/node_modules/catalyst-core/mcp_v2/mcp.js), walking up from
+            // __dirname hits catalyst-core's own installed package.json (name:
+            // "catalyst-core") before it ever reaches the consumer app's root. Only
+            // the isSourcePackage branch below should match on pkg.name, and only for
+            // a real (non-node_modules) source checkout — otherwise keep climbing so
+            // the walk finds the consumer's package.json instead, which matches via
+            // the deps["catalyst-core"] branch further down.
+            const isInstalledCopy = dir.split(path.sep).includes("node_modules")
             if (fs.existsSync(pkgPath)) {
                 try {
                     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
+                    if (pkg.name === "catalyst-core" && !isInstalledCopy) {
+                        const sourceVersion = pkg.version || null
+                        return {
+                            dir,
+                            pkg,
+                            catalystPackageName: "catalyst-core",
+                            catalystVersion: sourceVersion,
+                            version: sourceVersion,
+                            installedVersion: sourceVersion,
+                            notInstalled: false,
+                            isSourcePackage: true,
+                            versionMeta: {
+                                declaredRef: sourceVersion,
+                                isGithubRef: false,
+                                installedVersion: sourceVersion,
+                                parsed: parseVersion(sourceVersion),
+                            },
+                        }
+                    }
+
                     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
                     const declaredRef = deps["catalyst-core"]
                     if (declaredRef) {
-                        const nmPath = path.join(dir, "node_modules", "catalyst-core")
-                        const installed = fs.existsSync(nmPath)
-                        // Read the actual installed version from node_modules
+                        // A fixed `<dir>/node_modules/catalyst-core` path only finds a
+                        // flat install. In a hoisted workspace (npm/yarn workspaces,
+                        // pnpm with hoisting) the package can live several levels above
+                        // `dir` instead. require.resolve with `paths` walks node_modules
+                        // up the tree the same way Node's own module resolution does, so
+                        // it finds the installed copy regardless of hoisting.
                         let installedVersion = null
-                        if (installed) {
-                            try {
-                                const nmPkg = JSON.parse(
-                                    fs.readFileSync(path.join(nmPath, "package.json"), "utf8")
-                                )
-                                installedVersion = nmPkg.version || null
-                            } catch {
-                                /* ignore */
-                            }
+                        let installed = false
+                        try {
+                            const nmPkgPath = require.resolve("catalyst-core/package.json", { paths: [dir] })
+                            const nmPkg = JSON.parse(fs.readFileSync(nmPkgPath, "utf8"))
+                            installedVersion = nmPkg.version || null
+                            installed = true
+                        } catch {
+                            /* not installed relative to dir */
                         }
                         const isGithubRef = declaredRef.startsWith("github:") || declaredRef.includes("#")
                         return {
@@ -77,6 +118,7 @@ function findCatalystRoot() {
                             pkg,
                             catalystPackageName: "catalyst-core",
                             catalystVersion: declaredRef, // what package.json says (may be github ref)
+                            version: declaredRef,
                             installedVersion, // what's actually in node_modules e.g. "0.0.3-canary.3"
                             notInstalled: !installed,
                             versionMeta: {
@@ -101,21 +143,33 @@ function findCatalystRoot() {
  * File-system helpers scoped to a project root.
  */
 function makeProjectHelpers(root) {
+    function safeProjectPath(rel) {
+        if (typeof rel !== "string" || path.isAbsolute(rel)) return null
+        const normalized = path.normalize(rel)
+        if (normalized === ".." || normalized.startsWith(`..${path.sep}`)) return null
+        return `${root}${path.sep}${normalized}`
+    }
+
     function fileExists(rel) {
-        return fs.existsSync(path.join(root, rel))
+        const filePath = safeProjectPath(rel)
+        return Boolean(filePath && fs.existsSync(filePath))
     }
 
     function readJson(rel) {
+        const filePath = safeProjectPath(rel)
+        if (!filePath) return null
         try {
-            return JSON.parse(fs.readFileSync(path.join(root, rel), "utf8"))
+            return JSON.parse(fs.readFileSync(filePath, "utf8"))
         } catch {
             return null
         }
     }
 
     function readText(rel) {
+        const filePath = safeProjectPath(rel)
+        if (!filePath) return null
         try {
-            return fs.readFileSync(path.join(root, rel), "utf8")
+            return fs.readFileSync(filePath, "utf8")
         } catch {
             return null
         }
@@ -125,7 +179,6 @@ function makeProjectHelpers(root) {
      * Walk src/**\/*.{js,jsx,ts,tsx} and return relative paths that match pattern.
      */
     function grepSrc(pattern) {
-        const re = new RegExp(pattern)
         const matches = []
         function walk(dir) {
             let entries
@@ -136,12 +189,13 @@ function makeProjectHelpers(root) {
             }
             for (const e of entries) {
                 if (e.name === "node_modules" || e.name === ".git") continue
-                const full = path.join(dir, e.name)
+                const full = `${dir}${path.sep}${e.name}`
                 if (e.isDirectory()) {
                     walk(full)
                 } else if (/\.(js|jsx|ts|tsx)$/.test(e.name)) {
                     try {
-                        if (re.test(fs.readFileSync(full, "utf8"))) {
+                        const content = fs.readFileSync(full, "utf8")
+                        if (pattern.test(content)) {
                             matches.push(path.relative(root, full))
                         }
                     } catch {
@@ -150,7 +204,7 @@ function makeProjectHelpers(root) {
                 }
             }
         }
-        walk(path.join(root, "src"))
+        walk(`${root}${path.sep}src`)
         return matches
     }
 
@@ -162,4 +216,6 @@ module.exports = {
     makeProjectHelpers,
     versionOlderThan,
     parseVersion,
+    catalystGeneration,
+    VITE_RUNTIME_VERSION,
 }

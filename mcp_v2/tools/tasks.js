@@ -2,7 +2,7 @@
 
 const fs = require("fs")
 const path = require("path")
-const { findCatalystRoot } = require("../lib/helpers")
+const { findCatalystRoot, catalystGeneration } = require("../lib/helpers")
 const conversion = require("./conversion")
 
 let _db
@@ -24,6 +24,14 @@ function slugify(str) {
 
 function now() {
     return new Date().toISOString().replace("T", " ").slice(0, 19)
+}
+
+function projectPath(projectRoot, rel) {
+    const normalized = path.normalize(rel)
+    if (path.isAbsolute(normalized) || normalized === ".." || normalized.startsWith(`..${path.sep}`)) {
+        return null
+    }
+    return `${projectRoot}${path.sep}${normalized}`
 }
 
 // ─── Improvement 1: Resolve needs_review inline before plan write ─────────────
@@ -67,7 +75,8 @@ function resolveNeedsReview(task, projectRoot) {
         let nativeBranchFound = false
         for (const f of samplesToCheck) {
             try {
-                const absPath = path.isAbsolute(f) ? f : path.join(projectRoot, f)
+                const absPath = path.isAbsolute(f) ? f : projectPath(projectRoot, f)
+                if (!absPath) continue
                 const content = fs.readFileSync(absPath, "utf8")
                 if (hookRegex && hookRegex.test(content)) {
                     nativeBranchFound = true
@@ -411,12 +420,12 @@ function summarisePlan(plan) {
 // ─── MD file helpers ─────────────────────────────────────────────────────────
 
 function getMdPath(projectRoot, slug) {
-    return path.join(projectRoot, ".mcp_tasks", `${slug}.md`)
+    return `${projectRoot}${path.sep}.mcp_tasks${path.sep}${slug}.md`
 }
 
 function buildUserReviewWarnings(projectRoot) {
     const warnings = []
-    const configPath = path.join(projectRoot, "config", "config.json")
+    const configPath = `${projectRoot}${path.sep}config${path.sep}config.json`
     let config = null
     try {
         config = JSON.parse(fs.readFileSync(configPath, "utf8"))
@@ -463,7 +472,7 @@ function buildUserReviewWarnings(projectRoot) {
 }
 
 function writeMdFile(projectRoot, slug, goal, steps, bareMinimum, userReviewWarnings) {
-    const dir = path.join(projectRoot, ".mcp_tasks")
+    const dir = `${projectRoot}${path.sep}.mcp_tasks`
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
     const mdPath = getMdPath(projectRoot, slug)
@@ -588,33 +597,34 @@ function appendToMdFindings(projectRoot, slug, finding) {
 
 // Commands that are verified to exist in catalyst-core projects
 const VALID_COMMANDS = new Set([
-    "npm run build:android",
-    "npm run build:android:release",
-    "npm run build:ios",
+    "npm run start",
+    "npm run build",
+    "npm run serve",
     "npm run buildApp:android",
     "npm run buildApp:ios",
-    "npm run buildApp:android:release",
-    "npm run buildApp:ios:release",
     "npm run setupEmulator:android",
     "npm run setupEmulator:ios",
-    "npm run devBuild",
-    "npm run devServe",
     "npm run prepare",
     "node .catalyst/mcp/setup.js",
 ])
 
-function validateStepCommands(steps) {
+function validateStepCommands(steps, generation) {
+    const validCommands = new Set(VALID_COMMANDS)
+    if (generation === "legacy") {
+        validCommands.add("npm run devBuild")
+        validCommands.add("npm run devServe")
+    }
     const invalid = []
     for (const s of steps) {
         const text = `${typeof s === "string" ? s : (s.title || "") + " " + (s.detail || "")}`
         const cmds = text.match(/npm [\w:]+(?:\s[\w:]+)?|npx [\w@/-]+|node [\w./]+/g) || []
         for (const cmd of cmds) {
-            if (!VALID_COMMANDS.has(cmd)) {
+            if (!validCommands.has(cmd)) {
                 invalid.push(cmd)
             }
         }
     }
-    return invalid
+    return { invalid, validCommands }
 }
 
 function handle_create_task_plan({ goal, steps: customSteps } = {}) {
@@ -641,13 +651,16 @@ function handle_create_task_plan({ goal, steps: customSteps } = {}) {
 
     if (customSteps && Array.isArray(customSteps) && customSteps.length) {
         // Validate any commands in custom steps against known catalyst commands
-        const invalidCmds = validateStepCommands(customSteps)
+        const { invalid: invalidCmds, validCommands } = validateStepCommands(
+            customSteps,
+            catalystGeneration(catalystRoot.installedVersion || catalystRoot.catalystVersion)
+        )
         if (invalidCmds.length > 0) {
             return {
                 error: "invalid_commands_in_steps",
-                message: `Steps contain commands that do not exist in catalyst-core projects: ${invalidCmds.join(", ")}. Do not invent commands. Valid catalyst commands are: ${[...VALID_COMMANDS].join(", ")}. For conversion/migration goals, omit steps entirely — auto-generation runs live file detection and builds accurate steps.`,
+                message: `Steps contain commands that do not exist for this catalyst-core generation: ${invalidCmds.join(", ")}. Do not invent commands. Valid commands are: ${[...validCommands].join(", ")}. For conversion/migration goals, omit steps entirely so live detection can generate version-aware steps.`,
                 invalid_commands: invalidCmds,
-                valid_commands: [...VALID_COMMANDS],
+                valid_commands: [...validCommands],
             }
         }
         steps = customSteps.map((s, i) => ({

@@ -8,6 +8,14 @@ function init(projectInfo) {
     _projectInfo = projectInfo
 }
 
+function projectPath(root, rel) {
+    const normalized = path.normalize(rel)
+    if (path.isAbsolute(normalized) || normalized === ".." || normalized.startsWith(`..${path.sep}`)) {
+        return null
+    }
+    return `${root}${path.sep}${normalized}`
+}
+
 function handle_check_config({ project_path, platform = "both" } = {}) {
     const root = project_path || _projectInfo.dir
     const configPath = path.join(root, "config", "config.json")
@@ -390,7 +398,10 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         })
     } else {
         const missingSplash = ["public/android/splashscreen.png", "public/ios/splashscreen.png"].filter(
-            (f) => !fs.existsSync(path.join(root, f))
+            (f) => {
+                const filePath = projectPath(root, f)
+                return !filePath || !fs.existsSync(filePath)
+            }
         )
         if (missingSplash.length) {
             issues.push({
@@ -405,9 +416,10 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
 
     // ── notifications (optional, validate if present) ─────────────────────────
     if (wc.notifications && wc.notifications.enabled) {
-        const missingFirebase = ["google-services.json", "GoogleService-Info.plist"].filter(
-            (f) => !fs.existsSync(path.join(root, f))
-        )
+        const missingFirebase = ["google-services.json", "GoogleService-Info.plist"].filter((f) => {
+            const filePath = projectPath(root, f)
+            return !filePath || !fs.existsSync(filePath)
+        })
         if (missingFirebase.length) {
             issues.push({
                 field: "WEBVIEW_CONFIG.notifications",

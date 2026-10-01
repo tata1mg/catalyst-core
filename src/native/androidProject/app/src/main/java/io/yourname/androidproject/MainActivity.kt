@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -14,6 +15,7 @@ import org.json.JSONObject
 import java.util.Properties
 import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
+import io.yourname.androidproject.plugins.PluginBridge
 import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.KeyboardUtil
 import io.yourname.androidproject.utils.NetworkUtils
@@ -39,6 +41,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var nativeBridge: NativeBridge
+    private lateinit var pluginBridge: PluginBridge
     private lateinit var customWebView: CustomWebView
     lateinit var properties: Properties
     private lateinit var metricsMonitor: MetricsMonitor
@@ -135,6 +138,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             put("X-Safe-Area-Right", latestSafeAreaInsets.right.toString())
             put("X-Safe-Area-Bottom", latestSafeAreaInsets.bottom.toString())
             put("X-Safe-Area-Left", latestSafeAreaInsets.left.toString())
+            put("X-Catalyst-Native-WebView", "1")
+            // Prevent caching of SSR response so updated headers are always used
             put("Cache-Control", "no-cache, no-store, must-revalidate")
             put("Pragma", "no-cache")
             if (appInfo.isNotEmpty()) {
@@ -275,6 +280,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             properties.setProperty("buildType", if (BuildConfig.DEBUG) "debug" else "release")
             properties.setProperty("buildOptimisation", (!BuildConfig.DEBUG).toString())
         }
+        io.yourname.androidproject.utils.PerfEventBuffer.configure(
+            properties.getProperty("profiler.enabled", "false").toBoolean()
+        )
 
         configureEdgeToEdge()
 
@@ -287,16 +295,29 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             })
         }
 
-        // Initialize MetricsMonitor
+        // Initialize MetricsMonitor — recordAppStart() resets the cold-start clock for this
+        // Activity lifecycle. The singleton may have been constructed in a previous session
+        // (hot restart / Activity recreation), so appStartTime would be stale without this.
         metricsMonitor = MetricsMonitor.getInstance(this)
+        metricsMonitor.recordAppStart()
+
+        // Boot timing: record activity onCreate as the earliest boot event
+        if (BuildConfig.DEBUG) {
+            io.yourname.androidproject.utils.PerfEventBuffer.reset()
+            io.yourname.androidproject.utils.PerfEventBuffer.add(org.json.JSONObject().apply {
+                put("type", "boot-activity-created")
+                put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                put("thread", Thread.currentThread().name)
+            })
+        }
 
         // Setup UI
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
         setContentView(binding.root)
         
-        // Initialize keyboard utility
-        keyboardUtil = KeyboardUtil(this, binding.webviewContainer)
+        // Initialize keyboard utility (pass webView so keyboard events reach WebPerfCollector)
+        keyboardUtil = KeyboardUtil(this, binding.webviewContainer, binding.webview)
         keyboardUtil.initialize()
         
         // Enable hardware acceleration for the window
@@ -329,8 +350,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         try {
             nativeBridge = NativeBridge(this, customWebView.getWebView(), properties)
             customWebView.addJavascriptInterface(nativeBridge, "NativeBridge")
+
+            // Wire NativeCameraManager
+            val cameraManager = NativeCameraManager(this, binding.cameraPreview, customWebView.getWebView(), binding.debugViewfinderOverlay, binding.debugViewfinderOverlay.findViewById(R.id.debug_qr_status), binding.debugBarcodeOverlay)
+            nativeBridge.setCameraManager(cameraManager)
+            customWebView.onPageStarted = { cameraManager.stop() }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NativeBridge: ${e.message}")
+        }
+
+        // Setup isolated PluginBridge
+        try {
+            pluginBridge = PluginBridge(this, customWebView.getWebView(), properties)
+            customWebView.addJavascriptInterface(pluginBridge, "PluginBridge")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize PluginBridge: ${e.message}")
         }
 
         setupSafeAreaHandling()
@@ -339,6 +373,12 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (customWebView.canGoBack()) {
+                    if (BuildConfig.DEBUG) {
+                        BridgeUtils.emitPerfEvent(customWebView.getWebView(), org.json.JSONObject().apply {
+                            put("type", "navigation-back")
+                            put("nativeTime", android.os.SystemClock.elapsedRealtime())
+                        })
+                    }
                     customWebView.goBack()
                 } else {
                     // Disable this callback and let the system handle back press
@@ -374,12 +414,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     if (BuildConfig.DEBUG) {
                         Log.w(TAG, "📴 Device offline on launch, showing offline page")
                     }
-                    customWebView.showOfflinePage()
+                    customWebView.showOfflineRouteOrOfflinePage(currentUrl)
                 }
             }
-
-            metricsMonitor.markAppStartComplete()
-
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load initial URL: ${e.message}")
             // TODO: Add HTML file workflow - error.html not available yet
@@ -426,6 +463,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         customWebView.onResume()
     }
 
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (::nativeBridge.isInitialized) {
+            nativeBridge.getCameraManager()?.onTouchEvent(ev)
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (::nativeBridge.isInitialized) {
@@ -434,6 +478,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
+        io.yourname.androidproject.utils.PerfEventBuffer.reset()
         // Log all performance metrics before destroying
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "🏁 App shutting down - logging final metrics...")
@@ -450,11 +495,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         if (::keyboardUtil.isInitialized) {
             keyboardUtil.cleanup()
         }
-        if (::nativeBridge.isInitialized) {
-            nativeBridge.cleanup()
+        if (::customWebView.isInitialized) {
+            if (::pluginBridge.isInitialized) {
+                customWebView.removeJavascriptInterface("PluginBridge")
+            }
+            if (::nativeBridge.isInitialized) {
+                customWebView.removeJavascriptInterface("NativeBridge")
+            }
+            customWebView.destroy()
         }
         coroutineContext.cancelChildren()
-        customWebView.destroy()
         super.onDestroy()
     }
 
@@ -510,7 +560,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 loadUrlWithSafeArea(url)
             } else {
                 Log.w(TAG, "📴 Offline during notification click, showing offline page")
-                customWebView.showOfflinePage()
+                customWebView.showOfflineRouteOrOfflinePage(url)
             }
 
         } catch (e: Exception) {

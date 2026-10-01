@@ -1,0 +1,75 @@
+{
+    /*
+     * Declaration (.d.ts) emission for the consumer type surface.
+     *
+     * The runtime half of dist/ is built by scripts/build-dist.mjs (Babel,
+     * type-stripping only). This config is the type half: tsc emits *nothing
+     * but* declarations, next to the JavaScript that build-dist.mjs wrote.
+     *
+     * Layout — why declarationDir works out to a mirror of dist
+     * --------------------------------------------------------
+     * `rootDir: src` plus `declarationDir: dist` maps every input to the same
+     * relative path under dist, so src/router/ClientRouter.ts emits
+     * dist/router/ClientRouter.d.ts and lands beside the dist/router/
+     * ClientRouter.js that Babel produced. `.tsx` behaves the same way: TypeScript
+     * names a declaration after the file's basename without its source extension,
+     * so src/index.tsx emits dist/index.d.ts — NOT index.d.tsx — which sits next
+     * to the dist/index.jsx that build-dist.mjs emitted, and is exactly the name
+     * the "types" condition in package.json points at.
+     *
+     * allowJs is off — deliberately
+     * -----------------------------
+     * The root tsconfig sets allowJs so the still-JavaScript parts of the tree
+     * resolve during type checking. Inheriting that here would make tsc emit a
+     * declaration for every .js file too, which would hand consumers inferred,
+     * never-reviewed types for the JS-only subpaths (./logger, ./sentry, ./otel)
+     * and for vite/, scripts/ and the native CLI. Those areas ship untyped on
+     * purpose: consumers of them get implicit `any`, the pre-migration status
+     * quo. Turning allowJs off restricts emission to the .ts/.tsx files that were
+     * actually converted and reviewed.
+     */
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        /* Emit declarations only: the .js/.jsx in dist is Babel's, not tsc's. */
+        "noEmit": false,
+        "declaration": true,
+        "emitDeclarationOnly": true,
+
+        /* src/x.ts -> dist/x.d.ts, preserving the tree shape. */
+        "rootDir": "src",
+        "declarationDir": "dist",
+
+        /* See the header: JS files must resolve, but must not be emitted for. */
+        "allowJs": false,
+
+        /* No implicit @types/* packages: this program should see exactly the
+           ambient declarations src/ owns, nothing the local node_modules happens
+           to have installed, so emission does not vary with the dev environment. */
+        "types": []
+    },
+
+    /*
+     * globals.d.ts is INCLUDED here on purpose. src/native/bridge reads
+     * `window.WebBridge`, `__CATALYST_PACKAGES__` and friends, so the ambient
+     * declarations must be in the program or declaration emit fails outright.
+     *
+     * Being in the program is not the same as being in the consumer's type
+     * surface. A .d.ts input is consumed, never re-emitted — tsc writes no
+     * dist/globals.d.ts for it — and because every use site is a plain ambient
+     * reference, no emitted declaration ends up naming the file. So the globals
+     * resolve the package's own types without reaching consumers.
+     *
+     * dist/globals.d.ts DOES exist in the published package, but not from tsc:
+     * build-dist.mjs routes .d.ts files to its asset copier, so src/globals.d.ts
+     * ships verbatim. It is deliberately inert — nothing in dist references it,
+     * no exports entry points at it, and TypeScript only loads a .d.ts that is
+     * reached by a reference or an include, so a consumer never picks it up. It
+     * is a copied source artifact, not part of the type surface.
+     *
+     * The one thing that would break that is a shipped .d.ts pointing back at it
+     * (a /// <reference path> or an import). scripts/check-consumer-types.mjs is
+     * the standing check: it asserts a consumer cannot see __CATALYST_IS_BOT__.
+     */
+    "include": ["src/**/*.ts", "src/**/*.tsx"],
+    "exclude": ["src/native/**/.build/**", "src/native/**/build/**"]
+}

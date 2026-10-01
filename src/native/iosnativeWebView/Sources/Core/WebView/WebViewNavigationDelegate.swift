@@ -1,6 +1,7 @@
 import WebKit
 import os
 import UIKit
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
 
@@ -9,16 +10,22 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     private let offlineFileName = "offline.html"
     private let offlineSubdirectory = "offline"
     private var offlinePageVisible = false
+    private var offlineSnapshotVisibleURL: String?
     private var lastTargetURL: URL?
     private let initialURL: URL?
-    
-    init(viewModel: WebViewModel, initialURL: URL?) {
+    private weak var cameraManager: NativeCameraManager?
+    private var pageLoadStartMs: Int64?
+    private var didEmitColdStart = false
+    private var hasStartedProfilerNavigation = false
+
+    init(viewModel: WebViewModel, initialURL: URL?, cameraManager: NativeCameraManager? = nil) {
         self.viewModel = viewModel
         self.initialURL = initialURL
         self.lastTargetURL = initialURL
+        self.cameraManager = cameraManager
         super.init()
     }
-    
+
     func webView(_ webView: WKWebView,
                 decidePolicyFor navigationAction: WKNavigationAction,
                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -44,6 +51,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         // Only inject on main frame to match Android behavior (not on subresources)
         let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? false
         let isHttpScheme = ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+        let isCatalystOfflineURL = OfflineCacheService.shared.originalURL(forOfflineURL: url) != nil
 
         if isMainFrame && isHttpScheme && httpMethod == "GET" {
             let safeAreaHeaders = viewModel.getSafeAreaHeaders()
@@ -84,7 +92,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             return
         }
 
-        if URLWhitelistManager.shared.isAccessControlEnabled {
+        if URLWhitelistManager.shared.isAccessControlEnabled && !isCatalystOfflineURL {
 
             // Check if URL is an external domain
             let isExternal = URLWhitelistManager.shared.isExternalDomain(url)
@@ -105,8 +113,10 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             }
 
             logger.info("✅ URL passed whitelist checks, allowing navigation: \(url.absoluteString)")
-        } else {
+        } else if !isCatalystOfflineURL {
             logger.info("⚠️ Access control disabled, allowing all navigation: \(url.absoluteString)")
+        } else {
+            logger.info("📴 Catalyst offline URL allowed: \(url.absoluteString)")
         }
 
         if ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
@@ -118,16 +128,57 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             let isCacheableMethod = httpMethod == "GET"
             logger.info("🔍 Cache check - Method: \(httpMethod), isCacheable: \(isCacheableMethod)")
 
-            if isCacheableMethod && CacheManager.shared.shouldCacheURL(url) {
-                logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
+            if isMainFrame && isHttpScheme && isCacheableMethod {
+                if NetworkMonitor.shared.currentStatus.isOnline {
+                    let isOfflineRoute = await OfflineCacheService.shared.prepareActiveOfflineRoute(
+                        for: navigationAction.request,
+                        webView: webView
+                    )
+                    offlineSnapshotVisibleURL = nil
+                    if !isOfflineRoute {
+                        logger.info("⏭️ Main-frame route is not currently offline eligible: \(url.absoluteString)")
+                    }
+                    OfflineCacheService.shared.storeRouteSnapshot(
+                        for: navigationAction.request,
+                        webView: webView
+                    )
+                } else {
+                    let loadedSnapshot = await MainActor.run {
+                        loadCachedSnapshotIfNeeded(in: webView, for: url)
+                    }
 
+                    if loadedSnapshot {
+                        logger.info("📴 Serving cached offline route snapshot: \(url.absoluteString)")
+                        decisionHandler(.cancel)
+                        return
+                    }
+                    OfflineCacheService.shared.clearActiveOfflineRoute()
+                }
+            } else if isMainFrame && isHttpScheme {
+                OfflineCacheService.shared.clearActiveOfflineRoute()
+            }
+
+            if isCacheableMethod && CacheManager.shared.shouldCacheURL(url) {
+            logger.info("🎯 URL matches cache pattern: \(url.absoluteString)")
+
+                let cacheStartMs = CatalystPerf.nativeTimeMs()
                 let (cachedData, cacheState, mimeType) = await CacheManager.shared.getCachedResource(
                     for: navigationAction.request
                 )
-                
+                let cacheDurationMs = CatalystPerf.nativeTimeMs() - cacheStartMs
+
                 switch cacheState {
                 case .fresh, .stale:
                     logger.info("✅ Serving fresh/stale cached content")
+                    CatalystPerf.add([
+                        "type": "cache-hit-memory",
+                        "url": url.absoluteString,
+                        "resourceType": "document",
+                        "nativeTime": cacheStartMs,
+                        "nativeStartMs": cacheStartMs,
+                        "durationMs": cacheDurationMs,
+                        "source": cacheState == .fresh ? "fresh" : "stale",
+                    ])
 
                     if let cachedData = cachedData,
                        let mimeType = mimeType {
@@ -139,14 +190,20 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                                        characterEncodingName: "UTF-8",
                                        baseURL: url)
                         }
-                        
+
                         decisionHandler(.cancel)
                         return
                     }
-                    
-                case .expired:
+                    case .expired:
                     logger.info("♻️ Cache expired, fetching fresh content")
-                    break
+                    CatalystPerf.add([
+                        "type": "cache-miss-fetch",
+                        "url": url.absoluteString,
+                        "resourceType": "document",
+                        "nativeTime": cacheStartMs,
+                        "nativeStartMs": cacheStartMs,
+                        "durationMs": cacheDurationMs,
+                    ])
                 }
             } else {
                 if !isCacheableMethod {
@@ -155,29 +212,29 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     logger.info("⏭️ URL doesn't match cache pattern: \(url.absoluteString)")
                 }
             }
-            
+
             await MainActor.run {
                 viewModel.setLoading(true, fromCache: false)
             }
             decisionHandler(.allow)
         }
     }
-    
+
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        
+
         guard let response = navigationResponse.response as? HTTPURLResponse,
               let url = response.url else {
             decisionHandler(.allow)
             return
         }
-        
+
         Task {
             if CacheManager.shared.shouldCacheURL(url) {
                 let request = URLRequest(url: url)
-                
-                URLSession.shared.dataTask(with: request) { data, urlResponse, error in
+
+                URLSession.shared.dataTask(with: request) { data, urlResponse, _ in
                     if let data = data,
                        let httpResponse = urlResponse as? HTTPURLResponse {
                         Task {
@@ -190,15 +247,36 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                     }
                 }.resume()
             }
-            
+
             await MainActor.run {
                 decisionHandler(.allow)
             }
         }
     }
-    
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         logWithTimestamp("📡 didStartProvisionalNavigation - loading started")
+        if hasStartedProfilerNavigation {
+            CatalystPerf.reset()
+        }
+        hasStartedProfilerNavigation = true
+        let nativeNow = CatalystPerf.nativeTimeMs()
+        pageLoadStartMs = nativeNow
+        CatalystPerf.injectNativeTimeOffset(into: webView)
+        if let url = webView.url?.absoluteString ?? lastTargetURL?.absoluteString {
+            CatalystPerf.add([
+                "type": "boot-page-started",
+                "nativeTime": nativeNow,
+                "url": url,
+            ])
+            CatalystPerf.add([
+                "type": "page-load-start",
+                "nativeTime": nativeNow,
+                "url": url,
+            ])
+        }
+        // Stop camera on navigation — mirrors Android CustomWebview onPageStarted lambda
+        cameraManager?.stop()
         Task { @MainActor in
             if !isOfflinePageURL(webView.url) {
                 offlinePageVisible = false
@@ -223,6 +301,32 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         logWithTimestamp("🎉 didFinish - page fully loaded")
+        let nativeNow = CatalystPerf.nativeTimeMs()
+        let url = webView.url?.absoluteString ?? lastTargetURL?.absoluteString ?? ""
+        let durationMs = pageLoadStartMs.map { nativeNow - $0 } ?? 0
+        CatalystPerf.add([
+            "type": "boot-page-finished",
+            "nativeTime": nativeNow,
+            "url": url,
+        ])
+        CatalystPerf.add([
+            "type": "page-load-end",
+            "nativeTime": nativeNow,
+            "url": url,
+            "durationMs": durationMs,
+        ])
+        if !didEmitColdStart {
+            didEmitColdStart = true
+            CatalystPerf.add([
+                "type": "cold-start",
+                "nativeTime": nativeNow,
+                "url": url,
+                "durationMs": nativeNow - AppBoot.nativeStartMs,
+            ])
+        }
+        CatalystPerf.memorySnapshot(to: nil, label: "page-finish")
+        CatalystPerf.scheduleFlush(webView)
+
         Task { @MainActor in
             if let url = webView.url {
                 if !isOfflinePageURL(url) {
@@ -249,12 +353,31 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
     }
 
     private func handleNavigationError(_ error: Error, webView: WKWebView?) {
+        CatalystPerf.emit([
+            "type": "page-load-error",
+            "nativeTime": CatalystPerf.nativeTimeMs(),
+            "url": webView?.url?.absoluteString ?? lastTargetURL?.absoluteString ?? "",
+            "description": error.localizedDescription,
+        ], to: webView)
+
         Task { @MainActor in
             viewModel.reset()
             logWithTimestamp("🔴 Navigation error: \(error.localizedDescription)")
             logger.error("Navigation failed: \(error.localizedDescription)")
 
             guard shouldShowOfflinePage(for: error), let webView else { return }
+            if let targetURL = lastTargetURL ?? webView.url,
+               isOfflineSnapshotVisible(for: targetURL) {
+                logger.info("📴 Ignoring repeated error for visible offline route snapshot")
+                return
+            }
+
+            if let targetURL = lastTargetURL ?? webView.url,
+               loadCachedSnapshotIfNeeded(in: webView, for: targetURL) {
+                logger.info("📴 Showing cached offline route snapshot")
+                return
+            }
+
             if showOfflinePage(in: webView) {
                 logger.info("📴 Showing offline fallback page")
             } else {
@@ -262,23 +385,23 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             }
         }
     }
-    
+
     /// Handle SSL certificate challenges
     /// For localhost connections, trust our self-signed certificate
     /// For all other domains, use default validation
     func webView(_ webView: WKWebView,
                 didReceive challenge: URLAuthenticationChallenge,
                 completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        
+
         let protectionSpace = challenge.protectionSpace
         let host = protectionSpace.host
-        
+
         // Only bypass certificate validation for localhost
         if (host == "localhost" || host == "127.0.0.1") &&
             protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
-            
+
             logger.debug("🔐 SSL challenge for localhost - trusting self-signed certificate")
-            
+
             if let serverTrust = protectionSpace.serverTrust {
                 let credential = URLCredential(trust: serverTrust)
                 completionHandler(.useCredential, credential)
@@ -286,7 +409,7 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 return
             }
         }
-        
+
         // For all other domains, use default certificate validation
         logger.debug("🔐 SSL challenge for \(host) - using default validation")
         completionHandler(.performDefaultHandling, nil)
@@ -316,6 +439,8 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
 
         offlinePageVisible = false
+        offlineSnapshotVisibleURL = nil
+        OfflineCacheService.shared.clearActiveOfflineRoute()
         logWithTimestamp("🔄 Retry requested, online. Reloading: \(targetURL.absoluteString)")
         webView.load(URLRequest(url: targetURL))
     }
@@ -347,11 +472,14 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
 
         offlinePageVisible = true
+        offlineSnapshotVisibleURL = nil
+        OfflineCacheService.shared.clearActiveOfflineRoute()
         let readAccessURL = offlineURL.deletingLastPathComponent()
         webView.loadFileURL(offlineURL, allowingReadAccessTo: readAccessURL)
+        viewModel.setLoading(false, fromCache: true)
         return true
     }
-    
+
     /// Open URL in system browser
     private func openInSystemBrowser(_ url: URL) {
         Task { @MainActor in
@@ -368,14 +496,14 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
             }
         }
     }
-    
+
     /// Handle special URL schemes (tel:, mailto:, sms:)
     private func handleSpecialScheme(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
-        
+
         // Only handle tel, mailto, sms
         guard ["tel", "mailto", "sms"].contains(scheme) else { return false }
-        
+
         Task { @MainActor in
             if UIApplication.shared.canOpenURL(url) {
                 // App available to handle the scheme (opens default mail app for mailto)
@@ -389,7 +517,36 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 }
             }
         }
-        
+
         return true
+    }
+
+    private func loadCachedSnapshotIfNeeded(in webView: WKWebView, for url: URL) -> Bool {
+        let key = snapshotKey(for: url)
+        if offlineSnapshotVisibleURL == key {
+            return true
+        }
+
+        if OfflineCacheService.shared.loadSnapshot(in: webView, for: url) {
+            offlinePageVisible = false
+            offlineSnapshotVisibleURL = key
+            viewModel.setLoading(false, fromCache: true)
+            return true
+        }
+
+        offlineSnapshotVisibleURL = nil
+        return false
+    }
+
+    private func isOfflineSnapshotVisible(for url: URL) -> Bool {
+        offlineSnapshotVisibleURL == snapshotKey(for: url)
+    }
+
+    private func snapshotKey(for url: URL) -> String {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url.absoluteString
+        }
+        components.fragment = nil
+        return components.url?.absoluteString ?? url.absoluteString
     }
 }

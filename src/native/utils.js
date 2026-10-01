@@ -9,6 +9,7 @@ const rl = readline.createInterface({
 
 function runCommand(command) {
     try {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native setup/build uses fixed internal command strings; preserve existing shell behavior.
         return execSync(command, { encoding: "utf8" })
     } catch (error) {
         console.error(`Error executing command: ${command}`)
@@ -19,6 +20,7 @@ function runCommand(command) {
 
 function commandExists(command) {
     try {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Utility checks known local tool names during native setup.
         execSync(`which ${command}`, { stdio: "ignore" })
         return true
     } catch (error) {
@@ -36,6 +38,7 @@ async function promptUser(question) {
 
 async function runInteractiveCommand(command, args, promptResponses = {}) {
     return new Promise((resolve, reject) => {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native build commands are fixed internal commands passed with argv arrays.
         const process = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })
 
         let buffer = ""

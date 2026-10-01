@@ -9,6 +9,7 @@
 import Foundation
 import UIKit
 import os
+import CatalystCoreLogic
 
 private let fileLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.fileHandler)
 
@@ -47,6 +48,40 @@ class BridgeFileHandler: NSObject {
     }
 
     // MARK: - File Intent Operations
+
+    func exportCatalystTrace(params: Any?) {
+        guard let payload = params as? [String: Any],
+              let filename = payload["filename"] as? String,
+              let trace = payload["trace"] as? String,
+              !filename.isEmpty,
+              !trace.isEmpty else {
+            delegate?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Invalid Catalyst trace export payload", code: "INVALID_PARAMETERS")
+            return
+        }
+
+        let safeFilename = filename.replacingOccurrences(of: "/", with: "-")
+        let exportsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CatalystTraces", isDirectory: true)
+        let fileURL = exportsURL.appendingPathComponent(safeFilename)
+
+        do {
+            try FileManager.default.createDirectory(at: exportsURL, withIntermediateDirectories: true)
+            try trace.write(to: fileURL, atomically: true, encoding: .utf8)
+            DispatchQueue.main.async { [weak self] in
+                self?.presentSharingSheet(for: fileURL)
+            }
+            delegate?.sendJSONCallback(eventName: "ON_INTENT_SUCCESS", data: [
+                "message": "Catalyst trace exported",
+                "filePath": fileURL.path,
+                "filename": safeFilename,
+                "timestamp": ISO8601DateFormatter().string(from: Date()),
+                "platform": "ios"
+            ])
+        } catch {
+            fileLogger.error("Failed to export Catalyst trace: \(error.localizedDescription)")
+            delegate?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Failed to export Catalyst trace", code: "TRACE_EXPORT_ERROR")
+        }
+    }
 
     // Open file with external app using intent (iOS equivalent of Android intent)
     func openFileWithIntent(params: Any?) {
@@ -269,7 +304,7 @@ class BridgeFileHandler: NSObject {
             popoverController.permittedArrowDirections = []
         }
 
-        shareController.completionWithItemsHandler = { [weak self] activityType, completed, returnedItems, error in
+        shareController.completionWithItemsHandler = { [weak self] _, completed, _, error in
             if let error = error {
                 fileLogger.error("Sharing failed: \(error.localizedDescription)")
                 self?.delegate?.sendErrorCallback(eventName: "ON_INTENT_ERROR", error: "Sharing failed: \(error.localizedDescription)", code: "SHARING_ERROR")

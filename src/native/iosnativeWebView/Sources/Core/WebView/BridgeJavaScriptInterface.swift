@@ -9,6 +9,7 @@
 import Foundation
 import WebKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.javascriptInterface)
 

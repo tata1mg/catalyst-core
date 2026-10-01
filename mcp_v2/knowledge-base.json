@@ -2,7 +2,7 @@
     {
         "section": "framework_identity",
         "title": "Catalyst Framework Philosophy",
-        "content": "Catalyst is a WebView-based universal app framework enabling a single codebase to ship natively on Android/iOS and on web. Zero user intervention required. Uses native WebView (WebKit on iOS, Chromium on Android) which owns its own JS engine — not React Native, not React Native Web.",
+        "content": "Catalyst is a WebView-based universal app framework enabling a single codebase to ship natively on Android/iOS and on web. Zero user intervention required. Uses native WebView (WebKit on iOS, Chromium on Android) which owns its own JS engine \u2014 not React Native, not React Native Web.",
         "layer": "Component",
         "source": "static",
         "tags": ["core", "architecture", "universal"]
@@ -10,7 +10,7 @@
     {
         "section": "framework_identity",
         "title": "Not React Native",
-        "content": "Catalyst is fundamentally incompatible with React Native (JSI, TurboModules). Cannot adopt JSI without replacing WebView entirely — would require rebuilding as React Native instead. JSI targets React Native's single-threaded JS runtime, not a WebView JS engine.",
+        "content": "Catalyst is fundamentally incompatible with React Native (JSI, TurboModules). Cannot adopt JSI without replacing WebView entirely \u2014 would require rebuilding as React Native instead. JSI targets React Native's single-threaded JS runtime, not a WebView JS engine.",
         "layer": "Component",
         "source": "static",
         "tags": ["architecture", "constraints"]
@@ -50,7 +50,7 @@
     {
         "section": "transport_architecture",
         "title": "Operation Type Selection",
-        "content": "Five operation types determine transport choice: 1) Fire&Forget (bridge), 2) Simple Async (bridge), 3) Event-Driven (bridge), 4) Long-Running (localhost server), 5) Size-Dependent (hybrid selection based on payload). Size thresholds: ≤2MB = direct intent. 2MB-50MB = content provider or localhost server. >50MB = chunked streaming.",
+        "content": "Five operation types determine transport choice: 1) Fire&Forget (bridge), 2) Simple Async (bridge), 3) Event-Driven (bridge), 4) Long-Running (localhost server), 5) Size-Dependent (hybrid selection based on payload). Size thresholds: \u22642MB = direct intent. 2MB-50MB = content provider or localhost server. >50MB = chunked streaming.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["transport", "operations"]
@@ -90,7 +90,7 @@
     {
         "section": "bridge_architecture",
         "title": "Android Bridge Flow",
-        "content": "JS → window.NativeBridge[command](data) → Kotlin @JavascriptInterface method → native work → webView.evaluateJavascript(jsCode) → JS callback. Command and data passed as JSON. Response injected back as JS code execution.",
+        "content": "JS \u2192 window.NativeBridge[command](data) \u2192 Kotlin @JavascriptInterface method \u2192 native work \u2192 webView.evaluateJavascript(jsCode) \u2192 JS callback. Command and data passed as JSON. Response injected back as JS code execution.",
         "layer": "Bridge",
         "source": "static",
         "tags": ["android", "bridge", "ipc"]
@@ -98,7 +98,7 @@
     {
         "section": "bridge_architecture",
         "title": "iOS Bridge Flow",
-        "content": "JS → webkit.messageHandlers.NativeBridge.postMessage(msg) → WKScriptMessageHandler Swift handler → native work → evaluateJavaScript(jsCode) → JS callback. Message passed as JSON object. Response injected as JS code execution.",
+        "content": "JS \u2192 webkit.messageHandlers.NativeBridge.postMessage(msg) \u2192 WKScriptMessageHandler Swift handler \u2192 native work \u2192 evaluateJavaScript(jsCode) \u2192 JS callback. Message passed as JSON object. Response injected as JS code execution.",
         "layer": "Bridge",
         "source": "static",
         "tags": ["ios", "bridge", "ipc"]
@@ -130,7 +130,7 @@
     {
         "section": "bridge_architecture",
         "title": "isNative() Runtime Check Bug",
-        "content": "Bug: isNative() constructed at module load (SSR), window.nativeBridge absent → nativeEnvironment=false permanently. Never recovers in browser. Fix: check window.nativeBridge and window.webkit?.messageHandlers?.NativeBridge lazily at call time, not at module init.",
+        "content": "Bug: isNative() constructed at module load (SSR), window.nativeBridge absent \u2192 nativeEnvironment=false permanently. Never recovers in browser. Fix: check window.nativeBridge and window.webkit?.messageHandlers?.NativeBridge lazily at call time, not at module init.",
         "layer": "Bridge",
         "source": "static",
         "tags": ["bridge", "bug", "ssr"]
@@ -170,15 +170,63 @@
     {
         "section": "build_system",
         "title": "iOS Build Pipeline",
-        "content": "1) Generate ConfigConstants.swift from WEBVIEW_CONFIG 2) Launch simulator 3) Clean Xcode project 4) Compile with Xcode 5) Install app + launch. Located in: src/native/iosnativeWebView/",
+        "content": "npm run buildApp:ios generates ConfigConstants.swift and plugin metadata from WEBVIEW_CONFIG, syncs selected public/ios assets into the package-owned Xcode project, detects a physical device or launches a simulator, cleans Xcode artifacts, compiles with the Debug configuration, and installs and launches the .app. It does not bundle the full Catalyst web client and does not create an App Store archive. The generated project is located under the resolved catalyst-core package at dist/native/iosnativeWebView/iosnativeWebView.xcodeproj.",
         "layer": "Build",
         "source": "static",
-        "tags": ["ios", "build"]
+        "tags": ["ios", "build", "buildApp:ios", "debug", "xcode"],
+        "github_files": [
+            "packages/catalyst-core/src/native/buildAppIos.js",
+            "packages/catalyst-core/src/native/buildIos/build.js"
+        ]
     },
     {
         "section": "build_system",
-        "title": "Build NPM Scripts",
-        "content": "All catalyst npm scripts to add to package.json scripts block (each maps to: catalyst <scriptName>): devBuild — dev web build. devServe — dev server. buildApp — builds native app (both platforms). buildApp:android — Android native app build. buildApp:ios — iOS native app build. buildApp:android:release — Android release build. buildApp:ios:release — iOS release build. setupEmulator — sets up both emulators. setupEmulator:android — sets up Android AVD. setupEmulator:ios — sets up iOS simulator. NOTE: build:android / build:android:release / build:ios do NOT exist in catalyst — common mistake. The correct commands are buildApp:android and buildApp:ios. Missing any script = that npm run command fails.",
+        "title": "Catalyst iOS Production Release Flow (0.2.x and 0.3.x)",
+        "content": "Catalyst 0.2.x and 0.3.x use the same iOS production-release flow: (1) deploy the production web application and verify its HTTPS URL, (2) finalize WEBVIEW_CONFIG, bundle ID, app version/build, plugins, permissions, capabilities, icons, splash assets, access-control rules, and privacy declarations, (3) run npm run buildApp:ios from the consuming app root to prepare the package-owned native project and perform its Debug build, (4) open the resolved catalyst-core package's dist/native/iosnativeWebView/iosnativeWebView.xcodeproj, (5) confirm the iosnativeWebView scheme's Archive action uses Release, configure Release signing and capabilities, choose a generic iOS device destination, and run Product -> Archive, (6) Validate App and upload with Distribute App -> TestFlight & App Store, then (7) finish TestFlight testing, App Store Connect metadata, build selection, and App Review submission. buildApp:ios does not create the final App Store artifact.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "ios",
+            "release",
+            "production",
+            "0.2.x",
+            "0.3.x",
+            "buildApp:ios",
+            "xcode",
+            "archive",
+            "app-store",
+            "testflight"
+        ],
+        "github_files": [
+            "docs/content/08-Deployment/03-iOS-Production-Release.md",
+            "packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView.xcodeproj/xcshareddata/xcschemes/iosnativeWebView.xcscheme"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Generated iOS Project Signing and Persistence",
+        "content": "The generated Xcode project is package-owned state. Its shared xcconfig is regenerated with development-oriented code-signing defaults, and the bundled push entitlement can use aps-environment=development. Before an App Store archive, review the Release team, distribution signing, provisioning, capabilities, and entitlements in Xcode. Run the final npm run buildApp:ios before release-only Xcode changes: later Catalyst generation, package upgrades, or dependency installation can replace or regenerate native config constants, shared Xcode configuration, plist and entitlement content, generated plugin code/resources, selected project-file entries, and assets. Do not treat manual edits inside the generated project as durable app configuration.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "ios",
+            "release",
+            "signing",
+            "provisioning",
+            "entitlements",
+            "push-notifications",
+            "generated-project",
+            "regeneration"
+        ],
+        "github_files": [
+            "packages/catalyst-core/src/native/buildIos/config.js",
+            "packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/iosnativeWebView.entitlements"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Legacy 0.2.x Build NPM Scripts",
+        "content": "All catalyst npm scripts to add to package.json scripts block (each maps to: catalyst <scriptName>): devBuild \u2014 dev web build. devServe \u2014 dev server. buildApp \u2014 builds native apps. buildApp:android \u2014 Android native app build. buildApp:ios \u2014 iOS native project preparation and Debug build. buildApp:android:release \u2014 Android release build. setupEmulator \u2014 sets up both emulators. setupEmulator:android \u2014 sets up Android AVD. setupEmulator:ios \u2014 sets up iOS simulator. There is no separate buildApp:ios:release flow: run buildApp:ios, then create the production archive from the generated Xcode project's Release Archive action. NOTE: build:android / build:android:release / build:ios do NOT exist in catalyst \u2014 common mistake. Missing any script = that npm run command fails.",
         "layer": "Build",
         "source": "static",
         "tags": ["build", "scripts", "package.json", "native"]
@@ -218,7 +266,7 @@
     {
         "section": "security",
         "title": "FLAG_SECURE Android Behavior",
-        "content": "setScreenSecure(true) sets FLAG_SECURE on WebView. Shows black/blank screenshot in Android recents. This is CORRECT behavior, not a bug. Emulators do NOT enforce FLAG_SECURE in recents — must test on real device to verify.",
+        "content": "setScreenSecure(true) sets FLAG_SECURE on WebView. Shows black/blank screenshot in Android recents. This is CORRECT behavior, not a bug. Emulators do NOT enforce FLAG_SECURE in recents \u2014 must test on real device to verify.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["android", "security", "flag_secure"]
@@ -234,7 +282,7 @@
     {
         "section": "security",
         "title": "clearWebData Behavior",
-        "content": "clearWebData does NOT clear WebCacheManager/CacheManager by default — these are custom native disk+memory caches separate from WebView built-in cache (cookies, localStorage, etc). Both must be explicitly cleared via separate native calls.",
+        "content": "clearWebData does NOT clear WebCacheManager/CacheManager by default \u2014 these are custom native disk+memory caches separate from WebView built-in cache (cookies, localStorage, etc). Both must be explicitly cleared via separate native calls.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["security", "cache", "clearing"]
@@ -242,7 +290,7 @@
     {
         "section": "security",
         "title": "iOS clearWebData Implementation",
-        "content": "WKWebsiteDataStore clearing must wrap completion in DispatchQueue.main.async. Confirmed working in production. Note: Safari Web Inspector does NOT auto-refresh storage panel after clearWebData — misleading but not a bug.",
+        "content": "WKWebsiteDataStore clearing must wrap completion in DispatchQueue.main.async. Confirmed working in production. Note: Safari Web Inspector does NOT auto-refresh storage panel after clearWebData \u2014 misleading but not a bug.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["ios", "security", "clearing"]
@@ -266,7 +314,7 @@
     {
         "section": "security",
         "title": "Security Check Flow",
-        "content": "App Launch → MainActivity.onCreate() → SecurityCheckScheduler.initialize() → background coroutine → SecurityCheckManager.performSecurityChecks() → rooting + emulator + Frida checks → callback → SecurityAlertHandler → recommendation returned to JS.",
+        "content": "App Launch \u2192 MainActivity.onCreate() \u2192 SecurityCheckScheduler.initialize() \u2192 background coroutine \u2192 SecurityCheckManager.performSecurityChecks() \u2192 rooting + emulator + Frida checks \u2192 callback \u2192 SecurityAlertHandler \u2192 recommendation returned to JS.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["android", "security", "flow"]
@@ -298,7 +346,7 @@
     {
         "section": "security",
         "title": "Frida Detection Port Scan",
-        "content": "Scans ports 27042, 27043 for Frida server. 4 second latency acceptable — runs on background coroutine while WebView already showing on clean devices.",
+        "content": "Scans ports 27042, 27043 for Frida server. 4 second latency acceptable \u2014 runs on background coroutine while WebView already showing on clean devices.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["android", "security", "frida"]
@@ -330,7 +378,7 @@
     {
         "section": "caching",
         "title": "Cache Pattern Bug and Fix",
-        "content": "Bug: cache pattern matching matched against full URLs instead of filenames → only 7/64 files cached (9% hit rate). Fix: extract filename from URL before matching against cachePattern (*.css, *.js, etc). After fix: 100% cache hit rate.",
+        "content": "Bug: cache pattern matching matched against full URLs instead of filenames \u2192 only 7/64 files cached (9% hit rate). Fix: extract filename from URL before matching against cachePattern (*.css, *.js, etc). After fix: 100% cache hit rate.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["caching", "bug", "fix"]
@@ -346,7 +394,7 @@
     {
         "section": "known_errors",
         "title": "Silent Intent Failure on Size Exceeded",
-        "content": "Symptom: file open/share silently does nothing. Cause: Intent payload >2MB — Android drops it without error callback or exception. Fix: validate file size before bridge dispatch, use content provider or localhost server for files >2MB.",
+        "content": "Symptom: file open/share silently does nothing. Cause: Intent payload >2MB \u2014 Android drops it without error callback or exception. Fix: validate file size before bridge dispatch, use content provider or localhost server for files >2MB.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["android", "error", "intent"]
@@ -354,7 +402,7 @@
     {
         "section": "known_errors",
         "title": "isNative() Always Returns False (SSR)",
-        "content": "Symptom: bridge hooks do nothing in browser, native features not available. Cause: NativeBridgeUtil constructed at module load during SSR — window.NativeBridge absent at that point, isNativeEnvironment=false permanently. Fix: check window.NativeBridge and window.webkit?.messageHandlers?.NativeBridge lazily at hook call time, not at module init.",
+        "content": "Symptom: bridge hooks do nothing in browser, native features not available. Cause: NativeBridgeUtil constructed at module load during SSR \u2014 window.NativeBridge absent at that point, isNativeEnvironment=false permanently. Fix: check window.NativeBridge and window.webkit?.messageHandlers?.NativeBridge lazily at hook call time, not at module init.",
         "layer": "Bridge",
         "source": "static",
         "tags": ["error", "ssr", "bridge", "bug"]
@@ -362,7 +410,7 @@
     {
         "section": "known_errors",
         "title": "Cache Hit Rate Near Zero",
-        "content": "Symptom: most static assets (CSS, JS, images) load from network every time despite cachePattern being configured. Cause: cache pattern matching against full URL instead of filename — URL contains path + query params that don't match *.css etc. Fix: extract filename from URL before pattern matching.",
+        "content": "Symptom: most static assets (CSS, JS, images) load from network every time despite cachePattern being configured. Cause: cache pattern matching against full URL instead of filename \u2014 URL contains path + query params that don't match *.css etc. Fix: extract filename from URL before pattern matching.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["error", "caching", "android", "ios"]
@@ -370,7 +418,7 @@
     {
         "section": "known_errors",
         "title": "clearWebData Doesn't Clear Native Cache",
-        "content": "Symptom: clearWebData called but cached assets still serve from disk. Cause: clearWebData only clears WebView built-in storage (cookies, localStorage) — not WebCacheManager (Android) or CacheManager (iOS) which are separate custom caches. Fix: call WebCacheManager.clearAll() on Android and CacheManager.clearCache() on iOS in addition to clearWebData.",
+        "content": "Symptom: clearWebData called but cached assets still serve from disk. Cause: clearWebData only clears WebView built-in storage (cookies, localStorage) \u2014 not WebCacheManager (Android) or CacheManager (iOS) which are separate custom caches. Fix: call WebCacheManager.clearAll() on Android and CacheManager.clearCache() on iOS in addition to clearWebData.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["error", "caching", "security", "clearing"]
@@ -378,7 +426,7 @@
     {
         "section": "known_errors",
         "title": "Localhost Server Transport Not Working",
-        "content": "Symptom: file operations, downloads, or progress-tracked operations fail silently or 404. Cause: accessControl.allowedUrls is defined but doesn't include http://localhost:* — all localhost requests blocked. Fix: add http://localhost:* and https://localhost:* to accessControl.allowedUrls.",
+        "content": "Symptom: file operations, downloads, or progress-tracked operations fail silently or 404. Cause: accessControl.allowedUrls is defined but doesn't include http://localhost:* \u2014 all localhost requests blocked. Fix: add http://localhost:* and https://localhost:* to accessControl.allowedUrls.",
         "layer": "Config",
         "source": "static",
         "tags": ["error", "transport", "server", "config"]
@@ -394,7 +442,7 @@
     {
         "section": "known_errors",
         "title": "FLAG_SECURE Not Working on Emulator",
-        "content": "Symptom: setScreenSecure(true) called but screenshots still work, recents shows live preview. Cause: emulators do NOT enforce FLAG_SECURE — this is expected Android emulator behavior, not a bug. Fix: test FLAG_SECURE behavior on real device only.",
+        "content": "Symptom: setScreenSecure(true) called but screenshots still work, recents shows live preview. Cause: emulators do NOT enforce FLAG_SECURE \u2014 this is expected Android emulator behavior, not a bug. Fix: test FLAG_SECURE behavior on real device only.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["error", "android", "security", "emulator"]
@@ -402,7 +450,7 @@
     {
         "section": "known_errors",
         "title": "iOS clearWebData Appears Not Working",
-        "content": "Symptom: clearWebData called on iOS, Safari Web Inspector still shows localStorage data. Cause: Safari Web Inspector does NOT auto-refresh its storage panel — the data is actually cleared. Fix: manually refresh the storage panel in Web Inspector to confirm.",
+        "content": "Symptom: clearWebData called on iOS, Safari Web Inspector still shows localStorage data. Cause: Safari Web Inspector does NOT auto-refresh its storage panel \u2014 the data is actually cleared. Fix: manually refresh the storage panel in Web Inspector to confirm.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["error", "ios", "security", "clearing"]
@@ -418,7 +466,7 @@
     {
         "section": "webview_config",
         "title": "Real WEBVIEW_CONFIG Example",
-        "content": "Full WEBVIEW_CONFIG example (as of canary.19+): { port: '3005', LOCAL_IP: '192.168.0.11', useHttps: false, appInfo: 'android-5Feb2026-v2.1.0', cachePattern: '*.css', accessControl: { enabled: false, allowedUrls: ['*.yourdomain.com*', 'http://localhost:*'] }, android: { appName: 'MyApp', packageName: 'com.example.app', buildType: 'debug', sdkPath: '/Users/user/Android/', emulatorName: 'Pixel_5_API_30', cachePattern: '*.css,*.js,*.png', security: { mode: 'custom', allowBackup: true } }, ios: { appBundleId: 'com.example.app', appName: 'MyApp', buildType: 'debug', simulatorName: 'iPhone 17 Pro', cachePattern: '*.css,*.js', accessControl: { enabled: true, allowedUrls: ['*.yourdomain.com*', 'http://localhost:*'] } }, splashScreen: { backgroundColor: '#ffffff', duration: 2000, imageWidth: 400, imageHeight: 200, cornerRadius: 20 }, notifications: { enabled: false } }. Note: splashScreen is INSIDE WEBVIEW_CONFIG, not at top-level config.json. Note canary.19 change: iOS has its OWN accessControl block separate from top-level accessControl.",
+        "content": "Full WEBVIEW_CONFIG example (as of canary.19+): { port: '3005', LOCAL_IP: '192.168.0.11', useHttps: false, appInfo: 'android-5Feb2026-v2.1.0', cachePattern: '*.css', accessControl: { enabled: false, allowedUrls: ['*.yourdomain.com*', 'http://localhost:*'] }, android: { appName: 'MyApp', packageName: 'com.example.app', buildType: 'debug', sdkPath: '/Users/user/Android/', emulatorName: 'Pixel_5_API_30', cachePattern: '*.css,*.js,*.png', security: { mode: 'custom', allowBackup: true } }, ios: { appBundleId: 'com.example.app', appName: 'MyApp', buildType: 'debug', simulatorName: 'iPhone 17 Pro', cachePattern: '*.css,*.js', accessControl: { enabled: true, allowedUrls: ['*.yourdomain.com*', 'http://localhost:*'] } }, splashScreen: { backgroundColor: '#ffffff', duration: 2000, imageWidth: 400, imageHeight: 200, cornerRadius: 20 }, notifications: { enabled: true, color: \"#007AFF\" } }. Note: splashScreen is INSIDE WEBVIEW_CONFIG, not at top-level config.json. Note canary.19 change: iOS has its OWN accessControl block separate from top-level accessControl.",
         "layer": "Config",
         "source": "extracted:config/config.json",
         "tags": ["config", "example"]
@@ -426,15 +474,15 @@
     {
         "section": "config_structure",
         "title": "Full config/config.json Schema",
-        "content": "config/config.json contains all runtime config. Required keys (enforced by validator.js at startup — missing any = server crash): NODE_SERVER_HOSTNAME (string), NODE_SERVER_PORT (number), WEBPACK_DEV_SERVER_HOSTNAME (string), WEBPACK_DEV_SERVER_PORT (number), BUILD_OUTPUT_PATH (string, e.g. 'build'), PUBLIC_STATIC_ASSET_PATH (string, e.g. '/assets/'), PUBLIC_STATIC_ASSET_URL (string, CDN base URL), CLIENT_ENV_VARIABLES (array of env var names to expose to client bundle), ANALYZE_BUNDLE (boolean). Optional top-level keys: API_URL (string, app convention not enforced), WEBVIEW_CONFIG (object, required for native builds — contains splashScreen, appInfo, android, ios, etc.). Common mistake: CLIENT_ENV_KEYS is WRONG — the actual key is CLIENT_ENV_VARIABLES. Common mistake: splashScreen is NOT a top-level key — it lives inside WEBVIEW_CONFIG. Example: { NODE_SERVER_HOSTNAME: 'localhost', NODE_SERVER_PORT: 3000, WEBPACK_DEV_SERVER_HOSTNAME: 'localhost', WEBPACK_DEV_SERVER_PORT: 3001, BUILD_OUTPUT_PATH: 'build', PUBLIC_STATIC_ASSET_PATH: '/assets/', PUBLIC_STATIC_ASSET_URL: 'https://cdn.example.com', CLIENT_ENV_VARIABLES: ['API_URL'], ANALYZE_BUNDLE: false }",
+        "content": "config/config.json contains all runtime config. Required keys (enforced by validator.js at startup \u2014 missing any = server crash): NODE_SERVER_HOSTNAME (string), NODE_SERVER_PORT (number), BUILD_OUTPUT_PATH (string, e.g. 'build'), PUBLIC_STATIC_ASSET_PATH (string, e.g. '/assets/'), PUBLIC_STATIC_ASSET_URL (string, CDN base URL), CLIENT_ENV_VARIABLES (array of env var names to expose to client bundle). WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT, and ANALYZE_BUNDLE are no longer required or read \u2014 they are ignored if present. Optional top-level keys: API_URL (string, app convention not enforced), WEBVIEW_CONFIG (object, required for native builds \u2014 contains splashScreen, appInfo, android, ios, etc.). Common mistake: CLIENT_ENV_KEYS is WRONG \u2014 the actual key is CLIENT_ENV_VARIABLES. Common mistake: splashScreen is NOT a top-level key \u2014 it lives inside WEBVIEW_CONFIG. Example: { NODE_SERVER_HOSTNAME: 'localhost', NODE_SERVER_PORT: 3000, BUILD_OUTPUT_PATH: 'build', PUBLIC_STATIC_ASSET_PATH: '/assets/', PUBLIC_STATIC_ASSET_URL: 'https://cdn.example.com', CLIENT_ENV_VARIABLES: ['API_URL'] }",
         "layer": "Config",
-        "source": "extracted:src/scripts/validator.js",
+        "source": "extracted:src/server/utils/validator.ts",
         "tags": ["config", "schema", "required-fields"]
     },
     {
         "section": "config_structure",
         "title": "WEBVIEW_CONFIG Required Fields",
-        "content": "WEBVIEW_CONFIG field reference (from buildAppAndroid.js + buildAppIos.js source):\n\nTOP-LEVEL (both platforms):\n- port (string, required) — web server port e.g. \"3005\"\n- LOCAL_IP (string, required) — machine LAN IP e.g. \"192.168.0.11\". NOT localhost — emulator cannot resolve it\n- appInfo (string, required) — build identifier e.g. \"android-5Feb2026-v2.1.0\". Missing = iOS build breaks\n- useHttps (boolean, optional) — default false\n- cachePattern (string, optional) — comma-separated globs e.g. \"*.css\"\n- accessControl.enabled (boolean, optional) — default false\n- accessControl.allowedUrls (array, required if enabled) — URL patterns\n\nANDROID (WEBVIEW_CONFIG.android):\n- sdkPath (string, REQUIRED) — abs path to Android SDK. Build exits immediately without it\n- emulatorName (string, REQUIRED for debug) — AVD name. Run: emulator -list-avds\n- appName (string, optional) — default \"Catalyst Application\"\n- packageName (string, optional) — e.g. com.company.app. Derived from appName if missing\n- buildType (string, optional) — \"debug\" or \"release\". Default \"debug\"\n- keystore or keystoreConfig (required for release buildType only)\n- buildOptimisation (boolean, optional) — default false\n- cachePattern (string, optional)\n\nIOS (WEBVIEW_CONFIG.ios):\n- appBundleId (string, optional) — default \"com.debug.webview\". Must set for distribution\n- appName (string, optional) — default \"Catalyst Application\"\n- simulatorName (string, optional) — auto-detected if missing. e.g. \"iPhone 17 Pro\"\n- buildType (string, optional, CASE-SENSITIVE) — \"Debug\" or \"Release\". NOT lowercase — common mistake\n- deviceUDID (string, optional) — physical device builds only\n- developmentTeam (string, required if deviceUDID set) — Apple Developer Team ID\n- cachePattern (string, optional)",
+        "content": "WEBVIEW_CONFIG field reference (from buildAppAndroid.js + buildAppIos.js source):\n\nTOP-LEVEL (both platforms):\n- port (string, required) \u2014 web server port e.g. \"3005\"\n- LOCAL_IP (string, required) \u2014 machine LAN IP e.g. \"192.168.0.11\". NOT localhost \u2014 emulator cannot resolve it\n- appInfo (string, required) \u2014 build identifier e.g. \"android-5Feb2026-v2.1.0\". Missing = iOS build breaks\n- useHttps (boolean, optional) \u2014 default false\n- cachePattern (string, optional) \u2014 comma-separated globs e.g. \"*.css\"\n- accessControl.enabled (boolean, optional) \u2014 default false\n- accessControl.allowedUrls (array, required if enabled) \u2014 URL patterns\n\nANDROID (WEBVIEW_CONFIG.android):\n- sdkPath (string, REQUIRED) \u2014 abs path to Android SDK. Build exits immediately without it\n- emulatorName (string, REQUIRED for debug) \u2014 AVD name. Run: emulator -list-avds\n- appName (string, optional) \u2014 default \"Catalyst Application\"\n- packageName (string, optional) \u2014 e.g. com.company.app. Derived from appName if missing\n- buildType (string, optional) \u2014 \"debug\" or \"release\". Default \"debug\"\n- keystore or keystoreConfig (required for release buildType only)\n- buildOptimisation (boolean, optional) \u2014 default false\n- cachePattern (string, optional)\n\nIOS (WEBVIEW_CONFIG.ios):\n- appBundleId (string, optional) \u2014 default \"com.debug.webview\". Must set for distribution\n- appName (string, optional) \u2014 default \"Catalyst Application\"\n- simulatorName (string, optional) \u2014 auto-detected if missing. e.g. \"iPhone 17 Pro\"\n- buildType (string, optional) \u2014 may label copied Debug output but does not select the Xcode build configuration or create an App Store archive\n- deviceUDID (string, optional) \u2014 physical device builds only\n- developmentTeam (string, required if deviceUDID set) \u2014 Apple Developer Team ID\n- cachePattern (string, optional)\n\nFor iOS production, run buildApp:ios to prepare the generated project, then archive the iosnativeWebView scheme using its Release Archive action in Xcode.",
         "layer": "Config",
         "source": "static",
         "tags": ["config", "WEBVIEW_CONFIG", "android", "ios", "required", "fields"]
@@ -442,7 +490,7 @@
     {
         "section": "config_structure",
         "title": "splashScreen Config Structure",
-        "content": "splashScreen sits INSIDE WEBVIEW_CONFIG (not at top-level config.json). All fields are optional — omitting splashScreen entirely = native build proceeds but shows blank splash. Fields: backgroundColor (string hex, default '#ffffff'), duration (number ms, iOS only — controls how long splash shows), imageWidth (number px, default 120), imageHeight (number px, default 120), cornerRadius (number px, iOS only, default 20). Example: WEBVIEW_CONFIG.splashScreen = { backgroundColor: '#ffffff', duration: 2000, imageWidth: 400, imageHeight: 200, cornerRadius: 20 }. Asset placement: put image at public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp} for Android, public/ios/splashscreen.{png|jpg|jpeg} for iOS. Asset is auto-discovered by filename — NO path field in config. Missing asset file = build proceeds with no splash image (no error). backgroundColor is applied to Android themes.xml (windowSplashScreenBackground). Pfizer example: splashScreen: { imageHeight: 200, imageWidth: 400 } (backgroundColor omits = defaults to white).",
+        "content": "splashScreen sits INSIDE WEBVIEW_CONFIG (not at top-level config.json). All fields are optional \u2014 omitting splashScreen entirely = native build proceeds but shows blank splash. Fields: backgroundColor (string hex, default '#ffffff'), duration (number ms, iOS only \u2014 controls how long splash shows), imageWidth (number px, default 120), imageHeight (number px, default 120), cornerRadius (number px, iOS only, default 20). Example: WEBVIEW_CONFIG.splashScreen = { backgroundColor: '#ffffff', duration: 2000, imageWidth: 400, imageHeight: 200, cornerRadius: 20 }. Asset placement: put image at public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp} for Android, public/ios/splashscreen.{png|jpg|jpeg} for iOS. Asset is auto-discovered by filename \u2014 NO path field in config. Missing asset file = build proceeds with no splash image (no error). backgroundColor is applied to Android themes.xml (windowSplashScreenBackground). Pfizer example: splashScreen: { imageHeight: 200, imageWidth: 400 } (backgroundColor omits = defaults to white).",
         "layer": "Config",
         "source": "static",
         "tags": ["splashscreen", "splash", "config", "webview_config", "android", "ios", "native", "assets"]
@@ -457,8 +505,8 @@
     },
     {
         "section": "routing",
-        "title": "Catalyst Routing Stack",
-        "content": "@tata1mg/router wraps React Router v6. Routes defined in src/js/routes/index.js as flat or nested array. RouterDataProvider in src/js/routes/utils.js wraps the entire app — required for data fetching to work. Without RouterDataProvider, serverFetcher/clientFetcher hooks silently return undefined.",
+        "title": "Legacy 0.2.x Catalyst Routing Stack",
+        "content": "@tata1mg/router wraps React Router v6. Routes defined in src/js/routes/index.js as flat or nested array. RouterDataProvider in src/js/routes/utils.js wraps the entire app \u2014 required for data fetching to work. Without RouterDataProvider, serverFetcher/clientFetcher hooks silently return undefined.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["routing", "react-router", "required"]
@@ -473,7 +521,7 @@
     },
     {
         "section": "routing",
-        "title": "RouterDataProvider Setup",
+        "title": "Legacy 0.2.x RouterDataProvider Setup",
         "content": "RouterDataProvider from @tata1mg/router wraps the app in src/js/routes/utils.js. Provides route-level data context to all child components. useCurrentRouteData() reads from this context. Missing RouterDataProvider = all useCurrentRouteData() calls return undefined, no error thrown.",
         "layer": "Runtime",
         "source": "static",
@@ -481,7 +529,7 @@
     },
     {
         "section": "routing",
-        "title": "App Shell with Outlet",
+        "title": "Legacy 0.2.x App Shell with Outlet",
         "content": "src/js/containers/App/index.js must render <Outlet /> from @tata1mg/router (not react-router-dom directly). Outlet renders the matched route component. Without Outlet, routing matches but nothing renders. App shell is also where global layout (nav, footer) lives.",
         "layer": "Component",
         "source": "static",
@@ -490,7 +538,7 @@
     {
         "section": "data_fetching",
         "title": "serverFetcher Pattern",
-        "content": "Static function attached to page component: HomePage.serverFetcher = async ({ params, searchParams, navigate }, { store }) => { const data = await fetchApi(); return data; }. Runs on server during SSR. Result available via useCurrentRouteData(). NEVER use useEffect for initial data load — serverFetcher is the catalyst way.",
+        "content": "Static function attached to page component: HomePage.serverFetcher = async ({ params, searchParams, navigate }, { store }) => { const data = await fetchApi(); return data; }. Runs on server during SSR. Result available via useCurrentRouteData(). NEVER use useEffect for initial data load \u2014 serverFetcher is the catalyst way.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["data-fetching", "ssr", "server-fetcher"]
@@ -498,14 +546,14 @@
     {
         "section": "data_fetching",
         "title": "clientFetcher Pattern",
-        "content": "Static function attached to page component: HomePage.clientFetcher = async ({ params }, { store }, customArgs) => { ... }. Runs on client-side navigation (not initial SSR load). Receives customArgs for manual trigger. Complement to serverFetcher — server handles initial load, client handles navigations.",
+        "content": "Static function attached to page component: HomePage.clientFetcher = async ({ params }, { store }, customArgs) => { ... }. Runs on client-side navigation (not initial SSR load). Receives customArgs for manual trigger. Complement to serverFetcher \u2014 server handles initial load, client handles navigations.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["data-fetching", "csr", "client-fetcher"]
     },
     {
         "section": "data_fetching",
-        "title": "useCurrentRouteData Hook",
+        "title": "Legacy 0.2.x useCurrentRouteData Hook",
         "content": "import { useCurrentRouteData } from '@tata1mg/router'. Returns data resolved by serverFetcher/clientFetcher for the current route. Replaces all useState + useEffect data loading patterns. Available only inside RouterDataProvider tree. Returns undefined if RouterDataProvider missing.",
         "layer": "Runtime",
         "source": "static",
@@ -513,8 +561,8 @@
     },
     {
         "section": "data_fetching",
-        "title": "Migration: useEffect → serverFetcher",
-        "content": "Before: const [data, setData] = useState(null); useEffect(() => { fetchApi().then(setData) }, []). After: attach static HomePage.serverFetcher = async (...) => fetchApi(), then const data = useCurrentRouteData() in component body. Every page's data layer must be rewritten this way — there is no incremental path.",
+        "title": "Migration: useEffect \u2192 serverFetcher",
+        "content": "Before: const [data, setData] = useState(null); useEffect(() => { fetchApi().then(setData) }, []). After: attach static HomePage.serverFetcher = async (...) => fetchApi(), then const data = useCurrentRouteData() in component body. Every page's data layer must be rewritten this way \u2014 there is no incremental path.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["data-fetching", "migration", "useEffect"]
@@ -522,10 +570,10 @@
     {
         "section": "server_structure",
         "title": "Required Server Files",
-        "content": "Catalyst requires 3 specific files in server/: server/index.js (lifecycle hooks), server/server.js (Express middleware), server/document.js (HTML template). These are NOT optional. Missing any one = server startup fails. Any repo using custom Express, Next.js, CRA, or Vite must rebuild all 3 from scratch.",
+        "content": "Catalyst requires 3 specific files in server/: server/index.js (lifecycle hooks), server/server.js (Express middleware), server/document.js (HTML template). These are NOT optional. Missing any one = server startup fails. Any repo using custom Express, Next.js, CRA, or Vite must rebuild all 3 from scratch. From 1.0.0, a file that exists but lacks a required export is reported once at startup, naming the file and the export; the server still boots (log-and-continue) and the affected feature fails instead.",
         "layer": "Build",
         "source": "static",
-        "tags": ["server", "required-files", "structure"]
+        "tags": ["server", "required-files", "structure", "1.0.0"]
     },
     {
         "section": "server_structure",
@@ -553,7 +601,7 @@
     },
     {
         "section": "server_structure",
-        "title": "Client Entry Files",
+        "title": "Legacy 0.2.x Client Entry Files",
         "content": "client/index.js hydrates SSR markup: import { hydrate } from '@tata1mg/router'; hydrate(<App />, document.getElementById('root')). client/styles.js imports global CSS: import '../src/styles/global.css'. Both files required. Missing client/index.js = blank page on web (no hydration). Missing client/styles.js = styles not bundled.",
         "layer": "Build",
         "source": "static",
@@ -561,39 +609,46 @@
     },
     {
         "section": "native_hooks",
-        "title": "Native Hooks — Overview & Common Interface",
-        "content": "All catalyst-core hooks share a standardized base interface: { data, loading, progress, error, isWeb, isNative, execute, clear, clearError }. isNative is true when running inside the native shell (Android/iOS WebView). isWeb is true on browser. Hooks throw if window.WebBridge is not initialized — safe to call on web (isNative will be false). All return SSR-safe stubs when window is undefined. Import from catalyst-core/hooks.",
+        "title": "Native Hooks \u2014 Overview & Common Interface",
+        "content": "catalyst-core hooks fall into TWO CATEGORIES.\n\nSINGLE-ACTION HOOKS wrap exactly one native operation and share a standardized base interface: { data, loading, progress, error, isWeb, isNative, execute, clear, clearError }. execute takes the operation's own arguments — it NEVER takes an operation-name string. Each also exposes a domain alias for execute: useCamera->takePhoto, useFilePicker->pickFile, useIntent->openFile, useGoogleSignIn->signIn, useHapticFeedback->trigger/triggerHaptic, useCameraPermission->request.\n\nMULTI-ACTION HOOKS wrap several distinct operations, so their NAMED FUNCTIONS ARE THE API and they have NO execute: useNotification (scheduleLocal, cancelLocal, registerForPush, updateBadge, subscribeToTopic, unsubscribeFromTopic, getSubscribedTopics, requestPermission), useVideoStream (start, stop, sendCommand, flip), useDataProtection (setScreenSecure, clearWebData), useNativeTransition (navigate, cancelTransition). EXCEPTION: useNotification carries execute as a frozen-but-discouraged alias of scheduleLocal — do NOT copy that pattern for other multi-action hooks.\n\nREAD-ONLY HOOKS report ambient state with no action functions: useNetworkStatus, useDeviceInfo, useSafeArea.\n\nisNative is true when running inside the native shell (Android/iOS WebView). isWeb is true on browser. All return SSR-safe stubs when window is undefined. Import from catalyst-core/hooks.\n\nWEB FALLBACK SYSTEM: Hooks that implement browser fallbacks additionally expose: { webFallbackActive: boolean, webFallbackDisabled: boolean, setWebFallback: (enabled: boolean) => void }. webFallbackActive=true means the hook is currently running its browser fallback (not native bridge). setWebFallback(false) disables the built-in fallback at runtime \u2014 React re-runs effects and cleans up side effects automatically (e.g. stops MediaStream, removes event listeners). webFallbackDisabled=true means the hook returned an inert no-op shape (all actions are no-ops, data/error/loading are null/false) \u2014 consumer must render its own UI.\n\nDYNAMIC PROP SYNC: The webFallback prop syncs dynamically after mount in all hooks (both useBaseHook consumers and thin-state hooks) via useEffect. Passing a new webFallback prop value re-evaluates webFallbackActive without remounting the component.\n\nRULES OF HOOKS: All hooks (useState, useRef, useCallback, useEffect) are always called unconditionally at top level, regardless of webFallbackActive/webFallbackDisabled. Branching only happens in return statements.\n\nHooks with web fallbacks: useCamera, useFilePicker, useHapticFeedback, useVideoStream, useDataProtection, useCameraPermission, useNetworkStatus, useSafeArea, useDeviceInfo.",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "overview", "base-interface"]
+        "tags": [
+            "native-hooks",
+            "overview",
+            "base-interface",
+            "web-fallback",
+            "webFallbackActive",
+            "setWebFallback"
+        ]
     },
     {
         "section": "native_hooks",
-        "title": "useCamera — return shape",
-        "content": "useCamera() returns: { data: { fileSrc, fileName, size, mimeType, transport }, loading, progress, error, isWeb, isNative, execute, clear, clearError, permission, takePhoto (=execute), photo (=data), isLoading (=loading), clearPhoto (=clear) }. Call execute()/takePhoto() to open camera. Data arrives via WebBridge callback ON_CAMERA_CAPTURE. transport: 'BRIDGE_BASE64' | 'FRAMEWORK_SERVER' | 'LEGACY'.",
+        "title": "useCamera \u2014 return shape",
+        "content": "useCamera() returns: { data: { fileSrc, fileName, size, mimeType, transport }, loading, progress, error, isWeb, isNative, execute, clear, clearError, permission, takePhoto (=execute), photo (=data), isLoading (=loading), clearPhoto (=clear), webFallbackActive, webFallbackDisabled, setWebFallback }. Call execute()/takePhoto() to open camera. Data arrives via WebBridge callback ON_CAMERA_CAPTURE. transport: 'BRIDGE_BASE64' | 'FRAMEWORK_SERVER' | 'LEGACY'.\n\nWEB FALLBACK: Uses <input type='file' accept='image/*' capture='environment'> \u2014 opens native camera on mobile browsers without getUserMedia. setWebFallback(false) disables the fallback; when disabled, takePhoto() is a no-op and webFallbackDisabled=true.",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "useCamera", "return-shape"]
+        "tags": ["native-hooks", "useCamera", "return-shape", "web-fallback"]
     },
     {
         "section": "native_hooks",
-        "title": "useCameraPermission — return shape",
-        "content": "useCameraPermission() returns: { permission: string|null, isLoading: boolean }. permission values: 'granted' | 'denied' | 'not_determined'. Automatically requests permission on mount. Use before useCamera — check permission === 'granted' before showing camera UI.",
+        "title": "useCameraPermission \u2014 return shape",
+        "content": "useCameraPermission() returns: { permission: string|null, isLoading: boolean, webFallbackActive, webFallbackDisabled, setWebFallback, request: () => Promise<void> }. permission values: 'granted' | 'denied' | 'not_determined'. Automatically queries permission state on mount via navigator.permissions API (does NOT prompt).\n\nrequest() (web only): calls getUserMedia({ video: true }) to trigger the browser permission dialog, immediately stops tracks, then re-reads permission state. Use a button labeled 'Request Permission' to invoke this.\n\nWEB FALLBACK: Uses navigator.permissions.query({ name: 'camera' }) on web. permission maps from PermissionState: 'granted'\u2192GRANTED, 'denied'\u2192DENIED, 'prompt'\u2192NOT_DETERMINED. Manages webFallback state locally (not via useBaseHook). webFallback prop syncs dynamically after mount. request() is a no-op on native.\n\nRules of Hooks: all hooks called unconditionally at top level \u2014 early return only happens AFTER all hook calls.",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "useCameraPermission", "return-shape"]
+        "tags": ["native-hooks", "useCameraPermission", "return-shape", "web-fallback"]
     },
     {
         "section": "native_hooks",
-        "title": "useFilePicker — return shape",
-        "content": "useFilePicker() returns: { data, loading, progress, error, isWeb, isNative, execute, clear, clearError, getFileObject: async(index) => File, getAllFileObjects: async() => File[], canCreateFileObject: boolean, canCreateFileObjects: boolean[], selectedFile (=files[0]), selectedFiles, pickFile (=execute), isLoading, processingState, clearFile (=clear) }. Call execute(options)/pickFile(options) to open native file picker. options: { mimeType, multiple, maxFiles, maxFileSize }. getFileObject/getAllFileObjects convert native file data to JS File objects for FormData POST.",
+        "title": "useFilePicker \u2014 return shape",
+        "content": "useFilePicker() returns: { data, loading, progress, error, isWeb, isNative, execute, clear, clearError, getFileObject: async(index) => File, getAllFileObjects: async() => File[], canCreateFileObject: boolean, canCreateFileObjects: boolean[], selectedFile (=files[0]), selectedFiles, pickFile (=execute), isLoading, processingState, clearFile (=clear), webFallbackActive, webFallbackDisabled, setWebFallback }. Call execute(options)/pickFile(options) to open native file picker. options: { mimeType, multiple, maxFiles, maxFileSize }. getFileObject/getAllFileObjects convert native file data to JS File objects for FormData POST.\n\nWEB FALLBACK: Uses <input type='file'> \u2014 browser native file picker. Files land in data as an array of File objects. setWebFallback(false) disables; when disabled, pickFile() is a no-op.",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "useFilePicker", "return-shape"]
+        "tags": ["native-hooks", "useFilePicker", "return-shape", "web-fallback"]
     },
     {
         "section": "native_hooks",
-        "title": "useIntent — return shape",
+        "title": "useIntent \u2014 return shape",
         "content": "useIntent() returns: { data: { result, success }, loading, progress, error, isWeb, isNative, execute, clear, clearError, openFile (=execute), isLoading, processingState, success, reset (=clear) }. Call execute(fileUrl, mimeType)/openFile(fileUrl, mimeType) to open a file with an external native app. Use for opening PDFs, docs in native viewers.",
         "layer": "Runtime",
         "source": "static",
@@ -601,31 +656,31 @@
     },
     {
         "section": "native_hooks",
-        "title": "useGoogleSignIn — return shape",
-        "content": "useGoogleSignIn(defaultOptions?) returns: { data: { idToken, ...user }, loading, progress, error, isWeb, isNative, signIn (=execute), execute, clear, clearError }. Call signIn(options)/execute(options) to trigger Google sign-in. options merged with defaultOptions. Requires google-services.json (Android) / GoogleService-Info.plist (iOS). On web: isNative false.",
+        "title": "useGoogleSignIn \u2014 return shape",
+        "content": "useGoogleSignIn(defaultOptions?) returns: { data: { idToken, ...user }, loading, progress, error, isWeb, isNative, signIn (=execute), execute, clear, clearError }. Call signIn(options)/execute(options) to trigger Google sign-in. options merged with defaultOptions. Requires: (1) WEBVIEW_CONFIG.googleSignIn.enabled=true in config.json \u2014 without this NativeBridge returns ON_GOOGLE_SIGN_IN_ERROR: \"Google Sign-In is disabled in config\". (2) WEBVIEW_CONFIG.googleSignIn.clientId (your OAuth web client ID from Google Cloud Console) \u2014 can also be passed per-call via signIn({clientId}). (3) google-services.json (Android) / GoogleService-Info.plist (iOS). On web: isNative false.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["native-hooks", "useGoogleSignIn", "return-shape"]
     },
     {
         "section": "native_hooks",
-        "title": "useHapticFeedback — return shape",
-        "content": "useHapticFeedback() returns: { data, loading, progress, error, isWeb, isNative, execute, clear, clearError, trigger (=execute), triggerHaptic (=execute), light/medium/heavy/success/warning/errorHaptic/selection/impact (shortcuts), capabilities: { isSupported, availableTypes, platform }, isSupported, isAvailable (=isSupported), availableTypes, HAPTIC_TYPES }. Call execute(type)/trigger(type). Types: 'light'|'medium'|'heavy'|'success'|'warning'|'error'|'selection'|'impact'. On web: falls back to navigator.vibrate if available.",
+        "title": "useHapticFeedback \u2014 return shape",
+        "content": "useHapticFeedback() returns: { data, loading, progress, error, isWeb, isNative, execute, clear, clearError, trigger (=execute), triggerHaptic (=execute), light/medium/heavy/success/warning/errorHaptic/selection/impact (shortcuts), capabilities: { isSupported, availableTypes, platform }, isSupported, isAvailable (=isSupported), availableTypes, HAPTIC_TYPES, webFallbackActive, webFallbackDisabled, setWebFallback }. Call execute(type)/trigger(type). Types: 'light'|'medium'|'heavy'|'success'|'warning'|'error'|'selection'|'impact'.\n\nWEB FALLBACK: Uses navigator.vibrate() \u2014 capability detected at module level so isSupported initializes correctly on first render (avoids first-call false bug). On desktop/browsers without vibrate: isSupported=false. setWebFallback(false) disables; when disabled, trigger() is a no-op.",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "useHapticFeedback", "return-shape"]
+        "tags": ["native-hooks", "useHapticFeedback", "return-shape", "web-fallback"]
     },
     {
         "section": "native_hooks",
-        "title": "useNotification — return shape",
-        "content": "useNotification() returns: { data, loading, progress, error, execute (=scheduleLocal), clear, clearError, permissionStatus, pushToken, badges, lastNotification, subscribedTopics, scheduleLocal(notification), cancelLocal(id), registerForPush(), updateBadge(count), subscribeToTopic(topic), unsubscribeFromTopic(topic), getSubscribedTopics() }. Requires WEBVIEW_CONFIG.notifications.enabled=true + Firebase files.",
+        "title": "useNotification \u2014 return shape",
+        "content": "useNotification() is a MULTI-ACTION hook — its named functions are the API. Returns: { data, loading, progress, error, clear, clearError, isNative, isWeb, permissionStatus, pushToken, badges, lastNotification, subscribedTopics, scheduleLocal(config), cancelLocal(id), registerForPush(), updateBadge(count), subscribeToTopic(topic), unsubscribeFromTopic(topic), getSubscribedTopics(), requestPermission() }. requestPermission() triggers native permission prompt (wraps requestNotificationPermission(), errors routed through base.handleNativeError).\n\nFROZEN-BUT-DISCOURAGED ALIASES: execute and schedule both alias scheduleLocal, kept for backward compatibility only. They are the sole exception among multi-action hooks and must NOT be treated as the pattern to copy — other multi-action hooks have no execute. Both aliases are removed at 2.0; write new code against scheduleLocal. Requires WEBVIEW_CONFIG.notifications.enabled=true + Firebase files.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["native-hooks", "useNotification", "return-shape"]
     },
     {
         "section": "native_hooks",
-        "title": "useNotificationPermission — return shape",
+        "title": "useNotificationPermission \u2014 return shape",
         "content": "useNotificationPermission() returns: { permission: string|null, isLoading: boolean }. permission values: 'granted' | 'denied' | 'not_determined'. Automatically requests permission on mount. Use before useNotification push registration.",
         "layer": "Runtime",
         "source": "static",
@@ -633,24 +688,24 @@
     },
     {
         "section": "native_hooks",
-        "title": "useNetworkStatus — return shape",
-        "content": "useNetworkStatus() returns: { online: boolean, type: string|null, error: string|null }. type: 'wifi'|'cellular'|null. On web: initializes from navigator.onLine, no live updates. On native: live updates via WebBridge ON_NETWORK_STATUS_CHANGED. No isNative guard needed — works on both platforms.",
+        "title": "useNetworkStatus \u2014 return shape",
+        "content": "useNetworkStatus() returns: { online: boolean, type: string|null, error: string|null, isNative: boolean, isWeb: boolean, webFallbackActive, webFallbackDisabled, setWebFallback }. type: 'wifi'|'cellular'|null. isNative=true when running in Android/iOS WebView. isWeb=!isNative. On native: live updates via WebBridge ON_NETWORK_STATUS_CHANGED.\n\nWEB FALLBACK: Initializes from navigator.onLine (defaults to true when navigator.onLine is not a boolean, e.g. some dev/Electron environments). Listens to window 'online'/'offline' events for live updates. type is always null on web. webFallback prop syncs dynamically after mount \u2014 setWebFallback(false) removes event listeners.\n\nManages webFallback state locally (thin-state hook, not via useBaseHook).",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "useNetworkStatus", "return-shape"]
+        "tags": ["native-hooks", "useNetworkStatus", "return-shape", "web-fallback"]
     },
     {
         "section": "native_hooks",
-        "title": "useSafeArea — return shape",
-        "content": "useSafeArea() returns: { top: number, right: number, bottom: number, left: number } — inset values in pixels. On web/SSR: all values 0. On native: live updates via WebBridge ON_SAFE_AREA_INSETS_UPDATED. No isNative guard needed — safe to use on both platforms.",
+        "title": "useSafeArea \u2014 return shape",
+        "content": "useSafeArea() returns: { top: number, right: number, bottom: number, left: number, isNative: boolean, isWeb: boolean, webFallbackActive, webFallbackDisabled, setWebFallback } \u2014 inset values in pixels. isNative=true when running in Android/iOS WebView. isWeb=!isNative. On native: live updates via WebBridge ON_SAFE_AREA_INSETS_UPDATED. No isNative guard needed \u2014 safe to use on both platforms.\n\nWEB FALLBACK: Reads CSS env() variables \u2014 env(safe-area-inset-top/right/bottom/left) \u2014 parsed via a hidden DOM element. Falls back to 0 if env() vars are not set (desktop browsers). Manages webFallback state locally (thin-state hook).",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "useSafeArea", "return-shape"]
+        "tags": ["native-hooks", "useSafeArea", "return-shape", "web-fallback"]
     },
     {
         "section": "native_hooks",
-        "title": "Platform Detection — isNative vs window.NativeBridge",
-        "content": "Three ways to detect native context. (1) Hook-level (preferred in React components): every hook exposes isNative boolean — e.g. const { isNative, execute } = useFilePicker(). (2) From WebBridge.init() return value: const result = WebBridge.init(); const isNative = result.platform !== 'web'. result.platform is 'android' | 'ios' | 'web' — set by NativeBridge environment detection. Do NOT invent result.isNative — that property does not exist on the init return. (3) Raw global check (outside hooks and WebBridge): const isAndroid = !!window.NativeBridge; const isIOS = !!window.webkit?.messageHandlers?.NativeBridge; const isNative = isAndroid || isIOS. Do NOT use navigator.userAgent — unreliable inside WebView.",
+        "title": "Platform Detection \u2014 isNative vs window.NativeBridge",
+        "content": "Three ways to detect native context. (1) Hook-level (preferred in React components): every hook exposes isNative boolean \u2014 e.g. const { isNative, execute } = useFilePicker(). (2) From WebBridge.init() return value: const result = WebBridge.init(); const isNative = result.platform !== 'web'. result.platform is 'android' | 'ios' | 'web' \u2014 set by NativeBridge environment detection. Do NOT invent result.isNative \u2014 that property does not exist on the init return. (3) Raw global check (outside hooks and WebBridge): const isAndroid = !!window.NativeBridge; const isIOS = !!window.webkit?.messageHandlers?.NativeBridge; const isNative = isAndroid || isIOS. Do NOT use navigator.userAgent \u2014 unreliable inside WebView.",
         "layer": "Runtime",
         "source": "static",
         "tags": ["native-hooks", "platform-detection", "NativeBridge", "isNative"]
@@ -671,15 +726,15 @@
     },
     {
         "section": "config_structure",
-        "title": "moduleAliases — Required Path Aliases in package.json",
-        "content": "package.json must have a _moduleAliases key (used by module-alias package) with these 6 required entries (enforced by validator.js — missing any = server crash): @api -> api/ (WARNING: common bug — @api accidentally set to src/static/css in legacy repos, causes all API imports to break silently), @containers -> src/js/containers, @server -> server, @config -> config, @css -> src/static/css, @routes -> src/js/routes/. Additional aliases (@store, @utils, @components, etc.) are optional but recommended. Dollar-prefix aliases (, , , , ) are server-side only — do not import in client code. Restriction: alias names containing catalyst are reserved. Migration check: always verify @api points to the actual API module, not a static asset path.",
+        "title": "moduleAliases \u2014 Required Path Aliases in package.json",
+        "content": "package.json must have a _moduleAliases key (used by module-alias package) with these 6 required entries (enforced by validator.js \u2014 missing any = server crash): @api -> api/ (WARNING: common bug \u2014 @api accidentally set to src/static/css in legacy repos, causes all API imports to break silently), @containers -> src/js/containers, @server -> server, @config -> config, @css -> src/static/css, @routes -> src/js/routes/. Additional aliases (@store, @utils, @components, etc.) are optional but recommended. Dollar-prefix aliases (, , , , ) are server-side only \u2014 do not import in client code. Restriction: alias names containing catalyst are reserved. Migration check: always verify @api points to the actual API module, not a static asset path.",
         "layer": "Config",
-        "source": "extracted:src/scripts/validator.js",
+        "source": "extracted:src/server/utils/validator.ts",
         "tags": ["module-aliases", "package-json", "required", "config"]
     },
     {
         "section": "webview_config",
-        "title": "appInfo Key — Build Identifier String",
+        "title": "appInfo Key \u2014 Build Identifier String",
         "content": "WEBVIEW_CONFIG.appInfo is a REQUIRED string (despite being named optional in older docs). Missing appInfo = iOS build breaks at compile time. Format convention: {platform}-{date}-v{version}, e.g. android-5Feb2026-v2.1.0. Place at WEBVIEW_CONFIG top level (not inside android/ios blocks). Both android and ios builds read this field.",
         "layer": "Config",
         "source": "extracted:config/config.json+changelog",
@@ -687,11 +742,24 @@
     },
     {
         "section": "build_system",
-        "title": "Offline Fallback — public/offline.html",
-        "content": "Added in canary.19. catalyst-core auto-packages public/offline.html into both Android and iOS native bundles. When the device loses connectivity inside the WebView, the native shell shows offline.html automatically, with a retry mechanism when connectivity is restored. To enable: create public/offline.html at project root. Minimum content: <!DOCTYPE html><html><body><h1>No internet connection</h1><p>Please check your network and try again.</p></body></html>. Missing the file: native build proceeds but shows a blank screen on connectivity loss (no error). File is served from the native bundle — not from the web server — so it works fully offline.",
+        "title": "Offline Fallback \u2014 public/offline.html",
+        "content": "Added in canary.19. catalyst-core auto-packages public/offline.html into both Android and iOS native bundles. When the device loses connectivity inside the WebView, the native shell shows offline.html automatically, with a retry mechanism when connectivity is restored. To enable: create public/offline.html at project root. Minimum content: <!DOCTYPE html><html><body><h1>No internet connection</h1><p>Please check your network and try again.</p></body></html>. Missing the file: native build proceeds but shows a blank screen on connectivity loss (no error). File is served from the native bundle \u2014 not from the web server \u2014 so it works fully offline.",
         "layer": "Native",
         "source": "extracted:changelog",
         "tags": ["offline", "fallback", "native", "canary.19", "public"]
+    },
+    {
+        "section": "native_offline",
+        "title": "Route Offline Snapshots - Online Recovery Behavior",
+        "content": "Route offline snapshots are network-first while online. Cached route HTML is served only when eligible route navigation is offline or the navigation fetch fails. When connectivity returns, retry, reload, or a new navigation uses the network again and can refresh the snapshot. If the bundled offline fallback page is already visible, Catalyst does not auto-reload it on reconnect; the user must retry/reload/navigate. Static assets may still come from cache while fresh or revalidating. API responses and non-GET requests are not cached by route offline snapshots.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["offline", "route-snapshots", "network-first", "native", "service-worker"],
+        "github_files": [
+            "packages/catalyst-core/src/offline/catalyst-sw.js",
+            "packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt",
+            "packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift"
+        ]
     },
     {
         "section": "framework_identity",
@@ -703,8 +771,8 @@
     },
     {
         "section": "native_hooks",
-        "title": "WebBridge imperative methods — source reference",
-        "content": "WebBridge.init() returns { bridge, platform, getDeviceInfo } — not a WebBridge instance directly. bridge = the WebBridge instance (also stored as window.WebBridge). platform = 'android' | 'ios' | 'web'. getDeviceInfo = bound method from bridge, callable directly from the return value. Two equivalent ways to call getDeviceInfo: (a) const result = WebBridge.init(); result.getDeviceInfo().then(...) (b) WebBridge.init(); window.WebBridge.getDeviceInfo().then(...) — window.WebBridge is the bridge instance set during init. Other imperative methods (openCamera, requestHapticFeedback, register, unregister, callback) are on the bridge instance only — access via window.WebBridge.openCamera() or result.bridge.openCamera(). Full source: node_modules/catalyst-core/src/native/bridge/WebBridge.js",
+        "title": "WebBridge imperative methods \u2014 source reference",
+        "content": "WebBridge.init() returns { bridge, platform, getDeviceInfo } \u2014 not a WebBridge instance directly. bridge = the WebBridge instance (also stored as window.WebBridge). platform = 'android' | 'ios' | 'web'. getDeviceInfo = bound method from bridge, callable directly from the return value. Two equivalent ways to call getDeviceInfo: (a) const result = WebBridge.init(); result.getDeviceInfo().then(...) (b) WebBridge.init(); window.WebBridge.getDeviceInfo().then(...) \u2014 window.WebBridge is the bridge instance set during init. Other imperative methods (openCamera, requestHapticFeedback, register, unregister, callback) are on the bridge instance only \u2014 access via window.WebBridge.openCamera() or result.bridge.openCamera(). Full source: node_modules/catalyst-core/src/native/bridge/WebBridge.js",
         "layer": "Runtime",
         "source": "extracted:WebBridge.js",
         "tags": [
@@ -719,10 +787,10 @@
     },
     {
         "section": "native_hooks",
-        "title": "Native hooks source — hooks.js and standardizedHooks.js",
-        "content": "All React hooks for native capabilities (useCamera, useFilePicker, useIntent, useGoogleSignIn, useHapticFeedback, useNotification, useNotificationPermission, useCameraPermission, useNetworkStatus, useSafeArea) are defined in node_modules/catalyst-core/src/native/bridge/hooks.js. Standardized hook wrappers (new interface with execute/state pattern) are in node_modules/catalyst-core/src/native/bridge/standardizedHooks.js. For any hook signature, input params, or return shape — read these files directly.",
+        "title": "Native hooks source \u2014 hooks/ directory",
+        "content": "hooks.js (node_modules/catalyst-core/src/native/bridge/hooks.js) is now a 2-line re-export shim \u2014 all hook implementations live in the hooks/ directory:\n\n- src/native/bridge/hooks/index.js \u2014 re-exports all hooks (public API)\n- src/native/bridge/hooks/utils.js \u2014 shared helpers (isWeb detection, etc.)\n- src/native/bridge/hooks/useCamera.js\n- src/native/bridge/hooks/useFilePicker.js\n- src/native/bridge/hooks/useHapticFeedback.js\n- src/native/bridge/hooks/useNotification.js\n- src/native/bridge/hooks/useVideoStream.js\n- src/native/bridge/hooks/useNetworkStatus.js\n- src/native/bridge/hooks/useDeviceInfo.js\n- src/native/bridge/hooks/useDataProtection.js\n- src/native/bridge/hooks/useSafeArea.js\n- src/native/bridge/hooks/useGoogleSignIn.js\n- src/native/bridge/hooks/useIntent.js\n\nAll existing import paths (from catalyst-core/hooks or catalyst-core/src/native/bridge/hooks.js) continue to work unchanged via the shim. useBaseHook lives at src/native/bridge/useBaseHook.js \u2014 the base for all standardized hooks with web fallback support.",
         "layer": "Runtime",
-        "source": "extracted:hooks.js",
+        "source": "extracted:hooks/index.js",
         "tags": [
             "useCamera",
             "useFilePicker",
@@ -732,14 +800,19 @@
             "useNotification",
             "useNetworkStatus",
             "useSafeArea",
+            "useVideoStream",
+            "useDeviceInfo",
+            "useDataProtection",
             "native-hooks",
             "source-reference",
-            "node_modules/catalyst-core/src/native/bridge/hooks.js"
+            "hooks-directory",
+            "node_modules/catalyst-core/src/native/bridge/hooks.js",
+            "node_modules/catalyst-core/src/native/bridge/hooks/"
         ]
     },
     {
         "section": "native_hooks",
-        "title": "NativeBridge utility — source reference",
+        "title": "NativeBridge utility \u2014 source reference",
         "content": "Low-level bridge plumbing lives in node_modules/catalyst-core/src/native/bridge/utils/NativeBridge.js. Handles message passing between JS and native layer. WebBridge.js wraps this. Read this file for understanding how postMessage, register/unregister, and native event handling work under the hood.",
         "layer": "Runtime",
         "source": "extracted:NativeBridge.js",
@@ -755,8 +828,8 @@
     },
     {
         "section": "server_structure",
-        "title": "SSR renderer — source reference",
-        "content": "rendertopipeable rendertopipeablestream: The full SSR render pipeline is in node_modules/catalyst-core/src/server/renderer/handler.js. This is the most important server file — read it for renderToPipeableStream usage, route matching, serverSideFunction calls, data fetching flow, and CompleteDocument assembly. Supporting files: src/server/renderer/document/ (Head.js, Body.js, index.js) for HTML document structure, src/server/renderer/extract.js for asset extraction.",
+        "title": "SSR renderer \u2014 source reference",
+        "content": "rendertopipeable rendertopipeablestream: The full SSR render pipeline is in node_modules/catalyst-core/src/server/renderer/handler.js. This is the most important server file \u2014 read it for renderToPipeableStream usage, route matching, serverSideFunction calls, data fetching flow, and CompleteDocument assembly. Supporting files: src/server/renderer/document/ (Head.js, Body.js, index.js) for HTML document structure, src/server/renderer/extract.js for asset extraction.",
         "layer": "Server",
         "source": "extracted:handler.js",
         "tags": [
@@ -774,8 +847,8 @@
     },
     {
         "section": "server_structure",
-        "title": "renderToPipeableStream in catalyst — how and why",
-        "content": "rendertopipeable rendertopipeablestream: Catalyst uses React 18 renderToPipeableStream (not renderToString) for main SSR. This enables streaming HTML: the shell (head + above-fold) is flushed immediately via onShellReady → pipe(res), while deferred content streams as Suspense boundaries resolve. Flow: (1) onShellReady — sets content-type header, calls pipe(res) to start streaming. (2) onAllReady — writes firstFoldCss + firstFoldJS scripts, calls res.end(), cleans up globalThis. (3) onError — logs error, calls user-defined onRenderError callback, rejects promise. renderToString is still used internally for route matching / asset extraction (ChunkExtractor pass) but NOT for the final HTML response. Client hydration must use hydrateRoot (not createRoot) to attach to server-rendered HTML.",
+        "title": "renderToPipeableStream in catalyst \u2014 how and why",
+        "content": "rendertopipeable rendertopipeablestream: Catalyst uses React 18 renderToPipeableStream (not renderToString) for main SSR. This enables streaming HTML: the shell (head + above-fold) is flushed immediately via onShellReady \u2192 pipe(res), while deferred content streams as Suspense boundaries resolve. Flow: (1) onShellReady \u2014 sets content-type header, calls pipe(res) to start streaming. (2) onAllReady \u2014 writes firstFoldCss + firstFoldJS scripts, calls res.end(), cleans up globalThis. (3) onError \u2014 logs error, calls user-defined onRenderError callback, rejects promise. renderToString is still used internally for route matching / asset extraction (ChunkExtractor pass) but NOT for the final HTML response. Client hydration must use hydrateRoot (not createRoot) to attach to server-rendered HTML.",
         "layer": "Server",
         "source": "extracted:handler.js",
         "tags": [
@@ -796,8 +869,8 @@
     },
     {
         "section": "server_structure",
-        "title": "SSR pipeline — full request flow",
-        "content": "Full SSR request lifecycle: (1) Express receives request → expressServer.js routes to renderer handler. (2) handler.js: matches routes via getMatchRoutes (uses react-router matchPath). (3) Calls serverSideFunction on matched route component for data fetching. (4) Assembles CompleteDocument (Head + Body with fetched data injected). (5) renderToPipeableStream streams HTML. onShellReady pipes shell immediately. onAllReady appends CSS/JS chunks. (6) Client receives streamed HTML, hydrateRoot attaches React. Key: serverSideFunction runs on server per-request — this is where route-level data fetching happens, result is passed as intialData (note: typo in source) to ServerRouter.",
+        "title": "SSR pipeline \u2014 full request flow",
+        "content": "Full SSR request lifecycle: (1) Express receives request \u2192 expressServer.js routes to renderer handler. (2) handler.js: matches routes via getMatchRoutes (uses react-router matchPath). (3) Calls serverSideFunction on matched route component for data fetching. (4) Assembles CompleteDocument (Head + Body with fetched data injected). (5) renderToPipeableStream streams HTML. onShellReady pipes shell immediately. onAllReady appends CSS/JS chunks. (6) Client receives streamed HTML, hydrateRoot attaches React. Key: serverSideFunction runs on server per-request \u2014 this is where route-level data fetching happens, result is passed as intialData (note: typo in source) to ServerRouter.",
         "layer": "Server",
         "source": "extracted:handler.js",
         "tags": [
@@ -813,24 +886,24 @@
     },
     {
         "section": "bridge_architecture",
-        "title": "getDeviceInfo — what it does and when to use it",
-        "content": "getDeviceInfo() is an imperative WebBridge method (not a React hook). Returns a Promise resolving to device metadata: model, manufacturer, platform, screenWidth, screenHeight, screenDensity, appInfo. \n\nWebBridge.init() return shape: { bridge: WebBridgeInstance, platform: 'android'|'ios'|'web', getDeviceInfo: boundFn }. bridge is also stored as window.WebBridge. \n\nCorrect usage pattern: const result = WebBridge.init(); const isNative = result.platform !== 'web'; result.getDeviceInfo().then(info => console.log(info)).catch(err => console.error(err)); \n\nDo NOT use result.isNative — that property does not exist. Do NOT check window.NativeBridge to gate the call — getDeviceInfo() handles web gracefully: on web it resolves immediately with browser info (navigator.userAgent, screen dimensions) instead of throwing. \n\nOn native: registers ON_DEVICE_INFO_SUCCESS / ON_DEVICE_INFO_ERROR callbacks, calls nativeBridge.device.getDeviceInfo(), resolves when native responds. \n\nAlternative call: window.WebBridge.getDeviceInfo() — works if init() was already called earlier (window.WebBridge is set by init).",
+        "title": "getDeviceInfo \u2014 what it does and when to use it",
+        "content": "getDeviceInfo() is an imperative WebBridge method (not a React hook). Returns a Promise resolving to device metadata: model, manufacturer, platform, screenWidth, screenHeight, screenDensity, appInfo. \n\nWebBridge.init() return shape: { bridge: WebBridgeInstance, platform: 'android'|'ios'|'web', getDeviceInfo: boundFn }. bridge is also stored as window.WebBridge. \n\nCorrect usage pattern: const result = WebBridge.init(); const isNative = result.platform !== 'web'; result.getDeviceInfo().then(info => console.log(info)).catch(err => console.error(err)); \n\nDo NOT use result.isNative \u2014 that property does not exist. Do NOT check window.NativeBridge to gate the call \u2014 getDeviceInfo() handles web gracefully: on web it resolves immediately with browser info (navigator.userAgent, screen dimensions) instead of throwing. \n\nOn native: registers ON_DEVICE_INFO_SUCCESS / ON_DEVICE_INFO_ERROR callbacks, calls nativeBridge.device.getDeviceInfo(), resolves when native responds. \n\nAlternative call: window.WebBridge.getDeviceInfo() \u2014 works if init() was already called earlier (window.WebBridge is set by init).",
         "layer": "Runtime",
         "source": "extracted:WebBridge.js",
         "tags": ["getDeviceInfo", "WebBridge", "device-info", "imperative", "native-only", "isNative"]
     },
     {
         "section": "config_structure",
-        "title": "APPLICATION_UID — What it is and where to get it",
-        "content": "APPLICATION_UID is a UUID string in config/config.json that uniquely identifies the app to the catalyst runtime. Required field — missing or empty = catalyst server startup error. Format: standard UUID v4 e.g. 9ba95d50-6396-42fb-956f-2d1ce98be8cb. How to generate: node -e \"const {randomUUID}=require(crypto); console.log(randomUUID())\" or use any UUID generator. Each app (mweb, dweb, pfizer etc.) must have a unique APPLICATION_UID — do not copy between projects. Also add APPLICATION_ID (integer, e.g. 1) alongside it.",
+        "title": "APPLICATION_UID \u2014 What it is and where to get it",
+        "content": "APPLICATION_UID is a UUID string in config/config.json that uniquely identifies the app to the catalyst runtime. Required field \u2014 missing or empty = catalyst server startup error. Format: standard UUID v4 e.g. 9ba95d50-6396-42fb-956f-2d1ce98be8cb. How to generate: node -e \"const {randomUUID}=require(crypto); console.log(randomUUID())\" or use any UUID generator. Each app (mweb, dweb, pfizer etc.) must have a unique APPLICATION_UID \u2014 do not copy between projects. Also add APPLICATION_ID (integer, e.g. 1) alongside it.",
         "layer": "Config",
         "source": "static",
         "tags": ["config", "required", "APPLICATION_UID", "startup"]
     },
     {
         "section": "config_structure",
-        "title": "Migration Phase 0 — Bare Minimum to Boot App (No Bridge)",
-        "content": "Minimum steps to get a catalyst webview app running without any native bridge/hooks: (1) catalyst-core in package.json dependencies. (2) All native scripts in package.json scripts: buildApp:android, buildApp:ios, setupEmulator:android, setupEmulator:ios, devBuild, devServe. (3) config/config.json WEBVIEW_CONFIG with LOCAL_IP (not localhost), port, APPLICATION_UID, android block (appName, packageName, buildType, sdkPath, emulatorName), ios block (appName, appBundleId, simulatorName, buildType). (4) _moduleAliases correct in package.json — especially @api pointing to the right path. (5) accessControl.allowedUrls includes your API domains. App will load as a webview at this point — bridge features (camera, notifications, device info) will not work until Phase 2 (WebBridge init). This is the correct first milestone for any repo migration.",
+        "title": "Legacy 0.2.x Migration Phase 0 \u2014 Bare Minimum to Boot App (No Bridge)",
+        "content": "Minimum steps to get a catalyst webview app running without any native bridge/hooks: (1) catalyst-core in package.json dependencies. (2) All native scripts in package.json scripts: buildApp:android, buildApp:ios, setupEmulator:android, setupEmulator:ios, devBuild, devServe. (3) config/config.json WEBVIEW_CONFIG with LOCAL_IP (not localhost), port, APPLICATION_UID, android block (appName, packageName, buildType, sdkPath, emulatorName), ios block (appName, appBundleId, simulatorName, buildType). (4) _moduleAliases correct in package.json \u2014 especially @api pointing to the right path. (5) accessControl.allowedUrls includes your API domains. App will load as a webview at this point \u2014 bridge features (camera, notifications, device info) will not work until Phase 2 (WebBridge init). This is the correct first milestone for any repo migration.",
         "layer": "Config",
         "source": "static",
         "tags": ["migration", "bare-minimum", "config", "getting-started", "phase-0"]
@@ -838,14 +911,14 @@
     {
         "section": "bridge_architecture",
         "title": "Migrating from custom webviewkit bridge to catalyst hooks",
-        "content": "Legacy apps (e.g. mweb) use a custom webviewkit bridge: window.AppCallbacks (Android), window.webkit.messageHandlers (iOS). Catalyst replaces this entirely. Migration phases: Phase 1 (bare minimum — app boots, no bridge needed). Phase 2 (WebBridge init): add WebBridge.init() to client entry file (src/client.js or src/app.js) — this registers the NativeBridge globally, replaces window.AppCallbacks pattern. Phase 3 (hook migration, file by file): replace webviewkit.isAndroid()/isIOS() with const { isNative } = useNetworkStatus() in React components, or window.NativeBridge presence check in imperative code. Replace webviewkit.call(methodName, info) with the relevant catalyst hook (useCamera, useIntent, useFilePicker etc.). Do NOT migrate all files at once — pick one component, validate it works natively, then proceed. webviewkit alias in package.json (webviewkit: src/js/webviewkit) can be kept during migration and removed once all usages replaced.",
+        "content": "Legacy apps (e.g. mweb) use a custom webviewkit bridge: window.AppCallbacks (Android), window.webkit.messageHandlers (iOS). Catalyst replaces this entirely. Migration phases: Phase 1 (bare minimum \u2014 app boots, no bridge needed). Phase 2 (WebBridge init): add WebBridge.init() to client entry file (src/client.js or src/app.js) \u2014 this registers the NativeBridge globally, replaces window.AppCallbacks pattern. Phase 3 (hook migration, file by file): replace webviewkit.isAndroid()/isIOS() with const { isNative } = useNetworkStatus() in React components, or window.NativeBridge presence check in imperative code. Replace webviewkit.call(methodName, info) with the relevant catalyst hook (useCamera, useIntent, useFilePicker etc.). Do NOT migrate all files at once \u2014 pick one component, validate it works natively, then proceed. webviewkit alias in package.json (webviewkit: src/js/webviewkit) can be kept during migration and removed once all usages replaced.",
         "layer": "Bridge",
         "source": "static",
         "tags": ["migration", "webviewkit", "bridge", "WebBridge", "hooks", "isNative"]
     },
     {
         "title": "App Icon File Placement (No Config Required)",
-        "content": "App icons are FILESYSTEM ONLY — do NOT add any appIcons key to config.json or WEBVIEW_CONFIG. The build auto-discovers icons by hardcoded path and filename pattern. No configuration needed. \n\nANDROID — place files at public/android/appIcons/ with naming icon-{density}.{ext}: icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png, icon-xxxhdpi.png. Extensions: png, jpg, jpeg. Build copies each to androidProject/app/src/main/res/mipmap-{density}/icon.{ext} and sets android:icon='@mipmap/icon' in AndroidManifest. If no custom icons found → falls back to bundled catalyst icon (xxxhdpi only). \n\nIOS — place files at public/ios/appIcons/ with naming icon-{WxH}-{scale}.{ext}: icon-20x20-2x.png, icon-20x20-3x.png, icon-29x29-2x.png, icon-29x29-3x.png, icon-40x40-2x.png, icon-40x40-3x.png, icon-60x60-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png. Partial sets are fine — only provided sizes get updated in Assets.xcassets/AppIcon.appiconset/Contents.json. \n\nSPLASH SCREEN ASSETS (also filesystem, no config path field): Android → public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}. iOS → public/ios/splashscreen.{png|jpg|jpeg}. WEBVIEW_CONFIG.splashScreen controls appearance only (backgroundColor, duration, imageWidth, imageHeight, cornerRadius) — NOT the asset path. \n\nNOTIFICATION ICONS (both platforms, filesystem only): public/notification-icon.{ext} (small), public/notification-large.{ext} (large). Android → drawable/ic_notification. iOS → Assets.xcassets/NotificationIcon.imageset.",
+        "content": "App icons are FILESYSTEM ONLY \u2014 do NOT add any appIcons key to config.json or WEBVIEW_CONFIG. The build auto-discovers icons by hardcoded path and filename pattern. No configuration needed. \n\nANDROID \u2014 place files at public/android/appIcons/ with naming icon-{density}.{ext}: icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png, icon-xxxhdpi.png. Extensions: png, jpg, jpeg. Build copies each to androidProject/app/src/main/res/mipmap-{density}/icon.{ext} and sets android:icon='@mipmap/icon' in AndroidManifest. If no custom icons found \u2192 falls back to bundled catalyst icon (xxxhdpi only). \n\nIOS \u2014 place files at public/ios/appIcons/ with naming icon-{WxH}-{scale}.{ext}: icon-20x20-2x.png, icon-20x20-3x.png, icon-29x29-2x.png, icon-29x29-3x.png, icon-40x40-2x.png, icon-40x40-3x.png, icon-60x60-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png. Partial sets are fine \u2014 only provided sizes get updated in Assets.xcassets/AppIcon.appiconset/Contents.json. \n\nSPLASH SCREEN ASSETS (also filesystem, no config path field): Android \u2192 public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}. iOS \u2192 public/ios/splashscreen.{png|jpg|jpeg}. WEBVIEW_CONFIG.splashScreen controls appearance only (backgroundColor, duration, imageWidth, imageHeight, cornerRadius) \u2014 NOT the asset path. \n\nNOTIFICATION ICONS (both platforms, filesystem only): public/notification-icon.{ext} (small), public/notification-large.{ext} (large). Android \u2192 drawable/ic_notification. iOS \u2192 Assets.xcassets/NotificationIcon.imageset.",
         "tags": [
             "app-icon",
             "icon",
@@ -867,7 +940,7 @@
     {
         "section": "observability",
         "title": "Sentry Setup in Catalyst",
-        "content": "Catalyst provides built-in Sentry support via catalyst-core/sentry.\n\nSETUP: Create config/sentry.config.json in your project. Catalyst's loadEnvironmentVariables.js auto-reads it at startup and sets process.env.SENTRY_CONFIG. No manual env wiring needed.\n\nCONFIG SHAPE:\n{\n  \"dsn\": \"https://<key>@sentry.example.com/<id>\",\n  \"tracesSampleRate\": 1.0,\n  \"clientOptions\": { \"environment\": \"production\", ... },\n  \"serverOptions\": { \"environment\": \"production\", \"profilesSampleRate\": 1.0, ... }\n}\n\nUSAGE: Import and call init() yourself — Catalyst does NOT auto-initialize Sentry.\nimport { init, captureException, captureMessage, addBreadcrumb } from 'catalyst-core/sentry'\n\n// Call early in client/index.js or server/index.js\ninit()\n\nSERVER vs CLIENT: init() auto-detects environment. Server-side loads @sentry/node, client-side loads @sentry/react. Same call works in both.\n\nPEER DEPS: Install @sentry/node and @sentry/react in your project — not bundled by catalyst-core.\n\nKILL SWITCH PATTERN (common in projects): Guard init() with an env flag like ENABLE_SENTRY=true so Sentry can be disabled without config changes.",
+        "content": "Catalyst provides built-in Sentry support via catalyst-core/sentry.\n\nSETUP: Create config/sentry.config.json in your project. Catalyst's loadEnvironmentVariables.js auto-reads it at startup and sets process.env.SENTRY_CONFIG. No manual env wiring needed.\n\nCONFIG SHAPE:\n{\n  \"dsn\": \"https://<key>@sentry.example.com/<id>\",\n  \"tracesSampleRate\": 1.0,\n  \"clientOptions\": { \"environment\": \"production\", ... },\n  \"serverOptions\": { \"environment\": \"production\", \"profilesSampleRate\": 1.0, ... }\n}\n\nUSAGE: Import and call init() yourself \u2014 Catalyst does NOT auto-initialize Sentry.\nimport { init, captureException, captureMessage, addBreadcrumb } from 'catalyst-core/sentry'\n\n// Call early in client/index.js or server/index.js\ninit()\n\nSERVER vs CLIENT: init() auto-detects environment. Server-side loads @sentry/node, client-side loads @sentry/react. Same call works in both.\n\nPEER DEPS: Install @sentry/node and @sentry/react in your project \u2014 not bundled by catalyst-core.\n\nKILL SWITCH PATTERN (common in projects): Guard init() with an env flag like ENABLE_SENTRY=true so Sentry can be disabled without config changes.",
         "layer": "Observability",
         "source": "static",
         "tags": [
@@ -885,7 +958,7 @@
     {
         "section": "observability",
         "title": "OpenTelemetry Setup in Catalyst",
-        "content": "Catalyst provides built-in OpenTelemetry support via catalyst-core/otel. Server-side only.\n\nUSAGE: Call Otel.init() inside preServerInit() in server/index.js. Guard with an ENABLE flag and skip in development.\n\nimport Otel from 'catalyst-core/otel'\n\nexport const preServerInit = () => {\n  const otelConfig = JSON.parse(process.env.OTEL)\n  if (otelConfig.ENABLE && process.env.NODE_ENV !== 'development') {\n    Otel.init({\n      serviceName: 'my-catalyst-app',\n      serviceVersion: process.env.RELEASE_TAG,\n      environment: process.env.ENV_NAME,\n      traceUrl: otelConfig.ENDPOINT,\n      instrumentations: [ new HttpInstrumentation({ ... }) ],\n    })\n  }\n}\n\nCONFIG SHAPE (all optional, defaults shown):\n- serviceName: 'catalyst-server'\n- serviceVersion: '1.0.0'\n- environment: 'development'\n- traceUrl: 'http://localhost:4318/v1/traces'\n- metricUrl: 'http://localhost:4318/v1/metrics'\n- traceHeaders: {}\n- metricHeaders: {}\n- exportIntervalMillis: 10000\n- exportTimeoutMillis: 10000\n- instrumentations: [getNodeAutoInstrumentations()] by default\n\nAUTO METRICS: init() automatically collects process_cpu_usage_percent, process_memory_usage_bytes, process_memory_heap_used_bytes, process_memory_heap_total_bytes — no extra config needed.\n\nGRACEFUL SHUTDOWN: SIGTERM and SIGINT handlers registered automatically — sdk.shutdown() is called on process exit.\n\nRETURN VALUE: { sdk, meter } — use meter (OTel Meter instance) to create your own custom metrics via meter.createObservableGauge(), createCounter(), etc.\n\nPEER DEPS: Install @opentelemetry/* packages yourself — not bundled by catalyst-core.",
+        "content": "Catalyst provides built-in OpenTelemetry support via catalyst-core/otel. Server-side only.\n\nUSAGE: Call Otel.init() inside preServerInit() in server/index.js. Guard with an ENABLE flag and skip in development.\n\nimport Otel from 'catalyst-core/otel'\n\nexport const preServerInit = () => {\n  const otelConfig = JSON.parse(process.env.OTEL)\n  if (otelConfig.ENABLE && process.env.NODE_ENV !== 'development') {\n    Otel.init({\n      serviceName: 'my-catalyst-app',\n      serviceVersion: process.env.RELEASE_TAG,\n      environment: process.env.ENV_NAME,\n      traceUrl: otelConfig.ENDPOINT,\n      instrumentations: [ new HttpInstrumentation({ ... }) ],\n    })\n  }\n}\n\nCONFIG SHAPE (all optional, defaults shown):\n- serviceName: 'catalyst-server'\n- serviceVersion: '1.0.0'\n- environment: 'development'\n- traceUrl: 'http://localhost:4318/v1/traces'\n- metricUrl: 'http://localhost:4318/v1/metrics'\n- traceHeaders: {}\n- metricHeaders: {}\n- exportIntervalMillis: 10000\n- exportTimeoutMillis: 10000\n- instrumentations: [getNodeAutoInstrumentations()] by default\n\nAUTO METRICS: init() automatically collects process_cpu_usage_percent, process_memory_usage_bytes, process_memory_heap_used_bytes, process_memory_heap_total_bytes \u2014 no extra config needed.\n\nGRACEFUL SHUTDOWN: SIGTERM and SIGINT handlers registered automatically \u2014 sdk.shutdown() is called on process exit.\n\nRETURN VALUE: { sdk, meter } \u2014 use meter (OTel Meter instance) to create your own custom metrics via meter.createObservableGauge(), createCounter(), etc.\n\nPEER DEPS: Install @opentelemetry/* packages yourself \u2014 not bundled by catalyst-core.",
         "layer": "Observability",
         "source": "static",
         "tags": [
@@ -905,15 +978,15 @@
     {
         "section": "observability",
         "title": "Sentry ErrorBoundary",
-        "content": "catalyst-core/sentry exports an ErrorBoundary React component for catching render errors.\n\nUSAGE:\nimport { ErrorBoundary } from 'catalyst-core/sentry'\n\n<ErrorBoundary fallback={<MyErrorUI />}>\n  <App />\n</ErrorBoundary>\n\nBEHAVIOR: On error, calls captureException with the error and componentStack. Renders fallback prop if provided, otherwise renders <h1>Something went wrong.</h1>.\n\nNo fallback prop needed — it has a default. Wrapping the top-level app or critical subtrees is the typical usage.",
+        "content": "catalyst-core/sentry exports an ErrorBoundary React component for catching render errors.\n\nUSAGE:\nimport { ErrorBoundary } from 'catalyst-core/sentry'\n\n<ErrorBoundary fallback={<MyErrorUI />}>\n  <App />\n</ErrorBoundary>\n\nBEHAVIOR: On error, calls captureException with the error and componentStack. Renders fallback prop if provided, otherwise renders <h1>Something went wrong.</h1>.\n\nNo fallback prop needed \u2014 it has a default. Wrapping the top-level app or critical subtrees is the typical usage.",
         "layer": "Observability",
         "source": "static",
         "tags": ["sentry", "error-boundary", "ErrorBoundary", "react", "error-handling", "observability"]
     },
     {
         "section": "build_system",
-        "title": "Webpack Customization via webpackConfig.js",
-        "content": "Every catalyst project has a webpackConfig.js at the project root. This is the ONLY supported way to customize webpack — do not modify catalyst-core internals.\n\nEXPORTED KEYS:\n- developmentPlugins[]: merged into dev client webpack (webpack-dev-server run)\n- ssrPlugins[]: merged into both dev SSR watcher and production SSR build\n- clientPlugins[]: merged into production client build\n- splitChunksConfig: object — replaces the default commonVendor+utilityVendor split chunk strategy entirely\n- transpileModules[]: array of package names to whitelist from nodeExternals in SSR builds (use for ESM-only deps that need transpilation)\n\nDEFAULT (from template): all arrays empty, no splitChunksConfig — uses catalyst-core defaults.\n\nREAL USAGE PATTERNS:\nmweb clientPlugins: HTMLWebpackPlugin (offline.html), InjectManifest/Workbox (service worker), RoutesManifestPlugin (routes manifest from src/js/routes/index.js), UploadAssetsPlugin (S3 upload of assets + build output post-build).\nmweb splitChunksConfig: custom commonVendor test regex, minChunks:2 on utilityVendor, minRemainingSize:20KB.\npsp-pfizer clientPlugins: dual CompressionPlugin (gzip + brotli for JS/CSS/HTML/SVG). splitChunksConfig only applied when NODE_ENV=production (conditional spread pattern).\n\nCSS MODULE RULES (base.babel.js, not overridable):\n- .scss under src/static/css/base and node_modules → global (no css-loader modules)\n- all other .scss → CSS Modules, localIdentName from catalystConfig.cssModulesIdentifierDev/Prod\n- SCSS globals injected via sass-loader additionalData: $font_url, $url_for (from scssParams.js)\n\nBASE CONFIG (src/webpack/base.babel.js) handles: JS/TS via babel-loader, SCSS, CSS, images (url-loader+img-loader), SVG (@svgr/webpack), fonts (url-loader+file-loader), HTML (html-loader).\nDefinePlugin exposes CLIENT_ENV_VARIABLES from config/config.json plus BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL, SENTRY_CONFIG to client bundle.",
+        "title": "Legacy 0.2.x Webpack Customization via webpackConfig.js",
+        "content": "Every catalyst project has a webpackConfig.js at the project root. This is the ONLY supported way to customize webpack \u2014 do not modify catalyst-core internals.\n\nEXPORTED KEYS:\n- developmentPlugins[]: merged into dev client webpack (webpack-dev-server run)\n- ssrPlugins[]: merged into both dev SSR watcher and production SSR build\n- clientPlugins[]: merged into production client build\n- splitChunksConfig: object \u2014 replaces the default commonVendor+utilityVendor split chunk strategy entirely\n- transpileModules[]: array of package names to whitelist from nodeExternals in SSR builds (use for ESM-only deps that need transpilation)\n\nDEFAULT (from template): all arrays empty, no splitChunksConfig \u2014 uses catalyst-core defaults.\n\nREAL USAGE PATTERNS:\nmweb clientPlugins: HTMLWebpackPlugin (offline.html), InjectManifest/Workbox (service worker), RoutesManifestPlugin (routes manifest from src/js/routes/index.js), UploadAssetsPlugin (S3 upload of assets + build output post-build).\nmweb splitChunksConfig: custom commonVendor test regex, minChunks:2 on utilityVendor, minRemainingSize:20KB.\npsp-pfizer clientPlugins: dual CompressionPlugin (gzip + brotli for JS/CSS/HTML/SVG). splitChunksConfig only applied when NODE_ENV=production (conditional spread pattern).\n\nCSS MODULE RULES (base.babel.js, not overridable):\n- .scss under src/static/css/base and node_modules \u2192 global (no css-loader modules)\n- all other .scss \u2192 CSS Modules, localIdentName from catalystConfig.cssModulesIdentifierDev/Prod\n- SCSS globals injected via sass-loader additionalData: $font_url, $url_for (from scssParams.js)\n\nBASE CONFIG (src/webpack/base.babel.js) handles: JS/TS via babel-loader, SCSS, CSS, images (url-loader+img-loader), SVG (@svgr/webpack), fonts (url-loader+file-loader), HTML (html-loader).\nDefinePlugin exposes CLIENT_ENV_VARIABLES from config/config.json plus BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL, SENTRY_CONFIG to client bundle.",
         "layer": "Build",
         "source": "static",
         "tags": [
@@ -936,8 +1009,8 @@
     },
     {
         "section": "build_system",
-        "title": "React Compiler (opt-in via webpackConfig.js)",
-        "content": "React Compiler is opt-in. Disabled by default — no babel-plugin-react-compiler is added unless explicitly enabled.\n\nENABLE: Add reactCompiler key to webpackConfig.js:\n  reactCompiler: true              // uses default options: { target: '18' }\n  reactCompiler: { target: '18' } // custom options object\n\nHOW IT WORKS: babel.config.client.js and babel.config.ssr.js both read customWebpackConfig.reactCompiler. If truthy, babel-plugin-react-compiler is added as a babel plugin to BOTH client and SSR builds. If the value is an object, it's passed as plugin options directly; otherwise defaults to { target: '18' }.\n\nPEER DEPS (already in catalyst-core, no install needed in app):\n- babel-plugin-react-compiler@^19.0.0-beta\n- react-compiler-runtime@^19.0.0-beta\n- eslint-plugin-react-compiler@^19.0.0-beta\n\nCURRENT USAGE: Neither mweb nor psp-pfizer enable React Compiler — both ship without the reactCompiler key.",
+        "title": "Legacy 0.2.x React Compiler (opt-in via webpackConfig.js)",
+        "content": "React Compiler is opt-in. Disabled by default \u2014 no babel-plugin-react-compiler is added unless explicitly enabled.\n\nENABLE: Add reactCompiler key to webpackConfig.js:\n  reactCompiler: true              // uses default options: { target: '19' }\n  reactCompiler: { target: '19' } // custom options object\n\nHOW IT WORKS: babel.config.client.js and babel.config.ssr.js both read customWebpackConfig.reactCompiler. If truthy, babel-plugin-react-compiler is added as a babel plugin to BOTH client and SSR builds. If the value is an object, it's passed as plugin options directly; otherwise defaults to { target: '19' }.\n\nPEER DEPS (already in catalyst-core, no install needed in app):\n- babel-plugin-react-compiler@^19.0.0-beta\n- react-compiler-runtime@^19.0.0-beta\n- eslint-plugin-react-compiler@^19.0.0-beta\n\nCURRENT USAGE: Neither mweb nor psp-pfizer enable React Compiler \u2014 both ship without the reactCompiler key.",
         "layer": "Build",
         "source": "static",
         "tags": [
@@ -953,8 +1026,8 @@
     },
     {
         "section": "build_system",
-        "title": "CLI Commands and Package Scripts",
-        "content": "The catalyst binary (bin/catalyst.js) is the sole entrypoint for all framework commands. Projects call it via npm scripts.\n\nWEB COMMANDS:\n- catalyst start      -> dev mode: webpack-dev-server (HMR) + node server\n- catalyst build      -> production webpack build (client + SSR)\n- catalyst serve      -> start node server (after build)\n- catalyst devBuild   -> production webpack build but assets served from local node server (IS_DEV_COMMAND=true)\n- catalyst devServe   -> same as devBuild but with webpack watch mode\n\nNATIVE COMMANDS:\n- catalyst buildApp              -> builds iOS + Android sequentially\n- catalyst buildApp:ios          -> iOS app build only\n- catalyst buildApp:android      -> Android app build only\n- catalyst setupEmulator         -> sets up iOS + Android emulators sequentially\n- catalyst setupEmulator:ios     -> iOS emulator setup only\n- catalyst setupEmulator:android -> Android emulator setup only\n\nINTERNALS:\n- Web commands resolve to dist/scripts/<command>.js (build.js, start.js, serve.js, devBuild.js, devServe.js)\n- Native commands resolve to dist/native/ (buildAppIos.js, buildAppAndroid.js, setupEmulatorIos.js, androidSetup.js)\n\nTYPICAL PROJECT package.json PATTERN:\n  \"start\": \"catalyst start\"\n  \"build\": \"export NODE_OPTIONS=\\\"--max-old-space-size=6020\\\" && catalyst build\"\n  \"serve\": \"catalyst serve\"\n  \"buildApp\": \"catalyst buildApp\"\n\nNOTE: serve:prod / serve:stag in project scripts are pm2-runtime commands — not catalyst CLI commands. These are project-level and not part of the framework.",
+        "title": "Legacy 0.2.x CLI Commands and Package Scripts",
+        "content": "The catalyst binary (bin/catalyst.js) is the sole entrypoint for all framework commands. Projects call it via npm scripts.\n\nWEB COMMANDS:\n- catalyst start      -> dev mode: webpack-dev-server (HMR) + node server\n- catalyst build      -> production webpack build (client + SSR)\n- catalyst serve      -> start node server (after build)\n- catalyst devBuild   -> production webpack build but assets served from local node server (IS_DEV_COMMAND=true)\n- catalyst devServe   -> same as devBuild but with webpack watch mode\n\nNATIVE COMMANDS:\n- catalyst buildApp              -> builds iOS + Android sequentially\n- catalyst buildApp:ios          -> iOS app build only\n- catalyst buildApp:android      -> Android app build only\n- catalyst setupEmulator         -> sets up iOS + Android emulators sequentially\n- catalyst setupEmulator:ios     -> iOS emulator setup only\n- catalyst setupEmulator:android -> Android emulator setup only\n\nINTERNALS:\n- Web commands resolve to dist/scripts/<command>.js (build.js, start.js, serve.js, devBuild.js, devServe.js)\n- Native commands resolve to dist/native/ (buildAppIos.js, buildAppAndroid.js, setupEmulatorIos.js, androidSetup.js)\n\nTYPICAL PROJECT package.json PATTERN:\n  \"start\": \"catalyst start\"\n  \"build\": \"export NODE_OPTIONS=\\\"--max-old-space-size=6020\\\" && catalyst build\"\n  \"serve\": \"catalyst serve\"\n  \"buildApp\": \"catalyst buildApp\"\n\nNOTE: serve:prod / serve:stag in project scripts are pm2-runtime commands \u2014 not catalyst CLI commands. These are project-level and not part of the framework.",
         "layer": "Build",
         "source": "static",
         "tags": [
@@ -975,8 +1048,8 @@
     },
     {
         "section": "framework_identity",
-        "title": "Project File Conventions and Structure",
-        "content": "Standard catalyst project layout:\n\nproject-root/\n├── client/\n│   ├── index.js        <- webpack entry: hydrates React app (hydrateRoot + loadableReady)\n│   └── styles.js       <- global CSS imports\n├── server/\n│   ├── index.js        <- exports preServerInit() — runs before express starts (use for OTel, DB init, Sentry)\n│   ├── server.js       <- express server setup\n│   └── document.js     <- HTML document shell (Head, Body)\n├── src/\n│   └── js/\n│       ├── pages/      <- route-level components, one folder per page\n│       ├── containers/ <- data-connected components (mweb uses these as page-level too)\n│       ├── components/ <- presentational/shared components\n│       ├── layouts/    <- layout wrappers used as nested route parents\n│       └── routes/     <- index.js exports routes array; utils.js for route helpers\n│   └── static/\n│       ├── css/base/        <- global SCSS — NOT CSS-moduled (applied globally)\n│       └── css/resources/   <- SCSS variables/mixins auto-injected into all CSS modules via sass-resources-loader\n├── config/\n│   └── config.json     <- app config: CLIENT_ENV_VARIABLES, WEBVIEW_CONFIG, ANALYZE_BUNDLE, etc.\n├── api.js              <- API layer (aliased as @api)\n├── webpackConfig.js    <- webpack customization hook\n└── package.json        <- _moduleAliases defines path aliases for webpack + node\n\nMODULE ALIASES (defined in package.json._moduleAliases, resolved by webpack and registerAliases.js):\n  @api        -> api.js\n  @containers -> src/js/containers\n  @server     -> server\n  @config     -> config\n  @css        -> src/static/css\n  @routes     -> src/js/routes/\n\nKEY CONVENTIONS:\n- Pages use @loadable/component for code splitting. ssr:true enables SSR for that page; ssr:false serves fallback only.\n- client/index.js always uses hydrateRoot (not ReactDOM.render) wrapped in loadableReady.\n- server/index.js exports preServerInit() — the correct place for server-side init (OTel, Sentry, DB connections).\n- Routes in src/js/routes/index.js use nested structure: layout component as parent, pages as children.\n- Build output: build/public/ (client JS/CSS chunks), build/renderer/ (SSR handler.js + loadable-stats.json).\n- CSS co-located with components as .scss files (CSS Modules). Global styles go in src/static/css/base/.",
+        "title": "Legacy 0.2.x Project File Conventions and Structure",
+        "content": "Standard catalyst project layout:\n\nproject-root/\n\u251c\u2500\u2500 client/\n\u2502   \u251c\u2500\u2500 index.js        <- webpack entry: hydrates React app (hydrateRoot + loadableReady)\n\u2502   \u2514\u2500\u2500 styles.js       <- global CSS imports\n\u251c\u2500\u2500 server/\n\u2502   \u251c\u2500\u2500 index.js        <- exports preServerInit() \u2014 runs before express starts (use for OTel, DB init, Sentry)\n\u2502   \u251c\u2500\u2500 server.js       <- express server setup\n\u2502   \u2514\u2500\u2500 document.js     <- HTML document shell (Head, Body)\n\u251c\u2500\u2500 src/\n\u2502   \u2514\u2500\u2500 js/\n\u2502       \u251c\u2500\u2500 pages/      <- route-level components, one folder per page\n\u2502       \u251c\u2500\u2500 containers/ <- data-connected components (mweb uses these as page-level too)\n\u2502       \u251c\u2500\u2500 components/ <- presentational/shared components\n\u2502       \u251c\u2500\u2500 layouts/    <- layout wrappers used as nested route parents\n\u2502       \u2514\u2500\u2500 routes/     <- index.js exports routes array; utils.js for route helpers\n\u2502   \u2514\u2500\u2500 static/\n\u2502       \u251c\u2500\u2500 css/base/        <- global SCSS \u2014 NOT CSS-moduled (applied globally)\n\u2502       \u2514\u2500\u2500 css/resources/   <- SCSS variables/mixins auto-injected into all CSS modules via sass-resources-loader\n\u251c\u2500\u2500 config/\n\u2502   \u2514\u2500\u2500 config.json     <- app config: CLIENT_ENV_VARIABLES, WEBVIEW_CONFIG, ANALYZE_BUNDLE, etc.\n\u251c\u2500\u2500 api.js              <- API layer (aliased as @api)\n\u251c\u2500\u2500 webpackConfig.js    <- webpack customization hook\n\u2514\u2500\u2500 package.json        <- _moduleAliases defines path aliases for webpack + node\n\nMODULE ALIASES (defined in package.json._moduleAliases, resolved by webpack and registerAliases.js):\n  @api        -> api.js\n  @containers -> src/js/containers\n  @server     -> server\n  @config     -> config\n  @css        -> src/static/css\n  @routes     -> src/js/routes/\n\nKEY CONVENTIONS:\n- Pages use @loadable/component for code splitting. ssr:true enables SSR for that page; ssr:false serves fallback only.\n- client/index.js always uses hydrateRoot (not ReactDOM.render) wrapped in loadableReady.\n- server/index.js exports preServerInit() \u2014 the correct place for server-side init (OTel, Sentry, DB connections).\n- Routes in src/js/routes/index.js use nested structure: layout component as parent, pages as children.\n- Build output: build/public/ (client JS/CSS chunks), build/renderer/ (SSR handler.js + loadable-stats.json).\n- CSS co-located with components as .scss files (CSS Modules). Global styles go in src/static/css/base/.",
         "layer": "Framework",
         "source": "static",
         "tags": [
@@ -998,8 +1071,8 @@
     },
     {
         "section": "native_hooks",
-        "title": "Native Hooks — Full List and Standard Interface",
-        "content": "Catalyst provides React hooks for native device APIs via two files:\n- src/native/bridge/hooks.js — legacy hooks (direct WebBridge usage)\n- src/native/bridge/standardizedHooks.js — new superhooks built on useBaseHook (preferred)\n\nSTANDARD HOOK INTERFACE (all standardized hooks return):\n{ data, loading, progress, error, isWeb, isNative, execute, clear, clearError }\n\nprogress shape: { state, percentage, message, phase, transport, bytesLoaded, bytesTotal }\n\nENVIRONMENT DETECTION (useBaseHook):\nisNative = window.WebBridge && (window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge)\nisWeb = !isNative\n\nHOOKS IN standardizedHooks.js (prefer these):\n- useCamera(options) — camera capture + permission management. execute(operation) where operation = takePhoto | requestPermission | checkPermission. Also exposes takePhoto(), requestPermission(), checkPermission() as aliases.\n- useFilePicker(options) — native file picker. execute(mimeType) to open. getFileObject() converts picked file to JS File object for FormData/fetch upload (lazy, cached). canCreateFileObject flag indicates if conversion is possible.\n- useIntent(options) — open file with external app. execute(url, mimeType).\n\nHOOKS IN hooks.js (legacy, check github_content for full current list):\n- useGoogleSignIn — Google sign-in via native\n- useCamera — legacy camera (prefer standardizedHooks version)\n- useIntent — legacy intent (prefer standardizedHooks version)\n- useFilePicker — legacy file picker (prefer standardizedHooks version)\n- useCameraPermission / requestCameraPermission\n- useNotificationPermission / requestNotificationPermission\n- useHapticFeedback / requestHapticFeedback(feedbackType)\n- useNotification — push notification handling\n- useNetworkStatus — network connectivity state\n- useDataProtection — data protection/encryption\n- useSafeArea — safe area insets\n\nNOTE: hooks.js is actively developed. Always check github_content for the latest hook list — new hooks may have been added since this KB entry was written.",
+        "title": "Native Hooks \u2014 Full List and Standard Interface",
+        "content": "All hooks live in src/native/bridge/hooks/ (one file per domain). hooks.js is a 2-line re-export shim for backwards compat.\n\nTWO CATEGORIES:\n- SINGLE-ACTION hooks wrap one operation and expose it as execute (plus a domain alias). execute takes the operation's arguments, never an operation-name string. These are: useCamera (takePhoto), useFilePicker (pickFile), useIntent (openFile), useGoogleSignIn (signIn), useHapticFeedback (trigger/triggerHaptic), useCameraPermission (request).\n- MULTI-ACTION hooks wrap several operations, so the named functions ARE the API and there is NO execute: useNotification, useVideoStream, useDataProtection, useNativeTransition. useNotification is the sole exception carrying execute as a frozen-but-discouraged alias of scheduleLocal — never copy that pattern.\n- READ-ONLY hooks have no action functions: useNetworkStatus, useDeviceInfo, useSafeArea.\n\nSTANDARD BASE INTERFACE (single-action useBaseHook consumers):\n{ data, loading, progress, error, isWeb, isNative, execute, clear, clearError,\n  webFallbackActive, webFallbackDisabled, setWebFallback }\n\nMulti-action hooks share the same state keys (data, loading, error, isWeb, isNative, clear, clearError) but replace execute with their named functions.\n\nERROR SHAPE: error is a standard error object everywhere EXCEPT useDeviceInfo and useNetworkStatus, where it remains a plain string until 2.0. useNativeTransition and useSafeArea are error-exempt — they have no error key at all (transition failures self-heal into a plain navigate; safe-area insets always resolve to numeric defaults). useAI's shape is owned by the catalyst-ai package and is outside this contract.\n\nprogress shape: { state, percentage, message, phase, transport, bytesLoaded, bytesTotal }\n\nENVIRONMENT DETECTION (useBaseHook):\nisNative = window.WebBridge && (window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge)\nisWeb = !isNative\n\nWEB FALLBACK SYSTEM:\n- Hooks that support a browser fallback declare hasWebFallback: true in useBaseHook options.\n- webFallbackActive defaults to true on web when a fallback exists (unless webFallback prop === false).\n- webFallback prop syncs dynamically after mount \u2014 all hooks (useBaseHook consumers and thin-state hooks) update webFallbackActive via a useEffect that watches the prop.\n- setWebFallback(false) disables fallback at runtime \u2014 React re-runs effects + cleanups (e.g. stops MediaStream, removes event listeners).\n- When disabled: webFallbackDisabled=true, all action methods are no-ops, data/error/loading are null/false.\n- Thin-state hooks (useNetworkStatus, useSafeArea, useDeviceInfo, useCameraPermission) manage webFallback locally and expose isNative, isWeb, webFallbackActive, webFallbackDisabled, setWebFallback \u2014 same surface as useBaseHook consumers.\n- Rules of Hooks: all hooks are always called unconditionally at top level \u2014 early returns and conditional branches only in return statements, never around hook calls.\n\nFULL HOOK LIST:\nWith web fallback:\n- useCamera \u2014 capture photo. Web: <input type=file capture=environment>.\n- useFilePicker \u2014 pick file. Web: <input type=file>.\n- useHapticFeedback \u2014 haptic/vibration. Web: navigator.vibrate.\n- useVideoStream \u2014 live camera stream + sendCommand (zoom/torch/fps). Web: getUserMedia (requires secure context) with track.applyConstraints. Stream auto-stopped on mode change or unmount.\n- useDataProtection \u2014 setScreenSecure + clearWebData. Web: overlay div on visibilitychange + localStorage/sessionStorage/cookie/IndexedDB clear.\n- useCameraPermission \u2014 camera permission state + request(). Web: navigator.permissions API (query) + getUserMedia side-effect for request().\n- useNetworkStatus \u2014 online/type. Web: navigator.onLine (defaults true if not boolean) + online/offline events (live updates).\n- useSafeArea \u2014 inset pixels. Web: CSS env() vars.\n- useDeviceInfo \u2014 device metadata. Web: navigator/screen APIs.\n\nNo web fallback (native-only or scoped out):\n- useNotification \u2014 push notifications. Web: scoped out (Service Worker required, unreliable in WebView).\n- useNotificationPermission \u2014 notification permission.\n- useGoogleSignIn \u2014 Google sign-in via native.\n- useIntent \u2014 open file with external app.\n- useNativeTransition \u2014 navigate with native slide/fade transitions. Web: CSS overlay on document.body driven by the same state machine (not a webFallback-prop hook).",
         "layer": "Bridge",
         "source": "static",
         "tags": [
@@ -1016,21 +1089,113 @@
             "useCameraPermission",
             "useNotificationPermission",
             "useGoogleSignIn",
-            "standardizedHooks",
+            "useVideoStream",
+            "useDeviceInfo",
             "useBaseHook",
+            "web-fallback",
+            "webFallbackActive",
+            "setWebFallback",
             "native",
             "bridge"
         ],
         "github_files": [
-            "src/native/bridge/hooks.js",
-            "src/native/bridge/standardizedHooks.js",
+            "src/native/bridge/hooks/index.js",
+            "src/native/bridge/hooks/useCamera.js",
+            "src/native/bridge/hooks/useVideoStream.js",
             "src/native/bridge/useBaseHook.js"
         ]
     },
     {
+        "section": "native_hooks",
+        "title": "useVideoStream \u2014 return shape",
+        "content": "useVideoStream(options?) is a MULTI-ACTION hook — start/stop/sendCommand/flip are the API and there is NO execute key. Returns: { isStreaming: boolean, streamState: { zoom, minZoom, maxZoom, torchOn, fpsMin, fpsMax }, loading, error, isNative, isWeb, webFallbackActive, webFallbackDisabled, setWebFallback, mediaStream: MediaStream|null (web only), viewfinderRef, start, stop, sendCommand, flip, clearError }.\n\nstart(options?) / stop() / flip() \u2014 stream lifecycle. sendCommand(type, value) controls live stream: 'zoom' (number \u2265 1.0), 'torch' (boolean), 'fps' ({ min, max }).\n\nOn native: sendCommand routes to WebBridge native commands. streamState updates only on native confirmation events (ON_TORCH_CHANGED, ON_ZOOM_CHANGED). On web fallback: sendCommand maps to track.applyConstraints().\n\nWEB FALLBACK (getUserMedia):\n- Requires secure context (HTTPS or localhost) \u2014 hook returns error if window.isSecureContext is false.\n- Requires navigator.mediaDevices.getUserMedia \u2014 hook returns error if unavailable.\n- mediaStream is returned directly (attach to <video> srcObject).\n- All tracks stopped automatically when setWebFallback(false) is called or component unmounts.\n- start()/stop()/flip() are async on web.\n- Rules of Hooks: all hooks (useState, useRef, useCallback, useEffect) declared unconditionally at top level \u2014 branching only in return statements.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "native-hooks",
+            "useVideoStream",
+            "return-shape",
+            "web-fallback",
+            "getUserMedia",
+            "MediaStream",
+            "sendCommand",
+            "secure-context",
+            "rules-of-hooks"
+        ]
+    },
+    {
+        "section": "native_hooks",
+        "title": "useDeviceInfo \u2014 return shape",
+        "content": "useDeviceInfo() is a READ-ONLY hook (no action functions, no execute). Returns: { data: { model, manufacturer, platform, screenWidth, screenHeight, screenDensity, appInfo }, deviceInfo (=data, deprecated alias removed at 2.0), loading, error, isWeb, isNative, webFallbackActive, webFallbackDisabled, setWebFallback }. NOTE: error is a plain STRING here, not a standard error object — this stays a string until 2.0.\n\nThis is a NEW React hook (did not exist before \u2014 only WebBridge.getDeviceInfo() imperative method existed). Use useDeviceInfo() in React components instead of calling WebBridge.getDeviceInfo() imperatively.\n\nOn native: wraps WebBridge.getDeviceInfo() promise, resolves on ON_DEVICE_INFO_SUCCESS callback.\n\nWEB FALLBACK: Populates device info from browser APIs:\n- platform: navigator.platform or 'web'\n- model/manufacturer: derived from navigator.userAgent (best-effort)\n- screenWidth/Height: screen.width/height\n- screenDensity: window.devicePixelRatio\n- appVersion/appInfo: null on web (no native app context)\n\nManages webFallback state locally (thin-state hook, not via useBaseHook).",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "native-hooks",
+            "useDeviceInfo",
+            "return-shape",
+            "web-fallback",
+            "device-info",
+            "navigator",
+            "screen"
+        ]
+    },
+    {
+        "section": "native_hooks",
+        "title": "useDataProtection \u2014 return shape",
+        "content": "useDataProtection() is a MULTI-ACTION hook — its named functions are the API and there is NO execute key. Returns: { data, loading, progress, error, isWeb, isNative, clear, clearError, screenSecure: boolean, setScreenSecure: (enabled: boolean) => void, clearWebData: () => void, webFallbackActive, webFallbackDisabled, setWebFallback }. Note the state key is screenSecure, not isScreenSecure.\n\nsetScreenSecure(true/false) \u2014 enables/disables screen security (prevents screenshots/recents).\nclearWebData() \u2014 clears all web storage.\n\nOn native (Android): setScreenSecure sets FLAG_SECURE on WebView. clearWebData clears cookies, localStorage, WebView cache.\nOn native (iOS): setScreenSecure applies blur overlay. clearWebData uses WKWebsiteDataStore.\n\nWEB FALLBACK:\n- setScreenSecure(true): injects a fixed black overlay div (position:fixed, z-index:9999, 100vw/100vh) that shows/hides on document.visibilitychange \u2014 best-effort screenshot prevention (cannot block OS-level screenshots on web).\n- setScreenSecure(false): removes the overlay div and visibilitychange listener.\n- clearWebData(): clears localStorage, sessionStorage, all cookies (document.cookie), and all IndexedDB databases (indexedDB.databases() + deleteDatabase()).\n- setWebFallback(false): removes overlay + listener, returns inert no-op shape.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "native-hooks",
+            "useDataProtection",
+            "return-shape",
+            "web-fallback",
+            "setScreenSecure",
+            "clearWebData",
+            "security",
+            "overlay",
+            "IndexedDB"
+        ]
+    },
+    {
+        "section": "native_hooks",
+        "title": "useNativeTransition \u2014 return shape",
+        "content": "useNativeTransition(defaults?) is a MULTI-ACTION hook \u2014 navigate/cancelTransition are the API and there is NO execute key. Returns: { navigate: (to, options?) => void, cancelTransition: () => void, transitioning: boolean, loading (=transitioning, deprecated alias direction is reversed here \u2014 loading is canonical, transitioning is the alias removed at 2.0), isNative, isWeb }.\n\nERROR-EXEMPT: there is NO error key. Transition failures self-heal \u2014 if native startTransition or commitTransition throws, the hook logs, clears transitioning, and falls through to a plain router navigate, so the user always lands on the destination route.\n\nnavigate(to, options) accepts standard react-router NavigateOptions plus: type ('slide'|'fade', default 'slide'), direction ('left'|'right'|'up'|'down', default 'left'), duration (ms, default 300), timeout (ms safety timer, default max(duration*3, 800)). The same options can be passed once to the hook as per-call defaults.\n\nNative path: startTransition (native snapshots screen) \u2192 router.navigate(to) \u2192 double-rAF \u2192 commitTransition (native animates overlay out). Native-side safety timer force-fades the overlay if commit never arrives (ON_TRANSITION_TIMEOUT).\n\nWeb path: CSS overlay div on document.body (position:fixed, z-index:9999, opacity transition) driven by the same state machine, with its own setTimeout safety net. Not a webFallback-prop hook \u2014 it has no webFallbackActive/webFallbackDisabled/setWebFallback keys.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "native-hooks",
+            "useNativeTransition",
+            "return-shape",
+            "navigation",
+            "transition",
+            "react-router",
+            "multi-action",
+            "error-exempt"
+        ]
+    },
+    {
+        "section": "native_hooks",
+        "title": "Native hooks \u2014 aliases and deprecations (removed at 2.0)",
+        "content": "Alias keys kept from earlier releases. Both names work and return the same value. ALL ALIASES ARE REMOVED AT 2.0 \u2014 write new code against the canonical key.\n\nALIAS -> CANONICAL:\n- isLoading -> loading (useCamera, useFilePicker, useIntent, useCameraPermission, useNotificationPermission)\n- transitioning -> loading (useNativeTransition)\n- deviceInfo -> data (useDeviceInfo)\n- permission -> data (useCameraPermission, useNotificationPermission)\n- request -> execute (useCameraPermission)\n- photo -> data (useCamera)\n- clearPhoto -> clear (useCamera)\n- clearFile -> clear (useFilePicker)\n- reset -> clear (useIntent)\n\nuseNotification.execute and useNotification.schedule both alias scheduleLocal. They are frozen for backward compatibility but DISCOURAGED, and they are explicitly NOT the pattern to copy for multi-action hooks \u2014 every other multi-action hook (useVideoStream, useDataProtection, useNativeTransition) has no execute key at all. With useNotification.execute and schedule, the list above is the complete set of 16 aliases as of 1.0.0; every one carries an @deprecated marker in the shipped type declarations.\n\nERROR SHAPE EXCEPTIONS: error is a standard error object everywhere EXCEPT useDeviceInfo and useNetworkStatus, where it stays a plain string until 2.0. useNativeTransition and useSafeArea are error-exempt \u2014 no error key at all. useAI's shape is owned by the catalyst-ai package and sits outside this contract.\n\nDUAL SURFACES: requestHapticFeedback and requestCameraPermission exist BOTH as catalyst-core/hooks exports and as WebBridge methods, with different defaults and return types. requestHapticFeedback: hooks export defaults to 'light' and resolves the raw status string; WebBridge.requestHapticFeedback defaults to 'VIRTUAL_KEY' and resolves the parsed result object. requestCameraPermission: hooks export takes no arguments and REJECTS on denial; WebBridge.requestCameraPermission takes a config object ({ includeDetails }) and RESOLVES with the denied status. The hooks exports are SSR-safe (return Promise<null> when window is undefined). The two surfaces are unified at 2.0.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "native-hooks",
+            "aliases",
+            "deprecations",
+            "2.0",
+            "api-freeze",
+            "error-shape",
+            "WebBridge",
+            "requestHapticFeedback",
+            "requestCameraPermission"
+        ]
+    },
+    {
         "section": "seo_metadata",
-        "title": "Server-Side Meta Tags — setMetaData()",
-        "content": "Each page component can define a static `setMetaData` function that returns an array of JSX meta elements. These are collected server-side and injected into the HTML <head> before the page is streamed to the client.\n\nHOW IT WORKS:\n1. Route components define `Component.setMetaData = (fetcherData) => [...]`\n2. handler.js calls `getMetaData(allMatches, fetcherData)` from @tata1mg/router — collects setMetaData from all matched route components, passes fetcherData so tags can be dynamic.\n3. The resulting `allTags` array is passed to `renderMarkUp()` → `<Head metaTags={allTags} />`.\n4. `Head` renders them inside `<head>` before pageCss and preloadJSLinks.\n\nEXAMPLE (static title):\n```js\nHome.setMetaData = () => {\n  return [<title key=\"title\">Home</title>]\n}\n```\n\nEXAMPLE (dynamic OG tags using fetcherData):\n```js\nBreedDetails.setMetaData = ({ params, data }) => [\n  <title key=\"title\">{params.breed} — Dog Breeds</title>,\n  <meta key=\"og:title\" property=\"og:title\" content={params.breed} />,\n  <meta key=\"og:description\" property=\"og:description\" content={data?.message} />,\n]\n```\n\nNOTES:\n- Always add `key` prop to each tag (React list reconciliation).\n- fetcherData shape matches what `serverFetcher` returned for that route.\n- Tags from parent + child routes are merged — order follows route nesting.\n- `isBot` flag is passed to Head; use for bot-specific meta if needed.",
+        "title": "Legacy 0.2.x Server-Side Meta Tags \u2014 setMetaData()",
+        "content": "Each page component can define a static `setMetaData` function that returns an array of JSX meta elements. These are collected server-side and injected into the HTML <head> before the page is streamed to the client.\n\nHOW IT WORKS:\n1. Route components define `Component.setMetaData = (fetcherData) => [...]`\n2. handler.js calls `getMetaData(allMatches, fetcherData)` from @tata1mg/router \u2014 collects setMetaData from all matched route components, passes fetcherData so tags can be dynamic.\n3. The resulting `allTags` array is passed to `renderMarkUp()` \u2192 `<Head metaTags={allTags} />`.\n4. `Head` renders them inside `<head>` before pageCss and preloadJSLinks.\n\nEXAMPLE (static title):\n```js\nHome.setMetaData = () => {\n  return [<title key=\"title\">Home</title>]\n}\n```\n\nEXAMPLE (dynamic OG tags using fetcherData):\n```js\nBreedDetails.setMetaData = ({ params, data }) => [\n  <title key=\"title\">{params.breed} \u2014 Dog Breeds</title>,\n  <meta key=\"og:title\" property=\"og:title\" content={params.breed} />,\n  <meta key=\"og:description\" property=\"og:description\" content={data?.message} />,\n]\n```\n\nNOTES:\n- Always add `key` prop to each tag (React list reconciliation).\n- fetcherData shape matches what `serverFetcher` returned for that route.\n- Tags from parent + child routes are merged \u2014 order follows route nesting.\n- `isBot` flag is passed to Head; use for bot-specific meta if needed.",
         "layer": "Component",
         "source": "static",
         "tags": [
@@ -1048,8 +1213,8 @@
     },
     {
         "section": "seo_metadata",
-        "title": "Client-Side Meta Updates — MetaTag + custom document",
-        "content": "On the client side, meta tags are kept in sync across navigations via `<MetaTag />` from @tata1mg/router. For global head additions (fonts, preconnect, etc.), use the custom `server/document.js`.\n\nMETATAG COMPONENT (client SPA navigation):\n- Placed inside `RouterDataProvider` in `preparedRoutes` (src/js/routes/utils.js).\n- Automatically reads `setMetaData` from the newly matched route component and updates the DOM <head> on every client-side navigation.\n- No manual setup needed beyond adding `<MetaTag />` once in the route tree.\n\nCUSTOM DOCUMENT (server/document.js):\n- Optional file at `server/document.js` in the project root.\n- Receives all Head/Body props and lets you wrap or extend the default HTML shell.\n- Use for: global fonts, preconnect links, custom <html> attributes.\n\nEXAMPLE (server/document.js):\n```js\nimport React from 'react'\nimport { Head, Body } from 'catalyst-core'\n\nexport default function Document(props) {\n  return (\n    <html lang=\"en\">\n      <Head {...props}>\n        <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n        <link href=\"https://fonts.googleapis.com/css2?family=Poppins\" rel=\"stylesheet\" />\n      </Head>\n      <Body {...props} />\n    </html>\n  )\n}\n```\n\nWhen `Head` receives `children`, it renders them first, then `metaTags`, then pageCss, then preloadJSLinks — giving you full control over ordering.\n\nNOTES:\n- `MetaTag` is client-only; SSR uses `setMetaData` → `getMetaData` pipeline.\n- If no `server/document.js` is present, handler.js uses the default Head+Body layout.",
+        "title": "Legacy 0.2.x Client-Side Meta Updates \u2014 MetaTag + custom document",
+        "content": "On the client side, meta tags are kept in sync across navigations via `<MetaTag />` from @tata1mg/router. For global head additions (fonts, preconnect, etc.), use the custom `server/document.js`.\n\nMETATAG COMPONENT (client SPA navigation):\n- Placed inside `RouterDataProvider` in `preparedRoutes` (src/js/routes/utils.js).\n- Automatically reads `setMetaData` from the newly matched route component and updates the DOM <head> on every client-side navigation.\n- No manual setup needed beyond adding `<MetaTag />` once in the route tree.\n\nCUSTOM DOCUMENT (server/document.js):\n- Optional file at `server/document.js` in the project root.\n- Receives all Head/Body props and lets you wrap or extend the default HTML shell.\n- Use for: global fonts, preconnect links, custom <html> attributes.\n\nEXAMPLE (server/document.js):\n```js\nimport React from 'react'\nimport { Head, Body } from 'catalyst-core'\n\nexport default function Document(props) {\n  return (\n    <html lang=\"en\">\n      <Head {...props}>\n        <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n        <link href=\"https://fonts.googleapis.com/css2?family=Poppins\" rel=\"stylesheet\" />\n      </Head>\n      <Body {...props} />\n    </html>\n  )\n}\n```\n\nWhen `Head` receives `children`, it renders them first, then `metaTags`, then pageCss, then preloadJSLinks \u2014 giving you full control over ordering.\n\nNOTES:\n- `MetaTag` is client-only; SSR uses `setMetaData` \u2192 `getMetaData` pipeline.\n- If no `server/document.js` is present, handler.js uses the default Head+Body layout.",
         "layer": "Component",
         "source": "static",
         "tags": [
@@ -1063,6 +1228,204 @@
             "client-side",
             "fonts",
             "preconnect"
+        ]
+    },
+    {
+        "section": "config_structure",
+        "title": "notifications Config \u2014 Required to Enable Android Permission",
+        "content": "WEBVIEW_CONFIG.notifications.enabled is the gate for POST_NOTIFICATIONS in AndroidManifest.xml. When omitted or set to false, buildAppAndroid.js skips injecting POST_NOTIFICATIONS, WAKE_LOCK, RECEIVE_BOOT_COMPLETED permissions into the manifest. Effect: (1) Permission never appears in App Info \u2192 Notifications on device. (2) requestPermission() always returns DENIED \u2014 the OS never prompts the user. (3) Push notifications silently fail. Fix: set WEBVIEW_CONFIG.notifications.enabled = true in config/config.json and rebuild the app. Optional field: color (hex string, default \"#007AFF\") sets the notification accent color. Full shape: { enabled: true, color: \"#007AFF\" }. NOTE: local (scheduled) notifications may still deliver on some Android versions without this permission, but push and the permission prompt will not work.",
+        "layer": "Config",
+        "source": "extracted:src/native/buildAppAndroid.js",
+        "tags": ["config", "notifications", "android", "permissions", "POST_NOTIFICATIONS"]
+    },
+    {
+        "section": "config_structure",
+        "title": "Notification Sound File \u2014 Required Asset for Android Build",
+        "content": "When WEBVIEW_CONFIG.notifications.enabled=true, the Android build injects a manifest meta-data entry referencing @raw/notification_sound_default. If no sound file is present in public/, the resource is never created and the build fails with: AAPT: error: resource raw/notification_sound_default not found. REQUIRED: place a sound file at public/notification-sound-default.mp3 (or .wav or .ogg) before running buildApp:android. The build copies it to res/raw/notification_sound_default.{ext} automatically. If you want the system default sound, still provide a silent audio file \u2014 Android will use it as the channel default. Similarly, public/notification-sound-urgent.mp3 is optional but follows the same pattern for the urgent channel.",
+        "layer": "Config",
+        "source": "extracted:src/native/buildAppAndroid.js",
+        "tags": ["config", "notifications", "android", "assets", "build-error", "raw", "sound"]
+    },
+    {
+        "section": "config_structure",
+        "title": "googleSignIn Config \u2014 Required to Enable Google Sign-In",
+        "content": "WEBVIEW_CONFIG.googleSignIn.enabled=true is required to enable Google Sign-In on Android/iOS. Without it, any call to signIn() immediately fires ON_GOOGLE_SIGN_IN_ERROR with \"Google Sign-In is disabled in config\" \u2014 no prompt, no flow. Config shape: { googleSignIn: { enabled: true, clientId: \"YOUR_WEB_CLIENT_ID.apps.googleusercontent.com\" } }. clientId is the OAuth 2.0 Web Client ID from Google Cloud Console (not the Android client ID). It can also be passed per-call: signIn({ clientId: \"...\" }) \u2014 per-call value takes precedence over config. Both enabled and clientId are read from webview_config.properties at runtime (Gradle flattens WEBVIEW_CONFIG recursively: googleSignIn.enabled, googleSignIn.clientId). Also requires google-services.json in project root for the Android build.",
+        "layer": "Config",
+        "source": "extracted:src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt",
+        "tags": ["config", "googleSignIn", "android", "oauth", "sign-in"]
+    },
+    {
+        "section": "framework_identity",
+        "title": "Catalyst Runtime Generations",
+        "content": "Always determine the installed catalyst-core version before giving web runtime guidance. Catalyst 0.2.x is the legacy webpack generation and uses @tata1mg/router plus @loadable/component. Catalyst 0.3.x, beginning with 0.3.0-beta.1, is the Vite/ESM generation: router APIs are exported by catalyst-core and split()/hydrationReady() replace loadable APIs. Catalyst 1.0.0 is the API freeze (there is no 0.4.0 release); see 'Upgrading catalyst-core 0.3.x to 1.0.0'. Do not combine instructions from different generations. If no version can be detected, ask which version the project targets.",
+        "layer": "Framework",
+        "source": "static",
+        "tags": ["versions", "0.2.x", "0.3.x", "1.0.0", "migration", "webpack", "vite"],
+        "github_files": ["packages/catalyst-core/package.json", "packages/catalyst-core/src/index.tsx"]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x Vite Build Runtime",
+        "content": "Catalyst 0.3.x uses Vite for development, client production output, and SSR output. catalyst start runs Vite in middleware mode with SSR and Fast Refresh. catalyst build runs client and server builds in parallel. Client assets are emitted under build/client, the production renderer under build/server, and Vite manifests under build/.vite. catalyst serve loads the built server renderer. This replaces the Catalyst 0.2.x webpack, Babel-register, loadable-stats, and build/public assumptions.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["0.3.x", "vite", "build", "ssr", "client", "server"],
+        "github_files": [
+            "packages/catalyst-core/src/scripts/start.js",
+            "packages/catalyst-core/src/scripts/build.js",
+            "packages/catalyst-core/src/scripts/serve.js",
+            "packages/catalyst-core/src/vite/vite.config.client.js",
+            "packages/catalyst-core/src/vite/vite.config.server.js"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x CLI Commands",
+        "content": "Current web commands are catalyst start, catalyst build, catalyst serve, and catalyst serve:inspect. devBuild and devServe are legacy 0.2.x commands and are not accepted by the 0.3.x CLI. Native commands remain buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["0.3.x", "cli", "start", "build", "serve", "native"],
+        "github_files": ["packages/catalyst-core/bin/catalyst.js"]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x Custom Vite Plugins",
+        "content": "Applications can provide buildConfig.js exporting { clientPlugins: [], ssrPlugins: [] }. clientPlugins are appended to the production client Vite configuration and ssrPlugins to the SSR configuration. The legacy filename webpackConfig.js is temporarily recognized as a compatibility filename, but in a 0.3.x project its exported value follows the Vite plugin contract; webpack configure/merge callbacks are not supported by the Vite runtime.",
+        "layer": "Config",
+        "source": "static",
+        "tags": ["0.3.x", "vite", "plugins", "buildConfig", "webpackConfig", "compatibility"],
+        "github_files": [
+            "packages/catalyst-core/src/vite/loadCustomViteConfig.js",
+            "packages/catalyst-core/src/vite/vite.config.client.js",
+            "packages/catalyst-core/src/vite/vite.config.server.js"
+        ]
+    },
+    {
+        "section": "routing",
+        "title": "Catalyst 0.3.x Integrated Router",
+        "content": "Catalyst 0.3.x removes the @tata1mg/router package dependency. As of 1.0.0 (the API freeze), catalyst-core does NOT re-export React Router. Its root entry exports exactly eight names: RouterDataProvider, useCurrentRouteData, useRouterData, MetaTag, split, hydrationReady, Head, Body. There is no default export (split was previously also the default). React Router is a peerDependency (^7.18.2): install react-router in the application and import RouterProvider, Outlet, Link, useParams, useNavigate, useLocation, Navigate and every other router name from 'react-router' directly. Metadata utilities (getMetaData, mergeHeadElements, deleteHeadTagsByDataAttribute), RouterContext, serverDataFetcher and useNavigateWithTransition are no longer public. Existing route arrays and preparedRoutes structure remain unchanged. Keeping both router packages can create duplicate runtime contracts and invalid React element errors.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "0.3.x",
+            "1.0.0",
+            "router",
+            "react-router",
+            "peer-dependency",
+            "RouterDataProvider",
+            "migration",
+            "api-freeze"
+        ],
+        "github_files": [
+            "packages/catalyst-core/src/index.tsx",
+            "packages/catalyst-core/src/web-router/components/RouterDataProvider.jsx"
+        ]
+    },
+    {
+        "section": "code_splitting",
+        "title": "Catalyst 0.3.x split and hydrationReady",
+        "content": "Use split(() => import('./Page'), options) from catalyst-core instead of @loadable/component. split supports SSR-aware lazy rendering, fallback, cache-key asset extraction, visibility loading, rootOptions, onVisible, and route component statics. Client hydration must await hydrationReady() before hydrateRoot so SSR-rendered split modules are synchronously available on the first client render. The Vite cache-key plugin injects source-based cache keys used by SSR asset extraction.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["0.3.x", "split", "hydrationReady", "suspense", "vite", "ssr"],
+        "github_files": [
+            "packages/catalyst-core/src/web-router/components/Split.jsx",
+            "packages/catalyst-core/src/vite/inject-cache-key-plugin.js"
+        ]
+    },
+    {
+        "section": "dependencies",
+        "title": "Catalyst 0.3.x React Runtime Contract",
+        "content": "Catalyst 0.3.x requires application dependencies react and react-dom to be pinned exactly to 19.0.0. Do not use caret or tilde ranges. Remove @tata1mg/router and @loadable/component. After upgrading, npm ls react react-dom should show one compatible React runtime; duplicate React 18/19 trees can cause invalid React child, invalid hook call, or hydration errors.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["0.3.x", "react", "react-dom", "19.0.0", "dependencies"],
+        "github_files": [
+            "packages/catalyst-core/package.json",
+            "packages/create-catalyst-app/templates/none-js/package.json"
+        ]
+    },
+    {
+        "section": "build_system",
+        "title": "Catalyst 0.3.x Offline Route Build Contract",
+        "content": "Route offline snapshots are a production feature. Mark routes with offline: true, then run catalyst build and catalyst serve. The build generates catalyst-offline-manifest.json and catalyst-sw.js at the build root and copies public/offline.html there when present. The browser service worker is not registered by catalyst start because development mode must not retain production caches. Native clients fetch the same root manifest URL but use native snapshot caches instead of the browser service worker.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["0.3.x", "offline", "service-worker", "manifest", "build", "serve"],
+        "github_files": [
+            "packages/catalyst-core/src/scripts/generateOfflineManifest.js",
+            "packages/catalyst-core/src/offline/registerServiceWorker.js",
+            "packages/catalyst-core/src/offline/catalyst-sw.js"
+        ]
+    },
+    {
+        "section": "known_errors",
+        "title": "Catalyst 0.3.x Mixed Package Install",
+        "content": "Symptom: package exports, CLI commands, SSR loading, or application startup fail after copying a local catalyst-core build. Cause: only dist was replaced, leaving an old package.json and bin/catalyst.js around the new ESM output. Fix: replace dist, bin, and package.json together. These files are one package-facing contract in 0.3.x.",
+        "layer": "Build",
+        "source": "static",
+        "tags": ["known-error", "0.3.x", "package", "exports", "bin", "local-testing"]
+    },
+    {
+        "section": "known_errors",
+        "title": "Offline Route Falls Back During catalyst start",
+        "content": "Symptom: an offline:true route shows offline.html or is not cached while testing with npm run start. Cause: catalyst start is development mode; it does not generate a fresh offline manifest and intentionally does not register the production service worker. Fix: run catalyst build after changing route metadata, then catalyst serve, visit the route online once, and test the exact URL offline.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["known-error", "0.3.x", "offline", "start", "build", "serve"]
+    },
+    {
+        "section": "version_migration",
+        "title": "Upgrading catalyst-core 0.3.x to 1.0.0",
+        "content": "Upgrade path for an application on catalyst-core 0.3.0-beta.5. Older applications first move to 0.3.x (see 'Legacy 0.2.x Migration Phase 0' and 'Catalyst 0.3.x React Runtime Contract'). 1.0.0 is the API freeze; there is no 0.4.0 release. Do the steps in order.\n\n1. DEPENDENCIES: set catalyst-core to 1.0.0. Add react-router ^7.18.2 as an application dependency: it is now a peer dependency and the server throws at startup if it is missing or outside that range. Keep react and react-dom pinned to 19.0.0. TypeScript applications also need @types/react ^19.0.0.\n\n2. NODE: run node -v. catalyst-core 1.0.0 requires >=22.12; on Node 20, importing catalyst-core/hooks or catalyst-core/WebBridge fails with ERR_REQUIRE_ESM. If the runtime is older, stop and tell the user; do not change the project's Node pin yourself.\n\n3. IMPORTS: the root entry exports exactly RouterDataProvider, useCurrentRouteData, useRouterData, MetaTag, split, hydrationReady, Head, Body. Move every React Router name (Link, Outlet, RouterProvider, useParams, useNavigate, useLocation, Navigate, ...) from 'catalyst-core' to 'react-router'. Replace `import split from 'catalyst-core'` with `import { split } from 'catalyst-core'`; there is no default export. Replace imports from 'catalyst-core/document' with Head and Body from 'catalyst-core'. 'catalyst-core/caching' is removed with no replacement. RouterContext, serverDataFetcher, mergeHeadElements, deleteHeadTagsByDataAttribute, getMetaData, useNavigateWithTransition and sanitizeFilePickerOptions (catalyst-core/hooks) are internal with no replacement: if the application uses one, stop and tell the user instead of inventing a substitute.\n\n4. BUILD AND START: run the build, then start the server once. The build catches removed imports (they fail instead of resolving to undefined); startup catches the react-router range and the Node version.\n\n5. HOOK ERROR FIELDS (not caught by the build): hook errors are now CatalystError instances. Rename reads of error.action to error.suggestedAction and error.nativeError to error.cause; error.recoverable and error.timestamp no longer exist. error.code values are registry codes (RUNTIME-NATIVE-xxx) instead of names like PERMISSION_DENIED, so replace string-literal comparisons with ERROR_CODES from catalyst-core/errors (for example ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED). See 'CatalystError shape (1.0.0)'.\n\n6. OPTIONAL, NON-BREAKING: rename deprecated hook alias keys to the canonical ones (see 'Native hooks \u2014 aliases and deprecations'); aliases keep working until 2.0.\n\nUnchanged: route arrays, preparedRoutes, server hooks, config/config.json keys and module aliases. Full guide: docs/content/12-Migration/02-Version-Upgrades.md.",
+        "layer": "Framework",
+        "source": "static",
+        "tags": [
+            "migration",
+            "migrate",
+            "upgrade",
+            "update",
+            "bump",
+            "1.0.0",
+            "0.3.x",
+            "breaking-changes",
+            "api-freeze",
+            "react-router",
+            "peer-dependency",
+            "peerDependency",
+            "node"
+        ],
+        "github_files": ["docs/content/12-Migration/02-Version-Upgrades.md"]
+    },
+    {
+        "section": "known_errors",
+        "title": "ERR_REQUIRE_ESM importing catalyst-core/hooks on Node 20",
+        "content": "Symptom: importing catalyst-core/hooks or catalyst-core/WebBridge throws ERR_REQUIRE_ESM on Node 20. Cause: the CommonJS native bridge require()s the ESM error registry, which older Node runtimes refuse without a flag; the package's engines field sets the supported minimum. Fix: run Node 22.12 or newer (catalyst-core 1.0.0 declares engines node >=22.12). Do not change the project's Node pin without telling the user.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": ["1.0.0", "node", "22.12", "ERR_REQUIRE_ESM", "error", "hooks", "WebBridge"]
+    },
+    {
+        "section": "native_hooks",
+        "title": "CatalystError shape (1.0.0)",
+        "content": "From 1.0.0, hook failures are CatalystError instances (class exported from catalyst-core/errors) with fields code, message, category, suggestedAction, docUrl, details and cause (the originating platform error). code is a registry code such as RUNTIME-NATIVE-001; compare against ERROR_CODES from catalyst-core/errors (ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED and so on), never against string literals.\n\nCHANGED FROM 0.3.x: the error used to be a plain object { code, category, message, details, recoverable, action, nativeError, timestamp } with code values like PERMISSION_DENIED. action is now suggestedAction, nativeError is now cause, recoverable and timestamp are gone, and code values changed. These renames are not caught by a build.\n\nCatalystError extends Error, so message is non-enumerable: JSON.stringify(error) omits it. Log error.message explicitly or use code and docUrl. Render error.message in JSX, never the error object. Exceptions to the object shape (string errors, error-exempt hooks) are listed under 'Native hooks \u2014 aliases and deprecations'.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "1.0.0",
+            "CatalystError",
+            "error",
+            "error-shape",
+            "suggestedAction",
+            "cause",
+            "ERROR_CODES",
+            "RUNTIME-NATIVE",
+            "JSON.stringify",
+            "native-hooks"
+        ],
+        "github_files": [
+            "packages/catalyst-core/src/errors/index.js",
+            "packages/catalyst-core/src/native/bridge/errors.ts"
         ]
     }
 ]

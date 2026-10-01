@@ -1,9 +1,12 @@
-const fs = require("fs")
-const path = require("path")
-const util = require("node:util")
-const { spawnSync } = require("child_process")
-const { gray, cyan } = require("picocolors")
-const { BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+import fs from "fs"
+import path from "path"
+import { fileURLToPath } from "url"
+import util from "node:util"
+import pkg from "ansis"
+const { gray, cyan } = pkg
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+let cachedCatalystCoreVersion
 
 // Function to get file size synchronously
 function getFileSizeSync(filePath) {
@@ -18,12 +21,13 @@ function getFileSizeSync(filePath) {
 
 export const printBundleInformation = () => {
     let bundleList = []
-    const directoryPath = path.join(process.cwd(), `${BUILD_OUTPUT_PATH}/public`)
+    const directoryPath = path.join(process.env.src_path, `build/public`)
 
     try {
         const files = fs.readdirSync(directoryPath)
         files.forEach((file) => {
             if (!file.includes("txt") && !file.includes("json")) {
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - file comes from fs.readdirSync(directoryPath), i.e. actual filenames already on disk in the build output, not request input.
                 const filePath = path.join(directoryPath, file)
                 const fileSize = getFileSizeSync(filePath)
                 if (fileSize !== null) {
@@ -37,7 +41,7 @@ export const printBundleInformation = () => {
 
     bundleList.sort((a, b) => b.fileSize - a.fileSize)
     bundleList.forEach(({ file, fileSize }) => {
-        const fileName = `${gray(`${BUILD_OUTPUT_PATH}/public/`)}${cyan(file)}`
+        const fileName = `${gray(`build/public/`)}${cyan(file)}`
         const fileSizeInKb = (fileSize / 1024).toFixed(2)
         const size = `\t${fileSizeInKb} kB`.padEnd(16)
 
@@ -54,42 +58,43 @@ export function arrayToObject(array) {
     return obj
 }
 
-const BUILD_FAILURE_MESSAGE = "\nBuild Failed!"
-
-function shouldFailBuild(result) {
-    return result.error || result.signal || (result.status !== null && result.status !== 0)
+/**
+ * Resolve the output mode for error formatting from a bare boolean CLI flag
+ * (--debug/--verbose, matching the --inspect convention already used by
+ * serve.js — not arrayToObject, which requires --key=value and silently
+ * drops valueless flags) or an inherited CATALYST_OUTPUT_MODE env var, for
+ * scripts spawned as a child process (see serve.js/start.js forwarding it
+ * to expressServer.js). An explicit flag on argv wins over an inherited env
+ * value, so e.g. `catalyst serve --debug` overrides a parent that set
+ * CATALYST_OUTPUT_MODE=verbose.
+ */
+export function resolveOutputMode(argv = process.argv, env = process.env) {
+    if (argv.includes("--debug")) return "debug"
+    if (argv.includes("--verbose")) return "verbose"
+    if (env.CATALYST_OUTPUT_MODE === "debug" || env.CATALYST_OUTPUT_MODE === "verbose") {
+        return env.CATALYST_OUTPUT_MODE
+    }
+    return "default"
 }
 
-function logBuildFailure(result, failureMessage = BUILD_FAILURE_MESSAGE) {
-    console.error(failureMessage)
-
-    if (result.error) {
-        console.error(`Error: ${result.error?.message || result.error}\n`)
+/**
+ * Environment info for debug-mode error output: catalyst-core's own
+ * installed version (read from this package's own package.json, not the
+ * consuming app's — so it reflects what's actually running, not just what
+ * the app's package.json range says), Node version, and platform.
+ */
+export function getDebugEnvInfo() {
+    if (cachedCatalystCoreVersion === undefined) {
+        try {
+            const pkgPath = path.resolve(__dirname, "../../package.json")
+            cachedCatalystCoreVersion = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).version
+        } catch {
+            cachedCatalystCoreVersion = "unknown"
+        }
     }
-
-    if (result.signal) {
-        console.error(`Signal: ${result.signal}\n`)
+    return {
+        node: process.version,
+        platform: process.platform,
+        catalystCore: cachedCatalystCoreVersion,
     }
-
-    if (result.status !== null) {
-        console.error(`Exit code: ${result.status}\n`)
-    }
-}
-
-export const runBuildCommands = ({ commands, cwd, env, failureMessage = BUILD_FAILURE_MESSAGE }) => {
-    const command = commands.join(" && ")
-
-    const result = spawnSync(command, [], {
-        cwd,
-        stdio: "inherit",
-        shell: true,
-        env,
-    })
-
-    if (shouldFailBuild(result)) {
-        logBuildFailure(result, failureMessage)
-        process.exit(result.status || 1)
-    }
-
-    return result
 }

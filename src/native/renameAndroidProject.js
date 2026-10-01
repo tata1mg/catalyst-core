@@ -722,7 +722,7 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
                 .filter((dir) => dir.trim())
 
             for (const dir of dirsToRename) {
-                const newDirName = dir.replace(new RegExp(oldProjectName, "g"), newProjectName)
+                const newDirName = dir.split(oldProjectName).join(newProjectName)
                 if (dir !== newDirName) {
                     ;(0, _utils.runCommand)(`mv "${dir}" "${newDirName}"`)
                     progress.log(
@@ -857,13 +857,23 @@ async function updateFileContents(projectPaths, androidConfig) {
                         ...newPackageParts
                     )
 
-                    // Create new package directory
-                    const newPackageDir = _path.default.dirname(newPackagePath)
-                    _fs.default.mkdirSync(newPackageDir, { recursive: true })
+                    const packagePathChanged =
+                        _path.default.resolve(oldPackagePath) !== _path.default.resolve(newPackagePath)
 
-                    // Move source files
-                    ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
-                    progress.log(`✅ Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
+                    if (packagePathChanged) {
+                        // Create new package directory
+                        const newPackageDir = _path.default.dirname(newPackagePath)
+                        _fs.default.mkdirSync(newPackageDir, { recursive: true })
+
+                        // Move source files
+                        ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
+                        progress.log(`✅ Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
+                    } else {
+                        progress.log(
+                            `Package path unchanged for ${sourceSet}; skipping source directory move`,
+                            "info"
+                        )
+                    }
 
                     // Update package declarations in source files
                     const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`
@@ -942,7 +952,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                 .filter((file) => file.trim())
 
             for (const file of filesToRename) {
-                const newFileName = file.replace(new RegExp(oldProjectName, "g"), newProjectName)
+                const newFileName = file.split(oldProjectName).join(newProjectName)
                 if (file !== newFileName) {
                     ;(0, _utils.runCommand)(`mv "${file}" "${newFileName}"`)
                     progress.log(
@@ -983,10 +993,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                         try {
                             const content = _fs.default.readFileSync(file, "utf8")
                             if (content.includes(oldProjectName)) {
-                                const updatedContent = content.replace(
-                                    new RegExp(oldProjectName, "g"),
-                                    newProjectName
-                                )
+                                const updatedContent = content.split(oldProjectName).join(newProjectName)
                                 _fs.default.writeFileSync(file, updatedContent, "utf8")
                                 progress.log(
                                     `Updated content in: ${_path.default.relative(newProjectPath, file)}`,
