@@ -266,7 +266,6 @@ const browserOptimizeDeps = [
     "redux",
     "redux-thunk",
     "axios",
-    "react-helmet-async",
     "react-google-recaptcha",
     "react-fast-compare",
     "history",
