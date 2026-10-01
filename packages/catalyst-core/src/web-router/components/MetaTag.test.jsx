@@ -1,7 +1,7 @@
 import React from "react"
-import { describe, expect, it, vi, afterEach } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { render, waitFor, act } from "@testing-library/react"
-import { MemoryRouter, Routes, Route, useNavigate } from "react-router"
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from "react-router"
 import { MetaTag } from "./MetaTag.jsx"
 import { OneMgRouterContext } from "../context.jsx"
 import { RouterContext } from "./RouterDataProvider.jsx"
@@ -26,10 +26,6 @@ function renderMetaTag({ matchedRoutes = [], routerData = {} } = {}) {
 }
 
 describe("MetaTag", () => {
-    afterEach(() => {
-        document.head.innerHTML = ""
-    })
-
     it("renders without crashing when there are no matched routes", () => {
         expect(() => renderMetaTag()).not.toThrow()
     })
