@@ -1427,5 +1427,29 @@
             "packages/catalyst-core/src/errors/index.js",
             "packages/catalyst-core/src/native/bridge/errors.ts"
         ]
+    },
+    {
+        "section": "native_hooks",
+        "title": "On-Device AI (catalyst-ai) — Setup & Engines",
+        "content": "catalyst-ai runs LLMs ON THE DEVICE inside the native app (no API key, works offline after model download) alongside its cloud providers (openai, gemini). Two on-device engines: (1) LiteRT-LM running Gemma 4 E2B (default model 'gemma-4-E2B', ~2.6 GB downloaded once on first use; Android and iOS; iOS needs iPhone 13 Pro or newer / 6 GB RAM). (2) Apple Foundation Models (iOS 26+ on Apple Intelligence devices only; no download; ~4,000 tokens of context shared by system prompt, history and reply). SETUP: npm install catalyst-ai; in config/config.json set WEBVIEW_CONFIG.ai = { \"enabled\": true } (native plugin is composed ONLY when ai.enabled is true — installing the package alone adds nothing to the build; if ai.enabled but catalyst-ai is missing from node_modules the build warns and skips the plugin); rebuild the native app (catalyst build / run android|ios). iOS adds the LiteRT-LM Swift package (~120 MB, vendored wrapper, no Git LFS) and the com.apple.developer.kernel.increased-memory-limit entitlement — that capability must be allowed for the App ID on a physical device or signing fails. iOS simulator needs an Apple Silicon Mac (no Intel slice); Foundation Models does not work in a simulator older than the host macOS.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": "ai,catalyst-ai,native ai,on-device,gemma,gemma 4,e2b,litert,litert-lm,foundation models,apple intelligence,useAI,useNativeAI"
+    },
+    {
+        "section": "native_hooks",
+        "title": "On-Device AI — Choosing Gemma 4 E2B or Apple Foundation Models",
+        "content": "Pick the engine per hook or app-wide. PER HOOK: useAI({ provider: 'litert', model: 'gemma-4-E2B' }) pins Gemma 4 E2B via LiteRT-LM; useAI({ provider: 'foundation-models' }) pins Apple Foundation Models (iOS only); useAI({ provider: 'native' }) = auto. useNativeAI accepts { engine: 'auto'|'litert'|'foundation-models', model, modelPath }. APP-WIDE in config/config.json: \"AI_CONFIG\": { \"enabled\": true, \"browser\": { \"provider\": \"foundation-models\" } } (provider 'native' + engine 'litert' is equivalent to provider 'litert'). AUTO POLICY (default): LiteRT-LM if its model is already downloaded -> Apple Foundation Models if available -> LiteRT-LM (downloads the model first). 'auto' never starts the 2.6 GB download on its own just because Foundation Models is available; to force Gemma on such a device pass engine/provider 'litert'. modelPath loads a custom LiteRT-LM model file. The ON_AI_READY payload includes 'engine' so UI can show which is active; download progress arrives as nativeDownloadProgress. Streaming: LiteRT-LM emits deltas; Foundation Models snapshots are converted to deltas by the framework.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": "ai,catalyst-ai,native ai,on-device,gemma,gemma 4,e2b,litert,litert-lm,foundation models,apple intelligence,useAI,useNativeAI"
+    },
+    {
+        "section": "bridge_architecture",
+        "title": "On-Device AI — Architecture & Security",
+        "content": "iOS: the framework server exposes POST /ai/stream (SSE), /ai/generate and a preflight route that the JS nativeTransport (catalyst-ai/src/nativeTransport.js) calls; the Swift side is the CatalystAI plugin (plugins/ai: AIBridge, CatalystAIBridge, NativeBridgeAI, FoundationModelsAI) discovered through the CatalystPlugin composer (pluginComposerIos.js) from node_modules/catalyst-ai/plugins; events return via WebBridge ON_AI_* and window.CatalystPlugins is injected for synchronous detection. Android: NativeBridgeAI.kt in the catalyst-ai android module, synced when ai.enabled. The AI routes reject non-loopback peers. Cloud routes (/ai/:provider/generate|stream) have NO built-in auth or rate limiting — add them via addMiddlewares in server/server.js before exposing beyond a trusted network. Known deferred hardening: plugin-bridge origin check, loopback-only listener bind, resumable model downloads.",
+        "layer": "Bridge",
+        "source": "static",
+        "tags": "ai,catalyst-ai,native ai,on-device,gemma,gemma 4,e2b,litert,litert-lm,foundation models,apple intelligence,useAI,useNativeAI"
     }
 ]
