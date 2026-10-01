@@ -29,10 +29,10 @@ const err = (msg) => console.error(`\x1b[31m✖ ${msg}\x1b[0m`);
 
 function rimraf(dir) {
   if (!fs.existsSync(dir)) return;
-  // Delegates to safe-rimraf.js, which retries on ENOTEMPTY/EBUSY/EPERM — an IDE's
+  // Delegates to safe-rimraf.cjs, which retries on ENOTEMPTY/EBUSY/EPERM — an IDE's
   // file watcher (e.g. auto-importing the Android project under dist/native) can
   // recreate files mid-delete, which plain `rm -rf` and `find -delete` both lose to.
-  execFileSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'safe-rimraf.js'), dir], { stdio: 'inherit' });
+  execFileSync(process.execPath, [path.join(REPO_ROOT, 'packages', 'catalyst-core', 'scripts', 'safe-rimraf.cjs'), dir], { stdio: 'inherit' });
 }
 
 const SYNC_MAX_ATTEMPTS = 5;
@@ -45,7 +45,7 @@ function sleep(ms) {
 
 // npm's own internal directory renames during `npm install` (e.g. staging a package
 // into a temp dir before an atomic rename into node_modules) hit the same ENOTEMPTY/
-// EBUSY races that safe-rimraf.js works around for plain rm -rf — but npm has no
+// EBUSY races that safe-rimraf.cjs works around for plain rm -rf — but npm has no
 // built-in retry for it. Retry the whole command a few times with backoff.
 function runWithRetry(cmd, options, beforeRetry) {
   for (let attempt = 1; attempt <= SYNC_MAX_ATTEMPTS; attempt++) {
