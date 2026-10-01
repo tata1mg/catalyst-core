@@ -31,7 +31,7 @@ You've built a complete application with Catalyst.
 | Routing | Nested routes with dynamic parameters |
 | Data Fetching | `serverFetcher` for SSR, `clientFetcher` for navigation |
 | Layouts | Shared UI with `<Outlet />` for child routes |
-| Code Splitting | Lazy loading with `@loadable/component` |
+| Code Splitting | Vite-aware lazy loading with `split()` |
 
 ---
 

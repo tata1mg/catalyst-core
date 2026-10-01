@@ -60,7 +60,7 @@ data class SchemaDefinition(
 object BridgeMessageValidator {
 
     private const val TAG = "BridgeMessageValidator"
-    private const val MAX_MESSAGE_SIZE = 10 * 1024 * 1024 // 10MB (match iOS)
+    private const val MAX_MESSAGE_SIZE = CatalystConstants.Bridge.MAX_MESSAGE_SIZE
 
     // Valid commands — single source of truth from CatalystConstants
     private val validCommands = CatalystConstants.Bridge.VALID_COMMANDS

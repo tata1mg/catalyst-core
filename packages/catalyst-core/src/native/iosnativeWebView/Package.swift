@@ -6,11 +6,12 @@ import PackageDescription
 // TODO: haven't made this conditional yet
 let package = Package(
     name: "iosnativeWebView",
-    platforms: [.iOS(.v17)],
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "CatalystCore", targets: ["CatalystCore"])
     ],
     dependencies: [
+        .package(path: "CoreLogic"),
         .package(url: "https://github.com/kylef/JSONSchema.swift", from: "0.6.0"),
         .package(url: "https://github.com/google/GoogleSignIn-iOS", from: "7.0.0")
     ],
@@ -20,18 +21,18 @@ let package = Package(
         .target(
             name: "CatalystCore",
             dependencies: [
+                .product(name: "CatalystCoreLogic", package: "CoreLogic"),
                 .product(name: "JSONSchema", package: "JSONSchema.swift"),
                 .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
             ],
             path: "Sources/Core"
-        ),
-        // Test target for CatalystCore
-        // Tests are excluded from npm package via .npmignore
-        // Run with: swift test (from iosnativeWebView directory)
-        .testTarget(
-            name: "CatalystCoreTests",
-            dependencies: ["CatalystCore"],
-            path: "Tests/CatalystCoreTests"
         )
+        // Note: no .testTarget here for CatalystCore's own simulator-based tests
+        // (iosnativeWebViewTests) — those are declared and run via the Xcode
+        // project/scheme, not `swift test` at this package root. The
+        // CatalystCoreLogicTests test target lives in the nested CoreLogic/
+        // package (see CoreLogic/Package.swift) so `swift test --package-path
+        // CoreLogic` can run with zero simulator, zero remote dependency
+        // resolution.
     ]
 )

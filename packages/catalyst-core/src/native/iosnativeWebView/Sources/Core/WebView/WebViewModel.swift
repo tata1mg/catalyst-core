@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewModel")
 
@@ -40,11 +41,11 @@ public class WebViewModel: ObservableObject {
             #endif
         }
     }
-    
+
     public func setLoading(_ loading: Bool, fromCache: Bool = false) {
         isLoading = loading
         isLoadingFromCache = fromCache
-        
+
         if !loading {
             loadingProgress = 1.0
             // Reset loading state after a short delay
@@ -55,18 +56,18 @@ public class WebViewModel: ObservableObject {
                 self.isLoadingFromCache = false
             }
         }
-        
+
         logger.info("Loading state changed: loading=\(loading), fromCache=\(fromCache)")
     }
-    
+
     public func setProgress(_ progress: Double) {
         loadingProgress = progress
     }
-    
+
     public func addToHistory(_ urlString: String) {
         navigationHistory.append(urlString)
     }
-    
+
     public func reset() {
         isLoading = false
         loadingProgress = 0

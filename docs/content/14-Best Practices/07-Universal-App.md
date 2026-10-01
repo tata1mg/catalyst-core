@@ -44,4 +44,4 @@ Universal apps are easiest to maintain when the web app remains the source of tr
 ## Related Docs
 
 - [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md)
-- [Configuration API](/content/11-API%20Reference/02-Configuration.md)
+- [Configuration API](/content/11-API%20Reference/02-Configuration.mdx)

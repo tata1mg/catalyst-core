@@ -32,5 +32,5 @@ Once the first app is running, these pages become the main reference points:
 - [Why Catalyst](/content/Introduction/why-catalyst)
 - [Features Overview](/content/Introduction/features-overview)
 - [Universal App](/content/Introduction/universal-app)
-- [Configuration API](/content/11-API%20Reference/02-Configuration.md)
+- [Configuration API](/content/11-API%20Reference/02-Configuration.mdx)
 - [FAQs](/content/faqs)

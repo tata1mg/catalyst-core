@@ -1,0 +1,4 @@
+**/build/*
+
+# Generated from content/ at build time
+src/js/generated/

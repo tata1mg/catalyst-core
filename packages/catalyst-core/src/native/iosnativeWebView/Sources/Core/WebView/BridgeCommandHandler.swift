@@ -14,6 +14,7 @@ import os
 import UserNotifications
 #if canImport(GoogleSignIn)
 import GoogleSignIn
+import CatalystCoreLogic
 #endif
 
 private let commandLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.commandHandler)
@@ -28,6 +29,10 @@ protocol BridgeCommandHandlerDelegate: AnyObject {
 
 // MARK: - Bridge Command Handler
 
+// One class handling every JS-callable native command; splitting it would
+// only move the surface into extensions in the same file. Tracked for a
+// real decomposition separately.
+// swiftlint:disable:next type_body_length
 class BridgeCommandHandler {
 
     private weak var viewController: UIViewController?
@@ -535,6 +540,7 @@ class BridgeCommandHandler {
         store.removeData(ofTypes: dataTypes, modifiedSince: .distantPast) { [weak self] in
             guard let self else { return }
             CacheManager.shared.clearCache()
+            OfflineCacheService.shared.clearAll()
             commandLogger.debug("clearWebData complete")
             DispatchQueue.main.async {
                 self.delegate?.sendJSONCallback(eventName: "ON_WEB_DATA_CLEARED", data: [
@@ -743,7 +749,7 @@ class BridgeCommandHandler {
         let autoCancel = json["autoCancel"] as? Bool ?? true
         let dataDict = json["data"] as? [String: Any]
 
-        var actionsConfig: [NotificationAction]? = nil
+        var actionsConfig: [NotificationAction]?
         if let actionsArray = json["actions"] as? [[String: Any]] {
             actionsConfig = actionsArray.compactMap { item in
                 let title = item["title"] as? String ?? ""

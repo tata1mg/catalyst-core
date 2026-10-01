@@ -10,7 +10,7 @@ buildscript {
     }
 }
 
-val configPath: String? by project.properties
+val configPath = findProperty("configPath") as? String
 val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
 val keyAlias: String? by project.properties
 val keyPassword: String? by project.properties
@@ -29,6 +29,39 @@ fun isAllowBackupEnabled(): Boolean {
 
 fun isNotificationsEnabled(): Boolean {
     return try {
+        if (configPath != null) {
+            val configFile = File(configPath)
+            if (configFile.exists()) {
+                val json = JSONObject(configFile.readText())
+                if (json.has("WEBVIEW_CONFIG")) {
+                    val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
+                    return webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+                }
+            }
+        }
+
+        val generatedBuildProps = File("${project.projectDir}/catalyst-build.properties")
+        if (generatedBuildProps.exists()) {
+            val props = Properties()
+            props.load(generatedBuildProps.inputStream())
+            return props.getProperty("notifications.enabled", "false").trim().lowercase() == "true"
+        }
+
+        val webviewProps = File("${project.projectDir}/src/main/assets/webview_config.properties")
+        if (webviewProps.exists()) {
+            val props = Properties()
+            props.load(webviewProps.inputStream())
+            return props.getProperty("notifications.enabled", "false").trim().lowercase() == "true"
+        }
+
+        false
+    } catch (e: Exception) {
+        false
+    }
+}
+
+fun isAIEnabled(): Boolean {
+    return try {
         if (configPath == null) return false
         val configFile = File(configPath!!)
         if (!configFile.exists()) return false
@@ -37,7 +70,7 @@ fun isNotificationsEnabled(): Boolean {
         if (!json.has("WEBVIEW_CONFIG")) return false
 
         val webviewConfig = json.getJSONObject("WEBVIEW_CONFIG")
-        webviewConfig.optJSONObject("notifications")?.optBoolean("enabled", false) ?: false
+        webviewConfig.optJSONObject("ai")?.optBoolean("enabled", false) ?: false
     } catch (e: Exception) {
         false
     }
@@ -54,6 +87,11 @@ fun getLocalIpAddress(): String {
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    jacoco
+}
+
+jacoco {
+    toolVersion = libs.versions.jacoco.get()
 }
 
 android {
@@ -93,6 +131,7 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             isMinifyEnabled = false
+            enableUnitTestCoverage = true
             buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "true")
             buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
         }
@@ -133,6 +172,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
+        freeCompilerArgs += "-Xskip-metadata-version-check"
     }
 
     buildFeatures {
@@ -150,8 +190,9 @@ android {
             excludes.add("META-INF/io.netty.versions.properties")
         }
         jniLibs {
-            // Enable 16KB page size alignment for all native libraries
-            useLegacyPackaging = false
+            // libLiteRtClGlAccelerator.so must be extracted to disk for GPU dlopen().
+            // This must live in the app module — AGP ignores useLegacyPackaging in library modules.
+            useLegacyPackaging = isAIEnabled()
         }
     }
 
@@ -168,7 +209,7 @@ android {
         }
     }
 
-    // Conditional source sets based on notifications config
+    // Conditional source sets based on feature config
     sourceSets {
         getByName("main") {
             if (isNotificationsEnabled()) {
@@ -178,6 +219,26 @@ android {
                 logger.info("SourceSet selected: noFcm (notifications disabled)")
                 java.srcDirs("src/noFcm/java")
             }
+            // AI has no source-set swap — CatalystAIBridge self-registers via ServiceLoader
+            // when catalyst-ai is on the classpath.
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        // kotlin-reflect is deliberately NOT forced here (unlike the
+        // stdlib artifacts below) — mockito-kotlin 6.x requires
+        // kotlin-reflect >=2.1.20, newer than this project's 2.0.21
+        // compiler version. kotlin-reflect is forward-compatible with
+        // older stdlib/compiler versions for the reflection use cases
+        // actually exercised in tests, so it resolves to whatever's
+        // requested (libs.kotlin.reflect, currently 2.1.20) instead.
+        if (requested.group == "org.jetbrains.kotlin" &&
+            (requested.name == "kotlin-stdlib" ||
+             requested.name == "kotlin-stdlib-jdk7" ||
+             requested.name == "kotlin-stdlib-jdk8")) {
+            useVersion("2.0.21")
         }
     }
 }
@@ -188,6 +249,16 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
     testImplementation(libs.junit)
+    // #413: Mockito for JVM unit tests (app/src/test). mockito-core 5.x
+    // defaults to the inline mock-maker, so Kotlin's final classes don't
+    // need extra `open` keywords. mockito-kotlin adds the idiomatic
+    // whenever()/mock<T>() DSL on top. kotlinx-coroutines-test matches
+    // the existing kotlinx-coroutines-android dependency's release line
+    // for testing suspend funs in NativeBridge/OfflineCacheService.
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.kotlin.reflect)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.androidx.webkit)
@@ -199,7 +270,23 @@ dependencies {
     implementation("io.ktor:ktor-server-core:3.0.3")
     implementation("io.ktor:ktor-server-netty:3.0.3")
     implementation("io.ktor:ktor-server-content-negotiation:3.0.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("io.ktor:ktor-server-sse:3.0.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // Native AI (catalyst-ai). The module is only ever on the classpath when
+    // ai.enabled=true -- that's the sole sync trigger (settings.gradle.kts
+    // guards on node_modules/catalyst-ai/android existing, and the auto-sync
+    // in buildAndroid/index.js only runs for ai.enabled). The app has no
+    // compile-time dependency on it: NativeBridge.kt discovers CatalystAIBridge
+    // at runtime via Class.forName + ServiceLoader. compileOnly is kept so the
+    // module still builds/type-checks when present; implementation adds it to
+    // the APK for runtime bundling.
+    if (project.findProject(":catalyst-ai") != null) {
+        compileOnly(project(":catalyst-ai"))
+        if (isAIEnabled()) {
+            implementation(project(":catalyst-ai"))
+        }
+    }
 
     // Security detection dependencies
     implementation("com.scottyab:rootbeer-lib:0.1.1")  // Root detection
@@ -208,12 +295,128 @@ dependencies {
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
+    // CameraX
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     // Notification dependencies - conditional based on config
     if (isNotificationsEnabled()) {
         implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
         implementation("com.google.firebase:firebase-messaging:23.4.0")
         implementation("com.google.firebase:firebase-analytics:21.5.0")
     }
+}
+
+// JVM unit test coverage (Tier 1). Mirrors the CatalystCoreLogic
+// llvm-cov setup on iOS (#432): real, measured line coverage for
+// app/src/test, not just a pass/fail count. Scoped to testDebugUnitTest —
+// enableUnitTestCoverage=true on the debug build type (above) already
+// makes Gradle emit the raw .exec coverage data; this task turns that
+// into the human/CI-readable XML + HTML report.
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    group = "verification"
+    description = "Generates JVM unit test coverage report for app/src/test (Tier 1)."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    // Excludes are split into two groups. The first is generated/non-authored
+    // code (R.class, BuildConfig, view/data binding scaffolding) — no
+    // coverage story either way, always excluded.
+    //
+    // The second is the Tier 2 classification below: files that build real
+    // Android Views, extend Activity/Fragment, or otherwise structurally
+    // require Robolectric or a real device/emulator to exercise (confirmed
+    // via a full-repo classification pass, not a guess from filenames —
+    // see PR description / issue for the per-file reasoning). These ARE
+    // real, authored logic — excluding them isn't "inflating" the number,
+    // it's making the gate honest: a Tier 1/Tier 2 coverage gate that
+    // includes Tier 2 in its denominator would fail any PR that touches
+    // WebView/Activity/View code regardless of how well-tested that PR's
+    // actual testable logic is. Mirrors the CoreLogic/UI split already
+    // accepted on iOS (#432).
+    //
+    // Each Tier 2 file's top-level class, Kt-file facade, and compiled
+    // lambda/inner classes are all excluded, so nothing structurally
+    // untestable is left counting against the gate. The one exception is
+    // NativeBridge, which has an already-tested companion object
+    // (parseAndValidateMessage, compiled separately as
+    // NativeBridge$Companion.class) — Gradle's Ant-style exclude() does
+    // not reliably support "!" negation, so instead of pattern-negating
+    // the companion out, its lambda exclude uses "$*$*" (two "$"
+    // segments), which Kotlin lambda class names always have and the
+    // single-"$" companion class name never does. See the comment next
+    // to that pattern below for the concrete example.
+    val generatedCodeFilter = listOf(
+        "**/R.class", "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/databinding/**",
+        "**/android/databinding/**",
+        "**/androidx/databinding/**",
+        "**/*_ViewBinding*.*",
+        "**/*\$ViewInjector*.*",
+        "**/*\$ViewBinder*.*",
+        "**/*_MembersInjector.class"
+    )
+
+    val tier2FrameworkBoundFilter = listOf(
+        // Real WebView/Activity construction, ViewBinding, real lifecycle.
+        // Each file's top-level class, Kt-file facade, and compiled lambda
+        // classes (Kotlin: OuterClass$methodName$N.class) are all excluded.
+        // None of these files has a companion object worth protecting
+        // (that only applies to NativeBridge, handled separately below),
+        // so a plain "$*" is safe here.
+        "**/CustomWebView.class", "**/CustomWebView\$*.class", "**/CustomWebViewKt.class",
+        "**/MainActivity.class", "**/MainActivity\$*.class",
+        "**/SplashActivity.class", "**/SplashActivity\$*.class",
+        "**/NativeCameraManager.class", "**/NativeCameraManager\$*.class",
+        "**/camera/CameraSessionManager.class", "**/camera/CameraSessionManager\$*.class",
+        "**/TransitionManager.class", "**/TransitionManager\$*.class",
+        "**/utils/KeyboardUtil.class", "**/utils/KeyboardUtil\$*.class",
+        "**/security/SecurityAlertUI.class", "**/security/SecurityAlertUI\$*.class",
+        "**/security/SecurityAlertHandler.class", "**/security/SecurityAlertHandler\$*.class",
+        "**/security/SecurityBottomSheet.class", "**/security/SecurityBottomSheet\$*.class",
+        // NativeBridge has an already-tested companion (parseAndValidateMessage,
+        // compiled as NativeBridge$Companion.class — one "$"). Kotlin lambda
+        // classes always carry two "$" segments (e.g.
+        // NativeBridge$downloadAndOpenFile$1.class), so "$*$*" excludes every
+        // lambda while a single-"$" glob would be needed to also exclude the
+        // companion — which this pattern does NOT match, by construction.
+        "**/NativeBridge.class", "**/NativeBridgeKt.class", "**/NativeBridge\$*\$*.class"
+    )
+
+    val debugTree = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
+        exclude(generatedCodeFilter + tier2FrameworkBoundFilter)
+    }
+    val kotlinDebugTree = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+        exclude(generatedCodeFilter + tier2FrameworkBoundFilter)
+    }
+    // Both noFcm/withFcm are listed (not just whichever isNotificationsEnabled()
+    // picked for this build) purely so the HTML report can resolve source
+    // lines for whichever one actually got compiled — listing the inactive
+    // one is harmless, Jacoco just won't find matching class files for it.
+    val sourceDirs = listOf(
+        "${project.projectDir}/src/main/java",
+        "${project.projectDir}/src/noFcm/java",
+        "${project.projectDir}/src/withFcm/java"
+    )
+
+    sourceDirectories.setFrom(files(sourceDirs))
+    classDirectories.setFrom(files(debugTree, kotlinDebugTree))
+    executionData.setFrom(fileTree(layout.buildDirectory) {
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
 }
 
 // Task to verify local IP

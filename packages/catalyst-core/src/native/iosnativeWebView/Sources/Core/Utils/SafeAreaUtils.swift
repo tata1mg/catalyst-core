@@ -49,6 +49,7 @@ public struct SafeAreaInsets: Codable, Equatable, CustomStringConvertible {
             "X-Safe-Area-Right": String(Int(right)),
             "X-Safe-Area-Bottom": String(Int(bottom)),
             "X-Safe-Area-Left": String(Int(left)),
+            "X-Catalyst-Native-WebView": "1",
             // Prevent caching of SSR response so updated headers are always used
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache"

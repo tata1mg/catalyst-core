@@ -275,87 +275,132 @@ class NativeBridgeTest {
     // CATEGORY 3: FILE PICKER OPTIONS (5 tests)
     // ============================================================
 
+    // These five replace the file's original FilePickerOptions tests,
+    // which never called FilePickerOptions.fromRaw at all -- it was
+    // `private` to NativeBridge.kt and unreachable from this file (the
+    // original tests' own comment admitted as much: "Access
+    // FilePickerOptions through reflection or create test harness").
+    // Widened to `internal` (batch 4 extension) specifically to make
+    // these real; the class's fields/logic are otherwise unchanged.
+
     @Test
-    fun `test FilePickerOptions parses MIME type from JSON`() {
-        val optionsJson = """
-            {
-                "mimeType": "image/jpeg",
-                "multiple": true
-            }
-        """.trimIndent()
+    fun `FilePickerOptions parses mimeType and multiple from JSON`() {
+        val options = FilePickerOptions.fromRaw("""{"mimeType": "image/jpeg", "multiple": true}""")
 
-        // Access FilePickerOptions through reflection or create test harness
-        // For this test, we'll verify the behavior through the bridge's pickFile method
-
-        // Verify JSON structure is valid
-        val json = JSONObject(optionsJson)
-        assertEquals("image/jpeg", json.getString("mimeType"))
-        assertTrue(json.getBoolean("multiple"))
+        assertEquals("image/jpeg", options.mimeType)
+        assertTrue(options.multiple)
     }
 
     @Test
-    fun `test FilePickerOptions handles multiple file selection`() {
-        val optionsJson = """
-            {
-                "mimeType": "application/pdf",
-                "multiple": true,
-                "maxFiles": 3
-            }
-        """.trimIndent()
+    fun `FilePickerOptions auto-enables multiple when maxFiles exceeds 1 even if not explicitly set`() {
+        val options = FilePickerOptions.fromRaw("""{"mimeType": "application/pdf", "maxFiles": 3}""")
 
-        val json = JSONObject(optionsJson)
-        assertTrue("Multiple selection should be enabled", json.getBoolean("multiple"))
-        assertEquals(3, json.getInt("maxFiles"))
+        assertTrue("maxFiles > 1 should auto-enable multiple selection", options.multiple)
+        assertEquals(3, options.maxFiles)
     }
 
     @Test
-    fun `test FilePickerOptions validates file size constraints`() {
-        val optionsJson = """
-            {
-                "mimeType": "*/*",
-                "minFileSize": 1024,
-                "maxFileSize": 5242880
-            }
-        """.trimIndent()
+    fun `FilePickerOptions parses min and max file size constraints`() {
+        val options = FilePickerOptions.fromRaw(
+            """{"mimeType": "*/*", "minFileSize": 1024, "maxFileSize": 5242880}"""
+        )
 
-        val json = JSONObject(optionsJson)
-        assertEquals("Minimum file size should be 1KB", 1024L, json.getLong("minFileSize"))
-        assertEquals("Maximum file size should be 5MB", 5242880L, json.getLong("maxFileSize"))
-        assertTrue("Min should be less than max",
-            json.getLong("minFileSize") < json.getLong("maxFileSize"))
+        assertEquals(1024L, options.minFileSize)
+        assertEquals(5242880L, options.maxFileSize)
     }
 
     @Test
-    fun `test FilePickerOptions validates file count constraints`() {
-        val optionsJson = """
-            {
-                "mimeType": "image/*",
-                "multiple": true,
-                "minFiles": 2,
-                "maxFiles": 10
-            }
-        """.trimIndent()
+    fun `FilePickerOptions parses min and max file count constraints`() {
+        val options = FilePickerOptions.fromRaw(
+            """{"mimeType": "image/*", "multiple": true, "minFiles": 2, "maxFiles": 10}"""
+        )
 
-        val json = JSONObject(optionsJson)
-        assertEquals(2, json.getInt("minFiles"))
-        assertEquals(10, json.getInt("maxFiles"))
-        assertTrue("minFiles should be less than maxFiles",
-            json.getInt("minFiles") < json.getInt("maxFiles"))
+        assertEquals(2, options.minFiles)
+        assertEquals(10, options.maxFiles)
     }
 
     @Test
-    fun `test FilePickerOptions backward compatibility with plain string MIME`() {
-        // Plain string MIME type (legacy format)
-        val plainMimeType = "application/pdf"
+    fun `FilePickerOptions treats a plain non-JSON string as a legacy MIME type`() {
+        val options = FilePickerOptions.fromRaw("application/pdf")
 
-        // Should be treated as a simple MIME type string
-        assertFalse("Plain string should not be JSON", plainMimeType.startsWith("{"))
-        assertFalse("Plain string should not end with }", plainMimeType.endsWith("}"))
+        assertEquals("application/pdf", options.mimeType)
+        assertFalse(options.multiple)
+        assertNull(options.minFiles)
+        assertNull(options.maxFiles)
+    }
 
-        // JSON format (modern format)
-        val jsonMimeType = """{"mimeType": "application/pdf"}"""
-        assertTrue("JSON format should start with {", jsonMimeType.trim().startsWith("{"))
-        assertTrue("JSON format should end with }", jsonMimeType.trim().endsWith("}"))
+    @Test
+    fun `FilePickerOptions with null or blank raw input returns all defaults`() {
+        val fromNull = FilePickerOptions.fromRaw(null)
+        assertEquals("*/*", fromNull.mimeType)
+        assertFalse(fromNull.multiple)
+
+        val fromBlank = FilePickerOptions.fromRaw("   ")
+        assertEquals("*/*", fromBlank.mimeType)
+    }
+
+    @Test
+    fun `FilePickerOptions with malformed JSON-looking input falls back to the trimmed raw string as mimeType`() {
+        // Starts with { and ends with } (so it's treated as the JSON
+        // branch), but isn't valid JSON -- JSONObject(...) throws, and
+        // fromRaw's catch branch falls back to using the trimmed raw
+        // string as the mimeType, not the defaults.
+        val options = FilePickerOptions.fromRaw("{not valid json}")
+
+        assertEquals("{not valid json}", options.mimeType)
+    }
+
+    @Test
+    fun `FilePickerOptions empty mimeType in JSON falls back to wildcard`() {
+        val options = FilePickerOptions.fromRaw("""{"mimeType": ""}""")
+
+        assertEquals("*/*", options.mimeType)
+    }
+
+    // ============================================================
+    // GoogleSignInOptions.fromRaw
+    // ============================================================
+
+    @Test
+    fun `GoogleSignInOptions parses clientId and optional fields from JSON`() {
+        val options = GoogleSignInOptions.fromRaw(
+            """{"clientId": "abc123.apps.googleusercontent.com", "nonce": "xyz", "autoSelect": true}"""
+        )
+
+        assertEquals("abc123.apps.googleusercontent.com", options.clientId)
+        assertEquals("xyz", options.nonce)
+        assertTrue(options.autoSelect)
+        assertFalse(options.filterByAuthorizedAccounts)
+    }
+
+    @Test
+    fun `GoogleSignInOptions falls back to webClientId when clientId is absent`() {
+        val options = GoogleSignInOptions.fromRaw("""{"webClientId": "fallback.apps.googleusercontent.com"}""")
+
+        assertEquals("fallback.apps.googleusercontent.com", options.clientId)
+    }
+
+    @Test
+    fun `GoogleSignInOptions with null or blank raw input returns an empty clientId to allow config fallback`() {
+        val fromNull = GoogleSignInOptions.fromRaw(null)
+        assertEquals("", fromNull.clientId)
+
+        val fromBlank = GoogleSignInOptions.fromRaw("   ")
+        assertEquals("", fromBlank.clientId)
+    }
+
+    @Test
+    fun `GoogleSignInOptions with malformed JSON falls back to using the trimmed raw string as clientId`() {
+        val options = GoogleSignInOptions.fromRaw("not-json-at-all")
+
+        assertEquals("not-json-at-all", options.clientId)
+    }
+
+    @Test
+    fun `GoogleSignInOptions blank nonce is treated as absent, not an empty string`() {
+        val options = GoogleSignInOptions.fromRaw("""{"clientId": "abc", "nonce": ""}""")
+
+        assertNull(options.nonce)
     }
 
     // ============================================================

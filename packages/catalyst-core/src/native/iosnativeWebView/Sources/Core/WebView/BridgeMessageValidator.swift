@@ -10,6 +10,7 @@ import Foundation
 import WebKit
 import JSONSchema
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.messageValidator)
 
@@ -209,6 +210,15 @@ class BridgeMessageValidator {
             "properties": [:],
             "additionalProperties": false
         ],
+        "exportCatalystTrace": [
+            "type": "object",
+            "properties": [
+                "filename": ["type": "string"],
+                "trace": ["type": "string"]
+            ],
+            "required": ["filename", "trace"],
+            "additionalProperties": false
+        ],
         "openInBrowser": [
             "type": "object",
             "properties": [
@@ -217,7 +227,6 @@ class BridgeMessageValidator {
             "additionalProperties": false
         ]
     ]
-
 
     // MARK: - Public Validation Interface
 
@@ -240,24 +249,7 @@ class BridgeMessageValidator {
             )
         }
 
-        // Step 2: Validate message size
-        if let messageData = try? JSONSerialization.data(withJSONObject: message.body, options: []),
-           messageData.count > CatalystConstants.Bridge.maxMessageSize {
-            logger.error("Message size exceeds limit: \(messageData.count) > \(CatalystConstants.Bridge.maxMessageSize)")
-            return BridgeValidationResult(
-                isValid: false,
-                command: nil,
-                params: nil,
-                body: nil,
-                error: BridgeValidationError(
-                    message: "Message too large",
-                    code: "MESSAGE_TOO_LARGE",
-                    eventName: "BRIDGE_ERROR"
-                )
-            )
-        }
-
-        // Step 3: Validate message body structure
+        // Step 2: Validate message body structure
         guard let body = message.body as? [String: Any] else {
             logger.error("Invalid message format - body is not a dictionary")
             return BridgeValidationResult(
@@ -268,6 +260,27 @@ class BridgeMessageValidator {
                 error: BridgeValidationError(
                     message: "Invalid message format",
                     code: "INVALID_FORMAT",
+                    eventName: "BRIDGE_ERROR"
+                )
+            )
+        }
+
+        // Step 3: Trace export gets a larger limit only when that debug profiler command is enabled.
+        let rawCommand = body["command"] as? String
+        let maxMessageSize = rawCommand == "exportCatalystTrace" && CatalystConstants.Bridge.isTraceExportEnabled()
+            ? 25 * 1024 * 1024
+            : CatalystConstants.Bridge.maxMessageSize
+        if let messageData = try? JSONSerialization.data(withJSONObject: message.body, options: []),
+           messageData.count > maxMessageSize {
+            logger.error("Message size exceeds limit: \(messageData.count) > \(maxMessageSize)")
+            return BridgeValidationResult(
+                isValid: false,
+                command: nil,
+                params: nil,
+                body: nil,
+                error: BridgeValidationError(
+                    message: "Message too large",
+                    code: "MESSAGE_TOO_LARGE",
                     eventName: "BRIDGE_ERROR"
                 )
             )
@@ -378,6 +391,9 @@ class BridgeMessageValidator {
             "subscribeToTopic",
             "unsubscribeFromTopic",
             "getSafeArea",
+            "startTransition",
+            "commitTransition",
+            "cancelTransition",
             "openInBrowser"
         ]
 
@@ -575,8 +591,7 @@ class BridgeMessageValidator {
         if
             let minFilesValue = object["minFiles"] as? NSNumber,
             let maxFilesValue = object["maxFiles"] as? NSNumber,
-            minFilesValue.intValue > maxFilesValue.intValue
-        {
+            minFilesValue.intValue > maxFilesValue.intValue {
             logger.error("minFiles cannot be greater than maxFiles for pickFile command")
             return BridgeValidationError(
                 message: "minFiles cannot be greater than maxFiles",
@@ -588,8 +603,7 @@ class BridgeMessageValidator {
         if
             let minSizeValue = object["minFileSize"] as? NSNumber,
             let maxSizeValue = object["maxFileSize"] as? NSNumber,
-            minSizeValue.int64Value > maxSizeValue.int64Value
-        {
+            minSizeValue.int64Value > maxSizeValue.int64Value {
             logger.error("minFileSize cannot be greater than maxFileSize for pickFile command")
             return BridgeValidationError(
                 message: "minFileSize cannot be greater than maxFileSize",

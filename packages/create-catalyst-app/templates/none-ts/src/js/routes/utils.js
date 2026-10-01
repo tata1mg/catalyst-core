@@ -1,5 +1,5 @@
 import React from "react"
-import { RouterDataProvider, MetaTag } from "@tata1mg/router"
+import { RouterDataProvider, MetaTag } from "catalyst-core"
 import App from "@containers/App"
 import routes from "./index.js"
 

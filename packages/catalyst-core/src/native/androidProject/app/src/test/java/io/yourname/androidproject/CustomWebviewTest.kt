@@ -85,7 +85,7 @@ class CustomWebviewTest {
             setProperty("accessControl.allowedUrls", "https://example.com,https://api.example.com")
         }
 
-        val enabled = properties.getProperty("accessControl.enabled", "true").equals("true", ignoreCase = true)
+        val enabled = properties.getProperty("accessControl.enabled", "false").equals("true", ignoreCase = true)
         assertTrue("Access control should be enabled", enabled)
 
         val allowedUrls = properties.getProperty("accessControl.allowedUrls", "")
@@ -101,8 +101,13 @@ class CustomWebviewTest {
         val disabledProps = Properties().apply {
             setProperty("accessControl.enabled", "false")
         }
-        val disabled = disabledProps.getProperty("accessControl.enabled", "true").equals("true", ignoreCase = true)
+        val disabled = disabledProps.getProperty("accessControl.enabled", "false").equals("true", ignoreCase = true)
         assertFalse("Access control should be disabled", disabled)
+
+        // Test missing config defaults to disabled
+        val missingProps = Properties()
+        val missing = missingProps.getProperty("accessControl.enabled", "false").equals("true", ignoreCase = true)
+        assertFalse("Missing access control config should default to disabled", missing)
     }
 
     @Test

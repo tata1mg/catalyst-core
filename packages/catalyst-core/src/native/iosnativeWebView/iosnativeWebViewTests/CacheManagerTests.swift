@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import CatalystCoreLogic
 @testable import CatalystCore
 
 /**

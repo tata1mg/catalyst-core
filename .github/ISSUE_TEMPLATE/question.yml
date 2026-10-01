@@ -1,0 +1,39 @@
+name: ❓ Question / clarification
+description: Usage guidance, clarification, or a design decision needed before implementation
+title: "[question] "
+labels:
+    - question
+body:
+    - type: markdown
+      attributes:
+          value: |
+              For open-ended discussion, [Discussions](https://github.com/tata1mg/catalyst-core/discussions) is often a better fit. Use this template when you need a specific answer tied to a code path or config.
+    - type: textarea
+      id: question
+      attributes:
+          label: Question
+          description: What do you need answered?
+          placeholder: Is `serverFetcher` guaranteed to run before `onShellReady`, or can it be deferred?
+      validations:
+          required: true
+    - type: textarea
+      id: context
+      attributes:
+          label: Context
+          description: What are you building, and which part of Catalyst does this touch? Link the relevant files if you can.
+      validations:
+          required: true
+    - type: textarea
+      id: what-i-tried
+      attributes:
+          label: What I Tried
+          description: Docs you've read, experiments you've run, conclusions you've reached so far.
+      validations:
+          required: false
+    - type: textarea
+      id: expected-guidance
+      attributes:
+          label: Expected Guidance
+          description: What kind of answer would unblock you — a yes/no, a recommended pattern, a pointer to source?
+      validations:
+          required: false

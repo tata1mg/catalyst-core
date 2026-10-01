@@ -9,6 +9,7 @@
 import Foundation
 import UIKit
 import os
+import CatalystCoreLogic
 
 private let delegateLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: CatalystConstants.Logging.Categories.delegateHandler)
 

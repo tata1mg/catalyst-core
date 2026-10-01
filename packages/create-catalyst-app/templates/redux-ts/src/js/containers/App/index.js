@@ -1,5 +1,5 @@
 import React from "react"
-import { Outlet } from "@tata1mg/router"
+import { Outlet } from "react-router"
 
 const App = () => {
     return (

@@ -1,4 +1,4 @@
-const { exec, execSync } = require("child_process")
+const { exec, execFile, execSync } = require("child_process")
 const fs = require("fs")
 
 /**
@@ -19,9 +19,13 @@ function getLocalIPAddress() {
  */
 async function isServerRunning(port) {
     return new Promise((resolve) => {
-        const command = `lsof -i :${port}`
-        // eslint-disable-next-line security/detect-child-process
-        exec(command, (error, stdout) => {
+        const normalizedPort = Number(port)
+        if (!Number.isInteger(normalizedPort) || normalizedPort < 1 || normalizedPort > 65535) {
+            resolve(false)
+            return
+        }
+
+        execFile("lsof", ["-i", `:${normalizedPort}`], (error, stdout) => {
             if (error) {
                 resolve(false)
                 return

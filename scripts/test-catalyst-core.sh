@@ -3,26 +3,34 @@
 set -e
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-FIXTURE_DIR="$ROOT_DIR/apps/catalyst-core-test"
-PACKAGE_DIR="$ROOT_DIR/packages/catalyst-core"
+FIXTURE_DIR="$ROOT_DIR/examples/catalyst-core-test"
+PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/catalyst-core-test.XXXXXX")
+
+cleanup() {
+    rm -rf "$PACK_DIR"
+}
+
+trap cleanup EXIT
 
 # Install workspace dependencies
 cd "$ROOT_DIR"
 npm ci
 
-# Install template dependencies
-cd "$FIXTURE_DIR"
-npm ci
-cd "$ROOT_DIR"
-
 # Build catalyst-core
 npm run prepare --workspace packages/catalyst-core
 
-# Replace built catalyst-core in the fixture app
-rm -rf "$FIXTURE_DIR/node_modules/catalyst-core/dist"
-mv "$PACKAGE_DIR/dist" "$FIXTURE_DIR/node_modules/catalyst-core/"
+# Install template dependencies with current-branch catalyst-core
+npm pack --workspace packages/catalyst-core --pack-destination "$PACK_DIR" --ignore-scripts --silent >/dev/null
+CORE_TARBALL=$(find "$PACK_DIR" -name "catalyst-core-*.tgz" -print -quit)
+
+if [ -z "$CORE_TARBALL" ] || [ ! -f "$CORE_TARBALL" ]; then
+    echo "::error::npm pack did not produce a catalyst-core tarball in $PACK_DIR" >&2
+    exit 1
+fi
+
+cd "$FIXTURE_DIR"
+npm install --no-save --package-lock=false "$CORE_TARBALL"
 
 # Run fixture app checks
-cd "$FIXTURE_DIR"
 npm run build
 npm run test

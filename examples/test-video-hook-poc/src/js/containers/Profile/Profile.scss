@@ -1,0 +1,104 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    background: #f2f2f7; /* iOS grouped background color */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e5e5;
+    z-index: 10;
+}
+
+.headerTitle {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.profileCard {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 32px;
+    background: #007aff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+}
+
+.avatarInitial {
+    color: #ffffff;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.info {
+    flex: 1;
+}
+
+.userName {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 4px 0;
+}
+
+.userEmail {
+    font-size: 14px;
+    color: #8e8e93;
+    margin: 0;
+}
+
+.settingsList {
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.settingItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f2f2f7;
+}
+
+.settingItem:last-child {
+    border-bottom: none;
+}
+
+.settingLabel {
+    font-size: 16px;
+    color: #1a1a1a;
+}
+
+.settingValue {
+    font-size: 16px;
+    color: #8e8e93;
+}

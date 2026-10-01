@@ -16,15 +16,18 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+// LiteRT imports removed — AI logic lives in catalyst-ai (CatalystAIBridge plugin)
 import io.yourname.androidproject.MainActivity
 import io.yourname.androidproject.utils.*
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.Properties
+import java.util.ServiceLoader
 import java.util.concurrent.atomic.AtomicBoolean
 
-private data class FilePickerOptions(
+internal data class FilePickerOptions(
     val mimeType: String = "*/*",
     val multiple: Boolean = false,
     val minFiles: Int? = null,
@@ -93,7 +96,7 @@ private fun JSONObject.optIntNullable(key: String): Int? =
 private fun JSONObject.optLongNullable(key: String): Long? =
     if (has(key) && !isNull(key)) getLong(key) else null
 
-private data class GoogleSignInOptions(
+internal data class GoogleSignInOptions(
     val clientId: String,
     val nonce: String? = null,
     val autoSelect: Boolean = false,
@@ -151,8 +154,70 @@ class NativeBridge(
     
     private var networkMonitor: NetworkMonitor? = null
 
+    // AI plugin — loaded via reflection so NativeBridge.kt compiles with no compile-time dep on
+    // :catalyst-ai. When the module is absent the try block returns null gracefully.
+    private val aiBridge: Any? = try {
+        @Suppress("UNCHECKED_CAST")
+        run {
+            val bridgeClass = Class.forName("io.catalyst.nativeai.AIBridge")
+            val callbacksClass = Class.forName("io.catalyst.nativeai.AIBridgeCallbacks")
+            @Suppress("UNCHECKED_CAST")
+            val loader = ServiceLoader.load(bridgeClass as Class<Any>)
+            val bridge = loader.iterator().takeIf { it.hasNext() }?.next() ?: return@run null
+
+            val callbacksProxy = java.lang.reflect.Proxy.newProxyInstance(
+                bridgeClass.classLoader,
+                arrayOf(callbacksClass)
+            ) { _, method, args ->
+                val a = args ?: emptyArray()
+                when (method.name) {
+                    "onReady" -> {
+                        val payload = org.json.JSONObject().apply {
+                            put("url", a[0]); put("port", a[1]); put("sessionId", a[2])
+                        }
+                        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_AI_READY, payload)
+                    }
+                    "onProgress" -> {
+                        val payload = org.json.JSONObject().apply {
+                            put("phase", a[0]); put("percent", a[1])
+                            put("bytesLoaded", a[2]); put("bytesTotal", a[3]); put("detail", a[4])
+                        }
+                        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_AI_PROGRESS, payload)
+                    }
+                    "onLog" -> {
+                        val payload = org.json.JSONObject().apply { put("message", a[0]) }
+                        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.ON_AI_LOG, payload)
+                    }
+                    "onError" -> BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_AI_ERROR, a[0] as String)
+                    "isFrameworkServerRunning" -> FrameworkServerUtils.isRunning()
+                    "getFrameworkServerPort" -> FrameworkServerUtils.getServerPort()
+                    "getFrameworkServerSessionId" -> FrameworkServerUtils.getSessionId()
+                    "setNativeAiSupplier" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        FrameworkServerUtils.setNativeAiSupplier(
+                            a[0] as suspend (String, org.json.JSONObject, String?) -> Pair<String, kotlinx.coroutines.flow.Flow<String>>
+                        )
+                    }
+                    "setNativeSystemPrompt" -> FrameworkServerUtils.setNativeSystemPrompt(a[0] as String)
+                    else -> null
+                }
+            }
+
+            bridge.javaClass.getMethod("attach", android.app.Activity::class.java, android.webkit.WebView::class.java, callbacksClass)
+                .invoke(bridge, mainActivity, webView, callbacksProxy)
+            bridge
+        }
+    } catch (_: Throwable) { null }
+
+    // Video stream manager
+    private var nativeCameraManager: NativeCameraManager? = null
+    private var webViewOriginalBackground: Int = android.graphics.Color.WHITE
+
     // Unified notification manager
     private val notificationManager = AppNotificationManager(mainActivity, mainActivity.properties)
+
+    // Transition manager — snapshot overlay pattern for native page transitions
+    private val transitionManager = TransitionManager(mainActivity, webView)
 
     companion object {
         private const val TAG = "NativeBridge"
@@ -206,7 +271,7 @@ class NativeBridge(
                 .filter { it.isNotEmpty() }
 
             accessControlEnabled = properties
-                .getProperty("accessControl.enabled", "true")
+                .getProperty("accessControl.enabled", "false")
                 .equals("true", ignoreCase = true)
 
             if (accessControlEnabled && allowedUrls.isNotEmpty()) {
@@ -239,10 +304,97 @@ class NativeBridge(
         }
     }
 
+    fun setCameraManager(manager: NativeCameraManager) {
+        nativeCameraManager = manager
+    }
+
+    fun getCameraManager(): NativeCameraManager? = nativeCameraManager
+
+    @JavascriptInterface
+    fun startVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "start video stream") {
+            android.util.Log.d("NativeBridge", "startVideoStream raw options: $optionsRaw")
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val facing = options.optString("facing", "back")
+            val viewfinderRect = options.optJSONObject("viewfinderRect")
+            val zoomOptions = options.optJSONObject("zoom")
+            val scanFormat = options.optString("format", "all")
+            val showQrDetected = options.optBoolean("showQrDetected", false)
+            android.util.Log.d("NativeBridge", "startVideoStream parsed: facing=$facing zoom=$zoomOptions scanFormat=$scanFormat viewfinderRect=$viewfinderRect showQrDetected=$showQrDetected")
+            mainActivity.runOnUiThread {
+                webViewOriginalBackground = webView.solidColor.takeIf { it != 0 } ?: android.graphics.Color.WHITE
+                webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                nativeCameraManager?.start(facing, viewfinderRect, zoomOptions, scanFormat, showQrDetected = showQrDetected)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun stopVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "stop video stream") {
+            mainActivity.runOnUiThread {
+                webView.setBackgroundColor(webViewOriginalBackground)
+                nativeCameraManager?.stop()
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamZoom(multiplierRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream zoom") {
+            val multiplier = multiplierRaw?.trim()?.toFloatOrNull() ?: run {
+                android.util.Log.w("NativeBridge", "setVideoStreamZoom — invalid value: $multiplierRaw, ignoring")
+                return@safeExecute
+            }
+            android.util.Log.d("NativeBridge", "setVideoStreamZoom — multiplier=${multiplier}x")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setZoom(multiplier)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamTorch(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream torch") {
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val on = options.optBoolean("on", false)
+            android.util.Log.d("NativeBridge", "setVideoStreamTorch — on=$on")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setTorch(on)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoStreamFps(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "set video stream fps") {
+            val options = try { JSONObject(optionsRaw ?: "{}") } catch (e: Exception) { JSONObject() }
+            val min = if (options.isNull("min")) null else options.optInt("min")
+            val max = if (options.isNull("max")) null else options.optInt("max")
+            android.util.Log.d("NativeBridge", "setVideoStreamFps — min=$min max=$max")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.setFps(min, max)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun flipVideoStream(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "flip video stream") {
+            android.util.Log.d("NativeBridge", "flipVideoStream called")
+            mainActivity.runOnUiThread {
+                nativeCameraManager?.flip()
+            }
+        }
+    }
+
     @JavascriptInterface
     fun openCamera(options: String?) {
+        val callId = "openCamera:${android.os.SystemClock.elapsedRealtime()}"
+        BridgeUtils.bridgeCallReceived(callId, "openCamera")
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_CAMERA_ERROR, "open camera") {
             mainActivity.runOnUiThread {
+                BridgeUtils.bridgeCallDispatched(callId)
                 if (CameraUtils.hasCameraPermission(mainActivity)) {
                     launchCamera()
                 } else {
@@ -421,10 +573,13 @@ class NativeBridge(
 
     @JavascriptInterface
     fun getDeviceInfo(options: String?) {
+        val callId = "getDeviceInfo:${android.os.SystemClock.elapsedRealtime()}"
+        BridgeUtils.bridgeCallReceived(callId, "getDeviceInfo")
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_ERROR, "get device info") {
             mainActivity.runOnUiThread {
                 val deviceInfo = DeviceInfoUtils.getDeviceInfo(mainActivity, properties)
                 BridgeUtils.logDebug(TAG, "Device info retrieved: $deviceInfo")
+                BridgeUtils.bridgeCallDispatched(callId)
                 BridgeUtils.notifyWeb(webView, BridgeUtils.WebEvents.ON_DEVICE_INFO_SUCCESS, deviceInfo.toString())
             }
         }
@@ -1043,6 +1198,17 @@ class NativeBridge(
      * Handle permission request results
      */
     fun handlePermissionResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        if (requestCode == NativeCameraManager.PERMISSION_REQUEST_CODE) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val cam = nativeCameraManager
+            if (cam == null) {
+                Log.w(TAG, "handlePermissionResult — nativeCameraManager is null, ignoring camera permission result")
+                return
+            }
+            cam.onPermissionResult(granted)
+            return
+        }
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.NOTIFICATION_PERMISSION_STATUS, "handle permission result") {
             // Delegate to notification manager which handles notification permissions
             notificationManager.getNotificationUtils().handlePermissionResult(requestCode, permissions, grantResults)
@@ -1154,6 +1320,45 @@ class NativeBridge(
     }
 
     @JavascriptInterface
+    fun startTransition(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_TRANSITION_CANCELLED, "start transition") {
+            val options = try {
+                JSONObject(optionsRaw ?: "{}")
+            } catch (e: Exception) {
+                Log.w(TAG, "startTransition — malformed JSON, using defaults: $optionsRaw")
+                JSONObject()
+            }
+
+            val type = options.optString("type", "slide")
+            val direction = options.optString("direction", "left")
+            val duration = options.optInt("duration", 300).coerceIn(0, 2000)
+            val timeout = options.optInt("timeout", maxOf(duration * 3, 800))
+
+            mainActivity.runOnUiThread {
+                transitionManager.startTransition(type, direction, duration, timeout)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun commitTransition(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_TRANSITION_CANCELLED, "commit transition") {
+            mainActivity.runOnUiThread {
+                transitionManager.commitTransition()
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun cancelTransition(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_TRANSITION_CANCELLED, "cancel transition") {
+            mainActivity.runOnUiThread {
+                transitionManager.cancelTransition()
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun getSafeArea(data: String? = null) {
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_SAFE_AREA_INSETS_UPDATED, "get safe area") {
             mainActivity.runOnUiThread {
@@ -1174,6 +1379,34 @@ class NativeBridge(
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Native AI bridge methods — delegated to AIBridge plugin (ServiceLoader)
+    // -------------------------------------------------------------------------
+
+    @JavascriptInterface
+    fun isAIAvailable(): Boolean = aiBridge != null
+
+    @JavascriptInterface
+    fun initAI(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "initialize AI") {
+            aiBridge?.javaClass?.getMethod("initAI", String::class.java)?.invoke(aiBridge, optionsRaw)
+        }
+    }
+
+    @JavascriptInterface
+    fun generateNative(optionsRaw: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "generate with native AI") {
+            aiBridge?.javaClass?.getMethod("generateNative", String::class.java)?.invoke(aiBridge, optionsRaw)
+        }
+    }
+
+    @JavascriptInterface
+    fun clearNativeConversation() {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "clear native conversation") {
+            aiBridge?.javaClass?.getMethod("clearConversation")?.invoke(aiBridge)
+        }
+    }
+
     /**
      * Cleanup method to be called when the bridge is being destroyed
      */
@@ -1183,6 +1416,13 @@ class NativeBridge(
         try {
             // Cleanup NotificationManager
             notificationManager.cleanup()
+
+            // Cancel any in-flight transition and release overlay
+            transitionManager.cleanup()
+
+            // Stop video stream
+            nativeCameraManager?.cleanup()
+            nativeCameraManager = null
 
             // Stop network monitoring
             networkMonitor?.stop()

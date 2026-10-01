@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 import UniformTypeIdentifiers
+import CatalystCoreLogic
 @testable import CatalystCore
 
 /**
@@ -358,7 +359,7 @@ class MockFilePickerDelegate: FilePickerHandlerDelegate {
     var didFailWithError: Error?
     var stateChanges: [String] = []
 
-    func filePickerHandler(_ handler: FilePickerHandler, didFinishWith payload: [String : Any]) {
+    func filePickerHandler(_ handler: FilePickerHandler, didFinishWith payload: [String: Any]) {
         didFinishPayload = payload
     }
 

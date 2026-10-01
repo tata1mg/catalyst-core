@@ -21,6 +21,10 @@ This page provides an overview of the project structure of a Catalyst app.
 | `public` | Static assets served as-is (favicons, manifests, `offline.html`) |
 | `build` | Bundled output (generated after build) |
 
+In Catalyst `0.3.x`, `build/client` contains browser assets and `build/server` contains the Vite SSR
+renderer. Legacy `0.2.x` applications use the webpack-era output layout documented in their
+deployment configuration.
+
 ---
 
 ## Configuration Files

@@ -1,15 +1,25 @@
 #!/usr/bin/env node
-const { execSync } = require("child_process")
+const { execFileSync, execSync } = require("child_process")
 const Commander = require("commander")
 const { Option } = require("commander")
 const prompts = require("prompts")
-const { red, green, cyan, bold } = require("picocolors")
+const { red, green, cyan, bold } = require("ansis")
 const tar = require("tar")
 const path = require("path")
 const fs = require("fs")
 var validate = require("validate-npm-package-name")
 const packageJson = require("../package.json")
+const { CCAError, createError, wrapForeignError, formatError, resolveOutputMode, getDebugEnvInfo } = require("./errors.cjs")
+const outputMode = resolveOutputMode(process.argv)
+// Colored (red) prefix only applies in default mode — verbose/debug boxes
+// own their coloring internally (see errors.cjs#box).
+const printError = (err) => {
+    const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
+    const formatted = formatError(err, outputMode, debugEnv)
+    console.error(outputMode === "default" ? red(formatted) : formatted)
+}
 const packageRoot = path.join(__dirname, "..")
+const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)
 
 let projectName = null
 const program = new Commander.Command()
@@ -64,13 +74,21 @@ const program = new Commander.Command()
             const projectName = config.folderName || (await promptProjectName())
             let isNameValid = validate(projectName)
             if (!isNameValid.validForNewPackages) {
-                isNameValid?.warnings?.forEach?.((item) => console.log(red(item)))
-                isNameValid?.errors?.forEach?.((item) => console.log(red(item)))
+                const reasons = [...(isNameValid?.warnings || []), ...(isNameValid?.errors || [])]
+                printError(
+                    createError("CCA-001", {
+                        details: reasons.length ? reasons.join("; ") : undefined,
+                    })
+                )
                 process.exit(1)
             }
             let projectPath = path.join(process.cwd(), projectName)
             if (fs.existsSync(projectPath)) {
-                console.log(red(`${projectName} already exists, try again.`))
+                printError(
+                    createError("CCA-002", {
+                        message: `${projectName} already exists, try again.`,
+                    })
+                )
                 process.exit(1)
             }
             const projectDescription = config.description || (await promptDescription())
@@ -152,7 +170,8 @@ const program = new Commander.Command()
                         runMcpSetup(newMcpDir, path.join(process.cwd(), projectName))
                     }
                 } catch (error) {
-                    console.error(`Error: ${error.message}`)
+                    const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
+                    printError(catalystError)
                     process.exit(1)
                 } finally {
                     deleteDirectory(tempDir)
@@ -160,23 +179,30 @@ const program = new Commander.Command()
             })()
             function packNpmPackage(packageName, packageVersion, tempDir) {
                 const tarballFileName = `${packageName}-${packageVersion}.tgz`
-                const tarballFilePath = path.join(tempDir, tarballFileName)
+                const tarballFilePath = `${tempDir}${path.sep}${tarballFileName}`
 
                 try {
                     if (process.env.CREATE_CATALYST_APP_PACK_SOURCE === "local") {
-                        execSync(`npm pack --pack-destination="${tempDir}" --silent`, {
-                            cwd: packageRoot,
-                        })
+                        execFileSync(
+                            executable("npm"),
+                            ["pack", `--pack-destination=${tempDir}`, "--silent"],
+                            {
+                                cwd: packageRoot,
+                            }
+                        )
                     } else {
-                        execSync(`npm pack ${packageName}@${packageVersion} --silent`, {
-                            cwd: tempDir,
-                        })
+                        execFileSync(
+                            executable("npm"),
+                            ["pack", `${packageName}@${packageVersion}`, "--silent"],
+                            {
+                                cwd: tempDir,
+                            }
+                        )
                     }
 
                     return tarballFilePath
                 } catch (error) {
-                    console.error(`Error packing npm package: ${error.message}`)
-                    throw error
+                    throw createError("CCA-006", { cause: error })
                 }
             }
 
@@ -193,32 +219,31 @@ const program = new Commander.Command()
                     tar.extract({
                         file: packageFilePath,
                         sync: true,
-                        filter: (path, entry) => {
-                            return subDirectoriesToExtract.reduce((acc, item) => {
-                                return acc || path.startsWith(item)
-                            }, false)
-                        },
                         cwd: path.join(process.cwd()),
-                        onentry: (entry) => {
+                        filter: (entryPath, entry) => {
+                            const shouldExtract = subDirectoriesToExtract.reduce((acc, item) => {
+                                return acc || entryPath.startsWith(item)
+                            }, false)
+                            if (!shouldExtract) return false
                             if (entry.path.startsWith(commonCodeDirectory)) {
                                 entry.path = entry.path.replace(commonCodeDirectory, extractionDestination)
-                            }
-                            if (entry.path.startsWith(selectedTemplateCode)) {
+                            } else if (entry.path.startsWith(selectedTemplateCode)) {
                                 entry.path = entry.path.replace(selectedTemplateCode, extractionDestination)
-                            }
-                            if (entry.path.startsWith(tailwindCodeDirectory)) {
+                            } else if (entry.path.startsWith(tailwindCodeDirectory)) {
                                 entry.path = entry.path.replace(tailwindCodeDirectory, extractionDestination)
                             }
+                            return true
                         },
                     })
                 } catch (e) {
-                    console.log("An error occurred", e)
+                    throw createError("CCA-007", { cause: e })
                 }
 
                 console.log(cyan(`Run cd ${projectName} && npm start to get started.`))
             }
         } catch (error) {
-            console.error(red("An error occurred:"), error.message)
+            const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
+            printError(catalystError)
             process.exit(1)
         }
     })
@@ -253,7 +278,8 @@ program
 
             runMcpSetup(mcpDir)
         } catch (error) {
-            console.error(red("An error occurred:"), error.message)
+            const catalystError = error instanceof CCAError ? error : createError("CCA-008", { cause: error })
+            printError(catalystError)
             process.exit(1)
         }
     })
@@ -261,12 +287,12 @@ program
 program.parse(process.argv)
 
 function runMcpSetup(mcpDir, cwd = process.cwd()) {
-    const pkgPath = path.join(mcpDir, "package.json")
+    const pkgPath = `${mcpDir}${path.sep}package.json`
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
     pkg.dependencies["better-sqlite3"] = "^12.8.0"
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2))
 
-    const mcpNodeModules = path.join(mcpDir, "node_modules")
+    const mcpNodeModules = `${mcpDir}${path.sep}node_modules`
     let needsInstall = !fs.existsSync(mcpNodeModules)
 
     if (!needsInstall) {
@@ -284,7 +310,7 @@ function runMcpSetup(mcpDir, cwd = process.cwd()) {
         execSync("npm install", { cwd: mcpDir, stdio: "inherit" })
     }
 
-    execSync(`node ${path.join(mcpDir, "setup.js")}`, { cwd, stdio: "inherit" })
+    execFileSync(process.execPath, [`${mcpDir}${path.sep}setup.js`], { cwd, stdio: "inherit" })
 }
 
 async function promptStateManagement() {
@@ -381,23 +407,23 @@ async function promptMcp() {
 function validateOptions(cmd) {
     // Validate language option
     if (cmd.lang && !["js", "ts"].includes(cmd.lang.toLowerCase())) {
-        throw new Error('Invalid language option. Use "js" or "ts".')
+        throw createError("CCA-003")
     }
 
     // Validate state management option
     if (cmd.stateManagement && !["rtk", "redux", "none"].includes(cmd.stateManagement.toLowerCase())) {
-        throw new Error('Invalid state management option. Use "rtk", "redux", or "none".')
+        throw createError("CCA-004")
     }
 
     if (cmd.yes && typeof cmd.yes !== "boolean") {
-        throw new Error('Invalid option for "yes". Use "-y" or "--yes" to accept defaults.')
+        throw createError("CCA-005")
     }
 }
 
 function deleteDirectory(dirPath) {
     if (dirPath && fs.existsSync(dirPath)) {
         fs.readdirSync(dirPath).forEach((file) => {
-            const currentPath = path.join(dirPath, file)
+            const currentPath = `${dirPath}${path.sep}${file}`
             if (fs.lstatSync(currentPath).isDirectory()) {
                 deleteDirectory(currentPath)
             } else {
@@ -412,10 +438,10 @@ function deleteDirectory(dirPath) {
 function createGitignore(projectName) {
     const gitiIgnorePatterns = ["node_modules", "build", "logs"]
 
-    const gitignorePath = path.join(process.cwd(), projectName, ".gitignore")
+    const gitignorePath = `${process.cwd()}${path.sep}${projectName}${path.sep}.gitignore`
 
     if (fs.existsSync(gitignorePath)) {
-        console.log(".gitignore already exists. Please rename or remove it before running the script.")
+        printError(createError("CCA-009"))
         return
     }
 

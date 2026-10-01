@@ -25,6 +25,8 @@ const build = require("./tools/build")
 const tasks = require("./tools/tasks")
 const sync = require("./tools/sync")
 const knowledge = require("./tools/knowledge")
+const github = require("./tools/github")
+const errors = require("./tools/errors")
 
 const MCP_DIR = __dirname
 const DB_PATH = path.join(MCP_DIR, "context.db")
@@ -61,21 +63,53 @@ if (projectInfo.notInstalled) {
     process.exit(1)
 }
 
-if (!fs.existsSync(DB_PATH)) {
+const dbMissing = !fs.existsSync(DB_PATH)
+const dbEmpty = !dbMissing && fs.statSync(DB_PATH).size === 0
+
+if (dbMissing || dbEmpty) {
+    try {
+        require("./setup")
+    } catch (setupErr) {
+        process.stderr.write(
+            JSON.stringify({
+                jsonrpc: "2.0",
+                error: {
+                    code: -32000,
+                    message: `context.db ${dbEmpty ? "is empty" : "not found"} at ${DB_PATH}. Auto-setup failed: ${setupErr.message}. Run manually: node ${path.join(MCP_DIR, "setup.js")}`,
+                },
+                id: null,
+            }) + "\n"
+        )
+        // process.exit(1) instead of exitCode+return: this is top-level script code
+        // (not inside a function), and ESLint here rejects top-level return even
+        // though Node's CommonJS wrapper allows it. Matches the exit pattern used
+        // by the other startup-validation failures above (L49, L62).
+        process.exit(1)
+    }
+}
+
+let db
+try {
+    db = new Database(DB_PATH, { readonly: false })
+} catch (e) {
+    const isVersionMismatch =
+        e.code === "ERR_DLOPEN_FAILED" ||
+        e.message.includes("compiled against a different Node.js version") ||
+        e.message.includes("NODE_MODULE_VERSION")
     process.stderr.write(
         JSON.stringify({
             jsonrpc: "2.0",
             error: {
                 code: -32000,
-                message: `context.db not found at ${DB_PATH}. Run setup first: node ${path.join(MCP_DIR, "setup.js")}`,
+                message: isVersionMismatch
+                    ? `Native module mismatch for Node ${process.version}. Run: npm rebuild better-sqlite3`
+                    : `Failed to open context.db: ${e.message}`,
             },
             id: null,
         }) + "\n"
     )
     process.exit(1)
 }
-
-const db = new Database(DB_PATH, { readonly: false })
 const CONVERSION_TASKS = JSON.parse(fs.readFileSync(TASKS_PATH, "utf8"))
 
 // ── Module init ───────────────────────────────────────────────────────────────
@@ -87,6 +121,8 @@ build.init(db)
 tasks.init(db)
 sync.init(db)
 knowledge.init(db)
+github.init(projectInfo)
+errors.init()
 
 // ── Intent classification (internal, not exposed as tool) ─────────────────────
 
@@ -97,8 +133,11 @@ const INTENT_PATTERNS = {
     guidance:
         /\b(what\s+is|what\s+are|how\s+does|how\s+do|explain|show\s+me|tell\s+me|hook|api|usage|example)\b/i,
     status: /status|done|complet|finish|check.*config|config.*check|what.*(left|remain|todo|next|pending)|how far|progress/i,
+    // feedback = wants to raise an issue, PR, or discussion on GitHub
+    feedback:
+        /\b(issue|bug\s+report|report\s+(a\s+)?bug|open\s+(an?\s+)?issue|create\s+(an?\s+)?issue|raise\s+(an?\s+)?issue|pull\s*request|open\s+(a\s+)?pr|raise\s+(a\s+)?pr|create\s+(a\s+)?pr|discussion|discuss|feature\s+request|proposal|suggest)\b/i,
     debug: /error|fail|broken|not work|crash|issue|bug|why|wrong/i,
-    build: /build|compile|webpack|bundle|android|ios|platform/i,
+    build: /build|compile|webpack|vite|bundle|android|ios|platform/i,
     sync: /sync|update.*doc|fetch.*doc|latest.*doc/i,
 }
 
@@ -110,6 +149,8 @@ const INTENT_NEXT_ACTION = {
     debug: "answer_only — provide debug guidance. Do NOT call create_task_plan.",
     build: "answer_only — explain build flow. Do NOT call create_task_plan.",
     sync: "answer_only — sync complete. Do NOT call create_task_plan.",
+    feedback:
+        "answer_only — run the GitHub issue or PR workflow and show the created URL or markdown fallback. Do NOT call create_task_plan.",
     unknown: "answer_only — unclear intent. Return what you found. Do NOT call create_task_plan.",
 }
 
@@ -134,7 +175,7 @@ const TOOLS = [
     {
         name: "get_conversion_tasks",
         description:
-            "Use when the developer asks: 'what do I need to convert?', 'what's left to do?', 'show me pending tasks', 'what do I fix next?', 'give me a fix guide'. Runs live detection on project files and returns only the tasks relevant to THIS project (features it actually uses). Not-applicable tasks (features the project doesn't use) are hidden by default.",
+            "Use when the developer asks: 'what do I need to convert?', 'what's left to do?', 'show me pending tasks', 'what do I fix next?', or asks to migrate between Catalyst versions. Detects the installed catalyst-core generation and keeps legacy 0.2.x webpack/router guidance separate from current 0.3.x Vite/integrated-router guidance.",
         inputSchema: {
             type: "object",
             properties: {
@@ -159,7 +200,7 @@ const TOOLS = [
     {
         name: "get_conversion_status",
         description:
-            "Use when the developer asks: 'how far along am I?', 'what have I completed?', 'show my conversion progress', 'what's done vs pending?'. Auto-detects which tasks apply to THIS project based on what web features it actually uses. Tasks for unused features are not_applicable and hidden by default.",
+            "Use when the developer asks: 'how far along am I?', 'what have I completed?', 'show my conversion progress', or 'what's done vs pending?'. Reports the detected Catalyst generation so 0.2.x and 0.3.x requirements are never mixed.",
         inputSchema: {
             type: "object",
             properties: {
@@ -196,6 +237,21 @@ const TOOLS = [
         },
     },
     {
+        name: "explain_error",
+        description:
+            "Use when the developer has a specific catalyst-core error code (e.g. 'PREFLIGHT-001', 'BUNDLE-000') and wants to know what it means and how to fix it. Looks it up against the generated errors/ registry. If the code isn't catalyst-owned (e.g. a raw Vite/Rollup/Gradle/Xcode code), says so rather than guessing — those are not reinterpreted.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                code: {
+                    type: "string",
+                    description: "The error code to explain, e.g. 'PREFLIGHT-001'.",
+                },
+            },
+            required: ["code"],
+        },
+    },
+    {
         name: "check_config",
         description:
             "Use when the developer asks: 'is my config correct?', 'check my WEBVIEW_CONFIG', 'validate my setup', 'what's wrong with my config?'. Reads WEBVIEW_CONFIG from the project and validates required fields for both platforms.",
@@ -217,7 +273,7 @@ const TOOLS = [
     {
         name: "get_build_flow",
         description:
-            "Use when the developer asks about building, serving, or deploying — e.g. 'how do I build for android?', 'walk me through the release build', 'how do I serve in production?', 'my android build is failing', 'how does the iOS debug build work?'. Returns step-by-step build flow adapted to the project's actual config, with warnings for missing config and related known errors.",
+            "Use when the developer asks about building, serving, or deploying. Returns version-aware flows: webpack-era behavior for Catalyst 0.2.x and Vite client/server behavior for Catalyst 0.3.x+, plus project config warnings and related known errors.",
         inputSchema: {
             type: "object",
             properties: {
@@ -380,6 +436,7 @@ const TOOLS = [
                         "seo_metadata",
                         "transport_architecture",
                         "webview_config",
+                        "version_migration",
                     ],
                     description:
                         "Optional: only pass when you are certain of the section. Omit if unsure — wrong section returns zero results.",
@@ -399,15 +456,271 @@ const TOOLS = [
         },
     },
     {
-        name: "sync_catalyst_docs",
+        name: "sync_knowledge_base",
         description:
-            "Use when the developer asks: 'sync docs', 'update framework knowledge', 'fetch latest catalyst docs'. Intent: sync. Fetches changelog and template diffs, updates the KB. Maintenance only — no task planning needed after.",
+            "Use when the developer asks: 'sync docs', 'update framework knowledge', 'fetch latest catalyst docs'. Intent: sync. Pulls the latest knowledge-base.json from tata1mg/catalyst-core@main and re-seeds the KB. Maintenance only — no task planning needed after.",
         inputSchema: {
             type: "object",
             properties: {
                 force: {
                     type: "boolean",
                     description: "Force re-fetch all pages even if unchanged. Defaults to false.",
+                },
+            },
+        },
+    },
+    {
+        name: "create_github_issue",
+        description:
+            "Use when the developer wants to create, raise, report, preview, or publish a GitHub issue for catalyst-core, or after the LLM discovers that a problem is likely caused by catalyst-core framework behavior and the developer agrees to raise an issue. This single tool first asks the developer to select labels when labels are omitted. After labels are supplied, it gathers project context, renders the issue using the selected/suggested template, searches duplicates using duplicate_search_query when provided, supports preview with dry_run:true, publishes only when dry_run:false is explicitly passed, and falls back to a markdown draft on auth/network/API failure. Default to dry_run:true first; if label_selection_required is returned, ask the developer to select labels before collecting/rendering the rest of the issue. Intent: feedback.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                dry_run: {
+                    type: "boolean",
+                    description:
+                        "Defaults to true. When true, returns rendered preview, labels, duplicate candidates, and gathered context without publishing. Pass false only after explicit developer approval.",
+                },
+                project_path: {
+                    type: "string",
+                    description: "Path to the catalyst app root. Defaults to detected project root.",
+                },
+                title: {
+                    type: "string",
+                    description:
+                        "Short, descriptive issue title. E.g. 'RouterDataProvider fails on nested dynamic routes'.",
+                },
+                body: {
+                    type: "string",
+                    description:
+                        "Full issue description. Plain text is upgraded into the catalyst-core issue style; already structured markdown is preserved.",
+                },
+                summary: {
+                    type: "string",
+                    description: "Structured issue summary if body is not already composed.",
+                },
+                issue_template: {
+                    type: "string",
+                    enum: ["bug", "enhancement", "documentation", "dependencies", "question"],
+                    description:
+                        "Optional template to force. Use bug for broken behavior, enhancement for feature requests, documentation for docs/examples, dependencies for package updates, question for clarification.",
+                },
+                current_behavior: {
+                    type: "string",
+                    description: "What happens today.",
+                },
+                steps_to_reproduce: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Steps to reproduce the issue.",
+                },
+                expected_behavior: {
+                    type: "string",
+                    description: "What should happen.",
+                },
+                actual_behavior: {
+                    type: "string",
+                    description: "What actually happens.",
+                },
+                error_logs: {
+                    type: "string",
+                    description: "Error logs or stack traces.",
+                },
+                preflight_checklist: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                        "Optional checklist items for bug reports. Defaults to searched issues, single issue, and included repro/environment/logs.",
+                },
+                what_i_tried: {
+                    type: "string",
+                    description: "Troubleshooting already attempted.",
+                },
+                additional_information: {
+                    type: "string",
+                    description: "Additional context that does not fit the primary sections.",
+                },
+                related_issues: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Related GitHub issues or links.",
+                },
+                root_cause: {
+                    type: "string",
+                    description: "Technical notes or suspected root cause.",
+                },
+                proposed_fix: {
+                    type: "string",
+                    description: "Concrete suggested fix.",
+                },
+                optional_followups: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Follow-up cleanup, docs, or test suggestions.",
+                },
+                environment: {
+                    type: "object",
+                    description:
+                        "Environment details such as platform, OS, browser, device, Node/npm versions.",
+                },
+                labels: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                        "Required after the initial label-selection step. Valid catalyst-core labels: bug, dependencies, documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix. If omitted, the tool returns label_selection_required and does not gather context, render a full preview, search duplicates, or publish.",
+                },
+                images: {
+                    type: "array",
+                    items: { type: "object" },
+                    description:
+                        "Optional image URLs or local image paths. URLs are embedded directly; local paths are preserved for fallback/manual upload.",
+                },
+                duplicate_search_query: {
+                    type: "string",
+                    description:
+                        "Optional focused search query for duplicate detection, supplied by the LLM from the issue context. Use the same query reviewed in the dry_run:true preview.",
+                },
+                duplicate_review_confirmed: {
+                    type: "boolean",
+                    description:
+                        "Set true only after a dry_run:true preview or blocked publish returned duplicate candidates, those candidates were shown to the developer, and the developer explicitly confirmed this issue is distinct and should still be published.",
+                },
+                sensitive_data_confirmed: {
+                    type: "boolean",
+                    description:
+                        "Set true only after a dry_run:true preview or blocked publish returned sensitive_data_review.required_before_publish=true, the config/sensitive-looking data warning and rendered issue preview were shown to the developer, and the developer explicitly confirmed this data may be posted to GitHub.",
+                },
+                duplicate_review_note: {
+                    type: "string",
+                    description:
+                        "Optional short note explaining why the issue is not a duplicate, after the developer confirms publishing.",
+                },
+                files: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional explicit project files to include as context snippets.",
+                },
+                _query: {
+                    type: "string",
+                    description: "Original user query for intent classification.",
+                },
+            },
+        },
+    },
+    {
+        name: "create_github_pr",
+        description:
+            "Use when the developer wants to open, raise, create, or publish a GitHub pull request for catalyst-core. Resolves the head branch from the current git checkout (or the head arg), renders the PR body in the shape of the matching .github/PULL_REQUEST_TEMPLATE (fix / feature / chore) from the structured fields, appends the shared checklist, and previews with dry_run:true. Publishes via the GitHub API only when dry_run:false is explicitly passed, and only if the head branch is already pushed to origin (it does not push for you). Default to dry_run:true first. Intent: feedback.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                dry_run: {
+                    type: "boolean",
+                    description:
+                        "Defaults to true. When true, returns the rendered PR preview (title, head → base, change type, body, commits ahead of base) without publishing. Pass false only after explicit developer approval.",
+                },
+                change_type: {
+                    type: "string",
+                    enum: ["fix", "feature", "chore"],
+                    description:
+                        "Which PR template to render. Omit to infer from the title/summary. fix = bug fix, feature = new capability, chore = no behaviour change (deps, CI, refactor, docs).",
+                },
+                title: {
+                    type: "string",
+                    description:
+                        "PR title. Use a conventional-commit prefix (fix: / feat: / chore:) to match the repo's commitlint config.",
+                },
+                body: {
+                    type: "string",
+                    description:
+                        "Full PR description. Already-structured markdown (with ## headings) is preserved as-is; plain text and the structured fields below are laid out in the template's section order.",
+                },
+                summary: {
+                    type: "string",
+                    description:
+                        "One or two sentences on what the PR changes. Used when body is not composed.",
+                },
+                head: {
+                    type: "string",
+                    description:
+                        "Head branch. Defaults to the current branch (git rev-parse --abbrev-ref HEAD).",
+                },
+                base: {
+                    type: "string",
+                    description:
+                        "Base branch to merge into. Defaults to 'main'. Pass the epic/story branch when the PR rides a stack (e.g. epic/329).",
+                },
+                draft: {
+                    type: "boolean",
+                    description: "Open as a draft PR. Defaults to true.",
+                },
+                closes_issue: {
+                    type: ["string", "number"],
+                    description:
+                        "Issue number this PR closes. Renders a 'Closes #<n>' line at the top of the body.",
+                },
+                root_cause: {
+                    type: "string",
+                    description:
+                        "fix: what was actually wrong, at the level of the offending line or contract.",
+                },
+                repro: {
+                    type: "string",
+                    description:
+                        "fix: minimal steps or the failing input that triggered the bug before this change.",
+                },
+                fix: {
+                    type: "string",
+                    description: "fix: what this PR changes and why that closes the root cause.",
+                },
+                regression_test: {
+                    type: "string",
+                    description:
+                        "fix: the test added that fails without the fix and passes with it, or why none was added.",
+                },
+                affected_error_codes: {
+                    type: "string",
+                    description:
+                        "fix: CatalystError codes whose behaviour or wording this touches, or 'none'.",
+                },
+                what: {
+                    type: "string",
+                    description: "feature: the capability being added, in one or two sentences.",
+                },
+                why: {
+                    type: "string",
+                    description: "feature: the problem it solves or the use case it unblocks.",
+                },
+                new_error_codes: {
+                    type: "string",
+                    description:
+                        "feature: new CatalystError code(s) introduced + confirmation errors/ docs were regenerated (node packages/catalyst-core/src/errors/generateDocs.js), or 'No new error codes'.",
+                },
+                coverage_delta: {
+                    type: "string",
+                    description: "feature: what is now covered that was not, and the delta if known.",
+                },
+                change_trigger: {
+                    type: "string",
+                    description:
+                        "chore: what triggered this — dependency bump, CI tweak, flaky job, refactor, doc drift.",
+                },
+                change: {
+                    type: "string",
+                    description: "chore: what this PR does.",
+                },
+                no_behaviour_change: {
+                    type: ["boolean", "string"],
+                    description:
+                        "chore: pass true to check the 'no runtime behaviour change' confirmation box in the rendered body.",
+                },
+                project_path: {
+                    type: "string",
+                    description: "Path to the catalyst repo root. Defaults to detected project root.",
+                },
+                _query: {
+                    type: "string",
+                    description: "Original user query for intent classification.",
                 },
             },
         },
@@ -427,8 +740,11 @@ const TOOL_HANDLERS = {
     update_task_step: tasks.handle_update_task_step,
     get_active_task: tasks.handle_get_active_task,
     close_task_plan: tasks.handle_close_task_plan,
-    sync_catalyst_docs: sync.handle_sync_catalyst_docs,
+    sync_knowledge_base: sync.handle_sync_knowledge_base,
     query_knowledge: knowledge.handle_query_knowledge,
+    create_github_issue: github.handle_create_github_issue,
+    create_github_pr: github.handle_create_github_pr,
+    explain_error: errors.handle_explain_error,
 }
 
 // ── MCP JSON-RPC over stdio ───────────────────────────────────────────────────
@@ -496,7 +812,7 @@ rl.on("line", (line) => {
                                 text: JSON.stringify({
                                     error: "out_of_scope",
                                     message:
-                                        "This query is outside Catalyst MCP scope. MCP handles: conversion tracking, debugging, config validation, build flow, architecture, task planning, and doc sync.",
+                                        "This query is outside Catalyst MCP scope. MCP handles: conversion tracking, debugging, config validation, build flow, architecture, task planning, doc sync, and GitHub issue creation.",
                                 }),
                             },
                         ],

@@ -1,5 +1,6 @@
 import XCTest
 import WebKit
+import CatalystCoreLogic
 @testable import CatalystCore
 
 /**
@@ -384,6 +385,19 @@ final class BridgeMessageValidatorTests: XCTestCase {
         // openCamera with nil data should pass validation (flexible command)
         XCTAssertTrue(result.isValid, "Command with missing data field should pass for flexible commands")
         XCTAssertEqual(result.command, "openCamera")
+    }
+
+    func testTraceExportAvailabilityRequiresDebugProfiler() {
+        XCTAssertTrue(CatalystConstants.Bridge.isTraceExportEnabled(debugBuild: true, profilerEnabled: true))
+        XCTAssertFalse(CatalystConstants.Bridge.isTraceExportEnabled(debugBuild: false, profilerEnabled: true))
+        XCTAssertFalse(CatalystConstants.Bridge.isTraceExportEnabled(debugBuild: true, profilerEnabled: false))
+    }
+
+    func testTraceExportAllowlistMatchesAvailabilityGate() {
+        XCTAssertEqual(
+            CatalystConstants.Bridge.validCommands.contains("exportCatalystTrace"),
+            CatalystConstants.Bridge.isTraceExportEnabled()
+        )
     }
 
     // ========================================

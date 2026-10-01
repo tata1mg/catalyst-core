@@ -1,6 +1,9 @@
 {
     "name": "catalyst-monorepo",
     "private": true,
+    "engines": {
+        "node": ">=22.22.2"
+    },
     "workspaces": [
         "packages/*"
     ],
@@ -13,11 +16,26 @@
         "cca:sync-templates": "node scripts/release/sync-cca-templates.js",
         "docs:build": "npm --prefix docs run build",
         "docs:start": "npm --prefix docs run start",
+        "test:example": "sh ./scripts/test-all.sh",
+        "test:release": "node --test \"scripts/release/*.test.js\"",
+        "test:unit": "npm run test --workspaces --if-present && npm --prefix packages/catalyst-core/mcp_v2 test && npm run test:release",
         "lint": "npm run lint --workspaces --if-present",
+        "lint:oxlint": "oxlint . --quiet",
         "lint-staged": "lint-staged"
     },
     "devDependencies": {
+        "@vitest/coverage-v8": "4.1.11",
+        "esbuild": "^0.28.2",
+        "express": "^4.22.3",
         "husky": "^9.0.11",
-        "lint-staged": "^15.2.2"
+        "lint-staged": "^15.2.2",
+        "oxlint": "1.79.0",
+        "semver": "^7.7.0",
+        "vitest": "4.1.11"
+    },
+    "overrides": {
+        "uuid": "11.1.1",
+        "file-type": "22.0.1",
+        "imagemin": "9.0.1"
     }
 }

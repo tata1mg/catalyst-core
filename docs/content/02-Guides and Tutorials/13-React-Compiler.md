@@ -1,10 +1,16 @@
 ---
-title: React Compiler
+title: Legacy React Compiler Configuration (0.2.x)
 slug: react-compiler
 id: react-compiler
 ---
 
-# React Compiler
+# Legacy React Compiler Configuration (Catalyst 0.2.x)
+
+:::warning Version scope
+This page documents the webpack integration available in Catalyst `0.2.x`. Catalyst `0.3.x` does
+not expose the legacy `reactCompiler` option through its Vite plugin hook. Do not copy this
+configuration into `buildConfig.js`.
+:::
 
 React Compiler is a build-time optimization feature that can be enabled through `webpackConfig.js`. Treat it as an explicit build choice and validate it against your application rather than enabling it blindly.
 

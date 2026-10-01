@@ -5,6 +5,8 @@ import android.webkit.WebView
 import io.yourname.androidproject.CatalystConstants
 import org.json.JSONObject
 import android.os.Looper
+import android.os.SystemClock
+import io.yourname.androidproject.BuildConfig
 
 /**
  * Common utilities for native bridge operations
@@ -76,17 +78,91 @@ object BridgeUtils {
         // Safe area events
         ON_SAFE_AREA_INSETS_UPDATED("ON_SAFE_AREA_INSETS_UPDATED"),
 
+        // Video stream events
+        ON_VIDEO_STREAM_READY("ON_VIDEO_STREAM_READY"),
+        ON_VIDEO_STREAM_STOPPED("ON_VIDEO_STREAM_STOPPED"),
+        ON_QR_DETECTED("ON_QR_DETECTED"),
+        ON_TORCH_CHANGED("ON_TORCH_CHANGED"),
+        ON_ZOOM_CHANGED("ON_ZOOM_CHANGED"),
+
         // Security events
         ON_SCREEN_SECURE_SET("ON_SCREEN_SECURE_SET"),
         ON_SCREEN_SECURE_STATUS("ON_SCREEN_SECURE_STATUS"),
         ON_SCREEN_SECURE_ERROR("ON_SCREEN_SECURE_ERROR"),
         ON_WEB_DATA_CLEARED("ON_WEB_DATA_CLEARED"),
         ON_WEB_DATA_CLEAR_ERROR("ON_WEB_DATA_CLEAR_ERROR"),
+
+        // Transition events
+        ON_TRANSITION_COMMITTED("ON_TRANSITION_COMMITTED"),
+        ON_TRANSITION_CANCELLED("ON_TRANSITION_CANCELLED"),
+        ON_TRANSITION_TIMEOUT("ON_TRANSITION_TIMEOUT"),
+
+        // Native AI events
+        ON_AI_READY("ON_AI_READY"),
+        ON_AI_ERROR("ON_AI_ERROR"),
+        ON_AI_TOKEN("ON_AI_TOKEN"),
+        ON_AI_DONE("ON_AI_DONE"),
+        ON_AI_PROGRESS("ON_AI_PROGRESS"),
+        ON_AI_LOG("ON_AI_LOG"),
+
+        // Perf telemetry
+        CATALYST_PERF_EVENT("CATALYST_PERF_EVENT"),
     }
     
     /**
+     * Emit a performance event directly to WebPerfCollector via
+     * window.__catalystPerfEvent(). Bypasses the WebBridge callback system
+     * to keep perf overhead minimal — no JS parsing, no handler lookup.
+     *
+     * Must be called from any thread — posts to main thread automatically.
+     *
+     * @param webView The WebView instance
+     * @param payload JSONObject with at minimum a "type" field
+     */
+    fun emitPerfEvent(webView: WebView, payload: JSONObject) {
+        if (!PerfEventBuffer.isEnabled()) return
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            // Capture caller thread name before marshalling to main thread
+            if (!payload.has("emitThread")) {
+                payload.put("emitThread", Thread.currentThread().name)
+            }
+            webView.post { emitPerfEvent(webView, payload) }
+            return
+        }
+        try {
+            // Use JSON.parse inside the JS call so we never deal with quote escaping
+            val jsonStr = payload.toString().replace("\\", "\\\\").replace("'", "\\'")
+            webView.evaluateJavascript("window.__catalystPerfEvent && window.__catalystPerfEvent('$jsonStr')", null)
+        } catch (e: Exception) {
+            Log.e(TAG, "emitPerfEvent failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Record that a @JavascriptInterface method was invoked (t0).
+     * Pair with bridgeCallDispatched() at notifyWeb() call site.
+     * No-op in release builds.
+     *
+     * @param callId  Unique identifier for this call (e.g. "getDeviceInfo:<timestamp>")
+     * @param method  Human-readable method name for ApiCollector.js
+     */
+    fun bridgeCallReceived(callId: String, method: String) {
+        if (!BuildConfig.DEBUG) return
+        PerfEventBuffer.bridgeCallReceived(callId, method)
+    }
+
+    /**
+     * Record that native dispatched the callback back to JS (t1).
+     * Must be called just before (or just after) notifyWeb().
+     */
+    fun bridgeCallDispatched(callId: String) {
+        if (!BuildConfig.DEBUG) return
+        PerfEventBuffer.bridgeCallDispatched(callId)
+    }
+
+    /**
      * Send a callback to the web layer
-     * 
+     *
      * @param webView The WebView instance
      * @param event The web event to send
      * @param data The data to send (can be null)
@@ -99,13 +175,25 @@ object BridgeUtils {
         }
 
         try {
-            val safeData = data?.replace("'", "\\'") ?: ""
             val jsCode = if (data != null) {
-                "window.WebBridge.callback('${event.eventName}', '$safeData')"
+                // If data looks like a JSON object or array, inject it raw (with U+2028/U+2029
+                // escaping) so the JS side receives a live value rather than a double-encoded string.
+                // Otherwise wrap with JSONObject.quote() to produce a safe JS string literal.
+                val trimmed = data.trimStart()
+                if ((trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+                    (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+                    val safeData = data
+                        .replace(" ", "\\u2028")
+                        .replace(" ", "\\u2029")
+                    "window.WebBridge.callback('${event.eventName}', $safeData)"
+                } else {
+                    val quotedData = org.json.JSONObject.quote(data)
+                    "window.WebBridge.callback('${event.eventName}', $quotedData)"
+                }
             } else {
                 "window.WebBridge.callback('${event.eventName}', null)"
             }
-            
+
             webView.evaluateJavascript(jsCode, null)
             Log.d(TAG, "✅ Web notification sent: ${event.eventName}")
         } catch (e: Exception) {
@@ -146,9 +234,21 @@ object BridgeUtils {
      * @param jsonData The JSON object to send
      */
     fun notifyWebJson(webView: WebView, event: WebEvents, jsonData: JSONObject) {
+        // Ensure WebView interactions happen on the main thread
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            webView.post { notifyWebJson(webView, event, jsonData) }
+            return
+        }
+
         try {
-            val jsonString = jsonData.toString().replace("'", "\\'")
-            notifyWeb(webView, event, jsonString)
+            // Inject JSON directly into the JS call. U+2028/U+2029 are valid JSON whitespace but
+            // are treated as line terminators by V8, causing a SyntaxError — escape them first.
+            val safeJson = jsonData.toString()
+                .replace(" ", "\\u2028")
+                .replace(" ", "\\u2029")
+            val jsCode = "window.WebBridge.callback('${event.eventName}', $safeJson)"
+            webView.evaluateJavascript(jsCode, null)
+            Log.d(TAG, "✅ Web JSON notification sent: ${event.eventName}")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to send JSON to web: ${e.message}")
             notifyWebError(webView, event, "Error processing data: ${e.message}")

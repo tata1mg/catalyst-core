@@ -1,0 +1,9 @@
+# Vendored Ruby build tooling inside lunr-languages npm package.
+# This Gemfile.lock belongs to the lunr-languages stopwords-filter build system
+# and is never executed in our environment. Not fixable without upstream update.
+CVE-2022-25648
+CVE-2022-47318
+CVE-2013-0269
+CVE-2020-10663
+CVE-2020-8130
+CVE-2021-31799

@@ -13,21 +13,21 @@ Load JavaScript only when needed to improve performance.
 
 ## Route-Based Code Splitting
 
-Use `@loadable/component` to lazy-load page components:
+This tutorial targets Catalyst `0.3.x`. Use `split()` to lazy-load page components:
 
 ```jsx title="src/js/routes/index.js"
-import loadable from "@loadable/component";
+import { split } from "catalyst-core";
 import MainLayout from "../layouts/MainLayout/MainLayout";
 
-const Home = loadable(() => import("../pages/Home/Home"), {
+const Home = split(() => import("../pages/Home/Home"), {
   ssr: true,
 });
 
-const BreedDetails = loadable(() => import("../pages/BreedDetails/BreedDetails"), {
+const BreedDetails = split(() => import("../pages/BreedDetails/BreedDetails"), {
   ssr: true,
 });
 
-const About = loadable(() => import("../pages/About/About"), {
+const About = split(() => import("../pages/About/About"), {
   ssr: false,
   fallback: <div>Loading...</div>,
 });
@@ -72,3 +72,6 @@ export default routes;
 Open browser DevTools → Network tab. Navigate to the About page and watch for a new JavaScript chunk being loaded.
 
 You've completed the tutorial! See the conclusion for next steps.
+
+Legacy Catalyst `0.2.x` projects use `@loadable/component`; keep that API only while remaining on
+the legacy runtime.

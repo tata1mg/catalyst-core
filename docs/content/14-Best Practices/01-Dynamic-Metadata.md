@@ -11,6 +11,7 @@ Catalyst renders pages through SSR, so metadata should be treated as part of the
 ## Core Practice
 
 Define metadata on the route component with `setMetaData` so search engines receive the correct tags in the initial HTML.
+> **Warning:** `setMetaData` must return an array, not an object. If you return an object, it breaks silently in the background without throwing any error, but your titles and meta tags won't show up.
 
 ```jsx title="src/js/containers/Home/Home.js"
 function HomePage() {
@@ -52,6 +53,9 @@ export default HomePage;
 - reusing the same title and description across many routes
 - generating canonicals from unstable query params
 - omitting social tags on pages that are frequently shared externally
+- returning an object instead of an array
+- returning a single JSX element without wrapping it in an array
+- forgetting the key prop on elements
 
 ## Related Docs
 

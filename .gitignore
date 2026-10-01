@@ -1,18 +1,24 @@
 **/node_modules
 
+# vitest --coverage output (packages/*/coverage/) -- generated locally and in CI
+**/coverage
+
+# Examples — generated config files (created via prompt.txt) and runtime artifacts
+examples/*/config/config.json
+examples/*/google-services.json
+examples/*/GoogleService-Info.plist
+examples/*/build/
+examples/*/logs/
+examples/*/package-lock.json
+
 # Docs app local config and generated output
-docs/config.json
-docs/server/config.json
-docs/login-page/src/config.json
-docs/static/js/config.js
+docs/config/config.json
 docs/build/
-docs/.docusaurus/
-docs/public-docs/
-docs/docs/
-docs/api/
-docs/temp/
-docs/server/collection-files/
-docs/login-page/build/
+docs/src/js/generated/
+docs/public/img/
+docs/public/docs-assets/
+docs/public/sitemap.xml
+docs/public/robots.txt
 docs/.claude/
 docs/hyperframes/
 .sandbox/
@@ -32,7 +38,6 @@ caching.js
 router.js
 logger.js
 !packages/catalyst-core/src/caching.js
-!packages/catalyst-core/src/router.js
 !packages/catalyst-core/src/logger.js
 
 /logs
@@ -69,6 +74,13 @@ build/
 # SPM - Generated files (Package.swift is committed as default, but regenerated at build time)
 **/iosnativeWebView/.package-config-hash
 **/iosnativeWebView/.build/
+**/iosnativeWebView/.spm-cache/
+
+# SPM - nested CatalystCoreLogic package (#432) build artifacts
+**/iosnativeWebView/CoreLogic/.build/
+
+# Vendored Gemfile.locks inside CocoaPods checkouts (not managed by us)
+src/native/iosnativeWebView/.build/checkouts/
 
 # Built application files
 **.apk
@@ -133,7 +145,12 @@ loadable-stats.json
 n8n*
 *.sh
 !scripts/test-catalyst-core.sh
+!scripts/test-catalyst-ai.sh
 !scripts/test-cca-smoke.sh
+!scripts/test-all.sh
+!scripts/test-web.sh
+!scripts/test-native.sh
+!scripts/test-build.sh
 openai_response.json
 simple_response.json
 src/native/iosnativeWebView/iosnativeWebView/ConfigConstants.swift

@@ -436,19 +436,21 @@ final class NativeBridgeTests: XCTestCase {
 
         // Set up expectation for callback (will eventually be sent)
         var javascriptExecuted = false
-        mockWebView.onEvaluateJavaScript = { script in
+        mockWebView.onEvaluateJavaScript = { _ in
             javascriptExecuted = true
         }
 
         // Process permission request - should not crash
         bridge.userContentController(mockWebView.configuration.userContentController, didReceive: message)
 
-        // Give async operation a brief moment to start
+        // Give async operation a brief moment to start. CI simulators are much slower
+        // than local hardware, so the wait timeout is given generous headroom to avoid
+        // flaky failures under CI load.
         let expectation = XCTestExpectation(description: "Async operation starts")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
+        wait(for: [expectation], timeout: 30.0)
 
         // Verify command was processed (JavaScript may or may not have executed depending on permissions)
         // The key is that the bridge handled the command without crashing
@@ -467,19 +469,21 @@ final class NativeBridgeTests: XCTestCase {
         let message = createMockMessage(body: messageBody)
 
         var javascriptExecuted = false
-        mockWebView.onEvaluateJavaScript = { script in
+        mockWebView.onEvaluateJavaScript = { _ in
             javascriptExecuted = true
         }
 
         // Process permission request - should not crash
         bridge.userContentController(mockWebView.configuration.userContentController, didReceive: message)
 
-        // Give async operation a brief moment to start
+        // Give async operation a brief moment to start. CI simulators are much slower
+        // than local hardware, so the wait timeout is given generous headroom to avoid
+        // flaky failures under CI load.
         let expectation = XCTestExpectation(description: "Async operation starts")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
+        wait(for: [expectation], timeout: 30.0)
 
         // Verify command was processed without crashing
         XCTAssertTrue(true, "Notification permission request should be processed without error")
@@ -518,19 +522,21 @@ final class NativeBridgeTests: XCTestCase {
         let message = createMockMessage(body: messageBody)
 
         var javascriptExecuted = false
-        mockWebView.onEvaluateJavaScript = { script in
+        mockWebView.onEvaluateJavaScript = { _ in
             javascriptExecuted = true
         }
 
         // Process permission request
         bridge.userContentController(mockWebView.configuration.userContentController, didReceive: message)
 
-        // Give async operation a brief moment to start
+        // Give async operation a brief moment to start. CI simulators are much slower
+        // than local hardware, so the wait timeout is given generous headroom to avoid
+        // flaky failures under CI load.
         let expectation = XCTestExpectation(description: "Async operation starts")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
+        wait(for: [expectation], timeout: 30.0)
 
         // Verify command was processed (callback will be sent with actual status)
         XCTAssertTrue(true, "Permission handling should complete without error")
