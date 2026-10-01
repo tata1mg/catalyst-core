@@ -1,7 +1,7 @@
 const path = require("path")
 const { createIosBuild, pwd } = require("./buildIos/index.js")
 const { composeIosPlugins } = require("./pluginComposerIos.js")
-const { resolveInternalPluginsRoot, resolvePluginConfig } = require("./internalPluginUtils.js")
+const { resolveInternalPluginsRoot, resolvePluginConfig, resolveAIPluginSource } = require("./internalPluginUtils.js")
 const { formatBuildError } = require("./buildErrorFormat.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
@@ -21,9 +21,13 @@ async function main() {
 
     try {
         progress.log("Starting build process...", "info")
-        const pluginConfig = resolvePluginConfig(WEBVIEW_CONFIG)
+        const aiPlugin = resolveAIPluginSource(WEBVIEW_CONFIG, process.cwd(), (message, status = "info") =>
+            progress.log(message, status)
+        )
+        const pluginConfig = { ...resolvePluginConfig(WEBVIEW_CONFIG), ...aiPlugin.toggles }
         const pluginComposition = composeIosPlugins({
             corePluginsRoot: resolveInternalPluginsRoot(catalystCorePath),
+            externalPluginRoots: aiPlugin.roots,
             iosProjectPath: PROJECT_DIR,
             pluginConfig,
             log: (message, status = "info") => progress.log(message, status),

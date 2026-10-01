@@ -44,7 +44,12 @@ function formatSwiftPackageRequirement(dependency) {
 }
 
 function formatSwiftPackageEntries(dependencies) {
-    return dependencies.map((d) => `        .package(url: "${d.url}", ${formatSwiftPackageRequirement(d)})`)
+    return dependencies.map((d) =>
+        // Local packages (requirement.type "path") are addressed by directory, not URL + version.
+        d.requirement.type === "path"
+            ? `        .package(path: ${JSON.stringify(d.url)})`
+            : `        .package(url: "${d.url}", ${formatSwiftPackageRequirement(d)})`
+    )
 }
 
 function formatSwiftProductEntries(dependencies) {

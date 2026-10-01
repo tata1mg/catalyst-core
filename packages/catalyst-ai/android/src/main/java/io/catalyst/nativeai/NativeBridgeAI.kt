@@ -46,7 +46,7 @@ class NativeBridgeAI(
         "gemma-4-E2B" to ModelEntry(
             url = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
             filename = "gemma-4-E2B-it.litertlm",
-            sizeHint = 1_870_000_000L
+            sizeHint = 2_588_147_712L
         ),
         "qwen3-0.6B" to ModelEntry(
             url = "https://huggingface.co/litert-community/Qwen3-0.6B-it-litert-lm/resolve/main/Qwen3-0.6B-it-int4.litertlm",
@@ -125,7 +125,9 @@ class NativeBridgeAI(
     private fun buildSystemPrompt(options: JSONObject) {
         val attachmentComponents = options.optJSONObject("attachmentComponents")
         if (attachmentComponents == null || attachmentComponents.length() == 0) {
-            log("[attachments] No attachmentComponents provided — skipping system prompt injection")
+            // No components to describe, but the app's own systemPrompt must still reach the model.
+            systemPrompt = options.optString("systemPrompt", "").trim()
+            log("[attachments] No attachmentComponents provided — using the app systemPrompt only (${systemPrompt.length} chars)")
             return
         }
 
