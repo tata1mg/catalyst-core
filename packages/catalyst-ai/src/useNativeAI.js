@@ -141,7 +141,10 @@ export function useNativeAI({
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_LOG)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_ERROR)
         }
-    }, [enabled])
+        // Re-initialise when the engine/model selection changes (e.g. switching provider "litert" ->
+        // "foundation-models"). attachmentComponents / systemPrompt are objects/strings that callers often
+        // recreate every render, so they stay out of the dependencies and apply on the next (re)init.
+    }, [enabled, engine, model, modelPath])
 
     const generate = useCallback(
         async ({ messages, genConfig: callGenConfig = {} }) => {

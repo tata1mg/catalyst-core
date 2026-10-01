@@ -135,8 +135,19 @@ export default function Chess() {
 
     const { generate, loading, error, output, reset, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
 
-    // The on-device model (LiteRT-LM / Apple Foundation Models) loads or downloads once; hold moves until it is ready.
-    const isNativeLoading = provider === "native" && isNative && !modelReady;
+    // The on-device model (LiteRT-LM / Apple Foundation Models) loads or downloads once; hold moves until it is
+    // ready. If loading fails, latch the failure so the board unlocks (moves then fall back) instead of waiting forever.
+    const [nativeInitError, setNativeInitError] = useState(null);
+    useEffect(() => {
+        const failedToLoad = provider === "native" && error && !modelReady;
+        setNativeInitError(failedToLoad ? error.message || String(error) : null);
+    }, [provider, error, modelReady]);
+    const isNativeLoading = provider === "native" && isNative && !modelReady && !nativeInitError;
+    // A reply only counts once this move's request has been seen loading and has finished.
+    const sawLoadingRef = useRef(false);
+    useEffect(() => {
+        if (aiThinking && loading) sawLoadingRef.current = true;
+    }, [aiThinking, loading]);
 
     // Check game condition
     const checkGameStatus = () => {
@@ -211,6 +222,7 @@ export default function Chess() {
 
     // AI logic trigger
     const triggerAIMove = async () => {
+        sawLoadingRef.current = false;
         setAiThinking(true);
         const chess = chessRef.current;
         if (!chess) return;
@@ -244,7 +256,8 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
 
     // Listen to AI response
     useEffect(() => {
-        if (aiThinking && !loading && !error && chessRef.current) {
+        if (aiThinking && sawLoadingRef.current && !loading && !error && chessRef.current) {
+            sawLoadingRef.current = false;
             setAiThinking(false);
             const chess = chessRef.current;
             const validMoves = chess.moves();
@@ -503,7 +516,12 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                                     On-device AI is not available here (use the Android or iOS app with ai.enabled). Falling back to cloud.
                                 </div>
                             )}
-                            {provider === "native" && isNative && !modelReady && (
+                            {provider === "native" && isNative && nativeInitError && !modelReady && (
+                                <div className="text-[11px] font-mono text-red-400/90 break-words">
+                                    On-device model failed to load: {nativeInitError}. Moves fall back to a random legal move.
+                                </div>
+                            )}
+                            {provider === "native" && isNative && !modelReady && !nativeInitError && (
                                 <div className="select-none">
                                     <div className="flex justify-between text-[10px] font-mono text-[var(--text-3)] mb-1">
                                         <span className="truncate max-w-[70%]">
