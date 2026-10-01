@@ -1,21 +1,21 @@
 import { describe, expect, it } from "vitest"
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
-import { useNativeTransition } from "../../src/native/bridge/hooks/useNativeTransition"
+import { useSafeNavigate } from "../../src/native/bridge/hooks/useSafeNavigate"
 
 // The node test environment has no `window`, i.e. it is a server render with no Router in scope —
 // exactly the dev-SSR situation where react-router's useNavigate used to throw.
-describe("useNativeTransition during server rendering", () => {
-    it("renders without a Router and returns the hook shape", () => {
+describe("useSafeNavigate during server rendering", () => {
+    it("renders without a Router and returns a callable navigate", () => {
         expect(typeof window).toBe("undefined")
-        let captured: any
+        let navigate: any
         const Probe = () => {
-            captured = useNativeTransition({ type: "slide", direction: "up", duration: 400 })
+            navigate = useSafeNavigate()
             return createElement("div", null, "ok")
         }
 
         expect(renderToString(createElement(Probe))).toContain("ok")
-        expect(typeof captured.navigate).toBe("function")
-        expect(captured.loading).toBe(false)
+        expect(typeof navigate).toBe("function")
+        expect(() => navigate("/somewhere")).not.toThrow()
     })
 })

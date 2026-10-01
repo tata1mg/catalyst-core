@@ -102,10 +102,10 @@ public class FrameworkServerUtils {
 
     // Server state
     private var listener: NWListener?
-    private var serverPort: UInt16 = 0
-    private var sessionId: String = ""
-    private var isServerRunning: Bool = false
-    private var isHTTPS: Bool = false
+    var serverPort: UInt16 = 0
+    var sessionId: String = ""
+    var isServerRunning: Bool = false
+    var isHTTPS: Bool = false
 
     // Connection management
     private var activeConnections: Set<ConnectionWrapper> = []
@@ -114,11 +114,11 @@ public class FrameworkServerUtils {
     private let connectionTimeoutSeconds: TimeInterval = CatalystConstants.NetworkServer.connectionTimeout
 
     // CORS configuration - store the base URL from WebView
-    private var allowedOrigin: String = "*"
+    var allowedOrigin: String = "*"
 
     // File management
-    private var servedFiles: [String: ServedFile] = [:]
-    private let fileQueue = DispatchQueue(label: "framework.server.files", attributes: .concurrent)
+    var servedFiles: [String: ServedFile] = [:]
+    let fileQueue = DispatchQueue(label: "framework.server.files", attributes: .concurrent)
 
     // Cache directory
     private var cacheDirectory: URL?
@@ -128,18 +128,18 @@ public class FrameworkServerUtils {
 
     // Native AI — supplier is set by the AI engine (catalyst-ai) before POST /ai/stream is called.
     // Kotlin equivalent: nativeAiSupplier / nativeSystemPrompt in FrameworkServerUtils.kt.
-    private var nativeAiSupplier: NativeAISupplier?
-    private var nativeSystemPrompt: String = ""
-    private let aiLock = NSLock()
+    var nativeAiSupplier: NativeAISupplier?
+    var nativeSystemPrompt: String = ""
+    let aiLock = NSLock()
 
     // Requests whose headers/body arrive across several reads, keyed by connection.
-    private var pendingRequests: [ObjectIdentifier: Data] = [:]
+    var pendingRequests: [ObjectIdentifier: Data] = [:]
     // In-flight AI stream tasks, cancelled when the client goes away.
-    private var aiStreamTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
-    private let requestStateLock = NSLock()
+    var aiStreamTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
+    let requestStateLock = NSLock()
 
-    private static let maxHeaderBytes = 16 * 1024
-    private static let maxBodyBytes = 1024 * 1024
+    static let maxHeaderBytes = 16 * 1024
+    static let maxBodyBytes = 1024 * 1024
 
     private init() {}
 
@@ -369,24 +369,11 @@ public class FrameworkServerUtils {
         return sessionId
     }
 
-    // MARK: - Native AI API
-
-    public func setNativeAiSupplier(_ supplier: NativeAISupplier?) {
-        aiLock.lock(); defer { aiLock.unlock() }
-        nativeAiSupplier = supplier
-    }
-
-    public func setNativeSystemPrompt(_ systemPrompt: String) {
-        aiLock.lock(); defer { aiLock.unlock() }
-        nativeSystemPrompt = systemPrompt
-    }
-
-    /// URL JS posts to for streaming; scheme follows whatever the listener actually runs (HTTP/HTTPS),
-    /// built the same way as served-file URLs.
-    public func nativeAIStreamURL() -> String? {
-        guard isServerRunning else { return nil }
-        let scheme = isHTTPS ? "https" : "http"
-        return "\(scheme)://localhost:\(serverPort)/framework-\(sessionId)/ai/stream"
+    /// Stream and generate connections outlive the default per-connection timeout (slow on-device decoding).
+    func cancelConnectionTimeout(for connection: NWConnection) {
+        connectionQueue.sync {
+            activeConnections.first { $0.connection === connection }?.cancelTimeout()
+        }
     }
 
     // MARK: - Private Implementation
@@ -676,351 +663,13 @@ public class FrameworkServerUtils {
         }
     }
 
-    private func receiveHTTPRequest(on connection: NWConnection) {
+    func receiveHTTPRequest(on connection: NWConnection) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] data, _, isComplete, error in
             self?.handleReceivedData(data, isComplete: isComplete, error: error, on: connection)
         }
     }
 
-    /// Completion body of receiveHTTPRequest. Internal so tests can drive the
-    /// error branch directly; a real receive error is timing-dependent.
-    ///
-    /// A POST's headers and body can arrive in separate reads, so bytes are
-    /// buffered per connection until the headers end (CRLFCRLF) and Content-Length
-    /// bytes of body are present. A GET has no body and dispatches immediately.
-    func handleReceivedData(_ data: Data?, isComplete: Bool, error: NWError?, on connection: NWConnection) {
-        if let error = error {
-            discardPendingRequest(for: connection)
-            handleReceiveError(error, on: connection)
-            return
-        }
-
-        guard let data = data else {
-            discardPendingRequest(for: connection)
-            sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
-            return
-        }
-
-        let key = ObjectIdentifier(connection)
-        requestStateLock.lock()
-        let buffer = (pendingRequests[key] ?? Data()) + data
-        requestStateLock.unlock()
-
-        let terminator = Data("\r\n\r\n".utf8)
-        guard let headerEnd = buffer.range(of: terminator) else {
-            if buffer.count > Self.maxHeaderBytes {
-                discardPendingRequest(for: connection)
-                sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
-            } else if isComplete {
-                // Client closed mid-headers: fall through to the legacy single-read behaviour.
-                discardPendingRequest(for: connection)
-                dispatchRequest(headerData: buffer, body: Data(), isComplete: isComplete, on: connection)
-            } else {
-                requestStateLock.lock(); pendingRequests[key] = buffer; requestStateLock.unlock()
-                receiveHTTPRequest(on: connection)
-            }
-            return
-        }
-
-        let headerData = buffer[buffer.startIndex..<headerEnd.lowerBound]
-        let body = buffer[headerEnd.upperBound...]
-        let expected = Self.contentLength(inHeaders: headerData)
-
-        if expected > Self.maxBodyBytes {
-            discardPendingRequest(for: connection)
-            sendHTTPResponse(on: connection, statusCode: 413, body: "Payload Too Large")
-            return
-        }
-        if body.count < expected && !isComplete {
-            requestStateLock.lock(); pendingRequests[key] = buffer; requestStateLock.unlock()
-            receiveHTTPRequest(on: connection)
-            return
-        }
-
-        discardPendingRequest(for: connection)
-        dispatchRequest(headerData: Data(headerData), body: Data(body.prefix(max(expected, 0))), isComplete: isComplete, on: connection)
-    }
-
-    private func discardPendingRequest(for connection: NWConnection) {
-        requestStateLock.lock()
-        pendingRequests.removeValue(forKey: ObjectIdentifier(connection))
-        requestStateLock.unlock()
-    }
-
-    private static func contentLength(inHeaders headerData: Data) -> Int {
-        guard let text = String(data: headerData, encoding: .utf8) else { return 0 }
-        for line in text.components(separatedBy: "\r\n") {
-            let parts = line.split(separator: ":", maxSplits: 1)
-            if parts.count == 2, parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length" {
-                return Int(parts[1].trimmingCharacters(in: .whitespaces)) ?? 0
-            }
-        }
-        return 0
-    }
-
-    private func dispatchRequest(headerData: Data, body: Data, isComplete: Bool, on connection: NWConnection) {
-        guard let requestString = String(data: headerData, encoding: .utf8) else {
-            sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
-            return
-        }
-
-        let keepOpen = processHTTPRequest(requestString, body: body, on: connection)
-
-        // A client half-closing after sending its request must not kill an SSE stream we are still writing.
-        if isComplete && !keepOpen {
-            connection.cancel()
-        }
-    }
-
-    /// Returns true when the connection is now owned by a long-lived AI stream and must stay open.
-    @discardableResult
-    private func processHTTPRequest(_ requestString: String, body: Data = Data(), on connection: NWConnection) -> Bool {
-        let lines = requestString.components(separatedBy: "\r\n")
-        guard let requestLine = lines.first else {
-            sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
-            return false
-        }
-
-        let components = requestLine.components(separatedBy: " ")
-        guard components.count >= 2 else {
-            sendHTTPResponse(on: connection, statusCode: 405, body: "Method Not Allowed")
-            return false
-        }
-
-        let method = components[0]
-        let aiPrefix = "/framework-\(self.sessionId)/ai/"
-        let isAIRoute = components[1] == aiPrefix + "stream" || components[1] == aiPrefix + "generate"
-
-        if isAIRoute {
-            switch method {
-            case "OPTIONS":
-                sendAIPreflight(on: connection)
-                return false
-            case "POST":
-                if components[1] == aiPrefix + "stream" {
-                    startAIStream(NativeAIRequest(body: body), on: connection)
-                    return true
-                }
-                runAIGenerate(NativeAIRequest(body: body), on: connection)
-                return true
-            default:
-                sendHTTPResponse(on: connection, statusCode: 405, body: "Method Not Allowed")
-                return false
-            }
-        }
-
-        guard method == "GET" else {
-            sendHTTPResponse(on: connection, statusCode: 405, body: "Method Not Allowed")
-            return false
-        }
-
-        let path = components[1]
-
-        // Handle status endpoint
-        if path == "/framework-\(self.sessionId)/status" {
-            fileQueue.sync {
-                let statusResponse = """
-                {
-                    "status": "running",
-                    "sessionId": "\(self.sessionId)",
-                    "port": \(self.serverPort),
-                    "servedFiles": \(self.servedFiles.count)
-                }
-                """
-                sendHTTPResponse(on: connection, statusCode: 200, body: statusResponse, contentType: "application/json")
-            }
-            return false
-        }
-
-        // Handle file requests
-        if path.hasPrefix("/framework-\(self.sessionId)/file-") {
-            let fileId = String(path.dropFirst("/framework-\(self.sessionId)/file-".count))
-            serveFile(fileId: fileId, on: connection)
-            return false
-        }
-
-        // Invalid route
-        sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.fileNotFound, body: "Not Found")
-        return false
-    }
-
-    // MARK: - Native AI routes
-    // Kotlin equivalent: the post("/ai/stream"), post("/ai/generate") and options(...) routes in
-    // startKtorServer(). The engine behind the supplier lives in catalyst-ai, not here.
-
-    private func aiSnapshot() -> (supplier: NativeAISupplier?, systemPrompt: String) {
-        aiLock.lock(); defer { aiLock.unlock() }
-        return (nativeAiSupplier, nativeSystemPrompt)
-    }
-
-    /// The server prepends the engine-provided system prompt, exactly like Android.
-    /// Engines that manage their own instructions simply never call setNativeSystemPrompt.
-    private func composePrompt(_ request: NativeAIRequest, systemPrompt: String) -> String {
-        systemPrompt.isEmpty ? request.prompt : "\(systemPrompt)\n\n\(request.prompt)"
-    }
-
-    private func sendAIPreflight(on connection: NWConnection) {
-        sendHTTPResponse(on: connection, statusCode: 200, body: Data(), headers: [
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Max-Age": "86400",
-        ])
-    }
-
-    /// Stream and generate connections outlive the default per-connection timeout (slow on-device decoding).
-    private func cancelConnectionTimeout(for connection: NWConnection) {
-        connectionQueue.sync {
-            activeConnections.first { $0.connection === connection }?.cancelTimeout()
-        }
-    }
-
-    private func cancelAIStream(for connection: NWConnection) {
-        requestStateLock.lock()
-        let task = aiStreamTasks.removeValue(forKey: ObjectIdentifier(connection))
-        requestStateLock.unlock()
-        task?.cancel()
-    }
-
-    private func sendRaw(_ data: Data, on connection: NWConnection) async -> Bool {
-        await withCheckedContinuation { continuation in
-            connection.send(content: data, completion: .contentProcessed { error in
-                if let error = error {
-                    logger.debug("AI stream send failed: \(error.localizedDescription)")
-                }
-                continuation.resume(returning: error == nil)
-            })
-        }
-    }
-
-    private func sseHeaders() -> Data {
-        var head = "HTTP/1.1 200 OK\r\n"
-        head += "Access-Control-Allow-Origin: \(allowedOrigin)\r\n"
-        head += "Access-Control-Allow-Methods: POST, OPTIONS\r\n"
-        head += "Access-Control-Allow-Headers: *\r\n"
-        head += "Content-Type: text/event-stream\r\n"
-        head += "Cache-Control: no-cache\r\n"
-        head += "X-Accel-Buffering: no\r\n"
-        head += "Connection: close\r\n"
-        head += "\r\n"
-        return Data(head.utf8)
-    }
-
-    private func startAIStream(_ request: NativeAIRequest, on connection: NWConnection) {
-        cancelConnectionTimeout(for: connection)
-        let key = ObjectIdentifier(connection)
-
-        // Held across Task creation so the task's own cleanup cannot run before it is registered.
-        requestStateLock.lock()
-        aiStreamTasks[key] = Task { [weak self] in
-            guard let self = self else { connection.cancel(); return }
-            await self.runAIStream(request, on: connection)
-            self.cancelAIStream(for: connection)
-            connection.cancel()
-        }
-        requestStateLock.unlock()
-    }
-
-    private func runAIStream(_ request: NativeAIRequest, on connection: NWConnection) async {
-        guard await sendRaw(sseHeaders(), on: connection) else { return }
-
-        let (supplier, systemPrompt) = aiSnapshot()
-        let prompt = composePrompt(request, systemPrompt: systemPrompt)
-
-        guard let supplier = supplier else {
-            _ = await sendRaw(NativeAISSE.error("Native AI not initialised — call initAI() first", code: NativeAIErrorCode.streamNotReady), on: connection)
-            return
-        }
-        guard !request.prompt.isEmpty else {
-            _ = await sendRaw(NativeAISSE.error("prompt is empty", code: NativeAIErrorCode.invalidRequestBody), on: connection)
-            return
-        }
-
-        do {
-            let stream = try await supplier(prompt, request.genConfig, request.conversationId)
-            guard await sendRaw(NativeAISSE.conversationId(stream.conversationId), on: connection) else { return }
-            for try await token in stream.tokens {
-                // A failed send means the client disconnected; leaving the loop terminates the
-                // token stream, which is what stops generation upstream.
-                guard await sendRaw(NativeAISSE.token(token), on: connection) else { return }
-            }
-            _ = await sendRaw(NativeAISSE.done(), on: connection)
-        } catch is CancellationError {
-            logger.debug("Native AI stream cancelled (client disconnected)")
-        } catch {
-            logger.error("Native AI stream error: \(error.localizedDescription)")
-            let code = (error as? NativeAIError)?.code ?? NativeAIErrorCode.requestFailed
-            _ = await sendRaw(NativeAISSE.error(error.localizedDescription, code: code), on: connection)
-        }
-    }
-
-    private static let aiGenerateTimeout: TimeInterval = 120
-
-    /// Drains the token stream fully, then answers with one JSON body: { output, conversationId, tokenCount }.
-    private func runAIGenerate(_ request: NativeAIRequest, on connection: NWConnection) {
-        cancelConnectionTimeout(for: connection)
-        let key = ObjectIdentifier(connection)
-
-        requestStateLock.lock()
-        aiStreamTasks[key] = Task { [weak self] in
-            guard let self = self else { connection.cancel(); return }
-            await self.respondAIGenerate(request, on: connection)
-            self.cancelAIStream(for: connection)
-        }
-        requestStateLock.unlock()
-    }
-
-    private func respondAIGenerate(_ request: NativeAIRequest, on connection: NWConnection) async {
-        func fail(_ status: Int, _ message: String, _ code: String) {
-            let body = (try? JSONSerialization.data(withJSONObject: ["error": message, "code": code])) ?? Data()
-            sendHTTPResponse(on: connection, statusCode: status, body: body, headers: ["Content-Type": "application/json"])
-        }
-
-        let (supplier, systemPrompt) = aiSnapshot()
-        guard let supplier = supplier else {
-            fail(503, "Native AI not initialised — call initAI() first", NativeAIErrorCode.streamNotReady)
-            return
-        }
-        guard !request.prompt.isEmpty else {
-            fail(400, "prompt is empty", NativeAIErrorCode.invalidRequestBody)
-            return
-        }
-
-        let prompt = composePrompt(request, systemPrompt: systemPrompt)
-        do {
-            let result: (output: String, conversationId: String, tokenCount: Int) = try await withThrowingTaskGroup(of: (String, String, Int)?.self) { group in
-                group.addTask {
-                    let stream = try await supplier(prompt, request.genConfig, request.conversationId)
-                    var output = ""
-                    var count = 0
-                    for try await token in stream.tokens { output += token; count += 1 }
-                    return (output, stream.conversationId, count)
-                }
-                group.addTask {
-                    try await Task.sleep(nanoseconds: UInt64(Self.aiGenerateTimeout * 1_000_000_000))
-                    return nil
-                }
-                defer { group.cancelAll() }
-                guard let first = try await group.next(), let value = first else {
-                    throw NativeAIError(message: "generate timed out after \(Int(Self.aiGenerateTimeout))s")
-                }
-                return value
-            }
-            let body = try JSONSerialization.data(withJSONObject: [
-                "output": result.output,
-                "conversationId": result.conversationId,
-                "tokenCount": result.tokenCount,
-            ])
-            sendHTTPResponse(on: connection, statusCode: 200, body: body, headers: ["Content-Type": "application/json"])
-        } catch is CancellationError {
-            connection.cancel()
-        } catch let error as NativeAIError where error.message.hasPrefix("generate timed out") {
-            fail(504, error.message, error.code)
-        } catch {
-            logger.error("Native AI generate error: \(error.localizedDescription)")
-            fail(500, error.localizedDescription, (error as? NativeAIError)?.code ?? NativeAIErrorCode.requestFailed)
-        }
-    }
-
-    private func serveFile(fileId: String, on connection: NWConnection) {
+    func serveFile(fileId: String, on connection: NWConnection) {
         fileQueue.sync {
             guard let servedFile = self.servedFiles[fileId] else {
                 logger.warning("File not found for fileId: \(fileId)")
@@ -1130,12 +779,12 @@ public class FrameworkServerUtils {
         })
     }
 
-    private func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: String, contentType: String = "text/plain") {
+    func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: String, contentType: String = "text/plain") {
         let bodyData = body.data(using: .utf8) ?? Data()
         sendHTTPResponse(on: connection, statusCode: statusCode, body: bodyData, headers: ["Content-Type": contentType])
     }
 
-    private func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: Data, headers: [String: String] = [:]) {
+    func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: Data, headers: [String: String] = [:]) {
         let statusText = HTTPURLResponse.localizedString(forStatusCode: statusCode)
         var response = "HTTP/1.1 \(statusCode) \(statusText)\r\n"
 

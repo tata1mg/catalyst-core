@@ -1,5 +1,7 @@
 /* global __CATALYST_PACKAGES__ */
 
+import { resolveMode, resolveNativeEngine } from "./aiProviders.js"
+
 function getBrowserConfig() {
     try {
         const raw = process.env.AI_PUBLIC_CONFIG
@@ -9,30 +11,6 @@ function getBrowserConfig() {
     } catch (_) {
         return null
     }
-}
-
-// On-device providers. "native" lets the platform pick (iOS: LiteRT-LM if its model is downloaded, else
-// Apple Foundation Models, else LiteRT-LM); "litert" and "foundation-models" pin an engine. They can be set
-// per call (useAI({ provider })) or app-wide in AI_CONFIG.browser.provider, optionally with
-// AI_CONFIG.browser.engine instead of an alias.
-const NATIVE_ENGINE_BY_PROVIDER = {
-    native: undefined,
-    litert: "litert",
-    "foundation-models": "foundation-models",
-}
-
-export function resolveMode(provider) {
-    if (provider === "transformers") return "local"
-    if (Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)) return "native"
-    return "cloud"
-}
-
-/** Engine to pin for the native provider: an explicit option wins, then the provider alias, then config. */
-export function resolveNativeEngine(provider, explicitEngine, config) {
-    const aliasEngine = Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)
-        ? NATIVE_ENGINE_BY_PROVIDER[provider]
-        : undefined
-    return explicitEngine ?? aliasEngine ?? config?.engine
 }
 
 function isNativeAIAvailable() {

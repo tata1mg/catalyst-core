@@ -1,13 +1,10 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router"
+import { useSafeNavigate } from "./useSafeNavigate.js"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 
 import type { HookEnvironment } from "../useBaseHook.js"
-
-// Stand-in for useNavigate() during server rendering, where nothing can navigate.
-const ssrNavigate = (() => {}) as unknown as ReturnType<typeof useNavigate>
 
 const DEFAULT_DURATION = 300
 const DEFAULT_TIMEOUT_MULTIPLIER = 3
@@ -67,12 +64,7 @@ export interface UseNativeTransitionResult extends HookEnvironment {
  * @param defaults - Default transition options applied to every navigate call
  */
 export const useNativeTransition = (defaults: NativeTransitionOptions = {}): UseNativeTransitionResult => {
-    // Server rendering never navigates, so skip useNavigate there. In dev SSR this file is compiled to
-    // CommonJS (src/native is a CJS subtree) while the server's StaticRouter is ESM, which can load a
-    // second copy of react-router with no Router context; useNavigate would then throw and take the
-    // request, and the dev server, down. `window` is fixed per environment, so the hook order is stable.
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const router = typeof window === "undefined" ? ssrNavigate : useNavigate()
+    const router = useSafeNavigate()
     const isNative = typeof window !== "undefined" && nativeBridge.isAvailable()
 
     const [transitioning, setTransitioning] = useState(false)

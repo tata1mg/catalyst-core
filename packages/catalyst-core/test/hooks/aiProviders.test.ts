@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { resolveMode, resolveNativeEngine } from "../../src/native/bridge/hooks/useAI"
+import { resolveMode, resolveNativeEngine } from "../../src/native/bridge/hooks/aiProviders"
 
 describe("useAI provider resolution", () => {
     it("maps on-device provider names to native mode", () => {

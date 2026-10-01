@@ -245,9 +245,9 @@ final class FrameworkServerUtilsNativeAITests: XCTestCase {
         var received = Data()
         var buffer = [UInt8](repeating: 0, count: 4096)
         while true {
-            let n = recv(fd, &buffer, buffer.count, 0)
-            if n <= 0 { break }
-            received.append(buffer, count: n)
+            let bytesRead = recv(fd, &buffer, buffer.count, 0)
+            if bytesRead <= 0 { break }
+            received.append(buffer, count: bytesRead)
         }
         return String(decoding: received, as: UTF8.self)
     }
