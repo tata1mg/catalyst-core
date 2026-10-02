@@ -10,7 +10,8 @@
         "start": "catalyst start",
         "build": "catalyst build",
         "serve": "catalyst serve",
-        "lint": "eslint ."
+        "lint": "eslint .",
+        "sync-core": "node ../examples/sync-core.js"
     },
     "_moduleAliases": {
         "@api": "api.js",

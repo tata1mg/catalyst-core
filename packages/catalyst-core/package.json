@@ -35,6 +35,8 @@
             "default": "./dist/native/bridge/hooks.js"
         },
         "./errors": "./dist/errors/index.js",
+        "./webmcp": "./dist/webmcp/index.js",
+        "./webmcp/shim": "./dist/webmcp/shim-entry.js",
         "./sentry": "./dist/sentry.cjs",
         "./otel": "./dist/otel.js"
     },
