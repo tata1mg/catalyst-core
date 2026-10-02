@@ -1356,7 +1356,12 @@ jobs:
             - name: Build Docs
               run: |
                   node -v
+                  npm ci
                   npm --prefix docs ci
+                  # docs consumes catalyst-core/webmcp, which only exists in
+                  # this repo's build — not in the published package the
+                  # lockfile pins. Same pattern as examples/error-catalog.
+                  npm --prefix docs run sync-core
                   cp docs/config/config_template.json docs/config/config.json
                   npm --prefix docs run lint
                   npm run docs:build
