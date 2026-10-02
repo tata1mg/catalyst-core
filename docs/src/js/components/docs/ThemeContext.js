@@ -5,10 +5,9 @@ import React, {
     useEffect,
     useState,
 } from 'react'
+import { THEME_STORAGE_KEY } from '../DocumentBootstrap'
 
 const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {} })
-
-const STORAGE_KEY = 'catalyst-hub.theme'
 
 const getInitialTheme = () => {
     // On the client the DocumentBootstrap inline script has already stamped
@@ -33,7 +32,7 @@ export const ThemeProvider = ({ children }) => {
         setTheme((current) => {
             const next = current === 'light' ? 'dark' : 'light'
             try {
-                window.localStorage.setItem(STORAGE_KEY, next)
+                window.localStorage.setItem(THEME_STORAGE_KEY, next)
             } catch {
                 // Persistence is best-effort.
             }

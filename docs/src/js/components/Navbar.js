@@ -12,7 +12,7 @@ import versions from '../generated/versions.json'
 const COMMUNITY_ITEMS = [
     { label: 'Conferences', to: '/content/conferences' },
     { label: 'Discord', href: 'https://discord.gg/GTzYzP8X6s' },
-    { label: 'X (formerly Twitter)', href: 'https://x.com/Catalyst448356' },
+    { label: 'X (formerly Twitter)', href: 'https://x.com/shipcatalyst' },
     {
         label: 'GitHub Community',
         href: 'https://github.com/tata1mg/catalyst-core/discussions',

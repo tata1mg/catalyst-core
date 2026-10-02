@@ -10,22 +10,14 @@ import { useLocation } from 'react-router'
  * The reset runs after the route swaps, underneath useNativeTransition's
  * snapshot/overlay, so it is never visible. Skipped when the target URL
  * carries a #hash (anchor navigation owns the scroll there), and on the very
- * first render of a page load (the browser's own restoration owns that one).
- * The first-load flag is module-scoped because layout roots remount when
- * moving between /app and the HubLayout routes.
+ * first render of a page load (the browser's own restoration owns that one):
+ * lastPathname starts at the initial path, so the mount run is a no-op.
  */
-let isFirstRouteRender = true
-
 const ScrollReset = () => {
     const location = useLocation()
     const lastPathname = useRef(location.pathname)
 
     useEffect(() => {
-        if (isFirstRouteRender) {
-            isFirstRouteRender = false
-            lastPathname.current = location.pathname
-            return
-        }
         if (location.pathname === lastPathname.current) {
             return
         }

@@ -4,9 +4,11 @@ import { useTool, WebMcpError, WEBMCP_ERROR_CODES } from 'catalyst-core/webmcp'
 import { ThemeProvider } from '../components/docs/ThemeContext'
 import DocumentBootstrap from '../components/DocumentBootstrap'
 import Navbar from '../components/Navbar'
+import BottomNav from '../components/BottomNav'
 import ScrollReset from '../components/ScrollReset'
 import { search, isKnownDocUrl, getDocByUrl } from '../search.js'
 import { scrollToAndHighlightArticle, scrollToAndHighlightArticleAfterNavigation } from '../scrollHighlight.js'
+import ShellSync from '../components/ShellSync'
 
 /**
  * Site chrome. The docs grid itself (sidebar, article, TOC) belongs to
@@ -170,6 +172,8 @@ const DocsLayout = () => {
             <div className="docs-site">
                 <Navbar />
                 <Outlet />
+                <BottomNav />
+                <ShellSync />
             </div>
         </ThemeProvider>
     )

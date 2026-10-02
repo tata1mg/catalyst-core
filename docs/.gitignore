@@ -75,6 +75,8 @@ Thumbs.db
 
 # Large media files
 *.mp4
+# Companion first-launch demo, shipped with the /app route
+!src/static/media/onboarding.mp4
 *.tiff
 *.avi
 *.flv

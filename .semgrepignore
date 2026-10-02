@@ -1,0 +1,15 @@
+# Example apps are demo/tooling code, not shipped framework code
+examples/
+
+# Tests: fixtures intentionally use cleartext sockets and script-tag strings
+**/test/
+**/src/test/
+
+# Build/CLI scripts: path.join inputs are repo-local constants or the developer's own app dir, never request data
+scripts/release/
+packages/catalyst-core/src/errors/generateDocs.js
+packages/catalyst-core/src/scripts/preflight.js
+packages/catalyst-core/src/vite/moduleAliases.js
+
+# MCP fallback file path is built from slugify(), which restricts it to [a-z0-9-]
+packages/catalyst-core/mcp_v2/tools/github.js
