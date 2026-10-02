@@ -1,0 +1,748 @@
+docs/src/js/containers/TryApp/TryApp.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-550
+packages/catalyst-ai/src/route.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 591
+packages/catalyst-core/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 3,79,119,132
+packages/create-catalyst-app/templates/none-ts/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 26
+packages/create-catalyst-app/templates/redux-js/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 28
+packages/catalyst-ai/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 33-34
+packages/create-catalyst-app/templates/rtk-ts/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 29
+docs/src/js/components/OnboardingVideo.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-91
+docs/src/js/components/DocumentBootstrap.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 5-6,11-19,32
+packages/catalyst-core/changelog.md
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 3
+docs/src/js/routes/index.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 1,8-44,55-78
+docs/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 22-23
+docs/src/js/components/ScrollReset.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 13-14
+docs/src/js/containers/shared/appKit.scss
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-267
+docs/src/js/containers/Showcase/sections/VideoStreamShowcase.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-190
+scripts/release/release.test.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-58
+docs/src/js/components/BottomNav.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-144
+docs/src/js/containers/Showcase/ShowcaseIndex.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-130
+docs/src/js/containers/Showcase/Showcase.scss
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-325
+docs/src/js/layouts/DocsLayout.js
+  s_5503bdc189cdb4::t_b544dd1989b25d 175-176
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 7,11
+docs/src/js/components/Navbar.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 15
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 336-342,540-541,543,547-553,559,562,568,584-585,592-632,642-644,646-652,654-657,659,661-662,850-851
+  s_5503bdc189cdb4::t_31e5f052bcb5bf 335
+docs/.gitignore
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 78-79
+packages/catalyst-core/src/server/expressServer.ts
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 145
+docs/src/js/components/pluginBridge.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-24
+packages/create-catalyst-app/templates/rtk-js/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 28
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebCacheManagerTest.kt
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 212-236
+  s_5503bdc189cdb4::t_6475d69cd1ebdb 237
+docs/src/static/css/base/styles.scss
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 3-14
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NetworkMonitorTests.swift
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 36,52-60,62-66,75,98
+docs/src/js/containers/TryApp/TryApp.scss
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-325
+package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 20-21,27-29,33-34
+packages/create-catalyst-app/templates/redux-ts/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 29
+.github/workflows/release.yml
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 4-5,8-9,16-26,30-31,39,48,51-52,55-60,62,66-67,71-72,74-75,115,117,119,152,154-156,163-164,170,172-174,176-179,181-208,212-213,217,220-222,228-229,261-263,265,268-275,277,280,287
+packages/create-catalyst-app/templates/none-js/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 25
+docs/src/js/components/ShellSync.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-58
+docs/client/index.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 7-8,11-19
+docs/src/js/components/docs/ThemeContext.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 8,35
+.github/workflows/release-automation.yml
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 19-20,22,28-32,49-52,69,91-103,122,131,133,136-150
+docs/src/js/containers/Showcase/sections/GoogleSignInShowcase.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-79
+docs/src/js/containers/Showcase/ShowcaseBar.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-40
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsConnectionHandlerTests.swift
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-133
+.github/workflows/node.js.yml
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 229,571-572,574
+packages/create-catalyst-app/package.json
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 4,27,30,34
+docs/src/js/components/docs/CodeBlock.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 7
+docs/src/js/components/OnboardingVideo.scss
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-107
+docs/src/js/containers/Showcase/sections/NotificationShowcase.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-86
+docs/src/static/css/base/docs.scss
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 103-110,212-213,217-220,222-232,492,561-562,674,680-685,688,705,758,861,1260-1270,1749-2065
+docs/src/js/containers/AppHome/AppHome.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-178
+docs/src/js/containers/NotFound.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 7
+scripts/release/release.js
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 4,27-38,152,165-178,185-189,201-225,230,245,248,259,265,272,279,285,299-300,335-341,349,359-360,367-368,374-376,384,388
+.semgrepignore
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-15
+docs/src/js/containers/Showcase/Showcase.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-27
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsLoopbackTests.swift
+  s_5503bdc189cdb4::t_c99892f4bdd7b0 5-11,28-31,49-52,57-111,136-214,218,238,254,273,285,296,310,340
+docs/src/js/containers/Showcase/sections/FilePickerShowcase.js
+  s_5503bdc189cdb4::t_3b3538b2ff1142 1-159
+docs/package-lock.json
+  s_5503bdc189cdb4::t_3014d0d7fbaef8 2345-2347,2358,2384-2386,3892-3894,3916,3918,4452-4454,5355-5357,6854-6856,7420-7422
+docs/src/js/components/SearchModal.js
+  s_5503bdc189cdb4::t_12c6e70fe1a51a 4-35
+package-lock.json
+  s_5503bdc189cdb4::t_252884d530b02c 12-14,18-19,2504-2506,2520-2522,2536-2538,2552-2554,2568-2570,2584-2586,2600-2602,2616-2618,2632-2634,2648-2650,2664-2666,2680-2682,2696-2698,2712-2714,2728-2730,2744-2746,2760-2762,2776-2778,2792-2794,2808-2810,2824-2826,2840-2842,2856-2858,2872-2874,2888-2890,2904-2906,5273-5275,5280,5294-5295,5304-5306,5312-5313,5322-5324,5328,5349-5351,5362-5364,5368,5376-5378,5382-5383,5392-5394,5402-5404,5408,5544-5557,5893-5895,5906,5932-5934,7289-7292,7302-7327,8001-8003,8025,8027,8093-8095,9610-9612,10569-10580,10705-10707,11294-11296,11299,11505-11507,11647-11683,11712-11725,12366,13315-13317,13571-13573,13577-13583,13611-13616,14118,14120,14132,14140,14174,14187,14202-14215,14218-14224,14226-14229,14231,14234-14245,14247-14625,14627-14628,14630-14656,14734,14749,14752
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/.buildSystem_debug
+  s_142fca248d57d5::t_55609c5cfe7e1d 1
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/.lock
+  s_142fca248d57d5::t_b41fdfaf13ab0f 1
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/CACHEDIR.TAG
+  s_142fca248d57d5::t_59c29ca01d0a3b 1-4
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/Info.plist
+  s_142fca248d57d5::t_7f8d668c7b4579 1-39
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/Headers/CLiteRTLM.h
+  s_142fca248d57d5::t_613e23f85f9efb 1-5
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/Headers/capabilities.h
+  s_142fca248d57d5::t_fad2e9cda95626 1-127
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/Headers/conversation.h
+  s_142fca248d57d5::t_01e0a3a342ea54 1-510
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/Headers/embedding_engine.h
+  s_142fca248d57d5::t_23595211f39853 1-415
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/Headers/engine.h
+  s_142fca248d57d5::t_38f548806258b6 1-1408
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/Headers/experimental.h
+  s_142fca248d57d5::t_9cd50fd943beaa 1-131
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/LICENSE
+  s_142fca248d57d5::t_4deaebb5263ea1 1-201
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/Modules/module.modulemap
+  s_142fca248d57d5::t_d20ebf8353e1f5 1-7
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/CRoaring_LICENSE.html
+  s_142fca248d57d5::t_4559eda506b822 1-295
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/FP16_LICENSE.html
+  s_142fca248d57d5::t_c48c13d3640257 1-24
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/FXdiv_LICENSE.html
+  s_142fca248d57d5::t_1b2fb387646e8d 1-23
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/GL_LICENSE.html
+  s_142fca248d57d5::t_c065d987af5f56 1-251
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/GL_util_LICENSE.html
+  s_142fca248d57d5::t_5451d4cbda0ed1 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/KleidiAI_LICENSE.html
+  s_142fca248d57d5::t_8464f6eb6c4891 1-110
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/OpenCV_LICENSE.html
+  s_142fca248d57d5::t_99c4537c8c3adb 1-558
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/XNNPACK_LICENSE.html
+  s_142fca248d57d5::t_350b99c184728e 1-44
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/Xorg_LICENSE.html
+  s_142fca248d57d5::t_5fe6694a35b863 1-955
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/absl_LICENSE.html
+  s_142fca248d57d5::t_eeac9baba79b1c 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/address_sorting_LICENSE.html
+  s_142fca248d57d5::t_fb34ce340972fb 1-39
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/angle_LICENSE.html
+  s_142fca248d57d5::t_1008d26ae9a139 1-1023
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/ares_v1_21_0_LICENSE.html
+  s_142fca248d57d5::t_fe9b7616dc03dd 1-104
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/array_LICENSE.html
+  s_142fca248d57d5::t_cbee25079011d8 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/audio_to_tactile_LICENSE.html
+  s_142fca248d57d5::t_61d1fc6aab9e37 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/benchmark_LICENSE.html
+  s_142fca248d57d5::t_71b82c1fcbc029 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/boost_LICENSE.html
+  s_142fca248d57d5::t_c745f141fb4e44 1-516
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/brotli_LICENSE.html
+  s_142fca248d57d5::t_1ff1b882585113 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/bz2lib_LICENSE.html
+  s_142fca248d57d5::t_03a8af44c429dc 1-55
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/cblas_LICENSE.html
+  s_142fca248d57d5::t_e1ca3323e788ca 1-61
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/cnpy_LICENSE.html
+  s_142fca248d57d5::t_e0138193596511 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/cppitertools_LICENSE.html
+  s_142fca248d57d5::t_d5e24b51e329a4 1-36
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/cpu_features_LICENSE.html
+  s_142fca248d57d5::t_0526c34ed9ad39 1-243
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/cpuinfo_LICENSE.html
+  s_142fca248d57d5::t_9485640052add9 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/crunchy_LICENSE.html
+  s_142fca248d57d5::t_cd7842806355ec 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/darts_clone_LICENSE.html
+  s_142fca248d57d5::t_2a12096212dd77 1-24
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/darwinn_LICENSE.html
+  s_142fca248d57d5::t_c4097b357a5e23 1-407
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/darwinn_firmware_common_callback_LICENSE.html
+  s_142fca248d57d5::t_db75ccdf9eee2d 1-64
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/darwinn_port_default_port_from_tf_LICENSE.html
+  s_142fca248d57d5::t_35457111e2fd3e 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/dawn_LICENSE.html
+  s_142fca248d57d5::t_271fe0c80a4610 1-223
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/ecclesia_LICENSE.html
+  s_142fca248d57d5::t_3219999e2a1bd9 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/eigen3_LICENSE.html
+  s_142fca248d57d5::t_c3245e2d141577 1-1544
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/emdawnwebgpu_LICENSE.html
+  s_142fca248d57d5::t_a8e013bb50bbe2 1-81
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/envoy_LICENSE.html
+  s_142fca248d57d5::t_72b80301d06f1c 1-272
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/fast_hash_LICENSE.html
+  s_142fca248d57d5::t_80a0af634c9192 1-36
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/fft2d_LICENSE.html
+  s_142fca248d57d5::t_ff0a28dafcb5d7 1-16
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/flatbuffers_LICENSE.html
+  s_142fca248d57d5::t_1aeb7aaabeb231 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/gemmlowp_LICENSE.html
+  s_142fca248d57d5::t_73cb4ebca59213 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/geographiclib_LICENSE.html
+  s_142fca248d57d5::t_72ebd3d698fb9a 1-84
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/gfortran_gcc_16_1_0_LICENSE.html
+  s_142fca248d57d5::t_0b48dd7ece3e92 1-765
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/gif_LICENSE.html
+  s_142fca248d57d5::t_7c50fb2d37d1f2 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/glslang_LICENSE.html
+  s_142fca248d57d5::t_4ba681c561c8af 1-1026
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/golang_protobuf_v2_LICENSE.html
+  s_142fca248d57d5::t_e61f79cc6b8c47 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/googlesql_LICENSE.html
+  s_142fca248d57d5::t_b2c345fdbf5ec7 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/gpus_rocm_LICENSE.html
+  s_142fca248d57d5::t_abab174864d764 1-920
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/grpc_LICENSE.html
+  s_142fca248d57d5::t_f6ca13b705ddac 1-636
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/grpc_proto_LICENSE.html
+  s_142fca248d57d5::t_e7e4e4766ae8ce 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/half_LICENSE.html
+  s_142fca248d57d5::t_63ad7c5633f45a 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/halide_LICENSE.html
+  s_142fca248d57d5::t_2cd51aca077d92 1-229
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/highway_LICENSE.html
+  s_142fca248d57d5::t_4e77e115dbb9b5 1-256
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/highwayhash_LICENSE.html
+  s_142fca248d57d5::t_9a867f598ec595 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/hwloc_LICENSE.html
+  s_142fca248d57d5::t_08bd04b0a94cc6 1-52
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/icu_LICENSE.html
+  s_142fca248d57d5::t_f328b3b24474fa 1-567
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/java_android_android_sdk_linux_extras_android_compatibility_annotations_LICENSE.html
+  s_142fca248d57d5::t_ecd8e792ec5a77 1-203
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/java_jetbrains_java_annotations_LICENSE.html
+  s_142fca248d57d5::t_fe603e392bfd3f 1-179
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/java_protobuf_LICENSE.html
+  s_142fca248d57d5::t_94477de2438eb6 1-45
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/json_LICENSE.html
+  s_142fca248d57d5::t_11723d7831dc40 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/jsoncpp_LICENSE.html
+  s_142fca248d57d5::t_c6cc4edf6a25f1 1-68
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/kissfft_LICENSE.html
+  s_142fca248d57d5::t_92860c85e2d3fc 1-91
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/kotlin_kotlin_stable_LICENSE.html
+  s_142fca248d57d5::t_e885e5ab743838 1-558
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/lapack_LICENSE.html
+  s_142fca248d57d5::t_83a31dff3f2e77 1-92
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/legacy_libcxx_sort_LICENSE.html
+  s_142fca248d57d5::t_b0ddca8469465a 1-323
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/libelfin_LICENSE.html
+  s_142fca248d57d5::t_5073403a6a1ddb 1-33
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/libpfm4_LICENSE.html
+  s_142fca248d57d5::t_9a17a37a293f1a 1-33
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/liburing_LICENSE.html
+  s_142fca248d57d5::t_2f232e6190d918 1-33
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/libxcb_LICENSE.html
+  s_142fca248d57d5::t_f7ac998fa781ef 1-122
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/llama_cpp_latest_LICENSE.html
+  s_142fca248d57d5::t_1d360875ef491d 1-71
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/llvm_LICENSE.html
+  s_142fca248d57d5::t_4f1a648bd5fcd9 1-1549
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/mediapipe_LICENSE.html
+  s_142fca248d57d5::t_4964342e563351 1-231
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/minizip_LICENSE.html
+  s_142fca248d57d5::t_4d371bcb352efd 1-60
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/ml_drift_LICENSE.html
+  s_142fca248d57d5::t_23bad63c545eff 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/mobstore_LICENSE.html
+  s_142fca248d57d5::t_91e5434f16f633 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/mosys_LICENSE.html
+  s_142fca248d57d5::t_559c35bd837a91 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/neon2sse_LICENSE.html
+  s_142fca248d57d5::t_37ed41bd103b89 1-42
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/odml_LICENSE.html
+  s_142fca248d57d5::t_fce107a2bd226f 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/opencensus_LICENSE.html
+  s_142fca248d57d5::t_af7f976fbf91a5 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/opencensus_proto_LICENSE.html
+  s_142fca248d57d5::t_047160d2d6bb00 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/opencl_headers_LICENSE.html
+  s_142fca248d57d5::t_09ca83dd621c3b 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/opencl_icd_loader_LICENSE.html
+  s_142fca248d57d5::t_b72c36ff109a9b 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/openssl_LICENSE.html
+  s_142fca248d57d5::t_0a3c2e74a43728 1-251
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/oss_licenses_index.txt
+  s_142fca248d57d5::t_7601ae93ae71a6 1-140
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/pcg_random_LICENSE.html
+  s_142fca248d57d5::t_4c824e36610c57 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/perf_data_converter_LICENSE.html
+  s_142fca248d57d5::t_19a1bf73701cfc 1-38
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/perfetto_LICENSE.html
+  s_142fca248d57d5::t_bf407c138c89c2 1-298
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/pocl_LICENSE.html
+  s_142fca248d57d5::t_36d6228800ec77 1-735
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/program_image_remapper_LICENSE.html
+  s_142fca248d57d5::t_3a9b2f9ab25c8b 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/protobuf_LICENSE.html
+  s_142fca248d57d5::t_f128eeafd2da1b 1-46
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/protoc_gen_validate_LICENSE.html
+  s_142fca248d57d5::t_1804b2bb17a59f 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/pthreadpool_LICENSE.html
+  s_142fca248d57d5::t_66654daf8e2716 1-39
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/py_ml_dtypes_LICENSE.html
+  s_142fca248d57d5::t_610eb5bf58f7f9 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/re2_LICENSE.html
+  s_142fca248d57d5::t_1434edc7a37aa7 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/riegeli_LICENSE.html
+  s_142fca248d57d5::t_40c61269c8a1cb 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_addr2line_v0_24_LICENSE.html
+  s_142fca248d57d5::t_5594830d312356 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_adler2_v2_LICENSE.html
+  s_142fca248d57d5::t_b96359432495c2 1-255
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_cfg_if_v1_LICENSE.html
+  s_142fca248d57d5::t_35ab48e9165a33 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_cxx_v1_LICENSE.html
+  s_142fca248d57d5::t_bc9c9cb4eccaba 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_esaxx_rs_v0_1_LICENSE.html
+  s_142fca248d57d5::t_58b240e5ec8625 1-269
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_gimli_v0_31_LICENSE.html
+  s_142fca248d57d5::t_b45a6a196ba4f3 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_hashbrown_v0_16_LICENSE.html
+  s_142fca248d57d5::t_45f73c06f7241d 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_hashbrown_v0_17_LICENSE.html
+  s_142fca248d57d5::t_f05f779f1e3c72 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_libbz2_rs_sys_v0_2_LICENSE.html
+  s_142fca248d57d5::t_9925433179482f 1-61
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_libc_v0_2_LICENSE.html
+  s_142fca248d57d5::t_07f7b5e2a61de0 1-217
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_libz_rs_sys_google_LICENSE.html
+  s_142fca248d57d5::t_669b62a5815aab 1-66
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_libz_rs_sys_v0_6_LICENSE.html
+  s_142fca248d57d5::t_e9d908705b02c8 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_llguidance_v1_LICENSE.html
+  s_142fca248d57d5::t_e690a2a05d3bdd 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_miniz_oxide_v0_8_LICENSE.html
+  s_142fca248d57d5::t_b71080a0933be6 1-234
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_object_v0_37_LICENSE.html
+  s_142fca248d57d5::t_6c20f6521d90c8 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/rust_rustc_demangle_v0_1_LICENSE.html
+  s_142fca248d57d5::t_8bdec36b2d4d25 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/ruy_LICENSE.html
+  s_142fca248d57d5::t_2cf1cbfd89de3f 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/safertos_addons_LICENSE.html
+  s_142fca248d57d5::t_fc196af544caeb 1-51
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/sentencepiece_src_LICENSE.html
+  s_142fca248d57d5::t_566be4d4bdc038 1-304
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/sha3_LICENSE.html
+  s_142fca248d57d5::t_2a8fdaec3a0997 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/silicon_LICENSE.html
+  s_142fca248d57d5::t_047241d6169a1a 1-237
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/spirv_headers_LICENSE.html
+  s_142fca248d57d5::t_7bc6f5f7e4d1db 1-515
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/spirv_llvm_translator_LICENSE.html
+  s_142fca248d57d5::t_14c5a27314b14d 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/splitfile_LICENSE.html
+  s_142fca248d57d5::t_9b1896857e53ce 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/stablehlo_LICENSE.html
+  s_142fca248d57d5::t_85bd68c1502b01 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/stblib_LICENSE.html
+  s_142fca248d57d5::t_d6dd19cd0c9edf 1-50
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/stc_LICENSE.html
+  s_142fca248d57d5::t_7fb15bcdcbe544 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/swiftshader_LICENSE.html
+  s_142fca248d57d5::t_2b82d90109a3af 1-1052
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/task_thread_pool_LICENSE.html
+  s_142fca248d57d5::t_f20439abfd7144 1-71
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/tcmalloc_LICENSE.html
+  s_142fca248d57d5::t_36e06267d6863d 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/tensorflow_LICENSE.html
+  s_142fca248d57d5::t_61f999b2071a77 1-263
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/tink_LICENSE.html
+  s_142fca248d57d5::t_82eef00048a8b9 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/tokenizers_cpp_LICENSE.html
+  s_142fca248d57d5::t_907ab9974cb404 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/tz_LICENSE.html
+  s_142fca248d57d5::t_06d125d63aee8a 1-46
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/udpa_LICENSE.html
+  s_142fca248d57d5::t_a542f3f8bf54a9 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/utf8_range_LICENSE.html
+  s_142fca248d57d5::t_3d9977536818ef 1-35
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/utf_LICENSE.html
+  s_142fca248d57d5::t_976c8d0a755024 1-26
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_headers_LICENSE.html
+  s_142fca248d57d5::t_b600a644b55a58 1-226
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_loader_LICENSE.html
+  s_142fca248d57d5::t_1c4528ec2b0189 1-545
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_memory_allocator_LICENSE.html
+  s_142fca248d57d5::t_bdaf630215cb70 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_utility_libraries_LICENSE.html
+  s_142fca248d57d5::t_b4b6857c2cf22d 1-383
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_volk_LICENSE.html
+  s_142fca248d57d5::t_6664ea72e31657 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/xls_LICENSE.html
+  s_142fca248d57d5::t_32cf08b2793b4b 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/xprof_LICENSE.html
+  s_142fca248d57d5::t_08471522da5f32 1-275
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/xxhash_LICENSE.html
+  s_142fca248d57d5::t_f670b9ba5cc25e 1-39
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/z3_LICENSE.html
+  s_142fca248d57d5::t_bb2251352f474d 1-22
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/zippy_LICENSE.html
+  s_142fca248d57d5::t_cf41a174aeeaf6 1-833
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/zlib_LICENSE.html
+  s_142fca248d57d5::t_56427486788fd0 1-66
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64-simulator/CLiteRTLM.framework/third_party_licenses.bundle/zstdlib_LICENSE.html
+  s_142fca248d57d5::t_4cc6eaac1ae5e3 1-93
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/Headers/CLiteRTLM.h
+  s_142fca248d57d5::t_a729055adf9dda 1-5
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/Headers/capabilities.h
+  s_142fca248d57d5::t_a25ebc8289b238 1-127
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/Headers/conversation.h
+  s_142fca248d57d5::t_15b502e9247980 1-510
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/Headers/embedding_engine.h
+  s_142fca248d57d5::t_0466cc6d290316 1-415
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/Headers/engine.h
+  s_142fca248d57d5::t_168fe422e58bc4 1-1408
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/Headers/experimental.h
+  s_142fca248d57d5::t_63aeaa4762e052 1-131
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/LICENSE
+  s_142fca248d57d5::t_3c297bb7c925ab 1-201
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/Modules/module.modulemap
+  s_142fca248d57d5::t_cfc3e4b1612aa8 1-7
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/CRoaring_LICENSE.html
+  s_142fca248d57d5::t_7ebbcd37c568e8 1-295
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/FP16_LICENSE.html
+  s_142fca248d57d5::t_70916baa2e88ad 1-24
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/FXdiv_LICENSE.html
+  s_142fca248d57d5::t_684ecba715a58b 1-23
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/GL_LICENSE.html
+  s_142fca248d57d5::t_99197836f0f830 1-251
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/GL_util_LICENSE.html
+  s_142fca248d57d5::t_e7b003fd2fbf7e 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/KleidiAI_LICENSE.html
+  s_142fca248d57d5::t_0f3410c5f00285 1-110
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/OpenCV_LICENSE.html
+  s_142fca248d57d5::t_533dc38a866fcf 1-558
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/XNNPACK_LICENSE.html
+  s_142fca248d57d5::t_ac8f64464ddb34 1-44
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/Xorg_LICENSE.html
+  s_142fca248d57d5::t_5e29892c02083b 1-955
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/absl_LICENSE.html
+  s_142fca248d57d5::t_40ead0b65b2ad1 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/address_sorting_LICENSE.html
+  s_142fca248d57d5::t_a64475e3384c5b 1-39
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/angle_LICENSE.html
+  s_142fca248d57d5::t_9604691a2c2c3c 1-1023
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/ares_v1_21_0_LICENSE.html
+  s_142fca248d57d5::t_b9c44618c776e7 1-104
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/array_LICENSE.html
+  s_142fca248d57d5::t_5c347d0aee4509 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/audio_to_tactile_LICENSE.html
+  s_142fca248d57d5::t_8d6306160f783d 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/benchmark_LICENSE.html
+  s_142fca248d57d5::t_4508b1922e5fa8 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/boost_LICENSE.html
+  s_142fca248d57d5::t_eb3327821a1690 1-516
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/brotli_LICENSE.html
+  s_142fca248d57d5::t_9d3d844fcc06e9 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/bz2lib_LICENSE.html
+  s_142fca248d57d5::t_8262c369b8742e 1-55
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/cblas_LICENSE.html
+  s_142fca248d57d5::t_4eda671e6994c8 1-61
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/cnpy_LICENSE.html
+  s_142fca248d57d5::t_468570c48fe093 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/cppitertools_LICENSE.html
+  s_142fca248d57d5::t_800c870e4d0cb9 1-36
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/cpu_features_LICENSE.html
+  s_142fca248d57d5::t_bc8d00d177cbe6 1-243
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/cpuinfo_LICENSE.html
+  s_142fca248d57d5::t_64729376c4a1c8 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/crunchy_LICENSE.html
+  s_142fca248d57d5::t_eb4ceba1e06bbb 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/darts_clone_LICENSE.html
+  s_142fca248d57d5::t_8ff09bda3ccd65 1-24
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/darwinn_LICENSE.html
+  s_142fca248d57d5::t_85408dbbc40633 1-407
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/darwinn_firmware_common_callback_LICENSE.html
+  s_142fca248d57d5::t_4f42c0d008a5f1 1-64
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/darwinn_port_default_port_from_tf_LICENSE.html
+  s_142fca248d57d5::t_6f9b2815a8798d 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/dawn_LICENSE.html
+  s_142fca248d57d5::t_ec0840ff5f35e6 1-223
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/ecclesia_LICENSE.html
+  s_142fca248d57d5::t_bb0c92b5e5af5b 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/eigen3_LICENSE.html
+  s_142fca248d57d5::t_24ed3d94deebfa 1-1544
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/emdawnwebgpu_LICENSE.html
+  s_142fca248d57d5::t_753e2d72ff7203 1-81
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/envoy_LICENSE.html
+  s_142fca248d57d5::t_7555bb81f9a2e3 1-272
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/fast_hash_LICENSE.html
+  s_142fca248d57d5::t_20bf211ff7bc9c 1-36
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/fft2d_LICENSE.html
+  s_142fca248d57d5::t_044d71483bfaca 1-16
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/flatbuffers_LICENSE.html
+  s_142fca248d57d5::t_5c86aec19bc50c 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/gemmlowp_LICENSE.html
+  s_142fca248d57d5::t_2dc4ba3b937e46 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/geographiclib_LICENSE.html
+  s_142fca248d57d5::t_6c51339e0e49e7 1-84
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/gfortran_gcc_16_1_0_LICENSE.html
+  s_142fca248d57d5::t_8ac8754a54c1b1 1-765
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/gif_LICENSE.html
+  s_142fca248d57d5::t_df4e7cf478b5c1 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/glslang_LICENSE.html
+  s_142fca248d57d5::t_1d2b49f190298a 1-1026
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/golang_protobuf_v2_LICENSE.html
+  s_142fca248d57d5::t_515658815047dd 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/googlesql_LICENSE.html
+  s_142fca248d57d5::t_469bf3f26b5eec 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/gpus_rocm_LICENSE.html
+  s_142fca248d57d5::t_ec2d6531f3751b 1-920
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/grpc_LICENSE.html
+  s_142fca248d57d5::t_461de5e55226d2 1-636
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/grpc_proto_LICENSE.html
+  s_142fca248d57d5::t_714e78ee818142 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/half_LICENSE.html
+  s_142fca248d57d5::t_7d2166ad4019ee 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/halide_LICENSE.html
+  s_142fca248d57d5::t_ecce5ba042dda5 1-229
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/highway_LICENSE.html
+  s_142fca248d57d5::t_281ec43d7e5b56 1-256
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/highwayhash_LICENSE.html
+  s_142fca248d57d5::t_707428104cc8bd 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/hwloc_LICENSE.html
+  s_142fca248d57d5::t_80bc76ca45ef58 1-52
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/icu_LICENSE.html
+  s_142fca248d57d5::t_024f98593afcd8 1-567
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/java_android_android_sdk_linux_extras_android_compatibility_annotations_LICENSE.html
+  s_142fca248d57d5::t_5574185e818604 1-203
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/java_jetbrains_java_annotations_LICENSE.html
+  s_142fca248d57d5::t_fd2bd3b640dd87 1-179
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/java_protobuf_LICENSE.html
+  s_142fca248d57d5::t_ef0d41cff22e59 1-45
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/json_LICENSE.html
+  s_142fca248d57d5::t_d1f044b197e9a2 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/jsoncpp_LICENSE.html
+  s_142fca248d57d5::t_155733f99d057b 1-68
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/kissfft_LICENSE.html
+  s_142fca248d57d5::t_d4e5f3f5ef981d 1-91
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/kotlin_kotlin_stable_LICENSE.html
+  s_142fca248d57d5::t_61163a1a76a742 1-558
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/lapack_LICENSE.html
+  s_142fca248d57d5::t_be6f997ce8b753 1-92
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/legacy_libcxx_sort_LICENSE.html
+  s_142fca248d57d5::t_32f641ca5fc359 1-323
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/libelfin_LICENSE.html
+  s_142fca248d57d5::t_097922be4d2839 1-33
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/libpfm4_LICENSE.html
+  s_142fca248d57d5::t_6fc03753e01c4d 1-33
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/liburing_LICENSE.html
+  s_142fca248d57d5::t_ca5a50335fa419 1-33
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/libxcb_LICENSE.html
+  s_142fca248d57d5::t_68502c29477187 1-122
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/llama_cpp_latest_LICENSE.html
+  s_142fca248d57d5::t_a9364e60cadc77 1-71
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/llvm_LICENSE.html
+  s_142fca248d57d5::t_18dbe5360dffbd 1-1549
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/mediapipe_LICENSE.html
+  s_142fca248d57d5::t_3f95eb3fb6fba1 1-231
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/minizip_LICENSE.html
+  s_142fca248d57d5::t_1a4d18ee9bee9b 1-60
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/ml_drift_LICENSE.html
+  s_142fca248d57d5::t_4eeb93e1a93274 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/mobstore_LICENSE.html
+  s_142fca248d57d5::t_fb473c024c716b 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/mosys_LICENSE.html
+  s_142fca248d57d5::t_f26ee3857882b8 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/neon2sse_LICENSE.html
+  s_142fca248d57d5::t_9d699f824445dd 1-42
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/odml_LICENSE.html
+  s_142fca248d57d5::t_9a4dda874eec24 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/opencensus_LICENSE.html
+  s_142fca248d57d5::t_dae19d6ebc4661 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/opencensus_proto_LICENSE.html
+  s_142fca248d57d5::t_864ff5ae250220 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/opencl_headers_LICENSE.html
+  s_142fca248d57d5::t_4f5dedac036816 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/opencl_icd_loader_LICENSE.html
+  s_142fca248d57d5::t_932888e0fa0752 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/openssl_LICENSE.html
+  s_142fca248d57d5::t_81f1dacdfb932d 1-251
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/oss_licenses_index.txt
+  s_142fca248d57d5::t_752e73927674f7 1-140
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/pcg_random_LICENSE.html
+  s_142fca248d57d5::t_cfbb4301f23511 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/perf_data_converter_LICENSE.html
+  s_142fca248d57d5::t_780491204ad9c6 1-38
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/perfetto_LICENSE.html
+  s_142fca248d57d5::t_b53bc49fefac5c 1-298
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/pocl_LICENSE.html
+  s_142fca248d57d5::t_5ebf7383832c0c 1-735
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/program_image_remapper_LICENSE.html
+  s_142fca248d57d5::t_70e20eca0b4f80 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/protobuf_LICENSE.html
+  s_142fca248d57d5::t_1bea284392eee1 1-46
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/protoc_gen_validate_LICENSE.html
+  s_142fca248d57d5::t_54adad442340fe 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/pthreadpool_LICENSE.html
+  s_142fca248d57d5::t_c1955713ad54cc 1-39
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/py_ml_dtypes_LICENSE.html
+  s_142fca248d57d5::t_5f26fa9951790e 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/re2_LICENSE.html
+  s_142fca248d57d5::t_d979651dcdd9fe 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/riegeli_LICENSE.html
+  s_142fca248d57d5::t_578bd43d538970 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_addr2line_v0_24_LICENSE.html
+  s_142fca248d57d5::t_7b427820a8477a 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_adler2_v2_LICENSE.html
+  s_142fca248d57d5::t_7f9e6633956b57 1-255
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_cfg_if_v1_LICENSE.html
+  s_142fca248d57d5::t_865fcda89998ea 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_cxx_v1_LICENSE.html
+  s_142fca248d57d5::t_0cee87cc94e373 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_esaxx_rs_v0_1_LICENSE.html
+  s_142fca248d57d5::t_562a712f6dd9c0 1-269
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_gimli_v0_31_LICENSE.html
+  s_142fca248d57d5::t_3a6dcfd77910fb 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_hashbrown_v0_16_LICENSE.html
+  s_142fca248d57d5::t_e0a2339bb0da01 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_hashbrown_v0_17_LICENSE.html
+  s_142fca248d57d5::t_0e8ff21680e82a 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_libbz2_rs_sys_v0_2_LICENSE.html
+  s_142fca248d57d5::t_1acf925ae5fb2f 1-61
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_libc_v0_2_LICENSE.html
+  s_142fca248d57d5::t_570e6837afd129 1-217
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_libz_rs_sys_google_LICENSE.html
+  s_142fca248d57d5::t_eb8f271dda00d3 1-66
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_libz_rs_sys_v0_6_LICENSE.html
+  s_142fca248d57d5::t_f81973649c4b6b 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_llguidance_v1_LICENSE.html
+  s_142fca248d57d5::t_57f71d0d8803ca 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_miniz_oxide_v0_8_LICENSE.html
+  s_142fca248d57d5::t_a8a0012386f2d9 1-234
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_object_v0_37_LICENSE.html
+  s_142fca248d57d5::t_8b4b5e799545eb 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/rust_rustc_demangle_v0_1_LICENSE.html
+  s_142fca248d57d5::t_5a886edf9bba3d 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/ruy_LICENSE.html
+  s_142fca248d57d5::t_5a04c738b02faf 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/safertos_addons_LICENSE.html
+  s_142fca248d57d5::t_6c4f22068beda7 1-51
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/sentencepiece_src_LICENSE.html
+  s_142fca248d57d5::t_e0d7556eed4772 1-304
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/sha3_LICENSE.html
+  s_142fca248d57d5::t_9299b29b2812d1 1-40
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/silicon_LICENSE.html
+  s_142fca248d57d5::t_cdd6dc4b7aabec 1-237
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/spirv_headers_LICENSE.html
+  s_142fca248d57d5::t_c046a4efa3cff3 1-515
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/spirv_llvm_translator_LICENSE.html
+  s_142fca248d57d5::t_8a975341cad311 1-242
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/splitfile_LICENSE.html
+  s_142fca248d57d5::t_810a5cbe6b4992 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/stablehlo_LICENSE.html
+  s_142fca248d57d5::t_7cc965914f60e4 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/stblib_LICENSE.html
+  s_142fca248d57d5::t_1707df990df65c 1-50
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/stc_LICENSE.html
+  s_142fca248d57d5::t_a753b27d1d5eba 1-34
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/swiftshader_LICENSE.html
+  s_142fca248d57d5::t_1594ef12a2e16a 1-1052
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/task_thread_pool_LICENSE.html
+  s_142fca248d57d5::t_296ae302da2818 1-71
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/tcmalloc_LICENSE.html
+  s_142fca248d57d5::t_588b8d16d4597d 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/tensorflow_LICENSE.html
+  s_142fca248d57d5::t_f89360305c92fd 1-263
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/tink_LICENSE.html
+  s_142fca248d57d5::t_cbb6fe6416dc1b 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/tokenizers_cpp_LICENSE.html
+  s_142fca248d57d5::t_28c2a464afa3d6 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/tz_LICENSE.html
+  s_142fca248d57d5::t_d561017621002e 1-46
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/udpa_LICENSE.html
+  s_142fca248d57d5::t_7f9d97793b72f8 1-214
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/utf8_range_LICENSE.html
+  s_142fca248d57d5::t_4ac4d096274d69 1-35
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/utf_LICENSE.html
+  s_142fca248d57d5::t_a79ae160138b1c 1-26
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_headers_LICENSE.html
+  s_142fca248d57d5::t_2f3114b3a3d16d 1-226
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_loader_LICENSE.html
+  s_142fca248d57d5::t_c2338ef01d31f8 1-545
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_memory_allocator_LICENSE.html
+  s_142fca248d57d5::t_9fbe6298f38419 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_utility_libraries_LICENSE.html
+  s_142fca248d57d5::t_eb5a158f4b9642 1-383
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/vulkan_volk_LICENSE.html
+  s_142fca248d57d5::t_5b8317a097d454 1-32
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/xls_LICENSE.html
+  s_142fca248d57d5::t_bfe383c42b669b 1-215
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/xprof_LICENSE.html
+  s_142fca248d57d5::t_8e291cc98bbda2 1-275
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/xxhash_LICENSE.html
+  s_142fca248d57d5::t_e8b5a46c7dcc79 1-39
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/z3_LICENSE.html
+  s_142fca248d57d5::t_01cdb319abaff4 1-22
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/zippy_LICENSE.html
+  s_142fca248d57d5::t_72f7a362aaf481 1-833
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/zlib_LICENSE.html
+  s_142fca248d57d5::t_359f3ada6947b5 1-66
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/artifacts/litertlm/CLiteRTLM/CLiteRTLM.xcframework/ios-arm64/CLiteRTLM.framework/third_party_licenses.bundle/zstdlib_LICENSE.html
+  s_142fca248d57d5::t_476ed798208092 1-93
+packages/catalyst-ai/plugins/ai/LiteRTLM/.build/workspace-state.json
+  s_142fca248d57d5::t_03d362aaa3ffa9 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "379a170ce6073048bcb285aa9001bf8d988722b3",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_5503bdc189cdb4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3c4188a2-42d0-4c56-84d7-58d344225d6f",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
