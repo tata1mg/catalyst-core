@@ -176,3 +176,37 @@ describe("registry", () => {
         unregisterTool(k)
     })
 })
+
+describe("registry in-memory fallback backend (no document.modelContext)", () => {
+    beforeEach(() => {
+        __resetForTests()
+    })
+
+    it("registers, lists and executes through the fallback, and reports not-native", async () => {
+        const k = newOwnerKey()
+        expect(registerTool(k, "", spec("fb_tool")).ok).toBe(true)
+        expect(__getBackendTools()).toEqual([
+            { name: "fb_tool", description: "test fb_tool", inputSchema: { type: "object", properties: {} } },
+        ])
+        expect(inspect().isNative).toBe(false)
+        expect(await invokeTool("fb_tool")).toBe("ran fb_tool")
+    })
+
+    it("updateToolSpec treats a structurally equal schema as unchanged and a different one as a change", () => {
+        const k = newOwnerKey()
+        const schema = { type: "object", properties: { a: { type: "string" } } }
+        registerTool(k, "", { ...spec("u"), inputSchema: schema })
+        const before = inspect().tools[0].receiptId
+        updateToolSpec(k, { inputSchema: JSON.parse(JSON.stringify(schema)) })
+        expect(inspect().tools[0].receiptId).toBe(before)
+        updateToolSpec(k, { inputSchema: { type: "object", properties: { a: { type: "string" }, b: { type: "number" } } } })
+        expect(inspect().tools[0].receiptId).not.toBe(before)
+    })
+
+    it("rejects a second owner registering the same tool name", () => {
+        registerTool(newOwnerKey(), "/a", spec("dup"))
+        const res = registerTool(newOwnerKey(), "/b", spec("dup"))
+        expect(res.ok).toBe(false)
+        expect(res.error.code).toBe("WEBMCP_DUPLICATE_TOOL")
+    })
+})
