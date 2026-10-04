@@ -1,0 +1,131 @@
+.github/workflows/node.js.yml
+  s_5503bdc189cdb4::t_eda57c71bddbb9 229,571-572,574
+.github/workflows/release-automation.yml
+  s_5503bdc189cdb4::t_aa2f10d14509f4 19-20,22,28-32,49-52,69,91-103,122,131,133,136-150
+.github/workflows/release.yml
+  s_5503bdc189cdb4::t_c4b3e503e31e8e 4-5,8-9,16-26,30-31,39,48,51-52,55-60,62,66-67,71-72,74-75,115,117,119,152,154-156,163-164,170,172-174,176-179,181-208,212-213,217,220-222,228-229,261-263,265,268-275,277,280,287
+.semgrepignore
+  s_5503bdc189cdb4::t_d8fe6a99895c91 1-15
+docs/.gitignore
+  s_5503bdc189cdb4::t_297a44f139589a 78-79
+docs/client/index.js
+  s_5503bdc189cdb4::t_332a933e1aae09 7-8,11-19
+docs/package-lock.json
+  s_5503bdc189cdb4::t_62d8475dc329c5 2345-2347,2358,2384-2386,3892-3894,3916,3918,4452-4454,5355-5357,6854-6856,7420-7422
+docs/package.json
+  s_5503bdc189cdb4::t_1ab582724e2126 22-23
+docs/src/js/components/BottomNav.js
+  s_5503bdc189cdb4::t_0360616db6e6ac 1-144
+docs/src/js/components/DocumentBootstrap.js
+  s_5503bdc189cdb4::t_fb503ecb79e20f 5-6,11-19,32
+docs/src/js/components/Navbar.js
+  s_5503bdc189cdb4::t_853539ef5bf8ff 15
+docs/src/js/components/OnboardingVideo.js
+  s_5503bdc189cdb4::t_171e6a2ff8bc31 1-91
+docs/src/js/components/OnboardingVideo.scss
+  s_5503bdc189cdb4::t_704c359b9e746e 1-107
+docs/src/js/components/ScrollReset.js
+  s_5503bdc189cdb4::t_ad27e325878416 13-14
+docs/src/js/components/SearchModal.js
+  s_5503bdc189cdb4::t_0596bc3260ba02 4-35
+docs/src/js/components/ShellSync.js
+  s_5503bdc189cdb4::t_5ea45eabc6ab4d 1-58
+docs/src/js/components/docs/CodeBlock.js
+  s_5503bdc189cdb4::t_c3e29ca564bb37 7
+docs/src/js/components/docs/ThemeContext.js
+  s_5503bdc189cdb4::t_e6eaf252d95187 8,35
+docs/src/js/components/pluginBridge.js
+  s_5503bdc189cdb4::t_54d9f3f9994fdd 1-24
+docs/src/js/containers/AppHome/AppHome.js
+  s_5503bdc189cdb4::t_a43442ca15ee2d 1-178
+docs/src/js/containers/NotFound.js
+  s_5503bdc189cdb4::t_f8e5d402b62f85 7
+docs/src/js/containers/Showcase/Showcase.js
+  s_5503bdc189cdb4::t_b692588d782143 1-27
+docs/src/js/containers/Showcase/Showcase.scss
+  s_5503bdc189cdb4::t_f24961449a0bc8 1-325
+docs/src/js/containers/Showcase/ShowcaseBar.js
+  s_5503bdc189cdb4::t_330dae3e88744c 1-40
+docs/src/js/containers/Showcase/ShowcaseIndex.js
+  s_5503bdc189cdb4::t_22d77abbb6a8e8 1-130
+docs/src/js/containers/Showcase/sections/FilePickerShowcase.js
+  s_5503bdc189cdb4::t_f80aa8ec836eaa 1-159
+docs/src/js/containers/Showcase/sections/GoogleSignInShowcase.js
+  s_5503bdc189cdb4::t_550ead014cdc38 1-79
+docs/src/js/containers/Showcase/sections/NotificationShowcase.js
+  s_5503bdc189cdb4::t_5f8ef53e632af0 1-86
+docs/src/js/containers/Showcase/sections/VideoStreamShowcase.js
+  s_5503bdc189cdb4::t_13d0447ed06c90 1-190
+docs/src/js/containers/TryApp/TryApp.js
+  s_5503bdc189cdb4::t_35ee82bd35093d 1-550
+docs/src/js/containers/TryApp/TryApp.scss
+  s_5503bdc189cdb4::t_3d05b61a67c000 1-325
+docs/src/js/containers/shared/appKit.scss
+  s_5503bdc189cdb4::t_1a0839eb57a802 1-267
+docs/src/js/layouts/DocsLayout.js
+  s_5503bdc189cdb4::t_a03484e221f981 7,11,175-176
+docs/src/js/routes/index.js
+  s_5503bdc189cdb4::t_0612aa26b2a43c 1,8-44,55-78
+docs/src/static/css/base/docs.scss
+  s_5503bdc189cdb4::t_128a9dadbf581c 103-110,212-213,217-220,222-232,492,561-562,674,680-685,688,705,758,861,1260-1270,1749-2065
+docs/src/static/css/base/styles.scss
+  s_5503bdc189cdb4::t_419b74a23a399a 3-14
+package-lock.json
+  s_5503bdc189cdb4::t_02857c0072a414 12-14,18-19,2504-2506,2520-2522,2536-2538,2552-2554,2568-2570,2584-2586,2600-2602,2616-2618,2632-2634,2648-2650,2664-2666,2680-2682,2696-2698,2712-2714,2728-2730,2744-2746,2760-2762,2776-2778,2792-2794,2808-2810,2824-2826,2840-2842,2856-2858,2872-2874,2888-2890,2904-2906,5273-5275,5280,5294-5295,5304-5306,5312-5313,5322-5324,5328,5349-5351,5362-5364,5368,5376-5378,5382-5383,5392-5394,5402-5404,5408,5544-5557,5893-5895,5906,5932-5934,7289-7292,7302-7327,8001-8003,8025,8027,8093-8095,9610-9612,10569-10580,10705-10707,11294-11296,11299,11505-11507,11647-11683,11712-11725,12366,13315-13317,13571-13573,13577-13583,13611-13616,14118,14120,14132,14140,14174,14187,14202-14215,14218-14224,14226-14229,14231,14234-14245,14247-14625,14627-14628,14630-14656,14734,14749,14752
+package.json
+  s_5503bdc189cdb4::t_d82cd9ab7f9a91 20-21,27-29,33-34
+packages/catalyst-ai/package.json
+  s_5503bdc189cdb4::t_86b440be16e874 33-34
+packages/catalyst-ai/src/route.js
+  s_5503bdc189cdb4::t_75dab66643b49d 591
+packages/catalyst-core/changelog.md
+  s_5503bdc189cdb4::t_9a2ae90832a05e 3
+packages/catalyst-core/package.json
+  s_5503bdc189cdb4::t_5d409a120b7781 3,79,119,132
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebCacheManagerTest.kt
+  s_5503bdc189cdb4::t_eb982a2a7d5186 212-237
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_5503bdc189cdb4::t_070ed4fc2579c2 335-342,540-541,543,547-553,559,562,568,584-585,592-632,642-644,646-652,654-657,659,661-662,850-851
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsConnectionHandlerTests.swift
+  s_5503bdc189cdb4::t_7f57e28315f412 1-133
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsLoopbackTests.swift
+  s_5503bdc189cdb4::t_0dc19a1b4e3c13 5-11,28-31,49-52,57-111,136-214,218,238,254,273,285,296,310,340
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NetworkMonitorTests.swift
+  s_5503bdc189cdb4::t_51022e4973af23 36,52-60,62-66,75,98
+packages/catalyst-core/src/server/expressServer.ts
+  s_5503bdc189cdb4::t_e57c5fce992854 145
+packages/create-catalyst-app/package.json
+  s_5503bdc189cdb4::t_17a20bb363fd37 4,27,30,34
+packages/create-catalyst-app/templates/none-js/package.json
+  s_5503bdc189cdb4::t_2c8e255e5358ff 25
+packages/create-catalyst-app/templates/none-ts/package.json
+  s_5503bdc189cdb4::t_2e028a9b3c1184 26
+packages/create-catalyst-app/templates/redux-js/package.json
+  s_5503bdc189cdb4::t_785af07aa8ed7f 28
+packages/create-catalyst-app/templates/redux-ts/package.json
+  s_5503bdc189cdb4::t_a468239b4b291a 29
+packages/create-catalyst-app/templates/rtk-js/package.json
+  s_5503bdc189cdb4::t_c13e9382e86b17 28
+packages/create-catalyst-app/templates/rtk-ts/package.json
+  s_5503bdc189cdb4::t_b42e4786a97572 29
+scripts/release/release.js
+  s_5503bdc189cdb4::t_641153829ef6a8 4,27-38,152,165-178,185-189,201-225,230,245,248,259,265,272,279,285,299-300,335-341,349,359-360,367-368,374-376,384,388
+scripts/release/release.test.js
+  s_5503bdc189cdb4::t_272d899cac79e7 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f6b50343e8865d60c441caf39b637e9371e3fbc5",
+  "prompts": {},
+  "sessions": {
+    "s_5503bdc189cdb4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3c4188a2-42d0-4c56-84d7-58d344225d6f",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+examples/useai/src/js/containers/TicTacToe/TicTacToe.js
+  s_142fca248d57d5::t_7e65de89e8d583 2
+examples/useai/src/js/containers/AITest/AITest.js
+  s_142fca248d57d5::t_c30ecda6f3555c 14-15,139
+  s_142fca248d57d5::t_7e65de89e8d583 2
+examples/sync-packages.js
+  s_142fca248d57d5::t_694fa3e6082069 14,69
+  s_142fca248d57d5::t_78f60e300adde6 40-42,46
+examples/useai/src/js/containers/App/index.js
+  s_142fca248d57d5::t_7e65de89e8d583 2
+examples/useai/src/js/pages/Overview/Overview.js
+  s_142fca248d57d5::t_7e65de89e8d583 2
+examples/useai/src/js/containers/Chess/Chess.js
+  s_142fca248d57d5::t_7e65de89e8d583 2
+examples/useai/src/js/containers/Home/Home.js
+  s_142fca248d57d5::t_7e65de89e8d583 13
+examples/useai/package.json
+  s_142fca248d57d5::t_7e65de89e8d583 34
+examples/useai/client/index.js
+  s_142fca248d57d5::t_7e65de89e8d583 4,6,11
+examples/useai/src/js/routes/utils.js
+  s_142fca248d57d5::t_7e65de89e8d583 2
+examples/useai/src/js/containers/AIPlayground/AIPlayground.js
+  s_142fca248d57d5::t_7e65de89e8d583 4
+examples/useai/src/js/components/AITest/InferenceSettingsBottomSheet.js
+  s_142fca248d57d5::t_c30ecda6f3555c 177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "efe88046a60638982d9417c434d1939103a53a3a",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

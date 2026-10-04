@@ -1,0 +1,21 @@
+package.json
+  s_c7fe34a005da55::t_5d92b9e76fd0f1 27
+package-lock.json
+  s_c7fe34a005da55::t_fac1c6866e72c5 13,2443,2446-2459,2461-2468,2471-2484,2488,2491-2494,2496-2499,7541-7586,7597-7611,11045-11060
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6ebbed4b1b92b440e346c462771437e1c17fef7d",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

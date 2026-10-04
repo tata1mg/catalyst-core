@@ -1,0 +1,22 @@
+examples/useai/src/js/containers/Chess/Chess.js
+  s_142fca248d57d5::t_eb274a9a71ca04 142-144
+  s_142fca248d57d5::t_912f8407882991 138-141,145-150,225,259-260,519-524
+packages/catalyst-ai/src/useNativeAI.js
+  s_142fca248d57d5::t_912f8407882991 144-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c9545587ba4b353a10ea5c737598257fca03a387",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

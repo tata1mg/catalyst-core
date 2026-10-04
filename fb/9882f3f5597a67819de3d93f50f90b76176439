@@ -1,0 +1,22 @@
+docs/buildConfig.js
+  s_5503bdc189cdb4::t_d58161ed126a2f 17-18,23
+  s_5503bdc189cdb4::t_8e93a934ad7a27 19-22
+.github/workflows/node.js.yml
+  s_5503bdc189cdb4::t_2b7ef5b6cd08ab 1359,1361-1364
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fb9882f3f5597a67819de3d93f50f90b76176439",
+  "prompts": {},
+  "sessions": {
+    "s_5503bdc189cdb4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3c4188a2-42d0-4c56-84d7-58d344225d6f",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
