@@ -24,7 +24,7 @@ const routeRecord = (routeKey) => {
 /** Stable key for caching deferred chunks — uses the matched route pattern (e.g. "/product/:name/:id")
  *  so all pages on the same route share one entry regardless of their actual URL parameters. */
 export const getDeferredRouteKey = (req, allMatches = []) => {
-    return allMatches?.length ? allMatches[allMatches.length - 1]?.route?.path ?? null : null
+    return allMatches?.length ? (allMatches[allMatches.length - 1]?.route?.path ?? null) : null
 }
 
 /** CSS paths (manifest-relative) previously deferred on this route — for <head> inlining. */
@@ -129,15 +129,23 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
  * @param {string[]} jsUrls
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptElements = (jsUrls = [], nonce) =>
-    [...new Set(jsUrls)].map((url, i) =>
-        React.createElement("script", {
+export const generateScriptElements = (jsUrls = [], nonce, integrityManifest = {}) => {
+    return [...(new Set(jsUrls))].map((url, i) => {
+        const integrityData = integrityManifest[url]
+        return React.createElement("script", {
             key: `js-${i}`,
             type: "module",
             src: url,
             ...(nonce ? { nonce } : {}),
+            ...(integrityData?.integrity
+                ? {
+                      integrity: integrityData.integrity,
+                      crossOrigin: integrityData.crossOrigin || "anonymous",
+                  }
+                : {}),
         })
-    )
+    })
+}
 
 // ── HTML strings (for streaming injection after body via res.write) ────
 
@@ -152,11 +160,17 @@ export const generateCssLinkStrings = (cssUrls = []) =>
  * @param {string[]} jsUrls
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptStrings = (jsUrls = [], nonce) => {
+export const generateScriptStrings = (jsUrls = [], nonce, integrityManifest = {}) => {
     const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
     return [...new Set(jsUrls)]
         .map((url) => {
-            return `<script type="module"${nonceAttr} src="${url}"></script>`
+            const integrityData = integrityManifest[url]
+            const integrityAttr = integrityData?.integrity ? ` integrity="${integrityData.integrity}"` : ""
+            const crossOriginAttr = integrityData?.integrity
+                ? ` crossorigin="${integrityData.crossOrigin || "anonymous"}"`
+                : ""
+
+            return `<script check=true type="module"${nonceAttr}${integrityAttr}${crossOriginAttr} src="${url}"></script>`
         })
         .join("")
 }
