@@ -161,9 +161,9 @@ const _renderMarkUp = async (
 
     const integrityManifest = getIntegrityManifest() || {}
     const jsScripts = generateScriptElements(criticalAssets.js, nonce, integrityManifest)
-    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce)
+    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce, integrityManifest)
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
-    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce)
+    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce, integrityManifest)
 
     // Build Head props
     const shellStart = renderStart({

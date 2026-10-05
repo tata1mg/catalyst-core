@@ -24,7 +24,7 @@ const routeRecord = (routeKey) => {
 /** Stable key for caching deferred chunks — uses the matched route pattern (e.g. "/product/:name/:id")
  *  so all pages on the same route share one entry regardless of their actual URL parameters. */
 export const getDeferredRouteKey = (req, allMatches = []) => {
-    return allMatches?.length ? (allMatches[allMatches.length - 1]?.route?.path ?? null) : null
+    return allMatches?.length ? allMatches[allMatches.length - 1]?.route?.path ?? null : null
 }
 
 /** CSS paths (manifest-relative) previously deferred on this route — for <head> inlining. */
@@ -77,16 +77,28 @@ export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
  * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload", nonce) =>
-    [...new Set(jsUrls)].map((url, i) =>
-        React.createElement("link", {
+export const generateModulePreloadLinkElements = (
+    jsUrls = [],
+    keyPrefix = "modulepreload",
+    nonce,
+    integrityManifest = {}
+) =>
+    [...new Set(jsUrls)].map((url, i) => {
+        const integrityData = integrityManifest[url]
+        return React.createElement("link", {
             key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
             href: url,
             fetchPriority: "high",
             ...(nonce ? { nonce } : {}),
+            ...(integrityData?.integrity
+                ? {
+                      integrity: integrityData.integrity,
+                      crossOrigin: integrityData.crossOrigin || "anonymous",
+                  }
+                : {}),
         })
-    )
+    })
 
 /**
  * Read CSS files from disk and return concatenated CSS string for inlining.
@@ -130,7 +142,7 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
 export const generateScriptElements = (jsUrls = [], nonce, integrityManifest = {}) => {
-    return [...(new Set(jsUrls))].map((url, i) => {
+    return [...new Set(jsUrls)].map((url, i) => {
         const integrityData = integrityManifest[url]
         return React.createElement("script", {
             key: `js-${i}`,
