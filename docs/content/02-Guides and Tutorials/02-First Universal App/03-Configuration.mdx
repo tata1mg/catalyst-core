@@ -240,6 +240,40 @@ The profiler is disabled by default and only runs in debug builds. Rebuild the n
 
 ---
 
+## Edge-to-Edge
+
+Let the WebView draw behind the status bar and navigation bar.
+
+```json title="config/config.json"
+{
+  "WEBVIEW_CONFIG": {
+    "edgeToEdge": {
+      "enabled": true,
+      "statusBarStyle": "auto"
+    }
+  }
+}
+```
+
+### Options
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Draw page content behind the system bars on Android and iOS |
+| `statusBarStyle` | string | `"auto"` | System bar icon colour. Android only for now |
+
+`statusBarStyle` accepts these values:
+
+- `auto` follows the system light or dark theme.
+- `dark-content` uses dark icons, for light pages.
+- `light-content` uses light icons, for dark pages.
+
+When edge-to-edge is enabled, the app is responsible for keeping content clear of the system bars. Read the insets with [`useSafeArea()`](/content/API%20Reference/hooks#usesafearea) and apply them as padding. The values are in CSS pixels on both platforms. On Android they also update when the insets change, for example when the user switches navigation mode. When edge-to-edge is disabled, the insets are `0`.
+
+On Android 10 (API 29) and later the system bars are fully transparent. Below API 29 the navigation bar keeps a translucent scrim.
+
+---
+
 ## Whitelisting
 
 Control network access and navigation through URL whitelisting.
