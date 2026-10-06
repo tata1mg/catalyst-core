@@ -1,0 +1,97 @@
+// Welcome — frame Hymuu in design/drape.pen
+// Spec: docs/WELCOME-IDEAS.md (Variation A: Magazine Cover)
+
+// Sizing for the FadeImage element. The component owns its own opacity
+// transition; we only set dimensions and the placeholder background.
+.hero {
+    width: 100%;
+    height: 420px;
+    flex-shrink: 0;
+    background-color: var(--color-surface-soft);
+}
+
+.content {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-16);
+    padding: var(--space-36) var(--space-28) var(--space-32) var(--space-28);
+    background-color: var(--color-surface);
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+        opacity var(--motion-state) var(--ease-decelerate) 200ms,
+        transform var(--motion-state) var(--ease-decelerate) 200ms;
+}
+
+.contentRevealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.brand {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 56px;
+    font-weight: 500;
+    letter-spacing: -1px;
+    color: var(--color-text-primary);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+        opacity var(--motion-state) var(--ease-decelerate) 280ms,
+        transform var(--motion-state) var(--ease-decelerate) 280ms;
+}
+
+.contentRevealed .brand {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.tagline {
+    margin: 0;
+    width: 100%;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+.description {
+    margin: 0;
+    width: 100%;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+.spacer {
+    flex: 1 0 auto;
+    width: 100%;
+    min-height: var(--space-24);
+}
+
+.ctaWrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-18);
+    width: 100%;
+}
+
+.signIn {
+    border: 0;
+    background: none;
+    padding: 0;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    cursor: pointer;
+}

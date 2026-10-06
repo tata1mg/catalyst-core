@@ -1,0 +1,132 @@
+// Variants Gallery — frame I7E7ve in design/drape.pen
+// Spec: docs/VARIANTS-GALLERY-IDEAS.md (Variation A: Contact Sheet 2x3)
+
+.body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: var(--space-8) var(--page-padding) var(--space-20) var(--page-padding);
+    gap: var(--space-20);
+}
+
+// Mobile: clear the floating tab bar so the bottom CTA isn't hidden.
+@media (max-width: 599px) {
+    .body {
+        padding-bottom: calc(var(--space-20) + var(--tab-bar-height));
+    }
+}
+
+.top {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-18);
+}
+
+.helper {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-10);
+}
+
+// Cell sizing matches the locked Pencil spec (height: 145, cornerRadius: 14).
+// Earlier `aspect-ratio: 4 / 5` rendered cells ~206 tall and pushed the CTA below
+// the fold on the design canvas — see docs/VARIANTS-GALLERY-IDEAS.md.
+.cell {
+    position: relative;
+    width: 100%;
+    height: 145px;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-soft);
+    overflow: hidden;
+    transition:
+        box-shadow var(--transition-state),
+        transform var(--motion-tap) var(--ease-standard);
+}
+
+.cellImage {
+    position: absolute;
+    inset: 0;
+}
+
+.cell:active {
+    transform: scale(0.98);
+}
+
+.cellSelected {
+    box-shadow: 0 0 0 var(--stroke-emphasis) var(--color-accent);
+}
+
+.cellCheck {
+    position: absolute;
+    top: var(--space-8);
+    right: var(--space-8);
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    background-color: var(--color-accent);
+    color: var(--color-text-on-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    animation: cellBadgeIn var(--motion-state) var(--ease-decelerate);
+    transform-origin: center;
+}
+
+@keyframes cellBadgeIn {
+    from {
+        opacity: 0;
+        transform: scale(0);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.bottom {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-14);
+}
+
+
+.infoRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-12);
+}
+
+.infoText {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+}
+
+.regenLink {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-6);
+    border: 0;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}

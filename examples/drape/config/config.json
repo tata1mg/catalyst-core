@@ -1,0 +1,31 @@
+{
+  "NODE_SERVER_HOSTNAME": "127.0.0.1",
+  "NODE_SERVER_PORT": 3005,
+  "WEBPACK_DEV_SERVER_HOSTNAME": "127.0.0.1",
+  "WEBPACK_DEV_SERVER_PORT": 3006,
+  "BUILD_OUTPUT_PATH": "build",
+  "PUBLIC_STATIC_ASSET_PATH": "/assets/",
+  "PUBLIC_STATIC_ASSET_URL": "http://127.0.0.1:3005",
+  "API_URL": "",
+  "ANALYZE_BUNDLE": false,
+  "CLIENT_ENV_VARIABLES": [
+    "API_URL"
+  ],
+  "WEBVIEW_CONFIG": {
+    "LOCAL_IP": "127.0.0.1",
+    "port": "3005",
+    "appInfo": "",
+    "edgeToEdge": {
+      "enabled": true
+    },
+    "android": {
+      "buildType": "debug"
+    },
+    "ios": {
+      "buildType": "debug",
+      "appBundleId": "com.drape.app",
+      "simulatorName": "iPhone 17 Pro",
+      "cachePattern": "*.css"
+    }
+  }
+}

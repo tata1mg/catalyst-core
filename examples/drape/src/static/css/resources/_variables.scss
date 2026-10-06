@@ -1,0 +1,111 @@
+// Design tokens — mirrors docs/DESIGN-TOKENS.md
+// Auto-injected via @tailwindcss/postcss + the global import in src/static/css/base/index.scss.
+
+:root {
+    // Color
+    --color-canvas: #f5f1ec;
+    --color-surface: #ffffff;
+    --color-surface-soft: #ede6dd;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #7a736b;
+    --color-text-on-dark: #ffffff;
+    --color-accent: #8b3a2f;
+    --color-border-subtle: #e8e2da;
+    --color-scrim: rgba(26, 26, 26, 0.8);
+
+    // Typography
+    --font-display: "Fraunces", ui-serif, Georgia, serif;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    // Spacing
+    --space-2: 2px;
+    --space-4: 4px;
+    --space-6: 6px;
+    --space-8: 8px;
+    --space-10: 10px;
+    --space-12: 12px;
+    --space-14: 14px;
+    --space-16: 16px;
+    --space-18: 18px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-28: 28px;
+    --space-32: 32px;
+    --space-36: 36px;
+    --space-40: 40px;
+    --space-60: 60px;
+
+    // Radius
+    --radius-xs: 12px;
+    --radius-sm: 14px;
+    --radius-md: 18px;
+    --radius-lg: 24px;
+    --radius-pill: 28px;
+    --radius-xxl: 36px;
+    --radius-device: 48px;
+
+    // Stroke
+    --stroke-hairline: 1px;
+    --stroke-thin: 1.2px;
+    --stroke-soft: 1.5px;
+    --stroke-emphasis: 2px;
+
+    // Motion — see docs/MOTION-DIRECTION.md
+    --motion-instant: 0ms;
+    --motion-tap: 100ms;
+    --motion-quick: 200ms;
+    --motion-state: 280ms;
+    --motion-transition: 320ms;
+    --motion-soft: 500ms;
+    --motion-progress-rotation: 1400ms;
+
+    // Image-load reveal mechanics — see FadeImage component + MOTION-DIRECTION.md §5.
+    // The shimmer loop runs continuously on the skeleton placeholder; the
+    // develop reveal fires once when the image's bitmap is decode-ready.
+    --motion-shimmer: 2400ms;
+    --motion-reveal-develop: 800ms;
+
+    --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+    --transition-tap: transform var(--motion-tap) var(--ease-standard);
+    --transition-state: var(--motion-quick) var(--ease-standard);
+    --transition-route-in: var(--motion-transition) var(--ease-decelerate);
+    --transition-route-out: var(--motion-quick) var(--ease-accelerate);
+    --transition-sheet-in: var(--motion-transition) var(--ease-decelerate);
+    --transition-sheet-out: var(--motion-state) var(--ease-accelerate);
+    --transition-image-fade: opacity var(--motion-soft) var(--ease-decelerate);
+
+    // Page-edge gutter — see DESIGN-TOKENS.md "Grid"
+    --page-padding: 20px;
+
+    // Floating-chrome height — actual visible height of the floating TabBar.
+    // Derived from TabBar.scss: 12px top padding + 62px pill + max(21px,
+    // safe-area-inset-bottom) bottom padding. Same formula evaluates to 95
+    // on desktop (no safe area) and ~108 on iPhone 17 Pro (safe area = 34).
+    // Sticky/floating CTAs use this directly — no extra env() addition.
+    --tab-bar-height: calc(74px + max(21px, env(safe-area-inset-bottom, 0px)));
+}
+
+// Reduced motion: collapse all durations to instant. Spinners + the progress-ring
+// rotation remain (the doc spec calls for replacing spinners with a static dot —
+// individual components handle that).
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --motion-tap: 0ms;
+        --motion-quick: 0ms;
+        --motion-state: 0ms;
+        --motion-transition: 0ms;
+        --motion-soft: 0ms;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
