@@ -96,14 +96,13 @@ function Home() {
         document.documentElement.style.setProperty('--sab', '34px');
         document.documentElement.style.setProperty('--sal', '0px');
       } else {
-        const dpr = !webFallbackActive ? window.devicePixelRatio || 1 : 1;
-        document.documentElement.style.setProperty('--sat', `${(top || 0) / dpr}px`);
-        document.documentElement.style.setProperty('--sar', `${(right || 0) / dpr}px`);
-        document.documentElement.style.setProperty('--sab', `${(bottom || 0) / dpr}px`);
-        document.documentElement.style.setProperty('--sal', `${(left || 0) / dpr}px`);
+        document.documentElement.style.setProperty('--sat', `${top || 0}px`);
+        document.documentElement.style.setProperty('--sar', `${right || 0}px`);
+        document.documentElement.style.setProperty('--sab', `${bottom || 0}px`);
+        document.documentElement.style.setProperty('--sal', `${left || 0}px`);
       }
     }
-  }, [top, right, bottom, left, isNative, webFallbackActive]);
+  }, [top, right, bottom, left, isNative]);
 
   const setActive = (id) => {
     console.log(`🏠 [Home] setActive (navigate):`, id);

@@ -9,12 +9,16 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.webkit.WebView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import org.json.JSONObject
 
 class KeyboardUtil(
     private val activity: Activity,
     private val webViewContainer: View,
     private val webView: WebView? = null,
+    private val edgeToEdgeEnabled: Boolean = false,
 ) {
     private var originalHeight: Int = 0
     private var listener: ViewTreeObserver.OnGlobalLayoutListener? = null
@@ -51,6 +55,22 @@ class KeyboardUtil(
     fun initialize() {
         val rootView = activity.findViewById<ViewGroup>(android.R.id.content)
 
+        if (edgeToEdgeEnabled) {
+            // Root stays full-screen in edge-to-edge, so pin the resized container to the top instead of centering it
+            (webViewContainer.layoutParams as ConstraintLayout.LayoutParams).verticalBias = 0f
+
+            // Strip IME insets from the WebView: we already shrink the container, and the WebView
+            // would otherwise subtract the keyboard a second time from its visual viewport
+            webView?.let { wv ->
+                ViewCompat.setOnApplyWindowInsetsListener(wv) { v, insets ->
+                    val withoutIme = WindowInsetsCompat.Builder(insets)
+                        .setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE)
+                        .build()
+                    ViewCompat.onApplyWindowInsets(v, withoutIme)
+                }
+            }
+        }
+
         webViewContainer.post {
             originalHeight = webViewContainer.height
         }
@@ -58,8 +78,16 @@ class KeyboardUtil(
             val rect = Rect()
             rootView.getWindowVisibleDisplayFrame(rect)
             val screenHeight = activity.resources.displayMetrics.heightPixels
-            val visibleHeight = rect.height()
-            val keyboardHeight = screenHeight - visibleHeight
+            val keyboardHeight = if (edgeToEdgeEnabled) {
+                // Edge-to-edge: rootView spans behind the system bars, so measure how far the
+                // visible frame's bottom sits above rootView's bottom (screen coords; works in split-screen)
+                val location = IntArray(2)
+                rootView.getLocationOnScreen(location)
+                maxOf(0, (location[1] + rootView.height) - rect.bottom)
+            } else {
+                val visibleHeight = rect.height()
+                screenHeight - visibleHeight
+            }
 
             // Use density-independent threshold and consider screen size
             // Also add a minimum percentage of screen height as additional validation

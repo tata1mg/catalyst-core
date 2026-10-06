@@ -496,7 +496,7 @@ function ProtectedAction() {
 
 ### `useSafeArea`
 
-Read safe-area insets in pixels. On web and SSR, all values are `0`.
+Read safe-area insets in CSS pixels. Values are `0` when `WEBVIEW_CONFIG.edgeToEdge.enabled` is off, and on web and SSR.
 
 | Property | Type | Description |
 |----------|------|-------------|
