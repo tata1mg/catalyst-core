@@ -697,7 +697,7 @@
     {
         "section": "native_hooks",
         "title": "useSafeArea \u2014 return shape",
-        "content": "useSafeArea() returns: { top: number, right: number, bottom: number, left: number, isNative: boolean, isWeb: boolean, webFallbackActive, webFallbackDisabled, setWebFallback } \u2014 inset values in pixels. isNative=true when running in Android/iOS WebView. isWeb=!isNative. On native: live updates via WebBridge ON_SAFE_AREA_INSETS_UPDATED. No isNative guard needed \u2014 safe to use on both platforms.\n\nWEB FALLBACK: Reads CSS env() variables \u2014 env(safe-area-inset-top/right/bottom/left) \u2014 parsed via a hidden DOM element. Falls back to 0 if env() vars are not set (desktop browsers). Manages webFallback state locally (thin-state hook).",
+        "content": "useSafeArea() returns: { top: number, right: number, bottom: number, left: number, isNative: boolean, isWeb: boolean, webFallbackActive, webFallbackDisabled, setWebFallback } \u2014 inset values in CSS pixels on both platforms; all 0 when WEBVIEW_CONFIG.edgeToEdge.enabled is false (the default). isNative=true when running in Android/iOS WebView. isWeb=!isNative. On native: live updates via WebBridge ON_SAFE_AREA_INSETS_UPDATED. No isNative guard needed \u2014 safe to use on both platforms.\n\nWEB FALLBACK: Reads CSS env() variables \u2014 env(safe-area-inset-top/right/bottom/left) \u2014 parsed via a hidden DOM element. Falls back to 0 if env() vars are not set (desktop browsers). Manages webFallback state locally (thin-state hook).",
         "layer": "Runtime",
         "source": "static",
         "tags": ["native-hooks", "useSafeArea", "return-shape", "web-fallback"]
