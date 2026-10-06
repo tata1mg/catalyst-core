@@ -295,6 +295,33 @@ export function withObservability(serviceName, fn, name) {
 }
 
 /**
+ * Creates a recorder for out-of-band response stream errors.
+ *
+ * Stream errors (e.g. Node's ERR_STREAM_WRITE_AFTER_END) surface on the
+ * response object's "error" event, typically after the span that performed
+ * the offending write has already ended, so recording the exception on the
+ * active span at error time would be silently dropped. Instead, capture the
+ * ambient context while the request span is still active and emit a dedicated
+ * error span into the same trace for each stream error (the same parenting
+ * approach responseFlushMiddleware uses for its post-end spans).
+ *
+ * @param {string} serviceName - The name of the service
+ * @param {string} name - Span name (optional)
+ * @returns {Function} (error) => void, safe to call after the request span ended
+ */
+export function createStreamErrorRecorder(serviceName, name = "responseStreamError") {
+    const tracer = trace.getTracer(serviceName)
+    const parentContext = context.active()
+    return function recordStreamError(error) {
+        const span = tracer.startSpan(name, undefined, parentContext)
+        if (error && error.code) span.setAttribute("error.type", String(error.code))
+        span.recordException(error)
+        span.setStatus({ code: 2, message: error && error.message ? error.message : String(error) })
+        span.end()
+    }
+}
+
+/**
  * Express middleware that emits two spans describing what happens to the
  * response body AFTER the app calls res.end() — the work that lives past the
  * `handler` span and makes the HTTP server span run longer:
@@ -398,4 +425,10 @@ export function responseFlushMiddleware(
     }
 }
 
-export default { init, withObservability, withSyncObservability, responseFlushMiddleware }
+export default {
+    init,
+    withObservability,
+    withSyncObservability,
+    responseFlushMiddleware,
+    createStreamErrorRecorder,
+}

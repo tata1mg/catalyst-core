@@ -4,6 +4,7 @@ import android.view.View
 import android.view.Window
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import kotlin.math.ceil
 import kotlin.math.max
 
 data class SafeAreaInsets(
@@ -26,37 +27,31 @@ data class SafeAreaInsets(
 
 object SafeAreaUtils {
     /**
-     * Computes safe area insets from window insets.
-     * - Edge-to-edge disabled: Returns system bars only
-     * - Edge-to-edge enabled: Returns max(system bars, cutout) per edge
+     * Computes safe area insets from window insets, in CSS px.
+     * CSS px equal dp here: the WebView has no wide-viewport scaling, so
+     * devicePixelRatio == density and px / density gives CSS px.
+     * - Edge-to-edge disabled: Returns ZERO (the system already insets the WebView, iOS parity)
+     * - Edge-to-edge enabled: Returns ceil(max(system bars, cutout) / density) per edge
      */
-    fun fromWindowInsets(insets: WindowInsetsCompat?, edgeToEdgeEnabled: Boolean): SafeAreaInsets {
-        if (insets == null) return SafeAreaInsets.ZERO
+    fun fromWindowInsets(insets: WindowInsetsCompat?, edgeToEdgeEnabled: Boolean, density: Float): SafeAreaInsets {
+        if (insets == null || !edgeToEdgeEnabled) return SafeAreaInsets.ZERO
 
         val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-
-        if (!edgeToEdgeEnabled) {
-            return SafeAreaInsets(
-                top = max(0, systemBars.top),
-                right = max(0, systemBars.right),
-                bottom = max(0, systemBars.bottom),
-                left = max(0, systemBars.left)
-            )
-        }
-
         val cutoutInsets = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
 
         return SafeAreaInsets(
-            top = max(0, max(systemBars.top, cutoutInsets.top)),
-            right = max(0, max(systemBars.right, cutoutInsets.right)),
-            bottom = max(0, max(systemBars.bottom, cutoutInsets.bottom)),
-            left = max(0, max(systemBars.left, cutoutInsets.left))
+            top = toCssPx(max(systemBars.top, cutoutInsets.top), density),
+            right = toCssPx(max(systemBars.right, cutoutInsets.right), density),
+            bottom = toCssPx(max(systemBars.bottom, cutoutInsets.bottom), density),
+            left = toCssPx(max(systemBars.left, cutoutInsets.left), density)
         )
     }
 
     fun getSafeAreaInsets(window: Window, rootView: View, edgeToEdgeEnabled: Boolean): SafeAreaInsets {
         val windowInsets =
             ViewCompat.getRootWindowInsets(window.decorView) ?: ViewCompat.getRootWindowInsets(rootView)
-        return fromWindowInsets(windowInsets, edgeToEdgeEnabled)
+        return fromWindowInsets(windowInsets, edgeToEdgeEnabled, rootView.resources.displayMetrics.density)
     }
+
+    private fun toCssPx(px: Int, density: Float): Int = max(0, ceil(px / density).toInt())
 }

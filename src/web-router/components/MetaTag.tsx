@@ -1,8 +1,7 @@
 import React, { useContext, useState, useEffect } from "react"
-import { HelmetProvider, Helmet } from "react-helmet-async"
 import { OneMgRouterContext } from "../context.jsx"
 import { useRouterData } from "./RouterDataProvider.jsx"
-import { deleteHeadTagsByDataAttribute, getMetaData } from "../utils/metaDataUtils.jsx"
+import { getMetaData } from "../utils/metaDataUtils.jsx"
 import { useLocation } from "react-router"
 
 /**
@@ -12,23 +11,14 @@ export const MetaTag = (): any => {
     const { matchedRoutes } = useContext(OneMgRouterContext)
     const routeData = useRouterData()
     const location = useLocation()
-    const [metaTags, setMetaTags] = useState<any[]>([<meta key={0}></meta>])
+    const [metaTags, setMetaTags] = useState<any[]>([])
 
     useEffect(() => {
         const mergedMetaTags = getMetaData(matchedRoutes, routeData)
-        if (Array.isArray(mergedMetaTags) && mergedMetaTags.length > 0) {
-            setMetaTags(mergedMetaTags)
-        }
-        return () => deleteHeadTagsByDataAttribute("catalyst")
+        setMetaTags(Array.isArray(mergedMetaTags) ? mergedMetaTags : [])
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location])
 
-    if (Array.isArray(metaTags) && metaTags.length >= 0) {
-        return (
-            <HelmetProvider>
-                <Helmet>{metaTags}</Helmet>
-            </HelmetProvider>
-        )
-    }
-    return <></>
+    // React 19 hoists document metadata rendered by components into <head>.
+    return <>{metaTags}</>
 }

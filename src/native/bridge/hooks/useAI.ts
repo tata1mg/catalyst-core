@@ -1,5 +1,7 @@
 /* global __CATALYST_PACKAGES__ */
 
+import { resolveMode, resolveNativeEngine } from "./aiProviders.js"
+
 function getBrowserConfig() {
     try {
         const raw = process.env.AI_PUBLIC_CONFIG
@@ -11,13 +13,10 @@ function getBrowserConfig() {
     }
 }
 
-function resolveMode(provider) {
-    if (provider === "transformers") return "local"
-    if (provider === "native") return "native"
-    return "cloud"
-}
-
 function isNativeAIAvailable() {
+    // catalyst-ai knows both platforms (Android's NativeBridge, iOS's injected plugin manifest).
+    // Older catalyst-ai versions don't export it, so fall back to the Android-only check.
+    if (_pkg && typeof _pkg.isNativeAIAvailable === "function") return _pkg.isNativeAIAvailable()
     const nb = typeof window !== "undefined" && window.NativeBridge
     return nb && typeof nb.isAIAvailable === "function" && nb.isAIAvailable()
 }
@@ -43,7 +42,8 @@ const _pkg =
         : null
 
 // provider: "transformers" → useWebAI   (catalyst-ai)
-//           "native"       → useNativeAI (catalyst-ai, falls back to useCloudAI if bridge unavailable)
+//           "native" | "litert" | "foundation-models"
+//                          → useNativeAI (catalyst-ai, falls back to useCloudAI if bridge unavailable)
 //           anything else  → useCloudAI  (catalyst-ai, default)
 // The shape of this hook is owned by the catalyst-ai package and sits outside
 // the native hook contract entirely, so its options and result stay loose here.
@@ -55,7 +55,13 @@ export function useAI(options: any = {}) {
 
     const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
     const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
-    const nativeResult = _pkg ? _pkg.useNativeAI({ ...options, enabled: mode === "native" }) : emptyHook()
+    const nativeResult = _pkg
+        ? _pkg.useNativeAI({
+              ...options,
+              enabled: mode === "native",
+              engine: resolveNativeEngine(resolvedProvider, options.engine, config),
+          })
+        : emptyHook()
 
     if (typeof window === "undefined") return emptyHook()
 
