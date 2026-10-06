@@ -10,7 +10,7 @@
             "field: WEBVIEW_CONFIG must be present",
             "field: API_URL must be present"
         ],
-        "fix_guide": "Create config/config.json with: { NODE_SERVER_PORT: 3000, API_URL: 'https://api.example.com', CLIENT_ENV_KEYS: [], PUBLIC_STATIC_ASSET_URL: '', WEBVIEW_CONFIG: { port: 3000, accessControl: { enabled: true, allowedUrls: [] } } }",
+        "fix_guide": "Create config/config.json with: { NODE_SERVER_HOSTNAME: 'localhost', NODE_SERVER_PORT: 3005, BUILD_OUTPUT_PATH: 'build', PUBLIC_STATIC_ASSET_PATH: '/assets/', PUBLIC_STATIC_ASSET_URL: 'http://localhost:3005', API_URL: 'https://api.example.com', CLIENT_ENV_VARIABLES: ['API_URL'], WEBVIEW_CONFIG: { port: 3005, accessControl: { enabled: true, allowedUrls: [] } } }. From 1.0.0, catalyst start/build/serve exit before starting when NODE_SERVER_HOSTNAME, NODE_SERVER_PORT, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL or CLIENT_ENV_VARIABLES is missing. Before 1.0.0, also include WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT and ANALYZE_BUNDLE. On 1.0.0+ they are no longer read and can be removed.",
         "verify_hint": "Run `npm run start` on Catalyst 0.3.x, or `npm run devServe` on legacy 0.2.x. The server should start without config errors.",
         "depends_on": []
     },
@@ -21,9 +21,10 @@
         "detect_pattern": "package_json_dep",
         "how_to_check": [
             "Catalyst 0.2.x: package.json includes @tata1mg/router and Catalyst router APIs import from it",
-            "Catalyst 0.3.x+: package.json does not include @tata1mg/router and Catalyst router APIs import from catalyst-core"
+            "Catalyst 0.3.x: package.json does not include @tata1mg/router and router APIs import from catalyst-core",
+            "Catalyst 1.0.0+: package.json does not include @tata1mg/router, includes react-router ^7.18.2, and router names import from react-router"
         ],
-        "fix_guide": "Version-specific: for Catalyst 0.2.x install @tata1mg/router and import RouterDataProvider, Outlet, navigation, and data hooks from it. For Catalyst 0.3.x+, remove @tata1mg/router and import those APIs from catalyst-core. Never mix the two router generations.",
+        "fix_guide": "Version-specific: for Catalyst 0.2.x install @tata1mg/router and import RouterDataProvider, Outlet, navigation, and data hooks from it. For Catalyst 0.3.x, remove @tata1mg/router and import those APIs from catalyst-core. For Catalyst 1.0.0+, remove @tata1mg/router, add react-router ^7.18.2, import RouterDataProvider, MetaTag and useCurrentRouteData from catalyst-core, and import Outlet, Link, navigation hooks and every other router name from react-router. Never mix router generations.",
         "verify_hint": "Run the development command for the installed generation. Confirm there are no unresolved router imports, duplicate React-element errors, or blank route outlets.",
         "depends_on": ["T1_CONFIG"]
     },
@@ -68,7 +69,7 @@
             "signal: files with .serverFetcher = or .clientFetcher = (converted pages)",
             "llm judges: is any useEffect+fetch file a page component that needs conversion?"
         ],
-        "fix_guide": "For each page component: remove initial useEffect data loading, attach serverFetcher/clientFetcher statics, and read route data with useCurrentRouteData(). Import the hook from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+.",
+        "fix_guide": "For each page component: remove initial useEffect data loading, attach serverFetcher/clientFetcher statics, and read route data with useCurrentRouteData(). Import the hook from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x and 1.0.0+.",
         "verify_hint": "Open a migrated page in browser. Open DevTools Network tab — on first load there should be NO XHR/fetch calls for page data (data arrives server-rendered in HTML). View Page Source and confirm the page content (not just a loading skeleton) is present in the raw HTML. If content is missing from source, serverFetcher is not attached or not running.",
         "depends_on": ["T3_ROUTES_FILE"]
     },
@@ -81,7 +82,7 @@
             "file: src/js/routes/utils.js must exist",
             "pattern: RouterDataProvider must be imported and used in utils.js"
         ],
-        "fix_guide": "Create src/js/routes/utils.js using the CCA preparedRoutes pattern. Import RouterDataProvider and MetaTag from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+. Wrap App and pass routerInitialState plus fetcherArgs when a store is used.",
+        "fix_guide": "Create src/js/routes/utils.js using the CCA preparedRoutes pattern. Import RouterDataProvider and MetaTag from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x and 1.0.0+. Wrap App and pass routerInitialState plus fetcherArgs when a store is used.",
         "verify_hint": "In a page component that uses useCurrentRouteData(), console.log the return value. It should be the data object returned by serverFetcher — not undefined. If undefined, RouterDataProvider is not wrapping the tree or the route entry is missing the component reference.",
         "depends_on": ["T3_ROUTES_FILE"]
     },
@@ -92,10 +93,10 @@
         "detect_pattern": "file_exists + code_pattern",
         "how_to_check": [
             "file: src/js/containers/App/index.js must exist",
-            "pattern: Outlet comes from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+",
+            "pattern: Outlet comes from @tata1mg/router on 0.2.x, catalyst-core on 0.3.x, or react-router on 1.0.0+",
             "pattern: <Outlet /> must be rendered in the component"
         ],
-        "fix_guide": "Render <Outlet /> where route content belongs. Import it from @tata1mg/router on Catalyst 0.2.x or catalyst-core on 0.3.x+. Keep global layout around the outlet.",
+        "fix_guide": "Render <Outlet /> where route content belongs. Import it from @tata1mg/router on Catalyst 0.2.x, catalyst-core on 0.3.x, or react-router on 1.0.0+ (catalyst-core no longer re-exports it). Keep global layout around the outlet.",
         "verify_hint": "Open the app in browser. Global layout (header, footer, nav) should appear on every page. The area where page content changes should not be blank. If page content area is empty, <Outlet /> is missing or placed incorrectly in the App shell.",
         "depends_on": ["T5_ROUTER_DATA_PROVIDER"]
     },
@@ -125,10 +126,10 @@
             "pattern: client/index.js must call WebBridge.init()",
             "pattern: client/index.js must use hydrateRoot from 'react-dom/client' (not ReactDOM.render or hydrate)",
             "pattern: client/index.js must import clientRouter from 'catalyst-core/router/ClientRouter'",
-            "pattern: RouterProvider comes from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+",
+            "pattern: RouterProvider comes from @tata1mg/router on 0.2.x, catalyst-core on 0.3.x, or react-router/dom on 1.0.0+",
             "pattern: 0.2.x waits for loadableReady; 0.3.x+ waits for hydrationReady"
         ],
-        "fix_guide": "Use hydrateRoot and initialize WebBridge before hydration. On 0.2.x, import RouterProvider from @tata1mg/router and wait for loadableReady from @loadable/component. On 0.3.x+, import RouterProvider and hydrationReady from catalyst-core, then call hydrationReady().then(() => hydrateRoot(...)). Do not retain @loadable/component in the Vite runtime.",
+        "fix_guide": "Use hydrateRoot and initialize WebBridge before hydration. On 0.2.x, import RouterProvider from @tata1mg/router and wait for loadableReady from @loadable/component. On 0.3.x, import RouterProvider and hydrationReady from catalyst-core. On 1.0.0+, import hydrationReady from catalyst-core and RouterProvider from react-router/dom (not react-router: only the /dom export passes flushSync to the router). Then call hydrationReady().then(() => hydrateRoot(...)). Do not retain @loadable/component in the Vite runtime.",
         "verify_hint": "Open the app in browser. Open DevTools Console — there should be no 'hydrateRoot' mismatch warnings (if there are, server HTML and client render differ). Open DevTools Elements — the #app or #root div should have React content inside it (not empty). Click an interactive element — if nothing responds, hydration failed. Also confirm global styles are applied (CSS loads).",
         "depends_on": ["T6_APP_SHELL"]
     },

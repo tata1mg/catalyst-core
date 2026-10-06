@@ -8,10 +8,26 @@ id: 0.0.1-beta.4
 
 ## Upgrading From 0.3.x To 1.0.0
 
-Catalyst `1.0.0` freezes the public API. Upgrade from `0.3.0-beta.5`; if you are on an older
-release, work through the sections below first. Removed names fail at build time rather than
-resolving to `undefined`. Two changes are not caught by a build: the React Router and Node checks
-run at server startup, and the hook error fields under Hook Errors are renamed.
+Catalyst `1.0.0` freezes the public API. `0.3.0-beta.5` upgrades directly. `0.3.0-beta.1` to
+`0.3.0-beta.4` used React Router 6 through `react-router-dom`, so those releases also move to React
+Router 7, as described under Runtime Dependencies. On `0.2.x`, work through the sections below
+first. Removed names fail at build time rather than resolving to `undefined`. Three changes are
+not caught by a build: the React Router check runs at server startup, `RouterProvider` must come
+from `react-router/dom` (see Client Entry), and the hook error fields under Hook Errors are
+renamed.
+
+Work through it in this order:
+
+1. Switch to Node `22.12` or later.
+2. Update `package.json` as shown under Runtime Dependencies, then reinstall.
+3. Move router imports and replace removed names, as described under Imports From The Root Entry,
+   Client Entry and Removed Export Paths.
+4. Update code that reads hook errors, as described under Hook Errors.
+5. Run `npm run build`, then `npm run start`, and fix anything either reports.
+
+To have an agent run the upgrade through the [Catalyst MCP server](../15-MCP.md), ask it to call
+`sync_knowledge_base` first. The knowledge base installed with `0.3.0-beta.5` predates `1.0.0`;
+after the sync, `query_knowledge` returns these steps.
 
 ### Runtime Dependencies
 
@@ -31,8 +47,11 @@ as shown above. The server verifies the resolved version at startup and fails wi
 naming the required range if it is missing or outside `^7.18.2`. TypeScript applications also
 need `@types/react` `^19.0.0`.
 
-Node `22.12` is the minimum; on Node 20, importing `catalyst-core/hooks` or
-`catalyst-core/WebBridge` fails with `ERR_REQUIRE_ESM`.
+`catalyst-core` no longer installs `react-router-dom`. Change imports from it to `react-router`,
+except `RouterProvider`, which comes from `react-router/dom`.
+
+Node `22.12` is the minimum. Nothing checks the version at startup; on Node 20, importing
+`catalyst-core/hooks` or `catalyst-core/WebBridge` fails with `ERR_REQUIRE_ESM`.
 
 ### Imports From The Root Entry
 
@@ -63,6 +82,22 @@ These previously reachable names are now internal and have no replacement: `Rout
 `serverDataFetcher`, `mergeHeadElements`, `deleteHeadTagsByDataAttribute`, `getMetaData`,
 `useNavigateWithTransition`, and `sanitizeFilePickerOptions` (from `catalyst-core/hooks`). If your
 application depends on one of them, open an issue describing the use case before upgrading.
+
+### Client Entry
+
+`client/index.js` must import `RouterProvider` from `react-router/dom`, not from `react-router`.
+The `react-router/dom` build passes React DOM's `flushSync` into the router, which view
+transitions and `flushSync` navigations depend on. Importing it from `react-router` renders the
+same tree without any error, but silently skips that.
+
+```javascript title="client/index.js"
+// before
+import { RouterProvider, hydrationReady } from "catalyst-core"
+
+// after
+import { hydrationReady } from "catalyst-core"
+import { RouterProvider } from "react-router/dom"
+```
 
 ### Removed Export Paths
 
@@ -111,9 +146,10 @@ category, a suggested action, a documentation link, and the originating platform
 The error fields changed with it. `action` is now `suggestedAction`, `nativeError` is now `cause`,
 and `recoverable` and `timestamp` are gone. `code` values are registry codes such as
 `RUNTIME-NATIVE-001` instead of names such as `PERMISSION_DENIED`, so compare against
-`ERROR_CODES` from `catalyst-core/errors` rather than string literals. `CatalystError` extends
-`Error`, so `JSON.stringify(error)` no longer includes the message; log `error.message`
-explicitly, or use the `code` and `docUrl` fields.
+`ERROR_CODES` from `catalyst-core/errors` rather than string literals. `category` is now
+`RUNTIME-NATIVE` instead of values such as `PERMISSION`, `NETWORK` and `FILE_SYSTEM`.
+`CatalystError` extends `Error`, so `JSON.stringify(error)` no longer includes the message; log
+`error.message` explicitly, or use the `code` and `docUrl` fields.
 
 ### App Contract Reporting
 
@@ -155,11 +191,12 @@ Remove `@tata1mg/router` and `@loadable/component`. Keep React and React DOM pin
 ### Router And Hydration
 
 Import Catalyst router APIs from `catalyst-core`. Replace loadable components with `split()`, and
-replace `loadableReady()` with `hydrationReady()` before `hydrateRoot()`.
+replace `loadableReady()` with `hydrationReady()` before `hydrateRoot()`. On `0.3.x`,
+`RouterProvider` comes from `catalyst-core`; `1.0.0` moves it to `react-router/dom`, as described
+above.
 
 ```javascript
-import { hydrationReady } from "catalyst-core"
-import { RouterProvider } from "react-router/dom"
+import { RouterProvider, hydrationReady } from "catalyst-core"
 import { hydrateRoot } from "react-dom/client"
 
 window.addEventListener("load", () => {

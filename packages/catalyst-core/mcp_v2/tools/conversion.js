@@ -92,7 +92,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     review_context: {
                         question: "Which catalyst-core version is this project targeting?",
                         what_correct_looks_like:
-                            "0.2.x uses @tata1mg/router; 0.3.x+ removes it and imports Catalyst router APIs from catalyst-core.",
+                            "0.2.x uses @tata1mg/router; 0.3.x removes it and imports router APIs from catalyst-core; 1.0.0+ imports router names from react-router.",
                         what_gap_looks_like:
                             "Router dependencies and imports are mixed across runtime generations.",
                     },
@@ -111,7 +111,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     status: "gap",
                     native_risk:
                         "Catalyst 0.3.x owns the router implementation. Keeping @tata1mg/router can install a second routing runtime and produce incompatible React elements.",
-                    reason: "Remove @tata1mg/router and import router APIs from catalyst-core",
+                    reason: "Remove @tata1mg/router and import router APIs from catalyst-core on 0.3.x, or from react-router on 1.0.0+",
                 }
             return { status: "completed", note: "Current 0.3.x integrated router contract detected." }
         },
