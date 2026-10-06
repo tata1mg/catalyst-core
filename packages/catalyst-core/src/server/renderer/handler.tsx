@@ -126,6 +126,7 @@ try {
 // Passthrough no-ops used when OTEL_ENABLE is not set; replaced below if enabled.
 let withObservability: any = (_service: any, fn: any) => fn
 let withSyncObservability: any = (_service: any, fn: any) => fn
+let createStreamErrorRecorder: any = null
 
 // config.json booleans survive the process.env swap in loadEnvironmentVariables(),
 // so this is genuinely true at runtime when config sets OTEL_ENABLE: true. The cast
@@ -135,6 +136,7 @@ if ((process.env.OTEL_ENABLE as any) === true) {
         const otel = await import("../../otel.js")
         withObservability = otel.withObservability
         withSyncObservability = otel.withSyncObservability
+        createStreamErrorRecorder = otel.createStreamErrorRecorder
     } catch {
         // otel packages not installed — continue without tracing
     }
@@ -197,6 +199,26 @@ const getComponent = (store: any, context: any, req: any, fetcherData: any, isBo
 )
 
 // ── Render and stream ──────────────────────────────────────────────────
+// Responses that already have a stream-error listener attached. Guarded via
+// WeakSet because renderMarkUp can run twice for one response (the fetcher
+// error path re-renders with a 404) and "error" listeners must not stack.
+const _observedResponses = new WeakSet<object>()
+
+// Node swallows response stream errors (e.g. ERR_STREAM_WRITE_AFTER_END) when
+// res has no "error" listener: the write is dropped, nothing is logged, and a
+// truncated document ships silently. Log every stream error and, when tracing
+// is enabled, record it as an error span in the request's trace. Must be
+// called while the request span is still active so the span parents correctly.
+const observeResponseStreamErrors = (req: any, res: any) => {
+    if (_observedResponses.has(res)) return
+    _observedResponses.add(res)
+    const recordStreamError = createStreamErrorRecorder ? createStreamErrorRecorder(SSR_SERVICE) : null
+    res.on("error", (error: any) => {
+        console.error(`Response stream error while streaming SSR for ${req.originalUrl}:`, error)
+        if (recordStreamError) recordStreamError(error)
+    })
+}
+
 const _renderMarkUp = async (
     errorCode: any,
     req: any,
@@ -301,6 +323,7 @@ const _renderMarkUp = async (
     try {
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
+        observeResponseStreamErrors(req, res)
 
         return new Promise<void>((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and
