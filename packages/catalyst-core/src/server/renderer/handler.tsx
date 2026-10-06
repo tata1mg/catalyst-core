@@ -206,15 +206,16 @@ const _observedResponses = new WeakSet<object>()
 
 // Node swallows response stream errors (e.g. ERR_STREAM_WRITE_AFTER_END) when
 // res has no "error" listener: the write is dropped, nothing is logged, and a
-// truncated document ships silently. Log every stream error and, when tracing
+// truncated document ships silently. Log every stream error through
+// logSSRError (RUNTIME-WEB-001, like every other SSR failure) and, when tracing
 // is enabled, record it as an error span in the request's trace. Must be
 // called while the request span is still active so the span parents correctly.
-const observeResponseStreamErrors = (req: any, res: any) => {
+const observeResponseStreamErrors = (res: any) => {
     if (_observedResponses.has(res)) return
     _observedResponses.add(res)
     const recordStreamError = createStreamErrorRecorder ? createStreamErrorRecorder(SSR_SERVICE) : null
     res.on("error", (error: any) => {
-        console.error(`Response stream error while streaming SSR for ${req.originalUrl}:`, error)
+        logSSRError("RENDER", error)
         if (recordStreamError) recordStreamError(error)
     })
 }
@@ -323,7 +324,7 @@ const _renderMarkUp = async (
     try {
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
-        observeResponseStreamErrors(req, res)
+        observeResponseStreamErrors(res)
 
         return new Promise<void>((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and
