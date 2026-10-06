@@ -160,6 +160,33 @@ describe("SSR handler", () => {
         expect(res.getHtml()).toContain("<html")
     })
 
+    it("logs a response stream error as RUNTIME-WEB-001 instead of swallowing it", async () => {
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        const streamError: any = new Error("write after end")
+        streamError.code = "ERR_STREAM_WRITE_AFTER_END"
+        res.emit("error", streamError)
+
+        const logged = (console.error as any).mock.calls.flat().join("\n")
+        expect(logged).toContain("RUNTIME-WEB-001")
+        expect(logged).toContain("write after end")
+    })
+
+    it("attaches one stream-error listener even when the fetcher-error path renders twice", async () => {
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/fetcher-error")
+        const before = res.listenerCount("error")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.listenerCount("error")).toBe(before + 1)
+    })
+
     it("fails the request with 500 (no render) when configureStore is not a function", async () => {
         // handler.jsx imports createStore as a module-scope default binding,
         // so swap the fixture module before the fresh import. A non-function

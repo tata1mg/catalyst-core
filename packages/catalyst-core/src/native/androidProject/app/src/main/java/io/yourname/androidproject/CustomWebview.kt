@@ -66,7 +66,7 @@ class CustomWebView(
     private var lastTargetUrl: String? = null
     private var activeOfflineRouteOrigin: String? = null
     private var visibleOfflineSnapshotUrl: String? = null
-    private var defaultRequestHeaders: Map<String, String> = emptyMap()
+    @Volatile private var defaultRequestHeaders: Map<String, String> = emptyMap()
     var onPageStarted: (() -> Unit)? = null
 
     // Counters for asset loading statistics
