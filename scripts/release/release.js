@@ -6,6 +6,8 @@ const semver = require("semver")
 const repoRoot = path.resolve(__dirname, "..", "..")
 const syncTemplatesScript = path.join(repoRoot, "scripts", "release", "sync-cca-templates.js")
 const checkStableDepsScript = path.join(repoRoot, "scripts", "release", "check-stable-deps.js")
+// Written by `version` on the release branch; a change to it on main is what runs a latest release.
+const releaseMetaPath = path.join(repoRoot, ".release-meta.json")
 
 const workspaces = {
     core: { dir: "packages/catalyst-core", name: "catalyst-core" },
@@ -137,7 +139,10 @@ function syncTemplates(coreVersion) {
 
 function commandVersion(args) {
     const includeAi = args.flags.has("--include-ai")
+    const branch = args.values["--branch"]
     const versions = {}
+
+    if (!branch) fail("--branch is required")
 
     for (const workspace of selectedWorkspaces(includeAi)) {
         const current = readManifest(workspace).version
@@ -154,6 +159,11 @@ function commandVersion(args) {
 
     syncTemplates(versions[workspaces.core.name])
     runInherit("npm", ["install", "--package-lock-only", "--ignore-scripts"])
+
+    // the branch makes every prepare change the file, so two branches prepared with the
+    // same versions conflict instead of the second merge silently releasing nothing
+    fs.writeFileSync(releaseMetaPath, `${JSON.stringify({ branch, packages: versions }, null, 2)}\n`)
+    log(`wrote .release-meta.json for ${branch}`)
 
     writeOutputs({
         core_version: versions[workspaces.core.name],
@@ -221,6 +231,88 @@ function previousOutputs(coreVersion, channel) {
         log(`previous release: ${workspaces.core.name}@${previous.version} (${sha})`)
     }
     return { previous_version: previous.version, previous_sha: previous.sha }
+}
+
+/**
+ * Packages listed in .release-meta.json, in publish order. `manifestVersions` maps each
+ * package name to its package.json version. Throws when the file and the manifests do
+ * not line up, so a hand-edited file never publishes. Pure so it can be tested.
+ */
+function listedPackages(meta, manifestVersions) {
+    const packages = meta && meta.packages
+    if (!packages || typeof packages !== "object" || Array.isArray(packages)) {
+        throw new Error(".release-meta.json must have a packages object")
+    }
+    const names = Object.keys(packages)
+    if (names.length === 0) {
+        throw new Error(".release-meta.json lists no packages")
+    }
+    for (const name of names) {
+        if (!Object.values(workspaces).some((workspace) => workspace.name === name)) {
+            throw new Error(`.release-meta.json lists unknown package '${name}'`)
+        }
+    }
+    return Object.values(workspaces)
+        .filter((workspace) => names.includes(workspace.name))
+        .map((workspace) => {
+            const version = packages[workspace.name]
+            if (typeof version !== "string" || !channelPatterns.latest.test(version)) {
+                throw new Error(`.release-meta.json: ${workspace.name} must be X.Y.Z (got '${version}')`)
+            }
+            if (manifestVersions[workspace.name] !== version) {
+                throw new Error(
+                    `.release-meta.json lists ${workspace.name}@${version} but package.json has ${manifestVersions[workspace.name]}`
+                )
+            }
+            return { workspace, version }
+        })
+}
+
+/**
+ * What a latest run does with one listed package. `gitHead` is null when the version is
+ * not on npm, otherwise the commit npm recorded for it ("" when there is none).
+ * "published-here" lets a re-run of the same commit finish; "collision" means the version
+ * shipped from another commit, so this run must not claim it.
+ */
+function releaseState(gitHead, head) {
+    if (gitHead === null) return "new"
+    return gitHead === head ? "published-here" : "collision"
+}
+
+// listed packages, after checking none of them was already published from another commit
+function readReleaseMeta(head) {
+    let meta
+    try {
+        meta = JSON.parse(fs.readFileSync(releaseMetaPath, "utf8"))
+    } catch (error) {
+        fail(`could not read .release-meta.json: ${error.message}`)
+    }
+
+    const manifestVersions = Object.fromEntries(
+        Object.values(workspaces).map((workspace) => [workspace.name, readManifest(workspace).version])
+    )
+    let listed
+    try {
+        listed = listedPackages(meta, manifestVersions)
+    } catch (error) {
+        fail(error.message)
+    }
+
+    for (const { workspace, version } of listed) {
+        const gitHead = versionExists(workspace.name, version)
+            ? npmViewOrNull([`${workspace.name}@${version}`, "gitHead"]) || ""
+            : null
+        const state = releaseState(gitHead, head)
+        if (state === "collision") {
+            fail(
+                `${workspace.name}@${version} was already published from ${gitHead || "unknown"}; prepare the branch again with a new version`
+            )
+        }
+        if (state === "published-here") {
+            log(`${workspace.name}@${version} was already published from this commit`)
+        }
+    }
+    return listed
 }
 
 function waitForNpm(packageName, version, dryRun) {
@@ -293,30 +385,24 @@ function commandPublish(args) {
 
     const includeAi = args.flags.has("--include-ai")
     const dryRun = args.flags.has("--dry-run")
+    const head = run("git", ["rev-parse", "HEAD"]).trim()
     const targets = []
     const pending = []
 
     appendSummary(`### Release: ${channel}${dryRun ? " (dry run)" : ""}\n\n`)
 
-    // on latest the version filter decides what ships, so consider every workspace;
-    // --include-ai only widens the prerelease channels
-    const candidates = channel === "latest" ? Object.values(workspaces) : selectedWorkspaces(includeAi)
-
-    for (const workspace of candidates) {
-        const current = readManifest(workspace).version
-
-        if (channel === "latest") {
-            if (matchesChannel("latest", current) && !versionExists(workspace.name, current)) {
-                targets.push({ workspace, version: current })
+    // on latest .release-meta.json decides what ships; --include-ai only widens the
+    // prerelease channels
+    if (channel === "latest") {
+        targets.push(...readReleaseMeta(head))
+    } else {
+        for (const workspace of selectedWorkspaces(includeAi)) {
+            const base = requiredBase(args, workspace)
+            if (versionExists(workspace.name, base)) {
+                fail(`${workspace.name}@${base} is already a published stable release, pick a new version`)
             }
-            continue
+            pending.push({ workspace, base })
         }
-
-        const base = requiredBase(args, workspace)
-        if (versionExists(workspace.name, base)) {
-            fail(`${workspace.name}@${base} is already a published stable release, pick a new version`)
-        }
-        pending.push({ workspace, base })
     }
 
     for (const base of new Set(pending.map((entry) => entry.base))) {
@@ -329,17 +415,6 @@ function commandPublish(args) {
             setVersion(workspace, version)
             targets.push({ workspace, version })
         }
-    }
-
-    if (targets.length === 0) {
-        log("nothing to publish")
-        const coreVersion = readManifest(workspaces.core).version
-        writeOutputs({
-            published: "false",
-            core_version: coreVersion,
-            ...previousOutputs(coreVersion, channel),
-        })
-        return
     }
 
     for (const target of targets) {
@@ -365,12 +440,11 @@ function commandPublish(args) {
     }
 
     // core's prepublishOnly runs the build, under --dry-run too. Tag before waiting on
-    // npm so a timed-out wait does not leave a published version untagged.
+    // npm so a timed-out wait does not leave a published version untagged. Versions
+    // already on npm (published-here on latest) are skipped but still tagged.
     for (const target of targets) {
         publishWorkspace(target.workspace, target.version, channel, dryRun)
-        if (channel === "latest") {
-            pushTag(target.workspace, target.version, dryRun)
-        }
+        pushTag(target.workspace, target.version, dryRun)
         if (target.workspace === workspaces.core) {
             waitForNpm(target.workspace.name, target.version, dryRun)
         }
@@ -378,14 +452,20 @@ function commandPublish(args) {
 
     writeOutputs({
         core_version: templatePin,
-        core_published: String(!dryRun && targets.some((target) => target.workspace === workspaces.core)),
-        published: dryRun ? "false" : "true",
-        sha: run("git", ["rev-parse", "HEAD"]).trim(),
+        core_listed: String(Boolean(coreTarget)),
+        sha: head,
         ...previous,
     })
 }
 
-module.exports = { resolvePrereleaseNumber, previousRelease, escapeRegExp, highestPrereleaseNumberIn }
+module.exports = {
+    resolvePrereleaseNumber,
+    previousRelease,
+    escapeRegExp,
+    highestPrereleaseNumberIn,
+    listedPackages,
+    releaseState,
+}
 
 if (require.main === module) {
     const [subcommand, ...rest] = process.argv.slice(2)
