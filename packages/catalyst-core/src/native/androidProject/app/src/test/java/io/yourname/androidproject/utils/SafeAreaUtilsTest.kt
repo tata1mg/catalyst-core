@@ -1,5 +1,9 @@
 package io.yourname.androidproject.utils
 
+import android.content.res.Resources
+import android.util.DisplayMetrics
+import android.view.View
+import android.view.Window
 import androidx.core.graphics.Insets
 import androidx.core.view.WindowInsetsCompat
 import org.junit.Assert.assertEquals
@@ -42,6 +46,24 @@ class SafeAreaUtilsTest {
     @Test
     fun `fromWindowInsets returns ZERO when insets is null`() {
         val result = SafeAreaUtils.fromWindowInsets(null, edgeToEdgeEnabled = true, density = 1f)
+        assertEquals(SafeAreaInsets.ZERO, result)
+    }
+
+    // ============================================================
+    // getSafeAreaInsets passthrough
+    // ============================================================
+
+    @Test
+    fun `getSafeAreaInsets returns ZERO when the window has no root insets yet`() {
+        // Under the mockable android.jar Build.VERSION.SDK_INT is 0, so
+        // ViewCompat.getRootWindowInsets returns null for both views (no
+        // static mocking needed) and the passthrough delegates a null.
+        val resources = mock<Resources> { on { getDisplayMetrics() } doReturn DisplayMetrics() }
+        val rootView = mock<View> { on { getResources() } doReturn resources }
+        val window = mock<Window> { on { getDecorView() } doReturn mock<View>() }
+
+        val result = SafeAreaUtils.getSafeAreaInsets(window, rootView, edgeToEdgeEnabled = true)
+
         assertEquals(SafeAreaInsets.ZERO, result)
     }
 
