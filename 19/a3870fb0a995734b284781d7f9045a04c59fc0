@@ -1,0 +1,18 @@
+src/server/manifestCache.js
+  h_c91be57df924d3 6,20,28-31,43
+src/server/renderer/extract.js
+  h_c91be57df924d3 27,132-135,140-145,147-148,163,167-173
+src/server/renderer/handler.jsx
+  h_c91be57df924d3 35,162-163,260
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "19a3870fb0a995734b284781d7f9045a04c59fc0",
+  "prompts": {},
+  "humans": {
+    "h_c91be57df924d3": {
+      "author": "deepakmittal1mg <deepak.mittal@1mg.com>"
+    }
+  }
+}
