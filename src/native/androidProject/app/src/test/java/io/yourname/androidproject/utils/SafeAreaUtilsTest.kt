@@ -41,22 +41,22 @@ class SafeAreaUtilsTest {
 
     @Test
     fun `fromWindowInsets returns ZERO when insets is null`() {
-        val result = SafeAreaUtils.fromWindowInsets(null, edgeToEdgeEnabled = true)
+        val result = SafeAreaUtils.fromWindowInsets(null, edgeToEdgeEnabled = true, density = 1f)
         assertEquals(SafeAreaInsets.ZERO, result)
     }
 
     // ============================================================
-    // edge-to-edge disabled -- system bars only
+    // edge-to-edge disabled -- always ZERO (system already insets the WebView)
     // ============================================================
 
     @Test
-    fun `fromWindowInsets with edge-to-edge disabled returns system bar insets directly`() {
+    fun `fromWindowInsets with edge-to-edge disabled returns ZERO`() {
         val systemBars = Insets.of(10, 20, 30, 40)
         val windowInsets = windowInsetsCompatWith(systemBars)
 
-        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = false)
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = false, density = 1f)
 
-        assertEquals(SafeAreaInsets(top = 20, right = 30, bottom = 40, left = 10), result)
+        assertEquals(SafeAreaInsets.ZERO, result)
     }
 
     @Test
@@ -65,9 +65,9 @@ class SafeAreaUtilsTest {
         val cutout = Insets.of(100, 100, 100, 100)
         val windowInsets = windowInsetsCompatWith(systemBars, cutout)
 
-        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = false)
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = false, density = 1f)
 
-        assertEquals(SafeAreaInsets(top = 20, right = 30, bottom = 40, left = 10), result)
+        assertEquals(SafeAreaInsets.ZERO, result)
     }
 
     // ============================================================
@@ -80,7 +80,7 @@ class SafeAreaUtilsTest {
         val cutout = Insets.of(0, 20, 60, 15)
         val windowInsets = windowInsetsCompatWith(systemBars, cutout)
 
-        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true)
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 1f)
 
         // left: max(10, 0)=10, top: max(50, 20)=50, right: max(30, 60)=60, bottom: max(5, 15)=15
         assertEquals(SafeAreaInsets(top = 50, right = 60, bottom = 15, left = 10), result)
@@ -91,9 +91,19 @@ class SafeAreaUtilsTest {
         val systemBars = Insets.of(10, 20, 30, 40)
         val windowInsets = windowInsetsCompatWith(systemBars, Insets.NONE)
 
-        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true)
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 1f)
 
         assertEquals(SafeAreaInsets(top = 20, right = 30, bottom = 40, left = 10), result)
+    }
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge enabled converts physical px to CSS px by density`() {
+        val systemBars = Insets.of(0, 66, 0, 0)
+        val windowInsets = windowInsetsCompatWith(systemBars)
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 2.75f)
+
+        assertEquals(SafeAreaInsets(top = 24, right = 0, bottom = 0, left = 0), result)
     }
 
     // ============================================================
