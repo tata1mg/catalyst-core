@@ -86,6 +86,8 @@ function generateSwiftProperty(key, value, indent = "    ") {
 
 // ─── Module factory ───────────────────────────────────────────────────────────
 
+const DEFAULT_LOCATION_USAGE_DESCRIPTION = "This app needs your location to provide location-based services"
+
 module.exports = function createConfigPhase(ctx) {
     const {
         WEBVIEW_CONFIG,
@@ -409,6 +411,12 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPo
             restoreManagedFileFromBaseline(plistPath)
             const plistObject = readPlistObject(plistPath)
             plistObject.CFBundleDisplayName = iosConfig.appName || "Catalyst Application"
+            // WKWebView's navigator.geolocation needs this key; without it iOS never prompts.
+            // Restored from baseline above, so it disappears when location is turned off.
+            if (WEBVIEW_CONFIG.location?.enabled) {
+                plistObject.NSLocationWhenInUseUsageDescription =
+                    WEBVIEW_CONFIG.location.usageDescription || DEFAULT_LOCATION_USAGE_DESCRIPTION
+            }
             mergeIntoTopLevelObject(plistObject, pluginInfoPlist, "ios.infoPlist")
             if (isGoogleSignInEnabled && resolvedReversedClientId) {
                 mergeUrlSchemes(plistObject, [{ name: "googleSignIn", schemes: [resolvedReversedClientId] }])

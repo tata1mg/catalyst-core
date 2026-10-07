@@ -1,8 +1,10 @@
 package io.yourname.androidproject
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -11,6 +13,10 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.webkit.*
+import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebViewCompat
@@ -42,6 +48,11 @@ class CustomWebView(
     private val FLOW_TAG = "CatalystOfflineFlow"
     private val job = SupervisorJob()
     override val coroutineContext = Dispatchers.Main + job
+
+    // navigator.geolocation prompt waiting on the runtime permission result
+    private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
+    private var pendingGeolocationOrigin: String? = null
+    private var geolocationPermissionLauncher: ActivityResultLauncher<Array<String>>? = null
 
     private var cacheManager: WebCacheManager
     private var offlineCacheService: OfflineCacheService
@@ -83,6 +94,10 @@ class CustomWebView(
         }
         setupFromProperties()
         cacheManager = WebCacheManager(context, properties)
+        // Must register before the activity is STARTED; CustomWebView is built in onCreate.
+        if (context is ComponentActivity) {
+            initializeGeolocationPermissionLauncher(context)
+        }
         if (profilerEnabled) metricsMonitor.attachWebView(webView)
         offlineCacheService = OfflineCacheService(context)
         setupWebView()
@@ -336,6 +351,30 @@ class CustomWebView(
             Log.w(TAG, "⚠️ Failed to remove JavaScript interface '$name': ${e.message}")
         }
     }
+
+    private fun initializeGeolocationPermissionLauncher(activity: ComponentActivity) {
+        geolocationPermissionLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            val granted = permissions.values.any { it }
+            val callback = pendingGeolocationCallback
+            val origin = pendingGeolocationOrigin
+            pendingGeolocationCallback = null
+            pendingGeolocationOrigin = null
+            if (callback != null && origin != null) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Geolocation permission result: granted=$granted")
+                }
+                callback.invoke(origin, granted, false)
+            }
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
 
     fun destroy() {
         job.cancel()
@@ -793,6 +832,9 @@ class CustomWebView(
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            // navigator.geolocation; the OS permission is only declared when
+            // WEBVIEW_CONFIG.location.enabled is set (see buildAndroid/assets.js).
+            setGeolocationEnabled(true)
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
@@ -1275,6 +1317,36 @@ class CustomWebView(
                     Log.d(FLOW_TAG, "CONSOLE level=${consoleMessage?.messageLevel()} line=${consoleMessage?.lineNumber()} source=${consoleMessage?.sourceId()} message=${consoleMessage?.message()}")
                 }
                 return true
+            }
+
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: GeolocationPermissions.Callback?
+            ) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Geolocation permission requested for origin: $origin")
+                }
+                if (hasLocationPermission()) {
+                    callback?.invoke(origin, true, false)
+                    return
+                }
+                val launcher = geolocationPermissionLauncher
+                if (launcher == null || callback == null || origin == null) {
+                    callback?.invoke(origin, false, false)
+                    return
+                }
+                // Deny any prompt still waiting so its page doesn't hang
+                pendingGeolocationCallback?.invoke(pendingGeolocationOrigin, false, false)
+                pendingGeolocationCallback = callback
+                pendingGeolocationOrigin = origin
+                // Without the permission in the manifest (location disabled), Android
+                // returns denied immediately and no dialog is shown.
+                launcher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
             }
 
             override fun onPermissionRequest(request: PermissionRequest) {
