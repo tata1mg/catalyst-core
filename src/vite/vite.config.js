@@ -295,6 +295,7 @@ const browserOptimizeDeps = [
     "react-detect-offline",
     "react-async-script",
     "normalize.css",
+    "sanitize-html",
 ]
 
 // Node-only / instrumentation dependencies that must never be bundled into the

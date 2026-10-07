@@ -88,7 +88,9 @@ describe("serverDataFetcher", () => {
         const routes = [{ path: "/page", component: { default: {} } }]
         const req = { query: { a: "1", b: "2" } }
         const result = await serverDataFetcher({ routes, url: "/page", req }, {})
-        expect(Object.keys(result)[0]).toBe("/page?a=1&b=2")
+        // sanitizeHtml entity-encodes "&"; the client key goes through the same
+        // function, so server and client keys still match.
+        expect(Object.keys(result)[0]).toBe("/page?a=1&amp;b=2")
     })
 })
 

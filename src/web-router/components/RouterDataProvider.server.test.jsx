@@ -93,6 +93,21 @@ describe("serverDataFetcher (node environment — serverFetcher branch)", () => 
         const req = { query: { a: "1", b: "2" } }
 
         const result = await serverDataFetcher({ routes, url: "/page", req }, {})
-        expect(Object.keys(result)[0]).toBe("/page?a=1&b=2")
+        // sanitizeHtml entity-encodes "&"; the client key goes through the same
+        // function, so server and client keys still match.
+        expect(Object.keys(result)[0]).toBe("/page?a=1&amp;b=2")
+    })
+    it("strips markup from a request-controlled query value before it becomes a route key", async () => {
+        // The key is serialized into the inline SSR <script> as part of
+        // window.__ROUTER_INITIAL_DATA__ (#471).
+        const routes = [{ path: "/page", component: loadableComponent({ default: {} }) }]
+        const req = { query: { lang: '"></script><script>alert(document.domain)</script>' } }
+
+        const result = await serverDataFetcher({ routes, url: "/page", req }, {})
+        const key = Object.keys(result)[0]
+
+        expect(key.startsWith("/page?lang=")).toBe(true)
+        expect(key).not.toContain("<script")
+        expect(key).not.toContain("</script")
     })
 })
