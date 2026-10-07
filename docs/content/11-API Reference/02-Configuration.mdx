@@ -134,6 +134,28 @@ Place splash assets at:
 
 When `splashScreen` is set and `public/splashscreen.html` exists, the app shows the native image first, then the HTML splash, and switches to the app once its first page has loaded and `minDuration` has passed. The HTML splash is dismissed after 10 seconds even if the page is still loading. The file must be self-contained, with inline CSS and JavaScript and images as `data:` URIs. It has no access to the native bridge and should not make network requests, which Android blocks. Remove the file to go back to the image-only splash. See [Universal App Configuration](/content/02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for the full rules and an example.
 
+## Location
+
+Set `WEBVIEW_CONFIG.location.enabled` to let web content use `navigator.geolocation` inside the universal app. It is off by default, so apps that don't need location don't declare the permission.
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "location": {
+      "enabled": true,
+      "usageDescription": "We use your location to show delivery options near you"
+    }
+  }
+}
+```
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `enabled` | `boolean` | Adds `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` to the Android manifest and `NSLocationWhenInUseUsageDescription` to the iOS Info.plist |
+| `usageDescription` | `string` | iOS permission prompt text. Defaults to a generic message |
+
+When a page calls `navigator.geolocation`, Android asks for the runtime permission the first time and passes the result to the page. iOS shows its own prompt using `usageDescription`. With `enabled` off, location requests are denied.
+
 ## Validation Notes
 
 - Missing required top-level config keys cause startup failures.
