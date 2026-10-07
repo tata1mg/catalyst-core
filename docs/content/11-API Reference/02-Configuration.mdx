@@ -25,6 +25,12 @@ These keys are part of the core web runtime:
 
 Application-specific values such as `API_URL` can also live in this file. They are available on the server through `process.env`.
 
+These keys are optional and off unless set:
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `CSP_NONCE_ENABLE` | `boolean` | `false` | Adds a per-request CSP nonce to every script tag Catalyst renders (not CSS). See [Security](/content/Best%20Practices/security) |
+
 ## Client-Exposed Environment Variables
 
 Catalyst does not expose every config key to browser code automatically. Add the keys you want available on the client to `CLIENT_ENV_VARIABLES`.
