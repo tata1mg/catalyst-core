@@ -28,9 +28,14 @@ import org.mockito.kotlin.whenever
  */
 class SafeAreaUtilsTest {
 
-    private fun windowInsetsCompatWith(systemBars: Insets, cutout: Insets = Insets.NONE): WindowInsetsCompat {
+    private fun windowInsetsCompatWith(
+        systemBars: Insets,
+        cutout: Insets = Insets.NONE,
+        visibleSystemBars: Insets = systemBars
+    ): WindowInsetsCompat {
         return mock {
-            on { getInsets(WindowInsetsCompat.Type.systemBars()) } doReturn systemBars
+            on { getInsets(WindowInsetsCompat.Type.systemBars()) } doReturn visibleSystemBars
+            on { getInsetsIgnoringVisibility(WindowInsetsCompat.Type.systemBars()) } doReturn systemBars
             on { getInsets(WindowInsetsCompat.Type.displayCutout()) } doReturn cutout
         }
     }
@@ -104,6 +109,18 @@ class SafeAreaUtilsTest {
         val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 2.75f)
 
         assertEquals(SafeAreaInsets(top = 24, right = 0, bottom = 0, left = 0), result)
+    }
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge enabled ignores the IME-inflated visible system bar bottom`() {
+        val windowInsets = windowInsetsCompatWith(
+            systemBars = Insets.of(0, 0, 0, 63),
+            visibleSystemBars = Insets.of(0, 0, 0, 883)
+        )
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 2.625f)
+
+        assertEquals(SafeAreaInsets(top = 0, right = 0, bottom = 24, left = 0), result)
     }
 
     // ============================================================
