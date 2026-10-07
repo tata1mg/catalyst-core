@@ -112,10 +112,16 @@ async function build() {
 
     console.log("✅ Server and client builds completed!")
 
-    await runBuildStep(["./dist/scripts/generateOfflineManifest.js"], {
-        ...spawnBase,
-        env: baseEnv,
-    })
+    // Same rule as isOfflineSnapshotsEnabled in vite.config.js.
+    const offlineSnapshotsDisabled = [false, "false"].includes(configJSON.OFFLINE_SNAPSHOTS_ENABLE)
+    if (offlineSnapshotsDisabled) {
+        console.log("⏭️  Skipping offline manifest and service worker (OFFLINE_SNAPSHOTS_ENABLE is false)")
+    } else {
+        await runBuildStep(["./dist/scripts/generateOfflineManifest.js"], {
+            ...spawnBase,
+            env: baseEnv,
+        })
+    }
 
     console.log("🎉 Build completed successfully!")
     console.log("📁 Built files are located in the 'build' directory")

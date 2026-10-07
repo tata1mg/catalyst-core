@@ -174,18 +174,31 @@ const alias = () => {
     }, {})
 }
 
+/**
+ * Route offline snapshots (catalyst-sw.js + offline manifest) are on unless
+ * config.json sets OFFLINE_SNAPSHOTS_ENABLE to false, e.g. for apps that ship
+ * their own service worker at the same scope.
+ */
+export const isOfflineSnapshotsEnabled = (value) => value !== false && value !== "false"
+
 export const getClientEnvVariables = () => {
     const clientEnvVars = process.env.CLIENT_ENV_VARIABLES
+    // Always defined so the service worker registration can read it in the browser.
+    const offlineSnapshotsDefinition = {
+        "process.env.OFFLINE_SNAPSHOTS_ENABLE": JSON.stringify(
+            isOfflineSnapshotsEnabled(process.env.OFFLINE_SNAPSHOTS_ENABLE)
+        ),
+    }
 
     if (!clientEnvVars) {
-        return {}
+        return offlineSnapshotsDefinition
     }
 
     // Parse CLIENT_ENV_VARIABLES if it's a JSON string
     const allowedVars = typeof clientEnvVars === "string" ? JSON.parse(clientEnvVars) : clientEnvVars
 
     // Create define object with only allowed environment variables
-    const envVarDefinitions = {}
+    const envVarDefinitions = { ...offlineSnapshotsDefinition }
 
     allowedVars.forEach((varName) => {
         if (process.env[varName] !== undefined) {
