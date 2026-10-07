@@ -361,31 +361,39 @@ async function build() {
     // Lets `serve` refuse a build that no longer matches config/config.json.
     writeBuildInfo(process.env.PWD, configJSON, argumentsObject)
 
-    const manifest = new Spinner().start("Generating offline manifest")
-    try {
-        await runBuildStep(
-            ["./dist/scripts/generateOfflineManifest.js"],
-            { ...spawnBase, env: baseEnv },
-            "Generating the offline manifest"
+    // Same rule as isOfflineSnapshotsEnabled in vite.config.js.
+    const offlineSnapshotsDisabled = [false, "false"].includes(configJSON.OFFLINE_SNAPSHOTS_ENABLE)
+    if (offlineSnapshotsDisabled) {
+        console.log(
+            `${GUTTER}${t.dim(glyph.info)} ${t.dim("Skipped offline manifest (OFFLINE_SNAPSHOTS_ENABLE is false)")}`
         )
-    } catch (error) {
-        manifest.stop("fail", "Generating offline manifest failed")
-        // Without this the manifest step fell through to the top-level handler,
-        // which prints a raw stack trace. The step's output is captured, so
-        // show its tail -- the exit code alone says nothing about why -- and
-        // all of it under --verbose/--debug.
-        process.stderr.write(
-            diagnostic({
-                message: `Generating the offline manifest failed: ${error.message}`,
-                scope: "offline manifest",
-            }) + (outputMode === "default" ? fencedTail(error.output) : "")
-        )
-        if (outputMode !== "default") {
-            process.stderr.write(verboseOutput({ output: error.output, mode: outputMode, error }))
+    } else {
+        const manifest = new Spinner().start("Generating offline manifest")
+        try {
+            await runBuildStep(
+                ["./dist/scripts/generateOfflineManifest.js"],
+                { ...spawnBase, env: baseEnv },
+                "Generating the offline manifest"
+            )
+        } catch (error) {
+            manifest.stop("fail", "Generating offline manifest failed")
+            // Without this the manifest step fell through to the top-level handler,
+            // which prints a raw stack trace. The step's output is captured, so
+            // show its tail -- the exit code alone says nothing about why -- and
+            // all of it under --verbose/--debug.
+            process.stderr.write(
+                diagnostic({
+                    message: `Generating the offline manifest failed: ${error.message}`,
+                    scope: "offline manifest",
+                }) + (outputMode === "default" ? fencedTail(error.output) : "")
+            )
+            if (outputMode !== "default") {
+                process.stderr.write(verboseOutput({ output: error.output, mode: outputMode, error }))
+            }
+            process.exit(exitCodeFrom(error))
         }
-        process.exit(exitCodeFrom(error))
+        manifest.stop("done", "Generated offline manifest")
     }
-    manifest.stop("done", "Generated offline manifest")
 
     printAssetTable(buildOutputPath, configJSON.BUILD_OUTPUT_PATH || "build")
 
