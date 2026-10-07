@@ -162,7 +162,6 @@ const browserOptimizeDeps = [
     "redux-thunk",
     "axios",
     "react-google-recaptcha",
-    "react-fast-compare",
     "@tata1mg/router",
     "history",
     "lottie-web",
