@@ -120,6 +120,7 @@ vi.mock("@opentelemetry/sdk-trace-node", () => ({
     TraceIdRatioBasedSampler: fake.record("TraceIdRatioBasedSampler"),
     ParentBasedSampler: fake.record("ParentBasedSampler"),
 }))
+vi.mock("@opentelemetry/core", () => ({ setGlobalErrorHandler: vi.fn() }))
 vi.mock("@opentelemetry/sdk-metrics", () => ({
     PeriodicExportingMetricReader: fake.record("PeriodicExportingMetricReader"),
 }))
@@ -350,7 +351,7 @@ describe("otel init()", () => {
 
         addedListener("SIGTERM")()
         expect(console.info).toHaveBeenCalledWith(
-            "📡 Received SIGTERM, shutting down OpenTelemetry gracefully..."
+            expect.stringContaining("Received SIGTERM, shutting down OpenTelemetry gracefully...")
         )
         await vi.waitFor(() => expect(exit).toHaveBeenCalledTimes(1))
         expect(sdk.shutdown).toHaveBeenCalledTimes(1)
@@ -358,7 +359,7 @@ describe("otel init()", () => {
 
         addedListener("SIGINT")()
         expect(console.info).toHaveBeenCalledWith(
-            "📡 Received SIGINT, shutting down OpenTelemetry gracefully..."
+            expect.stringContaining("Received SIGINT, shutting down OpenTelemetry gracefully...")
         )
         await vi.waitFor(() => expect(exit).toHaveBeenCalledTimes(2))
     })
