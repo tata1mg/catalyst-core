@@ -30,6 +30,7 @@ import {
     generateModulePreloadLinkElements,
 } from "./extract.js"
 import path from "path"
+import crypto from "node:crypto"
 import { Transform } from "node:stream"
 
 import CustomDocument from "@catalyst/template/server/document"
@@ -144,6 +145,13 @@ if ((process.env.OTEL_ENABLE as any) === true) {
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
 
+// Config-driven (config.json → CSP_NONCE_ENABLE): when on, every script Catalyst injects
+// carries a per-request nonce so the app can serve a nonce-based CSP without opening up
+// 'unsafe-inline'. Off by default — no behavior change unless explicitly enabled.
+// Same boolean contract as OTEL_ENABLE above.
+const CSP_NONCE_ENABLE = (process.env.CSP_NONCE_ENABLE as any) === true
+const generateNonce = () => crypto.randomBytes(16).toString("base64")
+
 const traceHook = (fn: any, spanName: string) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
 
@@ -229,7 +237,8 @@ const _renderMarkUp = async (
     store: any,
     allMatches: any,
     context: any,
-    chunkExtractor: any
+    chunkExtractor: any,
+    nonce?: string
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
@@ -261,10 +270,10 @@ const _renderMarkUp = async (
         buildDir
     )
 
-    const jsScripts = generateScriptElements(criticalAssets.js)
-    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
+    const jsScripts = generateScriptElements(criticalAssets.js, nonce)
+    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce)
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
-    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
+    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce)
 
     // Build Head props
     const shellStart = renderStart({
@@ -285,7 +294,7 @@ const _renderMarkUp = async (
     // The response status also reaches the document as `statusCode`, which Body
     // exposes as window.__STATUS_CODE__. `errorCode` stays for custom documents.
     const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
-    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status }
+    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status, nonce }
 
     const CompleteDocument = () => {
         // CustomDocument is an OPTIONAL export (server/document.js) — its
@@ -309,6 +318,7 @@ const _renderMarkUp = async (
                     fetcherData={finalProps.fetcherData}
                     metaTags={finalProps.metaTags}
                     publicAssetPath={finalProps.publicAssetPath}
+                    nonce={finalProps.nonce}
                 />
                 <Body
                     initialState={finalProps.initialState}
@@ -316,6 +326,7 @@ const _renderMarkUp = async (
                     statusCode={finalProps.statusCode}
                     fetcherData={finalProps.fetcherData}
                     safeArea={finalProps.safeArea}
+                    nonce={finalProps.nonce}
                 />
             </html>
         )
@@ -343,14 +354,18 @@ const _renderMarkUp = async (
                         ? chunkExtractor.getDeferredAssets()
                         : { js: [], css: [] }
 
+                    const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+
                     // Tell client which components were SSR'd so split() can
                     // eagerly import them (prevents Suspense fallback flash)
-                    this.push(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
+                    this.push(
+                        `<script${nonceAttr}>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`
+                    )
                     if (chunkExtractor) {
                         const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                         this.push(
                             // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag - renderedKeys are internal bundler component-module keys tracked by ChunkExtractor, never request/user input, and are JSON.stringify-escaped before embedding.
-                            `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
+                            `<script${nonceAttr}>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
                         )
                     }
 
@@ -363,7 +378,7 @@ const _renderMarkUp = async (
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.js))
+                        this.push(generateScriptStrings(deferredAssets.js, nonce))
                     }
 
                     cb()
@@ -372,6 +387,8 @@ const _renderMarkUp = async (
             tail.pipe(res)
 
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
+                // Nonces React's own streamed inline scripts (Suspense boundary swaps)
+                nonce,
                 onShellReady() {
                     res.setHeader("content-type", "text/html")
                     pipe(tail)
@@ -437,6 +454,12 @@ async function _handler(req: any, res: any) {
         }
         const store = await createStore({}, req, res)
 
+        // If app-level middleware already generated a nonce for its CSP header
+        // (res.locals.cspNonce), reuse it so the header and the script tags match.
+        // Otherwise generate one here and expose it the same way.
+        const nonce = CSP_NONCE_ENABLE ? res.locals.cspNonce || generateNonce() : undefined
+        if (nonce) res.locals.cspNonce = nonce
+
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
         let allTags: any = []
@@ -478,7 +501,8 @@ async function _handler(req: any, res: any) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        nonce
                     )
                 } else {
                     safeCall(onFetcherSuccess, { req, res, store })
@@ -494,7 +518,8 @@ async function _handler(req: any, res: any) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        nonce
                     )
                 }
             } catch (error: any) {
@@ -513,7 +538,8 @@ async function _handler(req: any, res: any) {
                     store,
                     allMatches,
                     context,
-                    chunkExtractor
+                    chunkExtractor,
+                    nonce
                 )
             }
         } catch (error: any) {
@@ -532,7 +558,8 @@ async function _handler(req: any, res: any) {
                 store,
                 allMatches,
                 context,
-                chunkExtractor
+                chunkExtractor,
+                nonce
             )
         }
     } catch (error: any) {

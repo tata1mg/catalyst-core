@@ -91,14 +91,20 @@ export const getDeferredPreloadScriptUrls = (routeKey: any, excludeUrls: any = [
  * React <link rel="modulepreload"> elements (deduped). Use before matching <script type="module">.
  * @param {string[]} jsUrls
  * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
+ * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateModulePreloadLinkElements = (jsUrls: any = [], keyPrefix = "modulepreload") =>
+export const generateModulePreloadLinkElements = (
+    jsUrls: any = [],
+    keyPrefix = "modulepreload",
+    nonce?: string
+) =>
     [...new Set<any>(jsUrls)].map((url: any, i: number) =>
         React.createElement("link", {
             key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
             href: url,
             fetchPriority: "high",
+            ...(nonce ? { nonce } : {}),
         })
     )
 
@@ -141,10 +147,17 @@ export const readCssFromDisk = (cssPaths: any = [], basePath?: string) => {
 
 /**
  * <script type="module"> React elements for JS assets.
+ * @param {string[]} jsUrls
+ * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptElements = (jsUrls: any = []) =>
+export const generateScriptElements = (jsUrls: any = [], nonce?: string) =>
     [...new Set<any>(jsUrls)].map((url: any, i: number) =>
-        React.createElement("script", { key: `js-${i}`, type: "module", src: url })
+        React.createElement("script", {
+            key: `js-${i}`,
+            type: "module",
+            src: url,
+            ...(nonce ? { nonce } : {}),
+        })
     )
 
 // ── HTML strings (for streaming injection after body via res.write) ────
@@ -157,10 +170,14 @@ export const generateCssLinkStrings = (cssUrls: any = []) =>
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
+ * @param {string[]} jsUrls
+ * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptStrings = (jsUrls: any = []) =>
-    [...new Set<any>(jsUrls)]
+export const generateScriptStrings = (jsUrls: any = [], nonce?: string) => {
+    const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+    return [...new Set<any>(jsUrls)]
         .map((url: any) => {
-            return `<script type="module" src="${url}"></script>`
+            return `<script type="module"${nonceAttr} src="${url}"></script>`
         })
         .join("")
+}
