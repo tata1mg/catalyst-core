@@ -182,7 +182,7 @@ export const generateScriptStrings = (jsUrls = [], nonce, integrityManifest = {}
                 ? ` crossorigin="${integrityData.crossOrigin || "anonymous"}"`
                 : ""
 
-            return `<script check=true type="module"${nonceAttr}${integrityAttr}${crossOriginAttr} src="${url}"></script>`
+            return `<script type="module"${nonceAttr}${integrityAttr}${crossOriginAttr} src="${url}"></script>`
         })
         .join("")
 }
