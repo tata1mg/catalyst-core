@@ -6,6 +6,7 @@ import {
     RouterDataProvider,
     useRouterData,
     useCurrentRouteData,
+    useRouterState,
     serverDataFetcher,
 } from "./RouterDataProvider.jsx"
 
@@ -306,5 +307,48 @@ describe("useCurrentRouteData", () => {
             </MemoryRouter>,
         )
         await waitFor(() => expect(screen.getByTestId("ready")).toBeInTheDocument())
+    })
+})
+
+describe("useRouterState", () => {
+    function StateProbe() {
+        const { location, params, navigate, matchedRoutes } = useRouterState()
+        return (
+            <div
+                data-testid="state"
+                data-path={location.pathname}
+                data-params={JSON.stringify(params)}
+                data-nav={typeof navigate}
+                data-matched={Array.isArray(matchedRoutes) ? "array" : "other"}
+            />
+        )
+    }
+
+    it("exposes the router location, params, navigate and matched routes under a RouterDataProvider", async () => {
+        render(
+            <MemoryRouter initialEntries={["/items/42"]}>
+                <Routes>
+                    <Route
+                        path="/items/:id"
+                        element={
+                            <RouterDataProvider initialState={{}} config={{}}>
+                                <StateProbe />
+                            </RouterDataProvider>
+                        }
+                    />
+                </Routes>
+            </MemoryRouter>
+        )
+        const el = await screen.findByTestId("state")
+        expect(el.dataset.path).toBe("/items/42")
+        expect(JSON.parse(el.dataset.params)).toEqual({ id: "42" })
+        expect(el.dataset.nav).toBe("function")
+        expect(el.dataset.matched).toBe("array")
+    })
+
+    it("throws a clear error when used outside a RouterDataProvider", () => {
+        const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+        expect(() => render(<StateProbe />)).toThrow(/useRouterState must be used within a RouterDataProvider/)
+        spy.mockRestore()
     })
 })

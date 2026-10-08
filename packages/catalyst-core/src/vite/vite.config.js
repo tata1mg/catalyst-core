@@ -430,7 +430,17 @@ export const sharedViteConfig = {
             path.join(process.env.src_path, "src/**/*.{js,jsx,ts,tsx}"),
         ],
         include: browserOptimizeDeps,
-        exclude: ["catalyst-core/router/ClientRouter"],
+        // catalyst-core/webmcp (and its shim subpath) must share the SAME
+        // pre-bundled module instance as catalyst-core's main entry:
+        // WebMcpProvider reads router state through a React context
+        // (OneMgRouterContext, via useRouterState()) that RouterDataProvider
+        // populates. If esbuild's dep scanner pre-bundles the subpath as its
+        // own separate optimized chunk, that chunk gets its own
+        // `createContext()` call — a second, unlinked context instance that
+        // WebMcpProvider reads from empty, throwing "must be used within a
+        // RouterDataProvider" even though one genuinely is an ancestor.
+        // Same rationale as the existing ClientRouter exclusion below.
+        exclude: ["catalyst-core/router/ClientRouter", "catalyst-core/webmcp", "catalyst-core/webmcp/shim"],
         esbuildOptions: {
             format: "esm",
             target: "node2022",
