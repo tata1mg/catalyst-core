@@ -32,7 +32,7 @@ import App from "@catalyst/template/src/js/containers/App/index"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
-import { getManifest, getAssetManifest } from "../manifestCache.js"
+import { getManifest, getAssetManifest, getIntegrityManifest } from "../manifestCache.js"
 
 // Routes are static for the lifetime of the server — resolve once and reuse
 // the same instance per request to avoid per-request allocation.
@@ -159,10 +159,11 @@ const _renderMarkUp = async (
         buildDir
     )
 
-    const jsScripts = generateScriptElements(criticalAssets.js, nonce)
-    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce)
+    const integrityManifest = getIntegrityManifest() || {}
+    const jsScripts = generateScriptElements(criticalAssets.js, nonce, integrityManifest)
+    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce, integrityManifest)
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
-    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce)
+    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce, integrityManifest)
 
     // Build Head props
     const shellStart = renderStart({
@@ -256,7 +257,7 @@ const _renderMarkUp = async (
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.js, nonce))
+                        this.push(generateScriptStrings(deferredAssets.js, nonce, integrityManifest))
                     }
 
                     cb()
