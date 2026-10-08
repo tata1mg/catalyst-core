@@ -434,6 +434,46 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         }
     }
 
+    // ── ai (optional, on-device AI via catalyst-ai) ───────────────────────────
+    if (wc.ai && wc.ai.enabled) {
+        const aiPkg = path.join(root, "node_modules", "catalyst-ai", "package.json")
+        if (!fs.existsSync(aiPkg)) {
+            issues.push({
+                field: "WEBVIEW_CONFIG.ai",
+                severity: "error",
+                message:
+                    "ai.enabled=true but catalyst-ai is not installed. The native AI plugin is silently skipped and on-device AI will not work. Run: npm install catalyst-ai",
+            })
+        } else {
+            passed.push({ field: "WEBVIEW_CONFIG.ai", note: "enabled=true and catalyst-ai installed" })
+        }
+        const browser = (config.AI_CONFIG && config.AI_CONFIG.browser) || {}
+        const engine = browser.engine
+        if (engine !== undefined && !["auto", "litert", "foundation-models"].includes(engine)) {
+            issues.push({
+                field: "AI_CONFIG.browser.engine",
+                severity: "error",
+                message: `Unknown engine "${engine}". Use "auto", "litert" (Gemma 4 E2B) or "foundation-models" (Apple, iOS 26+).`,
+            })
+        }
+        if (browser.provider === "foundation-models" && platform === "android") {
+            warnings.push({
+                field: "AI_CONFIG.browser.provider",
+                message:
+                    "foundation-models is iOS-only (iOS 26+, Apple Intelligence devices). Android needs provider 'litert' or 'native'.",
+            })
+        }
+    } else if (
+        config.AI_CONFIG &&
+        config.AI_CONFIG.browser &&
+        /^(native|litert|foundation-models)$/.test(config.AI_CONFIG.browser.provider || "")
+    ) {
+        warnings.push({
+            field: "WEBVIEW_CONFIG.ai.enabled",
+            message: `AI_CONFIG.browser.provider is "${config.AI_CONFIG.browser.provider}" (on-device) but WEBVIEW_CONFIG.ai.enabled is not true — the native AI module is not built into the app.`,
+        })
+    }
+
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
 }
 

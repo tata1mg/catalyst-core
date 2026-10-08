@@ -1,6 +1,6 @@
 /* eslint-disable react-compiler/react-compiler, react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router"
+import { useSafeNavigate } from "./useSafeNavigate.js"
 import nativeBridge from "../utils/NativeBridge.js"
 import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
 
@@ -64,7 +64,7 @@ export interface UseNativeTransitionResult extends HookEnvironment {
  * @param defaults - Default transition options applied to every navigate call
  */
 export const useNativeTransition = (defaults: NativeTransitionOptions = {}): UseNativeTransitionResult => {
-    const router = useNavigate()
+    const router = useSafeNavigate()
     const isNative = typeof window !== "undefined" && nativeBridge.isAvailable()
 
     const [transitioning, setTransitioning] = useState(false)

@@ -56,7 +56,22 @@ final class PluginBridge: NSObject {
         let proxy = WeakScriptMessageHandler(delegate: self)
         userContentController.add(proxy, name: bridgeName)
         messageHandlerProxy = proxy
+        userContentController.addUserScript(Self.pluginManifestScript(pluginToCommands))
         isRegistered = true
+    }
+
+    /// Runs before any page script so JS can feature-detect an optional native plugin synchronously
+    /// (WKScriptMessage has no return value): `window.CatalystPlugins["io.catalyst.ai"]` is the plugin's
+    /// command list when it was composed into this build, and undefined otherwise.
+    static func pluginManifestScript(_ pluginToCommands: [String: Set<String>]) -> WKUserScript {
+        let manifest = pluginToCommands.mapValues { $0.sorted() }
+        let json = (try? JSONSerialization.data(withJSONObject: manifest, options: [.sortedKeys]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+        return WKUserScript(
+            source: "window.CatalystPlugins = \(json);",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
     }
 
     func unregister() {
