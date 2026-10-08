@@ -1,0 +1,22 @@
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_f7ee9a3f8d3e38::t_e827bedeaf03f1 209-210,218
+  s_f7ee9a3f8d3e38::t_c5bd63f47f2b44 213,327
+packages/catalyst-core/test/server/handler.test.ts
+  s_f7ee9a3f8d3e38::t_c35a4274321c00 163-189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "40795b83614108757c4c4ce74b884bd060b577c8",
+  "prompts": {},
+  "sessions": {
+    "s_f7ee9a3f8d3e38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db70d708-1c51-4a61-9c87-1087408602a2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
