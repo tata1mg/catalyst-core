@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "@tata1mg/router";
+import { Link } from "react-router"
 import { PROMPTS, LOCAL_MODELS } from "../../constants/ai";
 import Panel from "../../components/AITest/Panel";
 import PresetsBottomSheet from "../../components/AITest/PresetsBottomSheet";
@@ -11,7 +11,8 @@ export default function AITest() {
     const [prompt, setPrompt] = useState(PROMPTS[0]);
     const [isNativeAvailable, setIsNativeAvailable] = useState(false);
     useEffect(() => {
-        setIsNativeAvailable(!!window.NativeBridge);
+        // Android: JavascriptInterface object. iOS: the AI plugin listed in the injected plugin manifest.
+        setIsNativeAvailable(!!window.NativeBridge || Array.isArray(window.CatalystPlugins?.["io.catalyst.ai"]));
     }, []);
     const [useCloud, setUseCloud] = useState(true);
     const [useLocal, setUseLocal] = useState(false);
@@ -135,7 +136,7 @@ export default function AITest() {
                                     : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white"
                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
-                            📱 {isNativeAvailable ? "Native" : "Native (Android only)"}
+                            📱 {isNativeAvailable ? "Native" : "Native (not in this build)"}
                         </button>
                         
                         <div className="w-px h-4 bg-[var(--border)] mx-2" />

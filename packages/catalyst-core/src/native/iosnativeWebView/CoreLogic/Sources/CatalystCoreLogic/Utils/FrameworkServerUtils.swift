@@ -102,10 +102,10 @@ public class FrameworkServerUtils {
 
     // Server state
     private var listener: NWListener?
-    private var serverPort: UInt16 = 0
-    private var sessionId: String = ""
-    private var isServerRunning: Bool = false
-    private var isHTTPS: Bool = false
+    var serverPort: UInt16 = 0
+    var sessionId: String = ""
+    var isServerRunning: Bool = false
+    var isHTTPS: Bool = false
 
     // Connection management
     private var activeConnections: Set<ConnectionWrapper> = []
@@ -114,17 +114,32 @@ public class FrameworkServerUtils {
     private let connectionTimeoutSeconds: TimeInterval = CatalystConstants.NetworkServer.connectionTimeout
 
     // CORS configuration - store the base URL from WebView
-    private var allowedOrigin: String = "*"
+    var allowedOrigin: String = "*"
 
     // File management
-    private var servedFiles: [String: ServedFile] = [:]
-    private let fileQueue = DispatchQueue(label: "framework.server.files", attributes: .concurrent)
+    var servedFiles: [String: ServedFile] = [:]
+    let fileQueue = DispatchQueue(label: "framework.server.files", attributes: .concurrent)
 
     // Cache directory
     private var cacheDirectory: URL?
 
     // Cleanup timer
     private var cleanupTimer: Timer?
+
+    // Native AI — supplier is set by the AI engine (catalyst-ai) before POST /ai/stream is called.
+    // Kotlin equivalent: nativeAiSupplier / nativeSystemPrompt in FrameworkServerUtils.kt.
+    var nativeAiSupplier: NativeAISupplier?
+    var nativeSystemPrompt: String = ""
+    let aiLock = NSLock()
+
+    // Requests whose headers/body arrive across several reads, keyed by connection.
+    var pendingRequests: [ObjectIdentifier: Data] = [:]
+    // In-flight AI stream tasks, cancelled when the client goes away.
+    var aiStreamTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
+    let requestStateLock = NSLock()
+
+    static let maxHeaderBytes = 16 * 1024
+    static let maxBodyBytes = 1024 * 1024
 
     private init() {}
 
@@ -343,15 +358,22 @@ public class FrameworkServerUtils {
     /**
      * Get server port
      */
-    func getServerPort() -> UInt16 {
+    public func getServerPort() -> UInt16 {
         return serverPort
     }
 
     /**
      * Get current session ID
      */
-    func getSessionId() -> String {
+    public func getSessionId() -> String {
         return sessionId
+    }
+
+    /// Stream and generate connections outlive the default per-connection timeout (slow on-device decoding).
+    func cancelConnectionTimeout(for connection: NWConnection) {
+        connectionQueue.sync {
+            activeConnections.first { $0.connection === connection }?.cancelTimeout()
+        }
     }
 
     // MARK: - Private Implementation
@@ -599,10 +621,14 @@ public class FrameworkServerUtils {
             receiveHTTPRequest(on: connection)
         case .failed(let error):
             logger.debug("Connection failed: \(error.localizedDescription)")
+            cancelAIStream(for: connection)
+            discardPendingRequest(for: connection)
             removeTrackedConnection(for: connection)
             connection.cancel()
         case .cancelled:
             logger.debug("Connection cancelled")
+            cancelAIStream(for: connection)
+            discardPendingRequest(for: connection)
             removeTrackedConnection(for: connection)
         default:
             break
@@ -637,75 +663,13 @@ public class FrameworkServerUtils {
         }
     }
 
-    private func receiveHTTPRequest(on connection: NWConnection) {
+    func receiveHTTPRequest(on connection: NWConnection) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] data, _, isComplete, error in
             self?.handleReceivedData(data, isComplete: isComplete, error: error, on: connection)
         }
     }
 
-    /// Completion body of receiveHTTPRequest. Internal so tests can drive the
-    /// error branch directly; a real receive error is timing-dependent.
-    func handleReceivedData(_ data: Data?, isComplete: Bool, error: NWError?, on connection: NWConnection) {
-        if let error = error {
-            handleReceiveError(error, on: connection)
-            return
-        }
-
-        guard let data = data, let requestString = String(data: data, encoding: .utf8) else {
-            sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
-            return
-        }
-
-        processHTTPRequest(requestString, on: connection)
-
-        if isComplete {
-            connection.cancel()
-        }
-    }
-
-    private func processHTTPRequest(_ requestString: String, on connection: NWConnection) {
-        let lines = requestString.components(separatedBy: "\r\n")
-        guard let requestLine = lines.first else {
-            sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.badRequest, body: "Bad Request")
-            return
-        }
-
-        let components = requestLine.components(separatedBy: " ")
-        guard components.count >= 2, components[0] == "GET" else {
-            sendHTTPResponse(on: connection, statusCode: 405, body: "Method Not Allowed")
-            return
-        }
-
-        let path = components[1]
-
-        // Handle status endpoint
-        if path == "/framework-\(self.sessionId)/status" {
-            fileQueue.sync {
-                let statusResponse = """
-                {
-                    "status": "running",
-                    "sessionId": "\(self.sessionId)",
-                    "port": \(self.serverPort),
-                    "servedFiles": \(self.servedFiles.count)
-                }
-                """
-                sendHTTPResponse(on: connection, statusCode: 200, body: statusResponse, contentType: "application/json")
-            }
-            return
-        }
-
-        // Handle file requests
-        if path.hasPrefix("/framework-\(self.sessionId)/file-") {
-            let fileId = String(path.dropFirst("/framework-\(self.sessionId)/file-".count))
-            serveFile(fileId: fileId, on: connection)
-            return
-        }
-
-        // Invalid route
-        sendHTTPResponse(on: connection, statusCode: CatalystConstants.ErrorCodes.fileNotFound, body: "Not Found")
-    }
-
-    private func serveFile(fileId: String, on connection: NWConnection) {
+    func serveFile(fileId: String, on connection: NWConnection) {
         fileQueue.sync {
             guard let servedFile = self.servedFiles[fileId] else {
                 logger.warning("File not found for fileId: \(fileId)")
@@ -750,7 +714,7 @@ public class FrameworkServerUtils {
 
         // Add CORS headers
         response += "Access-Control-Allow-Origin: \(allowedOrigin)\r\n"
-        response += "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+        response += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
         response += "Access-Control-Allow-Headers: *\r\n"
 
         // Add headers
@@ -815,18 +779,18 @@ public class FrameworkServerUtils {
         })
     }
 
-    private func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: String, contentType: String = "text/plain") {
+    func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: String, contentType: String = "text/plain") {
         let bodyData = body.data(using: .utf8) ?? Data()
         sendHTTPResponse(on: connection, statusCode: statusCode, body: bodyData, headers: ["Content-Type": contentType])
     }
 
-    private func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: Data, headers: [String: String] = [:]) {
+    func sendHTTPResponse(on connection: NWConnection, statusCode: Int, body: Data, headers: [String: String] = [:]) {
         let statusText = HTTPURLResponse.localizedString(forStatusCode: statusCode)
         var response = "HTTP/1.1 \(statusCode) \(statusText)\r\n"
 
         // Add CORS headers
         response += "Access-Control-Allow-Origin: \(allowedOrigin)\r\n"
-        response += "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+        response += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
         response += "Access-Control-Allow-Headers: *\r\n"
 
         // Add default headers

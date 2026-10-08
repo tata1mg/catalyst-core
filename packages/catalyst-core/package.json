@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "type": "module",
     "main": "./dist/index.jsx",
     "description": "Web framework that provides great performance out of the box",
@@ -57,7 +57,7 @@
         "test:unit": "node --test \"test/**/*.test.js\"",
         "typecheck": "tsc --noEmit",
         "prettify": "prettier . --write",
-        "prepare": "node ../../scripts/safe-rimraf.js ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --extensions '.js,.jsx,.ts,.tsx' --ignore '**/.build/**' && node scripts/strip-ts-sources.mjs ./dist/native && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && tsc -p tsconfig.declarations.json && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
+        "prepare": "node scripts/safe-rimraf.cjs ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --extensions '.js,.jsx,.ts,.tsx' --ignore '**/.build/**' && node scripts/strip-ts-sources.mjs ./dist/native && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && tsc -p tsconfig.declarations.json && node ./mcp_v2/scripts/copyErrorsIndex.cjs",
         "prepublishOnly": "npm run prepare",
         "test": "npm run test:types && vitest run",
         "test:watch": "vitest",
@@ -72,7 +72,7 @@
         "@vitejs/plugin-react": "^4.4.1",
         "ansis": "^4.3.1",
         "body-parser": "^1.20.2",
-        "compression": "^1.7.4",
+        "compression": "^1.8.2",
         "cookie-parser": "^1.4.6",
         "express": "^4.22.3",
         "express-static-gzip": "^2.1.7",
@@ -126,6 +126,7 @@
         "jsdom": "30.0.1",
         "lint-staged": "^15.2.2",
         "prettier": "^3.2.5",
+        "react-router": "^7.18.2",
         "typescript": "^7.0.2",
         "vitest": "4.1.11"
     },

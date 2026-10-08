@@ -9,7 +9,6 @@ import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 
 import org.json.JSONObject
 import java.util.Properties
@@ -17,6 +16,7 @@ import io.yourname.androidproject.databinding.ActivityMainBinding
 import io.yourname.androidproject.NativeBridge
 import io.yourname.androidproject.plugins.PluginBridge
 import io.yourname.androidproject.utils.BridgeUtils
+import io.yourname.androidproject.utils.EdgeToEdgeUtils
 import io.yourname.androidproject.utils.KeyboardUtil
 import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.NotificationConstants
@@ -31,7 +31,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     companion object {
         private const val TAG = "WebViewDebug"
-        private const val PREFS_NAME = "safe_area_prefs"
+        // v2: values are CSS px; the legacy "safe_area_prefs" file held physical px
+        private const val PREFS_NAME = "safe_area_prefs_v2"
+        private const val LEGACY_PREFS_NAME = "safe_area_prefs"
         private const val PREF_SAFE_AREA_TOP = "safe_area_top"
         private const val PREF_SAFE_AREA_RIGHT = "safe_area_right"
         private const val PREF_SAFE_AREA_BOTTOM = "safe_area_bottom"
@@ -75,25 +77,27 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     private fun configureEdgeToEdge() {
-        edgeToEdgeEnabled = properties
-            .getProperty("edgeToEdge.enabled", "false")
-            .equals("true", ignoreCase = true)
+        edgeToEdgeEnabled = EdgeToEdgeUtils.isEnabled(properties)
 
         if (edgeToEdgeEnabled) {
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-        } else {
-            WindowCompat.setDecorFitsSystemWindows(window, true)
+            EdgeToEdgeUtils.apply(this, properties)
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
     }
 
     private fun setupSafeAreaHandling() {
         val rootView = binding.root
-        val cachedInsets = loadCachedSafeAreaInsets()
+        // Legacy cache held physical px; drop it once (no-op when absent)
+        deleteSharedPreferences(LEGACY_PREFS_NAME)
+
+        // Edge-to-edge disabled: insets are always ZERO, so skip the cache entirely
+        val cachedInsets = if (edgeToEdgeEnabled) loadCachedSafeAreaInsets() else null
 
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "📋 Cache lookup result: $cachedInsets")
         }
 
+        // Synchronous initial read so the first loadUrl already carries safe area headers
         if (cachedInsets != null) {
             latestSafeAreaInsets = cachedInsets
             customWebView.setDefaultRequestHeaders(buildSafeAreaHeaders())
@@ -111,24 +115,34 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             }
         }
 
-        rootView.post {
-            val postLayoutInsets = SafeAreaUtils.getSafeAreaInsets(window, rootView, edgeToEdgeEnabled)
+        // Track inset changes (first layout, rotation, cutout, bar visibility); insets stay unconsumed
+        var lastCachedInsets = cachedInsets
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val updatedInsets = SafeAreaUtils.fromWindowInsets(
+                insets,
+                edgeToEdgeEnabled,
+                view.resources.displayMetrics.density
+            )
 
-            if (postLayoutInsets != latestSafeAreaInsets) {
-                latestSafeAreaInsets = postLayoutInsets
+            if (updatedInsets != latestSafeAreaInsets) {
+                latestSafeAreaInsets = updatedInsets
                 customWebView.setDefaultRequestHeaders(buildSafeAreaHeaders())
-                notifySafeAreaUpdate(postLayoutInsets)
+                notifySafeAreaUpdate(updatedInsets)
 
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "🔄 Updated safe area insets: $postLayoutInsets")
+                    Log.d(TAG, "🔄 Updated safe area insets: $updatedInsets")
                 }
             }
 
             // Save to cache if not already cached or if values changed
-            if (cachedInsets == null || cachedInsets != postLayoutInsets) {
-                saveSafeAreaInsetsToCache(postLayoutInsets)
+            if (edgeToEdgeEnabled && updatedInsets != lastCachedInsets) {
+                saveSafeAreaInsetsToCache(updatedInsets)
+                lastCachedInsets = updatedInsets
             }
+
+            insets
         }
+        ViewCompat.requestApplyInsets(rootView)
     }
 
     private fun buildSafeAreaHeaders(): Map<String, String> = mapOf(
@@ -222,29 +236,25 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             return
         }
 
-        val saved = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).edit().apply {
+        val prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        prefs.edit().apply {
             putInt(PREF_SAFE_AREA_TOP, insets.top)
             putInt(PREF_SAFE_AREA_RIGHT, insets.right)
             putInt(PREF_SAFE_AREA_BOTTOM, insets.bottom)
             putInt(PREF_SAFE_AREA_LEFT, insets.left)
             putBoolean(PREF_SAFE_AREA_CACHED, true)
-        }.commit()  // Use commit() instead of apply() to ensure immediate persistence
+        }.apply()  // Async disk write; the in-memory map is updated immediately
 
         if (BuildConfig.DEBUG) {
-            if (saved) {
-                // Verify by reading back immediately
-                val prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
-                val verified = SafeAreaInsets(
-                    top = prefs.getInt(PREF_SAFE_AREA_TOP, -1),
-                    right = prefs.getInt(PREF_SAFE_AREA_RIGHT, -1),
-                    bottom = prefs.getInt(PREF_SAFE_AREA_BOTTOM, -1),
-                    left = prefs.getInt(PREF_SAFE_AREA_LEFT, -1)
-                )
-                Log.d(TAG, "💾 Cached safe area insets: $insets")
-                Log.d(TAG, "✓ Verified cached values: $verified")
-            } else {
-                Log.e(TAG, "❌ Failed to cache safe area insets: $insets")
-            }
+            // Read back from the in-memory map (disk write may still be pending)
+            val verified = SafeAreaInsets(
+                top = prefs.getInt(PREF_SAFE_AREA_TOP, -1),
+                right = prefs.getInt(PREF_SAFE_AREA_RIGHT, -1),
+                bottom = prefs.getInt(PREF_SAFE_AREA_BOTTOM, -1),
+                left = prefs.getInt(PREF_SAFE_AREA_LEFT, -1)
+            )
+            Log.d(TAG, "💾 Cached safe area insets: $insets")
+            Log.d(TAG, "✓ Verified cached values: $verified")
         }
     }
 
@@ -311,7 +321,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         setContentView(binding.root)
         
         // Initialize keyboard utility (pass webView so keyboard events reach WebPerfCollector)
-        keyboardUtil = KeyboardUtil(this, binding.webviewContainer, binding.webview)
+        keyboardUtil = KeyboardUtil(this, binding.webviewContainer, binding.webview, edgeToEdgeEnabled)
         keyboardUtil.initialize()
         
         // Enable hardware acceleration for the window

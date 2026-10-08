@@ -1,6 +1,22 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
+import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation, pickNativeErrorCode } from "./nativeTransport.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
+
+const isKnownCode = (code) => Object.values(ERROR_CODES).includes(code)
+
+// Keep the native-reported registry code (and message) on HTTP failures; the body is { error, code } JSON.
+async function nativeHttpError(response) {
+    let body = null
+    try {
+        body = await response.json()
+    } catch (_) {
+        // Not JSON (e.g. a proxy error page): fall through to the status-based message.
+    }
+    return createError(pickNativeErrorCode(body?.code, ERROR_CODES.AI_NATIVE_REQUEST_FAILED, isKnownCode), {
+        message: body?.error || `Native AI HTTP error: ${response.status}`,
+    })
+}
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
@@ -27,6 +43,9 @@ export function useNativeAI({
     sessionMode = "stateless",
     defaultGenConfig = {},
     enabled = true,
+    engine,
+    model,
+    modelPath,
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
 
@@ -57,9 +76,9 @@ export function useNativeAI({
     useEffect(() => {
         if (!enabled) return
 
-        if (!window.NativeBridge?.initAI) {
+        if (!getNativeAIPlatform()) {
             setError(createError(ERROR_CODES.AI_NATIVE_BRIDGE_UNAVAILABLE, {
-                message: "window.NativeBridge.initAI not found. Update catalyst-core to >=0.2.0 and add the android module to settings.gradle.kts.",
+                message: describeNativeAIUnavailable(),
             }))
             return
         }
@@ -108,28 +127,45 @@ export function useNativeAI({
 
         const onError = (data) => {
             let msg
+            let code
             try {
                 const parsed = typeof data === "string" ? JSON.parse(data) : data
                 msg = parsed?.message ?? String(data)
+                code = parsed?.code
             } catch (_) {
                 msg = String(data)
             }
-            setError(createError(ERROR_CODES.AI_NATIVE_CALLBACK_ERROR, { message: msg }))
+            setError(createError(pickNativeErrorCode(code, ERROR_CODES.AI_NATIVE_CALLBACK_ERROR, isKnownCode), { message: msg }))
         }
 
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_READY, onReady)
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_PROGRESS, onProgress)
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_LOG, onLog)
         window.WebBridge.register(NATIVE_CALLBACKS.ON_AI_ERROR, onError)
-        window.NativeBridge.initAI(JSON.stringify({ attachmentComponents, systemPrompt }))
+        // engine: "auto" (default) | "litert" | "foundation-models" (iOS); model / modelPath pick the LiteRT-LM
+        // model on both platforms. Only defined values are sent so native defaults apply otherwise.
+        initNativeAI({
+            attachmentComponents,
+            systemPrompt,
+            ...(engine !== undefined && { engine }),
+            ...(model !== undefined && { model }),
+            ...(modelPath !== undefined && { modelPath }),
+        })
 
         return () => {
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_READY)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_PROGRESS)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_LOG)
             window.WebBridge.unregister(NATIVE_CALLBACKS.ON_AI_ERROR)
+            // A changed engine/model re-initialises native AI: drop the old stream URL and readiness so
+            // generate() waits for the new session instead of using the previous engine.
+            nativeStreamUrlRef.current = null
+            setModelReady(false)
         }
-    }, [enabled])
+        // Re-initialise when the engine/model selection changes (e.g. switching provider "litert" ->
+        // "foundation-models"). attachmentComponents / systemPrompt are objects/strings that callers often
+        // recreate every render, so they stay out of the dependencies and apply on the next (re)init.
+    }, [enabled, engine, model, modelPath])
 
     const generate = useCallback(
         async ({ messages, genConfig: callGenConfig = {} }) => {
@@ -173,15 +209,13 @@ export function useNativeAI({
                     })
 
                     if (!response.ok) {
-                        throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, {
-                            message: `Native AI HTTP error: ${response.status}`,
-                        })
+                        throw await nativeHttpError(response)
                     }
                     setLoading(false)
 
                     const data = await response.json()
                     if (data.error) {
-                        throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, { message: data.error })
+                        throw createError(pickNativeErrorCode(data.code, ERROR_CODES.AI_NATIVE_REQUEST_FAILED, isKnownCode), { message: data.error })
                     }
 
                     if (sessionMode === "stateful" && data.conversationId) {
@@ -205,9 +239,7 @@ export function useNativeAI({
                 })
 
                 if (!response.ok) {
-                    throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, {
-                        message: `Native AI HTTP error: ${response.status}`,
-                    })
+                    throw await nativeHttpError(response)
                 }
 
                 setLoading(false)
@@ -261,7 +293,7 @@ export function useNativeAI({
                                 }
                             }
                             if (data.error) {
-                                throw createError(ERROR_CODES.AI_NATIVE_REQUEST_FAILED, { message: data.error })
+                                throw createError(pickNativeErrorCode(data.code, ERROR_CODES.AI_NATIVE_REQUEST_FAILED, isKnownCode), { message: data.error })
                             }
                         }
                     }
@@ -305,9 +337,7 @@ export function useNativeAI({
         outputAccRef.current = ""
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         conversationIdRef.current = null
-        if (window.NativeBridge?.clearNativeConversation) {
-            window.NativeBridge.clearNativeConversation()
-        }
+        clearNativeConversation()
         setOutput("")
         setError(null)
         setMetrics(null)

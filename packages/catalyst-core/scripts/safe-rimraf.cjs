@@ -10,7 +10,7 @@
  * removed. That race is common on packages/catalyst-core/dist, which contains
  * a full Android project that IDEs like to auto-import the moment it appears.
  *
- * Usage: node scripts/safe-rimraf.js <path> [<path> ...]
+ * Usage: node scripts/safe-rimraf.cjs <path> [<path> ...]
  */
 
 const fs = require("fs")
@@ -41,7 +41,7 @@ function rimraf(targetPath) {
 
 const targets = process.argv.slice(2)
 if (targets.length === 0) {
-    console.error("Usage: node scripts/safe-rimraf.js <path> [<path> ...]")
+    console.error("Usage: node scripts/safe-rimraf.cjs <path> [<path> ...]")
     process.exit(1)
 }
 

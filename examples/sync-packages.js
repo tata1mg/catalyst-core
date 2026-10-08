@@ -11,7 +11,7 @@
  * What it does:
  *   1. Clears node_modules/<name>  (stale copy)
  *   2. Copies packages/<name>/     into node_modules/<name>/
- *      Skips: node_modules, .git
+ *      Skips: node_modules, .git, .build, .swiftpm (SwiftPM output)
  *
  * No build step — these packages ship src directly (no dist).
  * Mirrors the copy-into-node_modules pattern of sync-core.js.
@@ -37,9 +37,13 @@ function rimraf(dir) {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// SwiftPM output (e.g. from `swift test` in a plugin folder) contains sockets and symlinks that cannot be copied.
+const SKIP_NESTED = new Set(['.build', '.swiftpm']);
+
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    if (SKIP_NESTED.has(entry.name)) continue;
     const s = path.join(src, entry.name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
     const d = path.join(dest, entry.name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
     entry.isDirectory() ? copyDir(s, d) : fs.copyFileSync(s, d);
@@ -62,7 +66,7 @@ function syncPackage(shortName) {
   rimraf(targetDir);
   fs.mkdirSync(targetDir, { recursive: true });
 
-  const SKIP = new Set(['node_modules', '.git']);
+  const SKIP = new Set(['node_modules', '.git', '.build', '.swiftpm']);
   for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
     if (SKIP.has(entry.name)) continue;
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from fs.readdirSync(srcDir), i.e. actual filenames already on disk in the local repo, not request input.

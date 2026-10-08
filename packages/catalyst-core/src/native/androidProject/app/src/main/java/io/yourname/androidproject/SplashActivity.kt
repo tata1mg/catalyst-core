@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
 import androidx.core.graphics.drawable.toBitmap
 import io.yourname.androidproject.databinding.ActivitySplashBinding
+import io.yourname.androidproject.utils.EdgeToEdgeUtils
 import java.util.Properties
 
 class SplashActivity : AppCompatActivity() {
@@ -35,6 +36,10 @@ class SplashActivity : AppCompatActivity() {
         if (!properties.getProperty("splashScreen.enabled", "false").toBoolean()) {
             startMainActivity()
             return
+        }
+
+        if (EdgeToEdgeUtils.isEnabled(properties)) {
+            EdgeToEdgeUtils.apply(this, properties)
         }
 
         binding = ActivitySplashBinding.inflate(layoutInflater)
