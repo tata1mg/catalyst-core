@@ -1,7 +1,7 @@
 {
     "name": "create-catalyst-app",
     "bin": "scripts/cli.cjs",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "cli package to scaffold Catalyst application",
     "repository": {
         "type": "git",

@@ -1,0 +1,8 @@
+{
+  "branch": "release/1.0.1-stable",
+  "packages": {
+    "catalyst-core": "1.0.1",
+    "create-catalyst-app": "1.0.1",
+    "catalyst-ai": "1.0.1"
+  }
+}

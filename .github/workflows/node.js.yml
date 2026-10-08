@@ -50,14 +50,22 @@ jobs:
                   # dorny/paths-filter's own docs, not assumed.
                   predicate-quantifier: some-with-excludes
                   filters: |
+                      # Changes that can affect every platform's CI.
                       shared: &shared
                         - '.github/workflows/**'
+                        - 'scripts/**'
+                      # Node toolchain/dependency files. Only chains that run
+                      # `npm ci` (web, ai_android's integration job) care; the
+                      # android/ios native jobs don't install npm deps, so a
+                      # JS-only dependency change (e.g. removing a package)
+                      # must not trigger them.
+                      node_deps: &node_deps
                         - 'package.json'
                         - 'package-lock.json'
                         - '.nvmrc'
-                        - 'scripts/**'
                       web:
                         - *shared
+                        - *node_deps
                         - 'packages/catalyst-core/**'
                         - '!packages/catalyst-core/src/native/androidProject/**'
                         - '!packages/catalyst-core/src/native/iosnativeWebView/**'
@@ -87,6 +95,7 @@ jobs:
                       # tree for an ai.enabled build.
                       ai_android:
                         - *shared
+                        - *node_deps
                         - 'packages/catalyst-ai/android/**'
                         - 'packages/catalyst-core/src/native/androidProject/settings.gradle.kts'
                         - 'packages/catalyst-core/src/native/androidProject/build.gradle.kts'

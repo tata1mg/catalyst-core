@@ -1,14 +1,14 @@
 import React from "react"
 import "./styles"
 import { hydrateRoot } from "react-dom/client"
-import { loadableReady } from "@loadable/component"
+import { hydrationReady } from "catalyst-core"
 import { Provider } from "react-redux"
-import { RouterProvider } from "@tata1mg/router"
+import { RouterProvider } from "react-router/dom"
 import clientRouter from "catalyst-core/router/ClientRouter"
 import configureStore from "@store"
 import WebBridge from "catalyst-core/WebBridge"
 window.addEventListener("load", () => {
-    loadableReady(() => {
+    hydrationReady().then(() => {
         const { __ROUTER_INITIAL_DATA__: routerInitialData, __INITIAL_STATE__ } = window
         const store = configureStore(__INITIAL_STATE__ || {})
 
