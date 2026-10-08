@@ -7,8 +7,6 @@ export function SafeAreaPanel() {
   const fallback = fallbacks.safe;
   const setFallback = setFb('safe');
 
-  const dpr = !webFallbackActive && typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-
   return (
     <div className="col">
       <PanelHeader title="Safe Area" hook="useSafeArea" fallback={fallback} onFallbackChange={setFallback} />
@@ -17,17 +15,11 @@ export function SafeAreaPanel() {
       <div className="card">
         <div className="safearea-grid">
           {['top','right','bottom','left'].map(k => {
-            const raw = insets?.[k] || 0;
-            const scaled = Math.round(raw / dpr);
+            const value = Math.round(insets?.[k] || 0);
             return (
               <div className="safearea-cell" key={k}>
                 <div className="safearea-cell__label">{k}</div>
-                <div className="safearea-cell__val">{scaled}</div>
-                {dpr > 1 && (
-                  <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    {raw} px
-                  </div>
-                )}
+                <div className="safearea-cell__val">{value}</div>
               </div>
             );
           })}
