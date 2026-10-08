@@ -76,6 +76,48 @@ function readIosUrlSchemes(value, fieldName, sourcePath) {
     })
 }
 
+function readLocalIosDependency(entry, entryField, sourcePath) {
+    const pluginDir = path.dirname(sourcePath)
+    const relativePath = mustBeNonEmptyString(entry.path, `${entryField}.path`, sourcePath)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - containment within pluginDir is enforced immediately below.
+    const resolved = path.resolve(pluginDir, relativePath)
+    if (resolved !== pluginDir && !resolved.startsWith(`${pluginDir}${path.sep}`)) {
+        throw new Error(`'${entryField}.path' must stay within the plugin directory: ${relativePath} in ${sourcePath}`)
+    }
+    if (!isDir(resolved)) {
+        throw new Error(`'${entryField}.path' does not exist: ${relativePath} in ${sourcePath}`)
+    }
+    // The lexical check above does not see symlinks: re-check containment on canonical paths so a link
+    // inside the plugin cannot point the Swift package outside it, and return the canonical path.
+    const realPluginDir = fs.realpathSync(pluginDir)
+    const realResolved = fs.realpathSync(resolved)
+    if (realResolved !== realPluginDir && !realResolved.startsWith(`${realPluginDir}${path.sep}`)) {
+        throw new Error(`'${entryField}.path' resolves outside the plugin directory: ${relativePath} in ${sourcePath}`)
+    }
+    if (entry.from != null || entry.exact != null || entry.url != null) {
+        throw new Error(`'${entryField}' with 'path' must not also set 'url', 'from' or 'exact' in ${sourcePath}`)
+    }
+
+    const products = readStringArray(entry.products, `${entryField}.products`, sourcePath, {
+        required: true,
+        nonEmpty: true,
+    })
+    if (new Set(products).size !== products.length) {
+        throw new Error(`Duplicate product(s) found in '${entryField}.products' in ${sourcePath}`)
+    }
+
+    return {
+        // The absolute path doubles as the identity key the composer merges dependencies on.
+        url: realResolved,
+        package:
+            entry.package == null
+                ? path.basename(realResolved)
+                : mustBeNonEmptyString(entry.package, `${entryField}.package`, sourcePath),
+        products,
+        requirement: { type: "path", version: "local" },
+    }
+}
+
 function readIosDependencies(value, fieldName, sourcePath) {
     if (value == null) {
         return []
@@ -89,6 +131,13 @@ function readIosDependencies(value, fieldName, sourcePath) {
         const entryField = `${fieldName}[${index}]`
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
             throw new Error(`'${entryField}' must be an object in ${sourcePath}`)
+        }
+
+        // A dependency is either a remote package ({ url, from|exact }) or a Swift package shipped inside
+        // the plugin itself ({ path }, relative to the plugin directory). Local packages let a plugin
+        // pin a vendored copy instead of cloning a large or LFS-backed upstream repo.
+        if (entry.path != null) {
+            return readLocalIosDependency(entry, entryField, sourcePath)
         }
 
         const url = mustBeNonEmptyString(entry.url, `${entryField}.url`, sourcePath)
@@ -291,7 +340,29 @@ function resolvePluginConfig(WEBVIEW_CONFIG) {
     return pluginConfig
 }
 
+/**
+ * catalyst-ai ships its native iOS module as a plugin (plugins/ai in the npm package). It is
+ * composed only when the app opts in with WEBVIEW_CONFIG.ai.enabled, mirroring Android's
+ * syncAIPackageIfEnabled. Returns the extra plugin roots plus the toggle to merge into the
+ * plugin config; when the package is missing it warns and leaves the build untouched.
+ */
+function resolveAIPluginSource(WEBVIEW_CONFIG, projectRoot, log = () => {}) {
+    if (WEBVIEW_CONFIG?.ai?.enabled !== true) {
+        return { roots: [], toggles: {} }
+    }
+
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fixed package-relative path under the app's node_modules.
+    const aiPluginsRoot = path.join(projectRoot, "node_modules", "catalyst-ai", "plugins")
+    if (!isDir(aiPluginsRoot)) {
+        log("ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI plugin", "warning")
+        return { roots: [], toggles: {} }
+    }
+
+    return { roots: [aiPluginsRoot], toggles: { ai: true } }
+}
+
 module.exports = {
+    resolveAIPluginSource,
     discoverInternalPlugins,
     parsePluginManifest,
     resolvePluginConfig,

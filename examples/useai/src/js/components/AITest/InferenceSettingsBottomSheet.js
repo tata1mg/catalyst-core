@@ -174,7 +174,7 @@ export default function InferenceSettingsBottomSheet({
                                         <span className="text-lg">📱</span>
                                         <div>
                                             <span className="block text-[13px] font-semibold text-white">
-                                                {isNativeAvailable ? "Native Inference" : "Native (Android only)"}
+                                                {isNativeAvailable ? "Native Inference" : "Native (not in this build)"}
                                             </span>
                                             <span className="block text-[10px] text-purple-400 font-mono">Ktor SSE · localhost</span>
                                         </div>
