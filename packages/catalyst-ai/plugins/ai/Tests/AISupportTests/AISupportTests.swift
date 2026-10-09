@@ -135,3 +135,37 @@ final class FoundationModelsErrorsTests: XCTestCase {
         XCTAssertNil(FoundationModelsErrors.friendlyMessage(forDescription: "rateLimited"))
     }
 }
+
+
+final class AIInputPartsTests: XCTestCase {
+    func testNoInputParts_IsATextTurn() throws {
+        XCTAssertTrue(try AIInputParts.parse([:]).isEmpty)
+        XCTAssertTrue(try AIInputParts.parse(["inputParts": []]).isEmpty)
+    }
+
+    func testParsesImageAndAudioInOrder() throws {
+        let png = Data([1, 2, 3]).base64EncodedString()
+        let wav = Data([4, 5]).base64EncodedString()
+        let parts = try AIInputParts.parse(["inputParts": [
+            ["type": "image", "mimeType": "image/png", "base64": png],
+            ["type": "audio", "mimeType": "audio/wav", "base64": wav],
+        ]])
+        XCTAssertEqual(parts.map(\.kind), [.image, .audio])
+        XCTAssertEqual(parts.map(\.fileExtension), ["png", "wav"])
+        XCTAssertEqual(parts[0].data, Data([1, 2, 3]))
+    }
+
+    func testSvgStyleMimeSuffixIsDropped() throws {
+        let parts = try AIInputParts.parse(["inputParts": [["type": "image", "mimeType": "image/svg+xml", "base64": "AA=="]]])
+        XCTAssertEqual(parts[0].fileExtension, "svg")
+    }
+
+    func testUnknownTypeAndBadBase64AreErrorsNotDrops() {
+        XCTAssertThrowsError(try AIInputParts.parse(["inputParts": [["type": "video", "base64": "AA=="]]])) {
+            XCTAssertEqual($0 as? AIInputPartsError, .unsupportedType("video"))
+        }
+        XCTAssertThrowsError(try AIInputParts.parse(["inputParts": [["type": "image", "base64": "***"]]])) {
+            XCTAssertEqual($0 as? AIInputPartsError, .invalidBase64("image"))
+        }
+    }
+}

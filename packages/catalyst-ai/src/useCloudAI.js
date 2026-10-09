@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from "react"
+import { assertEngineSupports, getModalities } from "./contentParts.js"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
 import { computeMetrics, aggregateSessionMetrics } from "./metrics.js"
 
@@ -87,6 +88,13 @@ export function useCloudAI({
 
     const generate = useCallback(
         async ({ messages, genConfig: callGenConfig = {} }) => {
+            // Media is not wired for cloud engines yet: fail loudly instead of sending "[object Object]".
+            try {
+                assertEngineSupports(getModalities(messages), { text: true }, "cloud")
+            } catch (inputErr) {
+                setError(inputErr)
+                return
+            }
             if (abortControllerRef.current) abortControllerRef.current.abort()
 
             const generationId = ++activeGenerationRef.current

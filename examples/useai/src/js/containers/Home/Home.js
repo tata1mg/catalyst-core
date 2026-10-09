@@ -142,6 +142,12 @@ export default function Home() {
                             >
                                 Open AI Test Dashboard 🧪
                             </Link>
+                            <Link
+                                to="/multimodal"
+                                className="w-full text-center block cursor-pointer border border-[var(--border-2)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-white font-semibold text-[14px] py-3 rounded-xl shadow-md transition no-underline mt-3"
+                            >
+                                Test Image / Audio Input 🖼️🎙️
+                            </Link>
                             <div className="grid grid-cols-2 gap-3 mt-3">
                                 <Link
                                     to="/chess"
