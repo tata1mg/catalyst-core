@@ -1,6 +1,6 @@
 /* global __CATALYST_PACKAGES__ */
 
-import { resolveMode, resolveNativeEngine } from "./aiProviders.js"
+import { allowCloudMedia, resolveMode, resolveNativeEngine } from "./aiProviders.js"
 
 function getBrowserConfig() {
     try {
@@ -53,7 +53,9 @@ export function useAI(options: any = {}) {
     const resolvedProvider = provider || config?.provider
     const mode = resolveMode(resolvedProvider)
 
-    const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
+    // allowMedia: image/audio go to a cloud provider only when the caller picked cloud explicitly. When native or web
+    // was requested but is unavailable, the cloud hook is only a fallback and must refuse media.
+    const cloudResult = _pkg ? _pkg.useCloudAI({ ...options, allowMedia: allowCloudMedia(mode) }) : emptyHook()
     const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
     const nativeResult = _pkg
         ? _pkg.useNativeAI({

@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from "react"
-import { assertEngineSupports, getModalities } from "./contentParts.js"
+import { assertCloudMediaAllowed, getModalities } from "./contentParts.js"
+import { prepareAudioParts } from "./audioPrep.js"
+import { prepareImageParts } from "./imagePrep.js"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
 import { computeMetrics, aggregateSessionMetrics } from "./metrics.js"
 
@@ -47,6 +49,9 @@ export function useCloudAI({
     systemPrompt = "",
     sessionMode = "stateless",
     defaultGenConfig = {},
+    // Media leaves the device only on an explicit cloud choice. useAI sets this to true for provider "cloud" and
+    // leaves it unset when it falls back to cloud, so a fallback can never ship a photo or voice to a provider.
+    allowMedia,
 } = {}) {
     // stable merged genConfig — only changes when values actually change
     const mergedGenConfig = useMemo(
@@ -66,6 +71,11 @@ export function useCloudAI({
 
     const providerRef = useRef(providerProp)
     providerRef.current = providerProp
+
+    // generate() is memoised, but this flag changes when the caller switches engines (e.g. Native tab -> Cloud tab).
+    // Read it through a ref so the consent check always sees the current value, never the one from first render.
+    const allowMediaRef = useRef(allowMedia)
+    allowMediaRef.current = allowMedia
 
     const modelRef = useRef(modelProp)
     modelRef.current = modelProp
@@ -87,10 +97,22 @@ export function useCloudAI({
     const historyRef = useRef([])
 
     const generate = useCallback(
-        async ({ messages, genConfig: callGenConfig = {} }) => {
-            // Media is not wired for cloud engines yet: fail loudly instead of sending "[object Object]".
+        async ({ messages: rawMessages, genConfig: callGenConfig = {} }) => {
+            // Explicit-consent gate, then shrink/convert media on the device. The server validates again and
+            // decides which provider endpoints take which modality.
+            let messages = rawMessages
             try {
-                assertEngineSupports(getModalities(messages), { text: true }, "cloud")
+                const modalities = getModalities(rawMessages)
+                assertCloudMediaAllowed(modalities, allowMediaRef.current)
+                if (modalities.has("image") || modalities.has("audio")) {
+                    messages = await prepareImageParts(
+                        await prepareAudioParts(rawMessages, {
+                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                        }),
+                        { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
+                    )
+                    getModalities(messages) // re-check the client size caps on the prepared media
+                }
             } catch (inputErr) {
                 setError(inputErr)
                 return

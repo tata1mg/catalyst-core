@@ -32,6 +32,8 @@ interface NormalizedUsage {
     cachedTokens: number
     completionTokens: number
     reasoningTokens: number
+    /** Subset of promptTokens that were audio, billed at the audio rate. Absent when no audio was used. */
+    audioTokens?: number
 }
 
 interface RequestLike {
@@ -55,7 +57,7 @@ interface RouterInternal {
     getAIConfig(): AIConfig
     isAIEnabled(): boolean
     getProviderConfig(provider: string): AIProviderConfig | null
-    validateRequestBody(req: RequestLike, cfg: ProviderConfigLike): string | null
+    validateRequestBody(req: RequestLike, cfg: ProviderConfigLike, provider?: string): string | null
     MODEL_NAME_RE: RegExp
     normalizeOpenAIChatUsage(usage: Record<string, unknown> | null | undefined, model: string): NormalizedUsage | null
     normalizeOpenAIResponsesUsage(usage: Record<string, unknown> | null | undefined, model: string): NormalizedUsage | null

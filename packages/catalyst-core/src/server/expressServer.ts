@@ -12,6 +12,7 @@ import { toMountPathPrefix } from "../vite/resolveDevServerConfig.js"
 import { validateMiddleware, handleError, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
+import { mountAIBodyParser, parseAIConfig } from "./utils/aiBodyParser.js"
 
 const { header, row, glyph, t, GUTTER, duration } = cjsRequire("../../cli/theme.js")
 const { diagnostic, runtimeFailure } = cjsRequire("../../cli/diagnostic.js")
@@ -239,6 +240,10 @@ async function createServer() {
     const port = process.env.NODE_SERVER_PORT ?? 3005
     const host = process.env.NODE_SERVER_HOSTNAME ?? "localhost"
     const app = express()
+
+    // The AI route takes image/audio bodies, far above the default 100 kb. Its larger JSON limit is scoped to the AI
+    // base path and must come before the global parser below (which skips bodies that are already parsed).
+    mountAIBodyParser(app, parseAIConfig(process.env.AI_CONFIG))
 
     // This middleware is being used to extract the body of the request
     app.use(bodyParser.json())

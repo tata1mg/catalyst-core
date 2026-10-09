@@ -1,3 +1,4 @@
+/* global globalThis */
 // Normalises audio for on-device models: any format the platform can decode -> 16 kHz mono 16-bit WAV, capped in
 // length. Done in JS so Android and iOS get identical input regardless of what the file picker or recorder produced
 // (m4a, 3gp, 44.1 kHz stereo, ...). If the browser cannot decode a file, the original is sent unchanged and the
@@ -76,7 +77,11 @@ async function browserDecode(bytes) {
     }
 }
 
-/** Returns messages with every audio part re-encoded as 16 kHz mono WAV. Other parts are returned as the same objects. */
+/**
+ * Returns messages with every audio part re-encoded as 16 kHz mono WAV. Other parts are returned as the same objects.
+ * @param {any[]} messages
+ * @param {{ decode?: (bytes: Uint8Array) => Promise<{ channels: Float32Array[], sampleRate: number }>, onError?: (error: Error) => void }} [options]
+ */
 export async function prepareAudioParts(messages, { decode = browserDecode, onError } = {}) {
     return Promise.all(
         messages.map(async (message) => {
