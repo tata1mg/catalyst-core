@@ -1,7 +1,8 @@
 import path from "path"
 import { spawnSync } from "child_process"
 import { arrayToObject, resolveOutputMode } from "./scriptUtils.js"
-import { runStaticPreflightOrExit } from "./preflight.js"
+import { runStaticPreflightOrExit, checkBuildMatchesConfig } from "./preflight.js"
+import { formatError } from "../errors/index.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { readFileSync } from "fs"
@@ -22,6 +23,12 @@ function startProd() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const outputMode = resolveOutputMode(process.argv)
     const dirname = path.resolve(__dirname, "../../")
+
+    const staleBuild = checkBuildMatchesConfig(undefined, argumentsObject)
+    if (staleBuild) {
+        console.error(formatError(staleBuild, outputMode))
+        process.exit(1)
+    }
 
     // Read package.json
     const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))

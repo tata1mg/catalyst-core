@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import path from "path"
-import { runStaticPreflight } from "../../src/scripts/preflight.js"
+import { runStaticPreflight, writeBuildInfo, checkBuildMatchesConfig } from "../../src/scripts/preflight.js"
 import { ERROR_CODES } from "../../src/errors/registry.js"
 
 // runStaticPreflight(appDir) reads config/config.json + package.json from a
@@ -114,5 +114,103 @@ describe("runStaticPreflight", () => {
             expect(err.name).toBe("CatalystError")
             expect(err.docUrl).toMatch(/\/errors\/PREFLIGHT\/PREFLIGHT-\d{3}\.md$/)
         }
+    })
+})
+
+describe("checkBuildMatchesConfig", () => {
+    const CONFIG = {
+        ...VALID_CONFIG,
+        API_URL: "https://api.example.com",
+        CLIENT_ENV_VARIABLES: ["API_URL"],
+    }
+    const SKIPPED = expect.stringContaining("Skipping the build/config check")
+
+    function buildWith(config: Record<string, unknown>, args = {}) {
+        mkdirSync(path.join(appDir, "build"), { recursive: true })
+        writeBuildInfo(appDir, config, args)
+    }
+
+    beforeEach(() => {
+        vi.spyOn(console, "warn").mockImplementation(() => {})
+    })
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it("returns null when config.json is unchanged since the build", () => {
+        writeApp({ config: CONFIG })
+        buildWith(CONFIG)
+        expect(checkBuildMatchesConfig(appDir)).toBeNull()
+        expect(console.warn).not.toHaveBeenCalledWith(SKIPPED)
+    })
+
+    it("ignores config keys that are not inlined into the build", () => {
+        writeApp({ config: { ...CONFIG, NODE_SERVER_PORT: 4000 } })
+        buildWith(CONFIG)
+        expect(checkBuildMatchesConfig(appDir)).toBeNull()
+    })
+
+    it("PREFLIGHT-022 when PUBLIC_STATIC_ASSET_URL changed", () => {
+        writeApp({ config: { ...CONFIG, PUBLIC_STATIC_ASSET_URL: "http://192.168.1.5:3000" } })
+        buildWith(CONFIG)
+        const err = checkBuildMatchesConfig(appDir)
+        expect(err?.code).toBe(ERROR_CODES.PREFLIGHT_BUILD_STALE)
+        expect(err?.details).toContain(
+            'PUBLIC_STATIC_ASSET_URL: built with "http://localhost:3000", now "http://192.168.1.5:3000"'
+        )
+    })
+
+    it("PREFLIGHT-022 when a CLIENT_ENV_VARIABLES value changed", () => {
+        writeApp({ config: { ...CONFIG, API_URL: "https://staging.example.com" } })
+        buildWith(CONFIG)
+        expect(checkBuildMatchesConfig(appDir)?.details).toContain(
+            'API_URL: built with "https://api.example.com", now "https://staging.example.com"'
+        )
+    })
+
+    it("PREFLIGHT-022 when a variable is added to CLIENT_ENV_VARIABLES", () => {
+        writeApp({ config: { ...CONFIG, CUSTOM_VAR: "x", CLIENT_ENV_VARIABLES: ["API_URL", "CUSTOM_VAR"] } })
+        buildWith(CONFIG)
+        expect(checkBuildMatchesConfig(appDir)?.details).toContain('CUSTOM_VAR: built with unset, now "x"')
+    })
+
+    it("compares against KEY=value CLI arguments, which win over config.json", () => {
+        const args = { PUBLIC_STATIC_ASSET_URL: "http://cdn.example.com" }
+        writeApp({ config: CONFIG })
+        buildWith(CONFIG, args)
+        expect(checkBuildMatchesConfig(appDir, args)).toBeNull()
+        expect(checkBuildMatchesConfig(appDir)?.code).toBe(ERROR_CODES.PREFLIGHT_BUILD_STALE)
+    })
+
+    it("treats a CLI argument equal to the config.json object as unchanged", () => {
+        const config = { ...CONFIG, OPTIONS: { enabled: true }, CLIENT_ENV_VARIABLES: ["OPTIONS"] }
+        writeApp({ config })
+        buildWith(config)
+        expect(checkBuildMatchesConfig(appDir, { OPTIONS: '{"enabled":true}' })).toBeNull()
+        expect(checkBuildMatchesConfig(appDir, { CLIENT_ENV_VARIABLES: '["OPTIONS"]' })).toBeNull()
+    })
+
+    it("warns and passes when the build has no build info file", () => {
+        writeApp({ config: CONFIG })
+        expect(checkBuildMatchesConfig(appDir)).toBeNull()
+        expect(console.warn).toHaveBeenCalledWith(SKIPPED)
+    })
+
+    it.each([["{ not json"], ["null"], ["[]"]])(
+        "warns and passes when the build info file is %s",
+        (contents) => {
+            writeApp({ config: CONFIG })
+            mkdirSync(path.join(appDir, "build"), { recursive: true })
+            writeFileSync(path.join(appDir, "build", ".catalyst-build.json"), contents)
+            expect(checkBuildMatchesConfig(appDir)).toBeNull()
+            expect(console.warn).toHaveBeenCalledWith(SKIPPED)
+        }
+    )
+
+    it("warns and passes when CLIENT_ENV_VARIABLES cannot be parsed", () => {
+        writeApp({ config: CONFIG })
+        buildWith(CONFIG)
+        expect(checkBuildMatchesConfig(appDir, { CLIENT_ENV_VARIABLES: "not-json" })).toBeNull()
+        expect(console.warn).toHaveBeenCalledWith(SKIPPED)
     })
 })
