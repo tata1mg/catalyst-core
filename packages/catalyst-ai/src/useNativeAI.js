@@ -1,7 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
+import { prepareAudioParts } from "./audioPrep.js"
+import { assertEngineSupports, buildNativeBody, getModalities } from "./contentParts.js"
 import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation, pickNativeErrorCode } from "./nativeTransport.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
+
+// Input modalities per native engine. Apple Foundation Models stays text-only until its image path is verified
+// (spike 0.4); LiteRT-LM (Android, and iOS "litert"/auto) takes image and audio with Gemma-4-class models.
+const NATIVE_INPUT_SUPPORT = {
+    "foundation-models": { text: true },
+    default: { text: true, image: true, audio: true },
+}
 
 const isKnownCode = (code) => Object.values(ERROR_CODES).includes(code)
 
@@ -175,12 +184,22 @@ export function useNativeAI({
                 return
             }
 
+            const genConfig = { ...hookGenConfig, ...callGenConfig }
+            let nativeBody
+            try {
+                assertEngineSupports(getModalities(messages), NATIVE_INPUT_SUPPORT[engine] ?? NATIVE_INPUT_SUPPORT.default, "native")
+                const prepared = await prepareAudioParts(messages, {
+                    onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                })
+                nativeBody = buildNativeBody(prepared, genConfig)
+            } catch (inputErr) {
+                setError(inputErr)
+                return
+            }
+
             if (abortControllerRef.current) abortControllerRef.current.abort()
             const controller = new AbortController()
             abortControllerRef.current = controller
-
-            const genConfig = { ...hookGenConfig, ...callGenConfig }
-            const prompt = messages.map((m) => `${m.role}: ${m.content}`).join("\n")
             const isStreamMode = genConfig.stream !== false
 
             setLoading(true)
@@ -194,7 +213,6 @@ export function useNativeAI({
             let ttftMs = null
 
             try {
-                const nativeBody = { prompt, genConfig }
                 if (sessionMode === "stateful" && conversationIdRef.current) {
                     nativeBody.conversationId = conversationIdRef.current
                 }
@@ -317,7 +335,7 @@ export function useNativeAI({
                 if (abortControllerRef.current === controller) abortControllerRef.current = null
             }
         },
-        [hookGenConfig, sessionMode]
+        [hookGenConfig, sessionMode, engine]
     )
 
     const cancelRaf = () => {

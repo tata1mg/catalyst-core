@@ -3,6 +3,7 @@ import AITest from "@containers/AITest/AITest"
 import AIPlayground from "@containers/AIPlayground/AIPlayground"
 import TicTacToe from "@containers/TicTacToe/TicTacToe"
 import Chess from "@containers/Chess/Chess"
+import Multimodal from "@containers/Multimodal/Multimodal"
 
 const routes = [
     {
@@ -16,6 +17,10 @@ const routes = [
     {
         path: "/ai-playground",
         component: AIPlayground,
+    },
+    {
+        path: "/multimodal",
+        component: Multimodal,
     },
     {
         path: "/ai-test",
