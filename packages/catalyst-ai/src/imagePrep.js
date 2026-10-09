@@ -47,7 +47,11 @@ async function browserResize(dataUrl, { maxSide = MAX_IMAGE_SIDE, quality = JPEG
     }
 }
 
-/** Returns messages with every image part resized when needed. Unchanged parts are returned as the same objects. */
+/**
+ * Returns messages with every image part resized when needed. Unchanged parts are returned as the same objects.
+ * @param {any[]} messages
+ * @param {{ resize?: (dataUrl: string) => Promise<{ data: string, width: number, height: number, changed: boolean }>, onError?: (error: Error) => void }} [options]
+ */
 export async function prepareImageParts(messages, { resize = browserResize, onError } = {}) {
     return Promise.all(
         messages.map(async (message) => {

@@ -153,7 +153,7 @@ async function generateWithMedia(model, messages, genConfig, media) {
     });
     const genMs = Math.round(performance.now() - tGen);
     const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0;
-    self.postMessage({ type: "done", totalTokens: tokenCount, genMs, tps });
+    self.postMessage({ type: "done", totalTokens: tokenCount, genMs, tps, promptTokens: inputs.input_ids.dims.at(-1) });
 }
 
 self.onmessage = async (e) => {

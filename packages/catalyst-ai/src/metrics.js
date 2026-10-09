@@ -1,13 +1,16 @@
 // Hardcoded USD price per 1M tokens — mirrors pricing.js (server-side, CJS).
 // Duplicated here (rather than imported) because this file ships to the
 // browser bundle and pricing.js is a Node/CJS-only module used by route.js.
-const PRICING = {
-    "gpt-4o-mini": { input: 0.15, cachedInput: 0.075, output: 0.60 },
-    "gpt-5": { input: 1.25, cachedInput: 0.125, output: 10.00 },
-    "gemini-3.5-flash": { input: 1.50, cachedInput: 0.15, output: 9.00 },
+export const PRICING = {
+    // audioInput: USD per 1M audio input tokens. null = the model takes no audio input, or no rate is confirmed; cost is
+    // then reported as partial (audioCostUnknown) and never priced at the text rate.
+    "gpt-4o-mini": { input: 0.15, cachedInput: 0.075, output: 0.60, audioInput: null },
+    "gpt-5": { input: 1.25, cachedInput: 0.125, output: 10.00, audioInput: null },
+    // audioInput confirmed on https://ai.google.dev/gemini-api/docs/pricing (same as text for this model)
+    "gemini-3.5-flash": { input: 1.50, cachedInput: 0.15, output: 9.00, audioInput: 1.50 },
 }
 
-const DEFAULT_PRICING = { input: 0, cachedInput: 0, output: 0 }
+const DEFAULT_PRICING = { input: 0, cachedInput: 0, output: 0, audioInput: null }
 
 function getPricing(model) {
     return PRICING[model] ?? DEFAULT_PRICING
@@ -20,13 +23,18 @@ export function computeMetrics(usage, timing = {}) {
     if (!usage) return null
 
     const price = getPricing(usage.model)
-    const billedInputTokens = Math.max(0, usage.promptTokens - usage.cachedTokens)
+    // Audio tokens are a subset of the prompt tokens and have their own rate. Without a confirmed rate they are left
+    // out of the cost and the metrics say so, rather than pricing audio as text.
+    const audioTokens = usage.audioTokens ?? 0
+    const audioCostUnknown = audioTokens > 0 && price.audioInput == null
+    const billedInputTokens = Math.max(0, usage.promptTokens - usage.cachedTokens - audioTokens)
     const billedOutputTokens = usage.completionTokens + usage.reasoningTokens
     const totalTokens = usage.promptTokens + usage.completionTokens + usage.reasoningTokens
 
     const cost =
         (billedInputTokens / 1e6) * price.input +
         (usage.cachedTokens / 1e6) * price.cachedInput +
+        (audioCostUnknown ? 0 : (audioTokens / 1e6) * (price.audioInput ?? 0)) +
         (billedOutputTokens / 1e6) * price.output
 
     const cacheSavings = (usage.cachedTokens / 1e6) * (price.input - price.cachedInput)
@@ -45,6 +53,8 @@ export function computeMetrics(usage, timing = {}) {
         cachedTokens: usage.cachedTokens,
         completionTokens: usage.completionTokens,
         reasoningTokens: usage.reasoningTokens,
+        audioTokens,
+        audioCostUnknown,
         totalTokens,
         cost,
         cacheSavings,
@@ -53,6 +63,17 @@ export function computeMetrics(usage, timing = {}) {
         loadMs: null,
         downloadBytes: null,
     }
+}
+
+/**
+ * What an on-device run would have cost on a cloud model. An ESTIMATE: token counts come from the on-device tokenizer,
+ * which differs from the provider's, and only text rates are applied. Returns null when counts or the price are unknown.
+ */
+export function estimateCloudEquivalent({ inputTokens, outputTokens }, model = "gemini-3.5-flash") {
+    if (typeof inputTokens !== "number" || typeof outputTokens !== "number") return null
+    const price = PRICING[model]
+    if (!price) return null
+    return { model, cost: (inputTokens / 1e6) * price.input + (outputTokens / 1e6) * price.output, estimated: true }
 }
 
 // history: array of computeMetrics() results (or the token-count-only fallback shape)

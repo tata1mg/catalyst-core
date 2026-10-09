@@ -179,6 +179,37 @@ describe("web engine media (Gemma 4 in Transformers.js)", () => {
     })
 })
 
+describe("assertCloudMediaAllowed (no silent cloud fallback)", () => {
+    it("text-only is always allowed", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        expect(() => assertCloudMediaAllowed(new Set(["text"]), undefined)).not.toThrow()
+    })
+
+    it("media is allowed only when the caller explicitly opted in", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        expect(() => assertCloudMediaAllowed(new Set(["text", "image"]), true)).not.toThrow()
+    })
+
+    it("media is blocked when the flag is missing or false (fail closed, also on older catalyst-core)", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        for (const flag of [undefined, false, "yes", 1]) {
+            let err: any
+            try {
+                assertCloudMediaAllowed(new Set(["text", "audio"]), flag as any)
+            } catch (e) {
+                err = e
+            }
+            expect(err?.reason).toBe("cloud-media-not-allowed")
+            expect(err?.modality).toBe("audio")
+        }
+    })
+
+    it("the message tells the developer how to opt in", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        expect(() => assertCloudMediaAllowed(new Set(["image"]), false)).toThrow(/provider.*cloud/i)
+    })
+})
+
 // ---- Layers still to specify as implementation reaches them (each becomes real tests, not prose) ----
 describe("scope not yet implemented", () => {
     // Native: decode `parts` -> temp files -> Content.ImageFile/AudioFile; set vision/audio backends only when asked.
@@ -188,6 +219,5 @@ describe("scope not yet implemented", () => {
     // useAI flow (verified in examples/useai AITest on a real device).
     it.todo("useNativeAI.generate sends buildNativeBody and surfaces unsupported-modality as a typed AI error")
     it.todo("useAI auto routing never sends image/audio to cloud when privacy is 'sensitive' (ask/deny, no silent fallback)")
-    it.todo("useCloudAI route.js forwards image/audio parts only to providers that accept them")
     it.todo("useWebAI keeps the media-capable worker alive across calls and refuses media for other models")
 })
