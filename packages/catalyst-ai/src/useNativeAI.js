@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
 import { prepareAudioParts } from "./audioPrep.js"
+import { prepareImageParts } from "./imagePrep.js"
 import { assertEngineSupports, buildNativeBody, getModalities } from "./contentParts.js"
 import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation, pickNativeErrorCode } from "./nativeTransport.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
@@ -188,9 +189,12 @@ export function useNativeAI({
             let nativeBody
             try {
                 assertEngineSupports(getModalities(messages), NATIVE_INPUT_SUPPORT[engine] ?? NATIVE_INPUT_SUPPORT.default, "native")
-                const prepared = await prepareAudioParts(messages, {
-                    onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
-                })
+                const prepared = await prepareImageParts(
+                    await prepareAudioParts(messages, {
+                        onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                    }),
+                    { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
+                )
                 nativeBody = buildNativeBody(prepared, genConfig)
             } catch (inputErr) {
                 setError(inputErr)
