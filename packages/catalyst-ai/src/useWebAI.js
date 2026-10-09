@@ -1,5 +1,8 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
-import { assertEngineSupports, getModalities } from "./contentParts.js"
+import { assertEngineSupports, getModalities, supportsWebMedia, toWebTemplate } from "./contentParts.js"
+import { prepareAudioParts } from "./audioPrep.js"
+import { prepareImageParts } from "./imagePrep.js"
+import { WORKER_SCRIPT } from "./webWorkerScript.js"
 import { aggregateWebSessionMetrics } from "./metrics.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
 
@@ -10,162 +13,6 @@ const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnima
 // generation quality/instruction-following degrades noticeably on larger models (e.g. Llama 3)
 // versus useCloudAI/useNativeAI, and WebGPU/WASM backend selection is unpredictable across
 // devices. Treat this provider as a demo/fallback path, not production-ready, until revisited.
-
-const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js"
-
-const WORKER_SCRIPT = `
-const TRANSFORMERS_CDN = "${TRANSFORMERS_CDN}";
-let pipe = null;
-let TextStreamer = null;
-let loadedModel = null;
-let loadedDevice = null;
-
-async function loadPipeline(model) {
-    if (loadedModel === model && pipe) {
-        self.postMessage({ type: "log", msg: "[worker] pipeline cache hit — " + model + " on " + loadedDevice });
-        return;
-    }
-
-    self.postMessage({ type: "log", msg: "[worker] importing transformers from CDN..." });
-    const mod = await import(TRANSFORMERS_CDN);
-    mod.env.allowLocalModels = false;
-    TextStreamer = mod.TextStreamer;
-
-    const backends = [
-        { device: "webgpu", dtype: "q4f16" },
-        { device: "wasm",   dtype: "q4"    },
-    ];
-
-    let lastErr = null;
-    for (const { device, dtype } of backends) {
-        try {
-            self.postMessage({ type: "log", msg: "[worker] trying device=" + device + " dtype=" + dtype });
-            const fileTotals = {};
-            const dlStart = performance.now();
-
-            pipe = await mod.pipeline("text-generation", model, {
-                device,
-                dtype,
-                progress_callback: (info) => {
-                    const { status, file, name, loaded, total } = info;
-                    const pct = total > 0 ? Math.round((loaded / total) * 100) : null;
-                    if (total) fileTotals[file || name] = total;
-                    if (status === "initiate") {
-                        self.postMessage({ type: "progress", file: file || name, percent: 0, status: "initiate" });
-                        self.postMessage({ type: "log", msg: "[worker] download initiate: " + (file || name) });
-                    } else if (status === "download" || status === "progress") {
-                        self.postMessage({ type: "progress", file: file || name, percent: pct, loaded, total, status: "downloading" });
-                    } else if (status === "done") {
-                        self.postMessage({ type: "progress", file: file || name, percent: 100, status: "done" });
-                        self.postMessage({ type: "log", msg: "[worker] download done: " + (file || name) });
-                    }
-                },
-            });
-
-            loadedModel = model;
-            loadedDevice = device;
-            const loadMs = Math.round(performance.now() - dlStart);
-            const totalBytes = Object.values(fileTotals).reduce((sum, n) => sum + n, 0);
-            self.postMessage({ type: "model_ready", device, dtype, loadMs, totalBytes });
-            self.postMessage({ type: "log", msg: "[worker] pipeline ready — device=" + device + " loadMs=" + loadMs });
-            return;
-        } catch (err) {
-            self.postMessage({ type: "log", msg: "[worker] " + device + " failed (" + err.message + "), trying next..." });
-            lastErr = err;
-            pipe = null;
-        }
-    }
-    throw lastErr || new Error("All backends failed");
-}
-
-self.onmessage = async (e) => {
-    const { type, model, messages, genConfig, formatPrompt } = e.data;
-    if (type !== "generate") return;
-
-    try {
-        await loadPipeline(model);
-
-        let pipeInput;
-        if (formatPrompt) {
-            try {
-                const overrideFn = new Function("return (" + formatPrompt + ")")();
-                const text = overrideFn(messages);
-                pipeInput = text;
-                self.postMessage({ type: "log", msg: "[worker] using custom formatPrompt (" + text.length + " chars)" });
-            } catch (err) {
-                self.postMessage({ type: "log", msg: "[worker] formatPrompt failed (" + err.message + "), falling back to tokenizer template" });
-            }
-        }
-        if (!pipeInput) {
-            try {
-                const text = pipe.tokenizer.apply_chat_template(messages, { tokenize: false, add_generation_prompt: true });
-                pipeInput = text;
-                self.postMessage({ type: "log", msg: "[worker] chat template applied (" + text.length + " chars)" });
-            } catch (err) {
-                pipeInput = messages;
-                self.postMessage({ type: "log", msg: "[worker] no chat template (" + err.message + "), passing messages array" });
-            }
-        }
-
-        const pipeInputType = typeof pipeInput === "string" ? "string" : Array.isArray(pipeInput) ? "messages[]" : typeof pipeInput;
-        const pipeInputLength = typeof pipeInput === "string" ? pipeInput.length : Array.isArray(pipeInput) ? pipeInput.length : 0;
-        self.postMessage({ type: "log", msg: "[worker] pipe input: type=" + pipeInputType + " length=" + pipeInputLength });
-        self.postMessage({ type: "streaming_start" });
-
-        let tokenCount = 0;
-        let ttftFired = false;
-        const tGen = performance.now();
-
-        let batch = "";
-        let batchTimer = null;
-        const flushBatch = () => {
-            batchTimer = null;
-            if (!batch) return;
-            self.postMessage({ type: "token", text: batch });
-            batch = "";
-        };
-
-        const streamer = new TextStreamer(pipe.tokenizer, {
-            skip_prompt: true,
-            skip_special_tokens: true,
-            token_callback_function: () => {
-                if (!ttftFired) {
-                    ttftFired = true;
-                    self.postMessage({ type: "ttft", ms: Math.round(performance.now() - tGen) });
-                }
-                tokenCount++;
-            },
-            callback_function: (text) => {
-                batch += text;
-                if (tokenCount % 8 === 0) { clearTimeout(batchTimer); flushBatch(); }
-                else if (!batchTimer) { batchTimer = setTimeout(flushBatch, 80); }
-            },
-        });
-
-        const { maxTokens, temperature, topP, repetitionPenalty, noRepeatNgramSize, earlyStop, ...rest } = genConfig;
-        await pipe(pipeInput, {
-            max_new_tokens: maxTokens,
-            do_sample: temperature > 0,
-            temperature,
-            top_p: topP,
-            repetition_penalty: repetitionPenalty,
-            no_repeat_ngram_size: noRepeatNgramSize ?? 3,
-            early_stopping: earlyStop ?? true,
-            ...rest,
-            streamer,
-        });
-
-        clearTimeout(batchTimer);
-        flushBatch();
-
-        const genMs = Math.round(performance.now() - tGen);
-        const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0;
-        self.postMessage({ type: "done", totalTokens: tokenCount, genMs, tps });
-    } catch (err) {
-        self.postMessage({ type: "error", message: err.message || String(err) });
-    }
-};
-`
 
 let workerBlobUrl = null
 function getWorkerBlobUrl() {
@@ -199,6 +46,8 @@ export function useWebAI({
     const [metrics, setMetrics] = useState(null)
 
     const workerRef = useRef(null)
+    const workerModelRef = useRef(null)
+    const busyRef = useRef(false)
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const cancelledRef = useRef(false)
@@ -215,23 +64,38 @@ export function useWebAI({
     formatPromptRef.current = formatPrompt
 
     const generate = useCallback(
-        ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
-            // Media is not wired for web engines yet: fail loudly instead of sending "[object Object]".
-            try {
-                assertEngineSupports(getModalities(messages), { text: true }, "web")
-            } catch (inputErr) {
-                setError(inputErr)
-                return
-            }
-            if (workerRef.current) {
-                workerRef.current.terminate()
-                workerRef.current = null
-            }
-
+        async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
             const resolvedModel = callModel || modelProp
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
                 return
+            }
+
+            // Only Gemma 4 takes image/audio in the browser; other models are text-only and refuse media loudly.
+            // Gemma 4 always goes through the media path (it needs AutoProcessor + Gemma4ForConditionalGeneration).
+            const mediaModel = supportsWebMedia(resolvedModel)
+            let template = null
+            try {
+                assertEngineSupports(getModalities(messages), mediaModel ? { text: true, image: true, audio: true } : { text: true }, "web")
+                if (mediaModel) {
+                    const prepared = await prepareImageParts(
+                        await prepareAudioParts(messages, {
+                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                        }),
+                        { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
+                    )
+                    template = toWebTemplate(prepared)
+                }
+            } catch (inputErr) {
+                setError(inputErr)
+                return
+            }
+
+            // A media-capable worker holds ~3.4 GB of weights, so it is kept alive between calls (same model, idle).
+            const reuseWorker = mediaModel && workerRef.current && workerModelRef.current === resolvedModel && !busyRef.current
+            if (!reuseWorker && workerRef.current) {
+                workerRef.current.terminate()
+                workerRef.current = null
             }
 
             const genConfig = { ...hookGenConfig, ...callGenConfig }
@@ -242,22 +106,26 @@ export function useWebAI({
             setError(null)
             setDownloadProgress(null)
             setMetrics(null)
-            setModelReady(false)
+            setModelReady(!!reuseWorker)
             cancelledRef.current = false
             outputAccRef.current = ""
             if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
 
             const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null }
 
-            let worker
-            try {
-                worker = new Worker(getWorkerBlobUrl(), { type: "module" })
-            } catch (err) {
-                setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, { cause: err }))
-                setLoading(false)
-                return
+            let worker = reuseWorker ? workerRef.current : null
+            if (!worker) {
+                try {
+                    worker = new Worker(getWorkerBlobUrl(), { type: "module" })
+                } catch (err) {
+                    setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, { cause: err }))
+                    setLoading(false)
+                    return
+                }
             }
             workerRef.current = worker
+            workerModelRef.current = resolvedModel
+            busyRef.current = true
 
             worker.onmessage = (e) => {
                 const msg = e.data
@@ -313,14 +181,18 @@ export function useWebAI({
                         }
                         setStreaming(false)
                         setLoading(false)
-                        worker.terminate()
-                        workerRef.current = null
+                        busyRef.current = false
+                        if (!mediaModel) {
+                            worker.terminate()
+                            workerRef.current = null
+                        }
                         break
                     case "error":
                         console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
                         setError(createError(ERROR_CODES.AI_WEB_WORKER_CRASHED, { message: msg.message }))
                         setStreaming(false)
                         setLoading(false)
+                        busyRef.current = false
                         worker.terminate()
                         workerRef.current = null
                         break
@@ -335,6 +207,7 @@ export function useWebAI({
                 }))
                 setStreaming(false)
                 setLoading(false)
+                busyRef.current = false
                 worker.terminate()
                 workerRef.current = null
             }
@@ -342,7 +215,8 @@ export function useWebAI({
             worker.postMessage({
                 type: "generate",
                 model: resolvedModel,
-                messages: resolvedMessages,
+                messages: template ? template.messages : resolvedMessages,
+                media: template ? { images: template.images, audios: template.audios } : null,
                 genConfig,
                 formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
             })
@@ -354,6 +228,7 @@ export function useWebAI({
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        busyRef.current = false
         setStreaming(false)
     }, [])
 
