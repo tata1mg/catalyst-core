@@ -223,7 +223,7 @@ async function main() {
         // The interactive demo only walks scenarios that surface an error from
         // a running server / the CLI. client, mapping, build, cca-cli and
         // build-native kinds are contract assertions — run `npm run test:error`
-        // to see those (it covers all 72). Skip them here rather than crash on
+        // to see those (it covers all 75). Skip them here rather than crash on
         // their missing break()/run.
         const SERVER_KINDS = new Set(["cli-startup", "http"])
 
