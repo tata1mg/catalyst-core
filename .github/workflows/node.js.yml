@@ -389,9 +389,9 @@ jobs:
 
     error-catalog:
         # Contract gate for issue #440 / Story #343: proves each in-scope
-        # error code (AI-000..003 + PREFLIGHT-001..021) actually surfaces the
+        # error code (AI-000..003 + PREFLIGHT-001..022) actually surfaces the
         # way a developer would hit it — a real catalyst app is broken per
-        # scenario, the real `catalyst start` / an HTTP call is run, and the
+        # scenario, the real `catalyst start` / `catalyst serve` / an HTTP call is run, and the
         # coded error + doc URL is asserted in the output. Pass/fail only
         # (no coverage %), reported into coverage-summary like
         # web-integration-smoke. AI-000 (needs a live api.openai.com call) is

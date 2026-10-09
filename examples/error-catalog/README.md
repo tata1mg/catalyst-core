@@ -1,10 +1,10 @@
 # Error Catalog Example (`examples/error-catalog`)
 
 A standalone Catalyst app whose scenarios reproduce a **real developer
-mistake** for every one of the framework's 72 error codes, then assert the dev
+mistake** for every one of the framework's 75 error codes, then assert the dev
 sees the right coded error (message + doc URL).
 
-- **`npm run test:error`** — runs all 72, one block per code: the mistake, what
+- **`npm run test:error`** — runs all 75, one block per code: the mistake, what
   the dev sees, and PASS / FAIL / SKIP. This is the command to run.
 - **`npm run demo`** — interactive walk of the server-reachable scenarios only
   (the `cli` / `http` tiers); other kinds are contract assertions, see
@@ -13,7 +13,7 @@ sees the right coded error (message + doc URL).
 
 ## Coverage
 
-72 / 72 codes accounted for: **61 reproduced by a scenario**, **11 in the
+75 / 75 codes accounted for: **62 reproduced by a scenario**, **13 in the
 LEDGER** as `not-example-reproducible` — each with a specific reason below, not
 a hand-wave.
 
@@ -54,7 +54,7 @@ a hand-wave.
    terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
    are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
-## The 72-code ledger
+## The 75-code ledger
 
 | Code | Dev mistake | Tier | What the dev sees | Coverage |
 |---|---|---|---|---|
@@ -69,6 +69,7 @@ a hand-wave.
 | `AI-008` | — | — | Web AI worker unavailable | **LEDGER: not-example-reproducible** |
 | `AI-009` | — | — | Web AI worker crashed | **LEDGER: not-example-reproducible** |
 | `ANDROID-000` | Android build failed in upstream toolchain step | build-native | Android build failed in an upstream toolchain step | scenario |
+| `ANDROID-001` | — | — | Timed out waiting for the Android emulator to boot | **LEDGER: not-example-reproducible** |
 | `BUNDLE-000` | Syntax error in a source file during production build | build | Build failed in an upstream bundler step | scenario |
 | `CCA-000` | — | — | An upstream command failed | **LEDGER: not-example-reproducible** |
 | `CCA-001` | Invalid project name provided to create-catalyst-app | cca-cli | Invalid project name | scenario |
@@ -81,6 +82,7 @@ a hand-wave.
 | `CCA-008` | — | — | MCP server setup failed | **LEDGER: not-example-reproducible** |
 | `CCA-009` | .gitignore file already exists warning in create-catalyst-app | cca-cli | .gitignore already exists | scenario |
 | `IOS-000` | iOS build failed in upstream toolchain step | build-native | iOS build failed in an upstream toolchain step | scenario |
+| `IOS-001` | — | — | Could not find an installed iOS Simulator app | **LEDGER: not-example-reproducible** |
 | `PREFLIGHT-001` | config/config.json deleted | cli (halts) | config not found in config folder | scenario |
 | `PREFLIGHT-002` | config/config.json is a JSON string | cli (halts) | config export is not an object | scenario |
 | `PREFLIGHT-003` | Removed a required key from config/config.json | cli (halts) | required key missing inside config.json | scenario |
@@ -102,6 +104,7 @@ a hand-wave.
 | `PREFLIGHT-019` | getRoutes not a function | cli (warns) | getRoutes should be a function exported from src/js/routers/index.js | scenario |
 | `PREFLIGHT-020` | document missing from server/document.js | no-call-site | document not found in file server/document.js | scenario |
 | `PREFLIGHT-021` | server/document.js default export not a function | cli (warns) | document should be a react component exported from server/document.js | scenario |
+| `PREFLIGHT-022` | config/config.json changed after the build | cli (halts) | The build is stale: config/config.json changed since it was built | scenario |
 | `PROCESS-001` | preServerInit hook throws during server startup | cli (warns) | preServerInit threw an error during server startup | scenario |
 | `PROCESS-002` | User-defined hook onRouteMatch throws when invoked | cli (warns) | A user-defined hook threw an error | scenario |
 | `RUNTIME-NATIVE-001` | Native string 'permission denied' maps to RUNTIME-NATIVE-001 | mapping | Permission denied | scenario |
@@ -139,7 +142,7 @@ a hand-wave.
 npm run sync-core
 npm run sync-packages
 
-# All 72, human-readable
+# All 75, human-readable
 npm run test:error
 
 # One code

@@ -216,6 +216,13 @@
         "suggestedAction": "Ensure document is exported as a React component (function).",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-021.md"
     },
+    "PREFLIGHT-022": {
+        "category": "PREFLIGHT",
+        "message": "The build is stale: config/config.json changed since it was built",
+        "details": "PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH and the CLIENT_ENV_VARIABLES values are inlined into the bundles at build time, so serving this build would use the old values.",
+        "suggestedAction": "Run `npm run build` again, then `npm run serve`.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/PREFLIGHT/PREFLIGHT-022.md"
+    },
     "PROCESS-001": {
         "category": "PROCESS",
         "message": "preServerInit threw an error during server startup",
