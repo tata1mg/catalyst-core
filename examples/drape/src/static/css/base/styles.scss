@@ -1,0 +1,46 @@
+html {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background-color: var(--color-surface);
+    font-family: var(--font-body);
+    color: var(--color-text-primary);
+}
+
+// Route container. One per page — fills the viewport, hosts the page-level
+// flex flow (header → body → footer-or-CTA). Document handles scroll on every
+// platform; no inner overflow:auto and no transformed wrappers, so iOS sticky
+// + backdrop-filter behave the same as web.
+.screen {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    background-color: var(--color-surface);
+}
+
+// Route transitions via the View Transitions API — supported in Chromium 111+
+// and Safari 18+ (incl. iOS 18 WebView). Browsers without VTA fall back to a
+// hard cut, which is acceptable for the targets we ship to.
+::view-transition-old(root) {
+    animation: routeOut var(--motion-quick, 200ms) var(--ease-accelerate, ease-in) both;
+}
+
+::view-transition-new(root) {
+    animation: routeIn var(--motion-transition, 320ms) var(--ease-decelerate, ease-out) both;
+}
+
+@keyframes routeOut {
+    to {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+}
+
+@keyframes routeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
