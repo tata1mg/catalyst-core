@@ -68,4 +68,17 @@ describe("manifestCache (production load path)", () => {
         expect(mod.getManifest()).toBeNull()
         warn.mockRestore()
     })
+
+    it("catches and warns when manifest JSON is malformed", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+        const vite = path.join(tmp, "build", ".vite")
+        fs.writeFileSync(path.join(vite, "manifest.json"), "invalid json{")
+        const mod = await import("../../src/server/manifestCache.js")
+        expect(mod.getManifest()).toBeNull()
+        expect(warn).toHaveBeenCalledWith(
+            "Could not load build manifests:",
+            expect.any(String),
+        )
+        warn.mockRestore()
+    })
 })
