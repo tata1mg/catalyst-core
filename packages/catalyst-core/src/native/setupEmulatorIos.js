@@ -63,7 +63,7 @@ async function setupIOSEnvironment() {
     try {
         progress.start("platform")
         if (process.platform !== "darwin") {
-            progress.log("iOS Simulator is only available on macOS.")
+            progress.log("iOS Simulator is only available on macOS.", "error")
             process.exit(1)
         }
         progress.complete("platform")
@@ -100,6 +100,7 @@ async function setupIOSEnvironment() {
         if (progress.currentStep) {
             progress.fail(progress.currentStep.id, error.message)
         }
+        progress.hint(error.hint)
         process.exit(1)
     }
 }

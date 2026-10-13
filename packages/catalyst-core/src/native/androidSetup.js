@@ -1,7 +1,7 @@
 import fs from "fs"
 import path from "path"
 import { spawn } from "child_process"
-import { runCommand, validateAndCompleteConfig } from "./utils.js"
+import { runCommand, validateAndCompleteConfig, ANDROID_SDK_HINT } from "./utils.js"
 import TerminalProgress from "./terminalProgress.js"
 import { setupServer } from "./setupServer.js"
 
@@ -93,8 +93,8 @@ async function installJava() {
             progress.log("Installed Java 17 (Zulu)", "info")
             progress.log(`Java Version: ${javaVersion}`, "info")
             progress.log(`IMPORTANT: Please run the following commands to complete setup:`, "warning")
-            progress.log(`1. source ${shellProfile}`, "info")
-            progress.log(`2. echo $JAVA_HOME`, "info")
+            progress.log(`1. source ${shellProfile}`, "note")
+            progress.log(`2. echo $JAVA_HOME`, "note")
             return true
         } catch (error) {
             throw new Error(
@@ -103,15 +103,15 @@ async function installJava() {
         }
     } catch (error) {
         progress.log(error.message, "error")
-        progress.log("Manual Setup Instructions:", "info")
-        progress.log("1. Run: brew reinstall --cask zulu@17", "info")
-        progress.log("2. Add to ~/.zshrc:", "info")
+        progress.log("Manual Setup Instructions:", "note")
+        progress.log("1. Run: brew reinstall --cask zulu@17", "note")
+        progress.log("2. Add to ~/.zshrc:", "note")
         progress.log(
             "   export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home",
-            "info"
+            "note"
         )
-        progress.log("   export PATH=$JAVA_HOME/bin:$PATH", "info")
-        progress.log("3. Run: source ~/.zshrc", "info")
+        progress.log("   export PATH=$JAVA_HOME/bin:$PATH", "note")
+        progress.log("3. Run: source ~/.zshrc", "note")
         throw error
     }
 }
@@ -174,7 +174,7 @@ function validateAndroidTools(androidConfig) {
     const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
 
     if (!ANDROID_SDK) {
-        throw new Error("Android SDK path is not configured")
+        throw Object.assign(new Error("Android SDK not found"), { hint: ANDROID_SDK_HINT })
     }
 
     if (!fs.existsSync(ANDROID_SDK)) {
@@ -216,7 +216,7 @@ function validateAndroidTools(androidConfig) {
 
 async function checkEmulator(ADB_PATH) {
     try {
-        const devices = runCommand(`${ADB_PATH} devices`)
+        const devices = runCommand(`${ADB_PATH} devices`, { timeout: 15000 })
         return devices.includes("emulator")
     } catch (error) {
         progress.log(`Error checking emulator: ${error}`, "error")
@@ -301,6 +301,7 @@ async function setupAndroidEnvironment() {
         if (progress.currentStep) {
             progress.fail(progress.currentStep.id, error.message)
         }
+        progress.hint(error.hint)
         process.exit(1)
     }
 }

@@ -6,7 +6,7 @@ import { dirname } from "path"
 import { readFileSync, readdirSync, existsSync, rmSync } from "fs"
 import { gzipSync } from "zlib"
 import { createRequire } from "module"
-import { wrapForeignError, formatError } from "../errors/index.js"
+import { getDocUrl, ERROR_CODES } from "../errors/index.js"
 import { runStaticPreflightOrExit, writeBuildInfo } from "./preflight.js"
 
 // Fail fast on a misconfigured app (missing/invalid config.json, package.json,
@@ -22,7 +22,8 @@ const __dirname = dirname(__filename)
 // rather than duplicating the visual language for the web commands.
 const requireCjs = createRequire(import.meta.url)
 const { header, step, glyph, t, GUTTER, duration, bytes } = requireCjs("../cli/theme.js")
-const { diagnostic } = requireCjs("../cli/diagnostic.js")
+const { diagnostic, verboseOutput } = requireCjs("../cli/diagnostic.js")
+const { Spinner } = requireCjs("../cli/spinner.js")
 const { loadAppConfig } = requireCjs("../cli/appConfig.js")
 const { bundleWarnings } = requireCjs("../cli/buildWarnings.js")
 const { extractBuildErrors, outputTail } = requireCjs("../cli/buildErrors.js")
@@ -148,33 +149,24 @@ function reportBundleFailures(failures, cwd) {
         )
     }
 
-    const causes = [...byCause.values()]
-    const out = [""]
-    out.push(`${GUTTER}${t.bad(t.bold(causes.length === 1 ? "error" : `${causes.length} errors`))}`)
-
-    for (const cause of causes) {
-        // Vite prints absolute paths; show them relative to the app so the
-        // interesting part is not buried behind /Users/you/work/....
-        out.push(`${GUTTER}${t.bold(shortenPaths(cause.message, cwd))}`)
-
-        if (cause.file) {
-            const resolved = path.resolve(cwd, cause.file.replace(/^(\.\.\/)+/, ""))
-            const shown = path.relative(cwd, resolved) || cause.file
-            const at =
-                cause.line != null ? `:${cause.line}${cause.column != null ? `:${cause.column}` : ""}` : ""
-            const scope = cause.bundles.length > 1 ? `  ${t.dim(`· ${cause.bundles.join(", ")}`)}` : ""
-            out.push(`${GUTTER}${t.dim("at")} ${t.accent(shown)}${t.dim(at)}${scope}`)
-        }
-
-        const known = hintFor(cause.message)
-        if (known) {
-            out.push("")
-            out.push(`${GUTTER}${t.accent("hint")}  ${known.hint}`)
-        }
-        out.push("")
-    }
-
-    return out.join("\n")
+    // Each cause renders as the same diagnostic block every other failure
+    // uses: message, location, the source around it, and a hint when the
+    // cause is one we understand.
+    return [...byCause.values()]
+        .map((cause) =>
+            diagnostic({
+                message: shortenPaths(cause.message, cwd),
+                scope: `${cause.bundles.join(" + ")} bundle`,
+                file: cause.file ? path.resolve(cwd, cause.file.replace(/^(\.\.\/)+/, "")) : undefined,
+                line: cause.line,
+                // esbuild reports columns 0-based; the frame's caret is 1-based.
+                column: cause.column != null ? cause.column + 1 : undefined,
+                hint: hintFor(cause.message)?.hint,
+                docs: hintFor(cause.message)?.docs,
+                cwd,
+            })
+        )
+        .join("")
 }
 
 /**
@@ -213,11 +205,17 @@ function printAssetTable(outputPath, label) {
     walk(outputPath, "")
     if (entries.length === 0) return
 
+    // The server bundle never reaches a browser, so its per-file sizes are not
+    // something to optimise; one total line keeps it visible without crowding
+    // the table people actually read.
+    const server = entries.filter((entry) => entry.name.startsWith("server/"))
+    entries.splice(0, entries.length, ...entries.filter((entry) => !entry.name.startsWith("server/")))
+
     entries.sort((a, b) => b.size - a.size)
     const shown = entries.slice(0, 12)
     const width = Math.max(...shown.map((e) => e.name.length))
 
-    console.log(`\n${GUTTER}${t.dim("Output")}  ${t.dim(`${label}/`)}`)
+    console.log(`\n${GUTTER}${t.bold("Client")}  ${t.dim(`${label}/`)}`)
     for (const [index, entry] of shown.entries()) {
         const isLast = index === shown.length - 1 && entries.length === shown.length
         console.log(
@@ -228,6 +226,13 @@ function printAssetTable(outputPath, label) {
     }
     if (entries.length > shown.length) {
         console.log(`${GUTTER}${t.dim(glyph.last)} ${t.dim(`and ${entries.length - shown.length} more`)}`)
+    }
+    if (server.length) {
+        const total = server.reduce((sum, entry) => sum + entry.size, 0)
+        const files = `${server.length} file${server.length === 1 ? "" : "s"}`
+        console.log(
+            `\n${GUTTER}${t.bold("Server")}  ${t.dim(`${label}/server/`)}  ${t.dim(`${files}, ${bytes(total)}`)}`
+        )
     }
 }
 
@@ -280,9 +285,10 @@ async function build() {
     const clientBuildArgs = [viteBinPath, "build", "--config", "./dist/vite/vite.config.client.js"]
     const spawnBase = { cwd: dirname }
 
-    // No announce line here: a static "◐ Building..." row would just sit there
-    // until the ✓ result prints below it.
-    const bundlesStarted = Date.now()
+    // A live row while the bundles build: a large app takes tens of seconds
+    // here, and a screen that stops changing reads as a hang. Both children
+    // are piped, so nothing else writes to the terminal meanwhile.
+    const bundling = new Spinner().start("Building client and server bundles")
 
     // Both bundles build in parallel and their output is captured, so failures
     // are reported once, attributed to the bundle that produced them.
@@ -304,13 +310,21 @@ async function build() {
     const failures = results.filter((result) => result.status === "rejected").map((result) => result.reason)
 
     if (failures.length > 0) {
-        console.log(step("Build failed", Date.now() - bundlesStarted, "fail"))
+        bundling.stop("fail", "Build failed")
         process.stderr.write(reportBundleFailures(failures, process.env.PWD))
-        // --verbose/--debug add the registry's boxed report (code, cause
-        // chain, stack, environment) under the extracted compiler errors.
+        // --verbose/--debug add the registry code and the bundler's full
+        // output under the extracted errors.
         if (outputMode !== "default") {
-            const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
-            console.error(formatError(wrapForeignError("BUNDLE", failures[0]), outputMode, debugEnv))
+            process.stderr.write(
+                verboseOutput({
+                    code: ERROR_CODES.BUNDLE_UPSTREAM_ERROR,
+                    docs: getDocUrl(ERROR_CODES.BUNDLE_UPSTREAM_ERROR),
+                    output: failures.map((failure) => `[${failure.label}]\n${failure.output}`).join("\n"),
+                    mode: outputMode,
+                    error: failures[0],
+                    env: outputMode === "debug" ? getDebugEnvInfo() : undefined,
+                })
+            )
         }
         process.exit(exitCodeFrom(failures[0]))
     }
@@ -322,20 +336,16 @@ async function build() {
         .filter((result) => result.status === "fulfilled")
         .flatMap((result) => bundleWarnings(result.value.output, result.value.label))
 
-    if (warnings.length > 0) {
-        console.log("")
-        console.log(`${GUTTER}${t.dim("Notices")}`)
-        for (const warning of warnings) {
-            console.log(`${GUTTER}${t.warn(glyph.warn)} ${t.dim(warning)}`)
-        }
+    bundling.stop("done", "Built client and server bundles")
+    // Warnings belong to the step that produced them, beneath it.
+    for (const warning of warnings) {
+        console.log(`${GUTTER}${t.dim(glyph.pipe)} ${t.warn(glyph.warn)} ${t.dim(warning)}`)
     }
-
-    console.log(step("Built client and server bundles", Date.now() - bundlesStarted))
 
     // Lets `serve` refuse a build that no longer matches config/config.json.
     writeBuildInfo(process.env.PWD, configJSON, argumentsObject)
 
-    const manifestStarted = Date.now()
+    const manifest = new Spinner().start("Generating offline manifest")
     try {
         await runBuildStep(
             ["./dist/scripts/generateOfflineManifest.js"],
@@ -343,6 +353,7 @@ async function build() {
             "Generating the offline manifest"
         )
     } catch (error) {
+        manifest.stop("fail", "Generating offline manifest failed")
         // Without this the manifest step fell through to the top-level handler,
         // which prints a raw stack trace.
         process.stderr.write(
@@ -353,7 +364,7 @@ async function build() {
         )
         process.exit(exitCodeFrom(error))
     }
-    console.log(step("Generated offline manifest", Date.now() - manifestStarted))
+    manifest.stop("done", "Generated offline manifest")
 
     printAssetTable(buildOutputPath, configJSON.BUILD_OUTPUT_PATH || "build")
 

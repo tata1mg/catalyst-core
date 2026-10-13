@@ -163,7 +163,7 @@ function formatCauseChain(cause) {
  */
 function formatVerbose(err) {
     const lines = [
-        pc.bold(`❌ ${err.message}`),
+        pc.bold(err.message),
         `Code: ${err.code}`,
         `Category: ${err.category || "UNKNOWN"}`,
         `Time: ${new Date().toISOString()}`,
@@ -193,7 +193,7 @@ function formatVerbose(err) {
  */
 function formatDebug(err, env) {
     const lines = [
-        pc.bold(`❌ ${err.message}`),
+        pc.bold(err.message),
         `Code: ${err.code}`,
         `Category: ${err.category || "UNKNOWN"}`,
         `Time: ${new Date().toISOString()}`,

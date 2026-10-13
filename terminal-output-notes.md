@@ -935,3 +935,54 @@ Two merge bugs only the checks caught: `appConfigPath` had moved inside the
 Verified: catalyst-core typecheck, eslint, vitest 228/228, node tests 27/27;
 create-catalyst-app tsc + vitest 25/25; scaffolder error path in default and
 verbose mode. Not re-run: a real app build/start, or native builds.
+
+## Stage 18 — review pass against a real app
+
+Every command was run in a scaffolded app (`demo-apps/cca-tui`) under a real
+pseudo-terminal, and the output reviewed as a user would read it. What changed:
+
+**Bugs.** Native setup asked for missing config through readline while the
+spinner kept drawing, so the question was erased every 120 ms and setup looked
+hung (seen: 2,481 redraws over a hidden "Enter Cache pattern"). Prompts now
+stand every live spinner down (`withSpinnersPaused`), settle into a `✓` line,
+and only fields with no sure default are asked: `sdkPath` is detected,
+`buildType` defaults to debug, the emulator defaults to the first AVD, and
+`cachePattern` is no longer required. A wedged adb server hung `buildApp:android`
+forever on "detecting physical devices"; adb and devicectl calls now time out
+with a hint naming the reset. `catalyst` with no arguments, `--help`, `-v` and
+typos now print help, the version, or a "did you mean".
+
+**Runtime errors.** One component that threw during SSR printed 4 coded reports
+and 3 uncaught exceptions per request, with ~180 lines of react-dom stack, and
+the request never got a response. Three causes: each fallback catch re-rendered
+the same failing tree and logged again; the request-level catch sent nothing;
+`tail.destroy(error)` had no error listener. Now a render failure is marked and
+rethrown past the fallbacks, every error object is reported once, a failed
+request gets a 500, and the report is one block pointed at the app's own frame
+(after Vite's `ssrFixStacktrace`) with its source. Same on main; not a merge
+regression.
+
+**Errors.** Build errors use the same diagnostic block, with a code frame and
+the column corrected (esbuild's is 0-based). `--verbose` prints the bundler's
+full output instead of the registry's box. A taken port is caught before the
+server spawns and names the process holding it. `buildApp:android` detects the
+SDK and AVD when unset and writes `local.properties` itself; gradle's "What went
+wrong" cause is extracted when there is no compiler error.
+
+**Noise.** Native narration is spinner text unless `--verbose`. Vite's
+re-optimising notices, the catalyst-ai notice and Node's typeless-package
+warning are verbose-only. Templates now declare `"type": "module"`; the Tailwind
+PostCSS config became `.cjs` and `vite.config.js` loads `.cjs` first (verified:
+byte-identical Tailwind CSS). The scaffolder's MCP step is one line plus a note
+with the client config, and the premature "Run cd … && npm start" line is gone.
+
+**Polish.** Headers carry the version and name the mode (`catalyst start ›
+development`). "Ready in" counts from when the command ran. Timings under
+100 ms are hidden. The build table lists client assets and one line for the
+server bundle. Native summaries use relative paths, name the device in the
+final line, and the iOS artifact no longer lands inside node_modules.
+Artifact names are 24-hour with no space.
+
+Left alone: `setupEmulator` pins the current LAN IP into config.json, so after a
+network change the dev server binds an address the machine no longer has. Real,
+but a behaviour change to device setup rather than to output.

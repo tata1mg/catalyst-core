@@ -4,6 +4,15 @@ const { spawn, execFileSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
+const { ensureLocalProperties } = require("../utils.js")
+
+// adb answers in milliseconds when healthy. A wedged adb server accepts the
+// connection and never replies, so without a bound the build sat on
+// "detecting physical devices" forever.
+const ADB_TIMEOUT_MS = 15000
+
+/** A timed-out device tool is fatal: every later adb call would hang the same way. */
+const isToolTimeout = (error) => error?.code === "ETOOLTIMEOUT"
 
 const DEFAULT_DEPLOYMENT_PATH = "./deployment"
 const DEFAULT_OLD_PROJECT_NAME = "androidProject"
@@ -16,7 +25,7 @@ function createBuildPhase(ctx) {
         try {
             progress.status("detecting physical devices")
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices -l`)
+            const devices = ctx.runCommand(`${ADB_PATH} devices -l`, { timeout: ADB_TIMEOUT_MS })
             const lines = devices
                 .split("\n")
                 .filter((line) => line.trim() && !line.includes("List of devices"))
@@ -30,7 +39,8 @@ function createBuildPhase(ctx) {
                         try {
                             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
                             const qemuCheck = ctx.runCommand(
-                                `${ADB_PATH} -s ${deviceId} shell getprop ro.kernel.qemu`
+                                `${ADB_PATH} -s ${deviceId} shell getprop ro.kernel.qemu`,
+                                { timeout: ADB_TIMEOUT_MS }
                             )
                             if (!qemuCheck.trim()) {
                                 progress.log(`Physical device detected: ${deviceId}`, "success")
@@ -39,7 +49,8 @@ function createBuildPhase(ctx) {
                                 try {
                                     // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
                                     const model = ctx.runCommand(
-                                        `${ADB_PATH} -s ${deviceId} shell getprop ro.product.model`
+                                        `${ADB_PATH} -s ${deviceId} shell getprop ro.product.model`,
+                                        { timeout: ADB_TIMEOUT_MS }
                                     )
                                     deviceModel = model.trim() || deviceModel
                                 } catch (e) {
@@ -58,6 +69,7 @@ function createBuildPhase(ctx) {
             progress.log("No physical devices detected", "info")
             return null
         } catch (error) {
+            if (isToolTimeout(error)) throw error
             progress.log("Error detecting physical devices: " + error.message, "error")
             return null
         }
@@ -124,13 +136,14 @@ function createBuildPhase(ctx) {
     async function checkEmulator(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`)
+            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
             const onlineEmulator = devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/))
                 .find(([id, state]) => id?.startsWith("emulator-") && state === "device")
             return onlineEmulator ? onlineEmulator[0] : null
         } catch (error) {
+            if (isToolTimeout(error)) throw error
             progress.log("Error checking emulator status: " + error.message, "error")
             return null
         }
@@ -221,12 +234,13 @@ function createBuildPhase(ctx) {
     function listEmulatorSerials(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`)
+            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
             return devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/)[0])
                 .filter((id) => id && id.startsWith("emulator-"))
-        } catch {
+        } catch (error) {
+            if (isToolTimeout(error)) throw error
             return []
         }
     }
@@ -266,6 +280,9 @@ function createBuildPhase(ctx) {
             return execFileSync(ADB_PATH, ["-s", serial, "shell", "getprop", prop], {
                 encoding: "utf8",
                 timeout: remaining,
+                // "adb: device offline" is the expected answer while the
+                // emulator boots; inherited, it landed on the spinner's row.
+                stdio: ["ignore", "pipe", "ignore"],
             }).trim()
         }
         while (Date.now() < deadline) {
@@ -323,6 +340,11 @@ function createBuildPhase(ctx) {
     async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice = null) {
         progress.status("building and installing app")
         try {
+            // Gradle needs the SDK location in local.properties. Only
+            // setupEmulator:android wrote it, so building without a prior
+            // setup died in gradle despite a configured sdkPath.
+            if (androidConfig.sdkPath) ensureLocalProperties(`${pwd}/androidProject`, androidConfig.sdkPath)
+
             // --quiet was the Android silence: it suppresses gradle's task and
             // error output entirely. --console=rich emits ANSI redraws, which
             // are meaningless on a pipe; plain gives one line per task.
@@ -361,7 +383,7 @@ function createBuildPhase(ctx) {
 
         if (targetDevice.type === "physical") {
             progress.log(`App installed on physical device: ${targetDevice.model}`, "success")
-            progress.log("Manual launch required - check your device to open the app", "info")
+            progress.log("Open the app on your device to launch it", "note")
             return
         }
 
@@ -449,14 +471,9 @@ function createBuildPhase(ctx) {
             }
 
             const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-")
-            const currentTime = new Date()
-                .toLocaleTimeString("en-US", {
-                    hour12: true,
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                })
-                .replace(/:/g, "-")
+            // 24-hour and locale-free: "02-05-09 PM" put a space in every
+            // artifact name, which breaks unquoted shell use of the path.
+            const currentTime = new Date().toTimeString().slice(0, 8).replace(/:/g, "-")
             let destinationApkFileName = ""
 
             if (appName) {

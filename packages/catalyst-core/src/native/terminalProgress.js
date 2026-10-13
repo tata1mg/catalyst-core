@@ -6,7 +6,7 @@
 import theme from "../cli/theme.js"
 import spinnerModule from "../cli/spinner.js"
 
-const { GUTTER, glyph, t, header, duration, isInteractive } = theme
+const { GUTTER, glyph, t, header, duration, isInteractive, isVerbose, step: stepLine } = theme
 const { Spinner } = spinnerModule
 
 /**
@@ -45,6 +45,11 @@ class TerminalProgress {
         this.spinner = new Spinner(process.stdout)
         this.headerPrinted = false
         this.pauseDepth = 0
+        // The native build narrates every internal decision ("Package.swift
+        // already up to date", "Copied 0 plugin files"). Useful when debugging
+        // the build itself, noise otherwise -- so by default those notes ride on
+        // the spinner's row and vanish, and --verbose prints them as lines.
+        this.verbose = options.verbose ?? isVerbose()
     }
 
     ensureHeader() {
@@ -95,17 +100,27 @@ class TerminalProgress {
         if (this.spinner.active) {
             this.spinner.stop(state, step.description)
         } else {
-            const mark = state === "fail" ? t.bad(glyph.fail) : t.ok(glyph.done)
-            const elapsed = step.startedAt ? `  ${t.dim(duration(Date.now() - step.startedAt))}` : ""
-            console.log(`${GUTTER}${mark} ${step.description}${elapsed}`)
+            console.log(
+                stepLine(step.description, step.startedAt ? Date.now() - step.startedAt : null, state)
+            )
         }
     }
 
     /**
      * A note that belongs with the current step rather than being a step.
-     * Printed beneath the running line, marked as subordinate.
+     *
+     * Warnings, errors, prompts and `note` always print, beneath the running
+     * line and marked as subordinate. `info` and `success` are narration: by
+     * default they replace the spinner's detail text and leave no line behind,
+     * and only --verbose keeps them. Use `note` for the rare line a user must
+     * act on or keep (a manual launch step, where a keystore was written).
      */
     log(message, type = "info") {
+        if (!this.verbose && (type === "info" || type === "success")) {
+            if (message && this.currentStep) this.status(String(message).trim())
+            return
+        }
+
         this.ensureHeader()
 
         const mark =
@@ -117,7 +132,9 @@ class TerminalProgress {
                     ? t.warn(glyph.warn)
                     : type === "prompt"
                       ? t.warn("?")
-                      : t.dim(glyph.info)
+                      : type === "note"
+                        ? t.accent(glyph.arrow)
+                        : t.dim(glyph.info)
 
         // Stand the spinner down for exactly one line, then bring it back, so
         // the message lands above the live row instead of fighting it.
@@ -127,6 +144,14 @@ class TerminalProgress {
         console.log(`${GUTTER}${t.dim(glyph.pipe)} ${mark} ${message}`)
 
         if (wasSpinning) this.spinner.resume()
+    }
+
+    /** The one action that fixes a failure, under the ✗ line. */
+    hint(text) {
+        if (!text) return
+        this.ensureHeader()
+        if (this.spinner.active) this.spinner.pause()
+        console.log(`\n${GUTTER}${t.accent("hint")}  ${text}\n`)
     }
 
     /**

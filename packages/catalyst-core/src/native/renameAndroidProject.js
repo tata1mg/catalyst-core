@@ -199,7 +199,7 @@ async function createKeystore(projectPaths, androidConfig) {
             throw new Error(`Created keystore failed verification: ${testError.message}`)
         }
 
-        progress.log(`Keystore created successfully at: ${keystorePath}`, "success")
+        progress.log(`Keystore created at: ${keystorePath}`, "note")
         progress.log(`Key alias: ${keystoreConfig.keyAlias}`, "info")
         progress.log(`Validity: ${keystoreConfig.validityYears || 25} years`, "info")
         progress.log(`Store type: PKCS12`, "info")
@@ -785,7 +785,7 @@ async function finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tem
         const finalAabPath = _path.default.join(outputDir, finalAabName)
 
         _fs.default.copyFileSync(aabResult.outputAabPath, finalAabPath)
-        progress.log(`AAB saved to final location: ${finalAabPath}`, "success")
+        progress.log(`AAB saved to: ${finalAabPath}`, "note")
 
         // Copy keystore to output directory for future use
         const keystorePath = _path.default.join(tempDeploymentPath, "app", "keystore.jks")

@@ -135,14 +135,20 @@ import { imageUrl, fontUrl } from "./scssParams.js"
 // options — so anything else is left alone and Vite falls back to its normal
 // auto-loaded postcss.config.js resolution.
 const resolvePostcssPlugins = () => {
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root set by the framework's own build tooling, not request/user input.
-    const configPath = path.join(process.env.src_path, "postcss.config.js")
-    if (!fs.existsSync(configPath)) return null
+    // .cjs first: an app with "type": "module" (the scaffold default) must
+    // name a CommonJS config .cjs, and a .js one is ESM there.
+    const configPath = ["postcss.config.cjs", "postcss.config.js"]
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root set by the framework's own build tooling, not request/user input.
+        .map((name) => path.join(process.env.src_path, name))
+        .find((candidate) => fs.existsSync(candidate))
+    if (!configPath) return null
 
     const appRequire = createRequire(configPath)
 
     try {
-        const userConfig = appRequire(configPath)
+        const loaded = appRequire(configPath)
+        // require() of an ESM config returns its namespace.
+        const userConfig = loaded?.__esModule || loaded?.default ? loaded.default : loaded
         const pluginsConfig = userConfig?.plugins
 
         if (!pluginsConfig || Array.isArray(pluginsConfig) || typeof pluginsConfig !== "object") {

@@ -1,6 +1,7 @@
 {
     "name": "create-catalyst-app-starter",
     "version": "1.0.0",
+    "type": "module",
     "scripts": {
         "start": "catalyst start",
         "build": "npm run typecheck && catalyst build",

@@ -1,6 +1,7 @@
 "use strict"
 
 const path = require("path")
+const { displayPath } = require("../../cli/theme.js")
 const fs = require("fs")
 const { runCommand, runInteractiveCommand } = require("../utils.js")
 const { buildFailure } = require("../../cli/diagnostic.js")
@@ -186,38 +187,33 @@ function createAndroidBuild(config) {
 
             // Aligned key/value rows, matching the Config tree the setup
             // commands print. printTreeContent draws the branch glyphs.
-            const summaryItems = [
-                { text: `buildType      ${buildType}`, color: "gray" },
-                { text: `sdkPath        ${androidConfig.sdkPath}`, color: "gray" },
-                { text: `optimization   ${buildOptimisation ? "Enabled" : "Disabled"}`, color: "gray" },
-            ]
-
+            const deviceName =
+                targetDevice?.type === "physical"
+                    ? targetDevice.model
+                    : `${androidConfig.emulatorName} emulator`
+            const summaryItems = [{ text: `device     ${deviceName}`, color: "gray" }]
             if (movedApkPath) {
-                summaryItems.push({ text: `artifact       ${movedApkPath}`, color: "gray" })
+                summaryItems.push({
+                    text: `artifact   ${displayPath(movedApkPath, process.cwd())}`,
+                    color: "gray",
+                })
             }
             if (buildType === "release") {
-                summaryItems.push({ text: `output         Signed AAB in build-output/`, color: "gray" })
+                summaryItems.push({ text: `output     Signed AAB in build-output/`, color: "gray" })
             }
             summaryItems.push({
-                text:
-                    targetDevice?.type === "physical"
-                        ? `device         ${targetDevice.model} (physical)`
-                        : `device         ${androidConfig.emulatorName} (emulator)`,
+                text: `build      ${buildType}${buildOptimisation ? ", optimised" : ""}`,
                 color: "gray",
             })
 
             progress.printTreeContent("Build", summaryItems)
-            progress.summary(
-                targetDevice?.type === "physical" ? "Installed on device" : "Installed on emulator",
-                "Run catalyst start to serve the app"
-            )
+            progress.summary(`Installed on ${deviceName}`, "Run catalyst start to serve the app")
         } catch (error) {
             // Mark the step, then show what actually broke. The old handler
             // printed a generic "check your SDK" checklist here, which is
             // noise when the real Kotlin error is sitting in the output.
-            if (progress.currentStep) {
-                progress.fail(progress.currentStep.id, error.message)
-            }
+            // The ✗ line carries no message: the diagnostic below is the message.
+            if (progress.currentStep) progress.fail(progress.currentStep.id)
 
             process.stderr.write(buildFailure({ error, stage: error.stage || "Android build" }))
 

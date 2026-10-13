@@ -102,7 +102,42 @@ function extractBuildErrors(output, { toolchain = "native" } = {}) {
         if (found.length >= MAX_ERRORS) break
     }
 
+    if (found.length === 0 && toolchain !== "vite") {
+        const wrong = gradleWhatWentWrong(output)
+        if (wrong) found.push(wrong)
+    }
+
     return found
+}
+
+/**
+ * Gradle's own explanation, for failures that are not compiler errors (a
+ * missing SDK, a dependency that will not resolve, a bad plugin version):
+ *
+ *     * What went wrong:
+ *     Could not determine the dependencies of task ':app:compileDebugJavaWithJavac'.
+ *     > SDK location not found. Define a valid SDK location with ...
+ *
+ * The innermost "> " line is the cause; the line above it is context.
+ */
+function gradleWhatWentWrong(output) {
+    const lines = String(output).replace(ANSI, "").split("\n")
+    const start = lines.findIndex((line) => /^\*\s*What went wrong:/.test(line.trim()))
+    if (start === -1) return null
+
+    const block = []
+    for (const line of lines.slice(start + 1)) {
+        const trimmed = line.trim()
+        if (!trimmed || /^\*\s/.test(trimmed)) break
+        block.push(trimmed)
+    }
+    if (block.length === 0) return null
+
+    const causes = block.filter((line) => line.startsWith(">")).map((line) => line.replace(/^>+\s*/, ""))
+    const message = (causes.length ? causes[causes.length - 1] : block[0])
+        // Gradle's sentences run long; the first one carries the meaning.
+        .replace(/^(.+?\.)\s+[A-Z].*$/, "$1")
+    return { message }
 }
 
 /**

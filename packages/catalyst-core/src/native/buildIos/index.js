@@ -3,6 +3,7 @@
 const { execFile, execFileSync, spawn } = require("child_process")
 const fs = require("fs")
 const path = require("path")
+const { displayPath } = require("../../cli/theme.js")
 const TerminalProgress = require("../terminalProgress.js").default
 const { buildFailure } = require("../../cli/diagnostic.js")
 
@@ -207,6 +208,8 @@ function createIosBuild(config) {
     const ctx = {
         WEBVIEW_CONFIG,
         BUILD_OUTPUT_PATH,
+        // Captured before the build chdirs into the Xcode project.
+        appRoot: process.cwd(),
         iosConfig,
         isGoogleSignInEnabled,
         PROJECT_DIR,
@@ -264,12 +267,11 @@ function createIosBuild(config) {
             await generateXCConfig()
             await copySplashscreenAssets()
             await copyAppIcon()
-            progress.log("Changing directory to: " + PROJECT_DIR, "info")
             process.chdir(PROJECT_DIR)
             const physicalDevice = await detectPhysicalDevices()
             let APP_PATH, targetInfo
             if (physicalDevice) {
-                progress.log("🔥 Building for physical device workflow", "success")
+                progress.log("Building for physical device workflow", "success")
                 targetInfo = { type: "physical", name: physicalDevice.name, udid: physicalDevice.udid }
                 await cleanBuildArtifacts()
                 progress.start("build")
@@ -283,28 +285,10 @@ function createIosBuild(config) {
                     )
                     progress.complete("build")
                 } catch (error) {
-                    progress.fail("build", error.message)
-                    progress.printTreeContent("Physical Device Build Failed", [
-                        "Build failed. Please check:",
-                        {
-                            text: "Code signing certificates are properly installed",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "Provisioning profile matches your bundle ID",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "Device is connected and trusted",
-                            indent: 1,
-                            prefix: "└─ ",
-                            color: "yellow",
-                        },
-                    ])
+                    // The diagnostic in the catch below shows what xcodebuild
+                    // said, with a signing hint when that is the cause; a fixed
+                    // checklist here only guessed.
+                    error.stage = error.stage || "Building for the device"
                     throw error
                 }
                 progress.start("findApp")
@@ -313,7 +297,7 @@ function createIosBuild(config) {
                     progress.log("Found app at: " + APP_PATH, "success")
                     progress.complete("findApp")
                 } catch (error) {
-                    progress.fail("findApp", error.message)
+                    error.stage = error.stage || "Locating the built app"
                     throw error
                 }
                 await installAndLaunchOnPhysicalDevice(APP_PATH, physicalDevice)
@@ -330,19 +314,19 @@ function createIosBuild(config) {
             }
             // Same aligned key/value shape as the Android summary and the
             // Config tree the setup commands print.
+            const deviceName = `${targetInfo.name}${targetInfo.type === "physical" ? "" : " simulator"}`
             progress.printTreeContent("Build", [
-                {
-                    text: `target         ${targetInfo.type === "physical" ? "physical device" : "simulator"}`,
-                    color: "gray",
-                },
-                { text: `device         ${targetInfo.name}`, color: "gray" },
-                { text: `artifact       ${APP_PATH}`, color: "gray" },
-                { text: `url            ${url}`, color: "gray" },
+                { text: `device     ${deviceName}`, color: "gray" },
+                { text: `artifact   ${displayPath(APP_PATH, originalDir)}`, color: "gray" },
+                { text: `loads      ${url}`, color: "gray" },
             ])
 
-            progress.summary("Installed", "Run catalyst start to serve the app")
+            progress.summary(`Installed on ${deviceName}`, "Run catalyst start to serve the app")
             return { success: true, targetInfo, appPath: APP_PATH }
         } catch (error) {
+            // Mark the step, then show what actually broke -- once. The ✗ line
+            // carries no message: the diagnostic below is the message.
+            if (progress.currentStep) progress.fail(progress.currentStep.id)
             process.stderr.write(buildFailure({ error, stage: error.stage || "iOS build", cwd: originalDir }))
 
             throw error

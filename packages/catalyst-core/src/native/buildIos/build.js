@@ -190,7 +190,7 @@ module.exports = function createBuildPhase(ctx) {
                     PROJECT_NAME
                 )
             } catch (buildError) {
-                progress.log("Initial build failed, attempting fallback...", "warning")
+                progress.log("Initial build failed, attempting fallback...", "info")
                 const bootedUUID = await getBootedSimulatorUUID(IPHONE_MODEL)
                 if (bootedUUID) {
                     progress.log(`Found booted simulator, retrying build...`, "info")
@@ -227,7 +227,7 @@ module.exports = function createBuildPhase(ctx) {
                     .toString()
                     .trim()
             } catch (error) {
-                progress.log("Primary app path search failed, trying fallback...", "warning")
+                progress.log("Primary app path search failed, trying fallback...", "info")
             }
             if (!APP_PATH) {
                 try {
@@ -255,16 +255,14 @@ module.exports = function createBuildPhase(ctx) {
             const buildType = iosConfig.buildType || "debug"
             const appName = iosConfig.appName || "app"
             const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-")
-            const currentTime = new Date()
-                .toLocaleTimeString("en-US", {
-                    hour12: true,
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                })
-                .replace(/:/g, "-")
+            // 24-hour and locale-free: "02-05-09 PM" put a space in every
+            // artifact name, which breaks unquoted shell use of the path.
+            const currentTime = new Date().toTimeString().slice(0, 8).replace(/:/g, "-")
+            // The app root, not process.cwd(): the iOS build chdirs into the
+            // Xcode project inside node_modules, so the artifact landed there
+            // and was wiped by the next npm install.
             const destinationDir = path.join(
-                process.cwd(),
+                ctx.appRoot || process.cwd(),
                 BUILD_OUTPUT_PATH, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is trusted application config.
                 "native",
                 "ios",
@@ -400,7 +398,7 @@ module.exports = function createBuildPhase(ctx) {
     function tryDevicectl() {
         const tmpPath = path.join(os.tmpdir(), `catalyst-devicectl-${process.pid}-${Date.now()}.json`)
         try {
-            execSync(`xcrun devicectl list devices --json-output "${tmpPath}"`, { stdio: ["ignore", "ignore", "ignore"] }) // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - tmpPath is built from os.tmpdir()/process.pid/Date.now(), not user input.
+            execSync(`xcrun devicectl list devices --json-output "${tmpPath}"`, { stdio: ["ignore", "ignore", "ignore"], timeout: 30000 }) // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - tmpPath is built from os.tmpdir()/process.pid/Date.now(), not user input.
             const raw = fs.readFileSync(tmpPath, "utf8")
             const parsed = JSON.parse(raw)
             const devices = parsed?.result?.devices ?? []
@@ -421,9 +419,10 @@ module.exports = function createBuildPhase(ctx) {
                 }))
                 .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
         } catch (error) {
+            // A fallback is not a failure the user can act on; keep it for --verbose.
             progress.log(
                 `devicectl detection failed (${error.message}); falling back to xcodebuild destinations`,
-                "warning"
+                "info"
             )
             return []
         } finally {
@@ -486,12 +485,12 @@ module.exports = function createBuildPhase(ctx) {
                                     type: "physical",
                                 })
                             } else {
-                                progress.log(`Skipping placeholder: ${name.trim()}`, "warning")
+                                progress.log(`Skipping placeholder: ${name.trim()}`, "info")
                             }
                         }
                     }
                 } catch (error) {
-                    progress.log("xcodebuild destinations failed", "warning")
+                    progress.log("xcodebuild destinations failed", "info")
                     progress.log(`Error: ${error.message}`, "error")
                 }
             }
@@ -499,12 +498,13 @@ module.exports = function createBuildPhase(ctx) {
             if (physicalDevices.length > 0) {
                 progress.log(`Found ${physicalDevices.length} physical device(s):`, "success")
                 physicalDevices.forEach((d) =>
-                    progress.log(`  📱 ${d.name} (${d.version || "Unknown iOS"}) - ${d.udid}`, "info")
+                    progress.log(`  ${d.name} (${d.version || "Unknown iOS"}) - ${d.udid}`, "info")
                 )
                 progress.complete("deviceDetection")
                 return physicalDevices[0]
             } else {
-                progress.log("No physical devices detected", "warning")
+                // The normal case when building for the simulator, not a warning.
+                progress.log("No physical devices detected", "info")
                 progress.complete("deviceDetection")
                 return null
             }
@@ -547,7 +547,7 @@ module.exports = function createBuildPhase(ctx) {
                 .toString()
                 .trim()
         } catch {
-            progress.log("Primary app path search failed for physical device, trying fallback...", "warning")
+            progress.log("Primary app path search failed for physical device, trying fallback...", "info")
         }
         if (!APP_PATH) {
             try {
@@ -588,7 +588,7 @@ module.exports = function createBuildPhase(ctx) {
                     "App installation completed, but launch failed. You can manually launch the app on your device.",
                     "warning"
                 )
-                progress.log(`To launch manually, look for the app with bundle ID: ${APP_BUNDLE_ID}`, "info")
+                progress.log(`To launch manually, look for the app with bundle ID: ${APP_BUNDLE_ID}`, "note")
             }
             progress.complete("launch")
         } catch (error) {
@@ -660,7 +660,7 @@ module.exports = function createBuildPhase(ctx) {
             if (!isBooted) {
                 progress.log(
                     `Attempting to boot simulator: ${simulatorName} (${foundSimulatorId})`,
-                    "warning"
+                    "info"
                 )
                 if (foundSimulator.state === "Shutdown") {
                     progress.log(`Simulator is shutdown, attempting to boot...`, "info")

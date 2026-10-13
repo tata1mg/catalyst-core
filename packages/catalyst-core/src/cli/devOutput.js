@@ -1,6 +1,6 @@
 "use strict"
 
-const { GUTTER, glyph, t, ANSI } = require("./theme.js")
+const { GUTTER, glyph, t, ANSI, isVerbose } = require("./theme.js")
 
 // Fences the dev server writes around its banner block, so the wrapper can
 // forward those lines verbatim rather than guessing from their text. Colour
@@ -39,6 +39,28 @@ const VITE_NOTICE = /^\d{1,2}:\d{2}:\d{2}\s*(?:am|pm)?\s*\[vite\]\s*(?:\(([^)]+)
 // The inspector URL is worth keeping -- people copy it into a debugger -- but
 // the "For help, see:" line that follows it is boilerplate.
 const INSPECTOR_URL = /^Debugger listening on (ws:\/\/\S+)$/
+
+// Vite bookkeeping that is true but not news: the dependency pre-bundler
+// re-running, and catalyst's optimizeDeps list naming optional packages this
+// app does not use. --verbose keeps them.
+const VERBOSE_ONLY = [
+    /^Re-optimizing dependencies because/i,
+    /^new dependencies optimized:/i,
+    /^optimized dependencies changed\. reloading/i,
+    /^Forced re-optimization of dependencies/i,
+    /^Failed to resolve dependency: .+ present in .*'optimizeDeps\.include'/i,
+    /^\[catalyst-core\/ai\] catalyst-ai not installed/,
+]
+
+// Vite's reload notices, reworded: what changed is the news, not the channel.
+const VITE_RELOAD = /^(page reload|hmr update)\s+(.+?)(\s+\(x\d+\))?$/i
+
+// React Router's warning for an unknown URL, shortened to what it means.
+const NO_ROUTE = /^No routes matched location "([^"]*)"/
+
+// Two dev servers cannot share Vite's HMR socket; the second one still serves
+// pages but never live-reloads, which is worth one clear line.
+const HMR_PORT_TAKEN = /^WebSocket server error: Port (\d+) is already in use/
 
 // Lines the user can do nothing about and that say nothing about their app.
 const DROP = [
@@ -80,21 +102,71 @@ const uncolour = (line) => line.replace(ANSI, "")
 function formatDevLine(line, state) {
     const plain = uncolour(line)
     const trimmed = plain.trimEnd()
+    const verbose = state.verbose ?? isVerbose()
+    const unprefixed = VITE_NOTICE.exec(trimmed)?.[2] ?? trimmed
+
+    // Vite logs a failed SSR module evaluation itself -- message, plugin,
+    // file, frame and its own stack -- and then the request handler reports
+    // the same error with the app's file and source. Keep the one report.
+    // Checked first: Vite indents the block, which would otherwise pass as
+    // part of an earlier diagnostic.
+    if (!verbose && /^Error when evaluating SSR module/.test(unprefixed.trim())) {
+        state.inViteError = true
+        state.viteErrorLines = 0
+        return null
+    }
+    if (state.inViteError) {
+        // Ends at our own report, at Vite's next notice, or -- so a report that
+        // never arrives cannot swallow the session -- after a bounded run.
+        state.viteErrorLines = (state.viteErrorLines || 0) + 1
+        const ends = DIAGNOSTIC_LINE.test(plain) || VITE_NOTICE.test(trimmed) || state.viteErrorLines > 60
+        if (!ends) return null
+        state.inViteError = false
+        // The blank line that opens our report was swallowed with Vite's block.
+        state.pendingBlank = true
+    }
+
     // Blank lines are layout inside a diagnostic block; elsewhere they are
-    // just gaps between unrelated chatter.
-    if (!trimmed.trim()) return state.sawDiagnostic ? "" : null
+    // just gaps between unrelated chatter -- except the one that opens a
+    // diagnostic, which is remembered and kept if a block follows.
+    if (!trimmed.trim()) {
+        if (state.sawDiagnostic) return ""
+        state.pendingBlank = true
+        return null
+    }
+    const openedWithBlank = state.pendingBlank
+    state.pendingBlank = false
 
     // Lines the server already rendered as a diagnostic are in the house
     // style: pass them through untouched rather than re-parsing them as raw
     // error output and swallowing them.
     if (DIAGNOSTIC_LINE.test(plain)) {
         state.sawDiagnostic = true
-        return line
+        return openedWithBlank ? `\n${line}` : line
     }
     if (state.sawDiagnostic && /^\s{2,}/.test(plain)) return line
 
     if (DROP.some((pattern) => pattern.test(trimmed))) return null
     if (WARNING_FOOTER.test(trimmed)) return null
+
+    if (!verbose && VERBOSE_ONLY.some((pattern) => pattern.test(unprefixed.trim()))) return null
+
+    const reload = VITE_RELOAD.exec(unprefixed.trim())
+    if (reload) {
+        // The ssr and client channels both report the same file; one line is enough.
+        const key = `${reload[2]}@${Math.floor(Date.now() / 500)}`
+        if (state.lastReload === key) return null
+        state.lastReload = key
+        return `${GUTTER}${t.dim("↻")} ${t.dim(reload[2])}${t.dim(reload[3] || "")}`
+    }
+
+    const noRoute = NO_ROUTE.exec(trimmed)
+    if (noRoute) return `${GUTTER}${t.warn(glyph.warn)} ${t.dim(`No route matches ${noRoute[1]}`)}`
+
+    const hmrTaken = HMR_PORT_TAKEN.exec(trimmed)
+    if (hmrTaken) {
+        return `${GUTTER}${t.warn(glyph.warn)} ${t.dim(`Live reload is off: port ${hmrTaken[1]} is used by another dev server`)}`
+    }
 
     // Swallow the machinery around a crash; the command reports it once, as a
     // diagnostic, using the message captured below. After the banner there is
@@ -139,6 +211,9 @@ function formatDevLine(line, state) {
     const warning = WARNING_START.exec(trimmed)
     if (warning) {
         const [, code, message] = warning
+        // Node reparsing an app file as ESM costs a few ms at startup and
+        // nothing else; it is not worth a line on every start.
+        if (code === "MODULE_TYPELESS_PACKAGE_JSON" && !verbose) return null
         // The same warning often fires once per worker; show it once.
         const key = code || message
         if (state.seenWarnings.has(key)) return null
@@ -224,7 +299,9 @@ function wireServerOutput(child) {
             pending.length = 0
         }
         if (nextStep) {
-            console.log(`\n${nextStep}`)
+            // Live events (reloads, request errors) follow; a gap keeps them
+            // from reading as part of the banner.
+            console.log(`\n${nextStep}\n`)
             nextStep = null
         }
     }
@@ -345,7 +422,60 @@ function superviseServer(child, { scope, label }) {
     return state
 }
 
+/**
+ * Fail before spawning the server when its port is taken.
+ *
+ * Checked up front because the child only learns it at listen(), after Vite
+ * and the app have loaded -- by which point it has also printed startup
+ * notices and grabbed (or failed to grab) the HMR port, so the real problem
+ * arrived buried under two unrelated lines and Node's raw EADDRINUSE text.
+ */
+function ensurePortFree({ port, host, scope }) {
+    const net = require("net")
+    const { diagnostic } = require("./diagnostic.js")
+    const numeric = Number(port)
+    if (!Number.isInteger(numeric) || numeric <= 0) return Promise.resolve()
+
+    return new Promise((resolve) => {
+        const probe = net.createServer()
+        probe.once("error", (error) => {
+            if (error.code !== "EADDRINUSE") return resolve()
+            const owner = portOwner(numeric)
+            process.stderr.write(
+                diagnostic({
+                    message: `Port ${numeric} is already in use${owner ? ` by ${owner.command} (pid ${owner.pid})` : ""}`,
+                    scope,
+                    hint: owner
+                        ? `Stop it with \`kill ${owner.pid}\`, or change NODE_SERVER_PORT and PUBLIC_STATIC_ASSET_URL in config/config.json.`
+                        : "Stop whatever is using it, or change NODE_SERVER_PORT and PUBLIC_STATIC_ASSET_URL in config/config.json.",
+                })
+            )
+            process.exit(1)
+        })
+        probe.once("listening", () => probe.close(() => resolve()))
+        probe.listen({ port: numeric, host: host || undefined })
+    })
+}
+
+/** The process listening on a port, via lsof; null where lsof is unavailable. */
+function portOwner(port) {
+    try {
+        const { execFileSync } = require("child_process")
+        const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fpc"], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+            timeout: 3000,
+        })
+        const pid = /^p(\d+)$/m.exec(out)?.[1]
+        const command = /^c(.+)$/m.exec(out)?.[1]
+        return pid ? { pid, command: command || "another process" } : null
+    } catch (error) {
+        return null
+    }
+}
+
 module.exports = {
+    ensurePortFree,
     formatDevLine,
     createLineReader,
     wireServerOutput,

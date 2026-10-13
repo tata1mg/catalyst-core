@@ -8,6 +8,12 @@ const FRAME_MS = 120
 // raw control byte sits in the source, where editors and diffs mangle it.
 const CLEAR_LINE = `\r${String.fromCharCode(27)}[2K`
 
+// Every spinner currently animating, so code that has no handle on one -- a
+// config prompt deep in the native setup -- can still stand them all down.
+// A prompt written under a live spinner is erased by the next frame, which
+// makes a question look like a hang.
+const live = new Set()
+
 /**
  * A single-line progress indicator that collapses into its own result.
  *
@@ -41,6 +47,7 @@ class Spinner {
         this.label = label
         this.startedAt = Date.now()
         this.active = true
+        live.add(this)
 
         if (!this.interactive) {
             this.stream.write(`${GUTTER}${t.dim("·")} ${label}\n`)
@@ -72,6 +79,7 @@ class Spinner {
     stop(state = "done", label = this.label) {
         if (!this.active) return
         this.active = false
+        live.delete(this)
 
         const elapsed = Date.now() - this.startedAt
 
@@ -116,4 +124,18 @@ class Spinner {
     }
 }
 
-module.exports = { Spinner }
+/**
+ * Stand every live spinner down while `fn` writes to or reads from the
+ * terminal, then bring them back -- on the failure path too.
+ */
+async function withSpinnersPaused(fn) {
+    const paused = [...live]
+    for (const spinner of paused) spinner.pause()
+    try {
+        return await fn()
+    } finally {
+        for (const spinner of paused) spinner.resume()
+    }
+}
+
+module.exports = { Spinner, withSpinnersPaused }

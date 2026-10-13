@@ -51,14 +51,38 @@ child sees a pipe and strips its own colour.
 
 ## The modules
 
-| File             | What it owns                                                                    |
-| ---------------- | ------------------------------------------------------------------------------- |
-| `theme.js`       | Colours, glyphs, gutter, `header()`, `step()`, `row()`, `duration()`, `bytes()` |
-| `spinner.js`     | The single live line. Owns its own row and nothing else                         |
-| `diagnostic.js`  | `diagnostic()` for one failure, `buildFailure()` for a build                    |
-| `buildErrors.js` | Mines real compiler errors out of gradle/xcodebuild/Vite output                 |
-| `hints.js`       | The short list of failures we can give real advice for                          |
-| `devOutput.js`   | Classifies a dev/production server's lines; `wireServerOutput()`                |
+| File             | What it owns                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| `theme.js`       | Colours, glyphs, gutter, `header()`, `step()`, `row()`, `displayPath()`, `isVerbose()`   |
+| `spinner.js`     | The single live line, plus `withSpinnersPaused()` for anything that must write or ask    |
+| `diagnostic.js`  | `diagnostic()` for one failure, `buildFailure()`, `runtimeFailure()`, `verboseOutput()`  |
+| `buildErrors.js` | Mines real errors out of gradle/xcodebuild/Vite output, incl. gradle's "What went wrong" |
+| `hints.js`       | The short list of failures we can give real advice for                                   |
+| `devOutput.js`   | Classifies a dev/production server's lines; `superviseServer()`, `ensurePortFree()`      |
+
+## Default and --verbose
+
+The default view keeps what someone acts on: steps, results, warnings, errors
+and the one next command. Everything else -- a native build's narration
+("Package.swift already up to date"), Vite's dependency bookkeeping, Node's
+typeless-package warning -- is still produced, and `--verbose` prints it.
+
+In the native builds that split is the `progress.log` level. `info` and
+`success` are narration: they replace the spinner's detail text and leave no
+line behind. `warning`, `error` and `note` always print; use `note` for the rare
+line a person must act on or keep (a manual launch step, where a keystore was
+written). On failure, `--verbose` adds the tool's full output, and `--debug`
+adds stacks and the environment.
+
+## Runtime errors
+
+An error while the server is up -- a component that throws, a fetcher that
+rejects -- is reported once per request through `runtimeFailure()`: the
+registry code and route as the label, the first frame in the app's own code as
+the location with its source, and no library frames unless `--verbose`. The
+SSR handler is bundled into the app, so it cannot import this layer; the server
+exposes the reporter as `globalThis.__catalystReportRuntimeError`. A repeat of
+the same error prints one `✗ Same error again` line.
 
 ## Adding a hint
 

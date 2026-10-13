@@ -13,7 +13,7 @@ const __dirname = dirname(__filename)
 
 const requireCjs = createRequire(import.meta.url)
 const { diagnostic } = requireCjs("../cli/diagnostic.js")
-const { superviseServer } = requireCjs("../cli/devOutput.js")
+const { superviseServer, ensurePortFree } = requireCjs("../cli/devOutput.js")
 const { loadAppConfig } = requireCjs("../cli/appConfig.js")
 
 const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
@@ -27,7 +27,7 @@ const preInitPath = path.resolve(__dirname, "preServerInit.js")
  * multi-line process warnings need collapsing. With inherited stdio the fences
  * reached the screen and the warnings arrived raw.
  */
-function startProd() {
+async function startProd() {
     // Fail fast on a misconfigured app before spawning the production server.
     runStaticPreflightOrExit()
 
@@ -52,9 +52,8 @@ function startProd() {
     if (!existsSync(buildDir)) {
         process.stderr.write(
             diagnostic({
-                message: "The production build was not found",
+                message: `No production build in ${path.relative(process.env.PWD, buildDir) || buildDir}/`,
                 scope: "server",
-                file: buildDir,
                 hint: "Run catalyst build first, then catalyst serve.",
             })
         )
@@ -68,6 +67,12 @@ function startProd() {
         console.error(formatError(staleBuild, outputMode))
         process.exit(1)
     }
+
+    await ensurePortFree({
+        port: argumentsObject.NODE_SERVER_PORT || appConfig.NODE_SERVER_PORT,
+        host: argumentsObject.NODE_SERVER_HOSTNAME || appConfig.NODE_SERVER_HOSTNAME,
+        scope: "server",
+    })
 
     const inspectArgs = commandLineArguments.includes("--inspect") ? ["--inspect"] : []
     const child = spawn(
@@ -91,6 +96,8 @@ function startProd() {
                 // Tells the server its output is being consumed, so it may
                 // fence the banner. Unset when run directly.
                 CATALYST_WRAPPED: "1",
+                // When the command was run, so "Ready in" counts the whole wait.
+                CATALYST_STARTED_AT: String(Math.round(performance.timeOrigin)),
                 src_path: process.env.PWD,
                 NODE_ENV: "production",
                 APPLICATION: name || "catalyst_app",

@@ -70,7 +70,8 @@ const program = new Commander.Command()
             if (cmd.yes) {
                 clack.log.info("Using default configuration")
                 config = {
-                    folderName: "my-app",
+                    // A name given on the command line still wins over the default.
+                    folderName: folderName || "my-app",
                     language: "js",
                     tailWindSupport: false,
                     description: "Default catalyst app",
@@ -163,6 +164,7 @@ const program = new Commander.Command()
                         )
                     })
 
+                    let mcpEntry = null
                     if (mcpSupport) {
                         const newMcpDir = path.join(
                             process.cwd(),
@@ -171,7 +173,14 @@ const program = new Commander.Command()
                             "catalyst-core",
                             "mcp_v2"
                         )
-                        runMcpSetup(newMcpDir, path.join(process.cwd(), projectName))
+                        // Same treatment as the install: the setup script's
+                        // own transcript (npm warnings, audit notices, DB
+                        // paths) only matters when it fails.
+                        const transcript = runStep("Setting up the MCP server", () =>
+                            runMcpSetup(newMcpDir, path.join(process.cwd(), projectName), { quiet: true })
+                        )
+                        for (const warning of mcpWarnings(transcript)) clack.log.warn(warning)
+                        mcpEntry = path.join(newMcpDir, "mcp.js")
                     }
 
                     clack.note(
@@ -182,6 +191,21 @@ const program = new Commander.Command()
                         ].join("\n"),
                         `Created ${bold(projectName)}`
                     )
+
+                    if (mcpEntry) {
+                        // The one thing from the MCP setup a person has to act
+                        // on: the entry to paste into their MCP client.
+                        clack.note(
+                            [
+                                gray("Add to your MCP client (Claude, Cursor, Windsurf):"),
+                                `"catalyst-mcp": {`,
+                                `  "command": "node",`,
+                                `  "args": ["${mcpEntry}"]`,
+                                `}`,
+                            ].join("\n"),
+                            "MCP server"
+                        )
+                    }
 
                     clack.outro(`Next: ${cyan(`cd ${projectName}`)} && ${cyan("npm start")}`)
                 } catch (error) {
@@ -255,7 +279,6 @@ const program = new Commander.Command()
                     throw createError("CCA-007", { cause: e })
                 }
 
-                console.log(cyan(`Run cd ${projectName} && npm start to get started.`))
             }
         } catch (error) {
             const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
@@ -302,7 +325,13 @@ program
 
 program.parse(process.argv)
 
-function runMcpSetup(mcpDir, cwd = process.cwd()) {
+/**
+ * @param {string} mcpDir
+ * @param {string} [cwd]
+ * @param {{quiet?: boolean}} [options] - quiet captures the output and returns
+ *   it (printed only on failure); otherwise it streams, for `catalyst-mcp`.
+ */
+function runMcpSetup(mcpDir, cwd = process.cwd(), { quiet = false } = {}) {
     const pkgPath = `${mcpDir}${path.sep}package.json`
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
     pkg.dependencies["better-sqlite3"] = "^12.8.0"
@@ -311,22 +340,47 @@ function runMcpSetup(mcpDir, cwd = process.cwd()) {
     const mcpNodeModules = `${mcpDir}${path.sep}node_modules`
     let needsInstall = !fs.existsSync(mcpNodeModules)
 
+    const say = (message) => (quiet ? null : console.log(cyan(message)))
+
     if (!needsInstall) {
         try {
             execSync(`node -e "require('better-sqlite3')"`, { cwd: mcpDir, stdio: "pipe" })
         } catch {
-            console.log(cyan("Detected incompatible better-sqlite3 build. Reinstalling..."))
+            say("Detected incompatible better-sqlite3 build. Reinstalling...")
             fs.rmSync(mcpNodeModules, { recursive: true, force: true })
             needsInstall = true
         }
     }
 
-    if (needsInstall) {
-        console.log(cyan("Installing mcp_v2 dependencies..."))
-        execSync("npm install", { cwd: mcpDir, stdio: "inherit" })
+    if (!quiet) {
+        if (needsInstall) {
+            say("Installing mcp_v2 dependencies...")
+            execSync("npm install", { cwd: mcpDir, stdio: "inherit" })
+        }
+        execFileSync(process.execPath, [`${mcpDir}${path.sep}setup.js`], { cwd, stdio: "inherit" })
+        return ""
     }
 
-    execFileSync(process.execPath, [`${mcpDir}${path.sep}setup.js`], { cwd, stdio: "inherit" })
+    let transcript = ""
+    if (needsInstall) transcript += runQuiet(`npm install --no-audit --no-fund`, { cwd: mcpDir })
+    transcript += runQuiet(`"${process.execPath}" "${mcpDir}${path.sep}setup.js"`, { cwd })
+    return transcript
+}
+
+/**
+ * Warnings worth surfacing from an otherwise-hidden MCP setup transcript, e.g.
+ * a knowledge-base sync that could not reach GitHub. The setup marks them ⚠.
+ */
+function mcpWarnings(transcript) {
+    const lines = String(transcript || "").split("\n")
+    const warnings = []
+    for (const [index, line] of lines.entries()) {
+        const match = /^\s*⚠\s*(.+)$/.exec(line)
+        if (!match) continue
+        const next = lines[index + 1]?.trim()
+        warnings.push(next && !/^[⚠✓]/.test(next) ? `${match[1]}. ${next}` : match[1])
+    }
+    return warnings
 }
 
 /**
@@ -335,10 +389,10 @@ function runMcpSetup(mcpDir, cwd = process.cwd()) {
  * On failure the captured output is printed, so a broken install still shows
  * npm's actual error instead of just a non-zero exit code.
  */
-function runQuiet(command) {
+function runQuiet(command, { cwd } = {}) {
     try {
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Internal scaffolding commands built from a validated project name.
-        return execSync(command, { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" })
+        return execSync(command, { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8", cwd })
     } catch (error) {
         const details = [error.stdout, error.stderr].filter(Boolean).join("\n").trim()
         if (details) {

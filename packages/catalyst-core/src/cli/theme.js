@@ -1,5 +1,7 @@
 "use strict"
 
+const os = require("os")
+const path = require("path")
 const pc = require("ansis")
 
 /**
@@ -61,9 +63,36 @@ function isInteractive(stream = process.stdout) {
     return Boolean(stream.isTTY && !process.env.CI)
 }
 
-/** The titled rule every command opens with. */
+/**
+ * True when the user asked for more detail: `--verbose`/`--debug` on this
+ * process, or CATALYST_OUTPUT_MODE forwarded by a parent that saw them. The
+ * default view keeps only what someone acts on; the rest is here.
+ */
+function isVerbose(argv = process.argv, env = process.env) {
+    if (argv.includes("--verbose") || argv.includes("--debug")) return true
+    return env.CATALYST_OUTPUT_MODE === "verbose" || env.CATALYST_OUTPUT_MODE === "debug"
+}
+
+let cachedVersion
+/** catalyst-core's own version: ../../package.json from both src/cli and dist/cli. */
+function version() {
+    if (cachedVersion === undefined) {
+        try {
+            cachedVersion = require("../../package.json").version || null
+        } catch (error) {
+            cachedVersion = null
+        }
+    }
+    return cachedVersion
+}
+
+/** The titled rule every command opens with: `catalyst build v1.0.1 › production`. */
 function header(title, subtitle) {
-    const line = `${t.bold(t.accent(title))}${subtitle ? t.dim(`  ${glyph.arrow}  ${subtitle}`) : ""}`
+    const v = version()
+    const line =
+        `${t.bold(t.accent(title))}` +
+        `${v ? t.dim(` v${v}`) : ""}` +
+        `${subtitle ? t.dim(`  ${glyph.arrow}  ${subtitle}`) : ""}`
     return `\n${GUTTER}${line}\n${GUTTER}${t.dim(glyph.rule.repeat(46))}\n`
 }
 
@@ -78,17 +107,34 @@ function duration(ms) {
     return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
 }
 
+/**
+ * A path as a person would type it: relative to the app when inside it,
+ * `~/...` when under home, absolute otherwise. Absolute paths into DerivedData
+ * or node_modules pushed the useful tail off the edge of the terminal.
+ */
+function displayPath(file, root = process.cwd()) {
+    if (!file) return file
+    const relative = path.relative(root, file)
+    if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) return relative
+    const home = os.homedir()
+    return file.startsWith(home) ? `~${file.slice(home.length)}` : file
+}
+
 function bytes(n) {
     if (n < 1024) return `${n} B`
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} kB`
     return `${(n / 1024 / 1024).toFixed(2)} MB`
 }
 
-/** A completed step: `✓ Label  120ms` */
+// Below this a timing is noise: "0ms" next to a step says nothing a reader
+// can use, and a column of them hides the one step that was actually slow.
+const MIN_SHOWN_MS = 100
+
+/** A completed step: `✓ Label  1.2s` */
 function step(label, ms, state = "done") {
     const mark =
         state === "fail" ? t.bad(glyph.fail) : state === "warn" ? t.warn(glyph.warn) : t.ok(glyph.done)
-    return `${GUTTER}${mark} ${label}${ms == null ? "" : `  ${t.dim(duration(ms))}`}`
+    return `${GUTTER}${mark} ${label}${ms == null || ms < MIN_SHOWN_MS ? "" : `  ${t.dim(duration(ms))}`}`
 }
 
 module.exports = {
@@ -98,9 +144,12 @@ module.exports = {
     SPINNER_FRAMES,
     t,
     isInteractive,
+    isVerbose,
+    version,
     header,
     row,
     duration,
     bytes,
+    displayPath,
     step,
 }

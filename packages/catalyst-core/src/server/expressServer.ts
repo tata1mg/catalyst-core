@@ -14,12 +14,63 @@ import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
 
 const { header, row, glyph, t, GUTTER, duration } = cjsRequire("../../cli/theme.js")
-const { diagnostic } = cjsRequire("../../cli/diagnostic.js")
+const { diagnostic, runtimeFailure } = cjsRequire("../../cli/diagnostic.js")
 const { hintFor } = cjsRequire("../../cli/hints.js")
 
-// Stamped at module load so "Ready in" measures the whole boot, not just the
-// listen() call -- which is what the number is meant to tell you.
-const serverStartedAt = Date.now()
+// "Ready in" should measure what the person waited for: from the moment they
+// ran the command, not from when this child process happened to load. The CLI
+// stamps that moment; run directly, module load is the best we have.
+const serverStartedAt = Number(process.env.CATALYST_STARTED_AT) || Date.now()
+
+const outputMode = process.env.CATALYST_OUTPUT_MODE || "default"
+const verbose = outputMode === "verbose" || outputMode === "debug"
+
+// Set in development once Vite is up: maps a stack from Vite's transformed SSR
+// modules back to the source lines the user wrote.
+let fixStacktrace: ((error: any) => void) | null = null
+const stackFixed = new WeakSet<object>()
+
+// Reloading a broken page re-throws the same error on every request. After the
+// first full report, a repeat gets one line until something different fails.
+let lastReport: string | null = null
+
+/**
+ * Report a runtime error in the house style. Exposed on globalThis because the
+ * SSR handler is bundled into the app's build and cannot import this module's
+ * CLI helpers by path; it calls this when present.
+ */
+function reportRuntimeError({ error, code, docs, scope }: any) {
+    if (fixStacktrace && error && typeof error === "object" && !stackFixed.has(error)) {
+        stackFixed.add(error)
+        try {
+            fixStacktrace(error)
+        } catch {
+            // A stack we cannot map is still worth printing as-is.
+        }
+    }
+    const fingerprint = `${code}|${error?.message ?? String(error)}|${String(error?.stack || "").split("\n")[1] || ""}`
+    if (fingerprint === lastReport && outputMode === "default") {
+        process.stderr.write(`${GUTTER}${t.bad(glyph.fail)} ${t.dim(`Same error again${scope ? `  ${scope}` : ""}`)}\n`)
+        return
+    }
+    lastReport = fingerprint
+
+    process.stderr.write(
+        runtimeFailure({
+            error,
+            code,
+            docs,
+            scope,
+            mode: outputMode,
+            env:
+                outputMode === "debug"
+                    ? { node: process.version, platform: process.platform }
+                    : undefined,
+            cwd: process.env.src_path || process.cwd(),
+        })
+    )
+}
+;(globalThis as any).__catalystReportRuntimeError = reportRuntimeError
 
 // Invisible fences around the banner block. The wrapper strips these; if the
 // server is run directly they are two blank-looking lines.
@@ -50,7 +101,8 @@ function mountAIRouter(app: any) {
     } catch (resolveErr: any) {
         if (resolveErr.code !== "MODULE_NOT_FOUND") {
             console.error("[catalyst-core/ai] Unexpected error resolving catalyst-ai:", resolveErr)
-        } else {
+        } else if (verbose) {
+            // Not installing an optional package is not news on every start.
             console.debug("[catalyst-core/ai] catalyst-ai not installed — AI routes unavailable")
         }
         return
@@ -137,15 +189,16 @@ process.on("uncaughtException", (err, origin) => {
         process.exit(1)
     }
 
-    process.stderr.write(diagnostic({ message: `Uncaught exception (${origin}): ${err?.stack || err}` }))
+    reportRuntimeError({ error: err, scope: origin === "unhandledRejection" ? "unhandled rejection" : "uncaught exception" })
 })
 
-process.on("unhandledRejection", (err: any) =>
-    console.log("unhandledRejection in Catalyst", err?.stack || safeStringify(err))
-)
+process.on("unhandledRejection", (err: any) => {
+    // A rejection with a non-Error reason still deserves a readable line.
+    const error = err instanceof Error ? err : new Error(safeStringify(err) || String(err))
+    reportRuntimeError({ error, scope: "unhandled rejection" })
+})
 
 process.on("SIGINT", function () {
-    console.log("SIGINT")
     process.exit(0)
 })
 
@@ -261,6 +314,8 @@ async function createServer() {
             root: process.env.src_path,
         })
 
+        fixStacktrace = (error: any) => vite.ssrFixStacktrace(error)
+
         // Expose Vite's resolved base to the SSR renderer so the URLs it injects
         // (client entry, react-refresh preamble) match the path Vite serves under.
         // Vite normalizes base with a trailing slash; trim it for clean URL joins.
@@ -314,16 +369,15 @@ async function createServer() {
                 res.status(500).send("Error loading renderer")
             }
         } catch (err: any) {
-            console.error("SSR Error:", err)
-            if (vite) {
-                vite.ssrFixStacktrace(err)
-            }
-            res.status(500).send("Internal Server Error")
+            // Reached when the renderer itself fails to load or throws before
+            // its own error handling -- e.g. a syntax error in an app module.
+            reportRuntimeError({ error: err, scope: `${req.method} ${req.originalUrl}` })
+            if (!res.headersSent) res.status(500).send("Internal Server Error")
         }
     })
 
     app.listen({ port, host }, (error: any) => {
-        const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
+        const { NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
         const isDev = process.env.NODE_ENV === "development"
 
@@ -351,7 +405,7 @@ async function createServer() {
         // lines unreliable, and the guesswork mis-filed the rule and the URL.
         const wrapped = process.env.CATALYST_WRAPPED === "1"
         if (wrapped) process.stdout.write(`${BANNER_START}\n`)
-        process.stdout.write(header(`catalyst ${isDev ? "dev" : "serve"}`, APPLICATION))
+        process.stdout.write(header(`catalyst ${isDev ? "start" : "serve"}`, isDev ? "development" : "production"))
         console.log(`${GUTTER}${t.ok(glyph.done)} Ready in ${t.bold(duration(elapsed))}\n`)
 
         // An app can bind to a LAN address rather than localhost, in which case
@@ -370,9 +424,9 @@ async function createServer() {
         // wrapper fenced rather than printed here -- the wrapper prints it after
         // any notices, which would otherwise bury it.
         process.stdout.write(
-            `${wrapped ? NEXT_STEP : ""}${GUTTER}${t.dim(isDev ? "Run " : "Serving the production build from ")}` +
-                `${t.accent(isDev ? "catalyst build" : process.env.BUILD_OUTPUT_PATH || "build")}` +
-                `${t.dim(isDev ? " for a production bundle" : "")}\n`
+            `${wrapped ? NEXT_STEP : ""}${GUTTER}${t.dim(isDev ? "Watching for changes. " : "Serving ")}` +
+                `${isDev ? "" : t.accent(`${process.env.BUILD_OUTPUT_PATH || "build"}/`)}` +
+                `${t.dim(isDev ? "Press Ctrl+C to stop." : ". Press Ctrl+C to stop.")}\n`
         )
         if (wrapped) process.stdout.write(`${BANNER_END}\n`)
     })

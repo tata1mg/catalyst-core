@@ -35,7 +35,7 @@ function diagnostic(options) {
     out.push("")
     // The code identifies the failure; the scope says which part produced it.
     // Both are dim -- they orient, they are not the thing you read first.
-    const label = [code, scope].filter(Boolean).join(" ")
+    const label = [code, scope].filter(Boolean).join("  ")
     out.push(`${GUTTER}${t.bad(t.bold("error"))}${label ? ` ${t.dim(label)}` : ""}`)
     out.push(`${GUTTER}${t.bold(message)}`)
 
@@ -58,7 +58,12 @@ function diagnostic(options) {
         }
     }
 
-    if (docs) out.push(`${GUTTER}${t.dim("docs")}  ${t.dim(docs)}`)
+    if (docs) {
+        // Under a hint the two read as a pair; under a code frame the docs line
+        // needs the same gap a hint gets, or it reads as part of the source.
+        if (!hint && frame) out.push("")
+        out.push(`${GUTTER}${t.dim("docs")}  ${t.dim(docs)}`)
+    }
 
     out.push("")
     return out.join("\n")
@@ -193,7 +198,7 @@ function buildFailure({ error, stage, cwd = process.cwd() }) {
             code,
             // Already named in the message above; repeating it reads as a stutter.
             scope: bareExit ? undefined : stage,
-            hint: error?.suggestedAction || known?.hint,
+            hint: error?.hint || error?.suggestedAction || known?.hint,
             docs: error?.docUrl || known?.docs,
             cwd,
         }) +
@@ -208,4 +213,137 @@ function buildFailure({ error, stage, cwd = process.cwd() }) {
     )
 }
 
-module.exports = { diagnostic, buildFailure }
+// V8 frame: "    at fn (file:line:col)" or "    at file:line:col".
+const FRAME = /^\s*at\s+(?:(.*?)\s+\()?(?:file:\/\/)?([^()]+?):(\d+):(\d+)\)?\s*$/
+
+/** Parse a V8 stack into frames; lines that are not frames are skipped. */
+function parseFrames(stack) {
+    const frames = []
+    for (const line of String(stack || "").split("\n")) {
+        const match = FRAME.exec(line)
+        if (!match) continue
+        const [, fn, file, lineNo, column] = match
+        frames.push({ fn: fn || null, file, line: Number(lineNo), column: Number(column) })
+    }
+    return frames
+}
+
+/**
+ * A frame in the user's own code: inside the app, outside node_modules and
+ * Node's internals. These are the only frames someone can act on -- a React
+ * render error otherwise arrives under ten frames of react-dom.
+ */
+function isAppFrame(frame, cwd) {
+    if (!frame.file || frame.file.startsWith("node:")) return false
+    if (frame.file.includes(`${path.sep}node_modules${path.sep}`)) return false
+    const relative = path.relative(cwd, frame.file)
+    return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative)
+}
+
+function describeFrame(frame, cwd) {
+    const where = `${relativeIfInside(frame.file, cwd)}:${frame.line}:${frame.column}`
+    return frame.fn ? `${frame.fn} ${t.dim(`(${where})`)}` : where
+}
+
+/**
+ * Report an error raised while the server is running -- a render that threw, a
+ * data fetcher that rejected, an uncaught exception.
+ *
+ * One block per failure, pointed at the first frame in the app's own code with
+ * the source around it. The default view omits library frames entirely;
+ * `verbose` lists the app's frames, `debug` prints the whole stack and the
+ * environment.
+ *
+ * @param {object} options
+ * @param {*}      options.error    - whatever was thrown
+ * @param {string} [options.code]   - registry code, e.g. "RUNTIME-WEB-001"
+ * @param {string} [options.scope]  - where it happened, e.g. "GET /products"
+ * @param {string} [options.docs]
+ * @param {string} [options.mode]   - "default" | "verbose" | "debug"
+ * @param {object} [options.env]    - debug-mode environment, key -> value
+ * @param {string} [options.cwd]    - the app root
+ */
+function runtimeFailure({ error, code, scope, docs, mode = "default", env, cwd = process.cwd() }) {
+    const isError = error instanceof Error || (error && typeof error === "object" && "message" in error)
+    let message = isError ? String(error.message || error.name || "Error") : String(error)
+    // Bundler messages run to several sentences of generic advice; the first
+    // says what happened, and the location below says where.
+    if (message.length > 100) message = message.replace(/^(.+?\.)\s+[A-Z].*$/s, "$1")
+    const frames = isError ? parseFrames(error.stack) : []
+    const appFrames = frames.filter((frame) => isAppFrame(frame, cwd))
+    // A transform error (Vite) carries the source position as `loc`, its
+    // column already 1-based; its stack is the bundler's own and says nothing
+    // about the app.
+    const loc = isError && error.loc?.file ? error.loc : null
+    const origin = loc ? { file: loc.file, line: loc.line, column: loc.column } : appFrames[0]
+    const { hintFor } = require("./hints.js")
+    const known = hintFor(message)
+
+    let out = diagnostic({
+        message: isError && error.name && error.name !== "Error" ? `${error.name}: ${message}` : message,
+        code,
+        scope,
+        file: origin?.file,
+        line: origin?.line,
+        column: origin?.column,
+        hint: known?.hint,
+        docs: docs || known?.docs,
+        cwd,
+    })
+
+    if (mode === "verbose" && appFrames.length > 1) {
+        out += `${GUTTER}${t.dim("stack")}\n`
+        out += appFrames.map((frame) => `${GUTTER}  ${t.dim("at")} ${describeFrame(frame, cwd)}`).join("\n")
+        out += "\n\n"
+    }
+    if (mode === "debug") {
+        const stack = isError && error.stack ? String(error.stack).split("\n").slice(1) : []
+        if (stack.length) out += `${stack.map((line) => `${GUTTER}${t.dim(line.trim())}`).join("\n")}\n\n`
+        if (env) {
+            out += Object.entries(env)
+                .map(([key, value]) => `${GUTTER}${t.dim(key.padEnd(10))}${value}`)
+                .join("\n")
+            out += "\n\n"
+        }
+    }
+    return out
+}
+
+/**
+ * The --verbose/--debug addendum for a failed build: the registry code and
+ * docs, then everything the tool printed. The default view shows only the
+ * extracted errors; when someone asks for more, the useful "more" is the raw
+ * output, not a restatement of the exit code.
+ */
+function verboseOutput({ code, docs, output, mode = "verbose", error, env }) {
+    // Leads with a blank line: it follows a diagnostic block directly.
+    const out = [""]
+    const label = [code, docs].filter(Boolean).map((part) => t.dim(part))
+    if (label.length) out.push(`${GUTTER}${label.join(t.dim("  ·  "))}`)
+    const text = String(output || "").replace(/\s+$/, "")
+    if (text) {
+        out.push(`${GUTTER}${t.dim("Full output:")}`)
+        for (const line of text.split("\n")) out.push(`${GUTTER}${t.dim(glyph.pipe)} ${line}`)
+    }
+    if (mode === "debug") {
+        const stack = error?.stack ? String(error.stack).split("\n").slice(1) : []
+        if (stack.length) out.push("", ...stack.map((line) => `${GUTTER}${t.dim(line.trim())}`))
+        if (env) {
+            out.push(
+                "",
+                ...Object.entries(env).map(([key, value]) => `${GUTTER}${t.dim(key.padEnd(10))}${value}`)
+            )
+        }
+    }
+    return out.length > 1 ? `${out.join("\n")}\n\n` : ""
+}
+
+module.exports = {
+    diagnostic,
+    buildFailure,
+    runtimeFailure,
+    verboseOutput,
+    codeFrame,
+    parseFrames,
+    isAppFrame,
+}
