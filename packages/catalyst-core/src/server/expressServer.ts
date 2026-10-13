@@ -123,7 +123,8 @@ process.on("uncaughtException", (err, origin) => {
     // A server that cannot bind its port is dead -- swallowing that left the
     // process alive but useless, so `catalyst start` hung with a blank screen.
     // Report it the way every other failure is reported, then exit.
-    if (err && (err.code === "EADDRINUSE" || err.code === "EACCES")) {
+    const code = (err as NodeJS.ErrnoException)?.code
+    if (code === "EADDRINUSE" || code === "EACCES") {
         const known = hintFor(err.message)
         process.stderr.write(
             diagnostic({

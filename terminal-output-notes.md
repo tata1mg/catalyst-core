@@ -903,3 +903,35 @@ exact code behind bug 1:
 - `serve` with no build — its own diagnostic still fires
 
 6/6 tests, 0 lint errors.
+
+## Stage 17 — rebased onto main (1.0.1)
+
+Main moved 14 commits while this branch sat, including the 1.0.0 epic, which
+landed the error registry, `--verbose`/`--debug` output modes, ansis in place
+of picocolors, and `expressServer.ts`. The rebase conflicted in 22 files.
+
+How the two designs were joined:
+
+- **Colour library.** `theme.js` now uses ansis. Nothing imports picocolors.
+- **Default mode is this branch's output.** The diagnostic and `buildFailure`
+  reports stay the primary error view. `--verbose`/`--debug` add the
+  registry's boxed report (`formatError`/`formatBuildError`) under it, in
+  `build.js`, `buildAppAndroid.js` and `buildAppIos.js`.
+- **Scaffolder.** clack stays. Failures go through `cancelWithError`, which
+  closes the clack session with the registry code (`[CCA-002]`) and adds the
+  box in verbose/debug.
+- **Emulator boot.** Both sides fixed the hang. Main's version is kept (scoped
+  to the new emulator's serial, kills an orphan on timeout, ANDROID-001);
+  this branch's stderr capture for an emulator that exits early was dropped.
+- **start/serve** keep `superviseServer` plus main's preflight and
+  `CATALYST_OUTPUT_MODE`. `IS_DEV_COMMAND` is gone, as on main.
+- New emoji from main in iOS device detection removed; `devicectl` stderr
+  silenced like the other device probes.
+
+Two merge bugs only the checks caught: `appConfigPath` had moved inside the
+`try` on main while the `catch` still read it (eslint no-undef), and
+`err.code` on `Error` failed `tsc` once the file became TypeScript.
+
+Verified: catalyst-core typecheck, eslint, vitest 228/228, node tests 27/27;
+create-catalyst-app tsc + vitest 25/25; scaffolder error path in default and
+verbose mode. Not re-run: a real app build/start, or native builds.

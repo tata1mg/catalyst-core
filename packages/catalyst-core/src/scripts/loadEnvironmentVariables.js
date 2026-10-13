@@ -8,10 +8,12 @@ const { diagnostic } = createRequire(import.meta.url)("../cli/diagnostic.js")
  * @description stores all config.json key value into process.env before server starts.
  */
 const loadEnvironmentVariables = async () => {
+    // Declared outside the try so the catch can point the diagnostic at it.
+    let appConfigPath
     try {
         // Resolved at call time, not import time, so preServerInit.js can report a
         // missing src_path before any path is built from it.
-        const appConfigPath = path.resolve(process.env.src_path, "config/config.json")
+        appConfigPath = path.resolve(process.env.src_path, "config/config.json")
         const filterKeys = JSON.parse(process.env.filterKeys)
         const configContent = fs.readFileSync(appConfigPath, "utf8")
         const appConfig = JSON.parse(configContent)
