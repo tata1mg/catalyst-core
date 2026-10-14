@@ -77,16 +77,28 @@ export const getDeferredPreloadScriptUrls = (routeKey, excludeUrls = []) => {
  * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateModulePreloadLinkElements = (jsUrls = [], keyPrefix = "modulepreload", nonce) =>
-    [...new Set(jsUrls)].map((url, i) =>
-        React.createElement("link", {
+export const generateModulePreloadLinkElements = (
+    jsUrls = [],
+    keyPrefix = "modulepreload",
+    nonce,
+    integrityManifest = {}
+) =>
+    [...new Set(jsUrls)].map((url, i) => {
+        const integrityData = integrityManifest[url]
+        return React.createElement("link", {
             key: `${keyPrefix}-${i}`,
             rel: "modulepreload",
             href: url,
             fetchPriority: "high",
             ...(nonce ? { nonce } : {}),
+            ...(integrityData?.integrity
+                ? {
+                      integrity: integrityData.integrity,
+                      crossOrigin: integrityData.crossOrigin || "anonymous",
+                  }
+                : {}),
         })
-    )
+    })
 
 /**
  * Read CSS files from disk and return concatenated CSS string for inlining.
@@ -129,15 +141,23 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
  * @param {string[]} jsUrls
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptElements = (jsUrls = [], nonce) =>
-    [...new Set(jsUrls)].map((url, i) =>
-        React.createElement("script", {
+export const generateScriptElements = (jsUrls = [], nonce, integrityManifest = {}) => {
+    return [...new Set(jsUrls)].map((url, i) => {
+        const integrityData = integrityManifest[url]
+        return React.createElement("script", {
             key: `js-${i}`,
             type: "module",
             src: url,
             ...(nonce ? { nonce } : {}),
+            ...(integrityData?.integrity
+                ? {
+                      integrity: integrityData.integrity,
+                      crossOrigin: integrityData.crossOrigin || "anonymous",
+                  }
+                : {}),
         })
-    )
+    })
+}
 
 // ── HTML strings (for streaming injection after body via res.write) ────
 
@@ -152,11 +172,17 @@ export const generateCssLinkStrings = (cssUrls = []) =>
  * @param {string[]} jsUrls
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
  */
-export const generateScriptStrings = (jsUrls = [], nonce) => {
+export const generateScriptStrings = (jsUrls = [], nonce, integrityManifest = {}) => {
     const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
     return [...new Set(jsUrls)]
         .map((url) => {
-            return `<script type="module"${nonceAttr} src="${url}"></script>`
+            const integrityData = integrityManifest[url]
+            const integrityAttr = integrityData?.integrity ? ` integrity="${integrityData.integrity}"` : ""
+            const crossOriginAttr = integrityData?.integrity
+                ? ` crossorigin="${integrityData.crossOrigin || "anonymous"}"`
+                : ""
+
+            return `<script type="module"${nonceAttr}${integrityAttr}${crossOriginAttr} src="${url}"></script>`
         })
         .join("")
 }

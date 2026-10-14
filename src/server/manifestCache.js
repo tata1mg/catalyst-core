@@ -3,6 +3,7 @@ import path from "path"
 
 let manifest = null
 let assetManifest = null
+let routeManifest = null
 let loaded = false
 
 const isProduction = process.env.NODE_ENV === "production"
@@ -16,6 +17,7 @@ function loadManifests() {
     try {
         const manifestPath = path.join(buildPath, ".vite", "manifest.json")
         const assetManifestPath = path.join(buildPath, ".vite", "asset-categories.json")
+        const routeManifestPath = path.join(buildPath, ".vite", "route-manifest.json")
 
         if (fs.existsSync(manifestPath)) {
             manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"))
@@ -23,6 +25,10 @@ function loadManifests() {
         if (fs.existsSync(assetManifestPath)) {
             assetManifest = JSON.parse(fs.readFileSync(assetManifestPath, "utf-8"))
         }
+        if (fs.existsSync(routeManifestPath)) {
+            routeManifest = JSON.parse(fs.readFileSync(routeManifestPath, "utf-8"))
+        }
+
         loaded = true
     } catch (error) {
         loaded = false
@@ -34,3 +40,4 @@ loadManifests()
 
 export const getManifest = () => manifest
 export const getAssetManifest = () => assetManifest
+export const getIntegrityManifest = () => routeManifest?.integrity || {}
