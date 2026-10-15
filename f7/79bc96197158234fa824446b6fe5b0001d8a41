@@ -1,0 +1,23 @@
+packages/catalyst-core/src/server/expressServer.ts
+  84ac981ee6e6a6e5 126-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "f779bc96197158234fa824446b6fe5b0001d8a41",
+  "prompts": {
+    "84ac981ee6e6a6e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5126ed68-b0c9-4efa-949a-555b032f18b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 1,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
