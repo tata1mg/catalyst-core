@@ -266,9 +266,7 @@ const browserOptimizeDeps = [
     "redux",
     "redux-thunk",
     "axios",
-    "react-helmet-async",
     "react-google-recaptcha",
-    "react-fast-compare",
     "history",
     "lottie-web",
     // Pre-bundle alongside React so esbuild marks react/react-router as external
@@ -295,7 +293,6 @@ const browserOptimizeDeps = [
     // first navigation that pulls them in doesn't trigger a full-page reload.
     "react-loadable-visibility",
     "react-detect-offline",
-    "react-side-effect",
     "react-async-script",
     "normalize.css",
 ]
@@ -357,7 +354,6 @@ export const sharedViteConfig = {
         optimizeDeps: {
             include: [
                 "invariant",
-                "react-fast-compare",
                 "shallowequal",
                 "prop-types",
                 "redux-thunk",
