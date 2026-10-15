@@ -22,6 +22,7 @@ describe("declarative helpers", () => {
         expect(paramNames("/product/:id")).toEqual(["id"])
         expect(fillPath("/product/:id", { id: "trail-runner-x" })).toBe("/product/trail-runner-x")
         expect(() => fillPath("/product/:id", {})).toThrow(/missing required path param/)
+        expect(() => fillPath("/product/:id", {})).toThrow(expect.objectContaining({ code: "WEBMCP_INVALID_ARGS" }))
     })
 
     it("builds an inputSchema: params required, searchParams optional", () => {

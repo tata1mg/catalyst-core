@@ -4,6 +4,13 @@
  * per document, so there is one place that should decide whether a native
  * implementation is present.
  *
+ * NOTE: native WebMCP is intentionally UNSUPPORTED for now — no agent can
+ * drive a native `document.modelContext` yet, so Catalyst targets the opt-in
+ * shim (`catalyst-core/webmcp/shim`). The registry's teardown (receipt
+ * `unregister()` / `unregisterTool`) follows the shim's contract, not the
+ * spec's `registerTool(tool, { signal })` abort-to-unregister model, so
+ * revisit registry.js before relying on a native backend.
+ *
  * This module does NOT install anything. It only looks. Installing a
  * fallback (a DOM shim for browsers with no native WebMCP support yet, or an
  * in-memory stand-in for SSR/tests) is a separate concern — see

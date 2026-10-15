@@ -210,3 +210,19 @@ describe("registry in-memory fallback backend (no document.modelContext)", () =>
         expect(res.error.code).toBe("WEBMCP_DUPLICATE_TOOL")
     })
 })
+
+describe("required-argument validation", () => {
+    beforeEach(() => {
+        __resetForTests()
+    })
+
+    it("rejects a call missing a required arg with INVALID_ARGS", async () => {
+        registerTool(newOwnerKey(), "", {
+            ...spec("needs_id"),
+            inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+        })
+        await expect(invokeTool("needs_id", {})).rejects.toMatchObject({ code: "WEBMCP_INVALID_ARGS" })
+        await expect(invokeTool("needs_id", { id: null })).rejects.toThrow(/Missing required argument: id/)
+        expect(await invokeTool("needs_id", { id: "x" })).toBe("ran needs_id")
+    })
+})

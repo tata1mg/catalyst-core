@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useRef } from "react"
 // entry's compiled output guarantees the SAME module record both places.
 import { useRouterState } from "../index.jsx"
 import { RouteContext } from "./routeContext.js"
-import { isNative, reapUnmatched, registerTool, unregisterTool, inspect, newOwnerKey } from "./registry.js"
+import { hasBackend, reapUnmatched, registerTool, unregisterTool, inspect, newOwnerKey } from "./registry.js"
 import { declarativeToolFor, frameworkTools } from "./declarative.js"
 import { pageInfoTool } from "./pageInfo.js"
 
@@ -79,7 +79,7 @@ export function WebMcpProvider({ children, routes, filterNavigable }) {
 
     useEffect(() => {
         if (typeof document === "undefined") return
-        if (isNative()) return
+        if (hasBackend()) return
         // Neither a native document.modelContext nor an app-installed shim
         // is present — every registerTool() call below still "succeeds"
         // against the in-memory fallback (registry.js's safety net), but no
@@ -143,6 +143,12 @@ export function WebMcpProvider({ children, routes, filterNavigable }) {
             const key = newOwnerKey()
             const res = registerTool(key, "", spec)
             if (res.ok) owners.push(key)
+            else
+                // eslint-disable-next-line no-console
+                console.warn(
+                    `[webmcp] framework tool "${spec.name}" failed to register — a route tool may already use that name:`,
+                    res.error
+                )
         }
 
         return () => owners.forEach(unregisterTool)

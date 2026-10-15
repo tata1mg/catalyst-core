@@ -13,6 +13,7 @@ import {
     invokeTool,
     inspect,
     isNative,
+    hasBackend,
     newOwnerKey,
     __resetForTests,
 } from "./registry.js"
@@ -155,5 +156,20 @@ describe("registry with a DOM", () => {
         unregisterTool(k)
         expect(signal.aborted).toBe(true)
         expect(() => unregisterTool(k)).not.toThrow()
+    })
+})
+
+describe("hasBackend", () => {
+    beforeEach(() => {
+        __resetForTests()
+        delete document.modelContext
+    })
+
+    it("is false with nothing installed, true for a shim (which isNative treats as non-native)", () => {
+        expect(hasBackend()).toBe(false)
+        document.modelContext = { __isWebMcpShim: true, registerTool: () => ({}) }
+        expect(hasBackend()).toBe(true)
+        expect(inspect().isNative).toBe(false)
+        delete document.modelContext
     })
 })

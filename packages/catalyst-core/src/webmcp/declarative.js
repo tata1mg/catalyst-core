@@ -67,7 +67,9 @@ export function paramNames(pathPattern) {
 export function fillPath(pathPattern, params = {}) {
     return String(pathPattern).replace(/:([A-Za-z0-9_]+)/g, (_, k) => {
         if (params[k] == null || params[k] === "") {
-            throw new Error(`missing required path param "${k}" for ${pathPattern}`)
+            throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                message: `missing required path param "${k}" for ${pathPattern}`,
+            })
         }
         return encodeURIComponent(params[k])
     })

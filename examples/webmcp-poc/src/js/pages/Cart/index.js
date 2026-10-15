@@ -27,6 +27,7 @@ function Cart() {
             type: "object",
             properties: {},
         },
+        annotations: { consequentialHint: true },
         execute: async () => {
             if (cartItems.length === 0) {
                 return { placed: false, note: "Cart is already empty — nothing to check out." }

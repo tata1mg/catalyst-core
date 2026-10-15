@@ -125,6 +125,14 @@ function emit(type, detail) {
 }
 
 /**
+ * Whether ANY document.modelContext is present — native or an app-installed
+ * shim. False means registrations land in the invisible in-memory fallback.
+ */
+export function hasBackend() {
+    return !!existingModelContext()
+}
+
+/**
  * Whether the active backend is genuinely native — as opposed to nothing
  * (the in-memory fallback) or an app-installed shim (which self-marks with
  * `__isWebMcpShim`, the same convention `catalyst-core/webmcp/shim` uses).
@@ -480,15 +488,24 @@ export function inspect() {
 }
 
 /**
- * Shallow inputSchema check — only looks at top-level `properties`,
+ * Shallow inputSchema check — top-level `required`, then `properties`,
  * `type: number|string|boolean|integer`, and `minimum`. Enough to reject
  * obviously-wrong agent args with a typed error without pulling in a full
  * JSON Schema validator.
  */
 function shallowValidate(schema, args) {
-    if (!schema || schema.type !== "object" || !schema.properties) return null
+    if (!schema || schema.type !== "object") return null
+    if (Array.isArray(schema.required)) {
+        const missing = schema.required.filter((k) => !args || args[k] === undefined || args[k] === null)
+        if (missing.length) {
+            return new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                message: `Missing required argument${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.`,
+            })
+        }
+    }
+    if (!schema.properties) return null
     for (const [key, propSchema] of Object.entries(schema.properties)) {
-        if (!(key in args) || args[key] === undefined) continue // required-ness not enforced here
+        if (!(key in args) || args[key] === undefined) continue // presence handled by `required` above
         const val = args[key]
         const t = propSchema.type
         if (t === "number" || t === "integer") {
