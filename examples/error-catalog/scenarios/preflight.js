@@ -279,4 +279,29 @@ export const preflightScenarios = [
         },
         expect: { inOutput: ["PREFLIGHT-021", "/errors/PREFLIGHT/PREFLIGHT-021.md"], exitNonZero: false },
     },
+    {
+        code: "PREFLIGHT-022",
+        title: "config/config.json changed after the build",
+        tier: "halt",
+        break(appDir) {
+            const buildDir = path.join(appDir, BASELINE_CONFIG.BUILD_OUTPUT_PATH)
+            const infoPath = path.join(buildDir, ".catalyst-build.json")
+            this.createdBuildDir = !fs.existsSync(buildDir)
+            this.savedInfo = fs.existsSync(infoPath) ? fs.readFileSync(infoPath, "utf8") : null
+            // Stands in for a build made before PUBLIC_STATIC_ASSET_URL was edited.
+            writeJson(infoPath, {
+                PUBLIC_STATIC_ASSET_URL: "http://10.0.0.99:3005",
+                PUBLIC_STATIC_ASSET_PATH: BASELINE_CONFIG.PUBLIC_STATIC_ASSET_PATH,
+            })
+        },
+        run: { cmd: "catalyst", args: ["serve"], kind: "cli-startup" },
+        restore(appDir) {
+            const buildDir = path.join(appDir, BASELINE_CONFIG.BUILD_OUTPUT_PATH)
+            const infoPath = path.join(buildDir, ".catalyst-build.json")
+            if (this.savedInfo !== null) fs.writeFileSync(infoPath, this.savedInfo)
+            else fs.rmSync(infoPath, { force: true })
+            if (this.createdBuildDir) fs.rmSync(buildDir, { recursive: true, force: true })
+        },
+        expect: { inOutput: ["PREFLIGHT-022", "/errors/PREFLIGHT/PREFLIGHT-022.md"], exitNonZero: true },
+    },
 ]

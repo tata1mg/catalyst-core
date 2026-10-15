@@ -112,7 +112,7 @@ async function executeCliStartup(scen: any): Promise<{ passed: boolean; output: 
     killTree(null)
     await new Promise((r) => setTimeout(r, 1500))
     return new Promise((resolve) => {
-        const binInfo = getCatalystScript("scripts/start.js", scen.run.args[0])
+        const binInfo = getCatalystScript(`scripts/${scen.run.args[0]}.js`, scen.run.args[0])
         const cmdArgs = [...binInfo.argsPrefix, ...(scen.run.args.slice(1))]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -395,7 +395,7 @@ describe("Error Catalog Contract Fixtures", () => {
         }
     }
 
-    it("completeness: covers all 72 error codes", () => {
+    it("completeness: covers all 75 error codes", () => {
         const scenarioCodes = new Set(scenarios.map((s) => s.code))
         let viaScenario = 0
         let viaLedger = 0

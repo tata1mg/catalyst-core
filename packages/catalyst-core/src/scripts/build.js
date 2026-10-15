@@ -6,7 +6,7 @@ import { dirname } from "path"
 import { readFileSync, existsSync, rmSync } from "fs"
 import { createRequire } from "module"
 import { wrapForeignError, formatError } from "../errors/index.js"
-import { runStaticPreflightOrExit } from "./preflight.js"
+import { runStaticPreflightOrExit, writeBuildInfo } from "./preflight.js"
 
 // Fail fast on a misconfigured app (missing/invalid config.json, package.json,
 // or moduleAliases) with a coded, doc-linked error — must run before the raw
@@ -111,6 +111,8 @@ async function build() {
     }
 
     console.log("✅ Server and client builds completed!")
+
+    writeBuildInfo(process.env.PWD, configJSON, argumentsObject)
 
     await runBuildStep(["./dist/scripts/generateOfflineManifest.js"], {
         ...spawnBase,
