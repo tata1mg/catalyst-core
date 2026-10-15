@@ -1,0 +1,136 @@
+.page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a202c;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+}
+
+.title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin: 0;
+    color: #111827;
+}
+
+.nav {
+    display: flex;
+    gap: 12px;
+}
+
+.navLink {
+    text-decoration: none;
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.navLink:hover {
+    text-decoration: underline;
+}
+
+.card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 32px;
+    background-color: #ffffff;
+}
+
+.productHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+}
+
+.productName {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    color: #111827;
+}
+
+.categoryTag {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-color: #e0f2fe;
+    color: #0369a1;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.price {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #16a34a;
+    margin: 0 0 16px 0;
+}
+
+.description {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    color: #4b5563;
+    margin-bottom: 28px;
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 24px;
+}
+
+.qtyLabel {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #374151;
+}
+
+.qtyInput {
+    width: 70px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+}
+
+.addBtn {
+    padding: 10px 24px;
+    background-color: #2563eb;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.addBtn:hover {
+    background-color: #1d4ed8;
+}
+
+.feedback {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+.notFound {
+    text-align: center;
+    padding: 60px 20px;
+}
