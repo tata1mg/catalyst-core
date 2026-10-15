@@ -79,7 +79,3 @@ Throw `WebMcpError` with a code from `WEBMCP_ERROR_CODES` (for example `INVALID_
 - **Do side effects in the tool, not in a hint.** Agents routinely ignore "now call X" hints in a result. If navigating, highlighting or saving matters, the tool must do it itself.
 - **Mark intent.** Use `readOnlyHint` for reads and `consequentialHint` for irreversible actions such as checkout.
 - **Keep names unique.** Route tool names derive from the path and must not collide with `navigate`, `get_current_route` or `get_page_info`. Collisions log a warning and the later tool is dropped.
-
-## Working on Catalyst itself
-
-The docs app and examples consume the **local** build of `catalyst-core`, because the published package may not have the `webmcp` subpath yet. Run `npm ci` first, then `npm run sync-core`. Running an install afterwards restores the published package and removes the synced build.
