@@ -51,15 +51,27 @@ function scssModulesPlugin() {
     }
 }
 
+// Automatic runtime so the output imports react/jsx-(dev-)runtime: plugin-react
+// only adds Fast Refresh to .js files that import it. Classic createElement
+// output leaves the module without an HMR boundary, forcing full page reloads.
 function jsxInJsPlugin() {
+    let isProduction = process.env.NODE_ENV === "production"
+
     return {
         name: "vite-plugin-jsx-in-js",
         enforce: "pre",
+        configResolved(config) {
+            isProduction = config.isProduction
+        },
         async transform(code, id) {
             if (!id.endsWith(".js")) return null
             if (id.includes("node_modules")) return null
             if (!/</.test(code)) return null
-            return transformWithEsbuild(code, id, { loader: "jsx" })
+            return transformWithEsbuild(code, id, {
+                loader: "jsx",
+                jsx: "automatic",
+                jsxDev: !isProduction,
+            })
         },
     }
 }
