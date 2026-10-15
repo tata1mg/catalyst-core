@@ -1,0 +1,599 @@
+.livingJourneyContainer {
+    width: 100%;
+    margin-top: 14px;
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ========================================================================== */
+/* PROXIMITY RADAR ALERT (When Pip is within 1.35m of an item)                */
+/* ========================================================================== */
+.proximityRadarAlert {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(135deg, rgba(14, 28, 48, 0.95) 0%, rgba(10, 18, 32, 0.98) 100%);
+    border: 1.5px solid #3de0ff;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.7),
+        0 0 25px rgba(61, 224, 255, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 16px 20px;
+    backdrop-filter: blur(20px);
+    animation: radarPulse 2s infinite ease-in-out;
+    flex-wrap: wrap;
+
+    @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+@keyframes radarPulse {
+    0%, 100% {
+        border-color: #3de0ff;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(61, 224, 255, 0.25);
+    }
+    50% {
+        border-color: #c6ff3d;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 35px rgba(198, 255, 61, 0.45);
+    }
+}
+
+.radarPulseIcon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(61, 224, 255, 0.15);
+    border: 2px solid #3de0ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(61, 224, 255, 0.4);
+}
+
+.radarContent {
+    flex: 1;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.radarTopRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.radarTargetBadge {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #0c121e;
+    background: #3de0ff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.06em;
+}
+
+.radarDistanceBadge {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    color: #c6ff3d;
+}
+
+.radarTitle {
+    margin: 2px 0 0;
+    font-size: 17px;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.02em;
+}
+
+.radarSubtitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.radarLoadedTool {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.toolPill {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #c6ff3d;
+}
+
+.toolCode {
+    background: rgba(198, 255, 61, 0.18);
+    border: 1px solid rgba(198, 255, 61, 0.4);
+    color: #c6ff3d;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+}
+
+.radarHint {
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.35;
+
+    code {
+        color: #3de0ff;
+        font-family: var(--font-mono, monospace);
+    }
+}
+
+.proximityFireBtn {
+    background: linear-gradient(135deg, #c6ff3d 0%, #3de0ff 100%);
+    color: #0b0f19;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 12px;
+    font-weight: 900;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(198, 255, 61, 0.4);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+
+    &:hover {
+        transform: translateY(-2px) scale(1.03);
+        box-shadow: 0 8px 30px rgba(198, 255, 61, 0.65);
+    }
+}
+
+/* ========================================================================== */
+/* OPEN GROUND STATUS (When Pip is wandering outside radius)                  */
+/* ========================================================================== */
+.openGroundStatus {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(14, 18, 27, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 16px;
+    backdrop-filter: blur(12px);
+    flex-wrap: wrap;
+}
+
+.openGroundIcon {
+    font-size: 20px;
+}
+
+.openGroundInfo {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.openGroundTitle {
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.06em;
+}
+
+.openGroundDesc {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.toolsCountBadge {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    color: #3de0ff;
+    background: rgba(61, 224, 255, 0.12);
+    border: 1px solid rgba(61, 224, 255, 0.25);
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* ========================================================================== */
+/* STORY CARD & LANDMARKS SECTION                                             */
+/* ========================================================================== */
+.storyCard {
+    background: rgba(14, 18, 27, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.storyHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+}
+
+.badgeRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stageBadge {
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #0e121b;
+    background: #c6ff3d;
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.06em;
+}
+
+.mcpBadge {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    color: #3de0ff;
+    background: rgba(61, 224, 255, 0.14);
+    border: 1px solid rgba(61, 224, 255, 0.3);
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+.modeSwitchGroup {
+    display: flex;
+    align-items: center;
+}
+
+.directorBtn {
+    background: linear-gradient(135deg, #c6ff3d 0%, #3de0ff 100%);
+    color: #0a0d14;
+    border: none;
+    border-radius: 999px;
+    padding: 7px 18px;
+    font-size: 12px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(198, 255, 61, 0.35);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+        transform: translateY(-1px) scale(1.02);
+        box-shadow: 0 0 28px rgba(198, 255, 61, 0.55);
+    }
+
+    &.autoPlaying {
+        background: linear-gradient(135deg, #ff3ea5 0%, #ffb23d 100%);
+        color: #ffffff;
+        box-shadow: 0 0 24px rgba(255, 62, 165, 0.5);
+        animation: pulseButton 1.5s infinite ease-in-out;
+    }
+}
+
+.npcSpeechBox {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(61, 224, 255, 0.08);
+    border: 1px solid rgba(61, 224, 255, 0.3);
+    border-radius: 12px;
+    padding: 12px 16px;
+    animation: fadeIn 0.3s ease;
+}
+
+.npcAvatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(61, 224, 255, 0.2);
+    border: 1px solid #3de0ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.npcSpeechContent {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.npcName {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #3de0ff;
+    letter-spacing: 0.08em;
+}
+
+.npcText {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #f4f2ee;
+    font-style: italic;
+}
+
+/* Landmarks Grid */
+.landmarksSection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sectionLabelRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sectionLabel {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.08em;
+}
+
+.milestoneCount {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #c6ff3d;
+}
+
+.landmarksGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+
+    @media (max-width: 900px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 560px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.landmarkCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+
+    &.landmarkCardActive {
+        background: rgba(61, 224, 255, 0.08);
+        border-color: #3de0ff;
+        box-shadow: 0 0 16px rgba(61, 224, 255, 0.2);
+    }
+}
+
+.landmarkIcon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.landmarkInfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.landmarkName {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.landmarkStatus {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    code {
+        color: #c6ff3d;
+        font-family: var(--font-mono, monospace);
+        font-size: 9px;
+    }
+}
+
+.landmarkWalkBtn {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+
+    &:hover {
+        background: #3de0ff;
+        border-color: #3de0ff;
+        color: #0c121e;
+    }
+}
+
+/* Footer Deck */
+.deckFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.soundToggle {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    transition: color 0.15s;
+
+    &:hover {
+        color: #fff;
+    }
+}
+
+.previewPassBtn {
+    background: rgba(198, 255, 61, 0.12);
+    border: 1px solid rgba(198, 255, 61, 0.35);
+    color: #c6ff3d;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: #c6ff3d;
+        color: #0b0f19;
+        box-shadow: 0 0 16px rgba(198, 255, 61, 0.4);
+    }
+}
+
+/* ========================================================================== */
+/* GRAND REVEAL MODAL OVERLAY                                                 */
+/* ========================================================================== */
+.revealModalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(6, 9, 16, 0.94);
+    backdrop-filter: blur(24px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.4s ease;
+    overflow-y: auto;
+}
+
+.closeRevealBtn {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+        background: #ff3ea5;
+        border-color: #ff3ea5;
+        transform: rotate(90deg);
+    }
+}
+
+.revealHeader {
+    text-align: center;
+    max-width: 580px;
+    margin-bottom: 18px;
+}
+
+.revealBadge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 999px;
+    background: rgba(198, 255, 61, 0.15);
+    border: 1px solid rgba(198, 255, 61, 0.4);
+    color: #c6ff3d;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+}
+
+.revealTitle {
+    font-size: 28px;
+    font-weight: 900;
+    color: #fff;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.02em;
+}
+
+.revealSubtitle {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+    line-height: 1.4;
+}
+
+@keyframes pulseButton {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.03);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
