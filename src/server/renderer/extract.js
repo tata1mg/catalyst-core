@@ -101,34 +101,33 @@ export const generateModulePreloadLinkElements = (
     })
 
 /**
- * HTTP `Link` header value for critical JS, so Cloudflare Early Hints (103)
- * can preload them before SSR finishes. `as=script; crossorigin` matches the
- * fetch mode of the `<script type="module">` tags these accompany, avoiding
- * a double download.
- *
- * `fetchPriority` matters once there's more than a handful of URLs in one
- * hint: without it, every entry competes equally for bandwidth on the same
- * HTTP/2 connection, so a page with many shell-rendered split() widgets can
- * end up starving the actual app-shell bundles (main/vendor/route entry) of
- * bandwidth behind a pile of secondary widget chunks. Pass "high" for the
- * critical bucket and "low" for the shell-deferred one — see handler.jsx.
+ * `Link` header values (one per URL) preloading JS for Early Hints (103) and the CDN-learned
+ * `Link` header. `as=script` + the same crossorigin/integrity as the `<script type="module">`
+ * and `modulepreload` tags keeps the hinted response reusable, so it is not downloaded twice.
+ * Chrome only honours `preload`/`preconnect` in a 103, hence not `modulepreload`.
  * @param {string[]} jsUrls
  * @param {"high"|"low"} [fetchPriority]
- * @returns {string}
+ * @param {Record<string, {integrity?: string, crossOrigin?: string}>} [integrityManifest]
+ * @returns {string[]}
  */
-export const generateLinkHeader = (jsUrls = [], fetchPriority) => {
-    const priorityPart = fetchPriority ? `; fetchpriority=${fetchPriority}` : ""
-    return [...new Set(jsUrls)]
-        .map((url) => `<${url}>; rel=preload; as=script; crossorigin${priorityPart}`)
-        .join(", ")
-}
+export const generateLinkHeader = (jsUrls = [], fetchPriority, integrityManifest = {}) =>
+    [...new Set(jsUrls)].map((url) => {
+        const integrityData = integrityManifest[url]
+        const parts = [`<${url}>`, "rel=preload", "as=script"]
+        parts.push(
+            integrityData?.crossOrigin === "use-credentials" ? "crossorigin=use-credentials" : "crossorigin"
+        )
+        if (integrityData?.integrity) parts.push(`integrity="${integrityData.integrity}"`)
+        if (fetchPriority) parts.push(`fetchpriority=${fetchPriority}`)
+        return parts.join("; ")
+    })
 
 /**
- * HTTP `Link` header value for app-supplied preconnect/preload entries — third-party analytics
- * origins, a static LCP image, fonts, etc. Never hardcoded here: the app declares exactly which
- * URLs it wants hinted (see EARLY_HINTS_LINKS in handler.jsx), and this only formats them.
- * @param {{url: string, rel: "preconnect"|"preload", as?: string, crossorigin?: boolean, fetchPriority?: "high"|"low"}[]} links
- * @returns {string}
+ * `Link` header values for app-supplied preconnect/preload entries — third-party origins, fonts,
+ * a static LCP image. Never hardcoded here: the app declares them via EARLY_HINTS_LINKS or the
+ * getEarlyHintLinks hook (see handler.jsx), and this only formats them.
+ * @param {{url: string, rel: "preconnect"|"preload", as?: string, type?: string, crossorigin?: boolean, fetchPriority?: "high"|"low"}[]} links
+ * @returns {string[]}
  */
 export const generateCustomLinkHeader = (links = []) =>
     links
@@ -136,11 +135,11 @@ export const generateCustomLinkHeader = (links = []) =>
         .map((link) => {
             const parts = [`<${link.url}>`, `rel=${link.rel}`]
             if (link.as) parts.push(`as=${link.as}`)
+            if (link.type) parts.push(`type="${link.type}"`)
             if (link.crossorigin) parts.push("crossorigin")
             if (link.fetchPriority) parts.push(`fetchpriority=${link.fetchPriority}`)
             return parts.join("; ")
         })
-        .join(", ")
 
 /**
  * Read CSS files from disk and return concatenated CSS string for inlining.

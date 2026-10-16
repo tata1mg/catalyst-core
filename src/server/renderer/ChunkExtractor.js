@@ -9,7 +9,11 @@
  * With natural Vite code-splitting (no mega "main" chunk), critical CSS stays small (~15-25KB).
  */
 export class ChunkExtractor {
-    constructor({ manifest = {}, assetManifest = {} } = {}) {
+    /**
+     * @param {boolean} [registerGlobal] - false for extractors that never render (e.g. Early
+     *   Hints), so they don't hijack global.__CHUNK_EXTRACTOR__ from an in-flight render.
+     */
+    constructor({ manifest = {}, assetManifest = {}, registerGlobal = true } = {}) {
         this.manifest = manifest
         this.assetManifest = assetManifest
         this.components = new Set()
@@ -24,7 +28,7 @@ export class ChunkExtractor {
 
         this._loadEssentialEntrypoints()
 
-        if (typeof global !== "undefined") {
+        if (registerGlobal && typeof global !== "undefined") {
             global.__CHUNK_EXTRACTOR__ = this
         }
     }

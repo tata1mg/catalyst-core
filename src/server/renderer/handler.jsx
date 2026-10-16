@@ -54,7 +54,8 @@ let _onRouteMatch,
     _onAppServerSideSuccess,
     _onAppServerSideError,
     _onRenderError,
-    _onRequestError
+    _onRequestError,
+    _getEarlyHintLinks
 try {
     const hooks = await import("@catalyst/template/server/index.js")
     _onRouteMatch = hooks.onRouteMatch
@@ -64,6 +65,7 @@ try {
     _onAppServerSideError = hooks.onAppServerSideError
     _onRenderError = hooks.onRenderError
     _onRequestError = hooks.onRequestError
+    _getEarlyHintLinks = hooks.getEarlyHintLinks
 } catch {
     // No hooks file — all hooks remain undefined, safeCall will skip them
 }
@@ -90,23 +92,21 @@ const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-
 const CSP_NONCE_ENABLE = process.env.CSP_NONCE_ENABLE === true
 const generateNonce = () => crypto.randomBytes(16).toString("base64")
 
-// Config-driven (config.json → CLOUDFLARE_EARLY_HINTS_ENABLE): when on, critical + shell JS is
-// advertised via an HTTP `Link` header so a fronting CDN (e.g. Cloudflare Early Hints) can learn
-// it and replay it as a 103 on later requests to the same URL. Off by default.
+// Config-driven (config.json → CLOUDFLARE_EARLY_HINTS_ENABLE): when on, the early-hint links are
+// also sent as a `Link` header on rendered responses so a fronting CDN (e.g. Cloudflare Early
+// Hints) can learn them and replay them as a 103 on later requests to the same URL. Off by default.
 const CLOUDFLARE_EARLY_HINTS_ENABLE = process.env.CLOUDFLARE_EARLY_HINTS_ENABLE === true
 
-// Config-driven (config.json → NATIVE_EARLY_HINTS_ENABLE): when on, this server sends real HTTP
-// 103 Early Hints responses itself via res.writeEarlyHints() — useful when nothing in front of
-// Node (or the proxy in front of it) already does this, e.g. no CDN, or a non-Cloudflare one.
-// Unlike the Cloudflare path, this can hint the *current* request, not just future ones, since
-// it doesn't depend on a CDN having learned anything from a prior response. Off by default.
+// Config-driven (config.json → NATIVE_EARLY_HINTS_ENABLE): when on, this server sends one HTTP 103
+// via res.writeEarlyHints() right after route matching — before App.serverSideFunction and the
+// data fetcher — so the *current* request benefits. Only one 103 is sent: browsers act on the
+// first. Browsers only honour 103 over HTTP/2+, so the TLS hop in front (CDN/proxy) must forward
+// it. Skipped for bots and non-GET requests. Off by default.
 const NATIVE_EARLY_HINTS_ENABLE = process.env.NATIVE_EARLY_HINTS_ENABLE === true
 
-// Config-driven (config.json → EARLY_HINTS_LINKS): app-supplied preconnect/preload entries —
-// third-party analytics origins, a static LCP image, fonts, etc. Never hardcoded in catalyst-core
-// itself; the app declares the exact URLs it wants hinted. JSON array of
-// { url, rel: "preconnect"|"preload", as?, crossorigin? }. Computed once — this list is static
-// for the process lifetime, unlike criticalAssets/deferredAssets which vary per request.
+// Config-driven (config.json → EARLY_HINTS_LINKS): static app-supplied preconnect/preload entries.
+// JSON array of { url, rel: "preconnect"|"preload", as?, type?, crossorigin?, fetchPriority? }.
+// URLs that change per release or request belong in the getEarlyHintLinks hook instead.
 const EARLY_HINTS_LINKS = (() => {
     try {
         const parsed = JSON.parse(process.env.EARLY_HINTS_LINKS || "[]")
@@ -115,7 +115,17 @@ const EARLY_HINTS_LINKS = (() => {
         return []
     }
 })()
-const customLinkHeader = generateCustomLinkHeader(EARLY_HINTS_LINKS)
+const staticHintLinks = generateCustomLinkHeader(EARLY_HINTS_LINKS)
+
+// Config-driven (config.json → EARLY_HINTS_MAX_DEFERRED_LINKS): how many split() chunks learned
+// from earlier renders of the route are hinted at fetchpriority=low. Keeps the header (which a
+// CDN may drop whole when oversized) small. Default 10; 0 disables; negative means no cap.
+const EARLY_HINTS_MAX_DEFERRED_LINKS = (() => {
+    const parsed = Number(process.env.EARLY_HINTS_MAX_DEFERRED_LINKS ?? 10)
+    return Number.isFinite(parsed) ? parsed : 10
+})()
+const capDeferredHints = (urls) =>
+    EARLY_HINTS_MAX_DEFERRED_LINKS < 0 ? urls : urls.slice(0, EARLY_HINTS_MAX_DEFERRED_LINKS)
 
 const traceHook = (fn, spanName) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
@@ -143,6 +153,46 @@ const _collectAssets = (req, allMatches) => {
 
 const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collectAssets")
 
+// ── Early Hints ────────────────────────────────────────────────────────
+// Critical JS depends only on the matched route and the build manifests, so it is computed
+// once per leaf route and reused.
+const criticalHintCache = new Map()
+const getCriticalHintLinks = (allMatches) => {
+    const key = allMatches[allMatches.length - 1]?.route ?? null
+    let hint = criticalHintCache.get(key)
+    if (!hint) {
+        const extractor = new ChunkExtractor({
+            manifest: getManifest() || {},
+            assetManifest: getAssetManifest() || {},
+            registerGlobal: false,
+        })
+        extractor.preloadRouteCss(allMatches)
+        const { js } = extractor.getCriticalAssets()
+        hint = { js, links: generateLinkHeader(js, "high", getIntegrityManifest() || {}) }
+        criticalHintCache.set(key, hint)
+    }
+    return hint
+}
+
+const getEarlyHintLinks = (req, res, allMatches) => {
+    const critical = getCriticalHintLinks(allMatches)
+    const deferredJs = getDeferredPreloadScriptUrls(getDeferredRouteKey(req, allMatches), critical.js)
+    const appLinks = safeCall(_getEarlyHintLinks, { req, res, matches: allMatches })
+    return [
+        ...new Set([
+            ...critical.links,
+            ...staticHintLinks,
+            ...generateCustomLinkHeader(Array.isArray(appLinks) ? appLinks : []),
+            ...generateLinkHeader(capDeferredHints(deferredJs), "low", getIntegrityManifest() || {}),
+        ]),
+    ]
+}
+
+const isBotRequest = (req) => {
+    const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
+    return !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
+}
+
 // ── JSX tree ───────────────────────────────────────────────────────────
 const getComponent = (store, context, req, fetcherData, isBot) => (
     <div id="app">
@@ -169,11 +219,10 @@ const _renderMarkUp = async (
     chunkExtractor,
     nonce
 ) => {
-    const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
     // also need the bot code path — no JS, and split(... ssr: false ...) widgets that
     // previously read state.shellReducer.isBot now read this via SsrRequestContext.
-    const isBot = !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
+    const isBot = isBotRequest(req)
 
     // Critical assets → <head>
     const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
@@ -297,34 +346,7 @@ const _renderMarkUp = async (
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
                 onShellReady() {
                     res.setHeader("content-type", "text/html")
-                    // window.__SSR_RENDERED_COMPONENTS__ (split() chunks discovered during
-                    // render) are eagerly re-imported client-side and block hydrateRoot via
-                    // hydrationReady() — not lazy — so they're as hint-worthy as critical JS.
-                    // Only what's been discovered by shell-ready is known this early; chunks
-                    // behind Suspense boundaries still pending resolve after headers are sent
-                    // and can't be included.
-                    const shellDeferredJs = chunkExtractor ? chunkExtractor.getDeferredAssets().js : []
-                    if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
-                        // customLinkHeader (app-supplied preconnect/preload entries) included here
-                        // too — Cloudflare only ever sees this one combined header per response.
-                        // fetchpriority keeps a page with many shell-rendered split() widgets from
-                        // hinting all of them equally — deferred chunks yield bandwidth to the
-                        // app-shell bundles that actually gate hydration.
-                        const linkHeader = [
-                            generateLinkHeader(criticalAssets.js, "high"),
-                            generateLinkHeader(shellDeferredJs, "low"),
-                            customLinkHeader,
-                        ]
-                            .filter(Boolean)
-                            .join(", ")
-                        if (linkHeader) res.setHeader("link", linkHeader)
-                    }
-                    if (NATIVE_EARLY_HINTS_ENABLE) {
-                        // Critical JS was already hinted in _handler, before data-fetching —
-                        // only the newly-discovered shell JS needs a (second) 103 here.
-                        const linkValues = generateLinkHeader(shellDeferredJs, "low")
-                        if (linkValues) res.writeEarlyHints({ link: linkValues.split(", ") })
-                    }
+                    if (res.locals.earlyHintLinks) res.append("link", res.locals.earlyHintLinks.join(", "))
                     pipe(tail)
                 },
 
@@ -388,18 +410,13 @@ async function _handler(req, res) {
 
         if (res.headersSent) return
 
-        if (NATIVE_EARLY_HINTS_ENABLE) {
-            // Sent as early as possible — before the app-side hook and data fetcher, which can
-            // be slow — so the browser can start fetching critical JS (and any app-supplied
-            // preconnect/preload entries, which don't depend on the route at all) in parallel
-            // with them instead of waiting for the full SSR response. A throwaway extractor: the
-            // route's critical JS depends only on `allMatches`, already known here, and
-            // re-collecting it below for the real render is unaffected.
-            const earlyAssets = collectAssets(req, allMatches).getCriticalAssets()
-            const linkValues = [generateLinkHeader(earlyAssets.js, "high"), customLinkHeader]
-                .filter(Boolean)
-                .join(", ")
-            if (linkValues) res.writeEarlyHints({ link: linkValues.split(", ") })
+        const sendNativeHints = NATIVE_EARLY_HINTS_ENABLE && req.method === "GET" && !isBotRequest(req)
+        if (sendNativeHints || CLOUDFLARE_EARLY_HINTS_ENABLE) {
+            const earlyHintLinks = getEarlyHintLinks(req, res, allMatches)
+            if (earlyHintLinks.length) {
+                if (sendNativeHints) res.writeEarlyHints({ link: earlyHintLinks })
+                if (CLOUDFLARE_EARLY_HINTS_ENABLE) res.locals.earlyHintLinks = earlyHintLinks
+            }
         }
 
         try {
