@@ -1,0 +1,250 @@
+.topHud {
+    position: fixed;
+    top: var(--nav-h, 56px);
+    left: 0;
+    right: 0;
+    height: 50px;
+    z-index: 60;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(10, 14, 22, 0.95) 0%, rgba(10, 14, 22, 0.82) 100%);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    pointer-events: auto;
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+.hudSectionLeft {
+    display: flex;
+    align-items: center;
+    min-width: 200px;
+}
+
+.clockPill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.timeIcon {
+    font-size: 18px;
+}
+
+.clockText {
+    display: flex;
+    flex-direction: column;
+}
+
+.dayDate {
+    font-size: 11px;
+    font-weight: 700;
+    color: #ffffff;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.04em;
+}
+
+.timeLabel {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.hudSectionCenter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.characterPill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 16px 4px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+
+.avatarDisc {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid #c6ff3d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    font-family: var(--font-mono, monospace);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    animation: avatarFloat 2s ease-in-out infinite alternate;
+}
+
+.avatarEmoji {
+    letter-spacing: -1px;
+}
+
+.nameColumn {
+    display: flex;
+    flex-direction: column;
+}
+
+.nameRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.charName {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    font-family: var(--font-mono, monospace);
+}
+
+.archetypeTag {
+    font-size: 9px;
+    font-weight: 700;
+    color: #3de0ff;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(61, 224, 255, 0.15);
+    border: 1px solid rgba(61, 224, 255, 0.3);
+    letter-spacing: 0.06em;
+}
+
+.statusSubRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1px;
+}
+
+.moodBadge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    font-family: var(--font-mono, monospace);
+}
+
+.coordBadge {
+    font-size: 10px;
+    font-family: var(--font-mono, monospace);
+    color: #c6ff3d;
+    background: rgba(198, 255, 61, 0.1);
+    border: 1px solid rgba(198, 255, 61, 0.25);
+    padding: 1px 6px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.actionIndicator {
+    font-size: 9px;
+    color: #3de0ff;
+    font-weight: 700;
+}
+
+.hudSectionRight {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 200px;
+    justify-content: flex-end;
+}
+
+.energyWidget {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 140px;
+}
+
+.energyHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+}
+
+.energyLabel {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.energyValue {
+    font-weight: 800;
+}
+
+.energyTrack {
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.energyFill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease;
+}
+
+.modeToggleBtn {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.16);
+        border-color: #3de0ff;
+    }
+
+    &.modeAuto {
+        background: rgba(198, 255, 61, 0.2);
+        border-color: #c6ff3d;
+        color: #c6ff3d;
+        box-shadow: 0 0 12px rgba(198, 255, 61, 0.3);
+    }
+}
+
+@keyframes avatarFloat {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(-2px);
+    }
+}
+
+@media (max-width: 900px) {
+    .archetypeTag {
+        display: none;
+    }
+    .energyWidget {
+        width: 100px;
+    }
+}

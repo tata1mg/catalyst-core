@@ -100,3 +100,7 @@ For Deputy Dev integration, create or update `.deputydev/mcp_settings.json` in y
   }
 }
 ```
+
+## Looking for WebMCP?
+
+This page covers the **MCP server that helps AI coding tools understand your Catalyst project** (build time, runs in Node). If you want your *running app* to expose tools to in-browser agents, see [WebMCP](/docs/webmcp) instead. They are unrelated mechanisms that share a name.

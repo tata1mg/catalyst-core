@@ -389,9 +389,9 @@ jobs:
 
     error-catalog:
         # Contract gate for issue #440 / Story #343: proves each in-scope
-        # error code (AI-000..003 + PREFLIGHT-001..021) actually surfaces the
+        # error code (AI-000..003 + PREFLIGHT-001..022) actually surfaces the
         # way a developer would hit it — a real catalyst app is broken per
-        # scenario, the real `catalyst start` / an HTTP call is run, and the
+        # scenario, the real `catalyst start` / `catalyst serve` / an HTTP call is run, and the
         # coded error + doc URL is asserted in the output. Pass/fail only
         # (no coverage %), reported into coverage-summary like
         # web-integration-smoke. AI-000 (needs a live api.openai.com call) is
@@ -1365,7 +1365,12 @@ jobs:
             - name: Build Docs
               run: |
                   node -v
+                  npm ci
                   npm --prefix docs ci
+                  # docs consumes catalyst-core/webmcp, which only exists in
+                  # this repo's build — not in the published package the
+                  # lockfile pins. Same pattern as examples/error-catalog.
+                  npm --prefix docs run sync-core
                   cp docs/config/config_template.json docs/config/config.json
                   npm --prefix docs run lint
                   npm run docs:build

@@ -132,7 +132,7 @@ async function executeCliStartup(scen) {
     killTree(null)
     await new Promise((r) => setTimeout(r, 1500))
     return new Promise((resolve) => {
-        const binInfo = getCatalystScript("scripts/start.js", scen.run.args[0])
+        const binInfo = getCatalystScript(`scripts/${scen.run.args[0]}.js`, scen.run.args[0])
         const cmdArgs = [...binInfo.argsPrefix, ...(scen.run.args.slice(1))]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
