@@ -1,0 +1,36 @@
+packages/catalyst-ai/plugins/ai/ios/CatalystAIPlugin.swift
+  s_142fca248d57d5::t_c6c0e7e361e6b1 6-7,45-47,56,60,64,68,86-97
+  s_142fca248d57d5::t_e23883273e128a 98
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_142fca248d57d5::t_7c4355b9b44290 21-23
+packages/catalyst-ai/src/useNativeAI.js
+  s_142fca248d57d5::t_7c4355b9b44290 3,61,63,125,309
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/PluginBridgeTests.swift
+  s_142fca248d57d5::t_82eeee14c5e463 23-44
+  s_142fca248d57d5::t_2f13d0ed821497 22
+packages/catalyst-ai/test/nativeTransport.test.ts
+  s_142fca248d57d5::t_5398ad28a4ddb3 1-109
+packages/catalyst-ai/src/nativeTransport.js
+  s_142fca248d57d5::t_7c4355b9b44290 1-80
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  s_142fca248d57d5::t_c6c0e7e361e6b1 59,63-74
+  s_142fca248d57d5::t_a073648a5c7aad 75-76
+packages/catalyst-ai/src/index.js
+  s_142fca248d57d5::t_7c4355b9b44290 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ae2293fa9031790ff6647586154d312327efebc7",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

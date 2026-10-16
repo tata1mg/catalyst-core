@@ -1,0 +1,24 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/FridaDetectorTest.kt
+  s_cbea663a13314a::t_2c3eed6a668f41 1-48,59-112,130-154
+  s_cbea663a13314a::t_6f4933bf7abbac 49-58
+  s_cbea663a13314a::t_dc692bfe5d71ce 113-129
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/SecurityCheckManagerTest.kt
+  s_cbea663a13314a::t_af24e53747c7d7 15
+  s_cbea663a13314a::t_ce9f50e994f883 1-14,16-260
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4c157b06ca030ce0a6f00b706cb67eb3bf8a8f2b",
+  "prompts": {},
+  "sessions": {
+    "s_cbea663a13314a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1b43752-575a-4960-973a-284fa8571046",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

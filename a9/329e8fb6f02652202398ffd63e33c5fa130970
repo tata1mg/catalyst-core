@@ -1,0 +1,29 @@
+packages/catalyst-core/src/native/pluginComposerIos.js
+  s_142fca248d57d5::t_3e614e0fdb9238 529-536
+packages/catalyst-core/src/native/buildAppIos.js
+  s_142fca248d57d5::t_3e614e0fdb9238 5,40-42,44,47
+  s_142fca248d57d5::t_3397df60b9ccd1 2,11-25,43
+packages/catalyst-core/src/native/internalPluginUtils.js
+  s_142fca248d57d5::t_3e614e0fdb9238 294-314,316
+packages/catalyst-core/test/native/aiPluginComposition.test.js
+  s_142fca248d57d5::t_961c9ef887af77 1-16
+  s_142fca248d57d5::t_21cb76972babf6 17-112
+.gitignore
+  s_142fca248d57d5::t_b510e54d54ac0b 159-162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a9329e8fb6f02652202398ffd63e33c5fa130970",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

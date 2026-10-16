@@ -1,0 +1,33 @@
+template/ai-sdk/core/stream-processor.js
+  8d43515c68b22d5d 10-14,20-21,44-45,66-71,79-83,88-90,104-105,127-128,150-151,158
+template/ai-sdk/client/hooks/use-prompt.js
+  8d43515c68b22d5d 6,50-58
+template/ai-sdk/client/hooks/use-dialogue.js
+  8d43515c68b22d5d 6,49-57,83-84,86,147,150,156-157,160,165
+template/ai-sdk/core/http-client.js
+  8d43515c68b22d5d 7-14,17-18,25-27,43-45,53-63,67-68,71-81,84-85,161-186
+template/ai-sdk/server/providers/openai.js
+  8d43515c68b22d5d 346-347,413,416,418,423,426,428-434
+template/ai-sdk/server/api-handler.js
+  8d43515c68b22d5d 46-92,150-151,156-169,171-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.34",
+  "base_commit_sha": "43a880ba55a19493b5bf46f34192b4ece1c10a97",
+  "prompts": {
+    "8d43515c68b22d5d": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "366060",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "unknown",
+      "messages": [],
+      "total_additions": 873,
+      "total_deletions": 49,
+      "accepted_lines": 858,
+      "overriden_lines": 0
+    }
+  }
+}

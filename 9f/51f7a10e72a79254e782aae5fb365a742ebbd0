@@ -1,0 +1,246 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/FrameworkServerUtils.kt
+  s_c2e5553f6e8448::t_a5c11bb8fefe2b 482,484
+  s_ac7c8f64099d20::t_8523781921db24 13-14
+  s_9f10321c396555::t_b151a2d47996e5 339,344,353-356
+  s_c2e5553f6e8448::t_4c1a5cc0b1e80a 63-65
+  s_6fd6b19ab426a9::t_ee27111c86ba5b 58-59,62
+  s_705af73c165447::t_1aa36c2222c015 345-351
+  s_c2e5553f6e8448::t_d8e15e9eb1047d 76
+  s_c2e5553f6e8448::t_5bafc9f3aed80c 489
+  s_1e24da3776d4fd::t_ab0dcee8623325 24
+  s_c2e5553f6e8448::t_ff771fbe2934a8 249-253
+  s_dc7e318bb3e085::t_996838c4c34f40 360-364,367-372
+  s_6fd6b19ab426a9::t_234105b69b239e 321,323,326-327,331-336,338,342,374-386
+  s_6fd6b19ab426a9::t_9a720046632988 239-240,244,247-248
+  s_6fd6b19ab426a9::t_2519802f918997 10,15,17-18
+  s_1e24da3776d4fd::t_f7100d296e1a81 340
+  s_1e24da3776d4fd::t_e268e8c42b1777 357
+  s_c2e5553f6e8448::t_29b2f113fbffd5 337,341
+  s_9f10321c396555::t_ec982c4086987a 241-243,245-246
+  s_9f10321c396555::t_ca76bf6296f886 60-61
+  s_ac7c8f64099d20::t_d3a46ea27ecab6 324-325,328-330,343,352,358-359,365-366,373
+packages/catalyst-core/src/native/bridge/constants/NativeInterfaces.js
+  s_bad7831041893b::t_24e2a572f0cd03 133-134
+  s_ac7c8f64099d20::t_4c475a81508682 232-238
+  s_bad7831041893b::t_92fb5505ec2d00 239-240
+  s_ac7c8f64099d20::t_a303a6787ce664 127-132
+  s_ac7c8f64099d20::t_6cf14a68a5ed3a 56-59
+  s_bad7831041893b::t_9235175d4fbc52 241-242
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_6e5475db0dced6::t_3007c66f5a093b 202,243
+  s_d40fe95d512d22::t_f3b109bb3a4f09 152
+  s_67d070f709af22::t_79b91dcd97dd58 200
+  s_6e5475db0dced6::t_9c02c4d83af2b7 46-61,203
+  s_d40fe95d512d22::t_7dcd2f28eeaf7b 207-212
+  s_6e5475db0dced6::t_e7d85887b08001 189
+  s_6e5475db0dced6::t_df7177973ab7d4 172
+  s_2603049a4532fb::t_d567ccbab6ebb9 170-171
+  s_2603049a4532fb::t_aa2b96aa51eb79 199
+  s_d40fe95d512d22::t_8a68da998845f7 205-206
+  s_6fd6b19ab426a9::t_6dd6021ba45683 234
+  s_d40fe95d512d22::t_7f16568050e8a8 235
+  s_67d070f709af22::t_635edb5a5e5d43 201,237-242
+  s_67d070f709af22::t_0c051daf893494 204,236
+packages/catalyst-core/mcp_v2/mcp.js
+  s_5bf849ef93565d::t_85c328025aa9f4 64-92,98-100
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_bad7831041893b::t_b9e063be4a01d6 25
+  s_67d070f709af22::t_3cd93864be0928 182,199
+  s_9f10321c396555::t_23f4f4dc9bc8a4 1369-1370
+  s_970d8996755686::t_e3fd8b1f1582f4 157-159,167,200-201
+  s_2603049a4532fb::t_0f74c909cebc7f 27
+  s_970d8996755686::t_6efb567d5db9aa 1361,1366,1371
+  s_970d8996755686::t_60c8c60f8dc118 160-166,168-181,183-198,202-205
+  s_67d070f709af22::t_c6eb67d0a7c9a0 19
+  s_6fd6b19ab426a9::t_775db2b5290818 1352-1356,1360,1362-1365,1367-1368,1372
+  s_705af73c165447::t_bf1bf9462ce746 207
+  s_67d070f709af22::t_f61ffc44140e68 1357-1359
+  s_67d070f709af22::t_5411b9feb17123 206
+  s_6fd6b19ab426a9::t_f178ce41f9d9e5 1373
+packages/catalyst-cloud-ai/android/src/main/AndroidManifest.xml
+  s_67d070f709af22::t_55c8ab64cd6f59 1-3
+packages/catalyst-cloud-ai/android/src/main/java/io/catalyst/nativeai/AIBridge.kt
+  s_67d070f709af22::t_628b567710efcf 1-24
+packages/catalyst-core/src/native/bridge/hooks/useAI.js
+  s_c18fb73e73b94e::t_c2cc5fa2718c36 25-28,38-44
+  s_c18fb73e73b94e::t_ca9386991706a3 1,20-24,30,52-54
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_2b0baf79eabc5f::t_77e53d9e542a81 5,17,71,127,139,186,253,313,337,349,385,433,480,504,516,529,542,555,581,594,631,643,658,687,735,747,770-771,842-843,857-858,870-871,883-884,896,908-909,920-921,933,945,957-958,970-971,983-984,1010-1011,1023,1037-1038,1065-1066,1081-1082,1101-1102,1107,1123-1124,1142-1143,1164-1165,1181-1182,1196-1197,1209-1210,1224,1238,1260,1278,1298,1313,1337,1354,1376,1398-1399,1423-1424,1436-1437,1454-1455,1470-1471,1488-1489,1507-1508,1526-1527,1540-1541,1556-1557,1567-1585
+  s_c18fb73e73b94e::t_77c563c55cb987 1589-1591,1596-1597,1602,1604-1606,1611-1612,1618-1620,1625-1626,1632-1634,1638-1640,1647-1649,1653-1655,1661-1663,1667-1669,1675-1677,1681-1683,1689-1691,1695-1697,1702,1704-1775
+  s_2b0baf79eabc5f::t_3ad2ec599c3968 1427-1431,1586-1588
+  s_c18fb73e73b94e::t_c4b9606d98104b 1592-1595,1598-1601,1603,1607-1610,1613-1617,1621-1624,1627-1631,1635-1637,1641-1646,1650-1652,1656-1660,1664-1666,1670-1674,1678-1680,1684-1688,1692-1694,1698-1701,1703
+packages/catalyst-cloud-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_67d070f709af22::t_55c8ab64cd6f59 1-293
+packages/catalyst-core/src/native/androidProject/settings.gradle.kts
+  s_6e5475db0dced6::t_dc987691ee30b8 36,45
+  s_2603049a4532fb::t_6d6181c6f6b960 40
+  s_67d070f709af22::t_5738be0df95789 37-39,41-44
+packages/catalyst-cloud-ai/src/route.js
+  s_67d070f709af22::t_f20e9b71e5c9f6 7-14,16
+  s_970d8996755686::t_382a071e1608cc 287,290,293,310
+  s_67d070f709af22::t_d7db7c12c2619b 378
+  s_67d070f709af22::t_2ef0540f10d17c 347-348,355
+  s_970d8996755686::t_3c7ca32475412c 387,391
+  s_970d8996755686::t_c002b82c02b8f4 183-184
+  s_970d8996755686::t_b1a83d45337821 185,188,191,231
+  s_970d8996755686::t_aff77551e8ff2d 229
+  s_970d8996755686::t_ab3c59e2ac673b 230
+  s_970d8996755686::t_12547e6fb89f8c 285-286
+  s_970d8996755686::t_ccea738931a35b 364,369
+packages/catalyst-core/src/native/buildAndroid/index.js
+  s_67d070f709af22::t_b94fc4905f3f9d 171
+  s_67d070f709af22::t_9e6049e4456b4b 4
+  s_67d070f709af22::t_c95b225811d380 76-103
+  s_67d070f709af22::t_7f79f24fb11cfa 419
+packages/catalyst-cloud-ai/android/src/main/java/io/catalyst/nativeai/CatalystAIBridge.kt
+  s_67d070f709af22::t_55c8ab64cd6f59 1-11,13-14,16-21,23-26,28-29,31-34,39-43,45,47-53,63-65,67-79
+  s_67d070f709af22::t_326d5396711199 12,15,22,27,30,35-38,44,46,54-62,66
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  s_6fd6b19ab426a9::t_f8ea681576674d 98-102,105
+  s_bad7831041893b::t_2b89dc0e6d0061 103-104
+packages/catalyst-cloud-ai/android/build.gradle.kts
+  s_67d070f709af22::t_55c8ab64cd6f59 1-45
+packages/catalyst-cloud-ai/android/src/main/resources/META-INF/services/io.catalyst.nativeai.AIBridge
+  s_67d070f709af22::t_86cc4537a0710e 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "9f51f7a10e72a79254e782aae5fb365a742ebbd0",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_1e24da3776d4fd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "48697a14-b91d-496b-b615-89a6cf96c8ea",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_2603049a4532fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ffba22c-90ec-4f15-8c39-0f66fa7e78d1",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_2b0baf79eabc5f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f676b4b3-ea89-4039-839f-9b93643beea4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_5bf849ef93565d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6da8f6ab-237e-4796-abbf-08b69bf5930c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_67d070f709af22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4d592fdf-b229-4260-a568-973d3f92bfd9",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_6e5475db0dced6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d89498cc-b305-4698-8a25-8f5d36c99adb",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_6fd6b19ab426a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6985fdc3-994f-45e1-a051-ae88ed831fbd",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_705af73c165447": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "13e1ad8f-d57c-48d5-b6c8-92405a75b393",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_970d8996755686": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7f95ee0-44f6-4009-a172-12f1b699d88c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_9f10321c396555": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "17d422ed-3170-4ba1-a0a7-0d44a3ae6f97",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_ac7c8f64099d20": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40f1f328-2a9e-47b1-83ad-6452c65ea895",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_bad7831041893b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76dc27b1-dbea-447e-842a-efa2640656a1",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_c18fb73e73b94e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "91d73720-90ab-496d-a825-c189925b523d",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_c2e5553f6e8448": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ef024aa4-d44c-4829-ac5b-9d3de614fe2c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_d40fe95d512d22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c853a297-3f9a-4bfc-b896-1f82665b7a86",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_dc7e318bb3e085": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0eb8e88e-54e9-4497-a14c-f77b6853f997",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

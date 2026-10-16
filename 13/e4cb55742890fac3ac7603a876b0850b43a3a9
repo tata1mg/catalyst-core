@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "13e4cb55742890fac3ac7603a876b0850b43a3a9",
+  "prompts": {
+    "32a293826e9b7dda": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7480-9c24-7943-b2ee-49db6b03cebb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}

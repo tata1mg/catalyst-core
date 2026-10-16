@@ -1,0 +1,29 @@
+packages/catalyst-ai/README.md
+  s_142fca248d57d5::t_fbf950fef1a5b7 31-63
+packages/catalyst-ai/plugins/ai/ios/CatalystAIPlugin.swift
+  s_142fca248d57d5::t_b2fdf4423853e2 72-77
+packages/catalyst-ai/plugins/ai/ios/FoundationModelsAI.swift
+  s_142fca248d57d5::t_8d4672665c7431 33-37
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_142fca248d57d5::t_cfca873bb558b6 102-103,105
+packages/catalyst-ai/plugins/ai/ios/Support/StreamDelta.swift
+  s_142fca248d57d5::t_b84fdbced56020 5-7
+packages/catalyst-ai/src/useNativeAI.js
+  s_142fca248d57d5::t_2b8b99fe89f36d 31-33,128-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "71f383372dfe3c09401b9299405c963b62d36568",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

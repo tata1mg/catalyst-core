@@ -1,0 +1,29 @@
+examples/test-video-hook-poc/prompt.txt
+  s_1cacec90ff269a::t_b933927175fcd8 1-219
+examples/test-video-hook-poc/README.md
+  s_1cacec90ff269a::t_710e4ad0d425be 1-126
+examples/sync-core.js
+  s_1cacec90ff269a::t_b3d8c3a7652dae 1-79
+examples/test-video-hook-poc/.gitignore
+  s_1cacec90ff269a::t_d1d1946162d5b1 3-8
+.gitignore
+  s_1cacec90ff269a::t_87ddfe5a05a948 3-9
+examples/test-video-hook-poc/package.json
+  s_1cacec90ff269a::t_21651fca728087 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "7455e17c6a734b8d9b82318fa04bc64a2758517d",
+  "prompts": {},
+  "sessions": {
+    "s_1cacec90ff269a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "25ecc573-736e-43aa-8c64-f704cff2fec9",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

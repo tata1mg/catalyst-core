@@ -1,0 +1,82 @@
+errors/AI/AI-001.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+errors/AI/AI-002.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+errors/AI/AI-009.md
+  s_27d7251d44f99f::t_d9dab3b7785969 1-19
+errors/AI/AI-004.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+errors/AI/AI-007.md
+  s_27d7251d44f99f::t_d9dab3b7785969 7,11,15,19
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-6,8-10,12-14,16-18
+errors/AI/AI-000.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+packages/catalyst-ai/src/useNativeAI.js
+  s_27d7251d44f99f::t_b526e84c6d78ed 3
+  s_27d7251d44f99f::t_10c73ee8f5e55d 110,113,115
+  s_27d7251d44f99f::t_a72676441f8b8a 175-176,178-179,183-185
+  s_27d7251d44f99f::t_0bc6ba0b8aaccd 177
+  s_27d7251d44f99f::t_905dbe6c22fff1 138
+  s_27d7251d44f99f::t_d8c1d6c62803ef 81-85,92-95
+  s_27d7251d44f99f::t_4a69da5677ab4e 207-208,210-211
+  s_27d7251d44f99f::t_295a4a012edb8e 61,63,67,69
+  s_27d7251d44f99f::t_3a632f8b49efda 103-106
+  s_27d7251d44f99f::t_caf411ed6793cc 117
+  s_27d7251d44f99f::t_b62d7ed608e1c2 209
+  s_27d7251d44f99f::t_e865500b5297a3 62,68
+  s_27d7251d44f99f::t_6bff17e08494f9 229-232,234-260,262-265
+errors/AI/AI-006.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+packages/catalyst-core/src/errors/index.js
+  s_27d7251d44f99f::t_d3bad6d307b21f 3
+  s_27d7251d44f99f::t_fe3d551fb71423 73-87
+  s_27d7251d44f99f::t_d607c5e7007601 72
+packages/catalyst-ai/src/useWebAI.js
+  s_27d7251d44f99f::t_9ed9b345abd456 249
+  s_27d7251d44f99f::t_f5ba2d6ddd506f 3
+  s_27d7251d44f99f::t_a4ec3e4e3d7a24 248,250-251
+  s_27d7251d44f99f::t_ab52386d468bb6 316,327-330
+errors/index.json
+  s_27d7251d44f99f::t_d9dab3b7785969 444-451,456,458,464
+  s_27d7251d44f99f::t_6e492cdfac72c3 385-443,452-455,457,459-463
+packages/catalyst-core/src/errors/registry.js
+  s_27d7251d44f99f::t_726d1d0f58efdf 421-471,480-489,492-494
+  s_27d7251d44f99f::t_d7bd704cd9710a 68-70
+  s_27d7251d44f99f::t_a2170446fb73e6 60-67
+  s_27d7251d44f99f::t_b255307264b25f 472-479
+  s_27d7251d44f99f::t_1be1b95835e8a7 490-491
+packages/catalyst-core/package.json
+  s_27d7251d44f99f::t_6f6cc3791dc2ea 27
+errors/AI/AI-008.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-6,8-10,12-14,16-18
+  s_27d7251d44f99f::t_d9dab3b7785969 7,11,15,19
+errors/AI/AI-005.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+packages/catalyst-ai/src/route.js
+  s_27d7251d44f99f::t_377a636b6f34e0 143,196,247,266,318,369,426,448
+  s_27d7251d44f99f::t_71d4220df3c6a0 576-579
+  s_27d7251d44f99f::t_7a44ea09298fe7 5-12
+  s_27d7251d44f99f::t_2941a274ec139e 466-467
+  s_27d7251d44f99f::t_0155b8626cec82 530-536,538
+  s_27d7251d44f99f::t_f48b5801830048 54-60
+  s_27d7251d44f99f::t_21ac7de13f214c 547-551,557-560,563-566
+  s_27d7251d44f99f::t_7d548bd7e0ad42 463-465,468-469,471-476,484-488,494-497,500-503
+errors/AI/AI-003.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "edae22a12ac3162d45eca4e215bdef4935cd563c",
+  "prompts": {},
+  "sessions": {
+    "s_27d7251d44f99f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0a234a88-62f6-4823-b115-fbfb6ee49d9d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+scripts/release/release.js
+  b41a11fce94f5032 1-314
+scripts/release/check-stable-deps.js
+  b41a11fce94f5032 1-70
+.github/workflows/release.yml
+  b41a11fce94f5032 1-220
+docs/content/12-Migration/02-Version-Upgrades.md
+  b41a11fce94f5032 9-12,15-79,81-110,115-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "dd61e5f8a8e97e87293dc124f99de085fad0afbb",
+  "prompts": {
+    "b41a11fce94f5032": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab8efe87-236c-4efb-93d2-5a51b4efbfac",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 654,
+      "total_deletions": 50,
+      "accepted_lines": 716,
+      "overriden_lines": 0
+    }
+  }
+}

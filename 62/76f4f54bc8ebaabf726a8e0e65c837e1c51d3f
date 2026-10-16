@@ -1,0 +1,94 @@
+packages/catalyst-ai/vitest.config.mjs
+  s_4402816142cf62::t_2c7a1b0abcc5cb 4,10-17
+packages/catalyst-core/test/errors/docsDrift.test.ts
+  s_4402816142cf62::t_bba7309f962d08 20-30
+  s_4402816142cf62::t_a969e79d8f3217 83-86
+  s_4402816142cf62::t_7e80bfe3e50b69 101
+  s_4402816142cf62::t_3a7b49ff5f33d9 31
+  s_4402816142cf62::t_0ce0bbab403967 43
+  s_4402816142cf62::t_59571b85855710 64-66
+packages/catalyst-ai/package.json
+  s_4402816142cf62::t_f592cb5df78e3a 12-14
+  s_4402816142cf62::t_6d9b729e9449c0 32
+  s_4402816142cf62::t_d6ef71e85a4f40 31
+packages/catalyst-ai/test/route.test.ts
+  s_4402816142cf62::t_e593c7035452c6 174
+  s_4402816142cf62::t_8450db08349aaf 2-11
+packages/catalyst-ai/tsconfig.json
+  s_4402816142cf62::t_aea88c1a3adfde 1-9,11-23
+  s_4402816142cf62::t_40fe2fea544955 10
+packages/catalyst-core/test/errors/index.test.ts
+  s_4402816142cf62::t_27d5ea810a89e3 81-91
+packages/create-catalyst-app/scripts/errors.d.cts
+  s_4402816142cf62::t_bef4c8c31a0289 1-36,41-43,46-55
+  s_4402816142cf62::t_ea9845c417f235 37-40,44-45
+packages/catalyst-core/package.json
+  s_4402816142cf62::t_e9db6c48c78153 37
+  s_4402816142cf62::t_c08c050867233f 39
+  s_df06e59920a896::t_bac6952d56fff4 75
+  s_4402816142cf62::t_6d9b729e9449c0 86
+packages/catalyst-core/mcp_v2/tools/errors.d.ts
+  s_4402816142cf62::t_dbac5bbb0d6f9f 1-20
+packages/catalyst-core/test/errors/registry.test.ts
+  s_4402816142cf62::t_9c4063e11ef445 58-59
+packages/catalyst-ai/src/route.d.ts
+  s_4402816142cf62::t_466ad55b52f721 67-76,78-79
+  s_4402816142cf62::t_2ebda561161783 5-11
+  s_4402816142cf62::t_036b8a67ac2666 1-4,12-66,77,80-82
+packages/create-catalyst-app/test/errors.test.ts
+  s_4402816142cf62::t_0247fa767f8638 2-11
+  s_4402816142cf62::t_09bcf388bcaf17 12
+  s_4402816142cf62::t_7faba9671b7835 65-66,133-135,147,151,157
+packages/catalyst-core/mcp_v2/vitest.config.mjs
+  s_4402816142cf62::t_45a37a1b591807 12-19
+packages/create-catalyst-app/tsconfig.json
+  s_4402816142cf62::t_f0f857d3462ba2 6
+  s_4402816142cf62::t_561658fc2faeeb 10-11
+  s_4402816142cf62::t_3ec2486d1db07a 1-5,7-9,12-23
+packages/catalyst-core/mcp_v2/tsconfig.json
+  s_4402816142cf62::t_27b775d2be2a22 1-25
+packages/catalyst-core/mcp_v2/package.json
+  s_4402816142cf62::t_cb7eb739ac8e66 10-12
+  s_4402816142cf62::t_1ef6525c2c59bc 18
+packages/catalyst-core/tsconfig.test.json
+  s_4402816142cf62::t_93ba8e92ab6673 1-12,17-20
+  s_4402816142cf62::t_30d0d7b3053ddb 13-16
+packages/catalyst-core/vitest.config.ts
+  s_4402816142cf62::t_5c4c097d921524 4-15
+packages/create-catalyst-app/package.json
+  s_4402816142cf62::t_e2b05b430723eb 28
+  s_4402816142cf62::t_2032fc9975aeb0 13-15
+  s_4402816142cf62::t_6d9b729e9449c0 30
+packages/create-catalyst-app/vitest.config.mjs
+  s_4402816142cf62::t_cee4969d313a76 4,11-19,21
+  s_4402816142cf62::t_5fd36c945dd415 20
+packages/catalyst-core/mcp_v2/test/errors.test.ts
+  s_4402816142cf62::t_50b843886425f6 53-94
+  s_4402816142cf62::t_94145503028d72 2-12,18
+package-lock.json
+  s_4402816142cf62::t_cdb8c0e2388c80 14-16,2550-2869,9576-9577,9589-9637,9676,9687,9691-9699,9848-9887,9905,9907,9911-9919,9942-9981
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6276f4f54bc8ebaabf726a8e0e65c837e1c51d3f",
+  "prompts": {},
+  "sessions": {
+    "s_4402816142cf62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a32d928-2145-4f65-b230-552ae10bd35e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_df06e59920a896": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21d8d92f-8b18-450f-b487-66df93d49e8c",
+        "model": "claude-haiku-4-5-20251001"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

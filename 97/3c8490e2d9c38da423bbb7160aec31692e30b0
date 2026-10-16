@@ -1,0 +1,92 @@
+src/native/buildAppIos.js
+  acb614ec380c4d28 685,794-797
+src/native/iosnativeWebView/Sources/Core/Constants/ConfigConstants.swift
+  acb614ec380c4d28 36
+src/native/iosnativeWebView/Sources/Core/Utils/WebKitConfig.swift
+  acb614ec380c4d28 48-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "973c8490e2d9c38da423bbb7160aec31692e30b0",
+  "prompts": {
+    "19bf5b06d8ab1014": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1ea0-3eac-7023-a1fe-aa1e36d8c31c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1620,
+      "overriden_lines": 0
+    },
+    "1ca94ec459747b4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d3ee7-28c4-7330-9a38-d689d7e271ff",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 74,
+      "overriden_lines": 0
+    },
+    "2cee5ab257b58123": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2a0d-0bee-7213-9359-33eb8459747a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 51,
+      "overriden_lines": 0
+    },
+    "96c0ec85b51e08b5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d3ebc-7556-7050-af46-87995e5620f9",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 19,
+      "overriden_lines": 0
+    },
+    "acb614ec380c4d28": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2e36-78da-7ef3-ae93-305b87fab08f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 166,
+      "total_deletions": 153,
+      "accepted_lines": 46,
+      "overriden_lines": 1
+    },
+    "e9175dde7890f694": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2e39-395f-7aa3-a3a4-7437e3ff979d",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

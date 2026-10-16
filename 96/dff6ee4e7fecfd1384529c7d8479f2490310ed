@@ -1,0 +1,83 @@
+examples/webmcp-poc/src/js/webmcp/useTool.js
+  s_b0e8727f0b555e::t_d096a1d49603eb 7,21-31,40-42,50
+  s_b0e8727f0b555e::t_45c5444ed9f534 103-119
+  s_b0e8727f0b555e::t_6ec3b97fb9709c 3
+examples/webmcp-poc/src/js/pages/ProductList/index.js
+  s_b0e8727f0b555e::t_8054006cac85a4 140-141
+examples/webmcp-poc/src/js/pages/ProductDetail/index.js
+  s_b0e8727f0b555e::t_26957ed297ba62 4
+  s_b0e8727f0b555e::t_1bed48d1e1bcaa 16,19-21,32-35,41-45,48-51,55-56,60-61,63-64,66,69
+  s_b0e8727f0b555e::t_f64237fedddef9 25-31
+  s_b0e8727f0b555e::t_463bd190a1093c 133-153
+  s_b0e8727f0b555e::t_0e8dfe46f22a08 199-200
+  s_b0e8727f0b555e::t_0b9f9ed8a28687 22-24,36-40
+  s_b0e8727f0b555e::t_de3443f4ada5e2 93-102
+  s_b0e8727f0b555e::t_f5bf1d8465c607 62,65
+  s_b0e8727f0b555e::t_3d1ea72b442b54 52-54,57-59
+  s_b0e8727f0b555e::t_aa42069cbf2aad 68
+examples/webmcp-poc/src/js/store/cartSlice.js
+  s_b0e8727f0b555e::t_04ab5d5b0a267b 4-5,14,17-21,29,32-39
+  s_b0e8727f0b555e::t_5a4bf701e69fa2 30-31,47
+  s_b0e8727f0b555e::t_220a44318ef123 58-59,64-66
+  s_b0e8727f0b555e::t_b1dda7e1aa5b61 40
+examples/webmcp-poc/src/js/routes/index.js
+  s_b0e8727f0b555e::t_c67a381552e153 6-9,19,23-26,28,33-35,40-45
+  s_b0e8727f0b555e::t_fda4edf249ebb1 20-22,27,29-32
+examples/webmcp-poc/src/js/webmcp/registry.js
+  s_b0e8727f0b555e::t_6e34264c0ba3d2 227-232,236
+  s_b0e8727f0b555e::t_df1ecae39cdf96 147-158,169-204,206,208-209,212,233-235
+  s_b0e8727f0b555e::t_6b6e8100950c35 257,261,280-287,301-303,334-335
+  s_b0e8727f0b555e::t_1733d84e62a62a 28,432-442
+  s_b0e8727f0b555e::t_9c25aa9bee60ae 258-260,262-279,288,295-296,299-300
+  s_b0e8727f0b555e::t_e5298d3aad1e51 29-42
+  s_b0e8727f0b555e::t_1e8d41a6a4fc6e 289-294,297-298
+  s_b0e8727f0b555e::t_5f0b6ef1206db6 304-333
+  s_b0e8727f0b555e::t_accfbdb4c31fc2 213
+examples/webmcp-poc/src/js/webmcp/declarative.test.js
+  s_b0e8727f0b555e::t_f1cd4a87058519 37,41,45
+  s_b0e8727f0b555e::t_a9e70b7dade562 43-44,46-49,51
+examples/webmcp-poc/src/js/pages/Cart/Cart.scss
+  s_b0e8727f0b555e::t_c4db5cd8c0bf34 99-107
+examples/webmcp-poc/src/js/store/productsSlice.js
+  s_b0e8727f0b555e::t_e8d48381c489b1 11,19,27,56,64
+examples/webmcp-poc/src/js/pages/Cart/index.js
+  s_b0e8727f0b555e::t_edca4719989ad2 20-22,25,31-34,36,41,44-46,48-52,54-70,75,78,83-85,88,97,101,111,118,123-125
+  s_b0e8727f0b555e::t_157f8c6caca2a9 170,173-176,179-188
+  s_b0e8727f0b555e::t_83d2c2a98378e3 5-11,40,42-43,47,53,71-74,76-77,79-82,86-87,89-96,98-100,102-110,112-115
+  s_b0e8727f0b555e::t_9380f23f8a6ba6 116
+  s_b0e8727f0b555e::t_e9e06dea1aad25 126-127
+examples/webmcp-poc/src/js/webmcp/registry.test.js
+  s_b0e8727f0b555e::t_37bdbf801dacf2 21
+  s_b0e8727f0b555e::t_b34ce15dffe53f 106,108-124,130-133,135-136,141-142,145-147,154-157,176-177
+  s_b0e8727f0b555e::t_c93638b49a5c3c 107,125-129,134,137-140,143-144,148-153,158-168,170-172
+  s_b0e8727f0b555e::t_8d7e3fe35c5ce2 15
+  s_b0e8727f0b555e::t_ecfa1f9187e016 169,173-175
+examples/webmcp-poc/scripts/e2e-smoke.mjs
+  s_b0e8727f0b555e::t_3003002d7daf85 170-172
+  s_b0e8727f0b555e::t_72012a26a0f3f9 182
+  s_b0e8727f0b555e::t_1956ea08bcc868 124,127-169,173-181,184
+  s_b0e8727f0b555e::t_cead9274bcc408 47-48
+  s_b0e8727f0b555e::t_9df88e563561d5 104,106-108,111-113,115-116
+  s_b0e8727f0b555e::t_4442c6abe679fb 109-110
+examples/webmcp-poc/src/js/webmcp/declarative.js
+  s_b0e8727f0b555e::t_8cba1b35ec6b9a 4-5,7-15
+  s_b0e8727f0b555e::t_246aa582ba0aff 16-24
+  s_b0e8727f0b555e::t_18c3f8f44344fb 95-96
+  s_b0e8727f0b555e::t_008ca787e2bb04 99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "96dff6ee4e7fecfd1384529c7d8479f2490310ed",
+  "prompts": {},
+  "sessions": {
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

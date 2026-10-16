@@ -1,0 +1,20 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebCacheManagerTest.kt
+  s_c7fe34a005da55::t_3fafe266c1bffc 214-219,222,227-229,231-233,235-236
+  s_c7fe34a005da55::t_193b022789acdf 212-213,220-221,223-226,230,234,237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "89f866eb391e1a110b2e7b23a73b721b97fcd0c8",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

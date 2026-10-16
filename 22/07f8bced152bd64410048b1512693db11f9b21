@@ -1,0 +1,96 @@
+scripts/test-all.sh
+  s_fb653307799c5f::t_d4cde5bbcf6846 10
+  s_ed41fe7bc55f2e::t_a65906cbb30bde 139-141,144-150,153,185,193-196,201
+  s_fc03edb166085e::t_7071f2c28f7804 165
+  s_fb653307799c5f::t_abd90c9972cea9 214
+  s_fc03edb166085e::t_c3aec33136fc14 12-18,22-27,29,31,38,43,47,58-59,61-70,74-137,154-158,160-164,166-171,173-177,179-184,186-189,191-192,197-198,202-206,210-213,215,218-228,230-239
+  s_fb653307799c5f::t_b51299e6f00a84 39,48
+  s_fc03edb166085e::t_bb4bdabf83fbb6 159
+  s_aaaf9904f3ef05::t_d62207f7d38864 8
+  s_fc03edb166085e::t_85d94c40805925 172,178,190
+  s_ed41fe7bc55f2e::t_f0a406f837ec98 209
+  s_fb653307799c5f::t_c9736e06edfc00 142-143
+  s_fc03edb166085e::t_79b6555d26305d 229
+  s_aaaf9904f3ef05::t_e1a089c3af4d3d 53-54,216-217
+scripts/test-native.sh
+  s_ed41fe7bc55f2e::t_e96ec86e336304 307-308
+  s_ed41fe7bc55f2e::t_6575bb3796581b 178
+  s_fc03edb166085e::t_fd3592bd3422a1 38-40,42,55-57
+  s_ed41fe7bc55f2e::t_c0916d0b214af5 84
+  s_fc03edb166085e::t_4981af6dc35f7f 121-123,128,133,135,137
+  s_fc03edb166085e::t_26c039d394615e 187,259,277,288,301-302
+  s_d0f637ab2a8b01::t_db8d46c47bff89 232,246-247
+  s_fc03edb166085e::t_1c7625198c41c0 172,195
+  s_fc03edb166085e::t_e5e6a271265f3f 265-271,275,278-287,289-291,293-300,303-305,310-317,320-323,325,327-328
+  s_d0f637ab2a8b01::t_eb888f62378292 229
+  s_fc03edb166085e::t_8c517b6b932a7e 272-274,276
+  s_ed41fe7bc55f2e::t_c5432fe5fc8283 86
+  s_ed41fe7bc55f2e::t_bb426abadaaa57 318-319,324,326,332
+  s_fb653307799c5f::t_1fd6b4154cb8eb 196-198
+  s_d0f637ab2a8b01::t_4c6e7ef13269e7 203,208-212,237
+  s_fb653307799c5f::t_8f179dadfb3a54 41,51-54
+  s_ed41fe7bc55f2e::t_bd29e4dcc577e2 71
+  s_ed41fe7bc55f2e::t_49212784ee948a 85
+  s_d0f637ab2a8b01::t_4e134003fd433c 238-239,241-245
+  s_fb653307799c5f::t_a198fea7dc93ef 10
+  s_68289bb0ca721d::t_7e80bd530e2654 216-220,222-228,230-231,233,235,252,254
+  s_fb653307799c5f::t_81399e7a66f53f 173-175
+package.json
+  s_fb653307799c5f::t_f8321dc05988c7 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2207f8bced152bd64410048b1512693db11f9b21",
+  "prompts": {},
+  "sessions": {
+    "s_68289bb0ca721d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e3a8fffc-cd71-40f5-b2f2-3a202ff88953",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_aaaf9904f3ef05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7126dd9-0de4-4582-b72c-188b1c6c2f88",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_d0f637ab2a8b01": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "54f231d7-fcf6-4a2a-8d5d-4162f6d2f67f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_ed41fe7bc55f2e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ec47ecf-4865-4dd4-8268-8ded10efac3e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_fb653307799c5f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "42ab5730-ba45-4e6e-ac03-2c946c3aed53",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_fc03edb166085e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9ba664b-c9cf-4e49-b72f-41b3bf1b6053",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

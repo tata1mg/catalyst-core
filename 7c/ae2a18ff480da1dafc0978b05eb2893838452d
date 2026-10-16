@@ -1,0 +1,491 @@
+.github/ISSUE_TEMPLATE/bug.yml
+  s_c729ac6e4b46ab::t_fb937e86fc2b10 1-108
+.github/ISSUE_TEMPLATE/config.yml
+  s_c729ac6e4b46ab::t_7ff529af8a16db 1-9
+.github/ISSUE_TEMPLATE/dependencies.yml
+  s_c729ac6e4b46ab::t_95e65434e6d375 1-52
+.github/ISSUE_TEMPLATE/documentation.yml
+  s_c729ac6e4b46ab::t_9aaf90ece0ebb8 1-49
+.github/ISSUE_TEMPLATE/enhancement.yml
+  s_c729ac6e4b46ab::t_85dbf126fa0359 1-61
+.github/ISSUE_TEMPLATE/question.yml
+  s_c729ac6e4b46ab::t_1074ce6638489a 1-39
+.github/PULL_REQUEST_TEMPLATE.md
+  s_c729ac6e4b46ab::t_44625603bc8915 1-33
+.github/PULL_REQUEST_TEMPLATE/chore.md
+  s_c729ac6e4b46ab::t_2fc8f292b6e338 1-29
+.github/PULL_REQUEST_TEMPLATE/feature.md
+  s_c729ac6e4b46ab::t_a39f01b9dc5b62 1-36
+.github/PULL_REQUEST_TEMPLATE/fix.md
+  s_c729ac6e4b46ab::t_de8667d82ddc64 1-39
+.github/workflows/node.js.yml
+  s_c729ac6e4b46ab::t_8aed3e49a16e19 5-6,10-341,347,349,352-369,371-378,380-400,402-635,637-644,646-659,662-1034,1037-1321,1323-1326,1329-1341,1345,1348,1350
+.gitignore
+  s_c729ac6e4b46ab::t_c43cdfcb74e976 3-5,77-80
+.husky/pre-commit
+  s_c729ac6e4b46ab::t_0de082ba689e5a 1-16
+.nvmrc
+  s_c729ac6e4b46ab::t_767b35859caa1e 1
+.oxlintrc.json
+  s_c729ac6e4b46ab::t_e1b497268ff2e1 1-25
+CONTRIBUTING.md
+  s_c729ac6e4b46ab::t_684703a8c322aa 1-59
+README.md
+  s_c729ac6e4b46ab::t_f1bcff0e185d45 55,60-61
+docs/src/js/components/docs/DocsSidebar.js
+  s_c729ac6e4b46ab::t_6ab7c2350c4a31 1,4,10-18,20-23,44-58,79,116-235,238-247,257-273
+docs/src/js/components/docs/ErrorPage.js
+  s_c729ac6e4b46ab::t_1dea15119699e8 1-168
+docs/src/js/components/docs/ErrorsIndexPage.js
+  s_c729ac6e4b46ab::t_024d78081b64e9 1-282
+docs/src/js/components/docs/ErrorsUnavailable.js
+  s_c729ac6e4b46ab::t_7e089496df0ab8 1-51
+docs/src/js/data/errorsCatalog.js
+  s_c729ac6e4b46ab::t_e98a194cf10c1e 1-108
+docs/src/js/data/errorsSource.js
+  s_c729ac6e4b46ab::t_bc555f29ccee7f 1-30
+docs/src/js/routes/index.js
+  s_c729ac6e4b46ab::t_9416ce4213e838 4-5,20-34
+docs/src/static/css/base/docs.scss
+  s_c729ac6e4b46ab::t_efcf057318d9d3 613-616,1329-1693
+examples/catalyst-core-test/tests/main.spec.js
+  s_c729ac6e4b46ab::t_20dc6017265499 50-52
+examples/error-catalog/.npmrc
+  s_c729ac6e4b46ab::t_71deea6c379e16 1
+examples/error-catalog/README.md
+  s_c729ac6e4b46ab::t_b761367e0736da 1-156
+examples/error-catalog/config/config.template.json
+  s_c729ac6e4b46ab::t_78419393211d54 1-25
+examples/error-catalog/package.json
+  s_c729ac6e4b46ab::t_ace7ce6df7c872 1-38
+examples/error-catalog/scenarios/_baseline.js
+  s_c729ac6e4b46ab::t_70686ea1682a75 1-69
+examples/error-catalog/scenarios/ai.js
+  s_c729ac6e4b46ab::t_fa296aab96450b 1-107
+examples/error-catalog/scenarios/build-native.js
+  s_c729ac6e4b46ab::t_1eb094eecb6849 1-52
+examples/error-catalog/scenarios/bundle.js
+  s_c729ac6e4b46ab::t_53e0e17886033d 1-27
+examples/error-catalog/scenarios/cca.js
+  s_c729ac6e4b46ab::t_494e2614974b57 1-65
+examples/error-catalog/scenarios/client.js
+  s_c729ac6e4b46ab::t_5938d8a5fc920e 1-60
+examples/error-catalog/scenarios/index.js
+  s_c729ac6e4b46ab::t_fd4f8c1f4e18dd 1-70
+examples/error-catalog/scenarios/mapping.js
+  s_c729ac6e4b46ab::t_d9e47518963dfc 1-124
+examples/error-catalog/scenarios/preflight.js
+  s_c729ac6e4b46ab::t_3528ffb9c73c44 1-282
+examples/error-catalog/scenarios/process.js
+  s_c729ac6e4b46ab::t_77c6f2904465fb 1-51
+examples/error-catalog/scenarios/runtime-web.js
+  s_c729ac6e4b46ab::t_d0350c913890b9 1-75
+examples/error-catalog/scripts/demo.js
+  s_c729ac6e4b46ab::t_238e78aac4a2d8 1-297
+examples/error-catalog/scripts/ensure-config.js
+  s_c729ac6e4b46ab::t_f3dae3d625e0a1 1-18
+examples/error-catalog/scripts/test-error.js
+  s_c729ac6e4b46ab::t_8396f1591337a1 1-560
+examples/error-catalog/server/api.js
+  s_c729ac6e4b46ab::t_8532c3360041d0 1-5
+examples/error-catalog/server/document.js
+  s_c729ac6e4b46ab::t_a49e64921af5b0 1-3
+examples/error-catalog/server/index.js
+  s_c729ac6e4b46ab::t_37fefc71f74b89 1
+examples/error-catalog/server/server.js
+  s_c729ac6e4b46ab::t_60fa416c1b1205 1
+examples/error-catalog/src/js/containers/App/Home.jsx
+  s_c729ac6e4b46ab::t_ed70ada8ae059c 1-5
+examples/error-catalog/src/js/containers/App/index.jsx
+  s_c729ac6e4b46ab::t_09c1cb433428b6 1-14
+examples/error-catalog/src/js/containers/App/reducer.js
+  s_c729ac6e4b46ab::t_275a2a874e04cb 1-7
+examples/error-catalog/src/js/routes/index.js
+  s_c729ac6e4b46ab::t_a7fc9d9a34c889 1-10
+examples/error-catalog/src/js/routes/utils.js
+  s_c729ac6e4b46ab::t_0f84cb55d34891 1-4
+examples/error-catalog/src/js/store/index.js
+  s_c729ac6e4b46ab::t_ac6ab53935ac83 1-2
+examples/error-catalog/test/ai-hooks.test.ts
+  s_c729ac6e4b46ab::t_3026365b5b27ad 1-35
+examples/error-catalog/test/client.test.ts
+  s_c729ac6e4b46ab::t_611e811c901331 1-95
+examples/error-catalog/test/mapping.test.ts
+  s_c729ac6e4b46ab::t_dddc0257edb72f 1-18
+examples/error-catalog/test/scenarios.test.ts
+  s_c729ac6e4b46ab::t_213248b28127cb 1-412
+examples/error-catalog/tsconfig.json
+  s_c729ac6e4b46ab::t_e606430cb83057 1-12
+examples/error-catalog/vitest.config.mjs
+  s_c729ac6e4b46ab::t_cef85b46c59254 1-8
+examples/sync-packages.js
+  s_c729ac6e4b46ab::t_ccc065cb978816 77-81,87-88
+package-lock.json
+  s_c729ac6e4b46ab::t_8e849ff3520a36 13-77,82-83,112-113,122-123,136-137,145-146,175-176,193-195,198-199,210-211,222-223,238-239,259-261,277-279,294-295,303-304,316-317,329-330,346-347,358-359,367-369,385-386,402-403,415-416,424-425,433-434,442-444,457-458,469-471,474,485-487,502-504,518-520,534-536,551-553,569-571,586-588,604-606,617-618,632-634,648-650,664-665,679-680,694-696,711-713,727-729,745-747,763-765,779-781,795-796,811-813,828-830,849-851,866-868,883-885,900-902,916-918,933-935,949-951,966-968,982-984,998-999,1014-1016,1031-1033,1049-1051,1065-1067,1081-1083,1097-1099,1113-1115,1130-1131,1145-1148,1154,1165-1167,1182-1184,1199-1201,1215-1216,1230-1232,1246-1248,1266-1268,1283-1285,1299-1300,1315-1317,1331-1332,1347-1349,1365-1367,1381-1382,1397-1398,1417-1418,1433-1434,1448-1449,1463-1464,1479-1482,1496-1498,1513-1515,1529-1531,1544-1547,1562-1564,1578-1580,1594-1596,1610-1611,1629-1631,1645-1647,1662-1664,1679-1681,1696-1698,1782-1783,1799-1801,1814-1815,1835-1836,1854-1855,1873-1874,1882-1883,1895-1897,1901,1903,1905,1913-1915,1925-1947,1959-1960,1981-1982,1995-1996,2009-2010,2027-2028,2037-2038,2051-2052,2064-2066,2078-2079,2094-2095,2116-2117,2126-2127,2141-2142,2158-2159,2176-2177,2192-2193,2202-2203,2213-2216,2220-2222,2225-2228,2231-2235,2238-2239,2241-2244,2247-2250,2254,2257,2260,2263-2266,2268-2271,2273,2276,2279-2282,2286,2289-2293,2296-2297,2300,2303-2306,2308-2320,2323-2326,2328-2337,2340-2344,2347-2350,2352-2362,2364-2365,2368-2372,2375-2378,2380-2390,2392,2394-2395,2398-2401,2403-2415,2417-2420,2423-2437,2440,2443-2446,2449-2451,2454-2460,2462-2465,2467,2470-2476,2478-2481,2483,2486-2492,2494-2497,2499,2502-2508,2511-2513,2515,2518-2521,2531,2534-2540,2543-2545,2547,2550-2564,2566-2572,2574-2577,2579,2582-2588,2590-2593,2595,2598-2601,2608-2612,2614-2620,2622-2627,2630-2636,2638-2641,2643,2646-2652,2654-2657,2659,2662-2668,2670-2673,2675,2678-2684,2686-2689,2691,2694-2700,2702-2705,2707,2710-2716,2718-2721,2723,2726-2732,2734-2737,2739,2742-2748,2750-2753,2755,2758-2764,2766-2769,2771,2774-2785,2787,2790-2874,2877,2880,2883,2886-2896,2898-2899,2902-2906,2909,2912-2916,2919-2927,2930-2946,2950,2953-2974,2976-2994,2996-2998,3001-3011,3015-3032,3034-3035,3038-5238,5240-5241,5244-5248,5251-5272,5275-5279,5282-5290,5293-5297,5300-5317,5320-5323,5327-5330,5333-5337,5340-5344,5347-5351,5354-5360,5363-5366,5369-5370,5373-5376,5380-5382,5384-5385,5390-5391,5403-5404,5411-5414,5425-5426,5435-5436,5452-5453,5467-5469,5481-5482,5503-5504,5518-5519,5522-5531,5534-5535,5551-5552,5557-5558,5564-5565,5587-5588,5608-5609,5627-5628,5646-5647,5663-5664,5683-5692,5695-5696,5705-5723,5732-5733,5742-5743,5758-5760,5773-5775,5787-5789,5800-5801,5805-5807,5816-5825,5828-5829,5844,5866-5867,5875-5876,5883,5891-5892,5902-5904,5921-5925,5936-5937,5942-5943,5951-5952,5970-5971,5983-5984,5997-6005,6008-6009,6019-6021,6046-6055,6058-6059,6071-6072,6097-6098,6106-6107,6122-6123,6139-6140,6154-6155,6164-6165,6180-6181,6193-6194,6200-6201,6207-6208,6217-6218,6232-6233,6245-6246,6263-6264,6323-6324,6330-6331,6340-6341,6346-6347,6357-6358,6369-6370,6387-6388,6396-6397,6402-6403,6408-6409,6420-6421,6429-6430,6442-6443,6455-6456,6474-6475,6480-6481,6489-6490,6502-6503,6507-6510,6513-6516,6524-6526,6552-6553,6574-6575,6587-6605,6610-6611,6621-6649,6652-6653,6670-6671,6688-6689,6705-6707,6712-6713,6727-6733,6736-6737,6743-6744,6752-6753,6770-6771,6788-6789,6795-6804,6807-6808,6817-6819,6827-6828,6832-6902,6905-6909,6914-6915,6924-6925,6937-6938,6951-6952,6956-6958,6963-6964,6976-6977,6984-6986,6989,6997-6998,7007-7008,7020-7021,7029-7030,7096-7114,7117-7118,7126-7127,7134-7136,7161-7167,7170-7171,7182-7183,7198-7199,7210-7212,7216-7218,7220-7221,7232-7233,7273-7274,7282-7283,7288-7289,7300-7302,7357-7358,7373-7374,7406-7407,7427-7428,7440-7441,7453-7454,7477-7478,7492-7493,7508-7509,7518-7519,7532-7533,7542-7543,7552-7553,7569-7570,7579-7580,7595-7596,7612-7613,7625-7626,7632-7633,7649-7650,7662-7663,7679-7680,7692-7693,7699-7700,7715-7716,7731-7732,7747-7748,7757-7758,7770-7771,7783-7784,7801-7802,7814-7815,7827-7828,7840-7841,7853-7854,7862-7869,7873-7875,7883-7884,7892-7893,7899-7900,7921-7930,7933-7934,7979-7980,7989-7990,7998-7999,8004-8005,8011-8012,8018-8019,8037-8038,8042-8043,8050-8066,8075-8076,8097-8098,8109-8110,8127-8128,8136-8137,8142-8143,8155-8157,8160,8163,8168-8169,8181-8197,8199-8201,8205-8213,8215-8217,8219-8221,8234-8235,8250-8251,8259-8260,8268-8269,8274-8275,8281-8282,8287-8289,8301-8302,8309-8311,8315-8318,8320-8323,8334-8335,8344-8345,8354-8355,8363-8364,8373-8374,8386-8387,8410-8411,8423-8424,8436-8437,8454-8456,8473-8475,8494-8495,8508-8509,8524-8525,8540-8541,8557-8558,8569-8570,8575-8576,8582-8583,8595-8596,8604-8605,8617-8618,8633-8634,8645-8646,8661-8662,8673-8674,8680-8681,8688-8729,8732-8733,8752-8753,8758-8759,8768-8769,8784-8785,8796-8797,8807-8808,8812-8813,8828-8829,8837-8838,8848-8849,8858-8859,8865-8874,8877-8879,8888-8889,8894-8895,8904-8905,8919-8920,8928-8929,8937-8938,8955-8956,8961-8962,8981-8982,8997-8998,9011-9012,9028-9029,9041-9043,9057-9058,9075-9076,9090-9105,9108-9109,9118-9119,9134-9135,9147-9148,9167-9168,9180-9181,9193-9194,9206-9207,9215-9216,9232-9233,9242-9243,9252-9253,9262-9268,9271-9272,9290-9291,9303-9304,9319-9320,9332-9333,9349-9350,9367-9368,9380-9381,9396-9397,9409-9410,9425-9426,9442-9443,9449-9450,9456-9457,9463-9530,9533-9534,9551-9553,9561-9562,9579,9589-9590,9627-9628,9642-9643,9658-9659,9670-9671,9674-9678,9681-9704,9706-9720,9722,9727-9728,9739-9740,9746-9747,9752-9753,9759-9760,9766-9767,9778-9779,9788-9789,9805-9806,9821-9822,9831-9832,9840-9841,9855-9856,9864-9865,9876-10136,10139-10140,10152-10153,10158-10159,10186-10187,10203-10205,10208-10209,10212,10217-10218,10224-10225,10231-10233,10238-10240,10246-10247,10253-10254,10260-10261,10267-10268,10274-10275,10281-10282,10288-10289,10295-10296,10302-10303,10309-10310,10329-10330,10345-10346,10379-10380,10391-10392,10400-10401,10407-10438,10441-10442,10454-10455,10463-10464,10470-10476,10479-10480,10488-10489,10501-10502,10510-10511,10517-10518,10526-10527,10539-10540,10550-10552,10560-10561,10572-10573,10585-10586,10596-10605,10608-10609,10620-10621,10629-10630,10638-10639,10650-10651,10671-10672,10676-10678,10685,10695-10696,10702-10703,10711-10712,10717-10718,10727-10728,10734-10735,10745-10747,10764-10766,10774-10775,10785-10786,10801-10802,10814-10815,10832-10833,10844-10845,10854-10855,10875-10876,10891-10892,10910-10911,10927-10940,10943-10944,10955-10956,10964-10965,10982-10983,10998-10999,11015-11017,11021-11022,11033-11036,11039-11086,11088,11091,11098-11100,11103,11106,11111-11112,11120-11121,11132-11133,11150-11151,11154-11166,11169-11170,11177-11179,11182,11187-11188,11196-11197,11206-11208,11213-11230,11235-11236,11241-11242,11252-11254,11266-11267,11275-11276,11284-11285,11296-11297,11305-11307,11322,11324,11334-11335,11343-11345,11358-11402,11405-11406,11418-11419,11429-11430,11440-11449,11451-11453,11456-11457,11468-11469,11489-11490,11498-11499,11512-11514,11521-11523,11526,11529,11534-11535,11540-11541,11557-11558,11563-11564,11586-11587,11609-11610,11622-11624,11637-11646,11648-11657,11662-11663,11685-11687,11692-11694,11705-11706,11715-11716,11736-11738,11754-11756,11760-11763,11774-11775,11784-11785,11794-11796,11816-11817,11826-11827,11843-11844,11859-11860,11870-11871,11876-11879,11888-11928,11930-11932,11945-11970,11976-11977,12000-12001,12020-12021,12040-12041,12057-12058,12067-12068,12094-12095,12098-12124,12126-12128,12147-12148,12161-12163,12173-12178,12180-12183,12186-12191,12194-12195,12203-12204,12227-12228,12236-12237,12242-12243,12257-12258,12275-12276,12291-12292,12306-12307,12312-12313,12324-12325,12330-12331,12343-12344,12352-12354,12358-12359,12372-12373,12388-12389,12406-12407,12423-12429,12432-12433,12444-12445,12450-12451,12460-12461,12477-12478,12485-12493,12496-12497,12505-12506,12515-12516,12532-12538,12541-12542,12548-12554,12557-12558,12580-12581,12590-12591,12608-12609,12636-12637,12646-12648,12652-12653,12656-12659,12669-12671,12675-12676,12678,12689-12690,12707-12708,12723-12724,12734-12746,12749-12750,12760-12771,12774-12776,12786-12798,12801-12805,12807-12811,12814,12817-12823,12826-12830,12832-12833,12836,12841-12842,12860-12861,12867-12868,12874-12882,12886-12888,12897-12898,12911-12914,12917,12919-12920,12923-12927,12930-12940,12942-12943,12946-12952,12955-12956,12967-12968,12974-12999,13011-13012,13017-13018,13030-13031,13043-13044,13056-13057,13071-13072,13091-13092,13113-13114,13133-13136,13139,13142-13164,13169-13170,13195-13196,13212-13221,13223-13226,13231-13233,13241-13243,13255-13257,13265-13267,13275-13276,13288-13289,13296-13298,13327-13328,13337-13338,13352-13353,13361-13362,13370-13371,13378-13381,13384-13388,13394,13403-13405,13407-13411,13420,13423,13426-13429,13457-13589,13592,13594-13595,13598-13603,13605,13608-13612,13615-13627,13629-13630,13635-13636,13651-13652,13671-13672,13699-13700,13717-13719,13738-13754,13823-13824,13833-13834,13851-13852,13857-13858,13868-13884,13887-13888,13897-13898,13903-13905,13918-13920,13938-13939,13948-13949,13958-13959,13965-13966,13975-13982,13984-13985,13988-13993,13995,13998,14001-14006,14008-14011,14014-14018,14020-14021,14024-14028,14030-14031,14034,14037-14045,14048,14051-14052,14056-14057,14060-14111,14114-14118,14120-14123,14126-14138,14140,14143-14197,14217-14221,14226-14227,14233-14236,14238-14239,14242-14251,14254-14257,14260-14263,14265-14269
+package.json
+  s_c729ac6e4b46ab::t_3a8a4c58a7c915 4-6,20,22,27-28
+packages/catalyst-ai/package.json
+  s_c729ac6e4b46ab::t_5131011b004658 4,11-14,29-34
+packages/catalyst-ai/src/route.d.ts
+  s_c729ac6e4b46ab::t_ab7d1d892adaba 1-88
+packages/catalyst-ai/src/route.js
+  s_c729ac6e4b46ab::t_e173eb2aabf19a 607-626
+packages/catalyst-ai/test/route.handlers.test.ts
+  s_c729ac6e4b46ab::t_b5dba2c7ff34d7 1-488
+packages/catalyst-ai/test/route.test.ts
+  s_c729ac6e4b46ab::t_31603629d05946 1-177
+packages/catalyst-ai/tsconfig.json
+  s_c729ac6e4b46ab::t_7bfe6aa93af6c7 1-23
+packages/catalyst-ai/vitest.config.mjs
+  s_c729ac6e4b46ab::t_c780922b80412f 1-20
+packages/catalyst-core/.npmignore
+  s_c729ac6e4b46ab::t_daaf9ab218082a 35-37
+packages/catalyst-core/mcp_v2/mcp.js
+  s_c729ac6e4b46ab::t_81a198e6f1bf1d 136,138,153,609-726,745
+packages/catalyst-core/mcp_v2/package-lock.json
+  s_c729ac6e4b46ab::t_a3b0d0dfde4a4c 1-2031
+packages/catalyst-core/mcp_v2/package.json
+  s_c729ac6e4b46ab::t_acbf1640e57b14 9-12,15-23
+packages/catalyst-core/mcp_v2/test/errors.test.ts
+  s_c729ac6e4b46ab::t_bd7c4538045e0c 1-123
+packages/catalyst-core/mcp_v2/test/github.test.ts
+  s_c729ac6e4b46ab::t_eee71c5a5bedf7 1-177
+packages/catalyst-core/mcp_v2/tools/errors.d.ts
+  s_c729ac6e4b46ab::t_e524233a63c59e 1-20
+packages/catalyst-core/mcp_v2/tools/github.d.ts
+  s_c729ac6e4b46ab::t_c4e69d975a3a3c 1-41
+packages/catalyst-core/mcp_v2/tools/github.js
+  s_c729ac6e4b46ab::t_ccaa13648a26c4 123-157,1160-1350,1354-1358
+packages/catalyst-core/mcp_v2/tsconfig.json
+  s_c729ac6e4b46ab::t_af830d3c8b4928 1-25
+packages/catalyst-core/mcp_v2/vitest.config.mjs
+  s_c729ac6e4b46ab::t_ef2a4397f5dc9b 1-22
+packages/catalyst-core/package.json
+  s_c729ac6e4b46ab::t_bb7b81f462773e 62-64,111,124-130
+packages/catalyst-core/src/errors/generateDocs.js
+  s_c729ac6e4b46ab::t_ca43248b7ebf1e 10,31-32,35,48-49,51,57-68,71,77,91-92,94
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_c729ac6e4b46ab::t_8eec8df5be51f9 90-94,223,230-236,240,252-261,276-285,287,315-421
+packages/catalyst-core/src/native/androidProject/app/src/main/AndroidManifest.xml
+  s_c729ac6e4b46ab::t_c46d27d1bd0616 8-11
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_c729ac6e4b46ab::t_0a1707d65ff7b0 30,99
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/BarcodeDetector.kt
+  s_c729ac6e4b46ab::t_85a32ab292f782 4-5,77
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/CameraSessionManager.kt
+  s_c729ac6e4b46ab::t_4eddbc02677335 10,12,157
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/FrameworkServerUtils.kt
+  s_c729ac6e4b46ab::t_c52739ed355c6f 67-83,108-115,530-547
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/BridgeUtilsTest.kt
+  s_c729ac6e4b46ab::t_518c5cd9cc0ddb 3,8-12,21-27,29,299-465
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/CameraUtilsTest.kt
+  s_c729ac6e4b46ab::t_1f7a43ffb986c1 3-6,8,10,12-19,22,24-30,32-36,40-73,75,79-81,85-88,90-99,103,107-108,110-113,115,119-121,123-126,130,134-138,140-142,144-149,151-154,158-160,162-164,166-169,173,177-186,190-194,197-208,210-214
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FileSizeRouterUtilsTest.kt
+  s_c729ac6e4b46ab::t_db5d0e8290e951 1-471
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FileUtilsTest.kt
+  s_c729ac6e4b46ab::t_3857c19f5e95df 3-9,11,13,15-24,27,29-34,36-38,42-84,86,90-92,96-99,101-106,108-110,112-115,119-122,124-127,131,135-137,141-154,158-161,163-165,167-174,178-186,190,194-199,201,203-204,206-212,214,216-217,221-223,227,231-241,243-245,247-251,253,255-258,262-266,270,273-297
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FrameworkServerUtilsTest.kt
+  s_c729ac6e4b46ab::t_7a5923edf2961d 1-300
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/IntentUtilsTest.kt
+  s_c729ac6e4b46ab::t_ecf52ebcd30fb6 1-244
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/MetricsMonitorTest.kt
+  s_c729ac6e4b46ab::t_05d7a03a752292 1-359
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NativeBridgeTest.kt
+  s_c729ac6e4b46ab::t_c7ec585e6d8548 278-285,287-292,294-296,298-299,303-306,308-309,313-316,318-319,323-358,360-373,377-403
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NotificationUtilsTest.kt
+  s_c729ac6e4b46ab::t_cc88fa417c3fd7 3-11,15-22,24,26-35,38,40-46,48-55,57-67,69,72-76,78-80,82-101,103-111,114-119,122-125,127-140,142,144-154,158-159,161-165,169,173-175,179-182,184-188,190-191,193-194,198-200,202-203,207-209,213-222,225-227,229-246,249-252,254-261,265-268,272-282,285,287-291,293-299,302-315,318-319,323-332,335,337-338,340-350,352-363,366-394,396-411
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/OfflineCacheServiceTest.kt
+  s_c729ac6e4b46ab::t_174c1246156234 1-302
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/PerfEventBufferTest.kt
+  s_c729ac6e4b46ab::t_ce7d1f19571251 3,5,7,11,13-21,23-24,26,28-37,40-53,57-60,63-68,71-74,76-78,80-81,85-86,88-90,94-95,97-99,101-106,108-110,114-115,117-121,124-131
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/UtilsKtTest.kt
+  s_c729ac6e4b46ab::t_80c4c9a6bc4a58 1-152
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebCacheManagerTest.kt
+  s_c729ac6e4b46ab::t_375728d3aae45f 3-5,7,9-11,14,17-23,25-28,30-39,43-44,46-51,54-56,59-61,64-66,68-72,76-77,83,87-90,92-94,98,102-105,108-113,116-160,164,168-172,174,176-178,183-185,189-191,193-194,196-199,201,203-204,208-210
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/BarcodeDetectorTest.kt
+  s_c729ac6e4b46ab::t_dcc08a7dc36c77 1-132
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/HoldControllerTest.kt
+  s_c729ac6e4b46ab::t_64a8b2decad151 1-155
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/TorchControllerTest.kt
+  s_c729ac6e4b46ab::t_9ed4a7a1c99483 1-150
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/VideoStreamStateMachineTest.kt
+  s_c729ac6e4b46ab::t_af91cec1757e80 1-120
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/VideoStreamStateTest.kt
+  s_c729ac6e4b46ab::t_83124f4817105e 1-62
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/ViewfinderMapperTest.kt
+  s_c729ac6e4b46ab::t_1b4a1e3e039ce3 1-143
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/ZoomControllerTest.kt
+  s_c729ac6e4b46ab::t_c3337b54e145f3 1-421
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/design/DesignTokensTest.kt
+  s_c729ac6e4b46ab::t_ae84d59124d7c9 1-207
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/plugins/PluginBridgeTest.kt
+  s_c729ac6e4b46ab::t_1a15af6706183d 3-4,6,10,14,16-24,26-69,72-97,223-506
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/FridaDetectorTest.kt
+  s_c729ac6e4b46ab::t_419736a8e5d0a7 1-193
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/SecurityCheckManagerTest.kt
+  s_c729ac6e4b46ab::t_f25982335469ea 1-260
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/SecurityCheckSchedulerTest.kt
+  s_c729ac6e4b46ab::t_e858c39d01d2e4 1-166
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/DeviceInfoUtilsTest.kt
+  s_c729ac6e4b46ab::t_fc67e8e61343c8 1-167
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/DownloadUtilsTest.kt
+  s_c729ac6e4b46ab::t_6139501382eac3 1-197
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/NetworkMonitorTest.kt
+  s_c729ac6e4b46ab::t_e5deac99dd1243 1-271
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/PushNotificationUtilsTest.kt
+  s_c729ac6e4b46ab::t_b3b7967596ed33 1-119
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/SafeAreaUtilsTest.kt
+  s_c729ac6e4b46ab::t_69dd010ecd0945 1-108
+packages/catalyst-core/src/native/androidProject/build.gradle.kts
+  s_c729ac6e4b46ab::t_f508b970ab5dbd 10
+packages/catalyst-core/src/native/androidProject/gradle/libs.versions.toml
+  s_c729ac6e4b46ab::t_0d0e75921e15f1 15-31,45-48,52-56
+packages/catalyst-core/src/native/androidProject/settings.gradle.kts
+  s_c729ac6e4b46ab::t_b1c1bd0dc8620b 37-47
+packages/catalyst-core/src/native/androidSetup.js
+  s_c729ac6e4b46ab::t_ac007e9ec664fa 5
+packages/catalyst-core/src/native/buildAndroid/index.js
+  s_c729ac6e4b46ab::t_35a6b69f178cba 6
+packages/catalyst-core/src/native/buildIos/config.js
+  s_c729ac6e4b46ab::t_94f8eef1c716a1 138-141,144,146,153-156,159-163
+packages/catalyst-core/src/native/buildIos/index.js
+  s_c729ac6e4b46ab::t_a77ee848b08196 6
+packages/catalyst-core/src/native/buildIos/plugins.js
+  s_c729ac6e4b46ab::t_e81a78e8100a63 200,208-213,217,226
+packages/catalyst-core/src/native/iosnativeWebView/.swiftlint.yml
+  s_c729ac6e4b46ab::t_c36e661287a47a 1-66
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Package.swift
+  s_c729ac6e4b46ab::t_eb08c25189493d 1-36
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Camera/VideoStreamState.swift
+  s_c729ac6e4b46ab::t_2d621341b72418 18
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Camera/VideoStreamStateMachine.swift
+  s_c729ac6e4b46ab::t_734a2e1c10b78d 11,17-19,25,44
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/BootTimingUtility.swift
+  s_c729ac6e4b46ab::t_87069b7582e33b 12-13,18
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_c729ac6e4b46ab::t_ab1a3422c71438 93,101,137,286,331,487-488,492-495,510,513,516
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NetworkMonitor.swift
+  s_c729ac6e4b46ab::t_6ea502951fbe86 5-7,10-11,35,40,58,90-92
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NotificationHandlerProvider.swift
+  s_c729ac6e4b46ab::t_c377003ba0ca21 14
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/URLWhitelistManager.swift
+  s_c729ac6e4b46ab::t_ff41f57c9a6ae2 25-26,69,77,85,142,150
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/AnyCodableTests.swift
+  s_c729ac6e4b46ab::t_909945f93fc7a7 1-154
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/BootTimingUtilityTests.swift
+  s_c729ac6e4b46ab::t_9decaf7e96a8b9 3,97-105,203-211,213,219-221
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/CatalystConstantsTests.swift
+  s_c729ac6e4b46ab::t_702803ef14672a 1-192
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/ConfigMappingTests.swift
+  s_c729ac6e4b46ab::t_4f9893440f3f24 2
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsErrorPathTests.swift
+  s_c729ac6e4b46ab::t_0293d3c8e1c7c5 1-106
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsLoopbackTests.swift
+  s_c729ac6e4b46ab::t_5e64e8dd45d9f5 1-243
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsTests.swift
+  s_c729ac6e4b46ab::t_ea7c8392f60677 3
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NetworkMonitorTests.swift
+  s_c729ac6e4b46ab::t_9cf18460439eb1 1-119
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NotificationHandlerProviderTests.swift
+  s_c729ac6e4b46ab::t_e4b5e64a3b0576 1-59
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/NotificationHandlerTests.swift
+  s_c729ac6e4b46ab::t_78f0c2cf08b013 3
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/URLWhitelistManagerTests.swift
+  s_c729ac6e4b46ab::t_c5116d41db2a81 2
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/VideoStreamStateMachineTests.swift
+  s_c729ac6e4b46ab::t_d4fc8590026af6 1-171
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/VideoStreamStateTests.swift
+  s_c729ac6e4b46ab::t_ba580529bbd04f 1-91
+packages/catalyst-core/src/native/iosnativeWebView/Package.swift
+  s_c729ac6e4b46ab::t_3349588c8f87b4 9,14,24,30-36
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/LocalNotificationHandler.swift
+  s_c729ac6e4b46ab::t_b48ae85c56bde5 6,198-202,298
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/NotificationManager.swift
+  s_c729ac6e4b46ab::t_339322391f24e1 6
+packages/catalyst-core/src/native/iosnativeWebView/Sources/CatalystNotifications/PushNotificationHandler.swift
+  s_c729ac6e4b46ab::t_d26d5718b587da 5,70,76,82,200
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/CameraSessionManager.swift
+  s_c729ac6e4b46ab::t_52b606cb446bd9 5
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/HoldController.swift
+  s_c729ac6e4b46ab::t_bec49b9179411b 3
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/NativeCameraManager.swift
+  s_c729ac6e4b46ab::t_cc89201236998e 5,80-81,100,102,108
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Camera/ZoomController.swift
+  s_c729ac6e4b46ab::t_d110e4c17b0245 5
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  s_c729ac6e4b46ab::t_997c42993ba45e 5
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CacheManager.swift
+  s_c729ac6e4b46ab::t_eda8d697988719 4,11,17,29,35,46,91,121,126,131,150,153,162,171,174,179,186,202,206,212,231,235,242,244,252,263,268,275,279,285,312
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CameraTransportUtils.swift
+  s_c729ac6e4b46ab::t_6bf0615f38a2a1 12,364
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/DeviceInfoUtils.swift
+  s_c729ac6e4b46ab::t_129bbada722ade 11
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/FilePickerHandler.swift
+  s_c729ac6e4b46ab::t_32b24206948581 13,186,201,381-383,393,406,415,421,426,433,442,451,827,834,842,848,977,986,991,1006
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/ImageHandler.swift
+  s_c729ac6e4b46ab::t_af74d313ad2ea5 9,24,42,48,51,56,59,65,71,80,87,95,97,102,107,115,117,120,163,190,200,207,221,225,231,234,242,251,265,276,281,286,294,300,305,310,444,456,462,465
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/PerfEventBuffer.swift
+  s_c729ac6e4b46ab::t_3fadbdc9ec252d 4
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/ResourceURLProtocol.swift
+  s_c729ac6e4b46ab::t_a040d496be11e5 11,19,25,68,86,93,96,102,116,126,129,134,136,142,160
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/WebKitConfig.swift
+  s_c729ac6e4b46ab::t_a0e9c23afa0e48 10,15,17,35
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_c729ac6e4b46ab::t_1e69dd569e23f9 17,32-35,725
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeDelegateHandler.swift
+  s_c729ac6e4b46ab::t_fa916bd30d273d 12
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeFileHandler.swift
+  s_c729ac6e4b46ab::t_03edebb07246b4 12,307
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeJavaScriptInterface.swift
+  s_c729ac6e4b46ab::t_c8b5f64bd61319 12,150
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_c729ac6e4b46ab::t_7d29470e1e2501 13,586,598
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_c729ac6e4b46ab::t_416f3cc856a612 13,177,216,275-279,403-404,421-422,425-432
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashView.swift
+  s_c729ac6e4b46ab::t_4866ab93434207 2,44,53,56,64,92
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashViewModel.swift
+  s_c729ac6e4b46ab::t_aefd38dfa87a6d 4,20,24,31,33,41,44,49,54,66,70,73,76,81
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/TransitionManager.swift
+  s_c729ac6e4b46ab::t_941d555aae8e88 114-116
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_c729ac6e4b46ab::t_580b925b13a1c6 4,40,159,167,171,197,212,246,262
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewModel.swift
+  s_c729ac6e4b46ab::t_23c0e6d698cb1e 4,44,48,59,62,66,70
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_c729ac6e4b46ab::t_3bfbafe08c7ee3 4,28,169,193,197,215,222,226,232,236-237,250,256,388,395,398,402,404,412,482,499,503,506,520
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView.xcodeproj/project.pbxproj
+  s_c729ac6e4b46ab::t_3cafbec979968b 22,61
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/AppDelegate.swift
+  s_c729ac6e4b46ab::t_30b799d7b63bd1 12,68-72
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/ContentView.swift
+  s_c729ac6e4b46ab::t_ad0f546db0d510 5
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/iosnativeWebViewApp.swift
+  s_c729ac6e4b46ab::t_73828135a241d1 12,25-26,28
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/BridgeMessageValidatorTests.swift
+  s_c729ac6e4b46ab::t_4f1b3b06b6cd59 3
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/CacheManagerTests.swift
+  s_c729ac6e4b46ab::t_656fb49e6f7d31 3
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/FilePickerHandlerTests.swift
+  s_c729ac6e4b46ab::t_87ecfc4fb7b26a 4,362
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/NativeBridgeTests.swift
+  s_c729ac6e4b46ab::t_17577eb21238ad 439,446-448,453,472,479-481,486,525,532-534,539
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/WebViewTests.swift
+  s_c729ac6e4b46ab::t_419e4f33ce13d1 4
+packages/catalyst-core/src/native/setupEmulatorIos.js
+  s_c729ac6e4b46ab::t_bf93bc85c92dac 4
+packages/catalyst-core/src/native/terminalProgress.js
+  s_c729ac6e4b46ab::t_648fd781563998 1
+packages/catalyst-core/src/scripts/build.js
+  s_c729ac6e4b46ab::t_39a9a21d0e135d 9-15
+packages/catalyst-core/src/scripts/preServerInit.js
+  s_c729ac6e4b46ab::t_1137b22a0a156e 4,50-58
+packages/catalyst-core/src/scripts/preflight.js
+  s_c729ac6e4b46ab::t_9b4105cbbee585 1-111
+packages/catalyst-core/src/scripts/serve.js
+  s_c729ac6e4b46ab::t_7abe8eda1735d7 4,18-20
+packages/catalyst-core/src/scripts/start.js
+  s_c729ac6e4b46ab::t_6e25ce97dc3f34 4,18-21
+packages/catalyst-core/src/server/expressServer.ts
+  s_c729ac6e4b46ab::t_ff1a697b6c82b9 14,164-168
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_c729ac6e4b46ab::t_b6d087fb24ff4a 14-20,97-99,268-271,273-275,403-413
+packages/catalyst-core/src/server/utils/validator.ts
+  s_c729ac6e4b46ab::t_805d3788cd0c02 11-19,30-32,36-38,42-44,48-65,67,71-73,77-92,95,99-101,105-107,111-113,129,145,150,161
+packages/catalyst-core/src/web-router/components/MetaTag.test.jsx
+  s_c729ac6e4b46ab::t_7c4ab133f1b72f 1-100
+packages/catalyst-core/src/web-router/components/RouterDataProvider.server.test.jsx
+  s_c729ac6e4b46ab::t_4255dddadb9056 1-98
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_c729ac6e4b46ab::t_37b3c827877163 1-310
+packages/catalyst-core/src/web-router/components/Split.server.test.jsx
+  s_c729ac6e4b46ab::t_d07d68b805f2de 1-52
+packages/catalyst-core/src/web-router/components/Split.test.jsx
+  s_c729ac6e4b46ab::t_be499953fa9a9a 1-167
+packages/catalyst-core/src/web-router/components/SplitInview.test.jsx
+  s_c729ac6e4b46ab::t_e53c7aa694fed8 1-112
+packages/catalyst-core/src/web-router/components/SsrRequestContext.test.jsx
+  s_c729ac6e4b46ab::t_9b19f75a09af27 1-53
+packages/catalyst-core/src/web-router/context.test.jsx
+  s_c729ac6e4b46ab::t_c4a9055fc7b821 1-10
+packages/catalyst-core/src/web-router/hooks.test.jsx
+  s_c729ac6e4b46ab::t_a3c3856a65bd08 1-18
+packages/catalyst-core/src/web-router/utils/metaDataUtils.test.jsx
+  s_c729ac6e4b46ab::t_4681458719db92 1-188
+packages/catalyst-core/src/web-router/vitest.setup.js
+  s_c729ac6e4b46ab::t_eecfb05eb93181 1-12
+packages/catalyst-core/test/errors/docsDrift.test.ts
+  s_c729ac6e4b46ab::t_657dc56a2dc252 1-113
+packages/catalyst-core/test/errors/index.test.ts
+  s_c729ac6e4b46ab::t_9a0cd0e459f125 1-200
+packages/catalyst-core/test/errors/registry.test.ts
+  s_c729ac6e4b46ab::t_5566d0ee0f1a7f 1-108
+packages/catalyst-core/test/scripts/preflight.test.ts
+  s_c729ac6e4b46ab::t_f6c2eabf4a14bd 1-121
+packages/catalyst-core/test/server/ChunkExtractor.test.ts
+  s_c729ac6e4b46ab::t_bb991dc6a6b3a0 1-97
+packages/catalyst-core/test/server/extract.test.ts
+  s_c729ac6e4b46ab::t_ebfb740c82c88a 1-128
+packages/catalyst-core/test/server/fixtures/template/server/document.jsx
+  s_c729ac6e4b46ab::t_5cdcd35e5b3b53 1-19
+packages/catalyst-core/test/server/fixtures/template/server/index.js
+  s_c729ac6e4b46ab::t_dd4c5bfb7d6727 1-10
+packages/catalyst-core/test/server/fixtures/template/src/js/containers/App/index.jsx
+  s_c729ac6e4b46ab::t_04f68a939c2c03 1-33
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/index.jsx
+  s_c729ac6e4b46ab::t_e0283bcad75a59 1-72
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/utils.jsx
+  s_c729ac6e4b46ab::t_7c811f1914c558 1-39
+packages/catalyst-core/test/server/fixtures/template/src/js/store/index.js
+  s_c729ac6e4b46ab::t_ca88dd358263b2 1-19
+packages/catalyst-core/test/server/handler.assets.test.ts
+  s_c729ac6e4b46ab::t_6efaac03d80384 1-331
+packages/catalyst-core/test/server/handler.test.ts
+  s_c729ac6e4b46ab::t_f93f942a03fae8 1-210
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_c729ac6e4b46ab::t_f060c62c47b5d9 1-71
+packages/catalyst-core/test/server/render.test.ts
+  s_c729ac6e4b46ab::t_dcb7097e731a8a 1-85
+packages/catalyst-core/test/server/scriptUtils.test.ts
+  s_c729ac6e4b46ab::t_8229745ca594a1 1-103
+packages/catalyst-core/test/server/userAgentUtil.test.ts
+  s_c729ac6e4b46ab::t_93bc7bd7d523c4 1-48
+packages/catalyst-core/test/server/validator.test.ts
+  s_c729ac6e4b46ab::t_58b17ceb0383ec 1-228
+packages/catalyst-core/tsconfig.test.json
+  s_c729ac6e4b46ab::t_552de1f587acac 1-20
+packages/catalyst-core/vitest.config.ts
+  s_c729ac6e4b46ab::t_6d8e908d9fc574 1-93
+packages/create-catalyst-app/package.json
+  s_c729ac6e4b46ab::t_3d49697078f21c 12-15,28-32,34-37
+packages/create-catalyst-app/scripts/errors.cjs
+  s_c729ac6e4b46ab::t_51f5943db80d50 135-142,144
+packages/create-catalyst-app/scripts/errors.d.cts
+  s_c729ac6e4b46ab::t_cf5495d6e7e113 1-55
+packages/create-catalyst-app/test/errors.test.ts
+  s_c729ac6e4b46ab::t_b0f284bcedc97a 1-219
+packages/create-catalyst-app/tsconfig.json
+  s_c729ac6e4b46ab::t_e429271b82f19d 1-23
+packages/create-catalyst-app/vitest.config.mjs
+  s_c729ac6e4b46ab::t_c5429f88b6916a 1-24
+scripts/test-catalyst-core.sh
+  s_c729ac6e4b46ab::t_ea19278994abf0 6
+tools/oxlint-plugins/catalyst-errors.mjs
+  s_c729ac6e4b46ab::t_0bdaed65ed301e 1-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "7cae2a18ff480da1dafc0978b05eb2893838452d",
+  "prompts": {},
+  "sessions": {
+    "s_c729ac6e4b46ab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a46bf67-f930-49da-ba60-35e731475e24",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

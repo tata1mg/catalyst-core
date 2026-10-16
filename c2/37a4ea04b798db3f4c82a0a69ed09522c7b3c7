@@ -1,0 +1,23 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  704889fea612f2fb 43,49,51-52,54,58-60,160-169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "c237a4ea04b798db3f4c82a0a69ed09522c7b3c7",
+  "prompts": {
+    "704889fea612f2fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb009-7379-77e3-9f10-9504c933dee1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 13,
+      "accepted_lines": 20,
+      "overriden_lines": 0
+    }
+  }
+}

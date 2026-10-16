@@ -1,0 +1,43 @@
+README.md
+  s_ebae651b5fcd4d::t_3d7182eb9aed6d 60-61
+.github/PULL_REQUEST_TEMPLATE/feature.md
+  s_ebae651b5fcd4d::t_8a59e59eae982b 1-36
+.github/ISSUE_TEMPLATE/dependencies.yml
+  s_ebae651b5fcd4d::t_8b4ec7b2105677 1-52
+.github/ISSUE_TEMPLATE/question.yml
+  s_ebae651b5fcd4d::t_27bab78fa716fc 1-39
+.github/ISSUE_TEMPLATE/bug.yml
+  s_ebae651b5fcd4d::t_87824f95155aec 1-108
+.github/PULL_REQUEST_TEMPLATE/fix.md
+  s_ebae651b5fcd4d::t_7b2d904abf237f 1-39
+.github/PULL_REQUEST_TEMPLATE.md
+  s_ebae651b5fcd4d::t_45a4a4de150f31 1-33
+.github/ISSUE_TEMPLATE/documentation.yml
+  s_ebae651b5fcd4d::t_1225d67166d778 1-49
+.github/ISSUE_TEMPLATE/enhancement.yml
+  s_ebae651b5fcd4d::t_6b9c8199d4017b 1-11,14-61
+  s_ebae651b5fcd4d::t_e5492c3dd12db4 12-13
+.github/ISSUE_TEMPLATE/config.yml
+  s_ebae651b5fcd4d::t_c461f65c70110c 1-9
+CONTRIBUTING.md
+  s_ebae651b5fcd4d::t_4f435ef2fb388a 1-15,23-59
+  s_ebae651b5fcd4d::t_6757474da35dfd 16-22
+.github/PULL_REQUEST_TEMPLATE/chore.md
+  s_ebae651b5fcd4d::t_e40b9b55a63ad6 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "06b792a5dd70438b74620dd56b4d766708dd3ca9",
+  "prompts": {},
+  "sessions": {
+    "s_ebae651b5fcd4d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3097325-258f-4919-b958-e2438e0c724e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

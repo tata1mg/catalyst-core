@@ -1,0 +1,420 @@
+src/packages/ai-sdk/src/providers/anthropic/index.js
+  f74dd36ef207b0b1 1-24
+src/packages/ai-sdk/src/config/defaults.js
+  997950581a9a154e 1-16,19-25,32-270
+  377caf285471cd70 17-18,26-31
+src/packages/ai-sdk/src/core/stream-processor.js
+  e5556b0de8c0b313 223
+  5ec78d80c5c4d3f1 117,124,126,128,132
+  997950581a9a154e 7,16,25,111,129,134,143,154,163,172,199
+  d82f1e77e23ca4e5 67,70,180
+  5abf7b03c5628640 15,24,118-122
+src/packages/ai-sdk/package.json
+  997950581a9a154e 31-33
+src/packages/ai-sdk/src/providers/openai/openai.js
+  f74dd36ef207b0b1 1-8,10-11,15-98,103-111,113,115-131,133-137,139-147,152-169,172-174,183-184,186-188,190-194,196-197,288-289,291,293-294,296,298-318,320-323,879
+  41e89f236b22ab79 567-568
+  69e308d7d76bd01e 630
+  697c203a6085a113 176-179,376-377,381-382,821-824,826-827
+  377caf285471cd70 324-346,349-367,371-372,375,388,390,393-394,397-403,405-434,436-442,444,449,466-467,469-482,486,494-498,502,504-508,510-511,514-560,563-565,570-571,577,581-584,586-587,590-623,626-629,637,650,655-656,658-669,671-688,690-692,694,698,701-711,713-715,717-720,736-737,739-741,743,792-793,795-796,798-820,828-832,842,844,846-847,861-878
+  d6b4e0fe02301fe6 588
+  62943e3f071f7171 9,12-13,102,151,347,435,443,445-448,450-465,468,485,487-488,513,566,585,589,624-625,632-636,638-649,651-654,657,721-731,733-735,738,742
+  f6a60dfdaeee2899 14,99-100,200-201,208-209,227,230-232,243-258,267,271-275,279,282,285-286,290,292,295,297,744-745,753-757,765-791
+  d82f1e77e23ca4e5 189,833,859
+  74a1e8f1248ef669 383-387,572-576
+src/packages/ai-sdk/src/providers/openai/index.js
+  f74dd36ef207b0b1 1-10,15-20,23-24,26-27,31-34,38-47,49-51,54
+  377caf285471cd70 11-14,21-22,25,28-30,35-37,48,52-53
+src/packages/ai-sdk-react/src/hooks/use-dialogue.js
+  377caf285471cd70 18-19,31,99-106,176-186,189,415-418
+  997950581a9a154e 15,17,28,30
+  62943e3f071f7171 165-166
+  b2107913d627e535 239,252,256,278,280,294,321,323,423-424
+  d82f1e77e23ca4e5 9
+  e5556b0de8c0b313 167-169
+  5abf7b03c5628640 118,128-129,131-138,140-144,149-151
+  489ee793f3705c49 90,257,260,266-267,270,275,345,375-377,380,410-411
+src/scripts/registerAliases.js
+  755c74a539fc0544 19-28
+src/packages/ai-sdk/src/core/index.js
+  997950581a9a154e 30
+  d82f1e77e23ca4e5 8,14-16,31-32
+src/packages/ai-sdk-react/src/config/defaults.js
+  d82f1e77e23ca4e5 1-29
+src/packages/ai-sdk/src/server/api-handler.js
+  e5556b0de8c0b313 248-249,255
+  f6a60dfdaeee2899 11,128-131,135-137,139
+  0858965c863f1257 169,204,282
+  41e89f236b22ab79 151,156-157,161-164,187,189-193,268,273-274,276-279,295-303
+  d82f1e77e23ca4e5 234,332
+  997950581a9a154e 10,43,47,53,57,60-63,65-67,86,88-90,92-93,96,99-101,107-112,152-154,414,424
+  377caf285471cd70 7-8,241-245,257-267,269-272,275,283-294,305-331,333-338,345-348,381-382,384-391,393-396,398
+  62943e3f071f7171 132-134,138,140,247,250-254,256,383
+src/packages/ai-sdk/src/providers/anthropic/anthropic.js
+  f74dd36ef207b0b1 1-203,205-216
+  d82f1e77e23ca4e5 204
+src/packages/ai-sdk/README.md
+  997950581a9a154e 264,266
+src/packages/ai-sdk/src/core/rate-limiter.js
+  997950581a9a154e 6-7,9-12
+src/packages/ai-sdk-react/README.md
+  372119eaf055f4fe 80,97,171,173,175,178
+src/packages/ai-sdk-react/src/index.js
+  d82f1e77e23ca4e5 21,30-33
+src/packages/ai-sdk/src/core/http-client.js
+  997950581a9a154e 7,19-21,25,29-31,34-36,38-43,48,51,83-85,88,103-104
+src/packages/ai-sdk/src/providers/openai/openai-utils.js
+  377caf285471cd70 13-15,18-22,31-33,46-58,60-66,73-74,81-82,89-90,94-100,221-222,224-227,233-248
+  f74dd36ef207b0b1 1-12,16-17,23-30,34-45,68-72,76-80,84-88,92-93,101-105,107-120,138-158,161-220,223,228-232,627
+  74a1e8f1248ef669 106,121-124,126,128-132,134-135,137,249-264,266-268,271-275,277,279-283,285-286,288-289,291-295,297-308,310-313,315-318,320-321,323-324,326,328-332,334-337,339-343,345-347,349,351-352,355-356,358,360-361,363-367,369-373,375-376,378,380-381,383-384,386-397,399-402,404-406,408-411,413,415-418,420-423,425-429,431-433,435-437,439,441-442,444-449,451-452,454-467,469,472-474,476-477,480,482-493,495-496,498-499,501-502,504-505,508-510,512-514,517-518,520-535,537-538,540-543,545,548-552,554-555,557-562,564-565,567-571,573,575-577,580-585,587-599,601-610,614-618,620-624,626
+  f6a60dfdaeee2899 628-668
+package.json
+  540e37edc231502d 13-21,34,46-66
+src/packages/ai-sdk-react/src/state-manager.js
+  489ee793f3705c49 11-12,27-28,45,59-61,77,80,83-86,88,90-91,122-123,125-126,128-129
+  377caf285471cd70 15-18,31-34,49-52,65-68,102-111,139-148
+src/packages/ai-sdk/src/server/index.js
+  377caf285471cd70 37-45,47-48
+src/packages/ai-sdk/src/providers/anthropic/anthropic-utils.js
+  f74dd36ef207b0b1 1-55
+src/packages/ai-sdk-react/src/hooks/use-prompt.js
+  62943e3f071f7171 152,157
+  489ee793f3705c49 73-74,118,160,232,240,252-253,256,276-277,279,283-284,299
+  b2107913d627e535 61-64,66,202-205,207,216-229,231,260-262,265,267,270-273,275,294-295,297-298
+  d82f1e77e23ca4e5 9
+  5abf7b03c5628640 112-113,122-124,126-135,139
+  377caf285471cd70 18-19,32,91-94,164,166-174,177,287-291
+  997950581a9a154e 15-17,29-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.3",
+  "base_commit_sha": "b4c443cbc55c9e2348ee36c6a8c1931c0ace9f06",
+  "prompts": {
+    "0858965c863f1257": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375938",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 7,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "2e308284d6074e69": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375513",
+        "model": "OPENROUTER_GPT_5_MINI"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 175,
+      "total_deletions": 5,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "372119eaf055f4fe": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "377614",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 231,
+      "total_deletions": 452,
+      "accepted_lines": 6,
+      "overriden_lines": 11
+    },
+    "377caf285471cd70": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375337",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 6308,
+      "total_deletions": 50,
+      "accepted_lines": 6126,
+      "overriden_lines": 36
+    },
+    "41e89f236b22ab79": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375780",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 21,
+      "accepted_lines": 31,
+      "overriden_lines": 0
+    },
+    "489ee793f3705c49": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "374625",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 54,
+      "total_deletions": 54,
+      "accepted_lines": 52,
+      "overriden_lines": 0
+    },
+    "540e37edc231502d": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "370160",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1308,
+      "total_deletions": 21,
+      "accepted_lines": 1286,
+      "overriden_lines": 5
+    },
+    "5abf7b03c5628640": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375845",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 62,
+      "total_deletions": 4,
+      "accepted_lines": 42,
+      "overriden_lines": 1
+    },
+    "5ec78d80c5c4d3f1": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375687",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 130,
+      "total_deletions": 81,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "62943e3f071f7171": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375492",
+        "model": "OPENROUTER_GPT_5_POINT_2"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 2104,
+      "total_deletions": 95,
+      "accepted_lines": 1869,
+      "overriden_lines": 2
+    },
+    "697c203a6085a113": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375511",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 766,
+      "total_deletions": 181,
+      "accepted_lines": 379,
+      "overriden_lines": 9
+    },
+    "69e308d7d76bd01e": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375962",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "6c1cab0dd22f3e0a": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375515",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 169,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "74a1e8f1248ef669": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375517",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 3203,
+      "total_deletions": 12,
+      "accepted_lines": 3114,
+      "overriden_lines": 36
+    },
+    "755c74a539fc0544": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "371551",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    },
+    "8e74a61da8cf3d76": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "376194",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "997950581a9a154e": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "371622",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1545,
+      "total_deletions": 87,
+      "accepted_lines": 1422,
+      "overriden_lines": 14
+    },
+    "b2107913d627e535": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "374491",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 63,
+      "total_deletions": 39,
+      "accepted_lines": 49,
+      "overriden_lines": 0
+    },
+    "b4a72ed6bcc29a9b": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "370246",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "c0ca262a7cb3ca93": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375474",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "d6b4e0fe02301fe6": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375491",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 5,
+      "accepted_lines": 1,
+      "overriden_lines": 1
+    },
+    "d82f1e77e23ca4e5": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "377432",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 83,
+      "total_deletions": 153,
+      "accepted_lines": 51,
+      "overriden_lines": 0
+    },
+    "e5556b0de8c0b313": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375654",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 46,
+      "total_deletions": 28,
+      "accepted_lines": 7,
+      "overriden_lines": 1
+    },
+    "f6a60dfdaeee2899": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "375734",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 398,
+      "total_deletions": 113,
+      "accepted_lines": 125,
+      "overriden_lines": 5
+    },
+    "f74dd36ef207b0b1": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "371774",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 978,
+      "total_deletions": 2,
+      "accepted_lines": 826,
+      "overriden_lines": 12
+    }
+  }
+}

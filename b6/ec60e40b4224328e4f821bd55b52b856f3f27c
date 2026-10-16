@@ -1,0 +1,20 @@
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/05-Environment-Variables.md"
+  s_9f266df34d05f4::t_f1137da2b51dea 15,19
+  s_9f266df34d05f4::t_1bd69ce93070c2 62-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b6ec60e40b4224328e4f821bd55b52b856f3f27c",
+  "prompts": {},
+  "sessions": {
+    "s_9f266df34d05f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a5a9bac-0c1a-4b90-bc1b-cbc5ff1ef0e9",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

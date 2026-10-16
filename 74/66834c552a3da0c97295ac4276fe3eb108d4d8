@@ -1,0 +1,21 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/DownloadUtilsTest.kt
+  s_cbea663a13314a::t_f6cf3fdf322dc0 112-120
+  s_cbea663a13314a::t_256d77e439bb14 78-89
+  s_cbea663a13314a::t_7e81d15c740335 1-77,90-111,121-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "7466834c552a3da0c97295ac4276fe3eb108d4d8",
+  "prompts": {},
+  "sessions": {
+    "s_cbea663a13314a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1b43752-575a-4960-973a-284fa8571046",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

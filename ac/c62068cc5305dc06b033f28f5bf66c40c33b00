@@ -1,0 +1,29 @@
+packages/catalyst-core/src/vite/moduleAliases.js
+  3a0f4ce98dc8011b 1-36
+packages/catalyst-core/src/vite/vite.config.js
+  3a0f4ce98dc8011b 7,107
+packages/catalyst-core/src/vite/inject-cache-key-plugin.js
+  3a0f4ce98dc8011b 2-3,18
+packages/catalyst-core/src/vite/node-loader.mjs
+  3a0f4ce98dc8011b 6,21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "acc62068cc5305dc06b033f28f5bf66c40c33b00",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 128,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,27 @@
+packages/catalyst-core/src/server/expressServer.js
+  3a0f4ce98dc8011b 106,306-309
+packages/catalyst-core/src/server/renderer/handler.jsx
+  3a0f4ce98dc8011b 61-68
+packages/catalyst-core/src/server/utils/validator.js
+  3a0f4ce98dc8011b 1-5,9,11-12,19,21-22,28,30-31,37-49,53-60,62,68-69,71,76-77,80-81,83-87,89-93,95,100-101,104-105,111,113-114,116,120,122-123,125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "0e931cad8d6494c5cf20c55155ef77474970e1d3",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 590,
+      "overriden_lines": 0
+    }
+  }
+}

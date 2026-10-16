@@ -1,0 +1,19 @@
+skills/new-feature/SKILL.md
+  s_70d93a3e190f85::t_1bdf55b31ee137 1-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "112053a7a2dff6bc41dcd7da426be2f6f3f1f099",
+  "prompts": {},
+  "sessions": {
+    "s_70d93a3e190f85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "37c96970-ee19-4da7-bbf2-8ad92f1d8075",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+packages/catalyst-core/package.json
+  s_f824ee2772036b::t_5e1a471ebcf6d7 53
+  s_f824ee2772036b::t_b4a3ad922e8cd9 52
+packages/catalyst-core/src/server/renderer/handler.jsx
+  s_f824ee2772036b::t_ab8cd4d6838a57 7
+package-lock.json
+  s_f824ee2772036b::t_a1360e9fffd87c 7574-7578,8891-8892,8926-8937,9058-9093
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "22a943358d6f6ea3fb294b2d99f9d18d0f6f7ead",
+  "prompts": {},
+  "sessions": {
+    "s_f824ee2772036b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5cf6c4ef-91cc-4b5a-b91d-979e695de1e4",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+packages/catalyst-core/test/native/aiPluginComposition.test.js
+  s_142fca248d57d5::t_a70d404efa5e3e 150-159
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils+Requests.swift
+  s_142fca248d57d5::t_a70d404efa5e3e 65-72
+packages/catalyst-core/src/native/internalPluginUtils.js
+  s_142fca248d57d5::t_a70d404efa5e3e 90-96,111,114
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsNativeAITests.swift
+  s_142fca248d57d5::t_a70d404efa5e3e 222-232,234-236,258
+  s_142fca248d57d5::t_f30db44b321061 259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5bce8c7f96640ce2140cea9c3e16f6a691c8b2d5",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

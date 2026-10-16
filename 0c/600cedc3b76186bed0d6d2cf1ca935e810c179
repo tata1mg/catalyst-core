@@ -1,0 +1,32 @@
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_21090e54bea720::t_90cb94d58e60cb 225-231,235
+  s_21090e54bea720::t_b2a235a72cccd1 247-256
+.github/workflows/node.js.yml
+  s_21090e54bea720::t_3a7163d305e3b0 67
+  s_21090e54bea720::t_cc17d9fa98daa0 60-66,68-83
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/OfflineCacheServiceTest.kt
+  s_21090e54bea720::t_815fcdb4622ac1 7-9
+  s_21090e54bea720::t_a0705a3d400f97 44
+  s_21090e54bea720::t_c0a8e2f49ab613 81,83-84,86-96
+  s_21090e54bea720::t_c7ad494eb059ad 1-6,10-16,18,20-43,45-80,82,85,97-145
+  s_21090e54bea720::t_e2c3a6f047e94b 17
+  s_21090e54bea720::t_54ee43054767e7 19
+packages/catalyst-core/src/native/androidProject/gradle/libs.versions.toml
+  s_21090e54bea720::t_c53c3445c0c8f4 15-25,39-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "0c600cedc3b76186bed0d6d2cf1ca935e810c179",
+  "prompts": {},
+  "sessions": {
+    "s_21090e54bea720": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b7ada1f-f2f0-498c-b458-b1048f0ed7b4",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

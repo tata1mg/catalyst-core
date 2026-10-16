@@ -1,0 +1,43 @@
+packages/catalyst-core/src/native/bridge/hooks/useDeviceInfo.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-60
+packages/catalyst-core/src/native/bridge/hooks/index.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-11
+packages/catalyst-core/src/native/bridge/hooks/useHapticFeedback.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-207
+packages/catalyst-core/src/native/bridge/hooks/useSafeArea.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-72
+packages/catalyst-core/src/native/bridge/hooks/useDataProtection.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-218
+packages/catalyst-core/src/native/bridge/hooks/useCamera.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-345
+packages/catalyst-core/src/native/bridge/hooks/useNetworkStatus.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-63
+packages/catalyst-core/src/native/bridge/hooks/useGoogleSignIn.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-87
+packages/catalyst-core/src/native/bridge/hooks/utils.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-20
+packages/catalyst-core/src/native/bridge/hooks/useFilePicker.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-482
+packages/catalyst-core/src/native/bridge/hooks/useIntent.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-91
+packages/catalyst-core/src/native/bridge/hooks/useNativeTransition.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-220
+packages/catalyst-core/src/native/bridge/hooks/useNotification.js
+  s_7c492eb084eb46::t_6c057ae1195cb9 1-343
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "40d6d055d39f85bc9e946471dd19001ca0260cf5",
+  "prompts": {},
+  "sessions": {
+    "s_7c492eb084eb46": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "927f2519-dcdc-4395-a78c-c80bb6cd245a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

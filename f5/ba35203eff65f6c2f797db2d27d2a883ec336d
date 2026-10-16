@@ -1,0 +1,254 @@
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-013.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-014.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+packages/catalyst-core/src/native/buildAppAndroid.js
+  s_70d93a3e190f85::t_3c48b92b9cba10 12-17
+packages/catalyst-core/mcp_v2/mcp.js
+  s_70d93a3e190f85::t_fc0bfb0a61bd4b 29
+  s_70d93a3e190f85::t_9544ead7259a39 627
+  s_70d93a3e190f85::t_6368e24ed5412f 125
+  s_70d93a3e190f85::t_3b686aaa812ef5 240-253
+  s_70d93a3e190f85::t_3f2c519ebce877 239
+errors/PREFLIGHT/PREFLIGHT-010.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+packages/catalyst-core/src/errors/registry.js
+  s_70d93a3e190f85::t_1aea770f326056 229-240
+  s_70d93a3e190f85::t_791e3d8afb0ef9 31
+  s_70d93a3e190f85::t_a12d616ac2b4d8 14-28
+  s_70d93a3e190f85::t_aa4111a0677b56 1-13,29-30,32-53,71-119,127-228,241-384,495-505
+  s_70d93a3e190f85::t_cdc917c39b20bd 120-126
+  s_70d93a3e190f85::t_f3389a0ae24e91 385-416,418,420
+  s_70d93a3e190f85::t_568453af27db29 417,419
+  s_70d93a3e190f85::t_a72ff92bb62c27 54-59
+  s_27d7251d44f99f::t_726d1d0f58efdf 421-471,480-489,492-494
+  s_27d7251d44f99f::t_d7bd704cd9710a 68-70
+  s_27d7251d44f99f::t_a2170446fb73e6 60-67
+  s_27d7251d44f99f::t_b255307264b25f 472-479
+  s_27d7251d44f99f::t_1be1b95835e8a7 490-491
+errors/PREFLIGHT/PREFLIGHT-001.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-021.md
+  s_70d93a3e190f85::t_b4d66a4461b060 1-19
+errors/ANDROID/ANDROID-000.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+packages/catalyst-core/src/server/utils/validator.js
+  s_70d93a3e190f85::t_667e39f1359b5b 80
+  s_70d93a3e190f85::t_3f92d6dac6c74e 144-147,149-155,161,179
+  s_70d93a3e190f85::t_88e94635d52aee 2,5,10-11,20-21,30-31,40-41,55-58,69-70,79,91-95,106-107,116-117,126-127,164
+  s_70d93a3e190f85::t_a1bc692ccac22a 136-137,148,159-160,162-163
+  s_70d93a3e190f85::t_7cd070f66e97d5 156-158
+packages/catalyst-core/src/scripts/validator.js
+  s_70d93a3e190f85::t_bcd97b9e5173d0 80
+  s_70d93a3e190f85::t_0962fa96c4f737 2,5,10-11,20-21,30-31,40-41,55-58,69-70,79,91-95,106-107,116-117,126-127
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-012.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-017.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+errors/PREFLIGHT/PREFLIGHT-008.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+packages/catalyst-core/mcp_v2/tools/errors.js
+  s_70d93a3e190f85::t_2078649b0b7770 1-55
+errors/PREFLIGHT/PREFLIGHT-016.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+errors/IOS/IOS-000.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-003.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+packages/catalyst-core/src/errors/generateDocs.js
+  s_70d93a3e190f85::t_d73ca09a6e9769 1-78
+packages/catalyst-core/src/native/bridge/errors.js
+  s_70d93a3e190f85::t_9c3fcf63b15e1d 4-9,11,13,15-31,35-36,41,44-48
+errors/PREFLIGHT/PREFLIGHT-006.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-019.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-008.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-010.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-012.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-014.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-005.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-015.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+packages/catalyst-core/src/native/buildAppIos.js
+  s_70d93a3e190f85::t_9efcc97d82dda4 36-41
+errors/PREFLIGHT/PREFLIGHT-011.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+errors/PREFLIGHT/PREFLIGHT-002.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-006.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-016.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-009.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-002.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-004.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-015.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+errors/PREFLIGHT/PREFLIGHT-013.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+errors/PREFLIGHT/PREFLIGHT-018.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-011.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/BUNDLE/BUNDLE-000.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-020.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+packages/catalyst-core/src/scripts/preServerInit.js
+  s_70d93a3e190f85::t_ef7ed9d394150c 3,13
+errors/PREFLIGHT/PREFLIGHT-009.md
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+packages/catalyst-core/src/scripts/build.js
+  s_70d93a3e190f85::t_c85994586cdef3 8
+  s_70d93a3e190f85::t_965e540a152ca2 97,99
+errors/PREFLIGHT/PREFLIGHT-007.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-6,8-10,12-18
+  s_70d93a3e190f85::t_b4d66a4461b060 7,11,19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-001.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-007.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PREFLIGHT/PREFLIGHT-003.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PROCESS/PROCESS-002.md
+  s_70d93a3e190f85::t_b4d66a4461b060 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-004.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-017.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+errors/PROCESS/PROCESS-001.md
+  s_70d93a3e190f85::t_b4d66a4461b060 11,15,19
+  s_70d93a3e190f85::t_a11f291ffaba37 1-10,12-14,16-18
+errors/index.json
+  s_70d93a3e190f85::t_b4d66a4461b060 52-59,64,66,72,74,80,82,88,90,96,98,104,106,112,114,120,122,128,130,136,138,144,146,152,154,160,162,168,173-175,177-184
+  s_70d93a3e190f85::t_a11f291ffaba37 1-51,60-63,65,67-71,73,75-79,81,83-87,89,91-95,97,99-103,105,107-111,113,115-119,121,123-127,129,131-135,137,139-143,145,147-151,153,155-159,161,163-167,169-172,176,185-344,465-466
+  s_70d93a3e190f85::t_0a1682c4319cff 345-380,382,384
+  s_70d93a3e190f85::t_bce8f85ed2fab0 381,383
+  s_27d7251d44f99f::t_d9dab3b7785969 444-451,456,458,464
+  s_27d7251d44f99f::t_6e492cdfac72c3 385-443,452-455,457,459-463
+errors/PREFLIGHT/PREFLIGHT-005.md
+  s_70d93a3e190f85::t_a11f291ffaba37 1-19
+packages/catalyst-core/src/errors/index.js
+  s_70d93a3e190f85::t_5a38f1bcbb30af 1-2,4-59,65-71,88-107
+  s_70d93a3e190f85::t_e607759de8db1c 60-64
+  s_27d7251d44f99f::t_d3bad6d307b21f 3
+  s_27d7251d44f99f::t_fe3d551fb71423 73-87
+  s_27d7251d44f99f::t_d607c5e7007601 72
+skills/new-feature/SKILL.md
+  s_70d93a3e190f85::t_1bdf55b31ee137 1-89
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-018.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-022.md
+  s_70d93a3e190f85::t_bce8f85ed2fab0 11,19
+  s_70d93a3e190f85::t_0a1682c4319cff 1-10,12-18
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-020.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-021.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+packages/catalyst-core/src/native/bridge/WebBridge.js
+  s_70d93a3e190f85::t_5f23df48564572 135-141,147-153,161-165
+  s_70d93a3e190f85::t_bff80f498067c5 187-193,199-205
+  s_70d93a3e190f85::t_d520f10f275424 102-104
+  s_70d93a3e190f85::t_b8139a6705de37 10
+  s_70d93a3e190f85::t_82ee6861b9b71c 91-97
+errors/RUNTIME-NATIVE/RUNTIME-NATIVE-019.md
+  s_70d93a3e190f85::t_0a1682c4319cff 1-19
+errors/AI/AI-001.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+errors/AI/AI-002.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+errors/AI/AI-009.md
+  s_27d7251d44f99f::t_d9dab3b7785969 1-19
+errors/AI/AI-004.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+errors/AI/AI-007.md
+  s_27d7251d44f99f::t_d9dab3b7785969 7,11,15,19
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-6,8-10,12-14,16-18
+errors/AI/AI-000.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+packages/catalyst-ai/src/useNativeAI.js
+  s_27d7251d44f99f::t_b526e84c6d78ed 3
+  s_27d7251d44f99f::t_10c73ee8f5e55d 110,113,115
+  s_27d7251d44f99f::t_a72676441f8b8a 175-176,178-179,183-185
+  s_27d7251d44f99f::t_0bc6ba0b8aaccd 177
+  s_27d7251d44f99f::t_905dbe6c22fff1 138
+  s_27d7251d44f99f::t_d8c1d6c62803ef 81-85,92-95
+  s_27d7251d44f99f::t_4a69da5677ab4e 207-208,210-211
+  s_27d7251d44f99f::t_295a4a012edb8e 61,63,67,69
+  s_27d7251d44f99f::t_3a632f8b49efda 103-106
+  s_27d7251d44f99f::t_caf411ed6793cc 117
+  s_27d7251d44f99f::t_b62d7ed608e1c2 209
+  s_27d7251d44f99f::t_e865500b5297a3 62,68
+  s_27d7251d44f99f::t_6bff17e08494f9 229-232,234-260,262-265
+errors/AI/AI-006.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+packages/catalyst-ai/src/useWebAI.js
+  s_27d7251d44f99f::t_9ed9b345abd456 249
+  s_27d7251d44f99f::t_f5ba2d6ddd506f 3
+  s_27d7251d44f99f::t_a4ec3e4e3d7a24 248,250-251
+  s_27d7251d44f99f::t_ab52386d468bb6 316,327-330
+packages/catalyst-core/package.json
+  s_27d7251d44f99f::t_6f6cc3791dc2ea 27
+errors/AI/AI-008.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-6,8-10,12-14,16-18
+  s_27d7251d44f99f::t_d9dab3b7785969 7,11,15,19
+errors/AI/AI-005.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+packages/catalyst-ai/src/route.js
+  s_27d7251d44f99f::t_377a636b6f34e0 152,205,256,275,327,379,436,459
+  s_27d7251d44f99f::t_71d4220df3c6a0 589-592
+  s_27d7251d44f99f::t_7a44ea09298fe7 5-12
+  s_27d7251d44f99f::t_2941a274ec139e 477-478
+  s_27d7251d44f99f::t_0155b8626cec82 542-548,550
+  s_27d7251d44f99f::t_f48b5801830048 63-69
+  s_27d7251d44f99f::t_21ac7de13f214c 559-563,569-572,575-578
+  s_27d7251d44f99f::t_7d548bd7e0ad42 474-476,479-480,482-487,495-499,505-508,511-514
+errors/AI/AI-003.md
+  s_27d7251d44f99f::t_6e492cdfac72c3 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f5ba35203eff65f6c2f797db2d27d2a883ec336d",
+  "prompts": {},
+  "sessions": {
+    "s_27d7251d44f99f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0a234a88-62f6-4823-b115-fbfb6ee49d9d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_70d93a3e190f85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "37c96970-ee19-4da7-bbf2-8ad92f1d8075",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

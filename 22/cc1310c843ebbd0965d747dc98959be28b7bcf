@@ -1,0 +1,21 @@
+packages/catalyst-core/src/server/utils/validator.js
+  s_f57fd1ca29503a::t_3c0ea2eec1c316 7-9
+packages/catalyst-core/src/server/renderer/handler.jsx
+  s_f57fd1ca29503a::t_00be7528172022 39-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "22cc1310c843ebbd0965d747dc98959be28b7bcf",
+  "prompts": {},
+  "sessions": {
+    "s_f57fd1ca29503a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "682daa58-7895-4b4c-81c0-3bbfbfbd58a9",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+apps/catalyst-companion/src/js/components/hub/DocumentBootstrap.js
+  bfcf8d519e117510 14-18,22-23,26-40,44
+apps/catalyst-companion/client/index.js
+  bfcf8d519e117510 7,11-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "39b757d3bc9a51595ceb60012659684dc8427ae0",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 34,
+      "overriden_lines": 0
+    }
+  }
+}

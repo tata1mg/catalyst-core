@@ -1,0 +1,141 @@
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  eee16dd8f8756a1b 109-111,113-114,118,159-164,166-170
+  afe0729fecff0637 84
+  718bfc00e07bf870 83
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/BarcodeDetector.kt
+  afe0729fecff0637 1-114
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeCameraManager.kt
+  afe0729fecff0637 11,15-18,30,33,35-37,45,49-52,54,56-59,61-76,78,80-83,85-86,88,90-91,93,96-103,105-109,111-114,118-121,124-128,133,135-137,140,142,144,146,148,151-153,157,161-170,173,178-181,185,189,193-209,212-225,228-237
+  cec6969608c0b7e6 38,40-43,131
+  718bfc00e07bf870 89,92
+  b4ac3f8f8f8b1743 94,110
+  44481ab7fb409fc8 138
+  9c35173367a55da7 39
+  eee16dd8f8756a1b 154-156,182-184,186,192
+src/native/bridge/constants/NativeInterfaces.js
+  9c35173367a55da7 64
+  718bfc00e07bf870 13-15,63
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/VideoStreamStateMachine.kt
+  afe0729fecff0637 1-32
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/VideoStreamState.kt
+  afe0729fecff0637 1-41
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/HoldController.kt
+  afe0729fecff0637 1-72
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/CameraSessionManager.kt
+  b4ac3f8f8f8b1743 59,66,73,205
+  afe0729fecff0637 1-58,60-65,67-72,74-204,206-225
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  718bfc00e07bf870 258-259,262,279,282-283,286-308
+  cec6969608c0b7e6 278,280-281,284-285
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/ViewfinderMapper.kt
+  afe0729fecff0637 1-71
+src/native/bridge/utils/NativeBridge.js
+  718bfc00e07bf870 150-152,160-178
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/ZoomController.kt
+  afe0729fecff0637 1-10,12-15,17-20,22-37,39-55,60-61,63,65-67,69-72,75,77-92,94-100
+  cec6969608c0b7e6 11,16,21,38,56-59,62,64,68,73-74,76,93
+src/native/androidProject/app/src/main/java/io/yourname/androidproject/camera/TorchController.kt
+  afe0729fecff0637 1-48
+src/native/bridge/hooks.js
+  cec6969608c0b7e6 1668,1676,1726-1730,1786,1796-1797
+  9c35173367a55da7 1682,1717,1723-1725,1731-1735,1741,1780-1785,1787-1795,1798-1814,1818,1824
+  718bfc00e07bf870 1683,1712-1716,1718-1722,1740,1763,1769,1774-1778,1825
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "b3b7d561848e44e08b8b2c321c9d6c26848e6c2e",
+  "prompts": {
+    "44481ab7fb409fc8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d97d110d-c962-45a6-babc-c14b09176bc6",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "718bfc00e07bf870": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3835bd29-28ad-4b7c-a95d-b9c2622aae28",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 246,
+      "total_deletions": 11,
+      "accepted_lines": 89,
+      "overriden_lines": 0
+    },
+    "9c35173367a55da7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ac6ba7dc-c6b7-4fef-9920-6797082b82dc",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 72,
+      "total_deletions": 32,
+      "accepted_lines": 49,
+      "overriden_lines": 0
+    },
+    "afe0729fecff0637": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9edc516a-037a-4043-892b-ce953e34df3a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 860,
+      "total_deletions": 502,
+      "accepted_lines": 834,
+      "overriden_lines": 0
+    },
+    "b4ac3f8f8f8b1743": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26bdb56a-1d13-43fa-adac-c721859c49ee",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 6,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    },
+    "cec6969608c0b7e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "995b914e-9338-4b79-8435-45aafb526611",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 36,
+      "total_deletions": 38,
+      "accepted_lines": 36,
+      "overriden_lines": 0
+    },
+    "eee16dd8f8756a1b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "19b05bf4-08f4-45f1-8a5f-a1a90e3eeb94",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg",
+      "messages": [],
+      "total_additions": 101,
+      "total_deletions": 10,
+      "accepted_lines": 27,
+      "overriden_lines": 0
+    }
+  }
+}

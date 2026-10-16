@@ -1,0 +1,38 @@
+docs/publicDocs.config.js
+  1b3aa257e4a8e310 11-12,24-60
+docs/privateDocs.config.js
+  1b3aa257e4a8e310 11-12,24-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "fea2552f75c5958dda5dd0ea4967fa14ddf609e0",
+  "prompts": {
+    "1b3aa257e4a8e310": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d90b4-f222-72c1-b07a-8ce4229b5810",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 78,
+      "total_deletions": 0,
+      "accepted_lines": 78,
+      "overriden_lines": 0
+    },
+    "ff88538ec26d4b5b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2686-2f4c-7ca3-8517-48b68136e42f",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 221,
+      "total_deletions": 0,
+      "accepted_lines": 221,
+      "overriden_lines": 0
+    }
+  }
+}

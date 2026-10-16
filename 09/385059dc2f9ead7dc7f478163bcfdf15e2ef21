@@ -1,0 +1,43 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/VideoStreamStateMachineTest.kt
+  s_d1d2a3ad805770::t_c99134aae367c5 1-120
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FileSizeRouterUtilsTest.kt
+  s_d1d2a3ad805770::t_c9f01f86c96a35 1-36,42-159
+  s_d1d2a3ad805770::t_4b4d506fc4afa8 37-41
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/CameraUtilsTest.kt
+  s_d1d2a3ad805770::t_6183b3716c471e 3-6,8,10,12-19,22,24-30,32-36,40-73,75,79-81,85-88,90-99,103,107-108,110-113,115,119-121,123-126,130,134-138,140-142,144-149,151-154,158-160,162-164,166-169,173,177-186,190-194,197-208,210-214
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/camera/VideoStreamStateTest.kt
+  s_d1d2a3ad805770::t_c681b4ef72c8a0 1-62
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FileUtilsTest.kt
+  s_d1d2a3ad805770::t_afb9875f778fae 3-9,11,13,15-24,27,29-34,36-38,42-84,86,90-92,96-99,101-106,108-110,112-115,119-122,124-127,131,135-137,141-154,158-161,163-165,167-174,178-186,190,194-199,201,203-204,206-212,214,216-217,221-223,227,231-241,243-245,247-251,253,255-258,262-266,270,273-297
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/BridgeUtilsTest.kt
+  s_d1d2a3ad805770::t_5c167c1d2813c0 3,8-12,29
+  s_d1d2a3ad805770::t_6c60b61e313289 21-27
+  s_d1d2a3ad805770::t_ffc59b6a054898 299-465
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NotificationUtilsTest.kt
+  s_d1d2a3ad805770::t_5caafe4c083597 3-10,12-13,15,17-26,29,31-37,39-46,50-53,55-63,65-67,80-84,87-89,100-105,107,109-119,123-124,126-130,134,138-140,144-147,149-153,155-156,158-159,163-165,167-168,172-174,178-180,182-183,185-187,191,195-198,200-201,203,205-209,212-214,216-219,221-222,224
+  s_d1d2a3ad805770::t_d33bceaced8dff 69-77
+  s_d1d2a3ad805770::t_f22b84a4d2fc8e 92-99
+  s_d1d2a3ad805770::t_a6ef04586e9108 90
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/IntentUtilsTest.kt
+  s_d1d2a3ad805770::t_0b5f1096bdedf9 1-10,12-107,122-124,126,128-130,132,134-136,138,140-142,144,146-244
+  s_d1d2a3ad805770::t_58698cc0259d05 11
+  s_d1d2a3ad805770::t_2c022999158374 108-121,125,127,131,133,137,139,143,145
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/PerfEventBufferTest.kt
+  s_d1d2a3ad805770::t_43e4ed1246f7e7 1-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "09385059dc2f9ead7dc7f478163bcfdf15e2ef21",
+  "prompts": {},
+  "sessions": {
+    "s_d1d2a3ad805770": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8e984c3-3a98-43b0-a19a-64996f057441",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

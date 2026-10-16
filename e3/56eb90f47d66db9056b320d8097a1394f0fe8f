@@ -1,0 +1,108 @@
+packages/catalyst-cloud-ai/src/route.js
+  s_70b47d50cce785::t_6148198e0bd08b 29-32,41,43,45-46,49-51,53,55,57-58,61-63,66-67,69-72,85-87
+  s_361865cbed5224::t_8f810257d1dbc9 251-258
+  s_70b47d50cce785::t_b0be620259e974 138,184,216,234,355,414
+  s_361865cbed5224::t_4b9e23284afc89 371
+  s_70b47d50cce785::t_c15f307d3e3443 183,185-186
+  s_70b47d50cce785::t_fd8b528754e86c 474
+  s_70b47d50cce785::t_08519c24a8a08b 137,139-140,151
+  s_70b47d50cce785::t_c0858a3014749a 64,73-84
+  s_70b47d50cce785::t_50440bc15fdf5a 40,44,52,56,65,68
+  s_70b47d50cce785::t_ded4a0b28cecd0 309
+  s_70b47d50cce785::t_73c74f68cb6778 354,356-357
+  s_70b47d50cce785::t_a2f3af77aaf1d4 33-39,42,47-48,54,59-60
+  s_361865cbed5224::t_8cda3525d066ae 263
+  s_70b47d50cce785::t_2a914d818fb826 308
+  s_70b47d50cce785::t_98666849beae56 393
+packages/catalyst-cloud-ai/src/metrics.js
+  s_70b47d50cce785::t_75d93c4562421a 1-56
+  s_361865cbed5224::t_f7e29100368eaf 57-115
+docs/github-discussion-draft.md
+  s_6f32f62c3c69d8::t_5e3d0e36bd5aa3 1-179
+packages/catalyst-cloud-ai/src/useCloudAI.js
+  s_70b47d50cce785::t_a9bc10809c0997 216,220-223,225-228,232
+  s_361865cbed5224::t_aefc969c14e74f 130-132
+  s_361865cbed5224::t_ac590dc162a11f 280-281
+  s_361865cbed5224::t_40739c777b1fe8 72
+  s_361865cbed5224::t_d3b6e16539fa10 258-263
+  s_70b47d50cce785::t_f2b99f34eb7ff0 129
+  s_70b47d50cce785::t_6e9207cbcc2769 194-196
+  s_361865cbed5224::t_14ebb785715681 3
+  s_70b47d50cce785::t_13ae084620e567 101
+  s_361865cbed5224::t_e0b4e06d8969bc 217-219,224,229-231
+packages/catalyst-cloud-ai/src/useWebAI.js
+  s_361865cbed5224::t_14a62d846e7fc8 333-337
+packages/catalyst-cloud-ai/src/useNativeAI.js
+  s_361865cbed5224::t_a193922157bb5e 261-265
+examples/useai/src/js/containers/Home/Home.js
+  s_361865cbed5224::t_27d7c1ceb91f9a 676-689
+examples/useai/src/js/routes/index.js
+  s_361865cbed5224::t_27d7c1ceb91f9a 4-5,8-15
+examples/useai/src/js/containers/TicTacToe/TicTacToe.js
+  s_361865cbed5224::t_27d7c1ceb91f9a 1-473
+examples/useai/package.json
+  s_361865cbed5224::t_27d7c1ceb91f9a 36
+examples/useai/src/js/containers/Chess/Chess.js
+  s_361865cbed5224::t_27d7c1ceb91f9a 1-124,126-611
+  s_361865cbed5224::t_1dc4132185f014 125
+packages/catalyst-cloud-ai/src/pricing.js
+  s_70b47d50cce785::t_2c01f9355b44d9 1-14
+packages/catalyst-core/src/native/bridge/hooks/useAI.js
+  s_361865cbed5224::t_4a62d247e04c67 25-36
+  s_361865cbed5224::t_13d56a0e1a3966 87-88
+examples/useai/config/config.template.json
+  s_70b47d50cce785::t_7d790c1e556f44 24
+docs/content/useai-rfc.md
+  s_6f32f62c3c69d8::t_5e3d0e36bd5aa3 1-811
+docs/ios-native-ai-deferred.md
+  s_c73b0d3e3d3538::t_bbe6fd58a95515 1-153
+docs/agentic-framework-discussion.md
+  s_6f32f62c3c69d8::t_5e3d0e36bd5aa3 1-655
+examples/useai/src/js/components/AITest/Panel.js
+  s_6f32f62c3c69d8::t_88797d90081420 3,6-12,16,54,103-105,267,302,313-328,331-476
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e356eb90f47d66db9056b320d8097a1394f0fe8f",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_361865cbed5224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ca59e034-0b8c-4534-a9b5-005787dded77",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_6f32f62c3c69d8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "451e5c94-8558-4ef7-b577-f318ebf5d942",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_70b47d50cce785": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cafb08ae-c5a6-4747-8db0-9abf3b735c8a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_c73b0d3e3d3538": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "78fa1f74-970f-4036-a51f-96956a30fec2",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

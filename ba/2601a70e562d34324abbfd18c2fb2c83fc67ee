@@ -1,0 +1,23 @@
+.github/workflows/publish.yml
+  8cb55430df9baaed 378,380-398
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "ba2601a70e562d34324abbfd18c2fb2c83fc67ee",
+  "prompts": {
+    "8cb55430df9baaed": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8cf9-49a8-7461-be4f-239d31a96030",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 2,
+      "accepted_lines": 20,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,35 @@
+packages/catalyst-core/context.md
+  3a0f4ce98dc8011b 15-16,22
+docs/content/03-Routing/02-Navigation.md
+  3a0f4ce98dc8011b 13-18
+"docs/content/11-API Reference/01-Hooks.md"
+  3a0f4ce98dc8011b 11-13
+packages/catalyst-core/changelog.md
+  3a0f4ce98dc8011b 11-58
+docs/content/03-Routing/01-Defining-Routes.md
+  3a0f4ce98dc8011b 10-12,15
+docs/src/components/CustomDocumentDemo/index.js
+  3a0f4ce98dc8011b 45
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/02-Quick-Start.md"
+  3a0f4ce98dc8011b 189,362-364,366-367
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "66b2eecf771740ce6ce038cc4e5c2219d8cb32be",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 172,
+      "overriden_lines": 0
+    }
+  }
+}

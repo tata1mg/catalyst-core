@@ -1,0 +1,40 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/KeyboardUtil.kt
+  873b668aff26e4b0 58-60,72-73
+"docs/content/02-Guides and Tutorials/02-First Universal App/03-Configuration.mdx"
+  873b668aff26e4b0 243-276
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/EdgeToEdgeUtils.kt
+  873b668aff26e4b0 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "618cbaf8bb244518dc6526539fc030c62cced5c6",
+  "prompts": {
+    "61138910e3599055": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4b31baae-03f5-46b0-8400-d8b273ae7f47",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 0,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    },
+    "873b668aff26e4b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4262bd0c-bdd6-4064-bd7a-41ea8e35a262",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 93,
+      "total_deletions": 2,
+      "accepted_lines": 92,
+      "overriden_lines": 0
+    }
+  }
+}

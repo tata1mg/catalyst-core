@@ -1,0 +1,36 @@
+packages/catalyst-core/src/native/androidProject/settings.gradle.kts
+  s_c729ac6e4b46ab::t_eed8dc77571c8e 37-47
+examples/sync-packages.js
+  s_c729ac6e4b46ab::t_eed8dc77571c8e 77-81,87-88
+packages/catalyst-core/src/native/androidProject/build.gradle.kts
+  s_c729ac6e4b46ab::t_eed8dc77571c8e 10
+packages/catalyst-core/src/native/androidProject/gradle/libs.versions.toml
+  s_c729ac6e4b46ab::t_eed8dc77571c8e 52-56
+.github/workflows/node.js.yml
+  s_c729ac6e4b46ab::t_53fe5295f0909a 1314
+  s_c729ac6e4b46ab::t_4d0e4f6689266f 27,66-75,83-95
+  s_c729ac6e4b46ab::t_5b478c624267ba 1269-1270
+  s_c729ac6e4b46ab::t_5648916c67221d 1296-1297
+  s_c729ac6e4b46ab::t_b16052cabd1872 1256
+  s_c729ac6e4b46ab::t_65fa265048248d 693-874
+packages/catalyst-core/src/native/androidProject/app/build.gradle.kts
+  s_c729ac6e4b46ab::t_eed8dc77571c8e 223,276-285,287
+packages/catalyst-core/src/native/terminalProgress.js
+  s_c729ac6e4b46ab::t_eed8dc77571c8e 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "d24ec1413f19dd8073a86f476ce538b2ec5f648c",
+  "prompts": {},
+  "sessions": {
+    "s_c729ac6e4b46ab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a46bf67-f930-49da-ba60-35e731475e24",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

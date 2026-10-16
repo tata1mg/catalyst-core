@@ -1,0 +1,54 @@
+examples/error-catalog/package.json
+  h_d7d9de1560f99e 3,7-19,22,26-27,29
+examples/error-catalog/scenarios/build-native.js
+  h_d7d9de1560f99e 1-73
+examples/error-catalog/scenarios/bundle.js
+  h_d7d9de1560f99e 1-30
+examples/error-catalog/scenarios/cca.js
+  h_d7d9de1560f99e 1-70
+examples/error-catalog/scenarios/client.js
+  h_d7d9de1560f99e 1-53
+examples/error-catalog/scenarios/index.js
+  h_d7d9de1560f99e 2-8,11-53
+examples/error-catalog/scenarios/mapping.js
+  h_d7d9de1560f99e 1-124
+examples/error-catalog/scenarios/preflight.js
+  h_d7d9de1560f99e 282
+examples/error-catalog/scenarios/process.js
+  h_d7d9de1560f99e 1-50
+examples/error-catalog/scenarios/runtime-web.js
+  h_d7d9de1560f99e 1-75
+examples/error-catalog/scripts/test-error.js
+  h_d7d9de1560f99e 1-563
+examples/error-catalog/server/document.js
+  h_d7d9de1560f99e 1-2
+examples/error-catalog/server/index.js
+  h_d7d9de1560f99e 2
+examples/error-catalog/src/js/containers/App/Home.jsx
+  h_d7d9de1560f99e 2
+examples/error-catalog/src/js/containers/App/index.jsx
+  h_d7d9de1560f99e 3
+examples/error-catalog/src/js/routes/index.js
+  h_d7d9de1560f99e 2
+examples/error-catalog/src/js/store/index.js
+  h_d7d9de1560f99e 2
+examples/error-catalog/test/client.test.ts
+  h_d7d9de1560f99e 1-95
+examples/error-catalog/test/mapping.test.ts
+  h_d7d9de1560f99e 1-18
+examples/error-catalog/test/scenarios.test.ts
+  h_d7d9de1560f99e 4-5,7,12-15,26,28-29,32-90,92,98-99,101,106-109,113,123-130,133,135-142,146-147,149-150,152,158,182-185,189,192-198,219-220,223-224,226,229-235,274-285,287,303-382,395,400-403,406,408,410,412-415,417,423-427,429
+packages/catalyst-core/src/server/renderer/handler.jsx
+  h_d7d9de1560f99e 352
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "be28657b5b5ce3d8cb2e43972338daddb8bd1e5b",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

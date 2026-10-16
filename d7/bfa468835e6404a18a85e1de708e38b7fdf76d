@@ -1,0 +1,32 @@
+packages/catalyst-core/mcp_v2/server.json
+  s_9ca6bfe43a6ce6::t_7cceb9cc951ed1 10,15
+  s_9ca6bfe43a6ce6::t_b53feff0409bdf 3
+.release-meta.json
+  s_9ca6bfe43a6ce6::t_fceff58d0ac4d0 15
+packages/catalyst-core/mcp_v2/README.md
+  s_9ca6bfe43a6ce6::t_7d2c9745913b7d 1
+packages/catalyst-core/mcp_v2/package.json
+  s_9ca6bfe43a6ce6::t_cd0a3c694df08b 3
+  s_9ca6bfe43a6ce6::t_2fcc88bbdc8401 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d7bfa468835e6404a18a85e1de708e38b7fdf76d",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_9ca6bfe43a6ce6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed9c426b-6b64-45b6-967c-ec1853266228",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,52 @@
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/04-Configuration.md"
+  877b7409590902e9 242-243,247-251,254-257,265
+  ab5c8ac065cc405a 244
+"docs/content/11-API Reference/01-Hooks.md"
+  877b7409590902e9 22-25,28-30,146-149,152-154,271,273,277-284,289-290,292-294,296,300,302,304-306,308-310,312,314,317-318,320,366-427
+"docs/content/02-Guides and Tutorials/10-Customising-Shell.md"
+  877b7409590902e9 17,35,57,87
+"docs/content/02-Guides and Tutorials/02-First Universal App/03-Configuration.md"
+  877b7409590902e9 404-405,407,409-414,417-421
+  ab5c8ac065cc405a 406
+"docs/content/02-Guides and Tutorials/02-First Universal App/04-Offline-Support.md"
+  877b7409590902e9 23
+"docs/content/02-Guides and Tutorials/02-First Universal App/05-Cache-Management.md"
+  877b7409590902e9 27,29-42,49
+docs/content/16-CLI.md
+  877b7409590902e9 31-32
+docs/content/06-Fonts.md
+  877b7409590902e9 76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "225734e68c7f75332f18db5e3fbc3d1340df7b66",
+  "prompts": {
+    "877b7409590902e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1b57-7d2c-7af2-9ba4-75cff5e5c4d3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 162,
+      "total_deletions": 60,
+      "accepted_lines": 157,
+      "overriden_lines": 0
+    },
+    "ab5c8ac065cc405a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa5-36ff-7250-8797-a00363c023ac",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 4,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}

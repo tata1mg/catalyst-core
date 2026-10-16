@@ -1,0 +1,22 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/OfflineCacheServiceTest.kt
+  s_517e689629005e::t_bcd8948f900fbc 146-214,220-221,248-301
+  s_517e689629005e::t_2aee66f3256fdc 215-219,222-235,242,244-247
+  s_517e689629005e::t_c670ab7f3bede4 236-241,243
+  s_517e689629005e::t_ea9874f26028c5 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4006a7408c6918be6aa9c17526add2f31ce3ff87",
+  "prompts": {},
+  "sessions": {
+    "s_517e689629005e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b92ffca-6e58-4f4b-b2a3-e6cc6bb648f0",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

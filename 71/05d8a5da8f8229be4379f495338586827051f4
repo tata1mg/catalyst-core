@@ -1,0 +1,35 @@
+.github/workflows/node.js.yml
+  s_18ebc815cd25d6::t_d55000a7f41c6d 652-655,667-678
+  s_18ebc815cd25d6::t_55ea1d55bd92f0 299-303,309
+  s_18ebc815cd25d6::t_e3e15ca09414fe 81-84,116-122,131-134
+  s_18ebc815cd25d6::t_47b32fb487253f 376-379,407-416
+  s_18ebc815cd25d6::t_1c2ca40a0bca3a 815-825
+  s_18ebc815cd25d6::t_a3f60adc214be8 1046-1056
+  s_18ebc815cd25d6::t_a9fcf0a06b522a 584-587
+  s_18ebc815cd25d6::t_27cd9c1a1a0291 135-139,304-308,353-357
+  s_18ebc815cd25d6::t_97088a3e2aecb2 624-636
+  s_18ebc815cd25d6::t_8526ceb6453c3d 79-80,108-113,123-130
+  s_18ebc815cd25d6::t_592269d56f2145 560-570
+  s_18ebc815cd25d6::t_326d8a39cc27ae 329-332,348-352
+  s_18ebc815cd25d6::t_8feef7d5907e58 358
+  s_18ebc815cd25d6::t_ef069daa489c85 417
+  s_18ebc815cd25d6::t_ea1260c0a62cee 679
+.github/workflows/test-cancel.yml
+  s_18ebc815cd25d6::t_8e304ab5e21eae 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "7105d8a5da8f8229be4379f495338586827051f4",
+  "prompts": {},
+  "sessions": {
+    "s_18ebc815cd25d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e59121fb-58b1-4c4d-962e-60babb96864d",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

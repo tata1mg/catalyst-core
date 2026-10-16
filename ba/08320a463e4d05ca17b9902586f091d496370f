@@ -1,0 +1,45 @@
+docs/server/package.json
+  32a293826e9b7dda 26
+packages/catalyst-core/src/scripts/serve.js
+  32a293826e9b7dda 17,19-21,32-33
+packages/catalyst-core/src/native/androidSetup.js
+  32a293826e9b7dda 3,241-248,251-252
+packages/catalyst-core/src/native/buildAppIos.js
+  32a293826e9b7dda 1,66-67,72-74,85-87,2572
+packages/catalyst-core/src/native/utils.js
+  32a293826e9b7dda 1,9-10,14,24,41-42
+packages/catalyst-core/src/scripts/start.js
+  32a293826e9b7dda 6-7,25-28,46-49,66
+packages/create-catalyst-app/codemod/new-route/utils.js
+  32a293826e9b7dda 4,6,65-76,83-96
+packages/catalyst-core/src/native/setupServer.js
+  32a293826e9b7dda 1,22-28
+docs/package.json
+  32a293826e9b7dda 66-69
+packages/create-catalyst-app/scripts/cli.cjs
+  32a293826e9b7dda 2,13,164,168-170,176-178,271,276,294,407,422
+packages/catalyst-core/src/scripts/devServe.js
+  32a293826e9b7dda 17,19-21,25,31-32
+packages/catalyst-core/src/scripts/scriptUtils.js
+  32a293826e9b7dda 7-8,29,84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "ba08320a463e4d05ca17b9902586f091d496370f",
+  "prompts": {
+    "32a293826e9b7dda": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7480-9c24-7943-b2ee-49db6b03cebb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 182,
+      "total_deletions": 106,
+      "accepted_lines": 112,
+      "overriden_lines": 0
+    }
+  }
+}

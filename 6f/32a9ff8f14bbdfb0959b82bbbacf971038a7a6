@@ -1,0 +1,23 @@
+packages/catalyst-core/src/web-router/components/RouterDataProvider.server.test.jsx
+  s_abbac7e1770c30::t_53e45e31fcefb9 1-98
+packages/catalyst-core/vitest.config.ts
+  s_abbac7e1770c30::t_c2fd60f5dbbc0f 1
+  s_abbac7e1770c30::t_89d02450fbb278 23-30,38-41
+  s_abbac7e1770c30::t_bc82c8cc0b7ca4 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "6f32a9ff8f14bbdfb0959b82bbbacf971038a7a6",
+  "prompts": {},
+  "sessions": {
+    "s_abbac7e1770c30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4085bc31-9037-435d-ae5c-82adf34a4ec1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

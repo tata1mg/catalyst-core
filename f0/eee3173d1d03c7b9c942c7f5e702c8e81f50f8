@@ -1,0 +1,21 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/plugins/PluginBridgeTest.kt
+  s_cbea663a13314a::t_6f0698dbb91e7f 3-4,6,10,14,16-24,26-69,72-96
+  s_cbea663a13314a::t_2a85411cbc110c 223-506
+  s_cbea663a13314a::t_49a7ca0328788e 97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "f0eee3173d1d03c7b9c942c7f5e702c8e81f50f8",
+  "prompts": {},
+  "sessions": {
+    "s_cbea663a13314a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1b43752-575a-4960-973a-284fa8571046",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": null
+    }
+  }
+}

@@ -1,0 +1,33 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FrameworkServerUtilsTest.kt
+  s_517e689629005e::t_df184e87392d26 49-57
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/PerfEventBufferTest.kt
+  s_517e689629005e::t_8b4a1b30138d9d 41-51
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/FrameworkServerUtils.kt
+  s_517e689629005e::t_5f398aeccce0bc 75-82
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FileSizeRouterUtilsTest.kt
+  s_517e689629005e::t_ebc1c7e93702ca 138-144
+  s_517e689629005e::t_87b5cc3a0a6994 327-334
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/security/FridaDetectorTest.kt
+  s_517e689629005e::t_09987f37319a50 152-159,175-190
+  s_517e689629005e::t_520752edd51e03 68-80
+  s_517e689629005e::t_19e14c5676f59c 90,100,161
+  s_517e689629005e::t_b5c64716a91db7 191-192
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/NotificationUtilsTest.kt
+  s_517e689629005e::t_8b778b0014a158 243-246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "aff3e556e2a710258c69a9f6bb06ca640b4a3443",
+  "prompts": {},
+  "sessions": {
+    "s_517e689629005e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b92ffca-6e58-4f4b-b2a3-e6cc6bb648f0",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

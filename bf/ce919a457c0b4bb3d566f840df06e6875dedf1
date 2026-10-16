@@ -1,0 +1,25 @@
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.js
+  bfcf8d519e117510 293,299,334,427-455
+apps/catalyst-companion/src/js/containers/TryApp/TryApp.scss
+  bfcf8d519e117510 178-179,190-197,199-205,208-211,215-220,223-230,233-250,253-270
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "bfce919a457c0b4bb3d566f840df06e6875dedf1",
+  "prompts": {
+    "bfcf8d519e117510": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fa0b3e8-61e2-4787-ada0-1078affb44ad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 109,
+      "total_deletions": 31,
+      "accepted_lines": 107,
+      "overriden_lines": 0
+    }
+  }
+}

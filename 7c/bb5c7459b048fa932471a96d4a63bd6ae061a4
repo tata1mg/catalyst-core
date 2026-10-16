@@ -1,0 +1,36 @@
+docs/Dockerfile
+  a3e95d55cf4610af 14-20,39-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "7cbb5c7459b048fa932471a96d4a63bd6ae061a4",
+  "prompts": {
+    "a3e95d55cf4610af": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "25726c15-24c0-4286-9d5e-f53cf355ca9b",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 1,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    },
+    "c0b4bd38192f7a80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b318b15-0ed8-4338-a74d-fe1e78428cd7",
+        "model": "claude-opus-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 95,
+      "overriden_lines": 0
+    }
+  }
+}

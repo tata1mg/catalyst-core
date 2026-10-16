@@ -1,0 +1,40 @@
+packages/catalyst-core/src/webmcp/WebMcpProvider.jsx
+  s_0cd44626150883::t_675e9bc5ef354c 146-151
+  s_0cd44626150883::t_396d77924f8ae6 12,82
+docs/content/15-MCP.md
+  s_0cd44626150883::t_3823bf68f6e79e 103-106
+docs/content/20-WebMCP.md
+  s_0cd44626150883::t_d5327f6cabe96a 1-85
+examples/sync-core.js
+  s_0cd44626150883::t_9ae117daf9681e 13-19
+examples/webmcp-poc/src/js/pages/Cart/index.js
+  s_0cd44626150883::t_452d7c9c4da8c4 30
+packages/catalyst-core/src/webmcp/declarative.js
+  s_0cd44626150883::t_408b61fad1e3e5 70-72
+packages/catalyst-core/src/webmcp/declarative.test.js
+  s_0cd44626150883::t_34951304e03a68 25
+packages/catalyst-core/src/webmcp/native.js
+  s_0cd44626150883::t_716e5482fdfea3 7-13
+packages/catalyst-core/src/webmcp/registry.dom.test.js
+  s_0cd44626150883::t_504ed29b4719b5 16,161-175
+packages/catalyst-core/src/webmcp/registry.js
+  s_0cd44626150883::t_f2e4e8d67d1af8 127-134,491,497-506,508
+packages/catalyst-core/src/webmcp/registry.test.js
+  s_0cd44626150883::t_f9c1a09f23cbdd 213-228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e75da93bd525c61067ef2b98ec0f05660db2892",
+  "prompts": {},
+  "sessions": {
+    "s_0cd44626150883": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2780694-7fe3-4143-8179-1bff7d59d0f7",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

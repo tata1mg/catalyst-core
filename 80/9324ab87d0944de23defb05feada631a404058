@@ -1,0 +1,141 @@
+packages/catalyst-core/test/server/extract.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-128
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/utils.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-31
+packages/catalyst-core/test/server/fixtures/template/server/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-10
+examples/error-catalog/README.md
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-156
+packages/catalyst-core/src/web-router/components/Split.server.test.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-52
+examples/error-catalog/server/api.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-5
+examples/error-catalog/server/document.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-3
+examples/error-catalog/scenarios/mapping.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-124
+packages/catalyst-core/src/web-router/hooks.test.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-18
+packages/catalyst-core/mcp_v2/package.json
+  s_abbac7e1770c30::t_4cafa6999a2d0f 15,20-22
+examples/error-catalog/test/client.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-95
+examples/error-catalog/package.json
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-38
+examples/error-catalog/src/js/containers/App/index.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-14
+examples/error-catalog/src/js/routes/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-10
+examples/error-catalog/test/mapping.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-18
+examples/error-catalog/scenarios/build-native.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-52
+examples/error-catalog/scenarios/runtime-web.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-75
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 3,211-309
+packages/catalyst-core/src/web-router/utils/metaDataUtils.test.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 61-75
+examples/error-catalog/src/js/routes/utils.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-4
+examples/error-catalog/scenarios/cca.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-65
+.github/workflows/node.js.yml
+  s_abbac7e1770c30::t_4cafa6999a2d0f 65,111-118,135-138,145-154,297-329,820,829,852,869
+packages/catalyst-core/test/server/fixtures/template/src/js/store/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-19
+packages/catalyst-core/test/server/validator.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1,12-14,17,120-212
+examples/error-catalog/scenarios/preflight.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-282
+examples/error-catalog/scripts/test-error.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-532
+packages/catalyst-core/test/server/render.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-85
+examples/error-catalog/scenarios/ai.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-107
+packages/catalyst-core/test/server/userAgentUtil.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-48
+packages/catalyst-core/test/server/fixtures/template/src/js/containers/App/index.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-23
+packages/catalyst-core/src/native/setupEmulatorIos.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 4
+examples/error-catalog/tsconfig.json
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-12
+examples/error-catalog/scripts/ensure-config.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-18
+examples/error-catalog/server/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-71
+packages/catalyst-core/src/native/buildAndroid/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 6
+packages/catalyst-core/src/web-router/components/RouterDataProvider.server.test.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-98
+examples/error-catalog/src/js/containers/App/reducer.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-7
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/index.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-46
+examples/error-catalog/scenarios/client.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-60
+examples/error-catalog/server/server.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1
+examples/error-catalog/scenarios/bundle.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-27
+examples/error-catalog/scripts/demo.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-292
+packages/catalyst-core/src/web-router/components/Split.test.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 109-152
+packages/catalyst-core/test/server/fixtures/template/server/document.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-19
+examples/error-catalog/src/js/store/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-2
+packages/catalyst-core/src/native/androidSetup.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 5
+packages/catalyst-core/test/server/ChunkExtractor.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-97
+examples/error-catalog/vitest.config.mjs
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-8
+examples/error-catalog/.npmrc
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1
+examples/error-catalog/scenarios/_baseline.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-69
+examples/error-catalog/test/scenarios.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-391
+packages/catalyst-core/test/server/scriptUtils.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-103
+examples/error-catalog/scenarios/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-70
+examples/error-catalog/test/ai-hooks.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-35
+examples/error-catalog/src/js/containers/App/Home.jsx
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-5
+examples/error-catalog/scenarios/process.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-51
+packages/catalyst-core/vitest.config.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-12,34-41,44-64,67-72,76-79,87
+packages/catalyst-core/src/native/buildIos/index.js
+  s_abbac7e1770c30::t_4cafa6999a2d0f 6
+examples/error-catalog/config/config.template.json
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-25
+packages/catalyst-core/test/server/handler.test.ts
+  s_abbac7e1770c30::t_4cafa6999a2d0f 1-178
+packages/catalyst-core/mcp_v2/package-lock.json
+  s_abbac7e1770c30::t_92041517333b45 1-2011
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "809324ab87d0944de23defb05feada631a404058",
+  "prompts": {},
+  "sessions": {
+    "s_abbac7e1770c30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4085bc31-9037-435d-ae5c-82adf34a4ec1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

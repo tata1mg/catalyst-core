@@ -1,0 +1,273 @@
+packages/catalyst-cloud-ai/src/useWebAI.js
+  s_329b49500be142::t_828dd79af4d58e 245-246,253-255
+  s_329b49500be142::t_53bcb4823d1793 166
+  s_329b49500be142::t_ac978dc38cef1d 322-323,325-327,332
+  s_329b49500be142::t_a34c0bbfacc27a 196,267,278
+  s_329b49500be142::t_a269567001c5ac 1-165,167-195,197-244,247-252,256-266,268-277,279-321,324,328-331,333-334
+packages/catalyst-ai/package.json
+  s_292a2ee40c0bce::t_f7ee95076bf0bf 21
+  s_c35d6d7a9accf0::t_ac89df5572f86f 1-3,5-20,22-29
+  s_292a2ee40c0bce::t_540e4fee79e5f3 4
+packages/catalyst-cloud-ai/src/route.js
+  s_c35d6d7a9accf0::t_964ff1a522cf1b 2-4,78-83,85,113-120,160,162,240,268-275,323,325,327,334,356,358,360-361,382-384
+  s_329b49500be142::t_db34eb66f24c60 5-77,84,86-112,121-159,161,163-239,241-267,276-322,324,326,328-333,335-355,357,359,362-381
+  s_0258d90618c0c6::t_ea23ae01973340 1
+  s_0258d90618c0c6::t_2de97c66fef6b1 385
+packages/catalyst-cloud-ai/src/index.js
+  s_329b49500be142::t_de3f30243f5b79 2-3
+  s_c35d6d7a9accf0::t_24ae50b674f173 1,4
+scripts/test-web.sh
+  s_58a5a4d5030cfb::t_401900b77a213e 148
+examples/sync-packages.js
+  s_074da700279805::t_162afb611171cf 1-6,9-30,32,34-76,88-89,94-95,100,102-103
+  s_329b49500be142::t_18818561616599 93
+  s_329b49500be142::t_555453b22f3f25 78-79,84-85
+  s_074da700279805::t_b2c4c11b047dd3 90-92,96-99,101
+  s_6e5475db0dced6::t_40936b2f9760dd 77,80-83,86-87
+  s_329b49500be142::t_7ca4e8fea221d3 31,33
+  s_074da700279805::t_ed191a0dcb0bb6 7-8
+packages/catalyst-cloud-ai/src/buildAttachmentSystemPrompt.js
+  s_c35d6d7a9accf0::t_1378b4ec685205 1-19
+packages/catalyst-core/src/native/bridge/hooks/index.js
+  s_fc29b5dc7186d6::t_4f1bf158f2af7a 1
+packages/catalyst-native-ai-local/android/src/main/java/io/catalyst/nativeai/CatalystAIBridge.kt
+  s_2603049a4532fb::t_8704d9a002f238 1-103
+packages/catalyst-ai/scripts/check-peer.js
+  s_c35d6d7a9accf0::t_04591777f7fd2b 1-7
+packages/catalyst-web-ai-local/package.json
+  s_c35d6d7a9accf0::t_c62faf1b70eac6 1-26
+packages/catalyst-web-ai-local/src/useLocalAI.js
+  s_c35d6d7a9accf0::t_3c7bfb74d19483 1-325
+packages/catalyst-native-ai-local/src/index.js
+  s_c35d6d7a9accf0::t_8b1cf884111f83 1
+packages/catalyst-core/src/webpack/base.babel.js
+  s_0258d90618c0c6::t_b32f10b3a78b97 105-114
+  s_a699a95cdfef68::t_53fcfdd7bf2cf4 20-23,51
+  s_0258d90618c0c6::t_a61442d3fe34d3 52
+  s_074da700279805::t_1b7ccbc99e4b3c 24-33
+  s_074da700279805::t_0548d383fa1c3e 2
+  s_0258d90618c0c6::t_3ca9ac26968645 53-55
+packages/catalyst-core/src/server/expressServer.js
+  s_0258d90618c0c6::t_79eab112f6f1f6 28-29,34-40
+  s_0258d90618c0c6::t_da5dc785148c05 30-33
+  s_fc29b5dc7186d6::t_7a3bba62b782bb 41
+packages/catalyst-native-ai-local/src/useNativeAI.js
+  s_c35d6d7a9accf0::t_5b1a98b9490bf5 1-17,19-45,53,55-83,94-96,98-103,105-245
+  s_6e5475db0dced6::t_0a6a1da6cea3b1 46-52,54
+  s_6e5475db0dced6::t_a0c235d3caf1f9 18
+  s_6e5475db0dced6::t_53df05f09b189a 84-93,97,104
+packages/catalyst-cloud-ai/src/useNativeAI.js
+  s_329b49500be142::t_444d8c10e45d3f 48,54,112
+  s_329b49500be142::t_6a77a0683fe9a5 182-183,197-202
+  s_329b49500be142::t_8f4ae011abdfb9 216-221,223,229
+  s_329b49500be142::t_a269567001c5ac 1-47,49-53,55-111,113-181,184-196,203-215,222,224-228,230-248,250-252,256-262
+  s_329b49500be142::t_069fd35c5f8a4a 249,253-255
+packages/catalyst-web-ai-local/src/index.js
+  s_c35d6d7a9accf0::t_37c9778666d3f7 1
+packages/catalyst-core/src/native/bridge/hooks/useAI.js
+  s_d5698db8326875::t_c45a21fec37705 11
+  s_292a2ee40c0bce::t_d29c565c597593 40,45,49
+  s_d5698db8326875::t_ce7b1cc07bd5ab 12-13
+  s_074da700279805::t_2dc599820c28bc 14-17,29,46,50
+  s_fc29b5dc7186d6::t_d5bc2e00075fa3 43,48,52,55,73-74
+  s_c35d6d7a9accf0::t_0721dd24bf0b85 1,23,26-28,30,39,42,44,47,51,54,56-72
+  s_0258d90618c0c6::t_fc6518b102f4b9 24-25
+  s_329b49500be142::t_a5de9df129e571 20-22,32-38,41,53
+  s_a699a95cdfef68::t_620efbcd80f861 2-10
+  s_dc7e318bb3e085::t_0527ab3dfb12c9 18-19
+  s_0258d90618c0c6::t_f69f9a71b0951a 31
+packages/catalyst-native-ai-local/android/build.gradle.kts
+  s_2603049a4532fb::t_a71c3cea85bf73 40-43
+  s_6e5475db0dced6::t_6890144ce14ac9 1-23,25-39,44-49
+  s_2603049a4532fb::t_16d3e367aa6fdb 24
+scripts/test-all.sh
+  s_329b49500be142::t_abbdba54dec821 50
+  s_292a2ee40c0bce::t_04845854b66e56 130
+  s_074da700279805::t_c6e9d713a34a14 144-156
+  s_074da700279805::t_b2243b235c32d5 39
+  s_074da700279805::t_e8d043b3c89f88 49,51
+packages/catalyst-native-ai-local/android/src/main/AndroidManifest.xml
+  s_6e5475db0dced6::t_041fc1a082fd0f 1-3
+packages/catalyst-native-ai-local/package.json
+  s_c35d6d7a9accf0::t_8b12aa76a5e379 1-26
+packages/catalyst-native-ai-local/scripts/check-peer.js
+  s_c35d6d7a9accf0::t_cffd8584ed0851 1-7
+packages/catalyst-cloud-ai/scripts/check-peer.js
+  s_c35d6d7a9accf0::t_a095debff8fa6e 1-7
+packages/catalyst-core/src/globals.d.ts
+  s_074da700279805::t_ed479082dcd272 1-7
+packages/catalyst-native-ai-local/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_6e5475db0dced6::t_d86e74c183af40 1-293
+packages/catalyst-core/src/server/routes/ai.js
+  s_fc29b5dc7186d6::t_d66df04d19614f 135,137-143,145-153,166
+  s_3d7eda9c842314::t_3b6b0b11373a3c 5-66,68-70,72-81,83-94,96-102,106-107,109-115,119-121,127-133,144,155-159
+  s_3d7eda9c842314::t_9b0f85da56ed54 116-118,122-124
+  s_9f10321c396555::t_8cb199c6dd9137 95
+  s_3d7eda9c842314::t_de20cd2e9bca10 82,103-105,108,125
+  s_fc29b5dc7186d6::t_7db0cf037b3995 1-4,167-168
+  s_ec0067696657ab::t_60a113ed7f8d32 134,154,160-165
+  s_ec0067696657ab::t_8e947e7e68afe0 136
+  s_3d7eda9c842314::t_c9da017e809c47 71
+  s_9f10321c396555::t_577529fbe35d29 126
+  s_3d7eda9c842314::t_db7925fa423261 67
+packages/catalyst-web-ai-local/scripts/check-peer.js
+  s_c35d6d7a9accf0::t_aa13fcb49abfb8 1-7
+packages/catalyst-cloud-ai/package.json
+  s_c35d6d7a9accf0::t_ef44dc31d98c5b 1-27
+packages/catalyst-ai/src/index.js
+  s_0258d90618c0c6::t_091c28f9400d64 1
+packages/catalyst-native-ai-local/android/src/main/resources/META-INF/services/io.yourname.androidproject.AIBridge
+  s_2603049a4532fb::t_67750975c8e903 1
+packages/catalyst-cloud-ai/src/useCloudAI.js
+  s_329b49500be142::t_4e4e2795a5f75a 1,14-24,27-28,35-55,57-59,70,76,80-82,88-98,101-128,130-131,133-134,165-167,173,177-178,182,195-197,205-210,213,217,223,240-246
+  s_c35d6d7a9accf0::t_31320bab52a2b9 2-13,25-26,29-34,56,60-69,71-75,77-79,83-87,99-100,129,132,135-164,168-172,174-176,179-181,183-194,198-204,211-212,214-216,218-222,224-239,247-253
+examples/useai/package.json
+  s_074da700279805::t_00f149739b6d87 1-49
+examples/useai/src/js/components/AITest/InferenceSettingsBottomSheet.js
+  s_c2e5553f6e8448::t_c8ee2cbee064e8 1-187
+examples/useai/src/js/components/AITest/PresetsBottomSheet.js
+  s_c2e5553f6e8448::t_6aeef30272c5ac 1-70
+examples/useai/types.d.ts
+  s_074da700279805::t_b5e6e378e921ea 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "1c8cca9752a66ae847ffd09804b172d210c1aab8",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_0258d90618c0c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b45ae8ad-3527-4f09-886a-fd7361ba7dc4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_074da700279805": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fcb815dc-aac6-4fda-8eda-d9327d97de77",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_2603049a4532fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ffba22c-90ec-4f15-8c39-0f66fa7e78d1",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_292a2ee40c0bce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a8008bff-faa3-4c09-892f-8c8a344e1aaf",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_329b49500be142": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8dcc0ac2-f1fa-4786-8e29-8d27bcd75357",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_3d7eda9c842314": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1660c6-e86c-4dbe-814c-d735f25b0348",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_58a5a4d5030cfb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bfa9a981-25ba-4cc5-ba30-feb467113a10",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_6e5475db0dced6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d89498cc-b305-4698-8a25-8f5d36c99adb",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_9f10321c396555": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "17d422ed-3170-4ba1-a0a7-0d44a3ae6f97",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_a699a95cdfef68": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c6a0c17c-8a84-4ee0-ad10-22fd4dd7d97e",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_c2e5553f6e8448": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ef024aa4-d44c-4829-ac5b-9d3de614fe2c",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_c35d6d7a9accf0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4d986ce1-e7e2-43e7-99ed-c54804c73536",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_d5698db8326875": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4f2ddabc-19a3-4171-a569-53c182bf6cb3",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_dc7e318bb3e085": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0eb8e88e-54e9-4497-a14c-f77b6853f997",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_ec0067696657ab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9277266-63db-4525-a08a-8be290c5f130",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_fc29b5dc7186d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ea887843-0761-4db5-9ecf-0422fe4760d6",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

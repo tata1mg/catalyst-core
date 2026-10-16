@@ -1,0 +1,33 @@
+.gitignore
+  1b3aa257e4a8e310 2-17
+.lintstagedrc.cjs
+  1b3aa257e4a8e310 32-51,77,79
+.dockerignore
+  1b3aa257e4a8e310 1-21
+package.json
+  1b3aa257e4a8e310 8-13,15
+.prettierignore
+  1b3aa257e4a8e310 1-12
+.github/workflows/node.js.yml
+  1b3aa257e4a8e310 29-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "f875d54a69f524d709112c8510dc43c81a5a4023",
+  "prompts": {
+    "1b3aa257e4a8e310": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d90b4-f222-72c1-b07a-8ce4229b5810",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 123,
+      "total_deletions": 32,
+      "accepted_lines": 96,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,23 @@
+docs/privateDocs.config.js
+  s_97e326f44132bc::t_9d032afc39d97a 181
+  s_97e326f44132bc::t_2344f4f0a39a56 89
+docs/publicDocs.config.js
+  s_97e326f44132bc::t_b5d7c3417d5820 78
+  s_97e326f44132bc::t_b168a3980f6f5c 180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b0818654fad0157e3473b5da1298a03f339a25de",
+  "prompts": {},
+  "sessions": {
+    "s_97e326f44132bc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "99a936cd-ee0a-4a02-8005-0c543cef5121",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

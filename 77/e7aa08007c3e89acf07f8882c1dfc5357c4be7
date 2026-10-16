@@ -1,0 +1,14 @@
+examples/useai/src/js/containers/Chess/Chess.js
+  h_d7d9de1560f99e 123,126-127,133,136,160,243,245-246,250-252,254-255,259-267,280,323,472,476,487,495-506,508-513,516-568
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "77e7aa08007c3e89acf07f8882c1dfc5357c4be7",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+.github/workflows/prepare-release.yml
+  s_2db858c7992682::t_93b4710adc3b70 142,152,165-166
+  s_2db858c7992682::t_f232477707d72c 55-74
+  s_2db858c7992682::t_afd3ed19e35e49 484,489-490,505-506
+  s_2db858c7992682::t_09a19c3e379ceb 397,400,403,428-431
+  s_2db858c7992682::t_e6390ac1e7c008 185-187,191
+  s_2db858c7992682::t_00358047dc2517 103-105
+  s_2db858c7992682::t_5bf55b5feef3a8 450,453,455,469-470
+  s_2db858c7992682::t_aa6de269285463 293-294
+  s_2db858c7992682::t_cb134adc0c0a27 362,365,387-389
+  s_2db858c7992682::t_8c396b640305b4 167-168
+  s_2db858c7992682::t_829b8a6858c43d 295-296
+  s_2db858c7992682::t_7c34a0d156a4f1 390-391
+  s_2db858c7992682::t_963b9aec0a533f 432-434
+  s_2db858c7992682::t_4f0d5d6e40909c 471
+  s_2db858c7992682::t_d32d4c776baeba 507-508
+scripts/test-catalyst-ai.sh
+  s_2db858c7992682::t_89f461a1d68ce2 1-11,14,16
+  s_2db858c7992682::t_565ebd5cc61f89 12-13,15
+.gitignore
+  s_2db858c7992682::t_e91293867da5fa 148
+.github/workflows/node.js.yml
+  s_2db858c7992682::t_24d5701f117fa3 30-40
+.github/workflows/publish.yml
+  s_2db858c7992682::t_28deb8a364080f 25-29
+  s_2db858c7992682::t_06133808cb1b30 233,283,334-337,380,583
+  s_2db858c7992682::t_bc5e32f2796a37 291,294
+  s_2db858c7992682::t_a4b5250926dc04 181,184
+  s_2db858c7992682::t_7c9ad897f459d2 343,346,353-355,378-379
+  s_2db858c7992682::t_84cd6ed8ac724c 191,194,197,223-232
+  s_2db858c7992682::t_518d95f7ed2904 82,90,93,100,103,123,126,131,147,150
+  s_2db858c7992682::t_c6e8443ab5cea3 246,249,281-282
+  s_2db858c7992682::t_cd0d23638d5f3c 499-521
+  s_2db858c7992682::t_b0113be1eb9c4f 560,563,571,581-582
+  s_2db858c7992682::t_43515bb3fab5b1 61,64
+  s_2db858c7992682::t_ff857f22bfff29 234
+  s_2db858c7992682::t_1a79c399936f2c 284
+  s_2db858c7992682::t_605db08e9c8790 381
+  s_2db858c7992682::t_a595a91f2dd00d 522
+  s_2db858c7992682::t_4a81e5f3895a7c 584
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "0648430cfe58ab753e852333902e41eee78e6d7a",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_2db858c7992682": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53641c65-080e-4ca0-908d-43d156fe031e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

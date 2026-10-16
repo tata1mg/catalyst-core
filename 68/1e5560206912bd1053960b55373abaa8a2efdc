@@ -1,0 +1,20 @@
+packages/catalyst-core/mcp_v2/tools/knowledge.js
+  s_bd88bba7dc1b33::t_87d5fff121df27 98-99,101-104
+  s_bd88bba7dc1b33::t_7418b3c928d39e 58-64,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "681e5560206912bd1053960b55373abaa8a2efdc",
+  "prompts": {},
+  "sessions": {
+    "s_bd88bba7dc1b33": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e9d04146-2465-4488-a723-efb26fe0cd5f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

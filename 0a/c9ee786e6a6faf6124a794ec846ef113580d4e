@@ -1,0 +1,24 @@
+apps/catalyst-companion/PREVIEW_DESIGN.md
+  s_b28df47763bcc0::t_f742e6b38e29a8 1-237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0ac9ee786e6a6faf6124a794ec846ef113580d4e",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_b28df47763bcc0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "307e15d4-1c25-4493-9cb1-906e16f49fdd",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

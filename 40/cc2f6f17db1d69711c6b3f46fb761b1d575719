@@ -1,0 +1,108 @@
+errors/index.json
+  s_38c08631d4408c::t_b856bd806d4e43 247-253,261-267
+docs/Dockerfile
+  s_38c08631d4408c::t_b856bd806d4e43 4-8,17-41,44-50,55,59-64,72-73
+docs/content/12-Migration/02-Version-Upgrades.md
+  s_38c08631d4408c::t_b856bd806d4e43 9-134
+examples/error-catalog/test/scenarios.test.ts
+  s_38c08631d4408c::t_b856bd806d4e43 308-309,313,322
+docs/README.md
+  s_38c08631d4408c::t_b856bd806d4e43 82-100
+packages/catalyst-core/.npmignore
+  s_38c08631d4408c::t_b856bd806d4e43 16-17
+examples/error-catalog/scripts/test-error.js
+  s_38c08631d4408c::t_b856bd806d4e43 340-341,345,354
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_38c08631d4408c::t_b856bd806d4e43 477,479,573,576,613,732,1075,1129,1180,1260,1263-1264,1306,1311,1320,1376-1429
+packages/catalyst-core/mcp_v2/mcp.js
+  s_38c08631d4408c::t_b856bd806d4e43 439
+packages/catalyst-core/src/errors/registry.js
+  s_38c08631d4408c::t_b856bd806d4e43 31,33,236-242,249-256
+packages/catalyst-core/changelog.md
+  s_38c08631d4408c::t_b856bd806d4e43 3,63,81-147,154-157,185,213,219,221-230,232,242,246,252,263,265-266,270-272,274,276-278,280,282-285,289-297
+packages/catalyst-core/src/native/buildAndroid/build.js
+  s_38c08631d4408c::t_b856bd806d4e43 5,119-123,128-132,135,139-153,156-160,162,164-173,175-265,270-272,274-282,284-291,293,507
+packages/catalyst-core/src/native/buildIos/config.js
+  s_38c08631d4408c::t_b856bd806d4e43 185,266-273
+  s_38c08631d4408c::t_b4c1f4333b1c5a 274-275
+packages/catalyst-core/src/scripts/loadEnvironmentVariables.js
+  s_38c08631d4408c::t_b856bd806d4e43 27-46
+packages/catalyst-core/test/server/handler.test.ts
+  s_38c08631d4408c::t_b856bd806d4e43 85
+.github/workflows/release.yml
+  s_38c08631d4408c::t_b856bd806d4e43 1-228
+docs/scripts/generate-docs-manifest.mjs
+  s_38c08631d4408c::t_b856bd806d4e43 22-25,30,48-64,117,126,128,135,188-207,209,211-217,224,236,246-247,251-252,294,319-320,335-338,368,371-393,419-420,456-460,506-526,528-552,564-566,589
+errors/IOS/IOS-001.md
+  s_38c08631d4408c::t_b856bd806d4e43 1-15
+docs/package.json
+  s_38c08631d4408c::t_b856bd806d4e43 26
+docs/src/js/components/docs/DocsSidebar.js
+  s_38c08631d4408c::t_b856bd806d4e43 4,25,27,46-49,227-230,242-252,261-264,276-278
+packages/catalyst-core/src/native/setupEmulatorIos.js
+  s_38c08631d4408c::t_b856bd806d4e43 263-289,343-347,349-350,352-356
+packages/catalyst-ai/package.json
+  s_38c08631d4408c::t_b856bd806d4e43 3
+packages/catalyst-core/test/server/render.test.ts
+  s_38c08631d4408c::t_b856bd806d4e43 7,36
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/05-Environment-Variables.md"
+  s_38c08631d4408c::t_b856bd806d4e43 15,19,62
+  s_38c08631d4408c::t_8e07ca5048a5ce 63
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_38c08631d4408c::t_b856bd806d4e43 63-72,76,99-104,106-113
+docs/src/js/components/docs/DocPage.js
+  s_38c08631d4408c::t_b856bd806d4e43 8,15,39-49,67-71,73,79,82,143,155-162
+examples/error-catalog/scenarios/index.js
+  s_38c08631d4408c::t_b856bd806d4e43 68-80
+scripts/release/check-stable-deps.js
+  s_38c08631d4408c::t_b856bd806d4e43 1-70
+docs/src/js/data/errorsSource.js
+  s_38c08631d4408c::t_b856bd806d4e43 9,14
+docs/.gitignore
+  s_38c08631d4408c::t_b856bd806d4e43 14,18-20
+docs/src/js/components/Navbar.js
+  s_38c08631d4408c::t_b856bd806d4e43 2,5-6,22-28,117-120,218-239
+packages/catalyst-core/src/server/renderer/render.ts
+  s_38c08631d4408c::t_b856bd806d4e43 25
+"docs/content/11-API Reference/03-File-Conventions.md"
+  s_38c08631d4408c::t_b856bd806d4e43 43,55
+docs/server/document.js
+  s_38c08631d4408c::t_b856bd806d4e43 3,13-16,23-25,31-33
+package.json
+  s_38c08631d4408c::t_b856bd806d4e43 28-29
+docs/versions.json
+  s_38c08631d4408c::t_b856bd806d4e43 1
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_38c08631d4408c::t_b856bd806d4e43 86,132
+docs/server/server.js
+  s_38c08631d4408c::t_b856bd806d4e43 8-13,23,36,105-109
+  s_38c08631d4408c::t_14ef17051cee9e 110
+docs/src/static/css/base/docs.scss
+  s_38c08631d4408c::t_b856bd806d4e43 712-729
+errors/ANDROID/ANDROID-001.md
+  s_38c08631d4408c::t_b856bd806d4e43 1-15
+scripts/release/release.js
+  s_38c08631d4408c::t_b856bd806d4e43 1-335
+packages/catalyst-core/src/native/buildIos/build.js
+  s_38c08631d4408c::t_b856bd806d4e43 71-97,377-382,405-466,476-483,485-486,491,493,658-664,670-677,680,722-730
+docs/package-lock.json
+  s_38c08631d4408c::t_0c21a5fec93eae 12,1304-1306,1317-1319,1330-1332,1343-1345,1356-1358,1369-1371,1382-1384,1395-1397,1408-1410,1421-1423,1434-1436,1447-1449,1460-1462,1473-1475,1486-1488,1499-1501,1512-1514,1525-1527,1538-1540,1551-1553,1564-1566,1577-1579,1590-1592,1603-1605,1616-1618,2333-2335,2506-2508,2526-2528,2543,2969-2971,3221-3223,5151-5153,7302-7304,7563-7565,7568-7569,7572,7575-7581,7584-7587,7590,7592-7594,7962-7964,7978-8002,8121-8123,8139-8141,8241-8246,8688-8694,9050-9052
+package-lock.json
+  s_38c08631d4408c::t_b4d7bc1b8b2928 14-15,174-182,202-211,256-264,286-294,313-322,1828-1837,5820-5829,5864-5866,5961-5963,5980-5984,6078-6080,7021-7023,7540-7549,10801-10810,10812-10814,12239-12242,12246-12248,13352-13354,14092
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "40cc2f6f17db1d69711c6b3f46fb761b1d575719",
+  "prompts": {},
+  "sessions": {
+    "s_38c08631d4408c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "839e6730-7fee-4d83-9513-c3d1ce40aee4",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

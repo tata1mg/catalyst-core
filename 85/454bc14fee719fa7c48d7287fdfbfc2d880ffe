@@ -1,0 +1,50 @@
+.github/workflows/publish-manual.yml
+  2416074ac24feea9 138-146
+  cc2032212d295384 44,53-56,60-61,63-68,70-73,75-78,80-85,103,114-125,150-151,153-163,170,173,175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.29",
+  "base_commit_sha": "85454bc14fee719fa7c48d7287fdfbfc2d880ffe",
+  "prompts": {
+    "2416074ac24feea9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7d766282-a2f6-4074-817f-43fabdec3126",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 24,
+      "total_deletions": 22,
+      "accepted_lines": 19,
+      "overriden_lines": 0
+    },
+    "cc2032212d295384": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24bfa301-1561-4547-a141-8653a61ec3b2",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 114,
+      "total_deletions": 64,
+      "accepted_lines": 76,
+      "overriden_lines": 2
+    },
+    "e0af2a12e1a2eaba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "79cf039f-62d2-4884-a104-d50e9fb45fb6",
+        "model": "claude-opus-4-5-20251101"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 5,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,23 @@
+packages/catalyst-core/mcp_v2/package.json
+  s_abbac7e1770c30::t_afd59dfb90e480 15,20-22
+.github/workflows/node.js.yml
+  s_abbac7e1770c30::t_9422ec9080bfca 128-131,138-147
+packages/catalyst-core/mcp_v2/package-lock.json
+  s_abbac7e1770c30::t_417071db55538e 1-2011
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e7aeb6f9f457ec4a4a2a321b58900c6e1e897bee",
+  "prompts": {},
+  "sessions": {
+    "s_abbac7e1770c30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4085bc31-9037-435d-ae5c-82adf34a4ec1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/MetricsMonitor.kt
+  6bb65cf4bb11db9a 42,108-109
+packages/catalyst-core/src/native/bridge/perf/collectors/BridgeCollector.js
+  6bb65cf4bb11db9a 150
+packages/catalyst-core/src/native/bridge/perf/core/store.js
+  6bb65cf4bb11db9a 386-397
+packages/catalyst-core/src/native/bridge/perf/core/traceExport.js
+  6bb65cf4bb11db9a 40-51,82,95,106-118,148,155,157
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/CacheManager.swift
+  6bb65cf4bb11db9a 205,208
+packages/catalyst-core/src/native/bridge/perf/collectors/ApiCollector.js
+  6bb65cf4bb11db9a 69
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  6bb65cf4bb11db9a 309
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  6bb65cf4bb11db9a 1027
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  6bb65cf4bb11db9a 142,169
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/DisplayLinkPerfMonitor.swift
+  6bb65cf4bb11db9a 12-13,15,37-38,55,64,72-73,77-79,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "20dd5b2de2777c911b5b9bf297677adf691ffb8b",
+  "prompts": {
+    "6bb65cf4bb11db9a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eda2f-6523-7022-b622-72968e0b3953",
+        "model": "unknown"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 73,
+      "total_deletions": 11,
+      "accepted_lines": 69,
+      "overriden_lines": 0
+    }
+  }
+}

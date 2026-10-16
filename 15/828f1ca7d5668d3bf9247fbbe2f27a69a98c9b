@@ -1,0 +1,24 @@
+packages/catalyst-core/src/webmcp/declarative.js
+  s_b0e8727f0b555e::t_305cf89e3ae5a6 46-47
+  s_b0e8727f0b555e::t_26d8bbd9f143b2 141-145,148-153,155,163-166,181-191
+packages/catalyst-core/src/webmcp/declarative.test.js
+  s_b0e8727f0b555e::t_da6ce0f8d95166 75-92
+packages/catalyst-core/src/webmcp/WebMcpProvider.jsx
+  s_b0e8727f0b555e::t_6c5c762f0a9ca2 136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "15828f1ca7d5668d3bf9247fbbe2f27a69a98c9b",
+  "prompts": {},
+  "sessions": {
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

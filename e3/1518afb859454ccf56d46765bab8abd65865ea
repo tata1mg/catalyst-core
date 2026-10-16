@@ -1,0 +1,41 @@
+packages/catalyst-core/src/globals.d.ts
+  3a0f4ce98dc8011b 24,30-40
+packages/catalyst-core/src/web-router/components/MetaTag.tsx
+  3a0f4ce98dc8011b 11,15
+packages/catalyst-core/src/web-router/components/RouterDataProvider.tsx
+  3a0f4ce98dc8011b 11,16,18-31,34,36-38,41,43-46,51,61,63-78,81,83-92,101-104,138-142,145,184,197,208,210-218,227-228,242-243,264-265,270,273,278,293,311,322,359
+packages/catalyst-core/src/router/ClientRouter.ts
+  3a0f4ce98dc8011b 10
+packages/catalyst-core/src/web-router/components/SplitInview.tsx
+  3a0f4ce98dc8011b 9-10,32,36-50,56
+packages/catalyst-core/src/web-router/components/SsrRequestContext.tsx
+  3a0f4ce98dc8011b 4-17,22,24
+packages/catalyst-core/src/router/ServerRouter.ts
+  3a0f4ce98dc8011b 3,5-16
+packages/catalyst-core/src/web-router/components/Split.tsx
+  3a0f4ce98dc8011b 5-40,46,50,62-67,69-80,93,101-102,136-140,153,159,165,172-174,181,233,242
+packages/catalyst-core/src/web-router/utils/metaDataUtils.tsx
+  3a0f4ce98dc8011b 6-7,9,14-15,17,45,60-61,63,65,93-95,98-99,101
+packages/catalyst-core/src/web-router/context.tsx
+  3a0f4ce98dc8011b 2,5-7,9-16,21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "e31518afb859454ccf56d46765bab8abd65865ea",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 293,
+      "total_deletions": 144,
+      "accepted_lines": 380,
+      "overriden_lines": 0
+    }
+  }
+}

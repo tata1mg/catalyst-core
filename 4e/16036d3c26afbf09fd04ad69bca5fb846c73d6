@@ -1,0 +1,33 @@
+scripts/test-cca-smoke.sh
+  1b3aa257e4a8e310 1-34
+packages/catalyst-core/src/logger.js
+  1b3aa257e4a8e310 1-81
+packages/catalyst-core/src/caching.js
+  1b3aa257e4a8e310 1
+.gitignore
+  1b3aa257e4a8e310 27-29,125-126
+packages/catalyst-core/src/router.js
+  1b3aa257e4a8e310 1
+scripts/test-catalyst-core.sh
+  1b3aa257e4a8e310 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "4e16036d3c26afbf09fd04ad69bca5fb846c73d6",
+  "prompts": {
+    "1b3aa257e4a8e310": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d90b4-f222-72c1-b07a-8ce4229b5810",
+        "model": "gpt-5.5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 483,
+      "total_deletions": 276,
+      "accepted_lines": 165,
+      "overriden_lines": 0
+    }
+  }
+}

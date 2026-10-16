@@ -1,0 +1,20 @@
+packages/catalyst-core/src/vite/vite.config.js
+  s_e1db0af8ce6d50::t_ca00d9c15b702f 381-396
+  s_e1db0af8ce6d50::t_6d5318ebf712be 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "fa39c2c4832357b7bc803eb40afa83be4aae9258",
+  "prompts": {},
+  "sessions": {
+    "s_e1db0af8ce6d50": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b38ab86-4446-4a1c-9e6c-b548863cfef2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

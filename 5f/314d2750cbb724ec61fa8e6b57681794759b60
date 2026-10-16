@@ -1,0 +1,27 @@
+packages/catalyst-core/package.json
+  3a0f4ce98dc8011b 33
+packages/catalyst-core/.npmignore
+  3a0f4ce98dc8011b 2
+packages/catalyst-core/scripts/build-dist.mjs
+  3a0f4ce98dc8011b 1-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "5f314d2750cbb724ec61fa8e6b57681794759b60",
+  "prompts": {
+    "3a0f4ce98dc8011b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce2816c-2a1b-4a00-af1c-05dc79fe7d6a",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 185,
+      "total_deletions": 3,
+      "accepted_lines": 308,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,49 @@
+.trivyignore
+  s_6c1f44bad3b67b::t_7ae6db756ebe6f 1-9
+packages/catalyst-core/src/native/buildIos/build.js
+  s_6c1f44bad3b67b::t_93a9549b2245ba 58
+  s_6c1f44bad3b67b::t_7ff8ee49faf21d 376
+  s_6c1f44bad3b67b::t_52856ce1b8394d 151
+  s_6c1f44bad3b67b::t_f131dd7206b637 218
+  s_6c1f44bad3b67b::t_9353691bda5c1e 155
+  s_6c1f44bad3b67b::t_a2c839ca462aed 379
+  s_6c1f44bad3b67b::t_c9afdee49940eb 306
+  s_6c1f44bad3b67b::t_e70c865f5def30 199
+  s_6c1f44bad3b67b::t_2aa499b7fabd28 174-175
+packages/catalyst-core/src/native/buildIos/plugins.js
+  s_6c1f44bad3b67b::t_24891a18eb0d1c 186,188,190
+  s_6c1f44bad3b67b::t_f40762822d82c2 325
+  s_6c1f44bad3b67b::t_e2f460cb32473e 114-115
+  s_6c1f44bad3b67b::t_96cbd6120d59ac 212
+  s_6c1f44bad3b67b::t_14eb3d43f1c8fe 187,189
+packages/catalyst-core/src/native/buildIos/assets.js
+  s_6c1f44bad3b67b::t_4b93f1ef3cb115 209
+  s_6c1f44bad3b67b::t_43936a546f4efc 185
+  s_6c1f44bad3b67b::t_dce8b4b7113938 319
+packages/catalyst-core/src/native/buildIos/config.js
+  s_6c1f44bad3b67b::t_f176e9adb9ef76 126
+  s_6c1f44bad3b67b::t_e171a2a58b3868 216
+  s_6c1f44bad3b67b::t_103a379bc6a683 297-299
+  s_6c1f44bad3b67b::t_9e5d29010b3d1a 340
+examples/sync-core.js
+  s_6c1f44bad3b67b::t_1f5dd4b658f2e3 44-45
+  s_6c1f44bad3b67b::t_35eda10115f1f1 34,37
+docs/Dockerfile
+  s_6c1f44bad3b67b::t_7747ba71611fac 30-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "ba0ccd078a104bec6f56ac7ef16946e122aae1f1",
+  "prompts": {},
+  "sessions": {
+    "s_6c1f44bad3b67b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0dc1706c-3035-465a-a9c6-03e5280162ff",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

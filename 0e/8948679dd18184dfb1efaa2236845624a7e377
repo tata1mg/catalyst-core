@@ -1,0 +1,81 @@
+packages/catalyst-core/src/webmcp/native.js
+  s_b0e8727f0b555e::t_739997e023d243 1-30
+packages/catalyst-core/src/webmcp/WebMcpProvider.jsx
+  s_b0e8727f0b555e::t_f80a7afc4b1500 1,29-39,56
+  s_b0e8727f0b555e::t_35ae4b613b1df5 2-10
+  s_b0e8727f0b555e::t_7a969ad1ff597f 11-28,40-55,57-228
+packages/catalyst-core/src/vite/vite.config.js
+  s_b0e8727f0b555e::t_af653e87698bab 433-443
+packages/catalyst-core/vitest.config.ts
+  s_b0e8727f0b555e::t_a88148c26af090 79-82
+packages/catalyst-core/src/webmcp/shim-entry.js
+  s_b0e8727f0b555e::t_d943cce955545c 1-8
+packages/catalyst-core/src/webmcp/useTool.js
+  s_b0e8727f0b555e::t_0cf463869e3758 1-121
+packages/catalyst-core/src/webmcp/registry.js
+  s_b0e8727f0b555e::t_8b67447cf5462f 127-132,134-135
+  s_b0e8727f0b555e::t_6de2b13858ecd9 1-126,133,136-523
+examples/webmcp-poc/src/js/containers/App/index.js
+  s_b0e8727f0b555e::t_4e060b54072823 3,5-8,14
+examples/webmcp-poc/src/js/pages/Cart/index.js
+  s_b0e8727f0b555e::t_eb563a76577c53 4
+packages/catalyst-core/src/webmcp/declarative.test.js
+  s_b0e8727f0b555e::t_0cf463869e3758 1-103
+examples/webmcp-poc/src/js/devtools/DevPanel.jsx
+  s_b0e8727f0b555e::t_b45f45b3c98017 106
+  s_b0e8727f0b555e::t_0aba7e8d3b140a 3-4
+  s_b0e8727f0b555e::t_0ed1c669cdc703 1-2,5-16,22,24-82,84-105,107-135,137-303
+  s_b0e8727f0b555e::t_bf365a728fd6a3 136
+  s_b0e8727f0b555e::t_d7fca3f38e4956 83
+  s_b0e8727f0b555e::t_d3dbe8082f6f37 17-21,23
+packages/catalyst-core/src/webmcp/shim.js
+  s_b0e8727f0b555e::t_ed228f7d2f64dc 1-149
+packages/catalyst-core/src/webmcp/pageInfo.js
+  s_b0e8727f0b555e::t_0cf463869e3758 1-119
+examples/webmcp-poc/package.json
+  s_b0e8727f0b555e::t_ca35582fc6016a 27
+packages/catalyst-core/src/index.tsx
+  s_b0e8727f0b555e::t_0eb066b9445995 5
+packages/catalyst-core/src/webmcp/routeContext.js
+  s_b0e8727f0b555e::t_0cf463869e3758 1-11
+packages/catalyst-core/src/webmcp/errors.js
+  s_b0e8727f0b555e::t_7317162831e0e7 1-59
+packages/catalyst-core/src/webmcp/registry.test.js
+  s_b0e8727f0b555e::t_0cf463869e3758 1-178
+examples/webmcp-poc/src/js/routes/utils.js
+  s_b0e8727f0b555e::t_cf0640fb6ba1f6 4,8-13
+  s_b0e8727f0b555e::t_2a89ab90f63617 40
+  s_b0e8727f0b555e::t_19f75acab6f047 3
+  s_b0e8727f0b555e::t_f2bb6eeb98c385 14
+examples/webmcp-poc/src/js/pages/ProductDetail/index.js
+  s_b0e8727f0b555e::t_fcab33c753af0c 4
+packages/catalyst-core/src/web-router/context.tsx
+  s_b0e8727f0b555e::t_b48b3cc1c89481 2,8-18,27-29
+packages/catalyst-core/src/web-router/components/RouterDataProvider.tsx
+  s_b0e8727f0b555e::t_378e13cccafccc 368-398
+  s_b0e8727f0b555e::t_d3ef8fdcadca4b 310
+packages/catalyst-core/package.json
+  s_b0e8727f0b555e::t_a724e30fc69d54 38-39
+examples/webmcp-poc/buildConfig.js
+  s_b0e8727f0b555e::t_cf2e3f2ce781af 3-22
+packages/catalyst-core/src/webmcp/declarative.js
+  s_b0e8727f0b555e::t_0cf463869e3758 1-179
+packages/catalyst-core/src/webmcp/index.js
+  s_b0e8727f0b555e::t_ad1d3ae4a8d6e4 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0e8948679dd18184dfb1efaa2236845624a7e377",
+  "prompts": {},
+  "sessions": {
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

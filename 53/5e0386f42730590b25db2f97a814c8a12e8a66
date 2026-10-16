@@ -1,0 +1,49 @@
+packages/catalyst-ai/plugins/ai/ios/Support/AIOptions.swift
+  s_142fca248d57d5::t_43e95de38285f8 1-40
+packages/catalyst-ai/plugins/ai/ios/FoundationModelsAI.swift
+  s_142fca248d57d5::t_2ba6929c277790 1-139
+packages/catalyst-ai/plugins/ai/ios/AIBridge.swift
+  s_142fca248d57d5::t_4d25699771c0ac 1-45
+packages/catalyst-ai/plugins/ai/ios/Support/EngineSelection.swift
+  s_142fca248d57d5::t_43e95de38285f8 1-38
+packages/catalyst-ai/plugins/ai/ios/CatalystAIBridge.swift
+  s_142fca248d57d5::t_2ba6929c277790 71,97-100,103-107,115-119
+  s_142fca248d57d5::t_4d25699771c0ac 1-70,72-96,101-102,108-114,120-121
+packages/catalyst-ai/plugins/ai/manifest.json
+  s_142fca248d57d5::t_43e95de38285f8 1-24
+packages/catalyst-ai/plugins/ai/ios/Support/ProgressThrottle.swift
+  s_142fca248d57d5::t_43e95de38285f8 1-27
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_142fca248d57d5::t_9ce03968f6b06a 1-303
+packages/catalyst-ai/plugins/ai/ios/Support/AIPromptBuilder.swift
+  s_142fca248d57d5::t_43e95de38285f8 1-41
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/AISupportTests.swift
+  s_142fca248d57d5::t_f466b6dbd0cd66 1-119
+  s_142fca248d57d5::t_9ce03968f6b06a 120-134
+packages/catalyst-ai/plugins/ai/ios/Support/FoundationModelsErrors.swift
+  s_142fca248d57d5::t_4d25699771c0ac 1-30
+packages/catalyst-ai/package.json
+  s_142fca248d57d5::t_152fba26df2ce8 15-18
+packages/catalyst-ai/plugins/ai/ios/CatalystAIPlugin.swift
+  s_142fca248d57d5::t_4d25699771c0ac 1-88
+packages/catalyst-ai/plugins/ai/ios/Support/StreamDelta.swift
+  s_142fca248d57d5::t_43e95de38285f8 1-30
+packages/catalyst-ai/plugins/ai/Package.swift
+  s_142fca248d57d5::t_58c2673f79afcc 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "535e0386f42730590b25db2f97a814c8a12e8a66",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

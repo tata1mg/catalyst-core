@@ -1,0 +1,14 @@
+examples/useai/src/js/containers/TicTacToe/TicTacToe.js
+  h_d7d9de1560f99e 38,41,48,51,72,141,146-157,163,173,307,309-310,313,315,318-323,326-327,329-353,355-357,363-378,442,444
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2dc6a90e3e6af0a5ab698830d6d0e03222a84034",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

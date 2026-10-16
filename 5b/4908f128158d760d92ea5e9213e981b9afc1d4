@@ -1,0 +1,14 @@
+packages/catalyst-ai/src/useWebAI.js
+  h_d7d9de1560f99e 24,201,212,240-255,318-323,333-338,356,358-359,367
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5b4908f128158d760d92ea5e9213e981b9afc1d4",
+  "prompts": {},
+  "humans": {
+    "h_d7d9de1560f99e": {
+      "author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

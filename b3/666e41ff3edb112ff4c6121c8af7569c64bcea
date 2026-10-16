@@ -1,0 +1,14 @@
+src/server/renderer/extract.js
+  h_c91be57df924d3 185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b3666e41ff3edb112ff4c6121c8af7569c64bcea",
+  "prompts": {},
+  "humans": {
+    "h_c91be57df924d3": {
+      "author": "deepakmittal1mg <deepak.mittal@1mg.com>"
+    }
+  }
+}
