@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react'
-import { useCurrentRouteData, useParams, Link } from 'catalyst-core'
+import { useCurrentRouteData } from 'catalyst-core'
+import { useParams, Link } from 'react-router'
 import DocsSidebar from './DocsSidebar'
 import ErrorsUnavailable from './ErrorsUnavailable'
 import { loadErrorsCatalog, githubBlobUrlFor } from '../../data/errorsCatalog'

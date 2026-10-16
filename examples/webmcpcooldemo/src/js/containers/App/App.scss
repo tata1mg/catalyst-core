@@ -1,0 +1,446 @@
+.shell {
+    min-height: 100svh;
+}
+
+.skip {
+    position: fixed;
+    left: 12px;
+    top: -60px;
+    z-index: 200;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--acid);
+    color: var(--ink);
+    font-weight: 600;
+
+    &:focus {
+        top: 12px;
+    }
+}
+
+/* ---------- top bar ---------- */
+
+.nav {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 70;
+    height: var(--nav-h);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 16px;
+    background: linear-gradient(180deg, rgb(7 7 11 / 0.85), rgb(7 7 11 / 0.55));
+    backdrop-filter: blur(18px) saturate(1.3);
+    border-bottom: 1px solid var(--line);
+
+    @media (min-width: 768px) {
+        padding: 0 24px;
+    }
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.brandMark {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: conic-gradient(from 210deg, var(--acid), var(--cyan), var(--violet), var(--hot), var(--acid));
+    position: relative;
+    box-shadow: 0 0 24px -4px rgb(198 255 61 / 0.6);
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border-radius: 4px;
+        background: var(--ink);
+    }
+}
+
+.brandText {
+    font-size: 17px;
+
+    span {
+        color: var(--fg-mute);
+        font-weight: 500;
+    }
+}
+
+.links {
+    display: none;
+    margin: 0 auto;
+    padding: 4px;
+    gap: 2px;
+    border-radius: 99px;
+    border: 1px solid var(--line);
+    background: rgb(255 255 255 / 0.03);
+
+    @media (min-width: 768px) {
+        display: flex;
+    }
+}
+
+.link {
+    position: relative;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 16px;
+    border-radius: 99px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fg-dim);
+    transition:
+        color 0.2s,
+        background-color 0.2s;
+
+    &:hover {
+        color: var(--fg);
+    }
+}
+
+.active {
+    color: var(--ink);
+    background: var(--fg);
+
+    &:hover {
+        color: var(--ink);
+    }
+}
+
+.right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+
+    @media (min-width: 768px) {
+        margin-left: 0;
+    }
+}
+
+.live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 6px 0 12px;
+    border-radius: 99px;
+    border: 1px solid var(--line-strong);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--acid);
+}
+
+.liveDot {
+    color: var(--acid);
+}
+
+.liveNum {
+    font-weight: 600;
+    min-width: 1.4ch;
+    text-align: center;
+    animation: bump 0.45s var(--ease-spring);
+}
+
+@keyframes bump {
+    0% {
+        scale: 1.7;
+        color: var(--fg);
+    }
+}
+
+.liveLabel {
+    color: var(--fg-dim);
+    display: none;
+
+    @media (min-width: 480px) {
+        display: inline;
+    }
+}
+
+.liveMode {
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 8px;
+    border-radius: 99px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgb(255 178 61 / 0.14);
+    color: var(--sun);
+
+    &[data-native="true"] {
+        background: rgb(198 255 61 / 0.14);
+        color: var(--acid);
+    }
+}
+
+.deviceToggle {
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    border-radius: 99px;
+    background: rgb(255 255 255 / 0.04);
+    border: 1px solid var(--line);
+    gap: 2px;
+}
+
+.deviceOption {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-dim);
+    transition: all 0.2s ease;
+
+    &:hover {
+        color: var(--fg);
+    }
+}
+
+.deviceOptionActive {
+    background: var(--fg) !important;
+    color: var(--ink) !important;
+    font-weight: 700;
+}
+
+.deviceLabel {
+    display: none;
+    @media (min-width: 600px) {
+        display: inline;
+    }
+}
+
+.agentBtn {
+    display: none;
+    height: 40px;
+
+    @media (min-width: 768px) {
+        display: inline-flex;
+    }
+}
+
+.spark {
+    display: inline-block;
+    animation: twinkle 2.4s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+    50% {
+        rotate: 90deg;
+        scale: 1.2;
+    }
+}
+
+/* Phone Simulation Stage */
+.phoneStage {
+    padding-top: calc(var(--nav-h) + 16px);
+    padding-bottom: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: calc(100svh - var(--nav-h));
+    transition: margin-right 0.45s var(--ease-out);
+
+    @media (min-width: 1100px) {
+        .shell[data-dock="open"] & {
+            margin-right: calc(var(--dock-w) + 12px);
+        }
+    }
+}
+
+.phoneChassis {
+    position: relative;
+    width: 390px;
+    max-width: 95vw;
+    height: 844px;
+    max-height: calc(100svh - var(--nav-h) - 40px);
+    border-radius: 46px;
+    background: #09090f;
+    border: 8px solid #232330;
+    box-shadow:
+        0 0 0 2px rgb(255 255 255 / 0.15),
+        0 30px 80px -20px rgb(0 0 0 / 0.9),
+        0 0 60px -10px rgb(198 255 61 / 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    @media (max-width: 500px) {
+        width: 100vw;
+        height: auto;
+        max-height: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+}
+
+.phoneNotch {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 24px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.phoneSpeaker {
+    width: 38px;
+    height: 3px;
+    border-radius: 3px;
+    background: #1a1a24;
+}
+
+.phoneCamera {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #11111d;
+    box-shadow: inset 0 0 4px #000;
+}
+
+.phoneScreen {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    padding-top: 24px;
+    padding-bottom: 70px;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+.phoneMain {
+    min-height: 100%;
+}
+
+.phoneHomeBar {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 4px;
+    border-radius: 10px;
+    background: rgb(255 255 255 / 0.4);
+    z-index: 100;
+    pointer-events: none;
+}
+
+/* ---------- main ---------- */
+
+.main {
+    padding-top: var(--nav-h);
+    padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 12px);
+    transition: margin-right 0.45s var(--ease-out);
+
+    @media (min-width: 768px) {
+        padding-bottom: 0;
+    }
+
+    @media (min-width: 1100px) {
+        .shell[data-dock="open"] & {
+            margin-right: calc(var(--dock-w) + 12px);
+        }
+    }
+}
+
+/* ---------- mobile tab bar ---------- */
+
+.tabbar {
+    position: fixed;
+    z-index: 70;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    height: var(--tab-h);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    padding: 0 6px;
+    border-radius: 26px;
+    background: rgb(14 14 21 / 0.82);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 20px 50px -20px rgb(0 0 0 / 0.9);
+
+    @media (min-width: 768px) {
+        display: none;
+    }
+}
+
+.tabItem,
+.tabAgent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 100%;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-mute);
+    transition: color 0.2s;
+}
+
+.tabActive {
+    color: var(--fg);
+
+    svg {
+        color: var(--acid);
+    }
+}
+
+.tabAgent {
+    color: var(--fg);
+}
+
+.tabAgentOrb {
+    width: 40px;
+    height: 40px;
+    margin-top: -26px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    background: var(--acid);
+    color: var(--ink);
+    box-shadow:
+        0 0 0 5px var(--ink),
+        0 10px 30px -6px rgb(198 255 61 / 0.7);
+    transition: transform 0.3s var(--ease-spring);
+
+    .tabAgent:active & {
+        transform: scale(0.9);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spark,
+    .liveNum {
+        animation: none;
+    }
+}
