@@ -1,0 +1,24 @@
+src/server/renderer/ChunkExtractor.js
+  s_17df575b41a8da::t_8621536471332d 12-16
+  s_17df575b41a8da::t_a1c21cb7e8e88b 31
+src/server/renderer/handler.jsx
+  s_17df575b41a8da::t_0193ddb3c3e363 57-58,68,95-97,100-104,107-109,118-128,156-195,225,349,413-419
+src/server/renderer/extract.js
+  s_17df575b41a8da::t_27e2aae08ce662 104-107,110-111,113-123,126-130,138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "efa17a688f91f2c5ab99aa9f443ce88eb32e1015",
+  "prompts": {},
+  "sessions": {
+    "s_17df575b41a8da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5321656-7844-4da7-beef-15d1e4fdeaeb",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
