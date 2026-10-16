@@ -512,6 +512,21 @@ export default defineConfig(async () => {
     return {
         ...sharedViteConfig,
         base: resolveDevBase(devServer),
+        // Dev SSR only: transform catalyst-core through Vite instead of
+        // externalizing it. Otherwise its main entry and its subpaths
+        // (catalyst-core/webmcp reads router state through the context
+        // RouterDataProvider populates) can resolve as two separate module
+        // records, each with its own createContext(), and the subpath throws
+        // "must be used within a RouterDataProvider" even though one is an
+        // ancestor. Keyed on NODE_ENV, not Vite's `command`: `catalyst build`
+        // also spins up this config for the offline manifest, and in a
+        // production build Vite matches noExternal by package name and would
+        // inline catalyst-core's CJS subpaths ("exports is not defined").
+        // Built output runs under plain Node ESM, one module record per file.
+        ssr: {
+            ...sharedViteConfig.ssr,
+            noExternal: [...new Set([...(sharedViteConfig.ssr?.noExternal || []), ...(isProduction ? [] : ["catalyst-core"])])],
+        },
         server: buildDevServer(devServer, {
             frameworkPaths: [process.env.src_path, __dirname],
             isProduction,
