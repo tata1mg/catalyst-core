@@ -127,6 +127,29 @@ const EARLY_HINTS_MAX_DEFERRED_LINKS = (() => {
 const capDeferredHints = (urls) =>
     EARLY_HINTS_MAX_DEFERRED_LINKS < 0 ? urls : urls.slice(0, EARLY_HINTS_MAX_DEFERRED_LINKS)
 
+// Config-driven (config.json → EARLY_HINTS_MAX_LINK_BYTES): byte budget for the hint list, which is
+// sent both as the 103 and as the 200's `Link` header. A route's static-import closure can run to
+// dozens of chunks, and proxies/CDNs reject or drop oversized response headers. Entries are kept in
+// priority order (route scripts, app links, static deps, learned deferred) until the budget is
+// spent; deps left out still get <link rel="modulepreload"> in the HTML. Default 4096; negative
+// means no budget.
+const EARLY_HINTS_MAX_LINK_BYTES = (() => {
+    const parsed = Number(process.env.EARLY_HINTS_MAX_LINK_BYTES ?? 4096)
+    return Number.isFinite(parsed) ? parsed : 4096
+})()
+const fitLinkBudget = (links) => {
+    if (EARLY_HINTS_MAX_LINK_BYTES < 0) return links
+    const kept = []
+    let bytes = 0
+    for (const link of links) {
+        const size = link.length + (kept.length ? 2 : 0)
+        if (bytes + size > EARLY_HINTS_MAX_LINK_BYTES) continue
+        kept.push(link)
+        bytes += size
+    }
+    return kept
+}
+
 const traceHook = (fn, spanName) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
 
@@ -167,8 +190,18 @@ const getCriticalHintLinks = (allMatches) => {
             registerGlobal: false,
         })
         extractor.preloadRouteCss(allMatches)
-        const { js } = extractor.getCriticalAssets()
-        hint = { js, links: generateLinkHeader(js, "high", getIntegrityManifest() || {}) }
+        const { js, scripts } = extractor.getCriticalAssets()
+        const roots = new Set(scripts)
+        const integrityManifest = getIntegrityManifest() || {}
+        hint = {
+            js,
+            rootLinks: generateLinkHeader(scripts, "high", integrityManifest),
+            depLinks: generateLinkHeader(
+                js.filter((url) => !roots.has(url)),
+                "high",
+                integrityManifest
+            ),
+        }
         criticalHintCache.set(key, hint)
     }
     return hint
@@ -178,14 +211,15 @@ const getEarlyHintLinks = (req, res, allMatches) => {
     const critical = getCriticalHintLinks(allMatches)
     const deferredJs = getDeferredPreloadScriptUrls(getDeferredRouteKey(req, allMatches), critical.js)
     const appLinks = safeCall(_getEarlyHintLinks, { req, res, matches: allMatches })
-    return [
+    return fitLinkBudget([
         ...new Set([
-            ...critical.links,
+            ...critical.rootLinks,
             ...staticHintLinks,
             ...generateCustomLinkHeader(Array.isArray(appLinks) ? appLinks : []),
+            ...critical.depLinks,
             ...generateLinkHeader(capDeferredHints(deferredJs), "low", getIntegrityManifest() || {}),
         ]),
-    ]
+    ])
 }
 
 const isBotRequest = (req) => {
@@ -225,7 +259,9 @@ const _renderMarkUp = async (
     const isBot = isBotRequest(req)
 
     // Critical assets → <head>
-    const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
+    const criticalAssets = chunkExtractor
+        ? chunkExtractor.getCriticalAssets()
+        : { js: [], scripts: [], css: [] }
 
     // Inline critical CSS from disk (small thanks to natural code-splitting)
     const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
@@ -238,7 +274,7 @@ const _renderMarkUp = async (
     )
 
     const integrityManifest = getIntegrityManifest() || {}
-    const jsScripts = generateScriptElements(criticalAssets.js, nonce, integrityManifest)
+    const jsScripts = generateScriptElements(criticalAssets.scripts, nonce, integrityManifest)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce, integrityManifest)
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce, integrityManifest)
@@ -310,7 +346,7 @@ const _renderMarkUp = async (
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
-                        : { js: [], css: [] }
+                        : { js: [], scripts: [], css: [] }
 
                     const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
 
@@ -335,7 +371,7 @@ const _renderMarkUp = async (
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.js, nonce, integrityManifest))
+                        this.push(generateScriptStrings(deferredAssets.scripts, nonce, integrityManifest))
                     }
 
                     cb()
