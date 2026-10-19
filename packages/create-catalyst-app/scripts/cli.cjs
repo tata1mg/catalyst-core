@@ -2,14 +2,25 @@
 const { execFileSync, execSync } = require("child_process")
 const Commander = require("commander")
 const { Option } = require("commander")
-const clack = require("@clack/prompts")
+// @clack/prompts is ESM-only. require() of ESM is only on by default from
+// Node 20.19 / 22.12 (engines allows >=20.12), so it is imported lazily in the
+// scaffold action -- the only path that uses it.
+/** @type {typeof import("@clack/prompts")} */
+let clack
 const { red, green, cyan, gray, bold } = require("ansis")
 const tar = require("tar")
 const path = require("path")
 const fs = require("fs")
 var validate = require("validate-npm-package-name")
 const packageJson = require("../package.json")
-const { CCAError, createError, wrapForeignError, formatError, resolveOutputMode, getDebugEnvInfo } = require("./errors.cjs")
+const {
+    CCAError,
+    createError,
+    wrapForeignError,
+    formatError,
+    resolveOutputMode,
+    getDebugEnvInfo,
+} = require("./errors.cjs")
 const outputMode = resolveOutputMode(process.argv)
 // Colored (red) prefix only applies in default mode — verbose/debug boxes
 // own their coloring internally (see errors.cjs#box).
@@ -59,6 +70,8 @@ const program = new Commander.Command()
                 execSync(`node ${createRoutePath}`, { stdio: "inherit" })
                 return
             }
+
+            clack = await import("@clack/prompts")
 
             // Same identity as every other Catalyst command: accent-coloured
             // name, dim version.
@@ -278,7 +291,6 @@ const program = new Commander.Command()
                 } catch (e) {
                     throw createError("CCA-007", { cause: e })
                 }
-
             }
         } catch (error) {
             const catalystError = error instanceof CCAError ? error : wrapForeignError(error)

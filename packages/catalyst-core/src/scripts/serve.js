@@ -21,10 +21,11 @@ const preInitPath = path.resolve(__dirname, "preServerInit.js")
 /**
  * @description - serves the production build
  *
- * Output is piped, not inherited, for the same reason as `start`: the server
- * fences its banner expecting a wrapper to consume those markers, and Node's
- * multi-line process warnings need collapsing. With inherited stdio the fences
- * reached the screen and the warnings arrived raw.
+ * Output is inherited, not piped through the `start` formatter. Production
+ * output is read by log shippers (pm2, Docker, Datadog) one JSON line at a
+ * time, so every byte the app writes must arrive unaltered and on the stream
+ * it was written to. CATALYST_WRAPPED stays unset, so the server prints its
+ * banner plainly with no fences to consume.
  */
 async function startProd() {
     // Fail fast on a misconfigured app before spawning the production server.
@@ -86,15 +87,9 @@ async function startProd() {
         ],
         {
             cwd: dirname,
-            stdio: ["inherit", "pipe", "pipe"],
+            stdio: "inherit",
             env: {
                 ...process.env,
-                // Piping makes the child's stdout a non-TTY, which would strip
-                // its colour. Forward our own terminal's answer.
-                ...(process.stdout.isTTY && !process.env.NO_COLOR ? { FORCE_COLOR: "1" } : {}),
-                // Tells the server its output is being consumed, so it may
-                // fence the banner. Unset when run directly.
-                CATALYST_WRAPPED: "1",
                 // When the command was run, so "Ready in" counts the whole wait.
                 CATALYST_STARTED_AT: String(Math.round(performance.timeOrigin)),
                 src_path: process.env.PWD,
@@ -103,7 +98,6 @@ async function startProd() {
                 CATALYST_OUTPUT_MODE: outputMode,
                 ...argumentsObject,
                 filterKeys: JSON.stringify([
-                    "CATALYST_WRAPPED",
                     "src_path",
                     "NODE_ENV",
                     "APPLICATION",
@@ -113,7 +107,7 @@ async function startProd() {
         }
     )
 
-    superviseServer(child, { scope: "server", label: "production server" })
+    superviseServer(child, { scope: "server", label: "production server", passthrough: true })
 }
 
 startProd()

@@ -9,6 +9,8 @@ sidebar_position: 40
 
 WebMCP lets a page expose **tools** (named actions with a JSON-schema input) to an AI agent running in the browser. Catalyst ships it as `catalyst-core/webmcp`.
 
+WebMCP support is experimental. Its API, including `useTool`, `WebMcpProvider`, the route `tool` field, the `webmcp:*` document events, and `inspect`/`invokeTool`, may change in a minor release.
+
 > **Not the same as [MCP Integration](/docs/mcp-integration).** That page is about a Node-side MCP server that helps AI *coding* tools understand your project. WebMCP runs in your *app's* browser tab and exposes the app's own actions to agents.
 
 > **Status.** Catalyst targets the opt-in DOM shim (`catalyst-core/webmcp/shim`). Native browser `document.modelContext` is intentionally unsupported for now, because no agent can drive it yet.

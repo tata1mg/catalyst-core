@@ -2,7 +2,7 @@
 
 const fs = require("fs")
 const os = require("os")
-const { detectAndroidSdk, listAvds, ANDROID_SDK_HINT } = require("../utils.js")
+const { detectAndroidSdk, listAvds, expandHome, ANDROID_SDK_HINT } = require("../utils.js")
 
 /** An error carrying the one action that fixes it, shown as the diagnostic's hint. */
 function withHint(message, hint) {
@@ -50,6 +50,9 @@ function createConfigPhase(ctx) {
             androidConfig.sdkPath = detected
             progress.log(`Using the Android SDK at ${tilde(detected)}`, "note")
         }
+        // "~/Library/Android/sdk", as the hint suggests. Expanded in memory
+        // only; the config file keeps what the user wrote.
+        androidConfig.sdkPath = expandHome(androidConfig.sdkPath)
 
         const ANDROID_SDK = androidConfig.sdkPath
         const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`

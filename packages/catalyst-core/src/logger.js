@@ -43,6 +43,25 @@ function formatLogMessage(msg) {
     }
 }
 
+/**
+ * What winston receives for a log argument.
+ *
+ * A plain object goes in as an object, so file logs keep its fields
+ * queryable rather than nesting it as one escaped string under "message".
+ * It is a clone built from the console text -- cycle-safe, Errors as their
+ * stack -- which also keeps winston from writing level and timestamp onto the
+ * caller's own object. Strings, Errors and anything else go in as text.
+ */
+function toLogRecord(msg, text) {
+    if (msg === null || typeof msg !== "object" || Array.isArray(msg) || msg instanceof Error) return text
+    try {
+        const record = JSON.parse(text)
+        return record !== null && typeof record === "object" && !Array.isArray(record) ? record : text
+    } catch (error) {
+        return text
+    }
+}
+
 const configureLogger = (config = {}) => {
     const { enableDebugLogs = true, enableFileLogging = true, enableConsoleLogging = true } = config
 
@@ -86,19 +105,19 @@ const configureLogger = (config = {}) => {
     }
 
     // Winston serializes with format.json(), which renders an Error as {} for
-    // the same reason JSON.stringify does. Pass the formatted text so the file
-    // logs say what the console says.
+    // the same reason JSON.stringify does, so it gets the formatted text for
+    // those -- and a safe structured copy of a plain object (toLogRecord).
     const Logger = {
         debug: () => {},
         error: (msg) => {
             const text = formatLogMessage(msg)
             console.log(pc.red(pc.bold("ERROR: " + text)))
-            errorLogger.error(text)
+            errorLogger.error(toLogRecord(msg, text))
         },
         info: (msg) => {
             const text = formatLogMessage(msg)
             console.log(pc.green(pc.bold("INFO: " + text)))
-            infoLogger.info(text)
+            infoLogger.info(toLogRecord(msg, text))
         },
     }
 
@@ -106,7 +125,7 @@ const configureLogger = (config = {}) => {
         Logger.debug = (msg) => {
             const text = formatLogMessage(msg)
             console.log(pc.yellow(pc.bold("DEBUG: " + text)))
-            debugLogger.debug(text)
+            debugLogger.debug(toLogRecord(msg, text))
         }
     }
 

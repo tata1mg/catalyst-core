@@ -393,13 +393,7 @@ export const sharedViteConfig = {
             // Same treatment as the browser list: only include what this app
             // can resolve, or Vite warns about every entry it cannot find.
             include: resolvableFrom(
-                [
-                    "invariant",
-                    "shallowequal",
-                    "prop-types",
-                    "redux-thunk",
-                    "redux-logger",
-                ],
+                ["invariant", "shallowequal", "prop-types", "redux-thunk", "redux-logger"],
                 process.env.src_path
             ),
             // Prevent pre-bundling React ecosystem packages for SSR to avoid duplicate
@@ -531,6 +525,16 @@ export const sharedViteConfig = {
     },
 }
 
+// Every catalyst-core subpath export except the main entry and webmcp, as bare
+// specifiers ("catalyst-core/hooks"). Read from package.json so a new subpath
+// stays externalized in dev SSR without touching this list.
+function catalystCoreExternalSubpaths() {
+    const { exports = {} } = JSON.parse(fs.readFileSync(path.join(__dirname, "../../package.json"), "utf8"))
+    return Object.keys(exports)
+        .filter((key) => key.startsWith("./") && key !== "./package.json" && !key.startsWith("./webmcp"))
+        .map((key) => `catalyst-core/${key.slice(2)}`)
+}
+
 // ─── Dev server config ────────────────────────────────────────────────────────
 // Async factory so it can read the app's buildConfig.devServer for `base`, HMR
 // and other Vite server options. `base` comes solely from devServer.base; the
@@ -543,20 +547,29 @@ export default defineConfig(async () => {
     return {
         ...sharedViteConfig,
         base: resolveDevBase(devServer),
-        // Dev SSR only: transform catalyst-core through Vite instead of
-        // externalizing it. Otherwise its main entry and its subpaths
-        // (catalyst-core/webmcp reads router state through the context
-        // RouterDataProvider populates) can resolve as two separate module
-        // records, each with its own createContext(), and the subpath throws
-        // "must be used within a RouterDataProvider" even though one is an
-        // ancestor. Keyed on NODE_ENV, not Vite's `command`: `catalyst build`
-        // also spins up this config for the offline manifest, and in a
-        // production build Vite matches noExternal by package name and would
-        // inline catalyst-core's CJS subpaths ("exports is not defined").
-        // Built output runs under plain Node ESM, one module record per file.
+        // Dev SSR only: transform catalyst-core/webmcp through Vite instead of
+        // externalizing it. Node cannot load its .jsx files, and its provider
+        // must share one module record (one createContext()) with the main
+        // entry, which Vite always transforms (.jsx is never externalized).
+        // ssr.noExternal only matches package names, so the package goes in
+        // noExternal and every other subpath is pinned external: CJS subpaths
+        // (hooks, WebBridge, sentry) would fail to inline ("exports is not
+        // defined"), and apps that do not import webmcp resolve exactly as
+        // before. Keyed on NODE_ENV, not Vite's `command`: `catalyst build`
+        // also spins up this config for the offline manifest, and built
+        // output runs under plain Node ESM, one module record per file.
         ssr: {
             ...sharedViteConfig.ssr,
-            noExternal: [...new Set([...(sharedViteConfig.ssr?.noExternal || []), ...(isProduction ? [] : ["catalyst-core"])])],
+            noExternal: [
+                ...new Set([
+                    ...(sharedViteConfig.ssr?.noExternal || []),
+                    ...(isProduction ? [] : ["catalyst-core"]),
+                ]),
+            ],
+            external: [
+                ...(sharedViteConfig.ssr?.external || []),
+                ...(isProduction ? [] : catalystCoreExternalSubpaths()),
+            ],
         },
         server: buildDevServer(devServer, {
             frameworkPaths: [process.env.src_path, __dirname],

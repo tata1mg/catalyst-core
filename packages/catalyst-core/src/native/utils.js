@@ -36,6 +36,33 @@ function redactSecrets(text) {
     return SECRET_ARG_PATTERNS.reduce((acc, pattern) => acc.replace(pattern, "$1***"), text)
 }
 
+/** Redacts by pattern, and also every secret value the command carries, in case a tool echoes one back without its flag. */
+function secretScrubber(command) {
+    const secrets = SECRET_ARG_PATTERNS.flatMap((pattern) =>
+        [...String(command).matchAll(pattern)].map((match) => match[2].replace(/^"|"$/g, ""))
+    ).filter(Boolean)
+    return (text) =>
+        typeof text === "string"
+            ? secrets.reduce((acc, secret) => acc.split(secret).join("***"), redactSecrets(text))
+            : text
+}
+
+/**
+ * Scrub a failed command's error before anyone sees it. execSync puts the
+ * whole command line in error.message ("Command failed: ...") and the child's
+ * output in stdout/stderr, and callers rethrow error.message wrapped in their
+ * own text -- so the passwords are removed here, at the source.
+ */
+function redactError(error, command) {
+    if (!error || typeof error !== "object") return error
+    const scrub = secretScrubber(command)
+    for (const key of ["message", "stack", "cmd", "stdout", "stderr"]) {
+        if (typeof error[key] === "string") error[key] = scrub(error[key])
+    }
+    if (Array.isArray(error.output)) error.output = error.output.map(scrub)
+    return error
+}
+
 /**
  * @param {string} command
  * @param {object} [options]
@@ -55,8 +82,9 @@ function runCommand(command, { timeout } = {}) {
         return execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout })
     } catch (error) {
         if (timeout && isTimeout(error)) throw toolTimeoutError(command, timeout)
-        console.error(`Error executing command: ${redactSecrets(command)}`)
-        console.error(`Error message: ${redactSecrets(error.message)}`)
+        redactError(error, command)
+        console.error(`Error executing command: ${secretScrubber(command)(command)}`)
+        console.error(`Error message: ${error.message}`)
         throw error
     }
 }
@@ -163,7 +191,7 @@ function listAvds(sdkPath) {
     if (!sdkPath) return []
     try {
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - sdkPath is a local SDK directory from config or auto-detection.
-        const out = execSync(`"${path.join(sdkPath, "emulator", "emulator")}" -list-avds`, {
+        const out = execSync(`"${path.join(expandHome(sdkPath), "emulator", "emulator")}" -list-avds`, {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
             timeout: 15000,
@@ -177,6 +205,13 @@ function listAvds(sdkPath) {
     }
 }
 
+/** Expand a leading `~` (as in the SDK hint below); nothing else in the chain does. */
+function expandHome(dir) {
+    if (typeof dir !== "string") return dir
+    if (dir === "~") return os.homedir()
+    return dir.startsWith("~/") || dir.startsWith("~\\") ? path.join(os.homedir(), dir.slice(2)) : dir
+}
+
 /** The hint for a missing or wrong SDK path, naming the one field to set. */
 const ANDROID_SDK_HINT =
     'Install Android Studio, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "~/Library/Android/sdk").'
@@ -188,7 +223,7 @@ const ANDROID_SDK_HINT =
  */
 function ensureLocalProperties(projectDir, sdkPath) {
     const file = path.join(projectDir, "local.properties")
-    const line = `sdk.dir=${sdkPath.replace(/\\/g, "\\\\")}`
+    const line = `sdk.dir=${expandHome(sdkPath).replace(/\\/g, "\\\\")}`
     let content = ""
     try {
         content = fs.readFileSync(file, "utf8")
@@ -450,4 +485,6 @@ export {
     runInteractiveCommand,
     validateAndCompleteConfig,
     redactSecrets,
+    redactError,
+    expandHome,
 }

@@ -1,6 +1,7 @@
 import React from "react"
-import { describe, expect, it, vi } from "vitest"
-import { render, waitFor, act } from "@testing-library/react"
+import { renderToString } from "react-dom/server"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { render, waitFor, act, cleanup } from "@testing-library/react"
 import { MemoryRouter, Routes, Route, useLocation, useNavigate } from "react-router"
 import { MetaTag } from "./MetaTag.jsx"
 import { OneMgRouterContext } from "../context.jsx"
@@ -102,6 +103,74 @@ describe("MetaTag", () => {
 
         await waitFor(() => {
             expect(document.head.querySelector('meta[name="description"]')).toBeNull()
+        })
+    })
+
+    describe("server-rendered head tags", () => {
+        afterEach(() => {
+            cleanup()
+            document.head.innerHTML = ""
+        })
+
+        const pageMeta = (page) => [
+            <title key="t">{`Page ${page}`}</title>,
+            <meta key="d" name="description" content={`about ${page}`} />,
+            <script key="ld" type="application/ld+json">{`{"page":"${page}"}`}</script>,
+        ]
+        const routesFor = (pathname) => [
+            { route: { component: { setMetaData: () => pageMeta(pathname === "/a" ? "a" : "b") } } },
+        ]
+
+        function App() {
+            const location = useLocation()
+            const navigate = useNavigate()
+            return (
+                <OneMgRouterContext.Provider value={{ matchedRoutes: routesFor(location.pathname) }}>
+                    <RouterContext.Provider value={{}}>
+                        <button type="button" onClick={() => navigate("/b")}>
+                            go
+                        </button>
+                        <MetaTag />
+                    </RouterContext.Provider>
+                </OneMgRouterContext.Provider>
+            )
+        }
+        const tree = (
+            <MemoryRouter initialEntries={["/a"]}>
+                <App />
+            </MemoryRouter>
+        )
+
+        it("hydrates without a mismatch and replaces the server's JSON-LD, title and meta on navigation", async () => {
+            // What Head.tsx streams for /a: getMetaData output stamped data-catalyst.
+            document.head.innerHTML = renderToString(<>{pageMeta("a")}</>).replace(
+                /<(title|meta|script)/g,
+                '<$1 data-catalyst="true"'
+            )
+            const container = document.createElement("div")
+            container.innerHTML = renderToString(tree)
+            document.body.appendChild(container)
+            const onRecoverableError = vi.fn()
+
+            await act(async () => {
+                render(tree, { container, hydrate: true, onRecoverableError })
+            })
+            expect(onRecoverableError).not.toHaveBeenCalled()
+
+            await act(async () => {
+                container.querySelector("button").click()
+            })
+
+            await waitFor(() => {
+                expect(document.title).toBe("Page b")
+            })
+            const jsonLd = document.querySelectorAll('script[type="application/ld+json"]')
+            expect(Array.from(jsonLd, (el) => el.textContent)).toEqual(['{"page":"b"}'])
+            expect(document.head.querySelector('script[type="application/ld+json"]')).toBeNull()
+            expect(document.querySelectorAll("title")).toHaveLength(1)
+            expect(
+                Array.from(document.querySelectorAll('meta[name="description"]'), (el) => el.content)
+            ).toEqual(["about b"])
         })
     })
 })

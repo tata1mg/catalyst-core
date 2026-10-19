@@ -112,14 +112,25 @@ function shortenPaths(text, cwd) {
     return String(text).split(`${cwd}/`).join("")
 }
 
+/** A step's own last words, fenced under the diagnostic that names it. */
+function fencedTail(output, lines = 8) {
+    const tail = outputTail(output || "", lines)
+    return tail
+        ? tail
+              .split("\n")
+              .map((line) => `${GUTTER}${t.dim(glyph.pipe)} ${t.dim(line)}`)
+              .join("\n") + "\n\n"
+        : ""
+}
+
 function reportBundleFailures(failures, cwd) {
     const byCause = new Map()
-    let unrecognised = null
+    const unrecognised = []
 
     for (const failure of failures) {
         const found = extractBuildErrors(failure.output, { toolchain: "vite" })
         if (found.length === 0) {
-            unrecognised = unrecognised || failure
+            unrecognised.push(failure)
             continue
         }
         for (const error of found) {
@@ -130,29 +141,24 @@ function reportBundleFailures(failures, cwd) {
         }
     }
 
-    if (byCause.size === 0) {
-        // Nothing recognised: fence the bundler's own words rather than
-        // inventing a summary that says less than they do.
-        const tail = outputTail(unrecognised?.output || "", 8)
-        return (
-            diagnostic({
-                message: `The ${unrecognised?.label || "production"} bundle failed`,
-                scope: "production build",
-                cwd,
-            }) +
-            (tail
-                ? tail
-                      .split("\n")
-                      .map((line) => `${GUTTER}${t.dim(glyph.pipe)} ${t.dim(line)}`)
-                      .join("\n") + "\n\n"
-                : "")
+    // Nothing recognised: fence the bundler's own words rather than inventing
+    // a summary that says less than they do. Rendered even when the other
+    // bundle's error was recognised, so neither failure goes unreported.
+    const unrecognisedReport = unrecognised
+        .map(
+            (failure) =>
+                diagnostic({
+                    message: `The ${failure.label || "production"} bundle failed`,
+                    scope: "production build",
+                    cwd,
+                }) + fencedTail(failure.output)
         )
-    }
+        .join("")
 
     // Each cause renders as the same diagnostic block every other failure
     // uses: message, location, the source around it, and a hint when the
     // cause is one we understand.
-    return [...byCause.values()]
+    const recognisedReport = [...byCause.values()]
         .map((cause) =>
             diagnostic({
                 message: shortenPaths(cause.message, cwd),
@@ -167,6 +173,8 @@ function reportBundleFailures(failures, cwd) {
             })
         )
         .join("")
+
+    return recognisedReport + unrecognisedReport
 }
 
 /**
@@ -355,13 +363,18 @@ async function build() {
     } catch (error) {
         manifest.stop("fail", "Generating offline manifest failed")
         // Without this the manifest step fell through to the top-level handler,
-        // which prints a raw stack trace.
+        // which prints a raw stack trace. The step's output is captured, so
+        // show its tail -- the exit code alone says nothing about why -- and
+        // all of it under --verbose/--debug.
         process.stderr.write(
             diagnostic({
                 message: `Generating the offline manifest failed: ${error.message}`,
                 scope: "offline manifest",
-            })
+            }) + (outputMode === "default" ? fencedTail(error.output) : "")
         )
+        if (outputMode !== "default") {
+            process.stderr.write(verboseOutput({ output: error.output, mode: outputMode, error }))
+        }
         process.exit(exitCodeFrom(error))
     }
     manifest.stop("done", "Generated offline manifest")

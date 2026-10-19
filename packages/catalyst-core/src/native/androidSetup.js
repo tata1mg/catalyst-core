@@ -1,7 +1,7 @@
 import fs from "fs"
 import path from "path"
 import { spawn } from "child_process"
-import { runCommand, validateAndCompleteConfig, ANDROID_SDK_HINT } from "./utils.js"
+import { runCommand, validateAndCompleteConfig, expandHome, ANDROID_SDK_HINT } from "./utils.js"
 import TerminalProgress from "./terminalProgress.js"
 import { setupServer } from "./setupServer.js"
 
@@ -169,7 +169,7 @@ async function saveConfig(newConfig) {
 }
 
 function validateAndroidTools(androidConfig) {
-    const ANDROID_SDK = androidConfig.sdkPath
+    const ANDROID_SDK = expandHome(androidConfig.sdkPath)
     const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`
     const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
 
@@ -272,7 +272,7 @@ async function setupAndroidEnvironment() {
         progress.complete("emulator")
 
         if (config.android?.sdkPath) {
-            await updateLocalProperties(config.android.sdkPath)
+            await updateLocalProperties(expandHome(config.android.sdkPath))
         }
 
         progress.start("saveConfig")
