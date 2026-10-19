@@ -3,20 +3,29 @@ import { createRequire } from "module"
 import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
 import { validatePreInitServer, handleError, safeCallNamed } from "../server/utils/validator.js"
 
+const { diagnostic, registryFailure } = createRequire(import.meta.url)("../cli/diagnostic.js")
+
+// A startup check that fails: one diagnostic, then exit. A throw here printed
+// Node's stack for a problem whose fix is one install command. The CLI that
+// spawned this process sees the diagnostic and does not add its own.
+function failStartup(message, hint) {
+    process.stderr.write(diagnostic({ message, scope: "server", hint }))
+    process.exit(1)
+}
+
 // src_path is the application root, set by the CLI when it spawns this process.
 // Without it every path below would be resolved against undefined.
 const appRoot = process.env.src_path
 if (!appRoot) {
-    throw new Error(
-        "catalyst-core: process.env.src_path is not set, so the application root cannot be resolved. " +
-            "Start the server with `catalyst serve` or `catalyst start` from the application root."
+    failStartup(
+        "process.env.src_path is not set, so the application root cannot be resolved",
+        "Start the server with `catalyst start` or `catalyst serve` from the application root."
     )
 }
 
 // validator.ts renders registry errors through this. It is also bundled into
 // the app's SSR build, which cannot reach the CLI by a relative path, so the
 // server process hands the renderer over here, in the first module it loads.
-const { registryFailure } = createRequire(import.meta.url)("../cli/diagnostic.js")
 // eslint-disable-next-line no-undef -- the scripts lint env predates globalThis
 globalThis.__catalystRenderRegistryError = (error, scope) => registryFailure(error, { scope, cwd: appRoot })
 
@@ -29,9 +38,9 @@ let reactRouterVersion
 try {
     reactRouterVersion = appRequire("react-router/package.json").version
 } catch {
-    throw new Error(
-        `catalyst-core requires react-router ${REQUIRED_REACT_ROUTER} as a peer dependency, but it is not installed. ` +
-            `Install it: npm install react-router@${REQUIRED_REACT_ROUTER}`
+    failStartup(
+        `catalyst-core needs react-router ${REQUIRED_REACT_ROUTER}, and it is not installed`,
+        `Install it with \`npm install react-router@${REQUIRED_REACT_ROUTER}\`.`
     )
 }
 const [major, minor, patch] = reactRouterVersion.split("-")[0].split(".").map(Number)
@@ -40,9 +49,9 @@ const isValid =
     major === 7 &&
     (minor > 18 || (minor === 18 && patch >= 2))
 if (!isValid) {
-    throw new Error(
-        `catalyst-core requires react-router ${REQUIRED_REACT_ROUTER}, but found ${reactRouterVersion}. ` +
-            `Install a compatible version: npm install react-router@${REQUIRED_REACT_ROUTER}`
+    failStartup(
+        `catalyst-core needs react-router ${REQUIRED_REACT_ROUTER}, but the app has ${reactRouterVersion}`,
+        `Upgrade it with \`npm install react-router@${REQUIRED_REACT_ROUTER}\`.`
     )
 }
 
