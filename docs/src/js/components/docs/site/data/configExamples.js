@@ -25,6 +25,7 @@ const baseWebviewConfig = {
     },
     splashScreen: {
         duration: 2000,
+        minDuration: 0,
         backgroundColor: '#ffffff',
         imageWidth: 120,
         imageHeight: 120,

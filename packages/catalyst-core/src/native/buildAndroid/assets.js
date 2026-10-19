@@ -115,23 +115,37 @@ function createAssetsPhase(ctx) {
         }
     }
 
-    async function copyOfflinePage() {
+    // Copies public/<fileName> to assets/<destSubdir>/<fileName>. Optional files are
+    // removed from assets when absent so deleting the source turns the feature off.
+    async function copyPublicHtml(fileName, destSubdir, optional = false) {
         try {
-            const sourcePath = `${process.cwd()}/public/offline.html`
-            const destDir = `${pwd}/androidProject/app/src/main/assets/offline`
-            const destPath = `${destDir}/offline.html`
+            const sourcePath = `${process.cwd()}/public/${fileName}`
+            const destDir = `${pwd}/androidProject/app/src/main/assets/${destSubdir}`
+            const destPath = `${destDir}/${fileName}`
 
             if (!fs.existsSync(sourcePath)) {
-                progress.log("offline.html not found in public/; skipping offline asset copy", "warning")
+                if (optional) {
+                    fs.rmSync(destPath, { force: true })
+                    return
+                }
+                progress.log(`${fileName} not found in public/; skipping ${destSubdir} asset copy`, "warning")
                 return
             }
 
             ctx.runCommand(`mkdir -p ${destDir}`)
             fs.copyFileSync(sourcePath, destPath)
-            progress.log("offline.html copied to Android assets", "success")
+            progress.log(`${fileName} copied to Android assets`, "success")
         } catch (error) {
-            progress.log(`Warning: Error copying offline.html: ${error.message}`, "warning")
+            progress.log(`Warning: Error copying ${fileName}: ${error.message}`, "warning")
         }
+    }
+
+    async function copyOfflinePage() {
+        await copyPublicHtml("offline.html", "offline")
+    }
+
+    async function copySplashHtml() {
+        await copyPublicHtml("splashscreen.html", "splash", true)
     }
 
     async function copyIconAssets() {
@@ -666,6 +680,7 @@ function createAssetsPhase(ctx) {
         copyBuildAssets,
         copySplashscreenAssets,
         copyOfflinePage,
+        copySplashHtml,
         copyIconAssets,
         configureAppName,
         processNotifications,
