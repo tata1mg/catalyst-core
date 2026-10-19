@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var currentUrl: String = ""
     private var edgeToEdgeEnabled = false
     private var latestSafeAreaInsets: SafeAreaInsets = SafeAreaInsets.ZERO
+    private var splashOverlay: SplashOverlay? = null
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -319,6 +320,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
         setContentView(binding.root)
+
+        // HTML splash handed off from SplashActivity (fresh launch only)
+        if (savedInstanceState == null && intent.getBooleanExtra(SplashActivity.EXTRA_HTML_SPLASH, false)) {
+            splashOverlay = SplashOverlay(this, properties).also { it.show() }
+        }
         
         // Initialize keyboard utility (pass webView so keyboard events reach WebPerfCollector)
         keyboardUtil = KeyboardUtil(this, binding.webviewContainer, binding.webview, edgeToEdgeEnabled)
@@ -334,6 +340,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             progressBar = binding.progress,
             properties = properties
         )
+        customWebView.onInitialPageLoaded = { splashOverlay?.onMainPageLoaded() }
 
         // Handle state restoration
         if (savedInstanceState == null) {
@@ -482,6 +489,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
+        splashOverlay?.release()
+        splashOverlay = null
         io.yourname.androidproject.utils.PerfEventBuffer.reset()
         // Log all performance metrics before destroying
         if (BuildConfig.DEBUG) {

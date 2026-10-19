@@ -91,6 +91,7 @@ module.exports = function createConfigPhase(ctx) {
         WEBVIEW_CONFIG,
         iosConfig,
         PROJECT_DIR,
+        PUBLIC_PATH,
         url,
         progress,
         restoreManagedFileFromBaseline,
@@ -217,8 +218,34 @@ public enum ConfigConstants {
                 configContent += `\n    public static let splashScreenImageWidth: CGFloat = ${splashConfig.imageWidth || 120}`
                 configContent += `\n    public static let splashScreenImageHeight: CGFloat = ${splashConfig.imageHeight || 120}`
                 configContent += `\n    public static let splashScreenCornerRadius: CGFloat = ${splashConfig.cornerRadius || 20}`
+
+                // Optional HTML splash: public/splashscreen.html is embedded as base64 so no
+                // bundle resource or Xcode project registration is needed.
+                const splashHtmlPath = path.join(PUBLIC_PATH, "splashscreen.html") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PUBLIC_PATH is the app's fixed public directory.
+                if (fs.existsSync(splashHtmlPath)) {
+                    const splashHtml = fs.readFileSync(splashHtmlPath)
+                    if (splashHtml.length > 1024 * 1024) {
+                        progress.log(
+                            `splashscreen.html is ${(splashHtml.length / (1024 * 1024)).toFixed(1)} MB; it is embedded in the app binary, keep it small`,
+                            "warning"
+                        )
+                    }
+                    configContent += `\n    public static let splashScreenHtml: String? = "${splashHtml.toString("base64")}"`
+                } else {
+                    configContent += `\n    public static let splashScreenHtml: String? = nil`
+                }
+                const minDuration = splashConfig.minDuration
+                const validMinDuration =
+                    typeof minDuration === "number" && Number.isFinite(minDuration) && minDuration >= 0
+                if (minDuration !== undefined && !validMinDuration) {
+                    progress.log(
+                        `Ignoring invalid splashScreen.minDuration: ${JSON.stringify(minDuration)}`,
+                        "warning"
+                    )
+                }
+                configContent += `\n    public static let splashScreenMinDuration: TimeInterval = ${validMinDuration ? minDuration / 1000.0 : 0}`
             } else {
-                configContent += `\n\n    // Splash Screen Configuration\n    public static let splashScreenEnabled = false\n    public static let splashScreenDuration: TimeInterval? = nil\n    public static let splashScreenBackgroundColor = "#ffffff"\n    public static let splashScreenImageWidth: CGFloat = 120\n    public static let splashScreenImageHeight: CGFloat = 120\n    public static let splashScreenCornerRadius: CGFloat = 20`
+                configContent += `\n\n    // Splash Screen Configuration\n    public static let splashScreenEnabled = false\n    public static let splashScreenDuration: TimeInterval? = nil\n    public static let splashScreenBackgroundColor = "#ffffff"\n    public static let splashScreenImageWidth: CGFloat = 120\n    public static let splashScreenImageHeight: CGFloat = 120\n    public static let splashScreenCornerRadius: CGFloat = 20\n    public static let splashScreenHtml: String? = nil\n    public static let splashScreenMinDuration: TimeInterval = 0`
             }
 
             if (!addedKeys.has("notifications")) {

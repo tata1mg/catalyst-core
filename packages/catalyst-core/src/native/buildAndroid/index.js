@@ -59,6 +59,7 @@ function createAndroidBuild(config) {
         copyBuildAssets,
         copySplashscreenAssets,
         copyOfflinePage,
+        copySplashHtml,
         copyIconAssets,
         configureAppName,
         processNotifications,
@@ -162,6 +163,7 @@ function createAndroidBuild(config) {
             await copyBuildAssets(androidConfig, buildOptimisation)
             await copySplashscreenAssets()
             await copyOfflinePage()
+            await copySplashHtml()
             await copyIconAssets()
             await configureAppName(androidConfig)
             const pluginConfig = resolvePluginConfig(wvConfig)
@@ -410,6 +412,7 @@ function createAndroidBuild(config) {
             await copyBuildAssets(androidConfig, buildOptimisation)
             await copySplashscreenAssets()
             await copyOfflinePage()
+            await copySplashHtml()
             await copyIconAssets()
             await configureAppName(androidConfig)
 
