@@ -249,7 +249,11 @@ function createBuildPhase(ctx) {
     // knownSerials, captured before startEmulator was called), so boot polling can
     // be scoped to the emulator this build just launched rather than whichever
     // device `adb shell` (with no -s) happens to pick when multiple are connected.
-    async function waitForNewEmulatorSerial(ADB_PATH, knownSerials, { timeoutMs = 30000, pollIntervalMs = 1000 } = {}) {
+    async function waitForNewEmulatorSerial(
+        ADB_PATH,
+        knownSerials,
+        { timeoutMs = 30000, pollIntervalMs = 1000 } = {}
+    ) {
         const deadline = Date.now() + timeoutMs
         while (Date.now() < deadline) {
             const current = listEmulatorSerials(ADB_PATH)
@@ -331,7 +335,9 @@ function createBuildPhase(ctx) {
         const booted = await waitForEmulatorBoot(ADB_PATH, serial)
         if (!booted) {
             if (pid) killOrphanedEmulator(pid, androidConfig.emulatorName)
-            throw emulatorBootTimeoutError(`emulator "${androidConfig.emulatorName}" (${serial}) never finished booting`)
+            throw emulatorBootTimeoutError(
+                `emulator "${androidConfig.emulatorName}" (${serial}) never finished booting`
+            )
         }
         progress.log("Emulator booted successfully", "success")
         return { type: "emulator", name: androidConfig.emulatorName }
@@ -531,6 +537,9 @@ function createBuildPhase(ctx) {
         progress.log("Building signed AAB for release...", "info")
 
         try {
+            // Same as buildApp: gradle needs local.properties on a fresh machine.
+            if (androidConfig.sdkPath) ensureLocalProperties(`${pwd}/androidProject`, androidConfig.sdkPath)
+
             progress.log("Generating webview configuration for release...", "info")
             try {
                 // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.

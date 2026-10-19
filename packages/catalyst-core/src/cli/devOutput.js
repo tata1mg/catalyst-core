@@ -13,6 +13,10 @@ const BANNER_END = "\u0000catalyst:banner:end"
 // it last, so the one actionable line is never buried under advisories.
 const NEXT_STEP = "\u0000catalyst:next:"
 
+// How long an error-like startup line may wait for the banner before it is
+// printed anyway.
+const EARLY_FLUSH_MS = 500
+
 /**
  * Shape the dev server's own output so `catalyst start` reads as one thing.
  *
@@ -171,8 +175,11 @@ function formatDevLine(line, state) {
     // Swallow the machinery around a crash; the command reports it once, as a
     // diagnostic, using the message captured below. After the banner there is
     // no such report -- the process keeps running -- so the frames are the only
-    // thing saying *where* a live crash happened.
-    if (STACK_FRAME.test(trimmed)) return state.flushed ? `${GUTTER}${t.dim(trimmed.trim())}` : null
+    // thing saying *where* a live crash happened. Before it, --verbose keeps
+    // them: a non-fatal startup error has no other way to say where it came from.
+    if (STACK_FRAME.test(trimmed)) {
+        return state.flushed || verbose ? `${GUTTER}${t.dim(trimmed.trim())}` : null
+    }
     if (ERROR_DETAIL_FIELD.test(trimmed)) return null
     if (ERROR_OBJECT_EDGE.test(trimmed)) return null
     if (CAUGHT_EXCEPTION.test(trimmed)) return null
@@ -183,10 +190,9 @@ function formatDevLine(line, state) {
     if (rejection) {
         const detail = rejection[1] && rejection[1] !== "{}" ? ` ${rejection[1]}` : ""
         state.lastError = `Unhandled promise rejection${detail}`
-        // Same rule as a raw Error line: before the banner the exit handler
-        // renders it once, so printing here would duplicate it.
-        if (!state.flushed) return null
-        return `${GUTTER}${t.bad(glyph.fail)} Unhandled promise rejection${t.dim(detail)}`
+        // Same rule as a raw Error line below.
+        state.lastErrorLine = `${GUTTER}${t.bad(glyph.fail)} Unhandled promise rejection${t.dim(detail)}`
+        return state.lastErrorLine
     }
     // A bare number is what `console.log(process.stderr.fd)` in the server's
     // uncaughtException handler emits.
@@ -195,12 +201,12 @@ function formatDevLine(line, state) {
     const error = ERROR_LINE.exec(trimmed)
     if (error) {
         state.lastError = error[1]
-        // Before the server is up, stay quiet: a failed start ends in the exit
-        // handler, which renders one proper diagnostic. Afterwards the process
-        // keeps running and that handler never fires, so swallowing the line
-        // would lose the only report of a live error.
-        if (!state.flushed) return null
-        return `${GUTTER}${t.bad(glyph.fail)} ${error[1]}`
+        // Always shown: a `console.error(err)` the server survives -- a cache or
+        // API down at startup -- has no other report. When the error instead
+        // ends a failed start, the exit handler renders it as the diagnostic and
+        // drops this line (see lastErrorLine) so it is not said twice.
+        state.lastErrorLine = `${GUTTER}${t.bad(glyph.fail)} ${error[1]}`
+        return state.lastErrorLine
     }
 
     const inspector = INSPECTOR_URL.exec(trimmed)
@@ -274,7 +280,7 @@ function createLineReader(onLine) {
  * back until the banner has landed, and Node's multi-line warnings collapsed.
  *
  * @param {import('child_process').ChildProcess} child
- * @returns {{state: object, flushRemaining: () => void}}
+ * @returns {{state: object, flushRemaining: (options?: {dropLastError?: boolean}) => void}}
  */
 function wireServerOutput(child) {
     const state = { seenWarnings: new Set() }
@@ -290,7 +296,20 @@ function wireServerOutput(child) {
     // Held back until after the notices so the actionable line lands last.
     let nextStep = null
 
+    // A startup that fails without exiting -- listen() erroring while Vite
+    // keeps the process alive -- never reaches the banner, so its diagnostic
+    // would sit in `pending` behind a blank screen forever. Once something
+    // error-like is queued, print the queue shortly after, without waiting.
+    let earlyTimer = null
+    const printEarly = () => {
+        earlyTimer = null
+        if (flushed) return
+        for (const line of pending) console.log(line)
+        pending.length = 0
+    }
+
     const flushPending = () => {
+        clearTimeout(earlyTimer)
         flushed = true
         state.flushed = true
         if (pending.length) {
@@ -339,8 +358,18 @@ function wireServerOutput(child) {
 
         // Before the banner, hold everything back. After it, print as it
         // happens -- an HMR update or a request error is a live event.
-        if (flushed) console.log(formatted)
-        else pending.push(formatted)
+        if (flushed) {
+            console.log(formatted)
+            return
+        }
+        pending.push(formatted)
+        // Short enough to read as prompt, long enough for a crash's exit to
+        // win the race, so a fatal error is still reported once by the exit
+        // handler rather than here as well.
+        if (!earlyTimer && (state.sawDiagnostic || formatted === state.lastErrorLine)) {
+            earlyTimer = setTimeout(printEarly, EARLY_FLUSH_MS)
+            earlyTimer.unref?.()
+        }
     }
 
     const stdout = createLineReader(route)
@@ -351,11 +380,15 @@ function wireServerOutput(child) {
     return {
         state,
         // On a failed start the banner never arrives, so anything held back is
-        // still queued -- including the server's own diagnostic.
-        flushRemaining() {
+        // still queued -- including the server's own diagnostic. With
+        // `dropLastError` the exit handler is about to render the last error
+        // as a diagnostic, so its one-line form is left out.
+        flushRemaining({ dropLastError = false } = {}) {
+            clearTimeout(earlyTimer)
             stdout.flush()
             stderr.flush()
-            for (const line of pending) console.log(line)
+            const skip = dropLastError && !state.sawDiagnostic ? state.lastErrorLine : undefined
+            for (const line of pending) if (line !== skip) console.log(line)
             pending.length = 0
             nextStep = null
         },
@@ -375,12 +408,16 @@ function wireServerOutput(child) {
  * @param {object} options
  * @param {string} options.scope - names the failing part, e.g. "dev server"
  * @param {string} options.label - what could not be started, for the spawn error
+ * @param {boolean} [options.passthrough] - the child inherits stdio; its output
+ *   is not wired or reworded, and only signals and the exit code are handled
  */
-function superviseServer(child, { scope, label }) {
+function superviseServer(child, { scope, label, passthrough = false }) {
     const { diagnostic } = require("./diagnostic.js")
     const { hintFor } = require("./hints.js")
 
-    const { state, flushRemaining } = wireServerOutput(child)
+    const { state, flushRemaining } = passthrough
+        ? { state: {}, flushRemaining() {} }
+        : wireServerOutput(child)
 
     // Ctrl-C reaches the child through the shared process group; forward the
     // rest so a `kill` of this wrapper takes the server with it.
@@ -394,16 +431,17 @@ function superviseServer(child, { scope, label }) {
     })
 
     child.on("close", (code, signal) => {
-        flushRemaining()
-
         // Ctrl-C is the normal way to stop a server, not a failure.
-        if (signal === "SIGINT" || signal === "SIGTERM") process.exit(0)
+        const stopped = signal === "SIGINT" || signal === "SIGTERM"
+        flushRemaining({ dropLastError: !stopped && code !== 0 })
+        if (stopped) process.exit(0)
 
         if (code !== 0) {
             // Report unless the server already printed its own diagnostic.
             // Gating this on a matching hint meant an unrecognised crash
             // exited silently -- the case where the user most needs telling.
-            if (!state.sawDiagnostic) {
+            // A passthrough child's own output already said why, unaltered.
+            if (!passthrough && !state.sawDiagnostic) {
                 const known = hintFor(state.lastError || "")
                 process.stderr.write(
                     diagnostic({

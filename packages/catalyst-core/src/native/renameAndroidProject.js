@@ -44,8 +44,12 @@ class SimpleProgress {
     fail(stepId, message) {
         this.ensureHeader()
         console.log(_theme.step(stepId, null, "fail"))
+        // Backstop: runCommand already scrubs its errors, but this is where any
+        // failure in the signing flow ends up on screen.
         if (message)
-            console.log(`${_theme.GUTTER}${_theme.t.dim(_theme.glyph.last)} ${_theme.t.bad(message)}`)
+            console.log(
+                `${_theme.GUTTER}${_theme.t.dim(_theme.glyph.last)} ${_theme.t.bad((0, _utils.redactSecrets)(message))}`
+            )
     }
 
     log(message, type = "info") {
