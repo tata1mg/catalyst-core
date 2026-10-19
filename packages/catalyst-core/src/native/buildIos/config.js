@@ -385,7 +385,9 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPo
             // spinner row rather than escaping the gutter at column 0.
             progress.status(`xcconfig · Swift ${swiftVersion} · iOS ${deploymentTarget}`)
         } catch (error) {
-            throw new Error(`Failed to generate Shared.xcconfig: ${error.message}`)
+            // Keep the original error (its code and stack); only say which file.
+            error.message = `Failed to generate Shared.xcconfig: ${error.message}`
+            throw error
         }
     }
 

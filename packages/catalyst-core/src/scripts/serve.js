@@ -1,8 +1,7 @@
 import path from "path"
 import { spawn } from "child_process"
 import { arrayToObject, loaderImportArg, resolveOutputMode } from "./scriptUtils.js"
-import { runStaticPreflightOrExit, checkBuildMatchesConfig } from "./preflight.js"
-import { formatError } from "../errors/index.js"
+import { runStaticPreflightOrExit, checkBuildMatchesConfig, renderRegistryError } from "./preflight.js"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { existsSync, readFileSync } from "fs"
@@ -64,7 +63,7 @@ async function startProd() {
     // rather than a "skipping the check" warning first.
     const staleBuild = checkBuildMatchesConfig(undefined, argumentsObject)
     if (staleBuild) {
-        console.error(formatError(staleBuild, outputMode))
+        process.stderr.write(renderRegistryError(staleBuild, outputMode, { scope: "server" }))
         process.exit(1)
     }
 

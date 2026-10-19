@@ -95,6 +95,16 @@ function toolTimeoutError(command, timeout) {
     return error
 }
 
+/** A required value with no terminal to ask for it on, e.g. in CI. */
+function missingConfigError(question) {
+    const label = question.replace(/[:\s]+$/, "")
+    const error = new Error(`Missing configuration, and no terminal to ask on: ${label}`)
+    error.code = "ENOTTY"
+    error.hint =
+        "Set it in config/config.json (WEBVIEW_CONFIG), or run the command in an interactive terminal."
+    return error
+}
+
 /**
  * Ask a question on the terminal.
  *
@@ -107,9 +117,7 @@ function toolTimeoutError(command, timeout) {
 async function promptUser(question, { defaultValue } = {}) {
     if (!process.stdin.isTTY) {
         if (defaultValue !== undefined) return defaultValue
-        throw new Error(
-            `Missing configuration, and no terminal to ask on: ${question.replace(/[:\s]+$/, "")}`
-        )
+        throw missingConfigError(question)
     }
     return withSpinnersPaused(
         () =>

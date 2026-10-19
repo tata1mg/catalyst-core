@@ -13,6 +13,13 @@ if (!appRoot) {
     )
 }
 
+// validator.ts renders registry errors through this. It is also bundled into
+// the app's SSR build, which cannot reach the CLI by a relative path, so the
+// server process hands the renderer over here, in the first module it loads.
+const { registryFailure } = createRequire(import.meta.url)("../cli/diagnostic.js")
+// eslint-disable-next-line no-undef -- the scripts lint env predates globalThis
+globalThis.__catalystRenderRegistryError = (error, scope) => registryFailure(error, { scope, cwd: appRoot })
+
 // react-router is a peer dependency: fail loudly at startup rather than on a
 // missing export deep inside a render. Resolve from the app root, not from
 // catalyst-core's own tree — the app's copy is the one vite and SSR load.

@@ -24,12 +24,14 @@ const CONTEXT_LINES = 2
  * @param {string} [options.file]    - path to the offending file
  * @param {number} [options.line]    - 1-indexed
  * @param {number} [options.column]  - 1-indexed
+ * @param {string} [options.details] - supporting lines under the message,
+ *   e.g. which config values differ
  * @param {string} [options.hint]    - how to fix it
  * @param {string} [options.docs]    - a URL that explains more
  * @param {string} [options.cwd]     - root for relative paths
  */
 function diagnostic(options) {
-    const { message, code, scope, file, line, column, hint, docs, cwd = process.cwd() } = options
+    const { message, code, scope, file, line, column, details, hint, docs, cwd = process.cwd() } = options
 
     const out = []
     out.push("")
@@ -38,6 +40,12 @@ function diagnostic(options) {
     const label = [code, scope].filter(Boolean).join("  ")
     out.push(`${GUTTER}${t.bad(t.bold("error"))}${label ? ` ${t.dim(label)}` : ""}`)
     out.push(`${GUTTER}${t.bold(message)}`)
+
+    if (details) {
+        for (const text of String(details).split("\n")) {
+            out.push(`${GUTTER}${t.dim(text)}`)
+        }
+    }
 
     if (file) {
         const shown = relativeIfInside(file, cwd)
@@ -213,6 +221,30 @@ function buildFailure({ error, stage, cwd = process.cwd() }) {
     )
 }
 
+/**
+ * A registry error (CatalystError) as a diagnostic: its code, message, the
+ * cause or details beneath, its suggested action as the hint, and its docs.
+ * The default view for preflight and server-startup failures; the registry's
+ * own box stays for --verbose and --debug.
+ *
+ * @param {object} error - a CatalystError, or anything with a message
+ * @param {object} [options]
+ * @param {string} [options.scope]
+ * @param {string} [options.cwd]
+ */
+function registryFailure(error, { scope, cwd } = {}) {
+    const cause = error?.cause
+    return diagnostic({
+        message: error?.message || String(error),
+        code: typeof error?.code === "string" ? error.code : undefined,
+        scope,
+        details: cause ? cause.message || String(cause) : error?.details,
+        hint: error?.suggestedAction,
+        docs: error?.docUrl,
+        cwd,
+    })
+}
+
 // V8 frame: "    at fn (file:line:col)" or "    at file:line:col".
 const FRAME = /^\s*at\s+(?:(.*?)\s+\()?(?:file:\/\/)?([^()]+?):(\d+):(\d+)\)?\s*$/
 
@@ -341,6 +373,7 @@ function verboseOutput({ code, docs, output, mode = "verbose", error, env }) {
 module.exports = {
     diagnostic,
     buildFailure,
+    registryFailure,
     runtimeFailure,
     verboseOutput,
     codeFrame,

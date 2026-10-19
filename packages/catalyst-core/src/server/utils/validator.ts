@@ -1,4 +1,3 @@
-import pc from "ansis"
 import { createError, formatError, ERROR_CODES } from "../../errors/index.js"
 import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js"
 
@@ -17,13 +16,20 @@ const outputMode = resolveOutputMode([], process.env)
 //     single error and fall back, keeping the request alive.
 // `handleError` below is the shared "log it, in whatever output mode" helper
 // those in-server sites use.
-const handleError = (e: any) => {
+// The default view is the CLI's diagnostic block. This module is also bundled
+// into the app's SSR build, where the CLI is not reachable by a relative path,
+// so the server process installs the renderer as a global (preServerInit.js,
+// the first module it loads). Without it, or under --verbose/--debug, the
+// registry's own format is used.
+const renderError = (e: any) => {
+    const render = (globalThis as any).__catalystRenderRegistryError
+    if (outputMode === "default" && typeof render === "function") return render(e, "server")
     const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
-    if (outputMode === "default") {
-        console.log(pc.red("Failed to start server: "), formatError(e, outputMode))
-    } else {
-        console.log(formatError(e, outputMode, debugEnv))
-    }
+    return formatError(e, outputMode, debugEnv)
+}
+
+const handleError = (e: any) => {
+    console.log(renderError(e))
 }
 
 const validatePreInitServer = (fn: any) => {
@@ -129,8 +135,7 @@ const safeCall = async (fn, ...args) => {
         return await fn(...args)
     } catch (e) {
         const wrapped = createError(ERROR_CODES.PROCESS_USER_HOOK_FAILED, { cause: e })
-        const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
-        console.error(formatError(wrapped, outputMode, debugEnv))
+        console.error(renderError(wrapped))
     }
 }
 
@@ -149,8 +154,7 @@ const safeCallNamed = async (hookName, fn, ...args) => {
             details: `The "${hookName}" hook threw. See the cause below.`,
             cause: e,
         })
-        const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
-        console.error(formatError(wrapped, outputMode, debugEnv))
+        console.error(renderError(wrapped))
     }
 }
 

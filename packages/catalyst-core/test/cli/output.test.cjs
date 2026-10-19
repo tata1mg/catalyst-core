@@ -5,7 +5,7 @@ const { test } = require("node:test")
 
 const { extractBuildErrors } = require("../../src/cli/buildErrors.js")
 const { formatDevLine } = require("../../src/cli/devOutput.js")
-const { runtimeFailure } = require("../../src/cli/diagnostic.js")
+const { registryFailure, runtimeFailure } = require("../../src/cli/diagnostic.js")
 const { ANSI } = require("../../src/cli/theme.js")
 
 const plain = (text) => (text == null ? text : String(text).replace(ANSI, ""))
@@ -67,4 +67,24 @@ test("points a runtime error at the app's own frame, not the library's", () => {
     assert.match(out, /error RUNTIME-WEB-001 {2}GET \//)
     assert.match(out, /at src\/js\/Home\.js:7:9/)
     assert.doesNotMatch(out, /react-dom/)
+})
+
+test("renders a registry error as one diagnostic: code, details, hint and docs", () => {
+    const error = Object.assign(
+        new Error("The build is stale: config/config.json changed since it was built"),
+        {
+            code: "PREFLIGHT-022",
+            details: "These values differ:\n  PUBLIC_STATIC_ASSET_URL: built with a, now b",
+            suggestedAction: "Run `npm run build` again, then `npm run serve`.",
+            docUrl: "https://example.test/PREFLIGHT-022.md",
+        }
+    )
+
+    const out = plain(registryFailure(error, { scope: "server" }))
+    assert.match(out, /error PREFLIGHT-022 {2}server/)
+    assert.match(out, /^ {2}The build is stale/m)
+    assert.match(out, /^ {4}PUBLIC_STATIC_ASSET_URL: built with a, now b$/m)
+    assert.match(out, /hint {2}Run `npm run build` again/)
+    assert.match(out, /docs {2}https:\/\/example\.test\/PREFLIGHT-022\.md/)
+    assert.doesNotMatch(out, /Suggested action|Docs:/)
 })
