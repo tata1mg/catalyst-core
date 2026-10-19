@@ -51,15 +51,27 @@ function scssModulesPlugin() {
     }
 }
 
+// Automatic runtime so the output imports react/jsx-(dev-)runtime: plugin-react
+// only adds Fast Refresh to .js files that import it. Classic createElement
+// output leaves the module without an HMR boundary, forcing full page reloads.
 function jsxInJsPlugin() {
+    let isProduction = process.env.NODE_ENV === "production"
+
     return {
         name: "vite-plugin-jsx-in-js",
         enforce: "pre",
+        configResolved(config) {
+            isProduction = config.isProduction
+        },
         async transform(code, id) {
             if (!id.endsWith(".js")) return null
             if (id.includes("node_modules")) return null
             if (!/</.test(code)) return null
-            return transformWithEsbuild(code, id, { loader: "jsx" })
+            return transformWithEsbuild(code, id, {
+                loader: "jsx",
+                jsx: "automatic",
+                jsxDev: !isProduction,
+            })
         },
     }
 }
@@ -266,9 +278,7 @@ const browserOptimizeDeps = [
     "redux",
     "redux-thunk",
     "axios",
-    "react-helmet-async",
     "react-google-recaptcha",
-    "react-fast-compare",
     "history",
     "lottie-web",
     // Pre-bundle alongside React so esbuild marks react/react-router as external
@@ -295,7 +305,6 @@ const browserOptimizeDeps = [
     // first navigation that pulls them in doesn't trigger a full-page reload.
     "react-loadable-visibility",
     "react-detect-offline",
-    "react-side-effect",
     "react-async-script",
     "normalize.css",
 ]
@@ -357,7 +366,6 @@ export const sharedViteConfig = {
         optimizeDeps: {
             include: [
                 "invariant",
-                "react-fast-compare",
                 "shallowequal",
                 "prop-types",
                 "redux-thunk",
@@ -430,7 +438,17 @@ export const sharedViteConfig = {
             path.join(process.env.src_path, "src/**/*.{js,jsx,ts,tsx}"),
         ],
         include: browserOptimizeDeps,
-        exclude: ["catalyst-core/router/ClientRouter"],
+        // catalyst-core/webmcp (and its shim subpath) must share the SAME
+        // pre-bundled module instance as catalyst-core's main entry:
+        // WebMcpProvider reads router state through a React context
+        // (OneMgRouterContext, via useRouterState()) that RouterDataProvider
+        // populates. If esbuild's dep scanner pre-bundles the subpath as its
+        // own separate optimized chunk, that chunk gets its own
+        // `createContext()` call — a second, unlinked context instance that
+        // WebMcpProvider reads from empty, throwing "must be used within a
+        // RouterDataProvider" even though one genuinely is an ancestor.
+        // Same rationale as the existing ClientRouter exclusion below.
+        exclude: ["catalyst-core/router/ClientRouter", "catalyst-core/webmcp", "catalyst-core/webmcp/shim"],
         esbuildOptions: {
             format: "esm",
             target: "node2022",
@@ -494,6 +512,21 @@ export default defineConfig(async () => {
     return {
         ...sharedViteConfig,
         base: resolveDevBase(devServer),
+        // Dev SSR only: transform catalyst-core through Vite instead of
+        // externalizing it. Otherwise its main entry and its subpaths
+        // (catalyst-core/webmcp reads router state through the context
+        // RouterDataProvider populates) can resolve as two separate module
+        // records, each with its own createContext(), and the subpath throws
+        // "must be used within a RouterDataProvider" even though one is an
+        // ancestor. Keyed on NODE_ENV, not Vite's `command`: `catalyst build`
+        // also spins up this config for the offline manifest, and in a
+        // production build Vite matches noExternal by package name and would
+        // inline catalyst-core's CJS subpaths ("exports is not defined").
+        // Built output runs under plain Node ESM, one module record per file.
+        ssr: {
+            ...sharedViteConfig.ssr,
+            noExternal: [...new Set([...(sharedViteConfig.ssr?.noExternal || []), ...(isProduction ? [] : ["catalyst-core"])])],
+        },
         server: buildDevServer(devServer, {
             frameworkPaths: [process.env.src_path, __dirname],
             isProduction,
