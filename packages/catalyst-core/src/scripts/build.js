@@ -124,6 +124,10 @@ function fencedTail(output, lines = 8) {
 }
 
 function reportBundleFailures(failures, cwd) {
+    // Every bundle failure is the registry's upstream wrapper: its code and
+    // docs head each block, as they did before the extracted-error view.
+    const code = ERROR_CODES.BUNDLE_UPSTREAM_ERROR
+    const docs = getDocUrl(code)
     const byCause = new Map()
     const unrecognised = []
 
@@ -149,7 +153,9 @@ function reportBundleFailures(failures, cwd) {
             (failure) =>
                 diagnostic({
                     message: `The ${failure.label || "production"} bundle failed`,
+                    code,
                     scope: "production build",
+                    docs,
                     cwd,
                 }) + fencedTail(failure.output)
         )
@@ -162,13 +168,14 @@ function reportBundleFailures(failures, cwd) {
         .map((cause) =>
             diagnostic({
                 message: shortenPaths(cause.message, cwd),
+                code,
                 scope: `${cause.bundles.join(" + ")} bundle`,
                 file: cause.file ? path.resolve(cwd, cause.file.replace(/^(\.\.\/)+/, "")) : undefined,
                 line: cause.line,
                 // esbuild reports columns 0-based; the frame's caret is 1-based.
                 column: cause.column != null ? cause.column + 1 : undefined,
                 hint: hintFor(cause.message)?.hint,
-                docs: hintFor(cause.message)?.docs,
+                docs,
                 cwd,
             })
         )

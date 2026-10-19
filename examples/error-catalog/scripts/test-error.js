@@ -238,7 +238,7 @@ async function executeHttp(scen) {
 
         const timer = setTimeout(() => {
             // Server may have crashed before sending an HTTP response (e.g.
-            // RUNTIME-WEB-004 where Document throws → uncaughtException).
+            // a render that throws before the response is answered).
             // In that case there is no fetch, but the error IS logged to
             // the server process stdout/stderr before the crash. Check whether
             // all expected strings are already in the accumulated output.

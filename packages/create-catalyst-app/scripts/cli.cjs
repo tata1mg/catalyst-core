@@ -30,9 +30,12 @@ const printError = (err) => {
     console.error(outputMode === "default" ? red(formatted) : formatted)
 }
 // Inside a clack session: close it with a one-line reason tagged with the
-// error's code. --verbose/--debug follow it with the registry's full report.
+// error's code and its docs link, on stderr like every other error.
+// --verbose/--debug follow it with the registry's full report, which carries
+// the link itself.
 const cancelWithError = (err, message = err.message) => {
-    clack.cancel(`${message} ${gray(`[${err.code}]`)}`)
+    const docs = outputMode === "default" && err.docUrl ? `\n   ${gray(`Docs: ${err.docUrl}`)}` : ""
+    clack.cancel(`${message} ${gray(`[${err.code}]`)}${docs}`, { output: process.stderr })
     if (outputMode !== "default") printError(err)
 }
 const packageRoot = path.join(__dirname, "..")
