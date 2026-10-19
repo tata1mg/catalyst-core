@@ -26,6 +26,10 @@ export class ChunkExtractor {
         this.deferred = { js: new Set(), css: new Set() }
         this._allCssPaths = new Set() // dedup across buckets
 
+        // JS reached only as a static import of a tracked chunk: preloaded/hinted so it downloads
+        // in parallel with its importer, but given no <script> of its own — the importer loads it.
+        this.depsOnly = new Set()
+
         this._loadEssentialEntrypoints()
 
         if (registerGlobal && typeof global !== "undefined") {
@@ -96,10 +100,14 @@ export class ChunkExtractor {
 
         const jsUrl = this._toUrl(manifestEntry.file)
 
-        // Skip if already tracked in either bucket
-        if (this.critical.js.has(jsUrl) || this.deferred.js.has(jsUrl)) return
+        // A chunk first seen as a static dependency may later be requested directly (e.g. a shared
+        // chunk that is also a split target) — it then needs its own <script> and CSS.
+        const wasDepOnly = this.depsOnly.delete(jsUrl)
 
-        bucket.js.add(jsUrl)
+        // Skip if already tracked in either bucket
+        if (!wasDepOnly && (this.critical.js.has(jsUrl) || this.deferred.js.has(jsUrl))) return
+
+        if (!wasDepOnly) bucket.js.add(jsUrl)
 
         // Collect direct + transitive CSS as relative file paths (not URLs)
         const cssPart = Array.isArray(manifestEntry.css) ? manifestEntry.css : []
@@ -110,6 +118,25 @@ export class ChunkExtractor {
                 this._allCssPaths.add(cssFile)
                 bucket.css.add(cssFile)
             }
+        }
+
+        this._addStaticImports(manifestEntry, bucket)
+    }
+
+    // Static imports execute with their importer, so the browser always requests them; announcing
+    // them up front keeps them off a second waterfall level. Dynamic imports stay lazy and are
+    // picked up by addComponent() when rendered. CSS is already covered by the importer's allCss.
+    _addStaticImports(manifestEntry, bucket) {
+        for (const importKey of manifestEntry.imports || []) {
+            const imported = this.manifest[importKey]
+            if (!imported?.file) continue
+
+            const jsUrl = this._toUrl(imported.file)
+            if (this.critical.js.has(jsUrl) || this.deferred.js.has(jsUrl)) continue
+
+            bucket.js.add(jsUrl)
+            this.depsOnly.add(jsUrl)
+            this._addStaticImports(imported, bucket)
         }
     }
 
@@ -124,18 +151,29 @@ export class ChunkExtractor {
     }
 
     // ── Public getters ─────────────────────────────────────────────────
-    /** Critical: CSS as relative file paths (for inlining from disk), JS as URLs */
+    _rootScripts(jsUrls) {
+        return jsUrls.filter((url) => !this.depsOnly.has(url))
+    }
+
+    /**
+     * Critical: CSS as relative file paths (for inlining from disk), JS as URLs.
+     * `js` is every URL to preload/hint; `scripts` is the subset that needs a <script type="module">.
+     */
     getCriticalAssets() {
+        const js = Array.from(this.critical.js)
         return {
-            js: Array.from(this.critical.js),
+            js,
+            scripts: this._rootScripts(js),
             css: Array.from(this.critical.css),
         }
     }
 
-    /** Deferred: CSS as URLs (external <link>), JS as URLs */
+    /** Deferred: CSS as URLs (external <link>), JS as URLs. See getCriticalAssets for `scripts`. */
     getDeferredAssets() {
+        const js = Array.from(this.deferred.js)
         return {
-            js: Array.from(this.deferred.js),
+            js,
+            scripts: this._rootScripts(js),
             css: Array.from(this.deferred.css),
         }
     }
