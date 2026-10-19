@@ -1,12 +1,29 @@
 import { readFileSync, writeFileSync } from "fs"
 import path from "path"
+import { createRequire } from "module"
 import {
     validateConfigFile,
     validatePackageJson,
     validateModuleAlias,
 } from "../server/utils/validator.js"
 import { formatError, createError, ERROR_CODES } from "../errors/index.js"
-import { resolveOutputMode } from "./scriptUtils.js"
+import { resolveOutputMode, getDebugEnvInfo } from "./scriptUtils.js"
+
+const requireCjs = createRequire(import.meta.url)
+const { registryFailure } = requireCjs("../cli/diagnostic.js")
+const { GUTTER, glyph, t } = requireCjs("../cli/theme.js")
+
+/**
+ * A registry error as the CLI shows it: the diagnostic block by default, the
+ * registry's box under --verbose and --debug.
+ * @param {import("../errors/index.js").CatalystError} err
+ * @param {string} mode - "default" | "verbose" | "debug"
+ * @param {{scope?: string}} [options]
+ */
+export function renderRegistryError(err, mode, { scope } = {}) {
+    if (mode === "default") return registryFailure(err, { scope })
+    return formatError(err, mode, mode === "debug" ? getDebugEnvInfo() : undefined)
+}
 
 // Static preflight — the file-based checks a developer's misconfiguration
 // would trip. Runs in the parent CLI process (start.js / serve.js / build.js)
@@ -47,12 +64,19 @@ export function runStaticPreflight(appDir = process.env.PWD || process.cwd()) {
     const cfgPath = path.join(appDir, "config", "config.json")
     const cfg = readJson(cfgPath)
     if (cfg.error) {
+        // A file that exists but does not parse is not "missing": the default
+        // message and its "create the file" advice would send people the
+        // wrong way.
+        const unparsable = cfg.error.code !== "ENOENT"
         failures.push(
             createError(ERROR_CODES.PREFLIGHT_CONFIG_MISSING, {
-                details:
-                    cfg.error.code === "ENOENT"
-                        ? `config/config.json not found at ${cfgPath}`
-                        : `config/config.json could not be parsed: ${cfg.error.message}`,
+                details: unparsable
+                    ? `config/config.json could not be parsed: ${cfg.error.message}`
+                    : `config/config.json not found at ${cfgPath}`,
+                ...(unparsable && {
+                    message: "config/config.json is not valid JSON",
+                    suggestedAction: "Fix the JSON syntax in config/config.json at the position shown.",
+                }),
             })
         )
     } else {
@@ -101,12 +125,12 @@ export function runStaticPreflightOrExit(appDir = process.env.PWD || process.cwd
     if (failures.length === 0) return
 
     for (const err of failures) {
-        console.error(formatError(err, mode))
+        console.error(renderRegistryError(err, mode, { scope: "preflight" }))
     }
-    console.error(
-        `\nPreflight failed with ${failures.length} error${failures.length === 1 ? "" : "s"}. ` +
-            `Fix the above and re-run.`
-    )
+    // One block speaks for itself; a count only helps when there are several.
+    if (failures.length > 1) {
+        console.error(`${GUTTER}${t.dim(`${failures.length} problems found. Fix them and re-run.`)}\n`)
+    }
     process.exit(1)
 }
 
@@ -158,7 +182,7 @@ export function writeBuildInfo(appDir, config, args = {}) {
  */
 export function checkBuildMatchesConfig(appDir = process.env.PWD || process.cwd(), args = {}) {
     const skip = (reason) => {
-        console.warn(`Skipping the build/config check: ${reason}`)
+        console.warn(`${GUTTER}${t.warn(glyph.warn)} ${t.dim(`Skipping the build/config check: ${reason}`)}`)
         return null
     }
 

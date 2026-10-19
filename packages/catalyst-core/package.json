@@ -56,7 +56,7 @@
     "scripts": {
         "lint": "eslint .",
         "lint-staged": "lint-staged",
-        "test:unit": "node --test \"test/**/*.test.js\"",
+        "test:unit": "node --test \"test/**/*.test.js\" \"test/**/*.test.cjs\"",
         "typecheck": "tsc --noEmit",
         "prettify": "prettier . --write",
         "prepare": "node scripts/safe-rimraf.cjs ./dist && node scripts/build-dist.mjs && cp -r ./src/native ./dist/native && babel src/native --out-dir dist/native --config-file ./babel.native.config.cjs --extensions '.js,.jsx,.ts,.tsx' --ignore '**/.build/**' && node scripts/strip-ts-sources.mjs ./dist/native && babel src/sentry.js --out-file dist/sentry.cjs --config-file ./babel.native.config.cjs && tsc -p tsconfig.declarations.json && node ./mcp_v2/scripts/copyErrorsIndex.cjs",

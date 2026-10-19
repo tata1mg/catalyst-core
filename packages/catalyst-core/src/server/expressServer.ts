@@ -5,15 +5,90 @@ import compression from "compression"
 import cookieParser from "cookie-parser"
 import expressStaticGzip from "express-static-gzip"
 import { createServer as createViteServer } from "vite"
-import util from "node:util"
-import pc from "ansis"
+import os from "node:os"
 import fs from "fs"
-const { cyan, yellow, green } = pc
 
 import { toMountPathPrefix } from "../vite/resolveDevServerConfig.js"
 import { validateMiddleware, handleError, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
+
+const { header, row, glyph, t, GUTTER, duration } = cjsRequire("../../cli/theme.js")
+const { diagnostic, runtimeFailure } = cjsRequire("../../cli/diagnostic.js")
+const { hintFor } = cjsRequire("../../cli/hints.js")
+
+// "Ready in" should measure what the person waited for: from the moment they
+// ran the command, not from when this child process happened to load. The CLI
+// stamps that moment; run directly, module load is the best we have.
+const serverStartedAt = Number(process.env.CATALYST_STARTED_AT) || Date.now()
+
+const outputMode = process.env.CATALYST_OUTPUT_MODE || "default"
+const verbose = outputMode === "verbose" || outputMode === "debug"
+
+// Set in development once Vite is up: maps a stack from Vite's transformed SSR
+// modules back to the source lines the user wrote.
+let fixStacktrace: ((error: any) => void) | null = null
+const stackFixed = new WeakSet<object>()
+
+// Reloading a broken page re-throws the same error on every request. After the
+// first full report, a repeat gets one line until something different fails.
+let lastReport: string | null = null
+
+/**
+ * Report a runtime error in the house style. Exposed on globalThis because the
+ * SSR handler is bundled into the app's build and cannot import this module's
+ * CLI helpers by path; it calls this when present.
+ */
+function reportRuntimeError({ error, code, docs, scope }: any) {
+    if (fixStacktrace && error && typeof error === "object" && !stackFixed.has(error)) {
+        stackFixed.add(error)
+        try {
+            fixStacktrace(error)
+        } catch {
+            // A stack we cannot map is still worth printing as-is.
+        }
+    }
+    const fingerprint = `${code}|${error?.message ?? String(error)}|${String(error?.stack || "").split("\n")[1] || ""}`
+    if (fingerprint === lastReport && outputMode === "default") {
+        process.stderr.write(`${GUTTER}${t.bad(glyph.fail)} ${t.dim(`Same error again${scope ? `  ${scope}` : ""}`)}\n`)
+        return
+    }
+    lastReport = fingerprint
+
+    process.stderr.write(
+        runtimeFailure({
+            error,
+            code,
+            docs,
+            scope,
+            mode: outputMode,
+            env:
+                outputMode === "debug"
+                    ? { node: process.version, platform: process.platform }
+                    : undefined,
+            cwd: process.env.src_path || process.cwd(),
+        })
+    )
+}
+;(globalThis as any).__catalystReportRuntimeError = reportRuntimeError
+
+// Invisible fences around the banner block. The wrapper strips these; if the
+// server is run directly they are two blank-looking lines.
+const { BANNER_START, BANNER_END, NEXT_STEP } = cjsRequire("../../cli/devOutput.js")
+
+/** First non-internal IPv4 address, so the banner can offer a LAN URL. */
+function lanAddress() {
+    try {
+        for (const interfaces of Object.values(os.networkInterfaces())) {
+            for (const entry of interfaces || []) {
+                if (entry.family === "IPv4" && !entry.internal) return entry.address
+            }
+        }
+    } catch (error) {
+        // Not worth failing a server start over.
+    }
+    return null
+}
 const { addMiddlewares } = await import(path.join(process.env.src_path!, "server/server.js"))
 
 // Mount AI route if catalyst-ai is installed
@@ -26,7 +101,8 @@ function mountAIRouter(app: any) {
     } catch (resolveErr: any) {
         if (resolveErr.code !== "MODULE_NOT_FOUND") {
             console.error("[catalyst-core/ai] Unexpected error resolving catalyst-ai:", resolveErr)
-        } else {
+        } else if (verbose) {
+            // Not installing an optional package is not news on every start.
             console.debug("[catalyst-core/ai] catalyst-ai not installed — AI routes unavailable")
         }
         return
@@ -52,7 +128,6 @@ function mountAIRouter(app: any) {
         }
 
         const aiBasePath = aiConfig.basePath || "/ai"
-        console.log(`[catalyst-core/ai] mounting AI router at ${aiBasePath}`)
         app.use(aiBasePath, aiRouter)
     } catch (mountErr) {
         console.error("[catalyst-core/ai] Failed to mount AI router:", mountErr)
@@ -97,20 +172,33 @@ function safeStringify(err: any) {
 }
 
 process.on("uncaughtException", (err, origin) => {
-    console.log(process.stderr.fd)
-    console.log(`Caught exception: ${err}\n` + `Exception origin: ${origin}`)
+    // A server that cannot bind its port is dead -- swallowing that left the
+    // process alive but useless, so `catalyst start` hung with a blank screen.
+    // Report it the way every other failure is reported, then exit.
+    const code = (err as NodeJS.ErrnoException)?.code
+    if (code === "EADDRINUSE" || code === "EACCES") {
+        const known = hintFor(err.message)
+        process.stderr.write(
+            diagnostic({
+                message: err.message,
+                scope: "dev server",
+                hint: known?.hint,
+                docs: known?.docs,
+            })
+        )
+        process.exit(1)
+    }
+
+    reportRuntimeError({ error: err, scope: origin === "unhandledRejection" ? "unhandled rejection" : "uncaught exception" })
 })
 
-process.on("uncaughtExceptionMonitor", (err, origin) => {
-    console.log(err, origin)
+process.on("unhandledRejection", (err: any) => {
+    // A rejection with a non-Error reason still deserves a readable line.
+    const error = err instanceof Error ? err : new Error(safeStringify(err) || String(err))
+    reportRuntimeError({ error, scope: "unhandled rejection" })
 })
-
-process.on("unhandledRejection", (err: any) =>
-    console.log("unhandledRejection in Catalyst", err?.stack || safeStringify(err))
-)
 
 process.on("SIGINT", function () {
-    console.log("SIGINT")
     process.exit(0)
 })
 
@@ -226,6 +314,8 @@ async function createServer() {
             root: process.env.src_path,
         })
 
+        fixStacktrace = (error: any) => vite.ssrFixStacktrace(error)
+
         // Expose Vite's resolved base to the SSR renderer so the URLs it injects
         // (client entry, react-refresh preamble) match the path Vite serves under.
         // Vite normalizes base with a trailing slash; trim it for clean URL joins.
@@ -279,41 +369,66 @@ async function createServer() {
                 res.status(500).send("Error loading renderer")
             }
         } catch (err: any) {
-            console.error("SSR Error:", err)
-            if (vite) {
-                vite.ssrFixStacktrace(err)
-            }
-            res.status(500).send("Internal Server Error")
+            // Reached when the renderer itself fails to load or throws before
+            // its own error handling -- e.g. a syntax error in an app module.
+            reportRuntimeError({ error: err, scope: `${req.method} ${req.originalUrl}` })
+            if (!res.headersSent) res.status(500).send("Internal Server Error")
         }
     })
 
     app.listen({ port, host }, (error: any) => {
-        const { APPLICATION, NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
+        const { NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
+
+        const isDev = process.env.NODE_ENV === "development"
 
         if (error) {
-            console.log("An error occured while starting the Application server : ", error)
+            const known = hintFor(error.message)
+            process.stderr.write(
+                diagnostic({
+                    message: `Could not start the server: ${error.message}`,
+                    scope: isDev ? "dev server" : "server",
+                    hint: known?.hint,
+                    docs: known?.docs,
+                })
+            )
             safeCall(onServerError)
             return
         }
 
-        if (process.env.NODE_ENV === "development") console.log(green("Compiled successfully!"))
+        // Reached from the listen callback, so this means a port was bound --
+        // it says nothing about whether anything compiled. Claiming a
+        // successful compile here was an outright lie when the bundle failed.
+        const elapsed = Date.now() - serverStartedAt
 
-        console.log(`\nYou can now view ${APPLICATION} in the browser.\n`)
-        console.log(
-            util.format("\tLocal:".padEnd(8), cyan(`http://${NODE_SERVER_HOSTNAME}:${NODE_SERVER_PORT}`))
-        )
+        // Fence the banner so the wrapper can forward it verbatim instead of
+        // guessing from its text -- colour codes made pattern-matching the
+        // lines unreliable, and the guesswork mis-filed the rule and the URL.
+        const wrapped = process.env.CATALYST_WRAPPED === "1"
+        if (wrapped) process.stdout.write(`${BANNER_START}\n`)
+        process.stdout.write(header(`catalyst ${isDev ? "start" : "serve"}`, isDev ? "development" : "production"))
+        console.log(`${GUTTER}${t.ok(glyph.done)} Ready in ${t.bold(duration(elapsed))}\n`)
 
-        if (process.env.NODE_ENV === "development") {
-            console.log("\nNote that the development build is not optimized.")
-            console.log("To create a production build, use " + cyan("npm run build"))
-        } else {
-            console.log(
-                green(`\nProduction server running in ${isProduction ? "production" : "development"} mode`)
-            )
+        // An app can bind to a LAN address rather than localhost, in which case
+        // "Local" and "Network" would print the same URL twice. Show the bound
+        // address as Local, and only offer a Network line when it differs.
+        const boundHost = NODE_SERVER_HOSTNAME || "localhost"
+        console.log(row("Local", t.accent(`http://${boundHost}:${NODE_SERVER_PORT}`)))
+
+        const lan = lanAddress()
+        const reachableEverywhere = boundHost === "0.0.0.0" || boundHost === "::"
+        if (lan && lan !== boundHost && (reachableEverywhere || boundHost === "localhost")) {
+            console.log(row("Network", t.dim(`http://${lan}:${NODE_SERVER_PORT}`)))
         }
 
-        console.log("\nFind out more about deployment here:")
-        console.log(yellow("\n https://catalyst.1mg.com/public_docs/content/deployment\n"))
+        // The next-step line is the one thing to act on, so it is handed to the
+        // wrapper fenced rather than printed here -- the wrapper prints it after
+        // any notices, which would otherwise bury it.
+        process.stdout.write(
+            `${wrapped ? NEXT_STEP : ""}${GUTTER}${t.dim(isDev ? "Watching for changes. " : "Serving ")}` +
+                `${isDev ? "" : t.accent(`${process.env.BUILD_OUTPUT_PATH || "build"}/`)}` +
+                `${t.dim(isDev ? "Press Ctrl+C to stop." : ". Press Ctrl+C to stop.")}\n`
+        )
+        if (wrapped) process.stdout.write(`${BANNER_END}\n`)
     })
 }
 

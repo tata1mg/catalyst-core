@@ -135,14 +135,20 @@ import { imageUrl, fontUrl } from "./scssParams.js"
 // options — so anything else is left alone and Vite falls back to its normal
 // auto-loaded postcss.config.js resolution.
 const resolvePostcssPlugins = () => {
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root set by the framework's own build tooling, not request/user input.
-    const configPath = path.join(process.env.src_path, "postcss.config.js")
-    if (!fs.existsSync(configPath)) return null
+    // .cjs first: an app with "type": "module" (the scaffold default) must
+    // name a CommonJS config .cjs, and a .js one is ESM there.
+    const configPath = ["postcss.config.cjs", "postcss.config.js"]
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root set by the framework's own build tooling, not request/user input.
+        .map((name) => path.join(process.env.src_path, name))
+        .find((candidate) => fs.existsSync(candidate))
+    if (!configPath) return null
 
     const appRequire = createRequire(configPath)
 
     try {
-        const userConfig = appRequire(configPath)
+        const loaded = appRequire(configPath)
+        // require() of an ESM config returns its namespace.
+        const userConfig = loaded?.__esModule || loaded?.default ? loaded.default : loaded
         const pluginsConfig = userConfig?.plugins
 
         if (!pluginsConfig || Array.isArray(pluginsConfig) || typeof pluginsConfig !== "object") {
@@ -268,7 +274,27 @@ const getScssResourcesImport = () => {
 
 // Pre-bundling upfront avoids Vite discovering deps at runtime which causes
 // cascading full-page reloads and "stuck in loading" on dev server.
-const browserOptimizeDeps = [
+/**
+ * Keep only the packages this app can actually resolve.
+ *
+ * The list below is a superset covering every dependency a Catalyst app might
+ * use. Vite logs "Failed to resolve dependency: X, present in
+ * 'optimizeDeps.include'" for each entry it cannot find, so an app that uses
+ * half of them opened with 23 warning lines it could do nothing about.
+ */
+function resolvableFrom(candidates, appRoot) {
+    const resolver = createRequire(path.join(appRoot, "package.json"))
+    return candidates.filter((name) => {
+        try {
+            resolver.resolve(name)
+            return true
+        } catch (error) {
+            return false
+        }
+    })
+}
+
+const candidateBrowserDeps = [
     "react",
     "react-dom",
     "react-dom/client",
@@ -364,13 +390,18 @@ export const sharedViteConfig = {
         // the bundler never tries to resolve the optional (opt-in) OTEL packages.
         external: nodeOnlyExternalDeps,
         optimizeDeps: {
-            include: [
-                "invariant",
-                "shallowequal",
-                "prop-types",
-                "redux-thunk",
-                "redux-logger",
-            ],
+            // Same treatment as the browser list: only include what this app
+            // can resolve, or Vite warns about every entry it cannot find.
+            include: resolvableFrom(
+                [
+                    "invariant",
+                    "shallowequal",
+                    "prop-types",
+                    "redux-thunk",
+                    "redux-logger",
+                ],
+                process.env.src_path
+            ),
             // Prevent pre-bundling React ecosystem packages for SSR to avoid duplicate
             // React instances. Pre-bundled copies in .vite/deps_ssr/ create a separate
             // React instance from node_modules/react used by react-dom/server, causing
@@ -437,7 +468,7 @@ export const sharedViteConfig = {
             path.join(process.env.src_path, "client/index.js"),
             path.join(process.env.src_path, "src/**/*.{js,jsx,ts,tsx}"),
         ],
-        include: browserOptimizeDeps,
+        include: resolvableFrom(candidateBrowserDeps, process.env.src_path),
         // catalyst-core/webmcp (and its shim subpath) must share the SAME
         // pre-bundled module instance as catalyst-core's main entry:
         // WebMcpProvider reads router state through a React context

@@ -1,3 +1,6 @@
+// The optional deps array is the caller's, passed through on purpose, which
+// the compiler cannot verify -- same exemption as the native bridge hooks.
+/* eslint-disable react-compiler/react-compiler */
 import { useContext, useEffect, useRef, useState } from "react"
 import { RouteContext } from "./routeContext.js"
 import { registerTool, unregisterTool, updateToolRoute, updateToolSpec, newOwnerKey } from "./registry.js"

@@ -1,9 +1,18 @@
 "use strict"
 
+const { spawn, execFileSync } = require("child_process")
 const fs = require("fs")
 const path = require("path")
-const { spawn, execFileSync } = require("child_process")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
+const { ensureLocalProperties } = require("../utils.js")
+
+// adb answers in milliseconds when healthy. A wedged adb server accepts the
+// connection and never replies, so without a bound the build sat on
+// "detecting physical devices" forever.
+const ADB_TIMEOUT_MS = 15000
+
+/** A timed-out device tool is fatal: every later adb call would hang the same way. */
+const isToolTimeout = (error) => error?.code === "ETOOLTIMEOUT"
 
 const DEFAULT_DEPLOYMENT_PATH = "./deployment"
 const DEFAULT_OLD_PROJECT_NAME = "androidProject"
@@ -14,9 +23,9 @@ function createBuildPhase(ctx) {
 
     async function detectPhysicalDevice(ADB_PATH) {
         try {
-            progress.log("Detecting physical devices...", "info")
+            progress.status("detecting physical devices")
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices -l`)
+            const devices = ctx.runCommand(`${ADB_PATH} devices -l`, { timeout: ADB_TIMEOUT_MS })
             const lines = devices
                 .split("\n")
                 .filter((line) => line.trim() && !line.includes("List of devices"))
@@ -30,7 +39,8 @@ function createBuildPhase(ctx) {
                         try {
                             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
                             const qemuCheck = ctx.runCommand(
-                                `${ADB_PATH} -s ${deviceId} shell getprop ro.kernel.qemu`
+                                `${ADB_PATH} -s ${deviceId} shell getprop ro.kernel.qemu`,
+                                { timeout: ADB_TIMEOUT_MS }
                             )
                             if (!qemuCheck.trim()) {
                                 progress.log(`Physical device detected: ${deviceId}`, "success")
@@ -39,7 +49,8 @@ function createBuildPhase(ctx) {
                                 try {
                                     // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
                                     const model = ctx.runCommand(
-                                        `${ADB_PATH} -s ${deviceId} shell getprop ro.product.model`
+                                        `${ADB_PATH} -s ${deviceId} shell getprop ro.product.model`,
+                                        { timeout: ADB_TIMEOUT_MS }
                                     )
                                     deviceModel = model.trim() || deviceModel
                                 } catch (e) {
@@ -58,6 +69,7 @@ function createBuildPhase(ctx) {
             progress.log("No physical devices detected", "info")
             return null
         } catch (error) {
+            if (isToolTimeout(error)) throw error
             progress.log("Error detecting physical devices: " + error.message, "error")
             return null
         }
@@ -124,15 +136,42 @@ function createBuildPhase(ctx) {
     async function checkEmulator(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`)
+            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
             const onlineEmulator = devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/))
                 .find(([id, state]) => id?.startsWith("emulator-") && state === "device")
             return onlineEmulator ? onlineEmulator[0] : null
         } catch (error) {
+            if (isToolTimeout(error)) throw error
             progress.log("Error checking emulator status: " + error.message, "error")
             return null
+        }
+    }
+
+    /**
+     * The task name from a gradle line, or null for lines worth ignoring.
+     * "> Task :app:compileDebugKotlin" becomes "app:compileDebugKotlin".
+     */
+    function gradleTask(line) {
+        const match = /^>\s*Task\s+:(\S+)/.exec(line.trim())
+        return match ? match[1] : null
+    }
+
+    /**
+     * Run something that writes directly to the terminal, with the progress
+     * tree stood down for the duration.
+     *
+     * The resume must happen on the failure path too -- a build that throws
+     * while paused would otherwise leave the tree silent for the rest of the
+     * run, hiding exactly the output someone needs when a build fails.
+     */
+    async function withStreamedOutput(fn) {
+        progress.pause()
+        try {
+            return await fn()
+        } finally {
+            progress.resume()
         }
     }
 
@@ -195,12 +234,13 @@ function createBuildPhase(ctx) {
     function listEmulatorSerials(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`)
+            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
             return devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/)[0])
                 .filter((id) => id && id.startsWith("emulator-"))
-        } catch {
+        } catch (error) {
+            if (isToolTimeout(error)) throw error
             return []
         }
     }
@@ -240,6 +280,9 @@ function createBuildPhase(ctx) {
             return execFileSync(ADB_PATH, ["-s", serial, "shell", "getprop", prop], {
                 encoding: "utf8",
                 timeout: remaining,
+                // "adb: device offline" is the expected answer while the
+                // emulator boots; inherited, it landed on the spinner's row.
+                stdio: ["ignore", "pipe", "ignore"],
             }).trim()
         }
         while (Date.now() < deadline) {
@@ -266,7 +309,7 @@ function createBuildPhase(ctx) {
     }
 
     async function handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig) {
-        progress.log("Setting up emulator...", "info")
+        progress.status("setting up emulator")
         let serial = await checkEmulator(ADB_PATH)
         let pid = null
         if (!serial) {
@@ -295,10 +338,18 @@ function createBuildPhase(ctx) {
     }
 
     async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice = null) {
-        progress.log("Building and installing app...", "info")
+        progress.status("building and installing app")
         try {
+            // Gradle needs the SDK location in local.properties. Only
+            // setupEmulator:android wrote it, so building without a prior
+            // setup died in gradle despite a configured sdkPath.
+            if (androidConfig.sdkPath) ensureLocalProperties(`${pwd}/androidProject`, androidConfig.sdkPath)
+
+            // --quiet was the Android silence: it suppresses gradle's task and
+            // error output entirely. --console=rich emits ANSI redraws, which
+            // are meaningless on a pipe; plain gives one line per task.
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
-            let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --quiet --console=rich`
+            let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --console=plain`
 
             if (targetDevice && targetDevice.type === "physical") {
                 buildCommand = buildCommand.replace(
@@ -307,10 +358,20 @@ function createBuildPhase(ctx) {
                 )
             }
 
-            await ctx.runInteractiveCommand("sh", ["-c", buildCommand], { "BUILD SUCCESSFUL": "" })
-            progress.log("App build and installation completed successfully!", "success")
+            // Gradle emits hundreds of lines that nobody reads on success and
+            // that the error path re-derives from error.output anyway. Show the
+            // current task on the spinner's own row instead of scrolling them.
+            await ctx.runInteractiveCommand(
+                "sh",
+                ["-c", buildCommand],
+                { "BUILD SUCCESSFUL": "" },
+                { onLine: (line) => progress.status(gradleTask(line)) }
+            )
         } catch (error) {
-            throw new Error("Error building/installing app: " + error.message)
+            // Re-wrapping with a new Error dropped `output`, and with it the
+            // compiler errors. Keep the original and let the reporter mine it.
+            error.stage = "Building and installing the app"
+            throw error
         }
     }
 
@@ -322,17 +383,16 @@ function createBuildPhase(ctx) {
 
         if (targetDevice.type === "physical") {
             progress.log(`App installed on physical device: ${targetDevice.model}`, "success")
-            progress.log("Manual launch required - check your device to open the app", "info")
+            progress.log("Open the app on your device to launch it", "note")
             return
         }
 
         try {
-            progress.log("Launching app on emulator...", "info")
+            progress.status("launching app on emulator")
             const packageName = `${ANDROID_PACKAGE}${buildType === "debug" ? ".debug" : ""}`
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
             const launchCommand = `${ADB_PATH} shell monkey -p ${packageName} 1`
             await ctx.runInteractiveCommand("sh", ["-c", launchCommand], {})
-            progress.log("App launched successfully on emulator!", "success")
         } catch (error) {
             progress.log(`Warning: Could not auto-launch app: ${error.message}`, "warning")
             progress.log("App was installed successfully, but auto-launch failed", "info")
@@ -411,14 +471,9 @@ function createBuildPhase(ctx) {
             }
 
             const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-")
-            const currentTime = new Date()
-                .toLocaleTimeString("en-US", {
-                    hour12: true,
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                })
-                .replace(/:/g, "-")
+            // 24-hour and locale-free: "02-05-09 PM" put a space in every
+            // artifact name, which breaks unquoted shell use of the path.
+            const currentTime = new Date().toTimeString().slice(0, 8).replace(/:/g, "-")
             let destinationApkFileName = ""
 
             if (appName) {
@@ -480,9 +535,12 @@ function createBuildPhase(ctx) {
             try {
                 // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
                 const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
-                await ctx.runInteractiveCommand("sh", ["-c", generateConfigCommand], {
-                    "BUILD SUCCESSFUL": "",
-                })
+                await ctx.runInteractiveCommand(
+                    "sh",
+                    ["-c", generateConfigCommand],
+                    { "BUILD SUCCESSFUL": "" },
+                    { onLine: (line) => progress.status(gradleTask(line)) }
+                )
                 progress.log("Webview config generated successfully", "success")
             } catch (configError) {
                 progress.log(`Warning: Webview config generation failed: ${configError.message}`, "warning")
@@ -490,11 +548,14 @@ function createBuildPhase(ctx) {
             }
 
             const aabConfig = await createAABConfig(androidConfig)
-            await buildAndroidAAB(aabConfig)
+            // buildAndroidAAB shells out to `./gradlew bundleRelease` and prints
+            // its own progress lines, so it owns the screen for its duration.
+            await withStreamedOutput(() => buildAndroidAAB(aabConfig))
 
             progress.log("Signed AAB build completed successfully!", "success")
         } catch (error) {
-            throw new Error("Error building signed AAB: " + error.message)
+            error.stage = "Building the signed AAB"
+            throw error
         }
     }
 

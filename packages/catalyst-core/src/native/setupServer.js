@@ -39,7 +39,6 @@ async function isServerRunning(port) {
  * Start server in background using npm start
  */
 function startServerBackground() {
-    console.log("Starting server in background...")
     const serverProcess = exec("npm start", {
         detached: true,
         stdio: "ignore",
@@ -47,7 +46,6 @@ function startServerBackground() {
 
     if (serverProcess.pid) {
         serverProcess.unref() // Allow parent to exit
-        console.log("Server started in background")
     }
 }
 
@@ -89,7 +87,6 @@ function replaceIPInObject(obj, localIP, path = "") {
             }
 
             if (shouldUpdate && newValue !== value) {
-                console.log(`Updating ${currentPath}: ${value} -> ${newValue}`)
                 obj[key] = newValue
                 updated = true
             }
@@ -106,7 +103,7 @@ function replaceIPInObject(obj, localIP, path = "") {
 /**
  * Update config.json with current local IP address
  */
-function updateConfigWithLocalIP(configPath, localIP) {
+function updateConfigWithLocalIP(configPath, localIP, log = () => {}) {
     try {
         const config = JSON.parse(fs.readFileSync(configPath, "utf8"))
 
@@ -116,9 +113,7 @@ function updateConfigWithLocalIP(configPath, localIP) {
         // Write back if updated
         if (updated) {
             fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8")
-            console.log("Configuration updated with current IP address")
-        } else {
-            console.log("No IP addresses needed updating in configuration")
+            log(`Updated config addresses to ${localIP}`)
         }
 
         return config
@@ -133,15 +128,18 @@ function updateConfigWithLocalIP(configPath, localIP) {
  * @param {string} configPath - Path to config.json file
  * @returns {Promise<{serverURL: string, localIP: string, port: number}>}
  */
-async function setupServer(configPath) {
-    console.log("Setting up server...")
-
+/**
+ * @param {string} configPath
+ * @param {(message: string, type?: string) => void} [log] - progress sink.
+ *   Defaults to silence: this runs inside a progress sequence, where a stray
+ *   console.log lands at column 0 and collides with the live spinner row.
+ */
+async function setupServer(configPath, log = () => {}) {
     // Get local IP
     const localIP = getLocalIPAddress()
-    console.log(`Local IP: ${localIP}`)
 
     // Update config with current IP
-    const config = updateConfigWithLocalIP(configPath, localIP)
+    const config = updateConfigWithLocalIP(configPath, localIP, log)
 
     // Get port from config
     const port = config.WEBVIEW_CONFIG?.port || 3005
@@ -151,15 +149,13 @@ async function setupServer(configPath) {
     const running = await isServerRunning(port)
 
     if (!running) {
-        console.log(`Server not running on ${serverURL}, starting...`)
+        log(`Starting server at ${serverURL}`)
         startServerBackground()
         // Give it a moment to start
         await new Promise((resolve) => setTimeout(resolve, 3000))
     } else {
-        console.log(`Server already running on ${serverURL}`)
+        log(`Server already running at ${serverURL}`)
     }
-
-    console.log(`Server setup complete: ${serverURL}`)
 
     return {
         serverURL,

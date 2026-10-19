@@ -62,8 +62,16 @@ const FetcherErrorLoadable = loadable({
     }),
 })
 
+// A component that throws while rendering -- the most common dev-time
+// failure. The handler must report it once and answer with a 500, not
+// re-render it from every fallback and leave the request open.
+function RenderErrorPage() {
+    throw new Error("render exploded")
+}
+
 const routes = [
     { path: "/", component: HomePage },
+    { path: "/render-error", component: RenderErrorPage },
     { path: "/widget", component: WidgetPage },
     { path: "/fetcher-error", component: FetcherErrorLoadable },
     { path: "*", component: NotFoundPage },
