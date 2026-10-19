@@ -146,9 +146,11 @@ function wrap(text, width) {
  * @param {object} options
  * @param {Error} options.error   - the failure, ideally carrying `.output`
  * @param {string} options.stage  - what was being done, e.g. "Gradle build"
+ * @param {string} [options.code] - the stage's wrapper code (e.g. "ANDROID-000"),
+ *   shown when the error does not carry a registry code of its own
  * @param {string} [options.cwd]
  */
-function buildFailure({ error, stage, cwd = process.cwd() }) {
+function buildFailure({ error, stage, code: wrapperCode, cwd = process.cwd() }) {
     const { extractBuildErrors, outputTail, MAX_ERRORS } = require("./buildErrors.js")
     const { hintFor } = require("./hints.js")
 
@@ -156,7 +158,11 @@ function buildFailure({ error, stage, cwd = process.cwd() }) {
     // captured transcript rides on whichever of the two actually ran the child.
     const output = error?.output || error?.cause?.output || ""
     const found = extractBuildErrors(output)
-    const code = error?.code && typeof error.code === "string" ? error.code : null
+    // A registry code on the error (IOS-003) is more specific than the stage's
+    // wrapper; anything else (a spawn's "ENOENT") yields to the wrapper, which
+    // is the code the error catalog documents for an upstream failure.
+    const ownCode = error?.code && typeof error.code === "string" ? error.code : null
+    const code = ownCode && /^[A-Z]+(?:-[A-Z]+)*-\d{3}$/.test(ownCode) ? ownCode : wrapperCode || ownCode
 
     if (found.length > 0) {
         const out = []

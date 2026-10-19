@@ -215,7 +215,9 @@ function createAndroidBuild(config) {
             // The ✗ line carries no message: the diagnostic below is the message.
             if (progress.currentStep) progress.fail(progress.currentStep.id)
 
-            process.stderr.write(buildFailure({ error, stage: error.stage || "Android build" }))
+            process.stderr.write(
+                buildFailure({ error, stage: error.stage || "Android build", code: "ANDROID-000" })
+            )
 
             throw error
         }

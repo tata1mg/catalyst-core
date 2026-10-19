@@ -29,9 +29,8 @@ export const LEDGER = {
     // RUNTIME-WEB-002 (logSSRError("FETCHER", error)) never fires for a real
     // serverFetcher failure: fetchRouteData catches those into routeData.error
     // and Promise.allSettled stops any throw escaping, so
-    // tracedServerDataFetcher can't reject. It DOES appear — mislabeled — on
-    // the document-throw cascade (see RUNTIME-WEB-001 scenario note), but a
-    // scenario asserting that mislabel would enshrine the bug as contract.
+    // tracedServerDataFetcher can't reject. (It used to appear, mislabeled, on
+    // the document-throw cascade; #535 reports a render failure once.)
     "RUNTIME-WEB-002": "not-example-reproducible",
     // ── CCA ─────────────────────────────────────────────────────────────────
     // CCA-000 wraps a foreign upstream error (npm/tar/etc.); needs a genuinely

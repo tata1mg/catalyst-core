@@ -273,6 +273,17 @@ describe("buildFailure", () => {
         ])
     })
 
+    it("labels with the stage's wrapper code unless the error carries a registry code", () => {
+        const spawnError = Object.assign(new Error("spawnSync plutil ENOENT"), { code: "ENOENT" })
+        expect(lines(buildFailure({ error: spawnError, stage: "iOS build", code: "IOS-000" }))[1]).toBe(
+            "  error IOS-000  iOS build"
+        )
+        const owned = { message: "Simulator could not be launched", code: "IOS-003" }
+        expect(lines(buildFailure({ error: owned, stage: "Launch", code: "IOS-000" }))[1]).toBe(
+            "  error IOS-003  Launch"
+        )
+    })
+
     it("falls back to a known hint, and to a generic message without a stage", () => {
         const known = lines(buildFailure({ error: new Error("No booted simulator found"), cwd: app }))
         expect(known).toContain(
