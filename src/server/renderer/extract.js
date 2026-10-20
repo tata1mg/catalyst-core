@@ -159,7 +159,7 @@ export const getCriticalCssForRoute = (routeKey, buildDir) => {
  * Non-render-blocking stylesheets for the full route CSS, used together with inline critical CSS.
  * The links sit in <head> right after the critical <style>, so cascade order matches the inlined
  * version and stylesheets Vite injects later still come after them. media="print" keeps them off the
- * render-blocking path; a nonce-able inline script switches each to media="all" once it loads
+ * render-blocking path; a nonce-able inline script switches them all to media="all" once every one has loaded
  * (no inline event handlers, so it works under a nonce-based CSP). <noscript> covers no-JS clients.
  * Vite's preload helper skips CSS that already has a <link rel="stylesheet">, so nothing downloads twice.
  * @param {string[]} cssUrls
@@ -177,9 +177,12 @@ export const generateCssLinkElements = (cssUrls = [], nonce) => {
             "data-catalyst-css": "",
         })
     )
+    // Switch all links together once every one has loaded (or failed): one style recalculation instead
+    // of one per file, which otherwise competes with the LCP image paint on slow CPUs.
     const swap =
-        "document.querySelectorAll('link[data-catalyst-css][media=print]').forEach(function(l){" +
-        "function on(){l.media='all'}l.sheet?on():l.addEventListener('load',on)})"
+        "(function(){var l=[].slice.call(document.querySelectorAll('link[data-catalyst-css][media=print]')),n=l.length;" +
+        "function d(){if(--n===0)l.forEach(function(k){k.media='all'})}" +
+        "l.forEach(function(k){if(k.sheet)d();else{k.addEventListener('load',d);k.addEventListener('error',d)}})})()"
     return [
         ...links,
         React.createElement("script", {
