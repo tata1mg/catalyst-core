@@ -13,15 +13,22 @@ const __dirname = dirname(__filename)
 
 const args = process.argv.slice(2)
 const scriptIndex = args.findIndex(
-    (x) => x === "build" || x === "start" || x === "serve" || x === "serve:inspect" || x === "devBuild" || x === "devServe"
+    (x) =>
+        x === "build" ||
+        x === "start" ||
+        x === "serve" ||
+        x === "serve:inspect" ||
+        x === "devBuild" ||
+        x === "devServe" ||
+        x === "critical-css"
 )
 const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
 const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
 
-const scriptFile = script === "serve:inspect" ? "serve" : script
+const scriptFile = script === "serve:inspect" ? "serve" : script === "critical-css" ? "criticalCss" : script
 const extraArgs = script === "serve:inspect" ? ["--inspect"] : []
 
-if (["build", "start", "serve", "serve:inspect", "devBuild", "devServe"].includes(script)) {
+if (["build", "start", "serve", "serve:inspect", "devBuild", "devServe", "critical-css"].includes(script)) {
     const result = spawnSync(
         process.execPath,
         nodeArgs
