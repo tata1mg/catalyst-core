@@ -114,6 +114,11 @@ export class ChunkExtractor {
         return `${this.publicPath}${cleaned}`
     }
 
+    /** Public URL for a manifest-relative CSS path (same form Vite's preload helper uses). */
+    toCssUrl(filePath) {
+        return this._toCssUrl(filePath)
+    }
+
     _toCssUrl(filePath) {
         const cleaned = filePath.replace(/^\/+/, "")
         return `${this.publicPath}${cleaned}`

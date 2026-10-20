@@ -122,6 +122,80 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
     return chunks.join("\n")
 }
 
+// ── Critical (first-fold) CSS ──────────────────────────────────────────
+
+// <build>/critical-css/manifest.json is written by `catalyst critical-css`. Read once per process;
+// restart the server after (re)generating it.
+let _criticalCssManifest
+const getCriticalCssManifest = (buildDir) => {
+    if (_criticalCssManifest === undefined) {
+        try {
+            _criticalCssManifest = JSON.parse(
+                fs.readFileSync(path.join(buildDir, "critical-css", "manifest.json"), "utf8")
+            )
+        } catch {
+            _criticalCssManifest = null
+        }
+    }
+    return _criticalCssManifest
+}
+
+/**
+ * Generated first-fold CSS for a route, or null when the route has none (or it is over budget, or
+ * CRITICAL_CSS_DISABLE is set) — callers then keep inlining the full route CSS.
+ * @param {string|null} routeKey - Matched route pattern, see getDeferredRouteKey.
+ * @param {string} buildDir - Build output directory on disk.
+ */
+export const getCriticalCssForRoute = (routeKey, buildDir) => {
+    if (!routeKey || String(process.env.CRITICAL_CSS_DISABLE) === "true") return null
+    const entry = getCriticalCssManifest(buildDir)?.routes?.[routeKey]
+    if (!entry?.file || entry.overBudget) return null
+    const maxBytes = Number(process.env.CRITICAL_CSS_MAX_BYTES) || 0
+    if (maxBytes && entry.bytes > maxBytes) return null
+    return readCssFromDisk([path.join(buildDir, "critical-css", entry.file)], buildDir) || null
+}
+
+/**
+ * Non-render-blocking stylesheets for the full route CSS, used together with inline critical CSS.
+ * The links sit in <head> right after the critical <style>, so cascade order matches the inlined
+ * version and stylesheets Vite injects later still come after them. media="print" keeps them off the
+ * render-blocking path; a nonce-able inline script switches each to media="all" once it loads
+ * (no inline event handlers, so it works under a nonce-based CSP). <noscript> covers no-JS clients.
+ * Vite's preload helper skips CSS that already has a <link rel="stylesheet">, so nothing downloads twice.
+ * @param {string[]} cssUrls
+ * @param {string} [nonce]
+ */
+export const generateCssLinkElements = (cssUrls = [], nonce) => {
+    const urls = [...new Set(cssUrls)]
+    if (!urls.length) return []
+    const links = urls.map((url, i) =>
+        React.createElement("link", {
+            key: `css-${i}`,
+            rel: "stylesheet",
+            href: url,
+            media: "print",
+            "data-catalyst-css": "",
+        })
+    )
+    const swap =
+        "document.querySelectorAll('link[data-catalyst-css][media=print]').forEach(function(l){" +
+        "function on(){l.media='all'}l.sheet?on():l.addEventListener('load',on)})"
+    return [
+        ...links,
+        React.createElement("script", {
+            key: "css-swap",
+            ...(nonce ? { nonce } : {}),
+            dangerouslySetInnerHTML: { __html: swap },
+        }),
+        React.createElement("noscript", {
+            key: "css-noscript",
+            dangerouslySetInnerHTML: {
+                __html: urls.map((url) => `<link rel="stylesheet" href="${url}" data-catalyst-css>`).join(""),
+            },
+        }),
+    ]
+}
+
 // ── React elements (for SSR rendering inside <Head>) ───────────────────
 
 /**
@@ -145,7 +219,7 @@ export const generateScriptElements = (jsUrls = [], nonce) =>
  * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body).
  */
 export const generateCssLinkStrings = (cssUrls = []) =>
-    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}">`).join("")
+    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}" data-catalyst-css>`).join("")
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.

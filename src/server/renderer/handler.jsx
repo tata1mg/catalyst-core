@@ -21,6 +21,8 @@ import {
     registerDeferredAssetsForRoute,
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
+    getCriticalCssForRoute,
+    generateCssLinkElements,
 } from "./extract.js"
 import path from "path"
 import crypto from "node:crypto"
@@ -149,15 +151,25 @@ const _renderMarkUp = async (
     // Critical assets → <head>
     const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
 
-    // Inline critical CSS from disk (small thanks to natural code-splitting)
     const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
-    const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
-
     const deferredRouteKey = getDeferredRouteKey(req, allMatches)
-    const deferredRouteInlineCss = readCssFromDisk(
-        getCachedDeferredCssPathsForRoute(deferredRouteKey),
-        buildDir
-    )
+    const cachedDeferredCssPaths = getCachedDeferredCssPathsForRoute(deferredRouteKey)
+
+    // Routes with generated first-fold CSS (`catalyst critical-css`) inline only that and load the
+    // full route CSS as non-blocking stylesheets. Everything else (and bots) inlines all route CSS.
+    const criticalCss = !isBot && chunkExtractor ? getCriticalCssForRoute(deferredRouteKey, buildDir) : null
+    let inlineCss, deferredRouteInlineCss, cssLinks
+    if (criticalCss) {
+        inlineCss = criticalCss
+        deferredRouteInlineCss = ""
+        cssLinks = generateCssLinkElements(
+            [...criticalAssets.css, ...cachedDeferredCssPaths].map((p) => chunkExtractor.toCssUrl(p)),
+            nonce
+        )
+    } else {
+        inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
+        deferredRouteInlineCss = readCssFromDisk(cachedDeferredCssPaths, buildDir)
+    }
 
     const jsScripts = generateScriptElements(criticalAssets.js, nonce)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce)
@@ -167,6 +179,8 @@ const _renderMarkUp = async (
     // Build Head props
     const shellStart = renderStart({
         inlineCss,
+        inlineCssIsCritical: !!criticalCss,
+        cssLinks,
         deferredRouteInlineCss,
         jsScripts,
         criticalPreloadLinks,
@@ -191,6 +205,8 @@ const _renderMarkUp = async (
                 <Head
                     isBot={finalProps.isBot}
                     inlineCss={finalProps.inlineCss}
+                    inlineCssIsCritical={finalProps.inlineCssIsCritical}
+                    cssLinks={finalProps.cssLinks}
                     deferredRouteInlineCss={finalProps.deferredRouteInlineCss}
                     jsScripts={finalProps.jsScripts}
                     criticalPreloadLinks={finalProps.criticalPreloadLinks}
@@ -253,7 +269,13 @@ const _renderMarkUp = async (
                         isBot
                     )
                     if (newCssPaths.length) {
-                        this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                        // First SSR of a route after a deploy: CSS discovered during render. Later SSRs
+                        // carry it in <head> (inlined, or as a link on critical-CSS routes).
+                        this.push(
+                            criticalCss
+                                ? generateCssLinkStrings(newCssPaths.map((p) => chunkExtractor.toCssUrl(p)))
+                                : `<style data-catalyst-css>${readCssFromDisk(newCssPaths, buildDir)}</style>`
+                        )
                     }
                     if (!isBot) {
                         this.push(generateScriptStrings(deferredAssets.js, nonce))
