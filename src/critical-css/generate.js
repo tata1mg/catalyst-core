@@ -18,7 +18,7 @@ export const DEFAULT_VIEWPORTS = [
     { width: 412, height: 915 },
     { width: 430, height: 932 },
 ]
-export const DEFAULT_MAX_BYTES = 30 * 1024
+export const DEFAULT_MAX_BYTES = 40 * 1024
 export const DEFAULT_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36"
 

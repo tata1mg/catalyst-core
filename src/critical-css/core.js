@@ -56,12 +56,34 @@ export const collectQueries = (roots) => {
  * first-fold elements are kept.
  */
 export function matchInPage({ selectors, media, supports, foldHeight }) {
+    // position:fixed boxes (bottom sheets, drawers, modals, sticky bars) are viewport-relative, so they
+    // belong to the first fold wherever they sit — including parked just off-screen. Their own rules are
+    // what keeps hidden sheets out of the page flow on first paint, so those are always kept. Content
+    // inside a fixed box counts only when it is actually on screen.
+    const W = innerWidth
+    const H = innerHeight
+    const fixed = new Map()
+    const isFixed = (el) => {
+        let v = fixed.get(el)
+        if (v === undefined) {
+            v = getComputedStyle(el).position === "fixed"
+            fixed.set(el, v)
+        }
+        return v
+    }
+    const inFixed = (el) => {
+        for (let p = el.parentElement; p; p = p.parentElement) if (isFixed(p)) return true
+        return false
+    }
     const seen = new Map()
     const above = (el) => {
         let v = seen.get(el)
         if (v === undefined) {
             const r = el.getBoundingClientRect()
-            v = r.top + window.scrollY < foldHeight
+            const empty = r.width === 0 && r.height === 0
+            if (isFixed(el)) v = true
+            else if (!empty && inFixed(el)) v = r.bottom > 0 && r.top < H && r.right > 0 && r.left < W
+            else v = r.top + window.scrollY < foldHeight
             seen.set(el, v)
         }
         return v
