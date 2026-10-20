@@ -1,0 +1,29 @@
+packages/catalyst-core/test/cli/diagnostic.test.ts
+  a3c50edbfc9dfb33 276-286
+packages/catalyst-core/src/cli/diagnostic.js
+  a3c50edbfc9dfb33 149-150,153,161-165
+packages/create-catalyst-app/scripts/cli.cjs
+  a3c50edbfc9dfb33 37
+packages/catalyst-core/src/scripts/build.js
+  a3c50edbfc9dfb33 127-130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "33a889586d6d50af53d8952984a4facdc02b5c49",
+  "prompts": {
+    "a3c50edbfc9dfb33": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "52b76398-df2b-4ca8-8e83-7f505d9f58d1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 4,
+      "accepted_lines": 24,
+      "overriden_lines": 0
+    }
+  }
+}
