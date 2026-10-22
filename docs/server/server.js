@@ -4,7 +4,45 @@ import expressStaticGzip from 'express-static-gzip'
 
 // Server middlewares are added here.
 
+// No Content-Security-Policy on purpose: the SSR shell ships inline bootstrap
+// scripts and styles, so a policy would need 'unsafe-inline' and protect
+// almost nothing, while still being flagged by scanners. A real fix is
+// nonce-based inline scripts in the catalyst renderer, tracked separately.
+const PERMISSIONS_POLICY = [
+    'accelerometer=()',
+    'camera=()',
+    'geolocation=()',
+    'gyroscope=()',
+    'magnetometer=()',
+    'microphone=()',
+    'payment=()',
+    'usb=()',
+].join(', ')
+
+// The docs are public and fully same-origin (assets, search, pages), so no
+// cross-origin caller needs access. Pin CORS to the site itself and to
+// read-only methods instead of a wildcard. If a proxy in front of the app
+// also injects `Access-Control-Allow-Origin: *`, that rule has to be removed
+// there: this header cannot override a value added after the app responds.
+const SITE_ORIGIN = (
+    process.env.SITE_URL || 'https://catalyst.1mg.com'
+).replace(/\/$/, '')
+
+export function securityHeaders(req, res, next) {
+    res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN)
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+    res.vary('Origin')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+    res.setHeader('Permissions-Policy', PERMISSIONS_POLICY)
+    next()
+}
+
 export function addMiddlewares(app) {
+    app.disable('x-powered-by')
+    app.use(securityHeaders)
+
     function stripPrefix(req, prefix) {
         const path = '/' + req.path.slice(prefix.length).replace(/^[/\\]+/, '')
         const qs = req.originalUrl.indexOf('?')

@@ -1,6 +1,6 @@
 {
     "name": "catalyst-core",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "type": "module",
     "main": "./dist/index.jsx",
     "description": "Web framework that provides great performance out of the box",

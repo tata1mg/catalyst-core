@@ -1,8 +1,8 @@
 {
-  "branch": "release/1.0.2",
+  "branch": "fix/docs-security-headers",
   "packages": {
-    "catalyst-core": "1.0.2",
-    "create-catalyst-app": "1.0.2",
-    "catalyst-ai": "1.0.2"
+    "catalyst-core": "1.1.0",
+    "create-catalyst-app": "1.1.0",
+    "catalyst-ai": "1.1.0"
   }
 }
