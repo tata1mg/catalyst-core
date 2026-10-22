@@ -109,6 +109,7 @@ const program = new Commander.Command()
                 )
                 process.exit(1)
             }
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectName is checked by validate-npm-package-name (no separators or ..) before use.
             let projectPath = path.join(process.cwd(), projectName)
             if (fs.existsSync(projectPath)) {
                 cancelWithError(
@@ -184,7 +185,7 @@ const program = new Commander.Command()
                     if (mcpSupport) {
                         const newMcpDir = path.join(
                             process.cwd(),
-                            projectName,
+                            projectName, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectName is checked by validate-npm-package-name (no separators or ..) before use.
                             "node_modules",
                             "catalyst-core",
                             "mcp_v2"
@@ -192,10 +193,13 @@ const program = new Commander.Command()
                         // Same treatment as the install: the setup script's
                         // own transcript (npm warnings, audit notices, DB
                         // paths) only matters when it fails.
-                        const transcript = runStep("Setting up the MCP server", () =>
-                            runMcpSetup(newMcpDir, path.join(process.cwd(), projectName), { quiet: true })
+                        const transcript = runStep(
+                            "Setting up the MCP server",
+                            () =>
+                                runMcpSetup(newMcpDir, path.join(process.cwd(), projectName), { quiet: true }) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectName is checked by validate-npm-package-name (no separators or ..) before use.
                         )
                         for (const warning of mcpWarnings(transcript)) clack.log.warn(warning)
+                        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - newMcpDir is built from the validated projectName.
                         mcpEntry = path.join(newMcpDir, "mcp.js")
                     }
 
@@ -480,6 +484,7 @@ async function promptProjectName() {
                 if (!result.validForNewPackages) {
                     return (result.errors || result.warnings || ["Invalid package name"])[0]
                 }
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectName is checked by validate-npm-package-name (no separators or ..) before use.
                 if (fs.existsSync(path.join(process.cwd(), name))) {
                     return `${name} already exists in this directory`
                 }

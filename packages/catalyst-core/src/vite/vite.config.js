@@ -283,6 +283,7 @@ const getScssResourcesImport = () => {
  * half of them opened with 23 warning lines it could do nothing about.
  */
 function resolvableFrom(candidates, appRoot) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the local project root resolved by the CLI.
     const resolver = createRequire(path.join(appRoot, "package.json"))
     return candidates.filter((name) => {
         try {

@@ -89,7 +89,7 @@ export function useTool(spec, deps) {
         } else {
             setState({ status: "error", receipt: null, error: res.error })
             // eslint-disable-next-line no-console
-            console.warn(`[webmcp] useTool("${s.name}") failed to register:`, res.error)
+            console.warn('[webmcp] useTool("%s") failed to register:', s.name, res.error)
         }
 
         return () => {

@@ -180,9 +180,11 @@ function detectAndroidSdk(env = process.env) {
         env.ANDROID_SDK_ROOT,
         path.join(home, "Library", "Android", "sdk"),
         path.join(home, "Android", "Sdk"),
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars, the user's own SDK location or the project dir, never remote input.
         env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, "Android", "Sdk"),
     ].filter(Boolean)
     const adb = process.platform === "win32" ? "adb.exe" : "adb"
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars, the user's own SDK location or the project dir, never remote input.
     return candidates.find((dir) => fs.existsSync(path.join(dir, "platform-tools", adb))) || null
 }
 
@@ -190,7 +192,7 @@ function detectAndroidSdk(env = process.env) {
 function listAvds(sdkPath) {
     if (!sdkPath) return []
     try {
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - sdkPath is a local SDK directory from config or auto-detection.
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process, javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
         const out = execSync(`"${path.join(expandHome(sdkPath), "emulator", "emulator")}" -list-avds`, {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
@@ -209,6 +211,7 @@ function listAvds(sdkPath) {
 function expandHome(dir) {
     if (typeof dir !== "string") return dir
     if (dir === "~") return os.homedir()
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars, the user's own SDK location or the project dir, never remote input.
     return dir.startsWith("~/") || dir.startsWith("~\\") ? path.join(os.homedir(), dir.slice(2)) : dir
 }
 
@@ -222,6 +225,7 @@ const ANDROID_SDK_HINT =
  * in gradle with "SDK location not found" despite a configured sdkPath.
  */
 function ensureLocalProperties(projectDir, sdkPath) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars, the user's own SDK location or the project dir, never remote input.
     const file = path.join(projectDir, "local.properties")
     const line = `sdk.dir=${expandHome(sdkPath).replace(/\\/g, "\\\\")}`
     let content = ""
