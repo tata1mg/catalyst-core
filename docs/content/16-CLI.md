@@ -11,7 +11,7 @@ Catalyst workflows are split between the framework CLI and project-level npm scr
 
 ## Core Commands
 
-These commands apply to Catalyst `0.3.x`:
+These commands apply to Catalyst `0.3.x` and `1.x`:
 
 | Command | Purpose |
 |---------|---------|
@@ -19,6 +19,25 @@ These commands apply to Catalyst `0.3.x`:
 | `catalyst start` | Start the local development environment |
 | `catalyst build` | Create a production web build |
 | `catalyst serve` | Serve the production build |
+| `catalyst serve:inspect` | Serve the production build with the Node inspector attached |
+| `catalyst plugins` | Turn native plugins on or off |
+
+Run `catalyst --help` for the full list, or `catalyst --version` to print the installed version. A mistyped command suggests the closest match.
+
+## Terminal Output
+
+From `1.0.2`, every command prints output in the same shape: a short header, one line per step with its timing, and a final result line that names the next command to run. When something fails, the command prints one diagnostic block on stderr and exits non-zero. The block has the error code, the file and line when known, a code frame, a hint, and a link to the error's page in the [error reference](/errors).
+
+Two options add detail to any command:
+
+| Option | Effect |
+|--------|--------|
+| `--verbose` | Show every step and the full tool output, such as the complete Vite or Gradle log on a failed build |
+| `--debug` | Everything `--verbose` shows, plus stacks and the environment |
+
+Through npm scripts, pass the option after `--`, for example `npm run build -- --verbose`. You can also set `CATALYST_OUTPUT_MODE=verbose` or `CATALYST_OUTPUT_MODE=debug` in the environment.
+
+`catalyst serve` is the exception to the formatted output. Once the production server is up, everything the app writes reaches stdout and stderr unchanged, so log shippers such as PM2, Docker or Datadog read the app's own lines.
 
 ## Typical npm Scripts
 
@@ -59,6 +78,12 @@ For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. 
 1. Run `catalyst build`.
 2. Start the server with `catalyst serve` or your process manager.
 3. In production deployments, teams commonly run the server through PM2 or a container entrypoint.
+
+Before it starts the server, `catalyst serve` checks the build:
+
+- If the build output folder (`BUILD_OUTPUT_PATH`, `build` by default) does not exist, it exits and asks you to run `catalyst build` first.
+- If `PUBLIC_STATIC_ASSET_URL`, `PUBLIC_STATIC_ASSET_PATH` or a `CLIENT_ENV_VARIABLES` value in `config/config.json` changed since the build, it refuses to serve with [PREFLIGHT-022](/errors/PREFLIGHT/PREFLIGHT-022) and lists each changed value. These values are inlined into the bundles at build time, so the old build would use the old values. Run `catalyst build` again, then `catalyst serve`.
+- If the port is already taken, it names the process that holds it instead of failing inside server startup.
 
 In `0.3.x`, `catalyst build` emits separate Vite client and SSR outputs and generates the offline
 manifest. Service workers and route offline snapshots are not enabled by `catalyst start`.
