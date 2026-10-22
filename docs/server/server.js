@@ -4,29 +4,26 @@ import expressStaticGzip from 'express-static-gzip'
 
 // Server middlewares are added here.
 
-// The page ships inline bootstrap scripts (SSR state, router data) and
-// inline styles, so script/style keep 'unsafe-inline'; everything that can
-// be pinned (frames, base, forms, plugins, connect/font hosts) is.
-// fonts.* is for the Google Fonts snippets some doc pages demo, and
-// *.cloudflareinsights.com is the beacon Cloudflare injects at the edge.
-const CONTENT_SECURITY_POLICY = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: https:",
-    "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://raw.githubusercontent.com https://cloudflareinsights.com",
-    "frame-ancestors 'self'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-].join('; ')
+// No Content-Security-Policy on purpose: the SSR shell ships inline bootstrap
+// scripts and styles, so a policy would need 'unsafe-inline' and protect
+// almost nothing, while still being flagged by scanners. A real fix is
+// nonce-based inline scripts in the catalyst renderer, tracked separately.
+const PERMISSIONS_POLICY = [
+    'accelerometer=()',
+    'camera=()',
+    'geolocation=()',
+    'gyroscope=()',
+    'magnetometer=()',
+    'microphone=()',
+    'payment=()',
+    'usb=()',
+].join(', ')
 
 export function securityHeaders(req, res, next) {
     res.setHeader('X-Content-Type-Options', 'nosniff')
     res.setHeader('X-Frame-Options', 'SAMEORIGIN')
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-    res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY)
+    res.setHeader('Permissions-Policy', PERMISSIONS_POLICY)
     next()
 }
 
