@@ -4,7 +4,36 @@ import expressStaticGzip from 'express-static-gzip'
 
 // Server middlewares are added here.
 
+// The page ships inline bootstrap scripts (SSR state, router data) and
+// inline styles, so script/style keep 'unsafe-inline'; everything that can
+// be pinned (frames, base, forms, plugins, connect/font hosts) is.
+// fonts.* is for the Google Fonts snippets some doc pages demo, and
+// *.cloudflareinsights.com is the beacon Cloudflare injects at the edge.
+const CONTENT_SECURITY_POLICY = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: https:",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https://raw.githubusercontent.com https://cloudflareinsights.com",
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+].join('; ')
+
+export function securityHeaders(req, res, next) {
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+    res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY)
+    next()
+}
+
 export function addMiddlewares(app) {
+    app.disable('x-powered-by')
+    app.use(securityHeaders)
+
     function stripPrefix(req, prefix) {
         const path = '/' + req.path.slice(prefix.length).replace(/^[/\\]+/, '')
         const qs = req.originalUrl.indexOf('?')
